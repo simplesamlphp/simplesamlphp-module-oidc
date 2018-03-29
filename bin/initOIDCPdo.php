@@ -6,9 +6,10 @@ use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration;
 const OIDC_DATABASE_VERSION = '20180305180300';
 
 $dir = realpath(dirname(getcwd().'/'.$_SERVER['SCRIPT_FILENAME']));
+var_dump($dir);
 while ($dir) {
-    if (file_exists("{$dir}/lib/_autoload.php")) {
-        require_once "{$dir}/lib/_autoload.php";
+    if (file_exists("{$dir}/vendor/autoload.php")) {
+        require_once "{$dir}/vendor/autoload.php";
         break;
     }
 
