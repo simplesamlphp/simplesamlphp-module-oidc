@@ -1,0 +1,51 @@
+{
+    "name": "sgomez/simplesamlphp-module-oidc",
+    "description": "A SimpleSAMLphp module adding support for the OpenID Connect protocol",
+    "type": "simplesamlphp-module",
+    "keywords": [ "oauth2", "openid", "connect", "oidc", "openid connect" ],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Sergio Gómez",
+            "email": "sergio@uco.es"
+        }
+    ],
+    "require": {
+        "php": ">=7.0.0",
+        "league/oauth2-server": "^7.0",
+        "nette/forms": "^2.4",
+        "simplesamlphp/composer-module-installer": "^1.0",
+        "spomky-labs/jose": "^7.0",
+        "steverhoades/oauth2-openid-connect-server": "^0.3",
+        "zendframework/zend-diactoros": "^1.3"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^2.10",
+        "phpunit/phpunit": "^7.0",
+        "simplesamlphp/simplesamlphp": "^1.15"
+    },
+    "config": {
+        "preferred-install": {
+            "*": "dist"
+        },
+        "sort-packages": true
+    },
+    "autoload": {
+        "psr-4": {
+            "SimpleSAML\\Modules\\OpenIDConnect\\": "lib/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\SimpleSAML\\Modules\\OpenIDConnect\\": "tests/"
+        }
+    },
+    "bin": [
+        "bin/initOIDCPdo.php"
+    ],
+    "extra": {
+        "branch-alias": {
+            "dev-master": "1.0.x-dev"
+        }
+    }
+}
