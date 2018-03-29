@@ -48,8 +48,8 @@ class DatabaseMigration
         CREATE TABLE ${userTablename} (
             id VARCHAR(255) PRIMARY KEY NOT NULL,
             claims TEXT,
-            updated_at TIMESTAMP NOT NULL,
-            created_at TIMESTAMP NOT NULL
+            updated_at TIMESTAMP NOT NULL DEFAULT '1970-01-01 00:00:01',
+            created_at TIMESTAMP NOT NULL DEFAULT '1970-01-01 00:00:01'
         )
 EOT
         );
@@ -73,7 +73,7 @@ EOT
         CREATE TABLE ${accessTokenTableName} (
             id VARCHAR(255) PRIMARY KEY NOT NULL,
             scopes TEXT,
-            expires_at TIMESTAMP NOT NULL,
+            expires_at TIMESTAMP NOT NULL DEFAULT '1970-01-01 00:00:01',
             user_id VARCHAR(255) NOT NULL,                          
             client_id VARCHAR(255) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
@@ -87,7 +87,7 @@ EOT
         $this->database->write(<<< EOT
         CREATE TABLE ${refreshTokenTableName} (
             id VARCHAR(255) PRIMARY KEY NOT NULL,          
-            expires_at TIMESTAMP NOT NULL,
+            expires_at TIMESTAMP NOT NULL DEFAULT '1970-01-01 00:00:01',
             access_token_id VARCHAR(255) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
             CONSTRAINT fk_refresh_token_access_token FOREIGN KEY (access_token_id) REFERENCES ${accessTokenTableName} (id) ON DELETE CASCADE
@@ -100,7 +100,7 @@ EOT
         CREATE TABLE ${authCodeTableName} (
             id VARCHAR(255) PRIMARY KEY NOT NULL,
             scopes TEXT,
-            expires_at TIMESTAMP NOT NULL,
+            expires_at TIMESTAMP NOT NULL DEFAULT '1970-01-01 00:00:01',
             user_id VARCHAR(255) NOT NULL,                          
             client_id VARCHAR(255) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
