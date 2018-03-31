@@ -29,7 +29,7 @@ abstract class AbstractDatabaseRepository
      */
     final public function __construct()
     {
-        $this->config = \SimpleSAML_Configuration::getOptionalConfig('module_oauth2.php');
+        $this->config = \SimpleSAML_Configuration::getOptionalConfig('module_oidc.php');
         $this->database = Database::getInstance();
     }
 
