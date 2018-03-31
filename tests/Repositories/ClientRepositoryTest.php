@@ -55,7 +55,7 @@ class ClientRepositoryTest extends TestCase
         $repository->add($client);
 
         $foundClient = $repository->findById('clientid');
-        $this->assertSame($client, $foundClient);
+        $this->assertEquals($client, $foundClient);
     }
 
     public function testGetClientEntityWithoutSecretAndFound()
@@ -116,7 +116,7 @@ class ClientRepositoryTest extends TestCase
         $repository->update($client);
         $foundClient = $repository->findById('clientid');
 
-        $this->assertSame($client, $foundClient);
+        $this->assertEquals($client, $foundClient);
     }
 
     public function testDelete()
