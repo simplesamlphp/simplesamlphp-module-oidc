@@ -52,11 +52,9 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
 
     public function add(UserEntity $userEntity)
     {
-        $state = $userEntity->getState();
-
         $this->database->write(
             "INSERT INTO {$this->getTableName()} (id, claims, updated_at, created_at) VALUES (:id, :claims, :updated_at, :created_at)",
-            $state
+            $userEntity->getState()
         );
     }
 
