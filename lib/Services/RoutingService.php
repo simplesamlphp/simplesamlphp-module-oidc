@@ -41,9 +41,12 @@ class RoutingService
 
         $instance = new $controller(...$arguments);
         $request = ServerRequestFactory::fromGlobals();
+        $messages = (new SessionMessagesService())->getMessages();
 
-        /** @var \SimpleSAML_XHTML_Template $template */
         $template = $instance->$action($request);
+        if ($template instanceof \SimpleSAML_XHTML_Template) {
+            $template->data['messages'] = $messages;
+        }
         $template->show();
     }
 }
