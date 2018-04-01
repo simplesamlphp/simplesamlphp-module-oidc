@@ -1,0 +1,38 @@
+msgid "OpenID Connect Client Registry"
+msgstr "Registro de clientes OpenID Connect"
+
+msgid "{oidc:add_client}"
+msgstr "Añadir cliente"
+
+msgid "{oidc:search}"
+msgstr "Buscar"
+
+msgid "{oidc:no_clients}"
+msgstr "No hay clientes"
+
+msgid "{oidc:client_list}"
+msgstr "Lista de clientes"
+
+msgid "{oidc:client:name}"
+msgstr "Nombre"
+
+msgid "{oidc:client:description}"
+msgstr "Descripción"
+
+msgid "{oidc:client:identifier}"
+msgstr "Client id."
+
+msgid "{oidc:client:secret}"
+msgstr "Client secret"
+
+msgid "{oidc:client:auth_source}"
+msgstr "Auth. source"
+
+msgid "{oidc:client:redirect_uri}"
+msgstr "URI de redirección"
+
+msgid "{oidc:client:scopes}"
+msgstr "Scopes"
+
+msgid "{oidc:return}"
+msgstr "Volver"

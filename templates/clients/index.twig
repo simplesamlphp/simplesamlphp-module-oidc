@@ -1,0 +1,76 @@
+{% extends "@oidc/oidc_base.twig" %}
+
+{% set pagetitle = 'OpenID Connect Client Registry' | trans %}
+
+{% block content %}
+    <h2>{{ pagetitle }}</h2>
+
+    <div class="ui hidden divider"></div>
+
+    <div class="ui secondary  menu">
+        <div class="right menu">
+            <div class="item">
+                <div class="ui icon disabled input">
+                    <input placeholder="{% trans '{oidc:search}' %}" type="text">
+                    <i class="search link icon"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <table class="ui compact selectable table">
+        <thead>
+        <tr>
+            <th colspan="2">
+                {% trans '{oidc:client_list}' %}
+            </th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for client in clients %}
+            <tr class="client">
+                <td>
+                    <div class="ui header">
+                        {{ client.name }}
+                        <div class="sub header">
+                            {{ client.description }}
+                        </div>
+                    </div>
+                </td>
+                <td class="collapsing">
+                    <div class="ui mini buttons">
+                        <a class="ui icon button" href="{{ moduleurlpath }}/clients/show.php?id={{ client.identifier }}"><i class="eye icon"></i></a>
+                        <a class="ui icon button" href="{{ moduleurlpath }}/clients/edit.php?id={{ client.identifier }}"><i class="edit icon"></i></a>
+                    </div>
+                </td>
+            </tr>
+        {% else %}
+            <tr class="noclient">
+                <td colspan="2">
+                    <div class="ui warning message">
+                        <i class="warning icon"></i> {% trans '{oidc:no_clients}' %}
+                    </div>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+        <tfoot>
+        <tr>
+            <th colspan="2">
+                <div class="ui right floated pagination menu">
+                    <span class="icon item">
+                        <i class="left chevron icon"></i>
+                    </span>
+                    <span class="item active">1</span>
+                    <span class="icon item">
+                        <i class="right chevron icon"></i>
+                    </span>
+                </div>
+                <a href="{{ moduleurlpath }}/clients/new.php" class="ui primary labeled icon button">
+                    <i class="add icon"></i>{% trans '{oidc:add_client}' %}
+                </a>
+            </th>
+        </tr>
+        </tfoot>
+    </table>
+{% endblock %}
