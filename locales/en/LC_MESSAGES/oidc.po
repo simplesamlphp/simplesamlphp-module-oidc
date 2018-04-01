@@ -40,3 +40,16 @@ msgstr "Copy code"
 msgid "{oidc:copied}"
 msgstr "Copied!"
 
+msgid "{oidc:client:delete}"
+msgstr "Delete OpenID Connect Client"
+
+msgid "{oidc:client:confirm_delete}"
+msgstr "Please, confirm than you want to delete this client. This action cannot be undone."
+
+msgid "{oidc:delete}"
+msgstr "Delete"
+
+msgid "{oidc:client:removed}"
+msgstr "The client was removed successfully."
+
+

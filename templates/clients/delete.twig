@@ -1,0 +1,37 @@
+{% extends "@oidc/oidc_base.twig" %}
+
+{% set pagetitle = 'Delete OpenID Connect Client' | trans %}
+
+{% block content %}
+    <h2>{{ pagetitle }}</h2>
+
+    <div class="ui hidden divider"></div>
+
+    <div class="ui attached red message">
+        <div class="header">
+            {% trans '{oidc:client:delete}' %}
+        </div>
+        <p>{% trans '{oidc:client:confirm_delete}' %}</p>
+    </div>
+    <form class="ui form attached fluid segment" method="post">
+        <input type="hidden" name="secret" value="{{ client.secret }}">
+        <div class="field">
+            <label>{% trans '{oidc:client:name}' %}</label>
+            <input readonly="readonly" type="text" value="{{ client.name }}">
+        </div>
+        <div class="field">
+            <label>{% trans '{oidc:client:description}' %}</label>
+            <textarea readonly="readonly" rows="6">
+                {{- client.description -}}
+            </textarea>
+        </div>
+        <div class="ui buttons">
+            <button type="submit"  class="ui small primary labeled icon button">
+                <i class="trash icon"></i> {% trans '{oidc:delete}' %}
+            </button>
+            <a href="{{ moduleurlpath }}/clients/" class="ui small secondary labeled icon button">
+                <i class="arrow left icon"></i> {% trans '{oidc:return}' %}
+            </a>
+        </div>
+    </form>
+{% endblock %}
