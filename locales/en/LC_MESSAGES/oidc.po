@@ -1,0 +1,36 @@
+msgid "{oidc:add_client}"
+msgstr "Add client"
+
+msgid "{oidc:search}"
+msgstr "Search"
+
+msgid "{oidc:no_clients}"
+msgstr "No clients"
+
+msgid "{oidc:client_list}"
+msgstr "Client list"
+
+msgid "{oidc:client:name}"
+msgstr "Name"
+
+msgid "{oidc:client:description}"
+msgstr "Description"
+
+msgid "{oidc:client:identifier}"
+msgstr "Client id."
+
+msgid "{oidc:client:secret}"
+msgstr "Client secret"
+
+msgid "{oidc:client:auth_source}"
+msgstr "Auth. source"
+
+msgid "{oidc:client:redirect_uri}"
+msgstr "Redirect URI"
+
+msgid "{oidc:client:scopes}"
+msgstr "Scopes"
+
+msgid "{oidc:return}"
+msgstr "Return"
+

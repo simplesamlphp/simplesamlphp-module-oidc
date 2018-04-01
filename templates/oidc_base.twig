@@ -1,0 +1,29 @@
+{% extends "base.twig" %}
+
+{% set moduleurlpath = '/' ~  baseurlpath ~ 'module.php/oidc' %}
+
+{% block preload %}
+    <link rel="stylesheet" href="{{ moduleurlpath }}/resources/semantic/semantic.min.css">
+    <style>
+        body {
+            padding: 10px 0;
+            background: #1c1c1c;
+            color: #333;
+            font-family: arial,tahoma,verdana,sans-serif;
+        }
+        #wrap h1 {
+            margin-top: 0;
+        }
+    </style>
+{% endblock %}
+
+{% block postload %}
+    <script type="text/javascript" src="{{ moduleurlpath }}/resources/jquery/jquery-3.3.1.min.js"></script>
+    <script type="text/javascript" src="{{ moduleurlpath }}/resources/semantic/semantic.min.js"></script>
+    <script>
+        $('.ui.dropdown')
+            .checkbox()
+            .dropdown()
+        ;
+    </script>
+{% endblock %}

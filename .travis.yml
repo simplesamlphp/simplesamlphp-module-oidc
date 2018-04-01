@@ -1,5 +1,17 @@
 language: php
+
 php:
     - '7.1'
-before_script:
-    - 'composer update'
+
+sudo: false
+
+cache:
+    directories:
+        - $HOME/.composer/cache
+
+
+before_install:
+    - composer self-update
+
+install:
+    - composer install --no-progress --no-suggest --ansi

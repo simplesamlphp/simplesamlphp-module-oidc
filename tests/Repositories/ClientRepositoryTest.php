@@ -9,10 +9,11 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Repositories;
+namespace Tests\SimpleSAML\Modules\OpenIDConnect\Repositories;
 
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
+use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration;
 
 class ClientRepositoryTest extends TestCase
