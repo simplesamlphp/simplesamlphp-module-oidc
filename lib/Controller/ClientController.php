@@ -40,4 +40,23 @@ final class ClientController
             'clients' => $clients,
         ]);
     }
+
+    public function show(ServerRequest $request)
+    {
+        $params = $request->getQueryParams();
+        $clientId = $params['id'] ?? null;
+
+        if (!$clientId) {
+            throw new \SimpleSAML_Error_BadRequest('Client id is missing.');
+        }
+
+        $client = $this->clientRepository->findById($clientId);
+        if (!$client) {
+            throw new \SimpleSAML_Error_NotFound('Client not found.');
+        }
+
+        return $this->templateFactory->render('oidc:clients/show.twig', [
+            'client' => $client,
+        ]);
+    }
 }

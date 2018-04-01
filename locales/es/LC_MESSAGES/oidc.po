@@ -36,3 +36,9 @@ msgstr "Scopes"
 
 msgid "{oidc:return}"
 msgstr "Volver"
+
+msgid "{oidc:copy}"
+msgstr "Copiar código"
+
+msgid "{oidc:copied}"
+msgstr "¡Copiado!"

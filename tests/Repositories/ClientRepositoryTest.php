@@ -18,7 +18,12 @@ use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration;
 
 class ClientRepositoryTest extends TestCase
 {
-    protected function setUp()
+    /**
+     * @var ClientRepository
+     */
+    protected static $repository;
+
+    public static function setUpBeforeClass()
     {
         $config = [
             'database.dsn' => 'sqlite::memory:',
@@ -31,78 +36,83 @@ class ClientRepositoryTest extends TestCase
 
         \SimpleSAML_Configuration::loadFromArray($config, '', 'simplesaml');
         (new DatabaseMigration())->migrate();
+
+        self::$repository = new ClientRepository();
+    }
+
+    public function tearDown()
+    {
+        $clients = self::$repository->findAll();
+
+        foreach ($clients as $client) {
+            self::$repository->delete($client);
+        }
     }
 
     public function testGetTableName()
     {
-        $repository = new ClientRepository();
-
-        $this->assertSame('phpunit_oidc_client', $repository->getTableName());
+        $this->assertSame('phpunit_oidc_client', self::$repository->getTableName());
     }
 
     public function testAddAndFound()
     {
-        $client = ClientEntity::fromData(
-            'clientid',
-            'clientsecret',
-            'Client',
-            'Description',
-            'admin',
-            ['http://localhost/redirect'],
-            ['openid']
-        );
+        $client = self::getClient('clientid');
+        self::$repository->add($client);
 
-        $repository = new ClientRepository();
-        $repository->add($client);
-
-        $foundClient = $repository->findById('clientid');
+        $foundClient = self::$repository->findById('clientid');
         $this->assertEquals($client, $foundClient);
     }
 
     public function testGetClientEntityWithoutSecretAndFound()
     {
-        $repository = new ClientRepository();
+        $client = self::getClient('clientid');
+        self::$repository->add($client);
 
-        $client = $repository->getClientEntity('clientid', null, null, false);
+        $client = self::$repository->getClientEntity('clientid', null, null, false);
         $this->assertNotNull($client);
     }
 
     public function testGetClientEntityWithSecretAndFound()
     {
-        $repository = new ClientRepository();
+        $client = self::getClient('clientid');
+        self::$repository->add($client);
 
-        $client = $repository->getClientEntity('clientid', null, 'clientsecret', true);
+        $client = self::$repository->getClientEntity('clientid', null, 'clientsecret', true);
         $this->assertNotNull($client);
     }
 
     public function testGetClientEntityWithWrongSecretAndNotFound()
     {
-        $repository = new ClientRepository();
+        $client = self::getClient('clientid');
+        self::$repository->add($client);
 
-        $client = $repository->getClientEntity('clientid', null, 'wrongsecret', true);
+        $client = self::$repository->getClientEntity('clientid', null, 'wrongsecret', true);
         $this->assertNull($client);
     }
 
     public function testGetClientEntityWithWrongIdAndNotFound()
     {
-        $repository = new ClientRepository();
+        $client = self::getClient('clientid');
+        self::$repository->add($client);
 
-        $client = $repository->getClientEntity('wrongid', null, null, false);
+        $client = self::$repository->getClientEntity('wrongid', null, null, false);
         $this->assertNull($client);
     }
 
     public function testFindAll()
     {
-        $repository = new ClientRepository();
+        $client = self::getClient('clientid');
+        self::$repository->add($client);
 
-        $clients = $repository->findAll();
+        $clients = self::$repository->findAll();
         $this->assertCount(1, $clients);
         $this->assertInstanceOf(ClientEntity::class, current($clients));
     }
 
     public function testUpdate()
     {
-        $repository = new ClientRepository();
+        $client = self::getClient('clientid');
+        self::$repository->add($client);
 
         $client = ClientEntity::fromData(
             'clientid',
@@ -114,20 +124,34 @@ class ClientRepositoryTest extends TestCase
             ['openid']
         );
 
-        $repository->update($client);
-        $foundClient = $repository->findById('clientid');
+        self::$repository->update($client);
+        $foundClient = self::$repository->findById('clientid');
 
         $this->assertEquals($client, $foundClient);
     }
 
     public function testDelete()
     {
-        $repository = new ClientRepository();
+        $client = self::getClient('clientid');
+        self::$repository->add($client);
 
-        $client = $repository->findById('clientid');
-        $repository->delete($client);
-        $foundClient = $repository->findById('clientid');
+        $client = self::$repository->findById('clientid');
+        self::$repository->delete($client);
+        $foundClient = self::$repository->findById('clientid');
 
         $this->assertNull($foundClient);
+    }
+
+    private static function getClient(string $id)
+    {
+        return ClientEntity::fromData(
+            $id,
+            'clientsecret',
+            'Client',
+            'Description',
+            'admin',
+            ['http://localhost/redirect'],
+            ['openid']
+        );
     }
 }

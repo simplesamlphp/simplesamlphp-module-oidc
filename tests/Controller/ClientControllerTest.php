@@ -24,9 +24,9 @@ class ClientControllerTest extends TestCase
     /**
      * @var ClientRepository
      */
-    private $repository;
+    protected static $repository;
 
-    public function setUp()
+    public static function setUpBeforeClass()
     {
         $config = [
             'database.dsn' => 'sqlite::memory:',
@@ -35,15 +35,23 @@ class ClientControllerTest extends TestCase
             'database.prefix' => 'phpunit_',
             'database.persistent' => true,
             'database.slaves' => [],
-            'module.enable' => [
-                'oidc' => true,
-            ],
         ];
 
         \SimpleSAML_Configuration::loadFromArray($config, '', 'simplesaml');
         (new DatabaseMigration())->migrate();
 
-        $this->repository = new ClientRepository();
+        self::$repository = new ClientRepository();
+        $_SERVER['REQUEST_URI'] = '/';
+    }
+
+    public function tearDown()
+    {
+        unset($_GET['id']);
+        $clients = self::$repository->findAll();
+
+        foreach ($clients as $client) {
+            self::$repository->delete($client);
+        }
     }
 
     public function testEmptyIndexRoute()
@@ -51,29 +59,57 @@ class ClientControllerTest extends TestCase
         $templateFactory = $this->prophesize(TemplateFactory::class);
         $templateFactory->render('oidc:clients/index.twig', ['clients' => []])->shouldBeCalled();
 
-        $controller = new ClientController($this->repository, $templateFactory->reveal());
+        $controller = new ClientController(self::$repository, $templateFactory->reveal());
         $controller->index(ServerRequestFactory::fromGlobals());
     }
 
     public function testNoEmptyIndexRoute()
     {
         $client = self::getClient('client1');
-        $this->repository->add($client);
+        self::$repository->add($client);
 
         $templateFactory = $this->prophesize(TemplateFactory::class);
         $templateFactory->render('oidc:clients/index.twig', ['clients' => [$client]])->shouldBeCalled();
 
-        $controller = new ClientController($this->repository, $templateFactory->reveal());
+        $controller = new ClientController(self::$repository, $templateFactory->reveal());
         $controller->index(ServerRequestFactory::fromGlobals());
     }
 
-    public function tearDown()
+    public function testValidClientShowRoute()
     {
-        $clients = $this->repository->findAll();
+        $client = self::getClient('client1');
+        self::$repository->add($client);
 
-        foreach ($clients as $client) {
-            $this->repository->delete($client);
-        }
+        $_GET['id'] = 'client1';
+
+        $templateFactory = $this->prophesize(TemplateFactory::class);
+        $templateFactory->render('oidc:clients/show.twig', ['client' => $client])->shouldBeCalled();
+
+        $controller = new ClientController(self::$repository, $templateFactory->reveal());
+        $controller->show(ServerRequestFactory::fromGlobals());
+    }
+
+    /**
+     * @expectedException \SimpleSAML_Error_BadRequest
+     */
+    public function testErrorWithoutIdShowRoute()
+    {
+        $templateFactory = $this->prophesize(TemplateFactory::class);
+
+        $controller = new ClientController(self::$repository, $templateFactory->reveal());
+        $controller->show(ServerRequestFactory::fromGlobals());
+    }
+
+    /**
+     * @expectedException \SimpleSAML_Error_NotFound
+     */
+    public function testErrorWithoutValidIdShowRoute()
+    {
+        $_GET['id'] = 'client2';
+        $templateFactory = $this->prophesize(TemplateFactory::class);
+
+        $controller = new ClientController(self::$repository, $templateFactory->reveal());
+        $controller->show(ServerRequestFactory::fromGlobals());
     }
 
     private static function getClient(string $id)
