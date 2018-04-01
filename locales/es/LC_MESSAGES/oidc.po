@@ -42,3 +42,15 @@ msgstr "Copiar código"
 
 msgid "{oidc:copied}"
 msgstr "¡Copiado!"
+
+msgid "{oidc:client:delete}"
+msgstr "Borrar Client OpenID Connect"
+
+msgid "{oidc:client:confirm_delete}"
+msgstr "Por favor, confirme que desea borrar este cliente. Esta acción no se puede deshacer."
+
+msgid "{oidc:delete}"
+msgstr "Borrar"
+
+msgid "{oidc:client:removed}"
+msgstr "El cliente fue eliminado con éxito."

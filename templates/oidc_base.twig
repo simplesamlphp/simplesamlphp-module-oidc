@@ -17,6 +17,17 @@
     </style>
 {% endblock %}
 
+{% block contentwrapper %}
+    {% if messages is not empty %}
+        <div class="ui positive message">
+            {% for message in messages %}
+            <p>{% trans message %}</p>
+            {% endfor %}
+        </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+{% endblock %}
+
 {% block postload %}
     <script type="text/javascript" src="{{ moduleurlpath }}/resources/jquery/jquery-3.3.1.min.js"></script>
     <script type="text/javascript" src="{{ moduleurlpath }}/resources/semantic/semantic.min.js"></script>
