@@ -1,0 +1,84 @@
+{% extends "@oidc/oidc_base.twig" %}
+
+{% set pagetitle = 'Show OpenID Connect Client' | trans %}
+
+{% block content %}
+    <h2>{{ pagetitle }}</h2>
+
+    <div class="ui hidden divider"></div>
+
+    <table class="ui definition table">
+        <tbody>
+        <tr>
+            <td class="collapsing">{% trans '{oidc:client:name}' %}</td>
+            <td>{{ client.name }}</td>
+        </tr>
+        <tr>
+            <td class="collapsing">{% trans '{oidc:client:description}' %}</td>
+            <td>{{ client.description }}</td>
+        </tr>
+        <tr>
+            <td class="collapsing">{% trans '{oidc:client:identifier}' %}</td>
+            <td>{{ client.identifier }}
+                <i data-clipboard-text="{{ client.identifier }}" data-content="{% trans '{oidc:copy}' %}" data-inverted="" class="copy link icon"></i>
+            </td>
+        </tr>
+        <tr>
+            <td class="collapsing">{% trans '{oidc:client:secret}' %}</td>
+            <td>
+                {{ client.secret }}
+                <i data-clipboard-text="{{ client.secret }}" data-content="{% trans '{oidc:copy}' %}" data-inverted="" class="copy link icon"></i>
+            </td>
+        </tr>
+        <tr>
+            <td class="collapsing">{% trans '{oidc:client:auth_source}' %}</td>
+            <td>{{ client.authSource }}</td>
+        </tr>
+        <tr>
+            <td class="collapsing">{% trans '{oidc:client:redirect_uri}' %}</td>
+            <td>
+                <ul class="list">
+                    {% for uri in client.redirectUri %}
+                        <li>{{ uri }}</li>
+                    {% endfor %}
+                </ul>
+            </td>
+        </tr>
+        <tr>
+            <td class="collapsing">{% trans '{oidc:client:scopes}' %}</td>
+            <td>
+                <ul class="list">
+                    {% for key, scope in client.scopes %}
+                        <li>{{ scope }}</li>
+                    {% endfor %}
+                </ul>
+            </td>
+        </tr>
+        </tbody>
+        <tfoot>
+        <tr class="full-width">
+            <th></th>
+            <th>
+                <a href="{{ moduleurlpath }}/clients/" class="ui right floated small primary labeled icon button">
+                    <i class="arrow left icon"></i> {% trans '{oidc:return}' %}
+                </a>
+            </th>
+        </tr>
+        </tfoot>
+    </table>
+
+{% endblock %}
+
+{% block postload %}
+    {{ parent() }}
+    <script src="{{ moduleurlpath }}/resources/clipboard/clipboard.min.js"></script>
+    <script>
+        $('.copy.link').popup();
+        new ClipboardJS('.copy.link')
+            .on('success', function (e) {
+                e.clearSelection();
+                $(e.trigger).popup('change content', '{% trans '{oidc:copied}' %}')
+            })
+        ;
+    </script>
+{% endblock %}
