@@ -31,6 +31,9 @@ msgstr "Redirect URI"
 msgid "{oidc:client:scopes}"
 msgstr "Scopes"
 
+msgid "{oidc:submit}"
+msgstr "Submit"
+
 msgid "{oidc:return}"
 msgstr "Return"
 
@@ -49,7 +52,26 @@ msgstr "Please, confirm than you want to delete this client. This action cannot 
 msgid "{oidc:delete}"
 msgstr "Delete"
 
+msgid "{oidc:client:added}"
+msgstr "The client was added successfully."
+
 msgid "{oidc:client:removed}"
 msgstr "The client was removed successfully."
 
+msgid "{oidc:client:redirect_uri_help}"
+msgstr "Add a valid URI"
 
+msgid "{oidc:client:name_not_empty}"
+msgstr "Please, enter a name."
+
+msgid "{oidc:client:redirect_uri_not_empty}"
+msgstr "Please, enter an URI at least."
+
+msgid "{oidc:client:redirect_uri_not_valid}"
+msgstr "Some of the redirect address are not valid."
+
+msgid "{oidc:client:auth_source_not_empty}"
+msgstr "Please, select an Auth Source."
+
+msgid "{oidc:client:scopes_not_empty}"
+msgstr "Please, select a scope at least."

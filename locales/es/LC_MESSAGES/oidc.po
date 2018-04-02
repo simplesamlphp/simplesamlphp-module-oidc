@@ -34,6 +34,9 @@ msgstr "URI de redirección"
 msgid "{oidc:client:scopes}"
 msgstr "Scopes"
 
+msgid "{oidc:submit}"
+msgstr "Enviar"
+
 msgid "{oidc:return}"
 msgstr "Volver"
 
@@ -52,5 +55,26 @@ msgstr "Por favor, confirme que desea borrar este cliente. Esta acción no se pu
 msgid "{oidc:delete}"
 msgstr "Borrar"
 
+msgid "{oidc:client:added}"
+msgstr "El cliente fue añadido con éxito."
+
 msgid "{oidc:client:removed}"
 msgstr "El cliente fue eliminado con éxito."
+
+msgid "{oidc:client:redirect_uri_help}"
+msgstr "Añada una URI válida por línea"
+
+msgid "{oidc:client:name_not_empty}"
+msgstr "El nombre no puede estar en blanco."
+
+msgid "{oidc:client:redirect_uri_not_empty}"
+msgstr "Añada al menos una dirección."
+
+msgid "{oidc:client:redirect_uri_not_valid}"
+msgstr "Algunas de las direcciones de redirección no son válidas."
+
+msgid "{oidc:client:auth_source_not_empty}"
+msgstr "Seleccione un AuthSource."
+
+msgid "{oidc:client:scopes_not_empty}"
+msgstr "Seleccione al menos un scope."
