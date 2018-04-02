@@ -34,6 +34,12 @@ msgstr "Scopes"
 msgid "{oidc:submit}"
 msgstr "Submit"
 
+msgid "{oidc:create}"
+msgstr "Create"
+
+msgid "{oidc:save}"
+msgstr "Save"
+
 msgid "{oidc:return}"
 msgstr "Return"
 
@@ -57,6 +63,9 @@ msgstr "The client was added successfully."
 
 msgid "{oidc:client:removed}"
 msgstr "The client was removed successfully."
+
+msgid "{oidc:client:updated}"
+msgstr "The client was updated successfully."
 
 msgid "{oidc:client:redirect_uri_help}"
 msgstr "Add a valid URI"

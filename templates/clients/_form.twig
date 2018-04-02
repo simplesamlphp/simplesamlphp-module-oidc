@@ -1,0 +1,116 @@
+{% extends "@oidc/oidc_base.twig" %}
+
+{% block content %}
+    <h2>{{ pagetitle }}</h2>
+
+    <div class="ui hidden divider"></div>
+
+    {{ form.render('begin') }}
+        {% if form.hasErrors %}
+            <div class="ui negative message">
+                {{ form.render('errors') }}
+            </div>
+        {% endif %}
+
+        <div class="field required">
+            <label for="frm-name">{% trans '{oidc:client:name}' %}</label>
+
+            {{ form['name'].control | raw }}
+        </div>
+
+        <div class="field">
+            <label for="frm-description">{% trans '{oidc:client:description}' %}</label>
+
+            {{ form['description'].control | raw }}
+        </div>
+
+        <div class="field required">
+            <label for="frm-redirect_uri">{% trans '{oidc:client:redirect_uri}' %}</label>
+
+            {{ form['redirect_uri'].control | raw }}
+            <small class="helper">{% trans '{oidc:client:redirect_uri_help}' %}</small>
+        </div>
+
+        <div class="field required">
+            <label for="frm-auth_source">{% trans '{oidc:client:auth_source}' %}</label>
+
+            {{ form['auth_source'].control | raw }}
+        </div>
+
+        <div class="field required">
+            <label for="frm-scopes">{% trans '{oidc:client:scopes}' %}</label>
+
+            {{ form['scopes'].control | raw }}
+        </div>
+
+        <div class="ui divider"></div>
+
+        <div class="ui buttons">
+            {% block action %}{% endblock %}
+            <a class="ui secondary icon labeled button" href="{{ moduleurlpath }}/clients/">
+                <i class="left arrow icon"></i>
+                {% trans '{oidc:return}' %}
+            </a>
+        </div>
+
+        <div class="ui error message"></div>
+    {{ form.render('end') }}
+{% endblock %}
+
+{% block postload %}
+    {{ parent() }}
+    <script>
+        $.fn.form.settings.rules.redirectUri = function(value) {
+            return value.trim().split("\n").reduce(function(current, url) {
+                return current && null !== url.match(/^[^:]+:\/\/?[^\s\/$.?#].[^\s]*$/);
+            }, true)
+        };
+
+        $('.ui.form')
+            .form({
+                fields: {
+                    name: {
+                        identifier: 'name',
+                        rules: [
+                            {
+                                type: 'empty',
+                                prompt: '{% trans "{oidc:client:name_not_empty}" %}'
+                            }
+                        ]
+                    },
+                    redirect_uri: {
+                        identifier: 'redirect_uri',
+                        rules: [
+                            {
+                                type: 'empty',
+                                prompt: '{% trans "{oidc:client:redirect_uri_not_empty}" %}'
+                            },
+                            {
+                                type: 'redirectUri',
+                                prompt: '{% trans "{oidc:client:redirect_uri_not_valid}" %}'
+                            }
+                        ]
+                    },
+                    auth_source: {
+                        identifier: 'auth_source',
+                        rules: [
+                            {
+                                type: 'empty',
+                                prompt: '{% trans "{oidc:client:auth_source_not_empty}" %}'
+                            }
+                        ]
+                    },
+                    scopes: {
+                        identifier: 'scopes[]',
+                        rules: [
+
+                            {
+                                type: 'minCount[1]',
+                                prompt: '{% trans "{oidc:client:scopes_not_empty}" %}'
+                            }
+                        ]
+                    }
+                }
+            })
+    </script>
+{% endblock %}
