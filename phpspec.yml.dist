@@ -1,0 +1,4 @@
+suites:
+    OpenIDConnect:
+        namespace: SimpleSAML\Modules\OpenIDConnect
+        psr4_prefix: SimpleSAML\Modules\OpenIDConnect

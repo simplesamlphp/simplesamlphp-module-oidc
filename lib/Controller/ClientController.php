@@ -11,13 +11,17 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Controller;
 
+use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
+use SimpleSAML\Modules\OpenIDConnect\Form\ClientForm;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
+use SimpleSAML\Modules\OpenIDConnect\Services\FormFactory;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 use SimpleSAML\Modules\OpenIDConnect\Services\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Templates\RedirectResponse;
+use SimpleSAML\Utils\Random;
 use Zend\Diactoros\ServerRequest;
 
-final class ClientController
+class ClientController
 {
     /**
      * @var ClientRepository
@@ -31,12 +35,21 @@ final class ClientController
      * @var SessionMessagesService
      */
     private $messagesService;
+    /**
+     * @var FormFactory
+     */
+    private $formFactory;
 
-    public function __construct(ClientRepository $clientRepository, TemplateFactory $templateFactory, SessionMessagesService $messagesService)
-    {
+    public function __construct(
+        ClientRepository $clientRepository,
+        TemplateFactory $templateFactory,
+        SessionMessagesService $messagesService,
+        FormFactory $formFactory
+    ) {
         $this->clientRepository = $clientRepository;
         $this->templateFactory = $templateFactory;
         $this->messagesService = $messagesService;
+        $this->formFactory = $formFactory;
     }
 
     public function index(ServerRequest $request)
@@ -50,38 +63,48 @@ final class ClientController
 
     public function show(ServerRequest $request)
     {
-        $params = $request->getQueryParams();
-        $clientId = $params['id'] ?? null;
-
-        if (!$clientId) {
-            throw new \SimpleSAML_Error_BadRequest('Client id is missing.');
-        }
-
-        $client = $this->clientRepository->findById($clientId);
-        if (!$client) {
-            throw new \SimpleSAML_Error_NotFound('Client not found.');
-        }
+        $client = $this->getClientFromRequest($request);
 
         return $this->templateFactory->render('oidc:clients/show.twig', [
             'client' => $client,
         ]);
     }
 
+    public function new(ServerRequest $request)
+    {
+        $form = $this->formFactory->build(ClientForm::class);
+        $form->setAction($request->getUri()->getPath());
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            $client = $form->getValues();
+            $client['id'] = Random::generateID();
+            $client['secret'] = Random::generateID();
+
+            $this->clientRepository->add(ClientEntity::fromData(
+                $client['id'],
+                $client['secret'],
+                $client['name'],
+                $client['description'],
+                $client['auth_source'],
+                $client['redirect_uri'],
+                $client['scopes']
+            ));
+
+            $this->messagesService->addMessage('{oidc:client:added}');
+
+            return new RedirectResponse('index.php');
+        }
+
+        return $this->templateFactory->render('oidc:clients/new.twig', [
+            'form' => $form,
+        ]);
+    }
+
     public function delete(ServerRequest $request)
     {
-        $params = $request->getQueryParams();
-        $clientId = $params['id'] ?? null;
+        $client = $this->getClientFromRequest($request);
         $body = $request->getParsedBody();
         $clientSecret = $body['secret'] ?? null;
-
-        if (!$clientId) {
-            throw new \SimpleSAML_Error_BadRequest('Client id is missing.');
-        }
-
-        $client = $this->clientRepository->findById($clientId);
-        if (!$client) {
-            throw new \SimpleSAML_Error_NotFound('Client not found.');
-        }
 
         if ('POST' === mb_strtoupper($request->getMethod())) {
             if (!$clientSecret) {
@@ -101,5 +124,30 @@ final class ClientController
         return $this->templateFactory->render('oidc:clients/delete.twig', [
             'client' => $client,
         ]);
+    }
+
+    /**
+     * @param ServerRequest $request
+     *
+     * @throws \SimpleSAML_Error_BadRequest
+     * @throws \SimpleSAML_Error_NotFound
+     *
+     * @return null|\SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
+     */
+    private function getClientFromRequest(ServerRequest $request)
+    {
+        $params = $request->getQueryParams();
+        $clientId = $params['id'] ?? null;
+
+        if (!$clientId) {
+            throw new \SimpleSAML_Error_BadRequest('Client id is missing.');
+        }
+
+        $client = $this->clientRepository->findById($clientId);
+        if (!$client) {
+            throw new \SimpleSAML_Error_NotFound('Client not found.');
+        }
+
+        return $client;
     }
 }

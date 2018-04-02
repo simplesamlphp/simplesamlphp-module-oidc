@@ -15,3 +15,7 @@ before_install:
 
 install:
     - composer install --no-progress --no-suggest --ansi
+
+script:
+    - ./vendor/bin/phpspec run --no-interaction -f dot
+    - ./vendor/bin/phpunit
