@@ -27,7 +27,7 @@ abstract class AbstractDatabaseRepository
     /**
      * ClientRepository constructor.
      */
-    final public function __construct()
+    public function __construct()
     {
         $this->config = \SimpleSAML_Configuration::getOptionalConfig('module_oidc.php');
         $this->database = Database::getInstance();
