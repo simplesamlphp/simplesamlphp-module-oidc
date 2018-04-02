@@ -97,8 +97,7 @@ class ClientControllerSpec extends ObjectBehavior
         TemplateFactory $templateFactory,
         ClientRepository $clientRepository,
         ClientEntity $clientEntity
-    )
-    {
+    ) {
         $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
         $request->getParsedBody()->shouldBeCalled()->willReturn([]);
         $request->getMethod()->shouldBeCalled()->willReturn('get');
@@ -130,8 +129,7 @@ class ClientControllerSpec extends ObjectBehavior
         ServerRequest $request,
         ClientRepository $clientRepository,
         ClientEntity $clientEntity
-    )
-    {
+    ) {
         $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
         $request->getParsedBody()->shouldBeCalled()->willReturn([]);
@@ -144,8 +142,7 @@ class ClientControllerSpec extends ObjectBehavior
         ServerRequest $request,
         ClientRepository $clientRepository,
         ClientEntity $clientEntity
-    )
-    {
+    ) {
         $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
         $request->getParsedBody()->shouldBeCalled()->willReturn(['secret' => 'invalidsecret']);
         $request->getMethod()->shouldBeCalled()->willReturn('post');
@@ -161,8 +158,7 @@ class ClientControllerSpec extends ObjectBehavior
         ClientRepository $clientRepository,
         ClientEntity $clientEntity,
         SessionMessagesService $sessionMessagesService
-    )
-    {
+    ) {
         $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
         $request->getParsedBody()->shouldBeCalled()->willReturn(['secret' => 'validsecret']);
         $request->getMethod()->shouldBeCalled()->willReturn('post');
@@ -185,24 +181,7 @@ class ClientControllerSpec extends ObjectBehavior
     ) {
         $formFactory->build(ClientForm::class)->shouldBeCalled()->willReturn($clientForm);
         $clientForm->setAction(Argument::any())->shouldBeCalled();
-        $clientForm->isSubmitted()->shouldBeCalled()->willReturn(false);
-
-        $templateFactory->render('oidc:clients/new.twig', ['form' => $clientForm])->shouldBeCalled()->willReturn($template);
-        $this->new($request)->shouldBe($template);
-    }
-
-    public function it_shows_new_client_form_errors(
-        ServerRequest $request,
-        \SimpleSAML_XHTML_Template $template,
-        TemplateFactory $templateFactory,
-        FormFactory $formFactory,
-        ClientForm $clientForm
-    ) {
-        $formFactory->build(ClientForm::class)->shouldBeCalled()->willReturn($clientForm);
-        $clientForm->setAction(Argument::any())->shouldBeCalled();
-
-        $clientForm->isSubmitted()->shouldBeCalled()->willReturn(true);
-        $clientForm->isValid()->shouldBeCalled()->willReturn(false);
+        $clientForm->isSuccess()->shouldBeCalled()->willReturn(false);
 
         $templateFactory->render('oidc:clients/new.twig', ['form' => $clientForm])->shouldBeCalled()->willReturn($template);
         $this->new($request)->shouldBe($template);
@@ -218,8 +197,7 @@ class ClientControllerSpec extends ObjectBehavior
         $formFactory->build(ClientForm::class)->shouldBeCalled()->willReturn($clientForm);
         $clientForm->setAction(Argument::any())->shouldBeCalled();
 
-        $clientForm->isSubmitted()->shouldBeCalled()->willReturn(true);
-        $clientForm->isValid()->shouldBeCalled()->willReturn(true);
+        $clientForm->isSuccess()->shouldBeCalled()->willReturn(true);
         $clientForm->getValues()->shouldBeCalled()->willReturn([
             'name' => 'name',
             'description' => 'description',
@@ -232,5 +210,106 @@ class ClientControllerSpec extends ObjectBehavior
         $sessionMessagesService->addMessage('{oidc:client:added}')->shouldBeCalled();
 
         $this->new($request)->shouldBeLike(new RedirectResponse('index.php'));
+    }
+
+    public function it_shows_edit_client_form(
+        ServerRequest $request,
+        \SimpleSAML_XHTML_Template $template,
+        TemplateFactory $templateFactory,
+        FormFactory $formFactory,
+        ClientForm $clientForm,
+        ClientRepository $clientRepository,
+        ClientEntity $clientEntity
+    ) {
+        $data = [
+            'id' => 'clientid',
+            'secret' => 'validsecret',
+            'name' => 'name',
+            'description' => 'description',
+            'auth_source' => 'auth_source',
+            'redirect_uri' => ['http://localhost/redirect'],
+            'scopes' => ['openid'],
+        ];
+
+        $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
+        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
+        $clientEntity->toArray()->shouldBeCalled()->willReturn($data);
+
+        $formFactory->build(ClientForm::class)->shouldBeCalled()->willReturn($clientForm);
+        $clientForm->setAction(Argument::any())->shouldBeCalled();
+        $clientForm->setDefaults($data)->shouldBeCalled();
+
+        $clientForm->isSuccess()->shouldBeCalled()->willReturn(false);
+
+        $templateFactory->render('oidc:clients/edit.twig', ['form' => $clientForm])->shouldBeCalled()->willReturn($template);
+        $this->edit($request)->shouldBe($template);
+    }
+
+    public function it_updates_client_from_edit_client_form_data(
+        ServerRequest $request,
+        FormFactory $formFactory,
+        ClientForm $clientForm,
+        ClientRepository $clientRepository,
+        ClientEntity $clientEntity,
+        SessionMessagesService $sessionMessagesService
+    ) {
+        $data = [
+            'id' => 'clientid',
+            'secret' => 'validsecret',
+            'name' => 'name',
+            'description' => 'description',
+            'auth_source' => 'auth_source',
+            'redirect_uri' => ['http://localhost/redirect'],
+            'scopes' => ['openid'],
+        ];
+
+        $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
+        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
+        $clientEntity->getIdentifier()->shouldBeCalled()->willReturn('clientid');
+        $clientEntity->getSecret()->shouldBeCalled()->willReturn('validsecret');
+        $clientEntity->toArray()->shouldBeCalled()->willReturn($data);
+
+        $formFactory->build(ClientForm::class)->shouldBeCalled()->willReturn($clientForm);
+        $clientForm->setAction(Argument::any())->shouldBeCalled();
+        $clientForm->isSuccess()->shouldBeCalled()->willReturn(true);
+        $clientForm->setDefaults($data)->shouldBeCalled();
+        $clientForm->getValues()->shouldBeCalled()->willReturn([
+            'name' => 'name',
+            'description' => 'description',
+            'auth_source' => 'auth_source',
+            'redirect_uri' => ['http://localhost/redirect'],
+            'scopes' => ['openid'],
+        ]);
+
+        $clientRepository->update(Argument::exact(ClientEntity::fromData(
+            'clientid',
+            'validsecret',
+            'name',
+            'description',
+            'auth_source',
+            ['http://localhost/redirect'],
+            ['openid']
+        )))->shouldBeCalled();
+        $sessionMessagesService->addMessage('{oidc:client:updated}')->shouldBeCalled();
+
+        $this->edit($request)->shouldBeLike(new RedirectResponse('index.php'));
+    }
+
+    public function it_throws_id_not_found_exception_in_edit_action(
+        ServerRequest $request
+    ) {
+        $request->getQueryParams()->shouldBeCalled()->willReturn([]);
+
+        $this->shouldThrow(\SimpleSAML_Error_BadRequest::class)->during('edit', [$request]);
+    }
+
+    public function it_throws_client_not_found_exception_in_edit_action(
+        ServerRequest $request,
+        ClientRepository $clientRepository
+    ) {
+        $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
+        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn(null);
+
+        $this->shouldThrow(\SimpleSAML_Error_NotFound::class)->during('edit', [$request]);
     }
 }
