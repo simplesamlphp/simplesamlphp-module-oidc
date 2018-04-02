@@ -73,9 +73,9 @@ class ClientController
     public function new(ServerRequest $request)
     {
         $form = $this->formFactory->build(ClientForm::class);
-        $form->setAction($request->getUri()->getPath());
+        $form->setAction($request->getUri());
 
-        if ($form->isSubmitted() && $form->isValid()) {
+        if ($form->isSuccess()) {
             $client = $form->getValues();
             $client['id'] = Random::generateID();
             $client['secret'] = Random::generateID();
@@ -96,6 +96,37 @@ class ClientController
         }
 
         return $this->templateFactory->render('oidc:clients/new.twig', [
+            'form' => $form,
+        ]);
+    }
+
+    public function edit(ServerRequest $request)
+    {
+        $client = $this->getClientFromRequest($request);
+
+        $form = $this->formFactory->build(ClientForm::class);
+        $form->setAction($request->getUri());
+        $form->setDefaults($client->toArray());
+
+        if ($form->isSuccess()) {
+            $data = $form->getValues();
+
+            $this->clientRepository->update(ClientEntity::fromData(
+                $client->getIdentifier(),
+                $client->getSecret(),
+                $data['name'],
+                $data['description'],
+                $data['auth_source'],
+                $data['redirect_uri'],
+                $data['scopes']
+            ));
+
+            $this->messagesService->addMessage('{oidc:client:updated}');
+
+            return new RedirectResponse('index.php');
+        }
+
+        return $this->templateFactory->render('oidc:clients/edit.twig', [
             'form' => $form,
         ]);
     }
