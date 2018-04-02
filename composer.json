@@ -21,6 +21,7 @@
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^2.10",
+        "phpspec/phpspec": "^4.3",
         "phpunit/phpunit": "^7.0",
         "simplesamlphp/simplesamlphp": "^1.15"
     },
