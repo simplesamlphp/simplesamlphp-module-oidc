@@ -21,7 +21,8 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\FormFactory;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 use SimpleSAML\Modules\OpenIDConnect\Services\TemplateFactory;
-use SimpleSAML\Modules\OpenIDConnect\Templates\RedirectResponse;
+use SimpleSAML\Utils\HTTP;
+use Zend\Diactoros\Response\RedirectResponse;
 use Zend\Diactoros\ServerRequest;
 
 class ClientControllerSpec extends ObjectBehavior
@@ -169,7 +170,7 @@ class ClientControllerSpec extends ObjectBehavior
 
         $sessionMessagesService->addMessage('{oidc:client:removed}')->shouldBeCalled();
 
-        $this->delete($request)->shouldBeLike(new RedirectResponse('index.php'));
+        $this->delete($request)->shouldBeAnInstanceOf(RedirectResponse::class);
     }
 
     public function it_shows_new_client_form(
@@ -209,7 +210,7 @@ class ClientControllerSpec extends ObjectBehavior
         $clientRepository->add(Argument::type(ClientEntity::class))->shouldBeCalled();
         $sessionMessagesService->addMessage('{oidc:client:added}')->shouldBeCalled();
 
-        $this->new($request)->shouldBeLike(new RedirectResponse('index.php'));
+        $this->new($request)->shouldBeAnInstanceOf(RedirectResponse::class);
     }
 
     public function it_shows_edit_client_form(
@@ -292,7 +293,7 @@ class ClientControllerSpec extends ObjectBehavior
         )))->shouldBeCalled();
         $sessionMessagesService->addMessage('{oidc:client:updated}')->shouldBeCalled();
 
-        $this->edit($request)->shouldBeLike(new RedirectResponse('index.php'));
+        $this->edit($request)->shouldBeAnInstanceOf(RedirectResponse::class);
     }
 
     public function it_throws_id_not_found_exception_in_edit_action(
@@ -377,7 +378,7 @@ class ClientControllerSpec extends ObjectBehavior
 
         $sessionMessagesService->addMessage('{oidc:client:secret_updated}')->shouldBeCalled();
 
-        $this->reset($request)->shouldBeLike(new RedirectResponse('show.php', ['id' => 'clientid']));
+        $this->reset($request)->shouldBeAnInstanceOf(RedirectResponse::class);
     }
 
     public function it_send_back_to_show_client_if_not_post_method_in_reset_action(
@@ -393,6 +394,6 @@ class ClientControllerSpec extends ObjectBehavior
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
         $clientEntity->getIdentifier()->shouldBeCalled()->willReturn('clientid');
 
-        $this->reset($request)->shouldBeLike(new RedirectResponse('show.php', ['id' => 'clientid']));
+        $this->reset($request)->shouldBeAnInstanceOf(RedirectResponse::class);
     }
 }

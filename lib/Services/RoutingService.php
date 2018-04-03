@@ -11,7 +11,9 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
+use Psr\Http\Message\ResponseInterface;
 use SimpleSAML\Utils\Auth;
+use Zend\Diactoros\Response\SapiEmitter;
 use Zend\Diactoros\ServerRequestFactory;
 
 class RoutingService
@@ -39,14 +41,21 @@ class RoutingService
             $arguments[] = new $className();
         }
 
-        $instance = new $controller(...$arguments);
+        $instance = $reflectionClass->newInstanceArgs($arguments);
         $request = ServerRequestFactory::fromGlobals();
         $messages = (new SessionMessagesService())->getMessages();
 
         $template = $instance->$action($request);
         if ($template instanceof \SimpleSAML_XHTML_Template) {
             $template->data['messages'] = $messages;
+            $template->show();
         }
-        $template->show();
+
+        if ($template instanceof ResponseInterface) {
+            $emitter = new SapiEmitter();
+            $emitter->emit($template);
+        }
+
+        throw new \SimpleSAML_Error_Error('Template type not supported: '.get_class($template));
     }
 }
