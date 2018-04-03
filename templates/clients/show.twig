@@ -59,9 +59,23 @@
         <tr class="full-width">
             <th></th>
             <th>
-                <a href="{{ moduleurlpath }}/clients/" class="ui right floated small primary labeled icon button">
-                    <i class="arrow left icon"></i> {% trans '{oidc:return}' %}
-                </a>
+                <div class="ui buttons">
+                    <a href="{{ moduleurlpath }}/clients/" class="ui small primary labeled icon button">
+                        <i class="arrow left icon"></i> {% trans '{oidc:return}' %}
+                    </a>
+                    <div class="ui small teal labeled icon button">
+                        <i class="refresh icon"></i>
+                        {% trans '{oidc:client:reset_secret}' %}
+                    </div>
+                    <div class="ui flowing popup top left transition hidden">
+                        <h4 class="ui header">{% trans '{oidc:client:reset_secret}' %}</h4>
+                        <p>{% trans '{oidc:client:reset_secret_warning}' %}</p>
+                        <form method="post" action="{{ moduleurlpath }}/clients/reset.php?id={{ client.identifier }}">
+                            <input type="hidden" name="secret" value="{{ client.secret }}">
+                            <input type="submit" class="ui button" value="{% trans '{oidc:confirm}' %}">
+                        </form>
+                    </div>
+                </div>
             </th>
         </tr>
         </tfoot>
@@ -78,6 +92,13 @@
             .on('success', function (e) {
                 e.clearSelection();
                 $(e.trigger).popup('change content', '{% trans '{oidc:copied}' %}')
+            })
+        ;
+
+        $('.teal.button')
+            .popup({
+                on: 'click',
+                setFluidWidth: false
             })
         ;
     </script>
