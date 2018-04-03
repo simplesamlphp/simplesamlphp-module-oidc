@@ -157,6 +157,32 @@ class ClientController
         ]);
     }
 
+    public function reset(ServerRequest $request)
+    {
+        $client = $this->getClientFromRequest($request);
+        $body = $request->getParsedBody();
+        $clientSecret = $body['secret'] ?? null;
+
+        if ('POST' === mb_strtoupper($request->getMethod())) {
+            if (!$clientSecret) {
+                throw new \SimpleSAML_Error_BadRequest('Client secret is missing.');
+            }
+
+            if ($clientSecret !== $client->getSecret()) {
+                throw new \SimpleSAML_Error_BadRequest('Client secret is invalid.');
+            }
+
+            $client->restoreSecret(Random::generateID());
+
+            $this->clientRepository->update($client);
+            $this->messagesService->addMessage('{oidc:client:secret_updated}');
+
+            return new RedirectResponse('show.php', ['id' => $client->getIdentifier()]);
+        }
+
+        return new RedirectResponse('show.php', ['id' => $client->getIdentifier()]);
+    }
+
     /**
      * @param ServerRequest $request
      *

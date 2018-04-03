@@ -49,6 +49,9 @@ msgstr "Copy code"
 msgid "{oidc:copied}"
 msgstr "Copied!"
 
+msgid "{oidc:confirm}"
+msgstr "Confirm"
+
 msgid "{oidc:client:delete}"
 msgstr "Delete OpenID Connect Client"
 
@@ -84,3 +87,12 @@ msgstr "Please, select an Auth Source."
 
 msgid "{oidc:client:scopes_not_empty}"
 msgstr "Please, select a scope at least."
+
+msgid "{oidc:client:reset_secret}"
+msgstr "Reset secret"
+
+msgid "{oidc:client:reset_secret_warning}"
+msgstr "This action will change your client secret and it can not be undone."
+
+msgid "{oidc:client:secret_updated}"
+msgstr "The client secret was updated successfully."
