@@ -17,8 +17,9 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\FormFactory;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 use SimpleSAML\Modules\OpenIDConnect\Services\TemplateFactory;
-use SimpleSAML\Modules\OpenIDConnect\Templates\RedirectResponse;
+use SimpleSAML\Utils\HTTP;
 use SimpleSAML\Utils\Random;
+use Zend\Diactoros\Response\RedirectResponse;
 use Zend\Diactoros\ServerRequest;
 
 class ClientController
@@ -92,7 +93,7 @@ class ClientController
 
             $this->messagesService->addMessage('{oidc:client:added}');
 
-            return new RedirectResponse('index.php');
+            return new RedirectResponse(HTTP::addURLParameters('index.php', []));
         }
 
         return $this->templateFactory->render('oidc:clients/new.twig', [
@@ -123,7 +124,7 @@ class ClientController
 
             $this->messagesService->addMessage('{oidc:client:updated}');
 
-            return new RedirectResponse('index.php');
+            return new RedirectResponse(HTTP::addURLParameters('index.php', []));
         }
 
         return $this->templateFactory->render('oidc:clients/edit.twig', [
@@ -149,7 +150,7 @@ class ClientController
             $this->clientRepository->delete($client);
             $this->messagesService->addMessage('{oidc:client:removed}');
 
-            return new RedirectResponse('index.php');
+            return new RedirectResponse(HTTP::addURLParameters('index.php', []));
         }
 
         return $this->templateFactory->render('oidc:clients/delete.twig', [
@@ -177,10 +178,10 @@ class ClientController
             $this->clientRepository->update($client);
             $this->messagesService->addMessage('{oidc:client:secret_updated}');
 
-            return new RedirectResponse('show.php', ['id' => $client->getIdentifier()]);
+            return new RedirectResponse(HTTP::addURLParameters('show.php', ['id' => $client->getIdentifier()]));
         }
 
-        return new RedirectResponse('show.php', ['id' => $client->getIdentifier()]);
+        return new RedirectResponse(HTTP::addURLParameters('show.php', ['id' => $client->getIdentifier()]));
     }
 
     /**
