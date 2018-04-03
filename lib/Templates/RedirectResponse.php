@@ -19,14 +19,19 @@ class RedirectResponse
      * @var string
      */
     private $url;
+    /**
+     * @var array
+     */
+    private $parameters;
 
-    public function __construct(string $url)
+    public function __construct(string $url, array $parameters = [])
     {
         $this->url = $url;
+        $this->parameters = $parameters;
     }
 
     public function show()
     {
-        HTTP::redirectTrustedURL($this->url);
+        HTTP::redirectTrustedURL($this->url, $this->parameters);
     }
 }
