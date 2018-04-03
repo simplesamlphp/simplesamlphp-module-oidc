@@ -312,4 +312,87 @@ class ClientControllerSpec extends ObjectBehavior
 
         $this->shouldThrow(\SimpleSAML_Error_NotFound::class)->during('edit', [$request]);
     }
+
+    public function it_throws_id_not_found_exception_in_reset_secret_action(
+        ServerRequest $request
+    ) {
+        $request->getQueryParams()->shouldBeCalled()->willReturn([]);
+
+        $this->shouldThrow(\SimpleSAML_Error_BadRequest::class)->during('reset', [$request]);
+    }
+
+    public function it_throws_client_not_found_exception_in_reset_secret_action(
+        ServerRequest $request,
+        ClientRepository $clientRepository
+    ) {
+        $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
+        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn(null);
+
+        $this->shouldThrow(\SimpleSAML_Error_NotFound::class)->during('reset', [$request]);
+    }
+
+    public function it_throws_secret_not_found_exception_in_reset_secret_action(
+        ServerRequest $request,
+        ClientRepository $clientRepository,
+        ClientEntity $clientEntity
+    ) {
+        $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
+        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
+        $request->getParsedBody()->shouldBeCalled()->willReturn([]);
+        $request->getMethod()->shouldBeCalled()->willReturn('post');
+
+        $this->shouldThrow(\SimpleSAML_Error_BadRequest::class)->during('reset', [$request]);
+    }
+
+    public function it_throws_secret_invalid_exception_in_reset_secret_action(
+        ServerRequest $request,
+        ClientRepository $clientRepository,
+        ClientEntity $clientEntity
+    ) {
+        $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
+        $request->getParsedBody()->shouldBeCalled()->willReturn(['secret' => 'invalidsecret']);
+        $request->getMethod()->shouldBeCalled()->willReturn('post');
+
+        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
+        $clientEntity->getSecret()->shouldBeCalled()->willReturn('validsecret');
+
+        $this->shouldThrow(\SimpleSAML_Error_BadRequest::class)->during('reset', [$request]);
+    }
+
+    public function it_reset_secrets_client(
+        ServerRequest $request,
+        ClientRepository $clientRepository,
+        ClientEntity $clientEntity,
+        SessionMessagesService $sessionMessagesService
+    ) {
+        $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
+        $request->getParsedBody()->shouldBeCalled()->willReturn(['secret' => 'validsecret']);
+        $request->getMethod()->shouldBeCalled()->willReturn('post');
+
+        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
+        $clientEntity->getIdentifier()->shouldBeCalled()->willReturn('clientid');
+        $clientEntity->getSecret()->shouldBeCalled()->willReturn('validsecret');
+        $clientEntity->restoreSecret(Argument::any())->shouldBeCalled();
+        $clientRepository->update($clientEntity)->shouldBeCalled();
+
+        $sessionMessagesService->addMessage('{oidc:client:secret_updated}')->shouldBeCalled();
+
+        $this->reset($request)->shouldBeLike(new RedirectResponse('show.php', ['id' => 'clientid']));
+    }
+
+    public function it_send_back_to_show_client_if_not_post_method_in_reset_action(
+        ServerRequest $request,
+        ClientRepository $clientRepository,
+        ClientEntity $clientEntity,
+        SessionMessagesService $sessionMessagesService
+    ) {
+        $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
+        $request->getParsedBody()->shouldBeCalled()->willReturn(['secret' => 'validsecret']);
+        $request->getMethod()->shouldBeCalled()->willReturn('get');
+
+        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
+        $clientEntity->getIdentifier()->shouldBeCalled()->willReturn('clientid');
+
+        $this->reset($request)->shouldBeLike(new RedirectResponse('show.php', ['id' => 'clientid']));
+    }
 }
