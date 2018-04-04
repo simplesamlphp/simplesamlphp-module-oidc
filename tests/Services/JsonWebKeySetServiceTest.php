@@ -1,4 +1,5 @@
 <?php
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -27,11 +28,11 @@ class JsonWebKeySetServiceTest extends TestCase
         // From https://www.andrewzammit.com/blog/php-openssl-rsa-shared-key-generation/
         $pkGenerate = openssl_pkey_new([
             'private_key_bits' => 2048,
-            'private_key_type' => OPENSSL_KEYTYPE_RSA
+            'private_key_type' => OPENSSL_KEYTYPE_RSA,
         ]);
 
         // get the private key
-        openssl_pkey_export($pkGenerate,$pkGeneratePrivate);
+        openssl_pkey_export($pkGenerate, $pkGeneratePrivate);
 
         // get the public key
         $pkGenerateDetails = openssl_pkey_get_details($pkGenerate);
@@ -40,12 +41,12 @@ class JsonWebKeySetServiceTest extends TestCase
         // free resources
         openssl_pkey_free($pkGenerate);
 
-        file_put_contents(sys_get_temp_dir()."/oidc_module.crt", self::$pkGeneratePublic);
+        file_put_contents(sys_get_temp_dir().'/oidc_module.crt', self::$pkGeneratePublic);
     }
 
     public static function tearDownAfterClass()
     {
-        unlink(sys_get_temp_dir()."/oidc_module.crt");
+        unlink(sys_get_temp_dir().'/oidc_module.crt');
     }
 
     public function testKeys()
