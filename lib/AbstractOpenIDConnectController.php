@@ -15,7 +15,7 @@ use League\OAuth2\Server\Exception\OAuthServerException;
 use Zend\Diactoros\Response\JsonResponse;
 use Zend\Diactoros\Response\SapiEmitter;
 
-abstract class OpenIDConnectController
+abstract class AbstractOpenIDConnectController
 {
     public function __construct()
     {
