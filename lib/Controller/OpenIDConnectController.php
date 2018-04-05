@@ -19,40 +19,34 @@ use Zend\Diactoros\ServerRequest;
 
 class OpenIDConnectController extends AbstractOpenIDConnectController
 {
-    /**
-     * @var JsonWebKeySetService
-     */
-    private $jsonWebKeySet;
-    /**
-     * @var ConfigurationService
-     */
-    private $configurationService;
-
-    public function __construct(JsonWebKeySetService $jsonWebKeySet, ConfigurationService $configurationService)
-    {
-        parent::__construct();
-
-        $this->jsonWebKeySet = $jsonWebKeySet;
-        $this->configurationService = $configurationService;
-    }
-
     public function jwks(ServerRequest $request)
     {
+        $this->enableJsonExceptionResponse();
+
         return new JsonResponse([
-            'keys' => $this->jsonWebKeySet->keys(),
+            'keys' => $this->container->get(JsonWebKeySetService::class)->keys(),
         ]);
     }
 
+    /**
+     * @param ServerRequest $request
+     *
+     * @return JsonResponse
+     */
     public function configuration(ServerRequest $request)
     {
-        $scopes = $this->configurationService->getOpenIDConnectConfiguration()->getArray('scopes');
-        $pkceIsEnabled = $this->configurationService->getOpenIDConnectConfiguration()->getBoolean('pkce');
+        $this->enableJsonExceptionResponse();
 
-        $metadata['issuer'] = $this->configurationService->getSimpleSAMLSelfURLHost();
-        $metadata['authorization_endpoint'] = $this->configurationService->getOpenIdConnectModuleURL('authorize.php');
-        $metadata['token_endpoint'] = $this->configurationService->getOpenIdConnectModuleURL('access_token.php');
-        $metadata['userinfo_endpoint'] = $this->configurationService->getOpenIdConnectModuleURL('userinfo.php');
-        $metadata['jwks_uri'] = $this->configurationService->getOpenIdConnectModuleURL('jwks.php');
+        $configurationService = $this->container->get(ConfigurationService::class);
+
+        $scopes = $configurationService->getOpenIDConnectConfiguration()->getArray('scopes');
+        $pkceIsEnabled = $configurationService->getOpenIDConnectConfiguration()->getBoolean('pkce');
+
+        $metadata['issuer'] = $configurationService->getSimpleSAMLSelfURLHost();
+        $metadata['authorization_endpoint'] = $configurationService->getOpenIdConnectModuleURL('authorize.php');
+        $metadata['token_endpoint'] = $configurationService->getOpenIdConnectModuleURL('access_token.php');
+        $metadata['userinfo_endpoint'] = $configurationService->getOpenIdConnectModuleURL('userinfo.php');
+        $metadata['jwks_uri'] = $configurationService->getOpenIdConnectModuleURL('jwks.php');
         $metadata['scopes_supported'] = array_keys($scopes);
         $metadata['response_types_supported'] = ['code', 'token', 'id_token token'];
         $metadata['subject_types_supported'] = ['public'];

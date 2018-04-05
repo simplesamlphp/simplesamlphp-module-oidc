@@ -16,18 +16,19 @@ use Prophecy\Argument;
 use Psr\Http\Message\UriInterface;
 use SimpleSAML\Modules\OpenIDConnect\Controller\ClientController;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
+use SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory;
+use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Form\ClientForm;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
-use SimpleSAML\Modules\OpenIDConnect\Services\FormFactory;
+use SimpleSAML\Modules\OpenIDConnect\Services\Container;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
-use SimpleSAML\Modules\OpenIDConnect\Services\TemplateFactory;
-use SimpleSAML\Utils\HTTP;
 use Zend\Diactoros\Response\RedirectResponse;
 use Zend\Diactoros\ServerRequest;
 
 class ClientControllerSpec extends ObjectBehavior
 {
     public function let(
+        Container $container,
         ClientRepository $clientRepository,
         TemplateFactory $templateFactory,
         SessionMessagesService $sessionMessagesService,
@@ -40,7 +41,11 @@ class ClientControllerSpec extends ObjectBehavior
 
         $request->getUri()->willReturn($uri);
         $uri->getPath()->willReturn('/');
-        $this->beConstructedWith($clientRepository, $templateFactory, $sessionMessagesService, $formFactory);
+        $this->beConstructedWith($container);
+        $container->get(ClientRepository::class)->willReturn($clientRepository);
+        $container->get(TemplateFactory::class)->willReturn($templateFactory);
+        $container->get(SessionMessagesService::class)->willReturn($sessionMessagesService);
+        $container->get(FormFactory::class)->willReturn($formFactory);
     }
 
     public function it_is_initializable()

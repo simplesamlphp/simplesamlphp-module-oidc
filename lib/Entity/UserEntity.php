@@ -12,7 +12,7 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Entity;
 
 use League\OAuth2\Server\Entities\UserEntityInterface;
-use SimpleSAML\Modules\OpenIDConnect\Services\TimestampGenerator;
+use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
 class UserEntity implements UserEntityInterface
 {
@@ -40,14 +40,14 @@ class UserEntity implements UserEntityInterface
     {
     }
 
-    public static function fromId(string $identifier): self
+    public static function fromData(string $identifier, array $claims = []): self
     {
         $user = new self();
 
         $user->identifier = $identifier;
         $user->createdAt = TimestampGenerator::utc();
         $user->updatedAt = $user->createdAt;
-        $user->claims = [];
+        $user->claims = $claims;
 
         return $user;
     }
