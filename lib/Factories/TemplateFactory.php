@@ -9,7 +9,7 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Services;
+namespace SimpleSAML\Modules\OpenIDConnect\Factories;
 
 class TemplateFactory
 {

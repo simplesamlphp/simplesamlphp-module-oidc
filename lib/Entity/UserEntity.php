@@ -12,7 +12,7 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Entity;
 
 use League\OAuth2\Server\Entities\UserEntityInterface;
-use SimpleSAML\Modules\OpenIDConnect\Services\TimestampGenerator;
+use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
 class UserEntity implements UserEntityInterface
 {
