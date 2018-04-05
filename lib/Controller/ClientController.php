@@ -11,53 +11,25 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Controller;
 
+use SimpleSAML\Modules\OpenIDConnect\AbstractOpenIDConnectController;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
+use SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory;
+use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Form\ClientForm;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
-use SimpleSAML\Modules\OpenIDConnect\Services\FormFactory;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
-use SimpleSAML\Modules\OpenIDConnect\Services\TemplateFactory;
 use SimpleSAML\Utils\HTTP;
 use SimpleSAML\Utils\Random;
 use Zend\Diactoros\Response\RedirectResponse;
 use Zend\Diactoros\ServerRequest;
 
-class ClientController
+class ClientController extends AbstractOpenIDConnectController
 {
-    /**
-     * @var ClientRepository
-     */
-    private $clientRepository;
-    /**
-     * @var TemplateFactory
-     */
-    private $templateFactory;
-    /**
-     * @var SessionMessagesService
-     */
-    private $messagesService;
-    /**
-     * @var FormFactory
-     */
-    private $formFactory;
-
-    public function __construct(
-        ClientRepository $clientRepository,
-        TemplateFactory $templateFactory,
-        SessionMessagesService $messagesService,
-        FormFactory $formFactory
-    ) {
-        $this->clientRepository = $clientRepository;
-        $this->templateFactory = $templateFactory;
-        $this->messagesService = $messagesService;
-        $this->formFactory = $formFactory;
-    }
-
     public function index(ServerRequest $request)
     {
-        $clients = $this->clientRepository->findAll();
+        $clients = $this->container->get(ClientRepository::class)->findAll();
 
-        return $this->templateFactory->render('oidc:clients/index.twig', [
+        return $this->container->get(TemplateFactory::class)->render('oidc:clients/index.twig', [
             'clients' => $clients,
         ]);
     }
@@ -66,14 +38,14 @@ class ClientController
     {
         $client = $this->getClientFromRequest($request);
 
-        return $this->templateFactory->render('oidc:clients/show.twig', [
+        return $this->container->get(TemplateFactory::class)->render('oidc:clients/show.twig', [
             'client' => $client,
         ]);
     }
 
     public function new(ServerRequest $request)
     {
-        $form = $this->formFactory->build(ClientForm::class);
+        $form = $this->container->get(FormFactory::class)->build(ClientForm::class);
         $form->setAction($request->getUri());
 
         if ($form->isSuccess()) {
@@ -81,7 +53,7 @@ class ClientController
             $client['id'] = Random::generateID();
             $client['secret'] = Random::generateID();
 
-            $this->clientRepository->add(ClientEntity::fromData(
+            $this->container->get(ClientRepository::class)->add(ClientEntity::fromData(
                 $client['id'],
                 $client['secret'],
                 $client['name'],
@@ -91,12 +63,12 @@ class ClientController
                 $client['scopes']
             ));
 
-            $this->messagesService->addMessage('{oidc:client:added}');
+            $this->container->get(SessionMessagesService::class)->addMessage('{oidc:client:added}');
 
             return new RedirectResponse(HTTP::addURLParameters('index.php', []));
         }
 
-        return $this->templateFactory->render('oidc:clients/new.twig', [
+        return $this->container->get(TemplateFactory::class)->render('oidc:clients/new.twig', [
             'form' => $form,
         ]);
     }
@@ -105,14 +77,14 @@ class ClientController
     {
         $client = $this->getClientFromRequest($request);
 
-        $form = $this->formFactory->build(ClientForm::class);
+        $form = $this->container->get(FormFactory::class)->build(ClientForm::class);
         $form->setAction($request->getUri());
         $form->setDefaults($client->toArray());
 
         if ($form->isSuccess()) {
             $data = $form->getValues();
 
-            $this->clientRepository->update(ClientEntity::fromData(
+            $this->container->get(ClientRepository::class)->update(ClientEntity::fromData(
                 $client->getIdentifier(),
                 $client->getSecret(),
                 $data['name'],
@@ -122,12 +94,12 @@ class ClientController
                 $data['scopes']
             ));
 
-            $this->messagesService->addMessage('{oidc:client:updated}');
+            $this->container->get(SessionMessagesService::class)->addMessage('{oidc:client:updated}');
 
             return new RedirectResponse(HTTP::addURLParameters('index.php', []));
         }
 
-        return $this->templateFactory->render('oidc:clients/edit.twig', [
+        return $this->container->get(TemplateFactory::class)->render('oidc:clients/edit.twig', [
             'form' => $form,
         ]);
     }
@@ -147,13 +119,13 @@ class ClientController
                 throw new \SimpleSAML_Error_BadRequest('Client secret is invalid.');
             }
 
-            $this->clientRepository->delete($client);
-            $this->messagesService->addMessage('{oidc:client:removed}');
+            $this->container->get(ClientRepository::class)->delete($client);
+            $this->container->get(SessionMessagesService::class)->addMessage('{oidc:client:removed}');
 
             return new RedirectResponse(HTTP::addURLParameters('index.php', []));
         }
 
-        return $this->templateFactory->render('oidc:clients/delete.twig', [
+        return $this->container->get(TemplateFactory::class)->render('oidc:clients/delete.twig', [
             'client' => $client,
         ]);
     }
@@ -175,37 +147,12 @@ class ClientController
 
             $client->restoreSecret(Random::generateID());
 
-            $this->clientRepository->update($client);
-            $this->messagesService->addMessage('{oidc:client:secret_updated}');
+            $this->container->get(ClientRepository::class)->update($client);
+            $this->container->get(SessionMessagesService::class)->addMessage('{oidc:client:secret_updated}');
 
             return new RedirectResponse(HTTP::addURLParameters('show.php', ['id' => $client->getIdentifier()]));
         }
 
         return new RedirectResponse(HTTP::addURLParameters('show.php', ['id' => $client->getIdentifier()]));
-    }
-
-    /**
-     * @param ServerRequest $request
-     *
-     * @throws \SimpleSAML_Error_BadRequest
-     * @throws \SimpleSAML_Error_NotFound
-     *
-     * @return null|\SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
-     */
-    private function getClientFromRequest(ServerRequest $request)
-    {
-        $params = $request->getQueryParams();
-        $clientId = $params['id'] ?? null;
-
-        if (!$clientId) {
-            throw new \SimpleSAML_Error_BadRequest('Client id is missing.');
-        }
-
-        $client = $this->clientRepository->findById($clientId);
-        if (!$client) {
-            throw new \SimpleSAML_Error_NotFound('Client not found.');
-        }
-
-        return $client;
     }
 }

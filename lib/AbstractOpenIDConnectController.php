@@ -12,12 +12,52 @@
 namespace SimpleSAML\Modules\OpenIDConnect;
 
 use League\OAuth2\Server\Exception\OAuthServerException;
+use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
+use SimpleSAML\Modules\OpenIDConnect\Services\Container;
 use Zend\Diactoros\Response\JsonResponse;
 use Zend\Diactoros\Response\SapiEmitter;
+use Zend\Diactoros\ServerRequest;
 
 abstract class AbstractOpenIDConnectController
 {
-    public function __construct()
+    /**
+     * @var Container
+     */
+    protected $container;
+
+    public function __construct(Container $container)
+    {
+        $this->container = $container;
+    }
+
+    /**
+     * @param ServerRequest $request
+     *
+     * @throws \Psr\Container\NotFoundExceptionInterface
+     * @throws \SimpleSAML_Error_BadRequest
+     * @throws \SimpleSAML_Error_Exception
+     * @throws \SimpleSAML_Error_NotFound
+     *
+     * @return \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
+     */
+    protected function getClientFromRequest(ServerRequest $request)
+    {
+        $params = $request->getQueryParams();
+        $clientId = $params['id'] ?? null;
+
+        if (!$clientId) {
+            throw new \SimpleSAML_Error_BadRequest('Client id is missing.');
+        }
+
+        $client = $this->container->get(ClientRepository::class)->findById($clientId);
+        if (!$client) {
+            throw new \SimpleSAML_Error_NotFound('Client not found.');
+        }
+
+        return $client;
+    }
+
+    protected function enableJsonExceptionResponse()
     {
         set_exception_handler(function (\Throwable $t) {
             if ($t instanceof OAuthServerException) {

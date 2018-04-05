@@ -13,16 +13,26 @@ namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
 
 use PhpSpec\ObjectBehavior;
 use SimpleSAML\Modules\OpenIDConnect\Controller\OpenIDConnectController;
+use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
+use SimpleSAML\Modules\OpenIDConnect\Services\Container;
 use SimpleSAML\Modules\OpenIDConnect\Services\JsonWebKeySetService;
 use Zend\Diactoros\Response\JsonResponse;
 use Zend\Diactoros\ServerRequest;
 
 class OpenIDConnectControllerSpec extends ObjectBehavior
 {
-    public function let(JsonWebKeySetService $jsonWebKeySet, ConfigurationService $configurationService)
+    public function let(
+        Container $container,
+        ClientRepository $clientRepository,
+        JsonWebKeySetService $jsonWebKeySet,
+        ConfigurationService $configurationService)
     {
-        $this->beConstructedWith($jsonWebKeySet, $configurationService);
+        $this->beConstructedWith($container);
+
+        $container->get(ClientRepository::class)->willReturn($clientRepository);
+        $container->get(JsonWebKeySetService::class)->willReturn($jsonWebKeySet);
+        $container->get(ConfigurationService::class)->willReturn($configurationService);
     }
 
     public function it_is_initializable()
