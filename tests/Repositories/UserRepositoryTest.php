@@ -43,7 +43,7 @@ class UserRepositoryTest extends TestCase
     public function testAddAndFound()
     {
         $repository = new UserRepository();
-        $repository->add(UserEntity::fromId('uniqueid'));
+        $repository->add(UserEntity::fromData('uniqueid'));
         $user = $repository->getUserEntityByIdentifier('uniqueid');
 
         $this->assertNotNull($user);
