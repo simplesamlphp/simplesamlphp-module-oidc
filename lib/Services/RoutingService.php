@@ -32,28 +32,20 @@ class RoutingService
             Auth::requireAdmin();
         }
 
-        $reflectionClass = new \ReflectionClass($controller);
-        $reflectedArguments = $reflectionClass->getConstructor()->getParameters();
-        $arguments = [];
+        $container = new Container();
+        $instance = new $controller($container);
+        $template = $instance->$action(ServerRequestFactory::fromGlobals());
 
-        foreach ($reflectedArguments as $reflectedArgument) {
-            $className = $reflectedArgument->getClass()->getName();
-            $arguments[] = new $className();
-        }
-
-        $instance = $reflectionClass->newInstanceArgs($arguments);
-        $request = ServerRequestFactory::fromGlobals();
-        $messages = (new SessionMessagesService())->getMessages();
-
-        $template = $instance->$action($request);
         if ($template instanceof \SimpleSAML_XHTML_Template) {
-            $template->data['messages'] = $messages;
-            $template->show();
+            $template->data['messages'] = $container->get(SessionMessagesService::class)->getMessages();
+
+            return $template->show();
         }
 
         if ($template instanceof ResponseInterface) {
             $emitter = new SapiEmitter();
-            $emitter->emit($template);
+
+            return $emitter->emit($template);
         }
 
         throw new \SimpleSAML_Error_Error('Template type not supported: '.get_class($template));
