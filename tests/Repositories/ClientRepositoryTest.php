@@ -142,7 +142,7 @@ class ClientRepositoryTest extends TestCase
         $this->assertNull($foundClient);
     }
 
-    private static function getClient(string $id)
+    public static function getClient(string $id)
     {
         return ClientEntity::fromData(
             $id,
