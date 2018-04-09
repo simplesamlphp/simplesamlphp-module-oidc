@@ -12,9 +12,10 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Entity;
 
 use League\OAuth2\Server\Entities\UserEntityInterface;
+use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\MementoInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
-class UserEntity implements UserEntityInterface
+class UserEntity implements UserEntityInterface, MementoInterface
 {
     /**
      * @var string
@@ -52,7 +53,10 @@ class UserEntity implements UserEntityInterface
         return $user;
     }
 
-    public static function fromState(array $state): self
+    /**
+     * {@inheritdoc}
+     */
+    public static function fromState(array $state)
     {
         $user = new self();
 
@@ -64,6 +68,9 @@ class UserEntity implements UserEntityInterface
         return $user;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getState(): array
     {
         return [
