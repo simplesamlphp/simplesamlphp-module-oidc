@@ -1,4 +1,13 @@
+formatter.name: 'pretty'
 suites:
     OpenIDConnect:
         namespace: SimpleSAML\Modules\OpenIDConnect
         psr4_prefix: SimpleSAML\Modules\OpenIDConnect
+extensions:
+    LeanPHP\PhpSpec\CodeCoverage\CodeCoverageExtension:
+        format:
+            - 'php'
+        output:
+            php: 'build/cov/phpspec.cov'
+        whitelist:
+            - 'lib'
