@@ -14,8 +14,9 @@ namespace SimpleSAML\Modules\OpenIDConnect\Entity;
 use League\OAuth2\Server\Entities\ClientEntityInterface;
 use League\OAuth2\Server\Entities\Traits\ClientTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
+use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\MementoInterface;
 
-class ClientEntity implements ClientEntityInterface
+class ClientEntity implements ClientEntityInterface, MementoInterface
 {
     use EntityTrait;
     use ClientTrait;
@@ -66,7 +67,10 @@ class ClientEntity implements ClientEntityInterface
         return $client;
     }
 
-    public static function fromState(array $state): self
+    /**
+     * {@inheritdoc}
+     */
+    public static function fromState(array $state)
     {
         $client = new self();
 
@@ -81,6 +85,9 @@ class ClientEntity implements ClientEntityInterface
         return $client;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getState(): array
     {
         return [

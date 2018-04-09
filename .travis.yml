@@ -14,8 +14,14 @@ before_install:
     - composer self-update
 
 install:
-    - composer install --no-progress --no-suggest --ansi
+    - composer install --dev --no-progress --no-suggest --ansi
 
 script:
+    - mkdir -p build/logs
+    - mkdir -p build/cov
     - ./vendor/bin/phpspec run --no-interaction -f dot
     - ./vendor/bin/phpunit
+    - ./vendor/bin/phpcov merge --clover build/logs/clover.xml build/cov
+
+after_success:
+    - travis_retry php vendor/bin/php-coveralls
