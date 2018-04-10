@@ -22,7 +22,6 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
 {
     use EntityTrait, TokenEntityTrait, AuthCodeTrait, RevokeTokenTrait;
-    
 
     public static function fromState(array $state)
     {

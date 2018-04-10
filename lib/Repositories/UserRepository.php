@@ -41,6 +41,9 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
         return UserEntity::fromState(current($rows));
     }
 
+    /**
+     * @codeCoverageIgnore
+     */
     public function getUserEntityByUserCredentials(
         $username,
         $password,

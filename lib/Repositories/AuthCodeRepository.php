@@ -12,7 +12,6 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Repositories;
 
 use League\OAuth2\Server\Entities\AuthCodeEntityInterface;
-use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface;
 use SimpleSAML\Modules\OpenIDConnect\Entity\AuthCodeEntity;
 use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
@@ -65,7 +64,6 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
         return AuthCodeEntity::fromState($data);
     }
 
-
     /**
      * {@inheritdoc}
      */
@@ -117,5 +115,4 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
             $authCodeEntity->getState()
         );
     }
-
 }
