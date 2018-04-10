@@ -11,7 +11,7 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Controller;
 
-use SimpleSAML\Modules\OpenIDConnect\AbstractOpenIDConnectController;
+use SimpleSAML\Modules\OpenIDConnect\Controller\Abstracts\AbstractOpenIDConnectController;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;

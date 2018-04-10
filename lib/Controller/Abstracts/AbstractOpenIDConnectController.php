@@ -9,11 +9,11 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect;
+namespace SimpleSAML\Modules\OpenIDConnect\Controller\Abstracts;
 
 use League\OAuth2\Server\Exception\OAuthServerException;
+use Psr\Container\ContainerInterface;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
-use SimpleSAML\Modules\OpenIDConnect\Services\Container;
 use Zend\Diactoros\Response\JsonResponse;
 use Zend\Diactoros\Response\SapiEmitter;
 use Zend\Diactoros\ServerRequest;
@@ -21,11 +21,11 @@ use Zend\Diactoros\ServerRequest;
 abstract class AbstractOpenIDConnectController
 {
     /**
-     * @var Container
+     * @var ContainerInterface
      */
     protected $container;
 
-    public function __construct(Container $container)
+    public function __construct(ContainerInterface $container)
     {
         $this->container = $container;
     }

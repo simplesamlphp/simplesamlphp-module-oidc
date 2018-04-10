@@ -11,7 +11,7 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Controller;
 
-use SimpleSAML\Modules\OpenIDConnect\AbstractOpenIDConnectController;
+use SimpleSAML\Modules\OpenIDConnect\Controller\Abstracts\AbstractOpenIDConnectController;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use SimpleSAML\Modules\OpenIDConnect\Services\JsonWebKeySetService;
 use Zend\Diactoros\Response\JsonResponse;
