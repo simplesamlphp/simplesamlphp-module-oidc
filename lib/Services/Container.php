@@ -11,8 +11,10 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
+use League\OAuth2\Server\AuthorizationServer;
 use Psr\Container\ContainerInterface;
 use Psr\Container\NotFoundExceptionInterface;
+use SimpleSAML\Modules\OpenIDConnect\Factories\AuthorizationServerFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\AuthSimpleFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
@@ -50,9 +52,9 @@ class Container implements ContainerInterface
         $this->services[TemplateFactory::class] = $templateFactory;
 
         $authenticationService = new AuthenticationService(
-            $configurationService,
             $userRepository,
-            $authSimpleFactory
+            $authSimpleFactory,
+            $configurationService->getOpenIDConnectConfiguration()->getBoolean('useridattr', 'uid')
         );
         $this->services[AuthenticationService::class] = $authenticationService;
     }
