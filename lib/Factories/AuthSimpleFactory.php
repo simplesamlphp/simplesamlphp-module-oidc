@@ -15,6 +15,9 @@ use SimpleSAML\Auth\Simple;
 
 class AuthSimpleFactory
 {
+    /**
+     * @codeCoverageIgnore
+     */
     public function build(string $name): Simple
     {
         return new Simple($name);
