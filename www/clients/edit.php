@@ -9,7 +9,7 @@
  * file that was distributed with this source code.
  */
 
-use SimpleSAML\Modules\OpenIDConnect\Controller\ClientController;
+use SimpleSAML\Modules\OpenIDConnect\Controller\ClientEditController;
 use SimpleSAML\Modules\OpenIDConnect\Services\RoutingService;
 
-RoutingService::call(ClientController::class, 'edit');
+RoutingService::call(ClientEditController::class);
