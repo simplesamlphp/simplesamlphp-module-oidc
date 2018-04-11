@@ -9,7 +9,7 @@
  * file that was distributed with this source code.
  */
 
-use SimpleSAML\Modules\OpenIDConnect\Controller\OpenIDConnectUserInfoController;
+use SimpleSAML\Modules\OpenIDConnect\Controller\OpenIdConnectUserInfoController;
 use SimpleSAML\Modules\OpenIDConnect\Services\RoutingService;
 
-RoutingService::call(OpenIDConnectUserInfoController::class, false);
+RoutingService::call(OpenIdConnectUserInfoController::class, false);
