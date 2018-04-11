@@ -18,7 +18,7 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
 use Zend\Diactoros\Response\JsonResponse;
 use Zend\Diactoros\ServerRequest;
 
-class OpenIDConnectUserInfoController
+class OpenIdConnectUserInfoController
 {
     /**
      * @var ResourceServer
