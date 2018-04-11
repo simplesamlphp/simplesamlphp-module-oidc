@@ -59,7 +59,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
         $accessToken = new self();
 
         $scopes = array_map(function ($scope) {
-            return ScopeEntity::jsonUnserialize($scope);
+            return ScopeEntity::fromData($scope);
         }, json_decode($state['scopes'], true));
 
         $accessToken->identifier = $state['id'];

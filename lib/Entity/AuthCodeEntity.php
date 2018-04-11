@@ -28,7 +28,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
         $authCode = new self();
 
         $scopes = array_map(function ($scope) {
-            return ScopeEntity::jsonUnserialize($scope);
+            return ScopeEntity::fromData($scope);
         }, json_decode($state['scopes'], true));
 
         $authCode->identifier = $state['id'];

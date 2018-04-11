@@ -74,27 +74,10 @@ class ScopeEntity implements ScopeEntityInterface
     }
 
     /**
-     * @return mixed|string
+     * @return string
      */
     public function jsonSerialize()
     {
-        return json_encode([
-            'identifier' => $this->identifier,
-            'description' => $this->description,
-            'icon' => $this->icon,
-            'attributes' => $this->attributes,
-        ]);
-    }
-
-    public static function jsonUnserialize(string $data)
-    {
-        $entity = new self();
-
-        $jsonArray = json_decode($data);
-        foreach ($jsonArray as $key => $value) {
-            $entity->$key = $value;
-        }
-
-        return $entity;
+        return $this->getIdentifier();
     }
 }
