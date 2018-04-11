@@ -13,16 +13,19 @@ namespace SimpleSAML\Modules\OpenIDConnect\Factories;
 
 class TemplateFactory
 {
-    private $config;
+    /**
+     * @var \SimpleSAML_Configuration
+     */
+    private $configuration;
 
-    public function __construct()
+    public function __construct(\SimpleSAML_Configuration $configuration)
     {
-        $this->config = \SimpleSAML_Configuration::getInstance();
+        $this->configuration = $configuration;
     }
 
     public function render(string $templateName, array $data = []): \SimpleSAML_XHTML_Template
     {
-        $template = new \SimpleSAML_XHTML_Template($this->config, $templateName);
+        $template = new \SimpleSAML_XHTML_Template($this->configuration, $templateName);
         $template->data += $data;
 
         return $template;
