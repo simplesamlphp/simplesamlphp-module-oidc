@@ -15,9 +15,9 @@ class SessionMessagesService
 {
     private $session;
 
-    public function __construct()
+    public function __construct(\SimpleSAML_Session $session)
     {
-        $this->session = \SimpleSAML_Session::getSessionFromRequest();
+        $this->session = $session;
     }
 
     public function addMessage(string $value)
@@ -27,7 +27,7 @@ class SessionMessagesService
 
     public function getMessages()
     {
-        $messages = $this->session->getDataOfType('message') ?? [];
+        $messages = $this->session->getDataOfType('message');
 
         foreach ($messages as $key => $message) {
             $this->session->deleteData('message', $key);

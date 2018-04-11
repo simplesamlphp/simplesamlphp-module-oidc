@@ -72,7 +72,7 @@ class Container implements ContainerInterface
         $jsonWebKeySetService = new JsonWebKeySetService();
         $this->services[JsonWebKeySetService::class] = $jsonWebKeySetService;
 
-        $sessionMessagesService = new SessionMessagesService();
+        $sessionMessagesService = new SessionMessagesService(\SimpleSAML_Session::getSessionFromRequest());
         $this->services[SessionMessagesService::class] = $sessionMessagesService;
 
         $templateFactory = new TemplateFactory($simpleSAMLConfiguration);
