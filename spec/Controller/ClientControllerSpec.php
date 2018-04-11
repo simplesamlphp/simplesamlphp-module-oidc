@@ -72,7 +72,7 @@ class ClientControllerSpec extends ObjectBehavior
         ClientRepository $clientRepository,
         ClientEntity $clientEntity
     ) {
-        $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
+        $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
 
         $templateFactory->render('oidc:clients/show.twig', ['client' => $clientEntity])->shouldBeCalled()->willReturn($template);
@@ -91,7 +91,7 @@ class ClientControllerSpec extends ObjectBehavior
         ServerRequest $request,
         ClientRepository $clientRepository
     ) {
-        $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
+        $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn(null);
 
         $this->shouldThrow(\SimpleSAML_Error_NotFound::class)->during('show', [$request]);
@@ -104,7 +104,7 @@ class ClientControllerSpec extends ObjectBehavior
         ClientRepository $clientRepository,
         ClientEntity $clientEntity
     ) {
-        $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
+        $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $request->getParsedBody()->shouldBeCalled()->willReturn([]);
         $request->getMethod()->shouldBeCalled()->willReturn('get');
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
@@ -125,7 +125,7 @@ class ClientControllerSpec extends ObjectBehavior
         ServerRequest $request,
         ClientRepository $clientRepository
     ) {
-        $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
+        $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn(null);
 
         $this->shouldThrow(\SimpleSAML_Error_NotFound::class)->during('delete', [$request]);
@@ -136,7 +136,7 @@ class ClientControllerSpec extends ObjectBehavior
         ClientRepository $clientRepository,
         ClientEntity $clientEntity
     ) {
-        $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
+        $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
         $request->getParsedBody()->shouldBeCalled()->willReturn([]);
         $request->getMethod()->shouldBeCalled()->willReturn('post');
@@ -149,7 +149,7 @@ class ClientControllerSpec extends ObjectBehavior
         ClientRepository $clientRepository,
         ClientEntity $clientEntity
     ) {
-        $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
+        $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $request->getParsedBody()->shouldBeCalled()->willReturn(['secret' => 'invalidsecret']);
         $request->getMethod()->shouldBeCalled()->willReturn('post');
 
@@ -165,7 +165,7 @@ class ClientControllerSpec extends ObjectBehavior
         ClientEntity $clientEntity,
         SessionMessagesService $sessionMessagesService
     ) {
-        $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
+        $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $request->getParsedBody()->shouldBeCalled()->willReturn(['secret' => 'validsecret']);
         $request->getMethod()->shouldBeCalled()->willReturn('post');
 
@@ -237,7 +237,7 @@ class ClientControllerSpec extends ObjectBehavior
             'scopes' => ['openid'],
         ];
 
-        $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
+        $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
         $clientEntity->toArray()->shouldBeCalled()->willReturn($data);
 
@@ -269,7 +269,7 @@ class ClientControllerSpec extends ObjectBehavior
             'scopes' => ['openid'],
         ];
 
-        $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
+        $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
         $clientEntity->getIdentifier()->shouldBeCalled()->willReturn('clientid');
         $clientEntity->getSecret()->shouldBeCalled()->willReturn('validsecret');
@@ -313,7 +313,7 @@ class ClientControllerSpec extends ObjectBehavior
         ServerRequest $request,
         ClientRepository $clientRepository
     ) {
-        $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
+        $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn(null);
 
         $this->shouldThrow(\SimpleSAML_Error_NotFound::class)->during('edit', [$request]);
@@ -331,7 +331,7 @@ class ClientControllerSpec extends ObjectBehavior
         ServerRequest $request,
         ClientRepository $clientRepository
     ) {
-        $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
+        $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn(null);
 
         $this->shouldThrow(\SimpleSAML_Error_NotFound::class)->during('reset', [$request]);
@@ -342,7 +342,7 @@ class ClientControllerSpec extends ObjectBehavior
         ClientRepository $clientRepository,
         ClientEntity $clientEntity
     ) {
-        $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
+        $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
         $request->getParsedBody()->shouldBeCalled()->willReturn([]);
         $request->getMethod()->shouldBeCalled()->willReturn('post');
@@ -355,7 +355,7 @@ class ClientControllerSpec extends ObjectBehavior
         ClientRepository $clientRepository,
         ClientEntity $clientEntity
     ) {
-        $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
+        $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $request->getParsedBody()->shouldBeCalled()->willReturn(['secret' => 'invalidsecret']);
         $request->getMethod()->shouldBeCalled()->willReturn('post');
 
@@ -371,7 +371,7 @@ class ClientControllerSpec extends ObjectBehavior
         ClientEntity $clientEntity,
         SessionMessagesService $sessionMessagesService
     ) {
-        $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
+        $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $request->getParsedBody()->shouldBeCalled()->willReturn(['secret' => 'validsecret']);
         $request->getMethod()->shouldBeCalled()->willReturn('post');
 
@@ -392,7 +392,7 @@ class ClientControllerSpec extends ObjectBehavior
         ClientEntity $clientEntity,
         SessionMessagesService $sessionMessagesService
     ) {
-        $request->getQueryParams()->shouldBeCalled()->willReturn(['id' => 'clientid']);
+        $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $request->getParsedBody()->shouldBeCalled()->willReturn(['secret' => 'validsecret']);
         $request->getMethod()->shouldBeCalled()->willReturn('get');
 

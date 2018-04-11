@@ -70,7 +70,7 @@
                     <div class="ui flowing popup top left transition hidden">
                         <h4 class="ui header">{% trans '{oidc:client:reset_secret}' %}</h4>
                         <p>{% trans '{oidc:client:reset_secret_warning}' %}</p>
-                        <form method="post" action="{{ moduleurlpath }}/clients/reset.php?id={{ client.identifier }}">
+                        <form method="post" action="{{ moduleurlpath }}/clients/reset.php?client_id={{ client.identifier }}">
                             <input type="hidden" name="secret" value="{{ client.secret }}">
                             <input type="submit" class="ui button" value="{% trans '{oidc:confirm}' %}">
                         </form>

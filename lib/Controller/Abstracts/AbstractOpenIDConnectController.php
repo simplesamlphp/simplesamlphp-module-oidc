@@ -43,7 +43,7 @@ abstract class AbstractOpenIDConnectController
     protected function getClientFromRequest(ServerRequest $request)
     {
         $params = $request->getQueryParams();
-        $clientId = $params['id'] ?? null;
+        $clientId = $params['client_id'] ?? null;
 
         if (!$clientId) {
             throw new \SimpleSAML_Error_BadRequest('Client id is missing.');

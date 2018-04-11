@@ -149,10 +149,8 @@ class ClientController extends AbstractOpenIDConnectController
 
             $this->container->get(ClientRepository::class)->update($client);
             $this->container->get(SessionMessagesService::class)->addMessage('{oidc:client:secret_updated}');
-
-            return new RedirectResponse(HTTP::addURLParameters('show.php', ['id' => $client->getIdentifier()]));
         }
 
-        return new RedirectResponse(HTTP::addURLParameters('show.php', ['id' => $client->getIdentifier()]));
+        return new RedirectResponse(HTTP::addURLParameters('show.php', ['client_id' => $client->getIdentifier()]));
     }
 }
