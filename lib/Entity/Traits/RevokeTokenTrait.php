@@ -16,14 +16,14 @@ trait RevokeTokenTrait
     /**
      * @var bool
      */
-    protected $isRevoked = false;
+    protected $isRevoked = 0;
 
     /**
      * @return bool
      */
     public function isRevoked(): bool
     {
-        return $this->isRevoked;
+        return (bool) $this->isRevoked;
     }
 
     /**
@@ -31,6 +31,6 @@ trait RevokeTokenTrait
      */
     public function revoke()
     {
-        $this->isRevoked = true;
+        $this->isRevoked = 1;
     }
 }
