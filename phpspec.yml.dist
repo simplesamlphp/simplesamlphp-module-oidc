@@ -11,3 +11,6 @@ extensions:
             php: 'build/cov/phpspec.cov'
         whitelist:
             - 'lib'
+        blacklist:
+            - 'lib/Factories'
+            - 'lib/Form'

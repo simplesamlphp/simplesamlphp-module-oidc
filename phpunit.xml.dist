@@ -29,6 +29,10 @@
     <filter>
         <whitelist>
             <directory>./lib</directory>
+            <exclude>
+                <directory>./lib/Factories</directory>
+                <directory>./lib/Form</directory>
+            </exclude>
         </whitelist>
     </filter>
 
