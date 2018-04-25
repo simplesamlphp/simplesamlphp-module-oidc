@@ -41,8 +41,14 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
      */
     private $scopes;
 
+    /**
+     * @var bool
+     */
+    private $isEnabled;
+
     private function __construct()
     {
+        $this->isEnabled = true;
     }
 
     public static function fromData(
@@ -52,7 +58,8 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
         string $description,
         string $authSource,
         array $redirectUri,
-        array $scopes
+        array $scopes,
+        bool $isEnabled
     ): self {
         $client = new self();
 
@@ -63,6 +70,7 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
         $client->authSource = $authSource;
         $client->redirectUri = $redirectUri;
         $client->scopes = $scopes;
+        $client->isEnabled = $isEnabled;
 
         return $client;
     }
@@ -81,6 +89,7 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
         $client->authSource = $state['auth_source'];
         $client->redirectUri = json_decode($state['redirect_uri'], true);
         $client->scopes = json_decode($state['scopes'], true);
+        $client->isEnabled = (bool) $state['is_enabled'];
 
         return $client;
     }
@@ -98,6 +107,7 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
             'auth_source' => $this->authSource,
             'redirect_uri' => json_encode($this->redirectUri),
             'scopes' => json_encode($this->scopes),
+            'is_enabled' => $this->isEnabled ? 1 : 0,
         ];
     }
 
@@ -111,6 +121,7 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
             'auth_source' => $this->authSource,
             'redirect_uri' => $this->redirectUri,
             'scopes' => $this->scopes,
+            'is_enabled' => $this->isEnabled,
         ];
     }
 
@@ -151,5 +162,13 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
     public function getScopes(): array
     {
         return $this->scopes;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isEnabled(): bool
+    {
+        return $this->isEnabled;
     }
 }

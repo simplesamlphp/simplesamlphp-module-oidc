@@ -111,3 +111,6 @@ msgstr "The database has been created."
 
 msgid "{oidc:import:finished}"
 msgstr "Old oauth2 module clients has been imported."
+
+msgid "{oidc:client:is_enabled}"
+msgstr "Activated"

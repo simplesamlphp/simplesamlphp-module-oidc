@@ -113,4 +113,7 @@ msgid "{oidc:install:finished}"
 msgstr "La base de datos ha sido creada."
 
 msgid "{oidc:import:finished}"
-msgstr "Los clients del módulo oauth2 han sido importados."
+msgstr "Los clientes del módulo oauth2 han sido importados."
+
+msgid "{oidc:client:is_enabled}"
+msgstr "Activado"

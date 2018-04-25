@@ -65,6 +65,7 @@ class ClientEditControllerSpec extends ObjectBehavior
             'auth_source' => 'auth_source',
             'redirect_uri' => ['http://localhost/redirect'],
             'scopes' => ['openid'],
+            'is_enabled' => true,
         ];
 
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
@@ -97,6 +98,7 @@ class ClientEditControllerSpec extends ObjectBehavior
             'auth_source' => 'auth_source',
             'redirect_uri' => ['http://localhost/redirect'],
             'scopes' => ['openid'],
+            'is_enabled' => true,
         ];
 
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
@@ -115,6 +117,7 @@ class ClientEditControllerSpec extends ObjectBehavior
             'auth_source' => 'auth_source',
             'redirect_uri' => ['http://localhost/redirect'],
             'scopes' => ['openid'],
+            'is_enabled' => true,
         ]);
 
         $clientRepository->update(Argument::exact(ClientEntity::fromData(
@@ -124,7 +127,8 @@ class ClientEditControllerSpec extends ObjectBehavior
             'description',
             'auth_source',
             ['http://localhost/redirect'],
-            ['openid']
+            ['openid'],
+            true
         )))->shouldBeCalled();
         $sessionMessagesService->addMessage('{oidc:client:updated}')->shouldBeCalled();
 
