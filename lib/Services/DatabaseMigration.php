@@ -65,11 +65,6 @@ class DatabaseMigration
             $this->version20180305180300();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20180305180300')");
         }
-
-        if (!in_array('20180425203400', $versions, true)) {
-            $this->version20180425203400();
-            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20180425203400')");
-        }
     }
 
     /**
