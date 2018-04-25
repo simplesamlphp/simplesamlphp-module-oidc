@@ -12,6 +12,10 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
 use SimpleSAML\Database;
+use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
+use SimpleSAML\Modules\OpenIDConnect\Repositories\AuthCodeRepository;
+use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
+use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
 
 class DatabaseMigration
@@ -54,7 +58,7 @@ class DatabaseMigration
 EOT
         );
 
-        $clientTableName = $this->database->applyPrefix('oidc_client');
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
         $this->database->write(<<< EOT
         CREATE TABLE ${clientTableName} (
             id VARCHAR(255) PRIMARY KEY NOT NULL,
@@ -68,7 +72,7 @@ EOT
 EOT
         );
 
-        $accessTokenTableName = $this->database->applyPrefix('oidc_access_token');
+        $accessTokenTableName = $this->database->applyPrefix(AccessTokenRepository::TABLE_NAME);
         $this->database->write(<<< EOT
         CREATE TABLE ${accessTokenTableName} (
             id VARCHAR(255) PRIMARY KEY NOT NULL,
@@ -83,7 +87,7 @@ EOT
 EOT
         );
 
-        $refreshTokenTableName = $this->database->applyPrefix('oidc_refresh_token');
+        $refreshTokenTableName = $this->database->applyPrefix(RefreshTokenRepository::TABLE_NAME);
         $this->database->write(<<< EOT
         CREATE TABLE ${refreshTokenTableName} (
             id VARCHAR(255) PRIMARY KEY NOT NULL,          
@@ -95,7 +99,7 @@ EOT
 EOT
         );
 
-        $authCodeTableName = $this->database->applyPrefix('oidc_auth_code');
+        $authCodeTableName = $this->database->applyPrefix(AuthCodeRepository::TABLE_NAME);
         $this->database->write(<<< EOT
         CREATE TABLE ${authCodeTableName} (
             id VARCHAR(255) PRIMARY KEY NOT NULL,
