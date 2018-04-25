@@ -38,10 +38,14 @@ class ClientForm extends Form
             ->setMaxLength(255)
             ->setRequired('Set a name')
         ;
+
         $this->addTextArea('description', '{oidc:client:description}', null, 5);
         $this->addTextArea('redirect_uri', '{oidc:client:redirect_uri}', null, 5)
             ->setRequired('Write one redirect URI at least')
         ;
+
+        $this->addCheckbox('is_enabled', '{oidc:client:is_enabled}');
+
         $this->addSelect('auth_source', '{oidc:client:auth_source}:')
             ->setAttribute('class', 'ui fluid dropdown')
             ->setItems(\SimpleSAML_Auth_Source::getSources(), false)

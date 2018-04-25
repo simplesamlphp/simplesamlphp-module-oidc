@@ -121,7 +121,8 @@ class ClientRepositoryTest extends TestCase
             'Description',
             'admin',
             ['http://localhost/redirect'],
-            ['openid']
+            ['openid'],
+            true
         );
 
         self::$repository->update($client);
@@ -151,7 +152,8 @@ class ClientRepositoryTest extends TestCase
             'Description',
             'admin',
             ['http://localhost/redirect'],
-            ['openid']
+            ['openid'],
+            true
         );
     }
 }

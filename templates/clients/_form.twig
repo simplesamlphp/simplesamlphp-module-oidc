@@ -24,6 +24,14 @@
             {{ form['description'].control | raw }}
         </div>
 
+        <div class="field">
+            <div class="ui checkbox">
+                <input name="is_enabled" id="frm-is_enabled" {% if form['is_enabled'].filled %}checked=""{% endif %} type="checkbox">
+
+                <label for="frm-is_enabled">{% trans '{oidc:client:is_enabled}' %}</label>
+            </div>
+        </div>
+
         <div class="field required">
             <label for="frm-redirect_uri">{% trans '{oidc:client:redirect_uri}' %}</label>
 
@@ -65,6 +73,9 @@
                 return current && null !== url.match(/^[^:]+:\/\/?[^\s\/$.?#].[^\s]*$/);
             }, true)
         };
+
+        $('.ui.form')
+            .checkbox();
 
         $('.ui.form')
             .form({

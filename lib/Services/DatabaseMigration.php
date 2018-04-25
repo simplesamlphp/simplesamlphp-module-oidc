@@ -65,6 +65,11 @@ class DatabaseMigration
             $this->version20180305180300();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20180305180300')");
         }
+
+        if (!in_array('20180425203400', $versions, true)) {
+            $this->version20180425203400();
+            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20180425203400')");
+        }
     }
 
     /**
@@ -144,6 +149,16 @@ EOT
             CONSTRAINT fk_auth_code_user FOREIGN KEY (user_id) REFERENCES ${userTablename} (id) ON DELETE CASCADE,                                 
             CONSTRAINT fk_auth_code_client FOREIGN KEY (client_id) REFERENCES ${clientTableName} (id) ON DELETE CASCADE                                            
         )
+EOT
+        );
+    }
+
+    private function version20180425203400()
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE ${clientTableName}
+            ADD is_enabled BOOLEAN NOT NULL DEFAULT true
 EOT
         );
     }

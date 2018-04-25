@@ -49,7 +49,8 @@ class DatabaseLegacyOAuth2Import
                 $client['description'],
                 $client['auth_source'],
                 $client['redirect_uri'],
-                $client['scopes']
+                $client['scopes'],
+                true
             ));
         }
     }

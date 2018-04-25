@@ -31,6 +31,10 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
             return null;
         }
 
+        if (false === $client->isEnabled()) {
+            return null;
+        }
+
         if ($mustValidateSecret && $clientSecret !== $client->getSecret()) {
             return null;
         }
@@ -72,7 +76,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
     public function add(ClientEntity $client)
     {
         $this->database->write(
-              "INSERT INTO {$this->getTableName()} (id, secret, name, description, auth_source, redirect_uri, scopes) VALUES (:id, :secret, :name, :description, :auth_source, :redirect_uri, :scopes)",
+              "INSERT INTO {$this->getTableName()} (id, secret, name, description, auth_source, redirect_uri, scopes, is_enabled) VALUES (:id, :secret, :name, :description, :auth_source, :redirect_uri, :scopes, :is_enabled)",
             $client->getState()
         );
     }
@@ -90,7 +94,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
     public function update(ClientEntity $client)
     {
         $this->database->write(
-            "UPDATE {$this->getTableName()} SET secret = :secret, name = :name, description = :description, auth_source = :auth_source, redirect_uri = :redirect_uri, scopes = :scopes WHERE id = :id",
+            "UPDATE {$this->getTableName()} SET secret = :secret, name = :name, description = :description, auth_source = :auth_source, redirect_uri = :redirect_uri, scopes = :scopes, is_enabled = :is_enabled WHERE id = :id",
             $client->getState()
         );
     }

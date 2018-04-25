@@ -31,6 +31,8 @@
             <tr class="client">
                 <td>
                     <div class="ui header">
+                        {% set state = client.enabled ? "green" : "red" %}
+                        <a class="ui {{ state }} empty circular label"></a>
                         {{ client.name }}
                         <div class="sub header">
                             {{ client.description }}

@@ -69,7 +69,8 @@ class ClientCreateController
                 $client['description'],
                 $client['auth_source'],
                 $client['redirect_uri'],
-                $client['scopes']
+                $client['scopes'],
+                $client['is_enabled']
             ));
 
             $this->messages->addMessage('{oidc:client:added}');
