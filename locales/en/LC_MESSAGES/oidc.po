@@ -43,6 +43,9 @@ msgstr "Save"
 msgid "{oidc:return}"
 msgstr "Return"
 
+msgid "{oidc:install}"
+msgstr "Instalar"
+
 msgid "{oidc:copy}"
 msgstr "Copy code"
 
@@ -96,3 +99,15 @@ msgstr "This action will change your client secret and it can not be undone."
 
 msgid "{oidc:client:secret_updated}"
 msgstr "The client secret was updated successfully."
+
+msgid "{oidc:install:oauth2}"
+msgstr "Check if you want to migrate data from legacy oauth2 module"
+
+msgid "{oidc:install:description}"
+msgstr "This wizard will help you create the database and migrate information if necessary."
+
+msgid "{oidc:install:finished}"
+msgstr "The database has been created."
+
+msgid "{oidc:import:finished}"
+msgstr "Old oauth2 module clients has been imported."

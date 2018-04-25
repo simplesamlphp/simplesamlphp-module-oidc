@@ -14,6 +14,24 @@ function oidc_hook_frontpage(&$links)
     assert('is_array($links)');
     assert('array_key_exists("links", $links)');
 
+    $isUpdated = (new \SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration())->isUpdated();
+
+    if (!$isUpdated) {
+        $links['federation']['oidcregistry'] = [
+            'href' => \SimpleSAML_Module::getModuleURL('oidc/install.php'),
+            'text' => [
+                'en' => 'OpenID Connect Installation',
+                'es' => 'Instalación de OpenID Connect',
+            ],
+            'shorttext' => [
+                'en' => 'OpenID Connect Installation',
+                'es' => 'Instalación de OpenID Connect',
+            ],
+        ];
+
+        return;
+    }
+
     $links['federation']['oidcregistry'] = [
         'href' => \SimpleSAML_Module::getModuleURL('oidc/clients/'),
         'text' => [

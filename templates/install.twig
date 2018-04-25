@@ -1,0 +1,33 @@
+{% extends "@oidc/oidc_base.twig" %}
+
+{% set pagetitle = 'Install OpenID Connect Module' | trans %}
+
+{% block content %}
+    <h2>{{ pagetitle }}</h2>
+
+    <div class="ui hidden divider"></div>
+
+    <div class="ui attached message">
+        <div class="header">
+            {% trans '{oidc:install}' %}
+        </div>
+        <p>{% trans '{oidc:install:description}' %}</p>
+    </div>
+    <form class="ui form attached fluid segment" method="post">
+        {% if oauth2_enabled %}
+        <div class="field">
+            <label>{% trans '{oidc:install:oauth2}' %}</label>
+            <input type="checkbox" value="{{ oauth2_enabled }}" name="oauth2_migrate">
+        </div>
+        {% endif %}
+        <input type="hidden" value="1" name="migrate"/>
+        <div class="ui buttons">
+            <button type="submit"  class="ui small primary labeled icon button">
+                <i class="puzzle piece  icon"></i> {% trans '{oidc:install}' %}
+            </button>
+            <a href="{{ moduleurlpath }}/clients/" class="ui small secondary labeled icon button">
+                <i class="arrow left icon"></i> {% trans '{oidc:return}' %}
+            </a>
+        </div>
+    </form>
+{% endblock %}
