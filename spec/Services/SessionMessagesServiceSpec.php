@@ -1,10 +1,19 @@
 <?php
 
+/*
+ * This file is part of the simplesamlphp-module-oidc.
+ *
+ * (c) Sergio Gómez <sergio@uco.es>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace spec\SimpleSAML\Modules\OpenIDConnect\Services;
 
-use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
+use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 
 class SessionMessagesServiceSpec extends ObjectBehavior
 {
@@ -12,7 +21,8 @@ class SessionMessagesServiceSpec extends ObjectBehavior
     {
         $this->beConstructedWith($session);
     }
-    function it_is_initializable()
+
+    public function it_is_initializable()
     {
         $this->shouldHaveType(SessionMessagesService::class);
     }
