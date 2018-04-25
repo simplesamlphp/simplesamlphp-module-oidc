@@ -46,9 +46,6 @@
             "Tests\\SimpleSAML\\Modules\\OpenIDConnect\\": "tests/"
         }
     },
-    "bin": [
-        "bin/initOIDCPdo.php"
-    ],
     "extra": {
         "branch-alias": {
             "dev-master": "1.0.x-dev"

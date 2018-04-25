@@ -12,6 +12,10 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
 use SimpleSAML\Database;
+use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
+use SimpleSAML\Modules\OpenIDConnect\Repositories\AuthCodeRepository;
+use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
+use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
 
 class DatabaseMigration
@@ -21,24 +25,56 @@ class DatabaseMigration
      */
     private $database;
 
-    public function __construct()
+    public function __construct(Database $database = null)
     {
-        $this->database = Database::getInstance();
+        $this->database = $database ?? Database::getInstance();
     }
 
-    public function migrate()
+    public function isUpdated()
     {
-        $versionsTablename = $this->database->applyPrefix('oidc_migration_versions');
+        $implementedVersions = $this->versions();
+        $notImplementedVersions = array_filter(get_class_methods($this), function ($method) use ($implementedVersions) {
+            if (preg_match('/^version(\d+)/', $method, $matches)) {
+                return !in_array($matches[1], $implementedVersions, true);
+            }
+
+            return false;
+        });
+
+        return empty($notImplementedVersions);
+    }
+
+    public function versions()
+    {
+        $versionsTablename = $this->versionsTableName();
         $this->database->write("CREATE TABLE IF NOT EXISTS {$versionsTablename} (version VARCHAR(255) PRIMARY KEY NOT NULL)");
 
         $versions = $this->database
             ->read("SELECT version FROM ${versionsTablename}")
             ->fetchAll(\PDO::FETCH_COLUMN, 0);
 
+        return $versions;
+    }
+
+    public function migrate()
+    {
+        $versionsTablename = $this->versionsTableName();
+        $versions = $this->versions();
+
         if (!in_array('20180305180300', $versions, true)) {
             $this->version20180305180300();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20180305180300')");
         }
+    }
+
+    /**
+     * @return string
+     */
+    private function versionsTableName(): string
+    {
+        $versionsTablename = $this->database->applyPrefix('oidc_migration_versions');
+
+        return $versionsTablename;
     }
 
     private function version20180305180300()
@@ -54,7 +90,7 @@ class DatabaseMigration
 EOT
         );
 
-        $clientTableName = $this->database->applyPrefix('oidc_client');
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
         $this->database->write(<<< EOT
         CREATE TABLE ${clientTableName} (
             id VARCHAR(255) PRIMARY KEY NOT NULL,
@@ -68,7 +104,7 @@ EOT
 EOT
         );
 
-        $accessTokenTableName = $this->database->applyPrefix('oidc_access_token');
+        $accessTokenTableName = $this->database->applyPrefix(AccessTokenRepository::TABLE_NAME);
         $this->database->write(<<< EOT
         CREATE TABLE ${accessTokenTableName} (
             id VARCHAR(255) PRIMARY KEY NOT NULL,
@@ -83,7 +119,7 @@ EOT
 EOT
         );
 
-        $refreshTokenTableName = $this->database->applyPrefix('oidc_refresh_token');
+        $refreshTokenTableName = $this->database->applyPrefix(RefreshTokenRepository::TABLE_NAME);
         $this->database->write(<<< EOT
         CREATE TABLE ${refreshTokenTableName} (
             id VARCHAR(255) PRIMARY KEY NOT NULL,          
@@ -95,7 +131,7 @@ EOT
 EOT
         );
 
-        $authCodeTableName = $this->database->applyPrefix('oidc_auth_code');
+        $authCodeTableName = $this->database->applyPrefix(AuthCodeRepository::TABLE_NAME);
         $this->database->write(<<< EOT
         CREATE TABLE ${authCodeTableName} (
             id VARCHAR(255) PRIMARY KEY NOT NULL,
