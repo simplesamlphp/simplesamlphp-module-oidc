@@ -30,19 +30,56 @@ class DatabaseMigration
         $this->database = $database ?? Database::getInstance();
     }
 
-    public function migrate()
+    public function isUpdated()
     {
-        $versionsTablename = $this->database->applyPrefix('oidc_migration_versions');
+        $implementedVersions = $this->versions();
+        $notImplementedVersions = array_filter(get_class_methods($this), function ($method) use ($implementedVersions) {
+            if (preg_match('/^version(\d+)/', $method, $matches)) {
+                return !in_array($matches[1], $implementedVersions, true);
+            }
+
+            return false;
+        });
+
+        return empty($notImplementedVersions);
+    }
+
+    public function versions()
+    {
+        $versionsTablename = $this->versionsTableName();
         $this->database->write("CREATE TABLE IF NOT EXISTS {$versionsTablename} (version VARCHAR(255) PRIMARY KEY NOT NULL)");
 
         $versions = $this->database
             ->read("SELECT version FROM ${versionsTablename}")
             ->fetchAll(\PDO::FETCH_COLUMN, 0);
 
+        return $versions;
+    }
+
+    public function migrate()
+    {
+        $versionsTablename = $this->versionsTableName();
+        $versions = $this->versions();
+
         if (!in_array('20180305180300', $versions, true)) {
             $this->version20180305180300();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20180305180300')");
         }
+
+        if (!in_array('20180425203400', $versions, true)) {
+            $this->version20180425203400();
+            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20180425203400')");
+        }
+    }
+
+    /**
+     * @return string
+     */
+    private function versionsTableName(): string
+    {
+        $versionsTablename = $this->database->applyPrefix('oidc_migration_versions');
+
+        return $versionsTablename;
     }
 
     private function version20180305180300()
