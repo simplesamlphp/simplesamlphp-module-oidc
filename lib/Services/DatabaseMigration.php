@@ -21,9 +21,9 @@ class DatabaseMigration
      */
     private $database;
 
-    public function __construct()
+    public function __construct(Database $database = null)
     {
-        $this->database = Database::getInstance();
+        $this->database = $database ?? Database::getInstance();
     }
 
     public function migrate()

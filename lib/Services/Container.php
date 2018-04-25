@@ -18,6 +18,7 @@ use League\OAuth2\Server\Grant\RefreshTokenGrant;
 use League\OAuth2\Server\ResourceServer;
 use Psr\Container\ContainerInterface;
 use Psr\Container\NotFoundExceptionInterface;
+use SimpleSAML\Database;
 use SimpleSAML\Modules\OpenIDConnect\Factories\AuthorizationServerFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\AuthSimpleFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory;
@@ -59,6 +60,12 @@ class Container implements ContainerInterface
 
         $scopeRepository = new ScopeRepository();
         $this->services[ScopeRepository::class] = $scopeRepository;
+
+        $database = Database::getInstance();
+        $this->services[Database::class] = $database;
+
+        $databaseMigration = new DatabaseMigration($database);
+        $this->services[DatabaseMigration::class] = $databaseMigration;
 
         $configurationService = new ConfigurationService();
         $this->services[ConfigurationService::class] = $configurationService;
