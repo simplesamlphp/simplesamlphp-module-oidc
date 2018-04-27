@@ -4,8 +4,6 @@
 This module adds support for the OpenID Connect protocol through a SimpleSAMLphp module installable through Composer.
 
 [![SimpleSAMLphp](https://img.shields.io/badge/simplesamlphp-1.15-red.svg)](https://simplesamlphp.org/)
-[![Build Status](https://travis-ci.org/sgomez/simplesamlphp-module-oidc.svg?branch=master)](https://travis-ci.org/sgomez/simplesamlphp-module-oidc)
-[![Coverage Status](https://coveralls.io/repos/github/sgomez/simplesamlphp-module-oidc/badge.svg)](https://coveralls.io/github/sgomez/simplesamlphp-module-oidc)
 
 ![](docs/oidc.png)
 
@@ -13,7 +11,7 @@ This module adds support for the OpenID Connect protocol through a SimpleSAMLphp
 
 Installation can be as easy as executing:
 
-    composer require sgomez/simplesamlphp-module-oidc
+    composer require rediris-es/simplesamlphp-module-oidc
     
 ## Configuration
 
