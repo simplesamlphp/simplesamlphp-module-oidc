@@ -1,10 +1,16 @@
 {
-    "name": "sgomez/simplesamlphp-module-oidc",
+    "name": "rediris-es/simplesamlphp-module-oidc",
     "description": "A SimpleSAMLphp module adding support for the OpenID Connect protocol",
     "type": "simplesamlphp-module",
     "keywords": [ "oauth2", "openid", "connect", "oidc", "openid connect" ],
     "license": "MIT",
     "authors": [
+        {
+            "name": "Spanish Research and Academic Network"
+        },
+        {
+            "name": "University of Córdoba"
+        },
         {
             "name": "Sergio Gómez",
             "email": "sergio@uco.es"
