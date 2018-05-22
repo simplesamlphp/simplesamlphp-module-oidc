@@ -93,6 +93,15 @@ class ClientRepositoryTest extends TestCase
         $this->assertNull($client);
     }
 
+    public function testGetDisabledClientEntity()
+    {
+        $client = self::getClient('clientid', false);
+        self::$repository->add($client);
+
+        $client = self::$repository->getClientEntity('clientid', null, 'wrongsecret', true);
+        $this->assertNull($client);
+    }
+
     public function testGetClientEntityWithWrongIdAndNotFound()
     {
         $client = self::getClient('clientid');
@@ -146,7 +155,7 @@ class ClientRepositoryTest extends TestCase
         $this->assertNull($foundClient);
     }
 
-    public static function getClient(string $id)
+    public static function getClient(string $id, bool $enabled = true)
     {
         return ClientEntity::fromData(
             $id,
@@ -156,7 +165,7 @@ class ClientRepositoryTest extends TestCase
             'admin',
             ['http://localhost/redirect'],
             ['openid'],
-            true
+            $enabled
         );
     }
 }
