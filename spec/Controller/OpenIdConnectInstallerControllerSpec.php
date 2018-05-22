@@ -1,10 +1,21 @@
 <?php
 
+/*
+ * This file is part of the simplesamlphp-module-oidc.
+ *
+ * Copyright (C) 2018 by the Spanish Research and Academic Network.
+ *
+ * This code was developed by Universidad de Córdoba (UCO https://www.uco.es)
+ * for the RedIRIS SIR service (SIR: http://www.rediris.es/sir)
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
 
-use SimpleSAML\Modules\OpenIDConnect\Controller\OpenIdConnectInstallerController;
 use PhpSpec\ObjectBehavior;
-use Prophecy\Argument;
+use SimpleSAML\Modules\OpenIDConnect\Controller\OpenIdConnectInstallerController;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseLegacyOAuth2Import;
 use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration;
@@ -14,13 +25,12 @@ use Zend\Diactoros\ServerRequest;
 
 class OpenIdConnectInstallerControllerSpec extends ObjectBehavior
 {
-    function let(
+    public function let(
         TemplateFactory $templateFactory,
         SessionMessagesService $messages,
         DatabaseMigration $databaseMigration,
         DatabaseLegacyOAuth2Import $databaseLegacyOAuth2Import
-    )
-    {
+    ) {
         $databaseMigration->isUpdated()->willReturn(false);
 
         $this->beConstructedWith(
@@ -31,30 +41,28 @@ class OpenIdConnectInstallerControllerSpec extends ObjectBehavior
         );
     }
 
-    function it_is_initializable()
+    public function it_is_initializable()
     {
         $this->shouldHaveType(OpenIdConnectInstallerController::class);
     }
 
-    function it_returns_to_main_page_if_already_updated(
+    public function it_returns_to_main_page_if_already_updated(
         DatabaseMigration $databaseMigration,
         ServerRequest $request
-    )
-    {
+    ) {
         $databaseMigration->isUpdated()->shouldBeCalled()->willReturn(true);
 
         $this->__invoke($request)->shouldBeAnInstanceOf(RedirectResponse::class);
     }
-    
-    function it_shows_information_page(
+
+    public function it_shows_information_page(
         ServerRequest $request,
         TemplateFactory $templateFactory,
         \SimpleSAML_XHTML_Template $template
-    )
-    {
+    ) {
         $request->getParsedBody()->shouldBeCalled();
         $request->getMethod()->shouldBeCalled()->willReturn('GET');
-        
+
         $templateFactory->render('oidc:install.twig', [
             'oauth2_enabled' => false,
         ])->shouldBeCalled()->willReturn($template);
@@ -62,13 +70,12 @@ class OpenIdConnectInstallerControllerSpec extends ObjectBehavior
         $this->__invoke($request)->shouldBeLike($template);
     }
 
-    function it_requires_confirmation_before_install_schema(
+    public function it_requires_confirmation_before_install_schema(
         DatabaseMigration $databaseMigration,
         ServerRequest $request,
         TemplateFactory $templateFactory,
         \SimpleSAML_XHTML_Template $template
-    )
-    {
+    ) {
         $request->getParsedBody()->shouldBeCalled();
         $request->getMethod()->shouldBeCalled()->willReturn('POST');
         $databaseMigration->migrate()->shouldNotBeCalled();
@@ -80,13 +87,12 @@ class OpenIdConnectInstallerControllerSpec extends ObjectBehavior
         $this->__invoke($request)->shouldBeLike($template);
     }
 
-    function it_creates_schema(
+    public function it_creates_schema(
         DatabaseMigration $databaseMigration,
         DatabaseLegacyOAuth2Import $databaseLegacyOAuth2Import,
         ServerRequest $request,
         SessionMessagesService $messages
-    )
-    {
+    ) {
         $request->getParsedBody()->shouldBeCalled()->willReturn([
             'migrate' => true,
         ]);
@@ -99,13 +105,12 @@ class OpenIdConnectInstallerControllerSpec extends ObjectBehavior
         $this->__invoke($request)->shouldBeAnInstanceOf(RedirectResponse::class);
     }
 
-    function it_imports_data_from_oauth2_module(
+    public function it_imports_data_from_oauth2_module(
         DatabaseMigration $databaseMigration,
         DatabaseLegacyOAuth2Import $databaseLegacyOAuth2Import,
         ServerRequest $request,
         SessionMessagesService $messages
-    )
-    {
+    ) {
         $request->getParsedBody()->shouldBeCalled()->willReturn([
             'migrate' => true,
             'oauth2_migrate' => true,
@@ -118,6 +123,5 @@ class OpenIdConnectInstallerControllerSpec extends ObjectBehavior
         $messages->addMessage('{oidc:import:finished}')->shouldBeCalled();
 
         $this->__invoke($request)->shouldBeAnInstanceOf(RedirectResponse::class);
-
     }
 }
