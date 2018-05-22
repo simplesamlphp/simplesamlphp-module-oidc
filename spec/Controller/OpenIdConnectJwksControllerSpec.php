@@ -48,7 +48,7 @@ class OpenIdConnectJwksControllerSpec extends ObjectBehavior
 
         $jsonWebKeySet->keys()->shouldBeCalled()->willReturn($keys);
 
-        $this->jwks($request)->shouldHavePayload(['keys' => $keys]);
+        $this->__invoke($request)->shouldHavePayload(['keys' => $keys]);
     }
 
     public function getMatchers(): array
