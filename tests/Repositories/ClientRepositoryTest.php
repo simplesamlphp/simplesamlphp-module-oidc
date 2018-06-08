@@ -84,15 +84,6 @@ class ClientRepositoryTest extends TestCase
         $this->assertNotNull($client);
     }
 
-    public function testGetClientEntityWithWrongSecretAndNotFound()
-    {
-        $client = self::getClient('clientid');
-        self::$repository->add($client);
-
-        $client = self::$repository->getClientEntity('clientid', null, 'wrongsecret', true);
-        $this->assertNull($client);
-    }
-
     public function testGetDisabledClientEntity()
     {
         $client = self::getClient('clientid', false);

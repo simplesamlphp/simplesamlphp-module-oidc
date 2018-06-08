@@ -38,10 +38,6 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
             return null;
         }
 
-        if ($mustValidateSecret && $clientSecret !== $client->getSecret()) {
-            return null;
-        }
-
         return $client;
     }
 
