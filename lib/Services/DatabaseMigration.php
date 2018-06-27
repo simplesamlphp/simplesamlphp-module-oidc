@@ -113,6 +113,8 @@ EOT
         );
 
         $accessTokenTableName = $this->database->applyPrefix(AccessTokenRepository::TABLE_NAME);
+        $fkAccessTokenUser = $this->generateIdentifierName(['user_id'], $accessTokenTableName);
+        $fkAccessTokenClient = $this->generateIdentifierName(['client_id'], $accessTokenTableName);
         $this->database->write(<<< EOT
         CREATE TABLE ${accessTokenTableName} (
             id VARCHAR(255) PRIMARY KEY NOT NULL,
@@ -121,25 +123,28 @@ EOT
             user_id VARCHAR(255) NOT NULL,                          
             client_id VARCHAR(255) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
-            CONSTRAINT fk_access_token_user FOREIGN KEY (user_id) REFERENCES ${userTablename} (id) ON DELETE CASCADE,                                 
-            CONSTRAINT fk_access_token_client FOREIGN KEY (client_id) REFERENCES ${clientTableName} (id) ON DELETE CASCADE                                
+            CONSTRAINT {$fkAccessTokenUser} FOREIGN KEY (user_id) REFERENCES ${userTablename} (id) ON DELETE CASCADE,                                 
+            CONSTRAINT {$fkAccessTokenClient} FOREIGN KEY (client_id) REFERENCES ${clientTableName} (id) ON DELETE CASCADE                                
         )
 EOT
         );
 
         $refreshTokenTableName = $this->database->applyPrefix(RefreshTokenRepository::TABLE_NAME);
+        $fkRefreshTokenAccessToken = $this->generateIdentifierName(['access_token_id'], $refreshTokenTableName);
         $this->database->write(<<< EOT
         CREATE TABLE ${refreshTokenTableName} (
             id VARCHAR(255) PRIMARY KEY NOT NULL,          
             expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             access_token_id VARCHAR(255) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
-            CONSTRAINT fk_refresh_token_access_token FOREIGN KEY (access_token_id) REFERENCES ${accessTokenTableName} (id) ON DELETE CASCADE
+            CONSTRAINT {$fkRefreshTokenAccessToken} FOREIGN KEY (access_token_id) REFERENCES ${accessTokenTableName} (id) ON DELETE CASCADE
         )
 EOT
         );
 
         $authCodeTableName = $this->database->applyPrefix(AuthCodeRepository::TABLE_NAME);
+        $fkAuthCodeUser = $this->generateIdentifierName([$authCodeTableName, 'user_id'], 'fk');
+        $fkAuthCodeClient = $this->generateIdentifierName([$authCodeTableName, 'client_id'], 'fk');
         $this->database->write(<<< EOT
         CREATE TABLE ${authCodeTableName} (
             id VARCHAR(255) PRIMARY KEY NOT NULL,
@@ -149,8 +154,8 @@ EOT
             client_id VARCHAR(255) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
             redirect_uri TEXT NOT NULL,
-            CONSTRAINT fk_auth_code_user FOREIGN KEY (user_id) REFERENCES ${userTablename} (id) ON DELETE CASCADE,                                 
-            CONSTRAINT fk_auth_code_client FOREIGN KEY (client_id) REFERENCES ${clientTableName} (id) ON DELETE CASCADE                                            
+            CONSTRAINT {$fkAuthCodeUser} FOREIGN KEY (user_id) REFERENCES ${userTablename} (id) ON DELETE CASCADE,                                 
+            CONSTRAINT {$fkAuthCodeClient} FOREIGN KEY (client_id) REFERENCES ${clientTableName} (id) ON DELETE CASCADE                                            
         )
 EOT
         );
@@ -164,5 +169,14 @@ EOT
             ADD is_enabled BOOLEAN NOT NULL DEFAULT true
 EOT
         );
+    }
+
+    private function generateIdentifierName(array $columnNames, $prefix='', $maxSize=30)
+    {
+        $hash = implode("", array_map(function ($column) {
+            return dechex(crc32($column));
+        }, $columnNames));
+
+        return strtoupper(substr("{$prefix}_{$hash}", 0, $maxSize));
     }
 }
