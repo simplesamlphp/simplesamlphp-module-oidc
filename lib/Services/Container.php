@@ -94,7 +94,7 @@ class Container implements ContainerInterface
         $authenticationService = new AuthenticationService(
             $userRepository,
             $authSimpleFactory,
-            $oidcModuleConfiguration->getBoolean('useridattr', 'uid')
+            $oidcModuleConfiguration->getString('useridattr', 'uid')
         );
         $this->services[AuthenticationService::class] = $authenticationService;
 
