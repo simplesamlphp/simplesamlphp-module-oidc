@@ -44,7 +44,7 @@ msgid "{oidc:return}"
 msgstr "Return"
 
 msgid "{oidc:install}"
-msgstr "Instalar"
+msgstr "Install"
 
 msgid "{oidc:copy}"
 msgstr "Copy code"
