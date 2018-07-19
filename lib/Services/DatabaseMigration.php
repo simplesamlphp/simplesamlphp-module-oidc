@@ -113,8 +113,8 @@ EOT
         );
 
         $accessTokenTableName = $this->database->applyPrefix(AccessTokenRepository::TABLE_NAME);
-        $fkAccessTokenUser = $this->generateIdentifierName(['user_id'], $accessTokenTableName);
-        $fkAccessTokenClient = $this->generateIdentifierName(['client_id'], $accessTokenTableName);
+        $fkAccessTokenUser = $this->generateIdentifierName([$accessTokenTableName, 'user_id'], 'fk');
+        $fkAccessTokenClient = $this->generateIdentifierName([$accessTokenTableName, 'client_id'], 'fk');
         $this->database->write(<<< EOT
         CREATE TABLE ${accessTokenTableName} (
             id VARCHAR(255) PRIMARY KEY NOT NULL,
@@ -130,7 +130,7 @@ EOT
         );
 
         $refreshTokenTableName = $this->database->applyPrefix(RefreshTokenRepository::TABLE_NAME);
-        $fkRefreshTokenAccessToken = $this->generateIdentifierName(['access_token_id'], $refreshTokenTableName);
+        $fkRefreshTokenAccessToken = $this->generateIdentifierName([$refreshTokenTableName, 'access_token_id'], 'fk');
         $this->database->write(<<< EOT
         CREATE TABLE ${refreshTokenTableName} (
             id VARCHAR(255) PRIMARY KEY NOT NULL,          
