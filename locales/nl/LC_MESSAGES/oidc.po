@@ -1,0 +1,116 @@
+msgid "{oidc:add_client}"
+msgstr "Client toevoegen"
+
+msgid "{oidc:search}"
+msgstr "Zoeken"
+
+msgid "{oidc:no_clients}"
+msgstr "Geen clients"
+
+msgid "{oidc:client_list}"
+msgstr "Client-overzicht"
+
+msgid "{oidc:client:name}"
+msgstr "Naam"
+
+msgid "{oidc:client:description}"
+msgstr "Omschrijving"
+
+msgid "{oidc:client:identifier}"
+msgstr "Client ID"
+
+msgid "{oidc:client:secret}"
+msgstr "Client secret"
+
+msgid "{oidc:client:auth_source}"
+msgstr "Authenticatiebron"
+
+msgid "{oidc:client:redirect_uri}"
+msgstr "Redirect URI"
+
+msgid "{oidc:client:scopes}"
+msgstr "Scopes"
+
+msgid "{oidc:submit}"
+msgstr "Verzenden"
+
+msgid "{oidc:create}"
+msgstr "Nieuw"
+
+msgid "{oidc:save}"
+msgstr "Opslaan"
+
+msgid "{oidc:return}"
+msgstr "Vorige"
+
+msgid "{oidc:install}"
+msgstr "Installeren"
+
+msgid "{oidc:copy}"
+msgstr "Code kopiëren"
+
+msgid "{oidc:copied}"
+msgstr "Gekopieerd!"
+
+msgid "{oidc:confirm}"
+msgstr "Bevestigen"
+
+msgid "{oidc:client:delete}"
+msgstr "OpenID Connect Client verwijderen"
+
+msgid "{oidc:client:confirm_delete}"
+msgstr "Deze actie kan niet ongedaan gemaakt worden! Weet je zeker dat u deze client wilt verwijderen?"
+
+msgid "{oidc:delete}"
+msgstr "Verwijderen"
+
+msgid "{oidc:client:added}"
+msgstr "Client is succesvol aangemaakt."
+
+msgid "{oidc:client:removed}"
+msgstr "Client is succesvol verwijderd."
+
+msgid "{oidc:client:updated}"
+msgstr "Client is succesvol bijgewerkt."
+
+msgid "{oidc:client:redirect_uri_help}"
+msgstr "Voer een geldige URI in"
+
+msgid "{oidc:client:name_not_empty}"
+msgstr "Voer een naam in."
+
+msgid "{oidc:client:redirect_uri_not_empty}"
+msgstr "Voer minimaal een URI in"
+
+msgid "{oidc:client:redirect_uri_not_valid}"
+msgstr "Sommige redirect adressen zijn ongeldig."
+
+msgid "{oidc:client:auth_source_not_empty}"
+msgstr "Selecteer een authenticatiebron."
+
+msgid "{oidc:client:scopes_not_empty}"
+msgstr "Selecteer minimaal één scope."
+
+msgid "{oidc:client:reset_secret}"
+msgstr "Secret vernieuwen"
+
+msgid "{oidc:client:reset_secret_warning}"
+msgstr "Deze actie kan niet ongedaan gemaakt worden! Wil je het client secret vernieuwen?"
+
+msgid "{oidc:client:secret_updated}"
+msgstr "Het client secret is succesvol gewijzigd."
+
+msgid "{oidc:install:oauth2}"
+msgstr "Vink aan om gegevens vanuit de legacy oauth2 module te migreren"
+
+msgid "{oidc:install:description}"
+msgstr "Deze wizard zal de database aanmaken en indien nodig een migratie uitvoeren."
+
+msgid "{oidc:install:finished}"
+msgstr "De database is aangemaakt."
+
+msgid "{oidc:import:finished}"
+msgstr "Clients van de oude oauth2 module zijn geïmporteerd."
+
+msgid "{oidc:client:is_enabled}"
+msgstr "Geactiveerd"
