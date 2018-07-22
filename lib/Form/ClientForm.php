@@ -35,7 +35,7 @@ class ClientForm extends Form
         $this->onValidate[] = [$this, 'validateRedirectUri'];
 
         $this->setMethod('POST');
-        $this->addProtection('Security token has expired, please submit the form again');
+        $this->addComponent(new Controls\CsrfProtection(null), Form::PROTECTOR_ID);
 
         $this->addText('name', '{oidc:client:name}')
             ->setMaxLength(255)
