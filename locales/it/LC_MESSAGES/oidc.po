@@ -1,0 +1,116 @@
+msgid "{oidc:add_client}"
+msgstr "Aggiungi client"
+
+msgid "{oidc:search}"
+msgstr "Cerca"
+
+msgid "{oidc:no_clients}"
+msgstr "No clients"
+
+msgid "{oidc:client_list}"
+msgstr "Lista client"
+
+msgid "{oidc:client:name}"
+msgstr "Nome"
+
+msgid "{oidc:client:description}"
+msgstr "Descrizione"
+
+msgid "{oidc:client:identifier}"
+msgstr "Client id."
+
+msgid "{oidc:client:secret}"
+msgstr "Client secret"
+
+msgid "{oidc:client:auth_source}"
+msgstr "Auth. source"
+
+msgid "{oidc:client:redirect_uri}"
+msgstr "Redirect URI"
+
+msgid "{oidc:client:scopes}"
+msgstr "Scopes"
+
+msgid "{oidc:submit}"
+msgstr "Invia"
+
+msgid "{oidc:create}"
+msgstr "Crea"
+
+msgid "{oidc:save}"
+msgstr "Salva"
+
+msgid "{oidc:return}"
+msgstr "Indietro"
+
+msgid "{oidc:install}"
+msgstr "Installa"
+
+msgid "{oidc:copy}"
+msgstr "Copia codice"
+
+msgid "{oidc:copied}"
+msgstr "Copiato!"
+
+msgid "{oidc:confirm}"
+msgstr "Conferma"
+
+msgid "{oidc:client:delete}"
+msgstr "Cancella Client OpenID Connect"
+
+msgid "{oidc:client:confirm_delete}"
+msgstr "Gentilmente, conferma che vuoi cancellare questo client. Questa cancellazione non può essere ripristinata."
+
+msgid "{oidc:delete}"
+msgstr "Cancella"
+
+msgid "{oidc:client:added}"
+msgstr "Il client è stato aggiunto con successo."
+
+msgid "{oidc:client:removed}"
+msgstr "Il client è stato rimosso con successo."
+
+msgid "{oidc:client:updated}"
+msgstr "Il client è stato aggiornato con successo."
+
+msgid "{oidc:client:redirect_uri_help}"
+msgstr "Aggiungi una URI valida"
+
+msgid "{oidc:client:name_not_empty}"
+msgstr "Per favore aggiungi un nome."
+
+msgid "{oidc:client:redirect_uri_not_empty}"
+msgstr "Per favore, aggiungi almeno una URI."
+
+msgid "{oidc:client:redirect_uri_not_valid}"
+msgstr "Qualche indirizzo di redirezione non è valido."
+
+msgid "{oidc:client:auth_source_not_empty}"
+msgstr "Per favore seleziona una Auth Source."
+
+msgid "{oidc:client:scopes_not_empty}"
+msgstr "Per favore, seleziona almeno uno scope."
+
+msgid "{oidc:client:reset_secret}"
+msgstr "Ripristina secret"
+
+msgid "{oidc:client:reset_secret_warning}"
+msgstr "Questa operazione cambierà il tuo client secret è non potrà essere ripristinata."
+
+msgid "{oidc:client:secret_updated}"
+msgstr "Il client secret è stato aggiornato con successo."
+
+msgid "{oidc:install:oauth2}"
+msgstr "Controlla se vuoi migrare dati dal vecchio modulo oauth2"
+
+msgid "{oidc:install:description}"
+msgstr "This wizard will help you create the database and migrate information if necessary."
+
+msgid "{oidc:install:finished}"
+msgstr "Database creato con successo."
+
+msgid "{oidc:import:finished}"
+msgstr "I clients del vecchio modulo oauth2 sono stati importati con successo."
+
+msgid "{oidc:client:is_enabled}"
+msgstr "Attivato"
