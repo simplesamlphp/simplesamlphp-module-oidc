@@ -25,10 +25,12 @@ function oidc_hook_frontpage(&$links)
             'text' => [
                 'en' => 'OpenID Connect Installation',
                 'es' => 'Instalación de OpenID Connect',
+                'it' => 'Installazione di OpenID Connect',
             ],
             'shorttext' => [
                 'en' => 'OpenID Connect Installation',
                 'es' => 'Instalación de OpenID Connect',
+                'it' => 'Installazione di OpenID Connect',
             ],
         ];
 
@@ -40,10 +42,12 @@ function oidc_hook_frontpage(&$links)
         'text' => [
             'en' => 'OpenID Connect Client Registry',
             'es' => 'Registro de clientes OpenID Connect',
+            'it' => 'Registro dei clients OpenID Connect',
         ],
         'shorttext' => [
             'en' => 'OpenID Connect Registry',
             'es' => 'Registro OpenID Connect',
+            'it' => 'Registro dei clients OpenID Connect',
         ],
     ];
 }
