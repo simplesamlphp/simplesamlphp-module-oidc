@@ -15,10 +15,11 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Entity;
 
 use League\OAuth2\Server\Entities\UserEntityInterface;
+use OpenIDConnectServer\Entities\ClaimSetInterface;
 use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\MementoInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
-class UserEntity implements UserEntityInterface, MementoInterface
+class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInterface
 {
     /**
      * @var string
