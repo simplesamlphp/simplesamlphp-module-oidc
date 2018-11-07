@@ -32,12 +32,12 @@ class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInter
     private $claims;
 
     /**
-     * @var \DateTimeImmutable
+     * @var \DateTime
      */
     private $createdAt;
 
     /**
-     * @var \DateTimeImmutable
+     * @var \DateTime
      */
     private $updatedAt;
 
@@ -103,12 +103,12 @@ class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInter
         return $this;
     }
 
-    public function getUpdatedAt(): \DateTimeImmutable
+    public function getUpdatedAt(): \DateTime
     {
         return $this->updatedAt;
     }
 
-    public function getCreatedAt(): \DateTimeImmutable
+    public function getCreatedAt(): \DateTime
     {
         return $this->createdAt;
     }

@@ -22,6 +22,7 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration;
+use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
 class RefreshTokenRepositoryTest extends TestCase
 {
@@ -73,7 +74,7 @@ class RefreshTokenRepositoryTest extends TestCase
 
         $refreshToken = self::$repository->getNewRefreshToken();
         $refreshToken->setIdentifier(self::REFRESH_TOKEN_ID);
-        $refreshToken->setExpiryDateTime(new \DateTime('yesterday'));
+        $refreshToken->setExpiryDateTime(TimestampGenerator::utc('yesterday'));
         $refreshToken->setAccessToken($accessToken);
 
         self::$repository->persistNewRefreshToken($refreshToken);

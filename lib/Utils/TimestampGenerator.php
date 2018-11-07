@@ -18,6 +18,6 @@ class TimestampGenerator
 {
     public static function utc($time = 'now')
     {
-        return new \DateTimeImmutable($time, new \DateTimeZone('UTC'));
+        return new \DateTime($time, new \DateTimeZone('UTC'));
     }
 }

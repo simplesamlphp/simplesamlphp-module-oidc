@@ -21,6 +21,7 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration;
+use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
 class AccessTokenRepositoryTest extends TestCase
 {
@@ -68,7 +69,7 @@ class AccessTokenRepositoryTest extends TestCase
 
         $accessToken = self::$repository->getNewToken(ClientRepositoryTest::getClient(self::CLIENT_ID), $scopes, self::USER_ID);
         $accessToken->setIdentifier(self::ACCESS_TOKEN_ID);
-        $accessToken->setExpiryDateTime(new \DateTime('yesterday'));
+        $accessToken->setExpiryDateTime(TimestampGenerator::utc('yesterday'));
 
         self::$repository->persistNewAccessToken($accessToken);
 
