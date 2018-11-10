@@ -32,7 +32,7 @@ class RefreshTokenEntity implements RefreshTokenEntityInterface, MementoInterfac
         $refreshToken->identifier = $state['id'];
         $refreshToken->expiryDateTime = TimestampGenerator::utc($state['expires_at']);
         $refreshToken->accessToken = $state['access_token'];
-        $refreshToken->isRevoked = $state['is_revoked'];
+        $refreshToken->isRevoked = (bool) $state['is_revoked'];
 
         return $refreshToken;
     }

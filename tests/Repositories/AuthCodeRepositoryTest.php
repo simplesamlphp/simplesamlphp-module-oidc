@@ -21,6 +21,7 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\AuthCodeRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration;
+use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
 class AuthCodeRepositoryTest extends TestCase
 {
@@ -72,7 +73,7 @@ class AuthCodeRepositoryTest extends TestCase
         $authCode->setIdentifier(self::AUTH_CODE_ID);
         $authCode->setClient(ClientRepositoryTest::getClient(self::CLIENT_ID));
         $authCode->setUserIdentifier(self::USER_ID);
-        $authCode->setExpiryDateTime(new \DateTime('yesterday'));
+        $authCode->setExpiryDateTime(TimestampGenerator::utc('yesterday'));
         $authCode->setRedirectUri(self::REDIRECT_URI);
         foreach ($scopes as $scope) {
             $authCode->addScope($scope);
