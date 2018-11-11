@@ -15,10 +15,11 @@
 namespace SimpleSAML\Modules\OpenIDConnect;
 
 use OpenIDConnectServer\ClaimExtractor;
+use OpenIDConnectServer\Entities\ClaimSetEntity;
 
 class ClaimTranslatorExtractor extends ClaimExtractor
 {
-    public static $translationTable = [
+    protected $translationTable = [
         'sub' => [
             'eduPersonPrincipalName',
             'eduPersonTargetedID',
@@ -83,11 +84,31 @@ class ClaimTranslatorExtractor extends ClaimExtractor
         ],
     ];
 
-    private function translateSamlAttributesToClaims($samlAttributes)
+    /**
+     * ClaimTranslatorExtractor constructor.
+     *
+     * @param ClaimSetEntity[] $claimSets
+     * @param array            $translationTable
+     *
+     * @throws \OpenIDConnectServer\Exception\InvalidArgumentException
+     */
+    public function __construct($claimSets = [], $translationTable = [])
+    {
+        $this->translationTable = array_merge($this->translationTable, $translationTable);
+
+        $this->protectedClaims[] = 'sub';
+        $this->addClaimSet(new ClaimSetEntity('openid', [
+            'sub',
+        ]));
+
+        parent::__construct($claimSets);
+    }
+
+    private function translateSamlAttributesToClaims($samlAttributes): array
     {
         $claims = [];
 
-        foreach (self::$translationTable as $claim => $samlMatches) {
+        foreach ($this->translationTable as $claim => $samlMatches) {
             foreach ($samlMatches as $samlMatch) {
                 if (array_key_exists($samlMatch, $samlAttributes)) {
                     $claims[$claim] = current($samlAttributes[$samlMatch]);

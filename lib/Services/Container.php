@@ -22,8 +22,10 @@ use League\OAuth2\Server\ResourceServer;
 use Psr\Container\ContainerInterface;
 use Psr\Container\NotFoundExceptionInterface;
 use SimpleSAML\Database;
+use SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor;
 use SimpleSAML\Modules\OpenIDConnect\Factories\AuthorizationServerFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\AuthSimpleFactory;
+use SimpleSAML\Modules\OpenIDConnect\Factories\ClaimTranslatorExtractorFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\Grant\AuthCodeGrantFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\Grant\ImplicitGrantFactory;
@@ -105,9 +107,15 @@ class Container implements ContainerInterface
         $enablePKCE = $configurationService->getOpenIDConnectConfiguration()->getBoolean('pkce', false);
         $passPhrase = $configurationService->getOpenIDConnectConfiguration()->getString('pass_phrase', null);
 
+        $claimTranslatorExtractor = (new ClaimTranslatorExtractorFactory(
+            $configurationService
+        ))->build();
+        $this->services[ClaimTranslatorExtractor::class] = $claimTranslatorExtractor;
+
         $idTokenResponseFactory = new IdTokenResponseFactory(
             $userRepository,
-            $configurationService
+            $configurationService,
+            $claimTranslatorExtractor
         );
         $this->services[IdTokenResponseFactory::class] = $idTokenResponseFactory;
 
