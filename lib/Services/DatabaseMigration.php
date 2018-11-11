@@ -171,12 +171,12 @@ EOT
         );
     }
 
-    private function generateIdentifierName(array $columnNames, $prefix='', $maxSize=30)
+    private function generateIdentifierName(array $columnNames, $prefix = '', $maxSize = 30)
     {
-        $hash = implode("", array_map(function ($column) {
+        $hash = implode('', array_map(function ($column) {
             return dechex(crc32($column));
         }, $columnNames));
 
-        return strtoupper(substr("{$prefix}_{$hash}", 0, $maxSize));
+        return mb_strtoupper(mb_substr("{$prefix}_{$hash}", 0, $maxSize));
     }
 }
