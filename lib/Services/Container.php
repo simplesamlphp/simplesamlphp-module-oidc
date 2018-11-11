@@ -135,11 +135,11 @@ class Container implements ContainerInterface
             $clientRepository,
             $accessTokenRepository,
             $scopeRepository,
-            $userRepository,
             $this->services[AuthCodeGrant::class],
             $this->services[ImplicitGrant::class],
             $this->services[RefreshTokenGrant::class],
             $accessTokenDuration,
+            $idTokenResponseFactory,
             $passPhrase
         );
         $this->services[AuthorizationServer::class] = $authorizationServerFactory->build();
