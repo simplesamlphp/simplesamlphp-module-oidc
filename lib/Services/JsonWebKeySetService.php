@@ -34,6 +34,7 @@ class JsonWebKeySetService
         }
 
         $jwk = JWKFactory::createFromKeyFile($publicKeyPath, null, [
+            'kid' => 'oidc',
             'use' => 'sig',
             'alg' => 'RS256',
         ]);
