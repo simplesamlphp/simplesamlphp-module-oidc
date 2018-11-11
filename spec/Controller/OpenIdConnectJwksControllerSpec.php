@@ -42,6 +42,7 @@ class OpenIdConnectJwksControllerSpec extends ObjectBehavior
                 'n' => 'n',
                 'e' => 'e',
                 'use' => 'sig',
+                'kid' => 'oidc',
                 'alg' => 'RS256',
             ],
         ];

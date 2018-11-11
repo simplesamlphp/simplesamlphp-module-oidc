@@ -60,6 +60,7 @@ class JsonWebKeySetServiceTest extends TestCase
         \SimpleSAML_Configuration::loadFromArray($config, '', 'simplesaml');
 
         $jwk = JWKFactory::createFromKey(self::$pkGeneratePublic, null, [
+            'kid' => 'oidc',
             'use' => 'sig',
             'alg' => 'RS256',
         ]);

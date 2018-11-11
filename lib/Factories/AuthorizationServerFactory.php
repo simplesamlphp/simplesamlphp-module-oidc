@@ -19,8 +19,6 @@ use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Grant\AuthCodeGrant;
 use League\OAuth2\Server\Grant\ImplicitGrant;
 use League\OAuth2\Server\Grant\RefreshTokenGrant;
-use OpenIDConnectServer\IdTokenResponse;
-use SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository;
@@ -65,26 +63,30 @@ class AuthorizationServerFactory
      * @var string|null
      */
     private $passPhrase;
+    /**
+     * @var IdTokenResponseFactory
+     */
+    private $idTokenResponseFactory;
 
     public function __construct(
         ClientRepository $clientRepository,
         AccessTokenRepository $accessTokenRepository,
         ScopeRepository $scopeRepository,
-        UserRepository $userRepository,
         AuthCodeGrant $authCodeGrant,
         ImplicitGrant $implicitGrant,
         RefreshTokenGrant $refreshTokenGrant,
         \DateInterval $accessTokenDuration,
+        IdTokenResponseFactory $idTokenResponseFactory,
         string $passPhrase = null
     ) {
         $this->clientRepository = $clientRepository;
         $this->accessTokenRepository = $accessTokenRepository;
         $this->scopeRepository = $scopeRepository;
-        $this->userRepository = $userRepository;
         $this->authCodeGrant = $authCodeGrant;
         $this->implicitGrant = $implicitGrant;
         $this->refreshTokenGrant = $refreshTokenGrant;
         $this->accessTokenDuration = $accessTokenDuration;
+        $this->idTokenResponseFactory = $idTokenResponseFactory;
         $this->passPhrase = $passPhrase;
     }
 
@@ -92,6 +94,7 @@ class AuthorizationServerFactory
     {
         $privateKeyPath = Config::getCertPath('oidc_module.pem');
         $encryptionKey = Config::getSecretSalt();
+        $idTokenResponse = $this->idTokenResponseFactory->build();
 
         $authorizationServer = new AuthorizationServer(
             $this->clientRepository,
@@ -99,7 +102,7 @@ class AuthorizationServerFactory
             $this->scopeRepository,
             new CryptKey($privateKeyPath, $this->passPhrase),
             $encryptionKey,
-            new IdTokenResponse($this->userRepository, new ClaimTranslatorExtractor())
+            $idTokenResponse
         );
 
         $authorizationServer->enableGrantType(
