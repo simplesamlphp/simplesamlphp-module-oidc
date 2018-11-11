@@ -35,15 +35,21 @@ class OpenIdConnectUserInfoController
      * @var UserRepository
      */
     private $userRepository;
+    /**
+     * @var ClaimTranslatorExtractor
+     */
+    private $claimTranslatorExtractor;
 
     public function __construct(
         ResourceServer $resourceServer,
         AccessTokenRepository $accessTokenRepository,
-        UserRepository $userRepository
+        UserRepository $userRepository,
+        ClaimTranslatorExtractor $claimTranslatorExtractor
     ) {
         $this->resourceServer = $resourceServer;
         $this->accessTokenRepository = $accessTokenRepository;
         $this->userRepository = $userRepository;
+        $this->claimTranslatorExtractor = $claimTranslatorExtractor;
     }
 
     public function __invoke(ServerRequest $request)
@@ -56,8 +62,7 @@ class OpenIdConnectUserInfoController
         $accessToken = $this->accessTokenRepository->findById($tokenId);
 
         $user = $this->userRepository->getUserEntityByIdentifier($accessToken->getUserIdentifier());
-        $translator = new ClaimTranslatorExtractor();
-        $claims = $translator->extract($scopes, $user->getClaims());
+        $claims = $this->claimTranslatorExtractor->extract($scopes, $user->getClaims());
 
         return new JsonResponse($claims);
     }

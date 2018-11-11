@@ -17,6 +17,7 @@ namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
 use League\OAuth2\Server\ResourceServer;
 use PhpSpec\ObjectBehavior;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor;
 use SimpleSAML\Modules\OpenIDConnect\Controller\OpenIdConnectUserInfoController;
 use SimpleSAML\Modules\OpenIDConnect\Entity\AccessTokenEntity;
 use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
@@ -30,9 +31,10 @@ class OpenIdConnectUserInfoControllerSpec extends ObjectBehavior
     public function let(
         ResourceServer $resourceServer,
         AccessTokenRepository $accessTokenRepository,
-        UserRepository $userRepository
+        UserRepository $userRepository,
+        ClaimTranslatorExtractor $claimTranslatorExtractor
     ) {
-        $this->beConstructedWith($resourceServer, $accessTokenRepository, $userRepository);
+        $this->beConstructedWith($resourceServer, $accessTokenRepository, $userRepository, $claimTranslatorExtractor);
     }
 
     public function it_is_initializable()
@@ -47,7 +49,8 @@ class OpenIdConnectUserInfoControllerSpec extends ObjectBehavior
         AccessTokenRepository $accessTokenRepository,
         AccessTokenEntity $accessTokenEntity,
         UserRepository $userRepository,
-        UserEntity $userEntity
+        UserEntity $userEntity,
+        ClaimTranslatorExtractor $claimTranslatorExtractor
     ) {
         $resourceServer->validateAuthenticatedRequest($request)->shouldBeCalled()->willReturn($authorization);
         $authorization->getAttribute('oauth_access_token_id')->shouldBeCalled()->willReturn('tokenid');
@@ -57,6 +60,9 @@ class OpenIdConnectUserInfoControllerSpec extends ObjectBehavior
         $accessTokenEntity->getUserIdentifier()->shouldBeCalled()->willReturn('userid');
         $userRepository->getUserEntityByIdentifier('userid')->shouldBeCalled()->willReturn($userEntity);
         $userEntity->getClaims()->shouldBeCalled()->willReturn(['mail' => ['userid@localhost.localdomain']]);
+        $claimTranslatorExtractor
+            ->extract(['openid', 'email'], ['mail' => ['userid@localhost.localdomain']])
+            ->shouldBeCalled()->willReturn(['email' => 'userid@localhost.localdomain']);
 
         $this->__invoke($request)->shouldHavePayload(['email' => 'userid@localhost.localdomain']);
     }
