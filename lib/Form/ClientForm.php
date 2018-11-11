@@ -15,6 +15,7 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Form;
 
 use Nette\Forms\Form;
+use SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository;
 
 class ClientForm extends Form
 {
@@ -56,10 +57,10 @@ class ClientForm extends Form
             ->setRequired('Select one Auth Source')
         ;
 
-        $oidcConfig = \SimpleSAML_Configuration::getOptionalConfig('module_oidc.php');
+        $scopeRepository = new ScopeRepository();
         $items = array_map(function ($item) {
             return $item['description'];
-        }, $oidcConfig->getArray('scopes', []));
+        }, $scopeRepository->findAll());
 
         $this->addMultiSelect('scopes', '{oidc:client:scopes}')
             ->setAttribute('class', 'ui fluid dropdown')
@@ -94,6 +95,13 @@ class ClientForm extends Form
             return !empty(trim($redirect_uri));
         });
         $values['redirect_uri'] = $redirect_uris;
+        // openid scope is mandatory
+        $values['scopes'] = array_unique(
+            array_merge(
+                $values['scopes'],
+                ['openid']
+            )
+        );
 
         return $values;
     }

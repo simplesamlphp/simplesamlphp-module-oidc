@@ -33,31 +33,82 @@ $config = [
 
     // You can create as many scopes as you want and assign attributes to them
     'scopes' => [
-        'basic' => [
-            'description' => 'basic scope',
-        ],
-        'openid' => [
-            'description' => 'openId scope',
-        ],
-        'profile' => [
-            'description' => 'profile claims',
-            'attributes' => ['name', 'family_name', 'given_name', ''],
-        ],
-        'email' => [
-            'description' => 'email and email_verified claims',
-        ],
-        'address' => [
-            'description' => 'address claim',
-        ],
-        'phone' => [
-            'description' => 'phone_number and phone_number_verified claims',
-        ],
-        'private' => [
-            'description' => 'private claims',
-            'private' => true, // default is false
-        ],
+        /*
+         * Optional. You can add more scopes.
+         */
+//        'private' => [
+//            'description' => 'private scope',
+//            'attributes' => ['national_document_id']
+//        ],
     ],
+    'translate' => [
+        /*
+         * This is the default translate table from SAML to OIDC.
+         * You can change here the behaviour or add more translation to your
+         * private attributes scopes
+         */
 
-    // Namespace
-    'namespace' => false,
+//        'sub' => [
+//            'eduPersonPrincipalName',
+//            'eduPersonTargetedID',
+//            'eduPersonUniqueId',
+//        ],
+//        'family_name' => [
+//            'sn',
+//        ],
+//        'given_name' => [
+//            'givenName',
+//        ],
+//        'middle_name' => [
+//            // Empty
+//        ],
+//        'nickname' => [
+//            'eduPersonNickname',
+//        ],
+//        'preferred_username' => [
+//            'uid',
+//        ],
+//        'profile' => [
+//            'labeledURI',
+//            'description',
+//        ],
+//        'picture' => [
+//            'jpegPhoto',
+//        ],
+//        'website' => [
+//            // Empty
+//        ],
+//        'gender' => [
+//            // Empty
+//        ],
+//        'birthdate' => [
+//            // Empty
+//        ],
+//        'zoneinfo' => [
+//            // Empty
+//        ],
+//        'locale' => [
+//            'preferredLanguage',
+//        ],
+//        'updated_at' => [
+//            // Empty
+//        ],
+//        'email' => [
+//            'mail',
+//        ],
+//        'email_verified' => [
+//            // Empty
+//        ],
+//        'address' => [
+//            'postalAddress',
+//        ],
+//        'phone_number' => [
+//            'mobile',
+//            'telephoneNumber',
+//            'homePhone',
+//        ],
+//        'phone_number_verified' => [
+//            // Empty
+//        ],
+    ],
 ];
