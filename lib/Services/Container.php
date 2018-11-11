@@ -28,6 +28,7 @@ use SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\Grant\AuthCodeGrantFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\Grant\ImplicitGrantFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\Grant\RefreshTokenGrantFactory;
+use SimpleSAML\Modules\OpenIDConnect\Factories\IdTokenResponseFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\ResourceServerFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
@@ -103,6 +104,12 @@ class Container implements ContainerInterface
         $refreshTokenDuration = new \DateInterval($configurationService->getOpenIDConnectConfiguration()->getString('refreshTokenDuration'));
         $enablePKCE = $configurationService->getOpenIDConnectConfiguration()->getBoolean('pkce', false);
         $passPhrase = $configurationService->getOpenIDConnectConfiguration()->getString('pass_phrase', null);
+
+        $idTokenResponseFactory = new IdTokenResponseFactory(
+            $userRepository,
+            $configurationService
+        );
+        $this->services[IdTokenResponseFactory::class] = $idTokenResponseFactory;
 
         $authCodeGrantFactory = new AuthCodeGrantFactory(
             $authCodeRepository,
