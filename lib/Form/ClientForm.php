@@ -57,14 +57,11 @@ class ClientForm extends Form
             ->setRequired('Select one Auth Source')
         ;
 
-        $scopeRepository = new ScopeRepository();
-        $items = array_map(function ($item) {
-            return $item['description'];
-        }, $scopeRepository->findAll());
+        $scopes = $this->getScopes();
 
         $this->addMultiSelect('scopes', '{oidc:client:scopes}')
             ->setAttribute('class', 'ui fluid dropdown')
-            ->setItems($items)
+            ->setItems($scopes)
             ->setRequired('Select one scope at least');
     }
 
@@ -112,7 +109,20 @@ class ClientForm extends Form
     public function setDefaults($values, $erase = false)
     {
         $values['redirect_uri'] = implode("\n", $values['redirect_uri']);
+        $values['scopes'] = array_intersect($values['scopes'], array_keys($this->getScopes()));
 
         return parent::setDefaults($values, $erase);
+    }
+
+    /**
+     * @return array
+     */
+    private function getScopes(): array
+    {
+        $scopeRepository = new ScopeRepository();
+        $items = array_map(function ($item) {
+            return $item['description'];
+        }, $scopeRepository->findAll());
+        return $items;
     }
 }
