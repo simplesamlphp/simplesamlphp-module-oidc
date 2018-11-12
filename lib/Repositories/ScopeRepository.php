@@ -49,7 +49,7 @@ class ScopeRepository extends AbstractDatabaseRepository implements ScopeReposit
 
     public function findAll()
     {
-        return array_merge(static::$standardClaims, $this->config->getArray('scopes'));
+        return array_merge(static::$standardClaims, $this->config->getArray('scopes', []));
     }
 
     /**
@@ -57,7 +57,7 @@ class ScopeRepository extends AbstractDatabaseRepository implements ScopeReposit
      */
     public function getScopeEntityByIdentifier($identifier)
     {
-        $scopes = array_merge(static::$standardClaims, $this->config->getArray('scopes'));
+        $scopes = array_merge(static::$standardClaims, $this->config->getArray('scopes'), []);
 
         if (false === array_key_exists($identifier, $scopes)) {
             return null;

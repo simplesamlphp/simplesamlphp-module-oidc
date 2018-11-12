@@ -14,6 +14,7 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Controller;
 
+use SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use Zend\Diactoros\Response\JsonResponse;
 use Zend\Diactoros\ServerRequest;
@@ -24,15 +25,23 @@ class OpenIdConnectDiscoverConfigurationController
      * @var ConfigurationService
      */
     private $configurationService;
+    /**
+     * @var ScopeRepository
+     */
+    private $scopeRepository;
 
-    public function __construct(ConfigurationService $configurationService)
+    public function __construct(
+        ConfigurationService $configurationService,
+        ScopeRepository $scopeRepository
+    )
     {
         $this->configurationService = $configurationService;
+        $this->scopeRepository = $scopeRepository;
     }
 
     public function __invoke(ServerRequest $serverRequest)
     {
-        $scopes = $this->configurationService->getOpenIDConnectConfiguration()->getArray('scopes');
+        $scopes = $this->scopeRepository->findAll();
         $pkceIsEnabled = $this->configurationService->getOpenIDConnectConfiguration()->getBoolean('pkce');
 
         $metadata['issuer'] = $this->configurationService->getSimpleSAMLSelfURLHost();
