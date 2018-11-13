@@ -38,7 +38,7 @@ class DatabaseMigration
         $implementedVersions = $this->versions();
         $notImplementedVersions = array_filter(get_class_methods($this), function ($method) use ($implementedVersions) {
             if (preg_match('/^version(\d+)/', $method, $matches)) {
-                return !in_array($matches[1], $implementedVersions, true);
+                return !\in_array($matches[1], $implementedVersions, true);
             }
 
             return false;
@@ -64,12 +64,12 @@ class DatabaseMigration
         $versionsTablename = $this->versionsTableName();
         $versions = $this->versions();
 
-        if (!in_array('20180305180300', $versions, true)) {
+        if (!\in_array('20180305180300', $versions, true)) {
             $this->version20180305180300();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20180305180300')");
         }
 
-        if (!in_array('20180425203400', $versions, true)) {
+        if (!\in_array('20180425203400', $versions, true)) {
             $this->version20180425203400();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20180425203400')");
         }

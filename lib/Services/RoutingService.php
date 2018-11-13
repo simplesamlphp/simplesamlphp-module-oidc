@@ -55,7 +55,7 @@ class RoutingService
             return $emitter->emit($response);
         }
 
-        throw new \SimpleSAML_Error_Error('Response type not supported: '.get_class($response));
+        throw new \SimpleSAML_Error_Error('Response type not supported: '.\get_class($response));
     }
 
     protected static function getController(string $controllerClassname, ContainerInterface $container)

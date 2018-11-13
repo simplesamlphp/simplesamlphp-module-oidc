@@ -96,7 +96,7 @@ class ClaimTranslatorExtractor extends ClaimExtractor
     {
         $this->translationTable = array_merge($this->translationTable, $translationTable);
 
-        $this->protectedClaims[] = 'sub';
+        $this->protectedClaims[] = 'openid';
         $this->addClaimSet(new ClaimSetEntity('openid', [
             'sub',
         ]));
