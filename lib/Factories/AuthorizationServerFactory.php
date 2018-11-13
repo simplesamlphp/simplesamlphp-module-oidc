@@ -22,7 +22,6 @@ use League\OAuth2\Server\Grant\RefreshTokenGrant;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
 use SimpleSAML\Utils\Config;
 
 class AuthorizationServerFactory

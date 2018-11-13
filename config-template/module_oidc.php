@@ -115,6 +115,5 @@ $config = [
 //        'national_document_id' => [
 //            'schacPersonalUniqueId',
 //        ],
-
     ],
 ];
