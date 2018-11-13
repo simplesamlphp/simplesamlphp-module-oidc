@@ -87,6 +87,10 @@ $config = [
 ];
 ```
 
+#### Cron hook
+
+This module requires [cron module](https://simplesamlphp.org/docs/stable/cron:cron) is active to remove old tokens.
+
 ### Create the OpenID Connect keys
 
 The oidc library used generates Json Web Tokens to create the Access Tokens, so you need to create a public and private cert keys.
