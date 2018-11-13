@@ -47,7 +47,6 @@ $config = [
          * You can change here the behaviour or add more translation to your
          * private attributes scopes
          */
-
 //        'sub' => [
 //            'eduPersonPrincipalName',
 //            'eduPersonTargetedID',
@@ -110,5 +109,12 @@ $config = [
 //        'phone_number_verified' => [
 //            // Empty
 //        ],
+        /*
+         * Optional scopes attributes
+         */
+//        'national_document_id' => [
+//            'schacPersonalUniqueId',
+//        ],
+
     ],
 ];
