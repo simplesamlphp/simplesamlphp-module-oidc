@@ -15,9 +15,20 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Factories;
 
 use Nette\Forms\Form;
+use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 
 class FormFactory
 {
+    /**
+     * @var ConfigurationService
+     */
+    private $configurationService;
+
+    public function __construct(ConfigurationService $configurationService)
+    {
+        $this->configurationService = $configurationService;
+    }
+
     /**
      * @param string $name Form name
      *
@@ -32,6 +43,6 @@ class FormFactory
             throw new \SimpleSAML_Error_Exception("Invalid form: {$classname}");
         }
 
-        return new $classname();
+        return new $classname($this->configurationService);
     }
 }

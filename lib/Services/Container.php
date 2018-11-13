@@ -82,7 +82,7 @@ class Container implements ContainerInterface
         $authSimpleFactory = new AuthSimpleFactory();
         $this->services[AuthSimpleFactory::class] = $authSimpleFactory;
 
-        $formFactory = new FormFactory();
+        $formFactory = new FormFactory($configurationService);
         $this->services[FormFactory::class] = $formFactory;
 
         $jsonWebKeySetService = new JsonWebKeySetService();
