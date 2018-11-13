@@ -49,6 +49,9 @@ class Container implements ContainerInterface
         $simpleSAMLConfiguration = \SimpleSAML_Configuration::getInstance();
         $oidcModuleConfiguration = \SimpleSAML_Configuration::getConfig('module_oidc.php');
 
+        $configurationService = new ConfigurationService();
+        $this->services[ConfigurationService::class] = $configurationService;
+
         $clientRepository = new ClientRepository();
         $this->services[ClientRepository::class] = $clientRepository;
 
@@ -64,7 +67,7 @@ class Container implements ContainerInterface
         $accessTokenRepository = new AccessTokenRepository();
         $this->services[AccessTokenRepository::class] = $accessTokenRepository;
 
-        $scopeRepository = new ScopeRepository();
+        $scopeRepository = new ScopeRepository($configurationService);
         $this->services[ScopeRepository::class] = $scopeRepository;
 
         $database = Database::getInstance();
@@ -75,9 +78,6 @@ class Container implements ContainerInterface
 
         $databaseLegacyOAuth2Import = new DatabaseLegacyOAuth2Import($clientRepository);
         $this->services[DatabaseLegacyOAuth2Import::class] = $databaseLegacyOAuth2Import;
-
-        $configurationService = new ConfigurationService();
-        $this->services[ConfigurationService::class] = $configurationService;
 
         $authSimpleFactory = new AuthSimpleFactory();
         $this->services[AuthSimpleFactory::class] = $authSimpleFactory;

@@ -33,9 +33,9 @@ class ClaimTranslatorExtractorFactory
 
     public function build()
     {
-        $scopes = $this->configurationService->getOpenIDConnectConfiguration()->getArray('scopes', []);
         $translatorTable = $this->configurationService->getOpenIDConnectConfiguration()->getArray('translate', []);
 
+        $scopes = $this->configurationService->getOpenIDPrivateScopes();
         $scopes = array_map(function ($config, $scope) {
             return new ClaimSetEntity($scope, $config['attributes'] ?? []);
         }, $scopes, array_keys($scopes));

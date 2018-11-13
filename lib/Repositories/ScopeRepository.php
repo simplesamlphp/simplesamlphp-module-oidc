@@ -21,24 +21,6 @@ use SimpleSAML\Modules\OpenIDConnect\Entity\ScopeEntity;
 
 class ScopeRepository extends AbstractDatabaseRepository implements ScopeRepositoryInterface
 {
-    protected static $standardClaims = [
-        'openid' => [
-            'description' => 'openid',
-        ],
-        'profile' => [
-            'description' => 'profile',
-        ],
-        'email' => [
-            'description' => 'email',
-        ],
-        'address' => [
-            'description' => 'address',
-        ],
-        'phone' => [
-            'description' => 'phone',
-        ],
-    ];
-
     /**
      * @codeCoverageIgnore
      */
@@ -47,17 +29,12 @@ class ScopeRepository extends AbstractDatabaseRepository implements ScopeReposit
         return null;
     }
 
-    public function findAll()
-    {
-        return array_merge(static::$standardClaims, $this->config->getArray('scopes', []));
-    }
-
     /**
      * {@inheritdoc}
      */
     public function getScopeEntityByIdentifier($identifier)
     {
-        $scopes = array_merge(static::$standardClaims, $this->config->getArray('scopes'), []);
+        $scopes = $this->configurationService->getOpenIDScopes();
 
         if (false === array_key_exists($identifier, $scopes)) {
             return null;
