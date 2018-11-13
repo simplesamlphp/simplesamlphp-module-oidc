@@ -14,35 +14,32 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Factories;
 
-use Nette\Forms\Form;
+use OpenIDConnectServer\Entities\ClaimSetEntity;
+use SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 
-class FormFactory
+class ClaimTranslatorExtractorFactory
 {
     /**
      * @var ConfigurationService
      */
     private $configurationService;
 
-    public function __construct(ConfigurationService $configurationService)
-    {
+    public function __construct(
+        ConfigurationService $configurationService
+    ) {
         $this->configurationService = $configurationService;
     }
 
-    /**
-     * @param string $name Form name
-     *
-     * @throws \SimpleSAML_Error_Exception
-     *
-     * @return mixed
-     */
-    public function build(string $classname)
+    public function build()
     {
-        if (!class_exists($classname)
-            && $classname instanceof Form) {
-            throw new \SimpleSAML_Error_Exception("Invalid form: {$classname}");
-        }
+        $translatorTable = $this->configurationService->getOpenIDConnectConfiguration()->getArray('translate', []);
 
-        return new $classname($this->configurationService);
+        $scopes = $this->configurationService->getOpenIDPrivateScopes();
+        $scopes = array_map(function ($config, $scope) {
+            return new ClaimSetEntity($scope, $config['attributes'] ?? []);
+        }, $scopes, array_keys($scopes));
+
+        return new ClaimTranslatorExtractor($scopes, $translatorTable);
     }
 }

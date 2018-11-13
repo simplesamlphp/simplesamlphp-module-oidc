@@ -31,13 +31,19 @@ class IdTokenResponseFactory
      * @var ConfigurationService
      */
     private $configurationService;
+    /**
+     * @var ClaimTranslatorExtractor
+     */
+    private $claimTranslatorExtractor;
 
     public function __construct(
         UserRepository $userRepository,
-        ConfigurationService $configurationService
+        ConfigurationService $configurationService,
+        ClaimTranslatorExtractor $claimTranslatorExtractor
     ) {
         $this->userRepository = $userRepository;
         $this->configurationService = $configurationService;
+        $this->claimTranslatorExtractor = $claimTranslatorExtractor;
     }
 
     public function build()
@@ -49,7 +55,7 @@ class IdTokenResponseFactory
 
         $token = new IdTokenResponse(
             $this->userRepository,
-            new ClaimTranslatorExtractor(),
+            $this->claimTranslatorExtractor,
             $builder
         );
 

@@ -40,10 +40,6 @@ class AuthorizationServerFactory
      */
     private $scopeRepository;
     /**
-     * @var UserRepository
-     */
-    private $userRepository;
-    /**
      * @var AuthCodeGrant
      */
     private $authCodeGrant;

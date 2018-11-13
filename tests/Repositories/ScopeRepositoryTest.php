@@ -17,6 +17,7 @@ namespace Tests\SimpleSAML\Modules\OpenIDConnect\Repositories;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ScopeEntity;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository;
+use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration;
 
 class ScopeRepositoryTest extends TestCase
@@ -39,13 +40,13 @@ class ScopeRepositoryTest extends TestCase
 
     public function testGetScopeEntityByIdentifier()
     {
-        $scopeRepository = new ScopeRepository();
+        $scopeRepository = new ScopeRepository(new ConfigurationService());
 
         $scope = $scopeRepository->getScopeEntityByIdentifier('openid');
 
         $expected = ScopeEntity::fromData(
             'openid',
-            'openId scope'
+            'openid'
         );
 
         $this->assertEquals($expected, $scope);
@@ -53,7 +54,7 @@ class ScopeRepositoryTest extends TestCase
 
     public function testGetUnknownScope()
     {
-        $scopeRepository = new ScopeRepository();
+        $scopeRepository = new ScopeRepository(new ConfigurationService());
 
         $scope = $scopeRepository->getScopeEntityByIdentifier('none');
 
@@ -62,7 +63,7 @@ class ScopeRepositoryTest extends TestCase
 
     public function testFinalizeScopes()
     {
-        $scopeRepository = new ScopeRepository();
+        $scopeRepository = new ScopeRepository(new ConfigurationService());
         $scopes = [
             ScopeEntity::fromData('openid'),
             ScopeEntity::fromData('basic'),

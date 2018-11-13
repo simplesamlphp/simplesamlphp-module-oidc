@@ -34,7 +34,7 @@ class ScopeRepository extends AbstractDatabaseRepository implements ScopeReposit
      */
     public function getScopeEntityByIdentifier($identifier)
     {
-        $scopes = $this->config->getArray('scopes');
+        $scopes = $this->configurationService->getOpenIDScopes();
 
         if (false === array_key_exists($identifier, $scopes)) {
             return null;
@@ -65,7 +65,7 @@ class ScopeRepository extends AbstractDatabaseRepository implements ScopeReposit
         $userIdentifier = null
     ) {
         return array_filter($scopes, function (ScopeEntityInterface $scope) use ($clientEntity) {
-            return in_array($scope->getIdentifier(), $clientEntity->getScopes(), true);
+            return \in_array($scope->getIdentifier(), $clientEntity->getScopes(), true);
         });
     }
 }

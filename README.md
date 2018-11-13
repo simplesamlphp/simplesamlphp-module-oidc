@@ -39,6 +39,54 @@ Copy the template file to the config directory:
 
 and edit it. The options are self explained.
 
+#### Private scopes
+
+This module support the basic OIDC scopes: openid, email, address, phone and profile. You can add your own private scopes in the `module_oidc.php` config file:
+
+```php
+<?php
+
+$config = [
+    'scopes' => [
+        'private' => [
+            'description' => 'private scope',
+            'attributes' => ['national_document_id']
+        ],
+    ],
+];
+```
+
+#### Attribute translation
+
+We have a default translation table from SAML attributes to OIDC claims, based on this [REFEDS wiki article: "Mapping SAML attributes to OIDC Claims"](https://wiki.refeds.org/display/GROUPS/Mapping+SAML+attributes+to+OIDC+Claims).
+
+You can change or extend this table from `module_oidc.php` config file:
+
+```php
+<?php
+
+$config = [
+    'translate' => [
+        // Overwrite default translation
+        'sub' => [
+            'uid', // added
+            'eduPersonPrincipalName',
+            'eduPersonTargetedID',
+            'eduPersonUniqueId',
+        ],
+        // Remove default translation
+        'family_name' => [
+        ],
+
+        // New claim created from SAML attribute
+        // Used in previus private scope
+        'national_document_id' => [
+            'schacPersonalUniqueId',
+        ],
+    ],
+];
+```
+
 ### Create the OpenID Connect keys
 
 The oidc library used generates Json Web Tokens to create the Access Tokens, so you need to create a public and private cert keys.
@@ -95,3 +143,4 @@ This module is based on [Oauth2 Server from the PHP League](https://oauth2.theph
 Once the database schema has been created, you can open the _Federation_ tab from your _SimpleSAMLphp_ installation and select the option _OpenID Connect Client Registry_ inside the _Tools_ section.
 
 The module lets you create, read, update and delete all the RP you want. To see the client id and the client secret press the show button.
+

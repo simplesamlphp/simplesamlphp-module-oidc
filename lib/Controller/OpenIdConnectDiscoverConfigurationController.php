@@ -25,14 +25,15 @@ class OpenIdConnectDiscoverConfigurationController
      */
     private $configurationService;
 
-    public function __construct(ConfigurationService $configurationService)
-    {
+    public function __construct(
+        ConfigurationService $configurationService
+    ) {
         $this->configurationService = $configurationService;
     }
 
     public function __invoke(ServerRequest $serverRequest)
     {
-        $scopes = $this->configurationService->getOpenIDConnectConfiguration()->getArray('scopes');
+        $scopes = $this->configurationService->getOpenIDScopes();
         $pkceIsEnabled = $this->configurationService->getOpenIDConnectConfiguration()->getBoolean('pkce');
 
         $metadata['issuer'] = $this->configurationService->getSimpleSAMLSelfURLHost();

@@ -60,7 +60,7 @@ class OpenIdConnectInstallerController
             return new RedirectResponse(HTTP::addURLParameters('clients/', []));
         }
 
-        $oauth2Enabled = in_array('oauth2', Module::getModules(), true);
+        $oauth2Enabled = \in_array('oauth2', Module::getModules(), true);
 
         $parsedBody = $request->getParsedBody();
         if ('POST' === $request->getMethod() && $parsedBody['migrate'] ?? false) {

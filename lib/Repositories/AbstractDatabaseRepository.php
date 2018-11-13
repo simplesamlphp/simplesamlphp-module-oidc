@@ -15,6 +15,7 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Repositories;
 
 use SimpleSAML\Database;
+use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 
 abstract class AbstractDatabaseRepository
 {
@@ -26,14 +27,19 @@ abstract class AbstractDatabaseRepository
      * @var Database
      */
     protected $database;
+    /**
+     * @var ConfigurationService|null
+     */
+    protected $configurationService;
 
     /**
      * ClientRepository constructor.
      */
-    public function __construct()
+    public function __construct(ConfigurationService $configurationService = null)
     {
         $this->config = \SimpleSAML_Configuration::getOptionalConfig('module_oidc.php');
         $this->database = Database::getInstance();
+        $this->configurationService = $configurationService;
     }
 
     abstract public function getTableName();
