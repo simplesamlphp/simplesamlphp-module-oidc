@@ -17,18 +17,21 @@ namespace SimpleSAML\Modules\OpenIDConnect\Factories;
 class TemplateFactory
 {
     /**
-     * @var \SimpleSAML_Configuration
+     * @var \SimpleSAML\Configuration
      */
     private $configuration;
 
-    public function __construct(\SimpleSAML_Configuration $configuration)
+    public function __construct(\SimpleSAML\Configuration $configuration)
     {
-        $this->configuration = $configuration;
+        $config = $configuration->toArray();
+        $config['usenewui'] = true;
+
+        $this->configuration = new \SimpleSAML\Configuration($config, 'oidc');
     }
 
-    public function render(string $templateName, array $data = []): \SimpleSAML_XHTML_Template
+    public function render(string $templateName, array $data = []): \SimpleSAML\XHTML\Template
     {
-        $template = new \SimpleSAML_XHTML_Template($this->configuration, $templateName);
+        $template = new \SimpleSAML\XHTML\Template($this->configuration, $templateName);
         $template->data += $data;
 
         return $template;

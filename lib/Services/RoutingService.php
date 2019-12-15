@@ -43,7 +43,7 @@ class RoutingService
         /** @var callable $controller */
         $response = $controller($serverRequest);
 
-        if ($response instanceof \SimpleSAML_XHTML_Template) {
+        if ($response instanceof \SimpleSAML\XHTML\Template) {
             $response->data['messages'] = $container->get(SessionMessagesService::class)->getMessages();
 
             return $response->show();
