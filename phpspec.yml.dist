@@ -4,7 +4,7 @@ suites:
         namespace: SimpleSAML\Modules\OpenIDConnect
         psr4_prefix: SimpleSAML\Modules\OpenIDConnect
 extensions:
-    LeanPHP\PhpSpec\CodeCoverage\CodeCoverageExtension:
+    FriendsOfPhpSpec\PhpSpec\CodeCoverage\CodeCoverageExtension:
         format:
             - 'php'
         output:
