@@ -6,7 +6,7 @@
         By default it is less stringent about long lines than other coding standards
     </description>
 
-    <file>config-template</file>
+    <file>config-templates</file>
     <file>hooks</file>
     <file>lib</file>
     <file>spec</file>
