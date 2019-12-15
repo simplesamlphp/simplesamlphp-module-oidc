@@ -23,7 +23,9 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
 class RefreshTokenEntity implements RefreshTokenEntityInterface, MementoInterface
 {
-    use RefreshTokenTrait, EntityTrait, RevokeTokenTrait;
+    use RefreshTokenTrait;
+    use EntityTrait;
+    use RevokeTokenTrait;
 
     public static function fromState(array $state)
     {

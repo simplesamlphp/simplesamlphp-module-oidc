@@ -60,8 +60,6 @@ class IdTokenResponse extends BearerTokenResponse
     }
 
     /**
-     * @param AccessTokenEntityInterface $accessToken
-     *
      * @return array
      */
     protected function getExtraParams(AccessTokenEntityInterface $accessToken)

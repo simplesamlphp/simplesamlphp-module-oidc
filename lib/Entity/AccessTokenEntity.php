@@ -26,7 +26,10 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
 class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
 {
-    use AccessTokenTrait, TokenEntityTrait, EntityTrait, RevokeTokenTrait;
+    use AccessTokenTrait;
+    use TokenEntityTrait;
+    use EntityTrait;
+    use RevokeTokenTrait;
 
     private function __construct()
     {
@@ -35,9 +38,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
     /**
      * Create new Access Token from data.
      *
-     * @param ClientEntityInterface      $clientEntity
      * @param array|ScopeEntityInterface $scopes
-     * @param string|null                $userIdentifier
      *
      * @return AccessTokenEntity
      */

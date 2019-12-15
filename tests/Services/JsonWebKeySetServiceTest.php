@@ -17,6 +17,8 @@ namespace Tests\SimpleSAML\Modules\OpenIDConnect\Services;
 use Jose\Factory\JWKFactory;
 use Jose\Object\JWKSet;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Configuration;
+use SimpleSAML\Error\Exception;
 use SimpleSAML\Modules\OpenIDConnect\Services\JsonWebKeySetService;
 
 class JsonWebKeySetServiceTest extends TestCase
@@ -57,7 +59,7 @@ class JsonWebKeySetServiceTest extends TestCase
         $config = [
             'certdir' => sys_get_temp_dir(),
         ];
-        \SimpleSAML_Configuration::loadFromArray($config, '', 'simplesaml');
+        Configuration::loadFromArray($config, '', 'simplesaml');
 
         $jwk = JWKFactory::createFromKey(self::$pkGeneratePublic, null, [
             'kid' => 'oidc',
@@ -73,14 +75,14 @@ class JsonWebKeySetServiceTest extends TestCase
     }
 
     /**
-     * @expectedException \SimpleSAML_Error_Error
+     * @expectedException Exception
      */
     public function testCertificationFileNotFound()
     {
         $config = [
             'certdir' => __DIR__,
         ];
-        \SimpleSAML_Configuration::loadFromArray($config, '', 'simplesaml');
+        Configuration::loadFromArray($config, '', 'simplesaml');
 
         new JsonWebKeySetService();
     }

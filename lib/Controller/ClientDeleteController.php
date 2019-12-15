@@ -14,6 +14,7 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Controller;
 
+use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Modules\OpenIDConnect\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
@@ -53,11 +54,11 @@ class ClientDeleteController
 
         if ('POST' === mb_strtoupper($request->getMethod())) {
             if (!$clientSecret) {
-                throw new \SimpleSAML_Error_BadRequest('Client secret is missing.');
+                throw new BadRequest('Client secret is missing.');
             }
 
             if ($clientSecret !== $client->getSecret()) {
-                throw new \SimpleSAML_Error_BadRequest('Client secret is invalid.');
+                throw new BadRequest('Client secret is invalid.');
             }
 
             $this->clientRepository->delete($client);

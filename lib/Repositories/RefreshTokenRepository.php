@@ -49,7 +49,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
      *
      * @param $tokenId
      *
-     * @return null|RefreshTokenEntity
+     * @return RefreshTokenEntity|null
      */
     public function findById($tokenId)
     {

@@ -17,14 +17,9 @@ namespace SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces;
 interface MementoInterface
 {
     /**
-     * @param array $state
-     *
      * @return self
      */
     public static function fromState(array $state);
 
-    /**
-     * @return array
-     */
     public function getState(): array;
 }

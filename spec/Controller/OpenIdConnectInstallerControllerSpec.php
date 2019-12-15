@@ -20,6 +20,7 @@ use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseLegacyOAuth2Import;
 use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
+use SimpleSAML\XHTML\Template;
 use Zend\Diactoros\Response\RedirectResponse;
 use Zend\Diactoros\ServerRequest;
 
@@ -58,7 +59,7 @@ class OpenIdConnectInstallerControllerSpec extends ObjectBehavior
     public function it_shows_information_page(
         ServerRequest $request,
         TemplateFactory $templateFactory,
-        \SimpleSAML_XHTML_Template $template
+        Template $template
     ) {
         $request->getParsedBody()->shouldBeCalled();
         $request->getMethod()->shouldBeCalled()->willReturn('GET');
@@ -74,7 +75,7 @@ class OpenIdConnectInstallerControllerSpec extends ObjectBehavior
         DatabaseMigration $databaseMigration,
         ServerRequest $request,
         TemplateFactory $templateFactory,
-        \SimpleSAML_XHTML_Template $template
+        Template $template
     ) {
         $request->getParsedBody()->shouldBeCalled();
         $request->getMethod()->shouldBeCalled()->willReturn('POST');

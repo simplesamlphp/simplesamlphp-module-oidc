@@ -17,6 +17,9 @@ namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
 use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
 use Psr\Http\Message\UriInterface;
+use SimpleSAML\Configuration;
+use SimpleSAML\Error\BadRequest;
+use SimpleSAML\Error\NotFound;
 use SimpleSAML\Modules\OpenIDConnect\Controller\ClientEditController;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory;
@@ -24,6 +27,7 @@ use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Form\ClientForm;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
+use SimpleSAML\XHTML\Template;
 use Zend\Diactoros\Response\RedirectResponse;
 use Zend\Diactoros\ServerRequest;
 
@@ -38,7 +42,7 @@ class ClientEditControllerSpec extends ObjectBehavior
         UriInterface $uri
     ) {
         $_SERVER['REQUEST_URI'] = '/';
-        \SimpleSAML_Configuration::loadFromArray([], '', 'simplesaml');
+        Configuration::loadFromArray([], '', 'simplesaml');
 
         $request->getUri()->willReturn($uri);
         $uri->getPath()->willReturn('/');
@@ -53,7 +57,7 @@ class ClientEditControllerSpec extends ObjectBehavior
 
     public function it_shows_edit_client_form(
         ServerRequest $request,
-        \SimpleSAML_XHTML_Template $template,
+        Template $template,
         TemplateFactory $templateFactory,
         FormFactory $formFactory,
         ClientForm $clientForm,
@@ -143,7 +147,7 @@ class ClientEditControllerSpec extends ObjectBehavior
     ) {
         $request->getQueryParams()->shouldBeCalled()->willReturn([]);
 
-        $this->shouldThrow(\SimpleSAML_Error_BadRequest::class)->during('__invoke', [$request]);
+        $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
     }
 
     public function it_throws_client_not_found_exception_in_edit_action(
@@ -153,6 +157,6 @@ class ClientEditControllerSpec extends ObjectBehavior
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn(null);
 
-        $this->shouldThrow(\SimpleSAML_Error_NotFound::class)->during('__invoke', [$request]);
+        $this->shouldThrow(NotFound::class)->during('__invoke', [$request]);
     }
 }

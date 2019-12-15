@@ -75,9 +75,6 @@ class DatabaseMigration
         }
     }
 
-    /**
-     * @return string
-     */
     private function versionsTableName(): string
     {
         $versionsTablename = $this->database->applyPrefix('oidc_migration_versions');

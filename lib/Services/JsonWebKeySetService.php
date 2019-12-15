@@ -16,6 +16,7 @@ namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
 use Jose\Factory\JWKFactory;
 use Jose\Object\JWKSet;
+use SimpleSAML\Error\Exception;
 use SimpleSAML\Utils\Config;
 
 class JsonWebKeySetService
@@ -30,7 +31,7 @@ class JsonWebKeySetService
         $publicKeyPath = Config::getCertPath('oidc_module.crt');
 
         if (!file_exists($publicKeyPath)) {
-            throw new \SimpleSAML_Error_Error("OpenId Connect certification file does not exists: {$publicKeyPath}.");
+            throw new Exception("OpenId Connect certification file does not exists: {$publicKeyPath}.");
         }
 
         $jwk = JWKFactory::createFromKeyFile($publicKeyPath, null, [

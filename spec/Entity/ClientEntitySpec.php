@@ -32,7 +32,7 @@ class ClientEntitySpec extends ObjectBehavior
                 'name' => 'name',
                 'description' => 'description',
                 'auth_source' => 'auth_source',
-                'redirect_uri' => \json_encode(['https://localhost/redirect']),
+                'redirect_uri' => json_encode(['https://localhost/redirect']),
                 'scopes' => json_encode([]),
                 'is_enabled' => true,
             ],
@@ -98,7 +98,7 @@ class ClientEntitySpec extends ObjectBehavior
             'name' => 'name',
             'description' => 'description',
             'auth_source' => 'auth_source',
-            'redirect_uri' => \json_encode(['https://localhost/redirect']),
+            'redirect_uri' => json_encode(['https://localhost/redirect']),
             'scopes' => json_encode([]),
             'is_enabled' => true,
         ]);

@@ -15,6 +15,7 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Factories;
 
 use Nette\Forms\Form;
+use SimpleSAML\Error\Exception;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 
 class FormFactory
@@ -32,7 +33,7 @@ class FormFactory
     /**
      * @param string $name Form name
      *
-     * @throws \SimpleSAML_Error_Exception
+     * @throws Exception
      *
      * @return mixed
      */
@@ -40,7 +41,7 @@ class FormFactory
     {
         if (!class_exists($classname)
             && $classname instanceof Form) {
-            throw new \SimpleSAML_Error_Exception("Invalid form: {$classname}");
+            throw new Exception("Invalid form: {$classname}");
         }
 
         return new $classname($this->configurationService);

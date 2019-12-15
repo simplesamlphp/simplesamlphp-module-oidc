@@ -17,6 +17,7 @@ namespace spec\SimpleSAML\Modules\OpenIDConnect\Services;
 use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
 use SimpleSAML\Auth\Simple;
+use SimpleSAML\Error\Exception;
 use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
 use SimpleSAML\Modules\OpenIDConnect\Factories\AuthSimpleFactory;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
@@ -84,7 +85,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
             'eduPersonTargetedId' => [self::USERNAME],
         ]);
 
-        $this->shouldThrow(\SimpleSAML_Error_Exception::class)->during('getAuthenticateUser', [self::AUTH_SOURCE]);
+        $this->shouldThrow(Exception::class)->during('getAuthenticateUser', [self::AUTH_SOURCE]);
     }
 
     public function getMatchers(): array

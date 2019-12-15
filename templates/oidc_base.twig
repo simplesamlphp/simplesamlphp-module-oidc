@@ -1,42 +1,123 @@
-{% extends "base.twig" %}
+{%- set moduleurlpath = '/' ~  baseurlpath ~ 'module.php/oidc' -%}
+<!DOCTYPE html>
+<html lang="en">
 
-{% set moduleurlpath = '/' ~  baseurlpath ~ 'module.php/oidc' %}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta name="robots" content="noindex, nofollow">
 
-{% block preload %}
+    <title>{{ pagetitle }}</title>
+
+
     <link rel="stylesheet" href="{{ moduleurlpath }}/resources/semantic/semantic.min.css">
+    <link rel="icon" href="/{{ baseurlpath }}resources/icons/favicon.ico">
     <style>
+        .content,
         body {
             padding: 10px 0;
             background: #1c1c1c;
             color: #333;
-            font-family: arial,tahoma,verdana,sans-serif;
+            font-family: arial, tahoma, verdana, sans-serif;
         }
-        #wrap h1 {
-            margin-top: 0;
+
+        body>.container>.segments {
+            border: 1px solid white;
+            border-radius: 0;
+        }
+
+        .ui.red.segment:not(.inverted) {
+            border-top: 6px solid #db2828 !important;
         }
     </style>
-{% endblock %}
-
-{% block contentwrapper %}
-    {% if messages is not empty %}
-        <div class="ui positive message">
-            {% for message in messages %}
-            <p>{% trans message %}</p>
-            {% endfor %}
-        </div>
+    {% if isRTL %}
+    <link rel="stylesheet" href="{{ asset("assets/css/src/default-rtl.css") }}">
     {% endif %}
-    {% block content %}{% endblock %}
+
+    {% block preload %}{% endblock %}
+</head>
+
+<body id="{{ templateId }}">
+    <div class="ui main container">
+        <div class="ui stacked segments">
+            <div class="ui inverted padded segment">
+                <div class="ui inverted header">
+                    {% if header == 'SimpleSAMLphp' %}
+                    <span class="simple">Simple</span>{# -#}
+                    <span class="saml">SAML</span>{# -#}
+                    <span class="simple">php</span>
+                    {% else %}
+                    {{ header }}
+                    {% endif %}
+                </div>
+            </div>
+            <div class="ui red segment">
+                <div class="ui breadcrumb">
+                    <a href="/{{ baseurlpath }}" class="section">
+                        SimpleSAMLphp
+                    </a>
+                    <span class="divider">/</span>
+                    <div class="active section">{{ pagetitle }}</div>
+                </div>
+
+                {% if not hideLanguageBar %}
+                <div class="ui floating dropdown labeled search icon button" style="float: right;"
+                    id="language-selector">
+                    <i class="world icon"></i>
+                    <span class="text">Select Language</span>
+                    <div class="menu">
+                        {% for key, lang in languageBar %}
+                        <div data-value="{{ key }}" class="item">{{ lang.name }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+
+
+                {% block contentwrapper %}
+
+                {% if messages is not empty %}
+                <div class="ui positive message">
+                    {% for message in messages %}
+                    <p>{% trans message %}</p>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% block content %}{% endblock %}
+
+                {% endblock %}
+            </div>
+            <div class="ui segment">
+                {% block footer %}{% include "_footer.twig" %}{% endblock %}
+            </div>
+        </div>
+    </div>
+</body>
+{% block postload %}
+<script type="text/javascript" src="{{ moduleurlpath }}/resources/jquery/jquery-3.3.1.min.js"></script>
+<script type="text/javascript" src="{{ moduleurlpath }}/resources/semantic/semantic.min.js"></script>
+<script>
+    $(document).ready(function () {
+        $('.ui.dropdown').dropdown();
+        $('#language-selector')
+            .dropdown('set selected', '{{ currentLanguage }}')
+            .dropdown({
+                onChange: function (value, text) {
+                    var url = new URL(window.location.href);
+                    url.searchParams.set('language', value);
+                    window.location.replace(url.href);
+                }
+            })
+            ;
+        $('.ui.checkbox').
+            checkbox();
+    });
+
+
+</script>
 {% endblock %}
 
-{% block postload %}
-    <script type="text/javascript" src="{{ moduleurlpath }}/resources/jquery/jquery-3.3.1.min.js"></script>
-    <script type="text/javascript" src="{{ moduleurlpath }}/resources/semantic/semantic.min.js"></script>
-    <script>
-        $('.ui.dropdown')
-            .dropdown()
-        ;
-        $('.ui.checkbox').
-            checkbox()
-        ;
-    </script>
-{% endblock %}
+</html>

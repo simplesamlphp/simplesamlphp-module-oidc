@@ -117,3 +117,6 @@ msgstr "Los clientes del módulo oauth2 han sido importados."
 
 msgid "{oidc:client:is_enabled}"
 msgstr "Activado"
+
+msgid "{oidc:oidc:title}"
+msgstr "Registro de clientes OpenID Connect"

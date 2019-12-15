@@ -15,6 +15,7 @@
 namespace Tests\SimpleSAML\Modules\OpenIDConnect\Repositories;
 
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Configuration;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ScopeEntity;
 use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
@@ -45,7 +46,7 @@ class AccessTokenRepositoryTest extends TestCase
             'database.slaves' => [],
         ];
 
-        \SimpleSAML_Configuration::loadFromArray($config, '', 'simplesaml');
+        Configuration::loadFromArray($config, '', 'simplesaml');
         (new DatabaseMigration())->migrate();
 
         $client = ClientRepositoryTest::getClient(self::CLIENT_ID);

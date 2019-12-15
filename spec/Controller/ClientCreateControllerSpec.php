@@ -17,6 +17,7 @@ namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
 use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
 use Psr\Http\Message\UriInterface;
+use SimpleSAML\Configuration;
 use SimpleSAML\Modules\OpenIDConnect\Controller\ClientCreateController;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory;
@@ -24,6 +25,7 @@ use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Form\ClientForm;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
+use SimpleSAML\XHTML\Template;
 use Zend\Diactoros\Response\RedirectResponse;
 use Zend\Diactoros\ServerRequest;
 
@@ -38,7 +40,7 @@ class ClientCreateControllerSpec extends ObjectBehavior
         UriInterface $uri
     ) {
         $_SERVER['REQUEST_URI'] = '/';
-        \SimpleSAML_Configuration::loadFromArray([], '', 'simplesaml');
+        Configuration::loadFromArray([], '', 'simplesaml');
 
         $request->getUri()->willReturn($uri);
         $uri->getPath()->willReturn('/');
@@ -53,7 +55,7 @@ class ClientCreateControllerSpec extends ObjectBehavior
 
     public function it_shows_new_client_form(
         ServerRequest $request,
-        \SimpleSAML_XHTML_Template $template,
+        Template $template,
         TemplateFactory $templateFactory,
         FormFactory $formFactory,
         ClientForm $clientForm

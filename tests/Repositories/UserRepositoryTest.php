@@ -15,6 +15,7 @@
 namespace Tests\SimpleSAML\Modules\OpenIDConnect\Repositories;
 
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Configuration;
 use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration;
@@ -32,7 +33,7 @@ class UserRepositoryTest extends TestCase
             'database.slaves' => [],
         ];
 
-        \SimpleSAML_Configuration::loadFromArray($config, '', 'simplesaml');
+        Configuration::loadFromArray($config, '', 'simplesaml');
         (new DatabaseMigration())->migrate();
     }
 
