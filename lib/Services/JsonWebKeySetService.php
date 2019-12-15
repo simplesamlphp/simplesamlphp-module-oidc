@@ -14,8 +14,8 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
-use Jose\Factory\JWKFactory;
-use Jose\Object\JWKSet;
+use Jose\Component\Core\JWKSet;
+use Jose\Component\KeyManagement\JWKFactory;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Utils\Config;
 
@@ -40,12 +40,11 @@ class JsonWebKeySetService
             'alg' => 'RS256',
         ]);
 
-        $this->jwkSet = new JWKSet();
-        $this->jwkSet->addKey($jwk);
+        $this->jwkSet = new JWKSet([$jwk]);
     }
 
     public function keys()
     {
-        return $this->jwkSet->getKeys();
+        return $this->jwkSet->all();
     }
 }

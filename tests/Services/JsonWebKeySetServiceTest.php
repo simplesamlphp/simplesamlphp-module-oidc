@@ -14,11 +14,10 @@
 
 namespace Tests\SimpleSAML\Modules\OpenIDConnect\Services;
 
-use Jose\Factory\JWKFactory;
-use Jose\Object\JWKSet;
+use Jose\Component\Core\JWKSet;
+use Jose\Component\KeyManagement\JWKFactory;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
-use SimpleSAML\Error\Exception;
 use SimpleSAML\Modules\OpenIDConnect\Services\JsonWebKeySetService;
 
 class JsonWebKeySetServiceTest extends TestCase
@@ -66,16 +65,15 @@ class JsonWebKeySetServiceTest extends TestCase
             'use' => 'sig',
             'alg' => 'RS256',
         ]);
-        $JWKSet = new JWKSet();
-        $JWKSet->addKey($jwk);
+        $JWKSet = new JWKSet([$jwk]);
 
         $jsonWebKeySetService = new JsonWebKeySetService();
 
-        $this->assertEquals($JWKSet->getKeys(), $jsonWebKeySetService->keys());
+        $this->assertEquals($JWKSet->all(), $jsonWebKeySetService->keys());
     }
 
     /**
-     * @expectedException Exception
+     * @expectedException \Exception
      */
     public function testCertificationFileNotFound()
     {
