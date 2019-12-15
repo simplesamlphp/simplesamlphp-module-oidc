@@ -36,7 +36,7 @@ class ScopeRepository extends AbstractDatabaseRepository implements ScopeReposit
     {
         $scopes = $this->configurationService->getOpenIDScopes();
 
-        if (false === array_key_exists($identifier, $scopes)) {
+        if (false === \array_key_exists($identifier, $scopes)) {
             return null;
         }
 

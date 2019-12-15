@@ -88,7 +88,7 @@ class ConfigurationService
             if (\in_array($name, ['openid', 'profile', 'email', 'address', 'phone'], true)) {
                 throw new ConfigurationError('Protected scope can be overwrited: '.$name, 'oidc_config.php');
             }
-            if (!array_key_exists('description', $scope)) {
+            if (!\array_key_exists('description', $scope)) {
                 throw new ConfigurationError('Scope ['.$name.'] description not defined', 'module_oidc.php');
             }
         });

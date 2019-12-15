@@ -110,7 +110,7 @@ class ClaimTranslatorExtractor extends ClaimExtractor
 
         foreach ($this->translationTable as $claim => $samlMatches) {
             foreach ($samlMatches as $samlMatch) {
-                if (array_key_exists($samlMatch, $samlAttributes)) {
+                if (\array_key_exists($samlMatch, $samlAttributes)) {
                     $claims[$claim] = current($samlAttributes[$samlMatch]);
                     break;
                 }

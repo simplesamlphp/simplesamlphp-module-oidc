@@ -128,9 +128,6 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
         ];
     }
 
-    /**
-     * @return string
-     */
     public function getSecret(): string
     {
         return $this->secret;
@@ -143,33 +140,21 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
         return $this;
     }
 
-    /**
-     * @return string
-     */
     public function getDescription(): string
     {
         return $this->description;
     }
 
-    /**
-     * @return string
-     */
     public function getAuthSource(): string
     {
         return $this->authSource;
     }
 
-    /**
-     * @return array
-     */
     public function getScopes(): array
     {
         return $this->scopes;
     }
 
-    /**
-     * @return bool
-     */
     public function isEnabled(): bool
     {
         return $this->isEnabled;

@@ -26,8 +26,6 @@ trait GetClientFromRequestTrait
     protected $clientRepository;
 
     /**
-     * @param ServerRequest $request
-     *
      * @throws \SimpleSAML_Error_BadRequest
      * @throws \SimpleSAML_Error_NotFound
      *

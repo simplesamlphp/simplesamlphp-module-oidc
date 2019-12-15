@@ -46,7 +46,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
      *
      * @param $codeId
      *
-     * @return null|AuthCodeEntityInterface
+     * @return AuthCodeEntityInterface|null
      */
     public function findById($codeId)
     {

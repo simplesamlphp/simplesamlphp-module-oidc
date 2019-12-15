@@ -56,7 +56,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
      *
      * @param $tokenId
      *
-     * @return null|AccessTokenEntity
+     * @return AccessTokenEntity|null
      */
     public function findById($tokenId)
     {

@@ -122,9 +122,6 @@ class ClientForm extends Form
             ->setRequired('Select one scope at least');
     }
 
-    /**
-     * @return array
-     */
     protected function getScopes(): array
     {
         $items = array_map(function ($item) {

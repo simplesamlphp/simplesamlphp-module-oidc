@@ -182,6 +182,6 @@ class Container implements ContainerInterface
 
     public function has($id)
     {
-        return array_key_exists($id, $this->services);
+        return \array_key_exists($id, $this->services);
     }
 }

@@ -44,11 +44,7 @@ class AuthenticationService
     }
 
     /**
-     * @param string $authSource
-     *
      * @throws \SimpleSAML_Error_Exception
-     *
-     * @return UserEntity
      */
     public function getAuthenticateUser(string $authSource): UserEntity
     {
@@ -56,7 +52,7 @@ class AuthenticationService
         $authSimple->requireAuth();
 
         $claims = $authSimple->getAttributes();
-        if (!array_key_exists($this->userIdAttr, $claims)) {
+        if (!\array_key_exists($this->userIdAttr, $claims)) {
             throw new \SimpleSAML_Error_Exception('Attribute `useridattr` doesn\'t exists in claims. Available attributes are: '.implode(', ', array_keys($claims)));
         }
 
