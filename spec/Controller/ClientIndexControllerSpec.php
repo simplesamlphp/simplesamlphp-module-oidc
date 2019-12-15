@@ -16,9 +16,11 @@ namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
 
 use PhpSpec\ObjectBehavior;
 use Psr\Http\Message\UriInterface;
+use SimpleSAML\Configuration;
 use SimpleSAML\Modules\OpenIDConnect\Controller\ClientIndexController;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
+use SimpleSAML\XHTML\Template;
 use Zend\Diactoros\ServerRequest;
 
 class ClientIndexControllerSpec extends ObjectBehavior
@@ -30,7 +32,7 @@ class ClientIndexControllerSpec extends ObjectBehavior
         UriInterface $uri
     ) {
         $_SERVER['REQUEST_URI'] = '/';
-        \SimpleSAML_Configuration::loadFromArray([], '', 'simplesaml');
+        Configuration::loadFromArray([], '', 'simplesaml');
 
         $request->getUri()->willReturn($uri);
         $uri->getPath()->willReturn('/');
@@ -45,7 +47,7 @@ class ClientIndexControllerSpec extends ObjectBehavior
 
     public function it_shows_client_index(
         ServerRequest $request,
-        \SimpleSAML_XHTML_Template $template,
+        Template $template,
         TemplateFactory $templateFactory,
         ClientRepository $clientRepository
     ) {

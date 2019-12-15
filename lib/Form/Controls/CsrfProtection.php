@@ -15,6 +15,7 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Form\Controls;
 
 use Nette\Forms\Controls\CsrfProtection as BaseCsrfProtection;
+use SimpleSAML\Session;
 use SimpleSAML\Utils\Random;
 
 class CsrfProtection extends BaseCsrfProtection
@@ -23,7 +24,7 @@ class CsrfProtection extends BaseCsrfProtection
     {
         parent::__construct($errorMessage);
 
-        $this->session = \SimpleSAML_Session::getSession();
+        $this->session = Session::getSession();
     }
 
     public function getToken()

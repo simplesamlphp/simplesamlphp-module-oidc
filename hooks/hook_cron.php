@@ -18,7 +18,7 @@ function oidc_hook_cron(&$croninfo)
     assert('array_key_exists("summary", $croninfo)');
     assert('array_key_exists("tag", $croninfo)');
 
-    $oidcConfig = SimpleSAML_Configuration::getConfig('module_oidc.php');
+    $oidcConfig = \SimpleSAML\Configuration::getConfig('module_oidc.php');
 
     if (null === $oidcConfig->getValue('cron_tag', 'hourly')) {
         return;

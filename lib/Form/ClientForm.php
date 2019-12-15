@@ -15,6 +15,7 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Form;
 
 use Nette\Forms\Form;
+use SimpleSAML\Auth\Source;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 
 class ClientForm extends Form
@@ -110,7 +111,7 @@ class ClientForm extends Form
 
         $this->addSelect('auth_source', '{oidc:client:auth_source}:')
             ->setAttribute('class', 'ui fluid dropdown')
-            ->setItems(\SimpleSAML_Auth_Source::getSources(), false)
+            ->setItems(Source::getSources(), false)
             ->setPrompt('Pick an AuthSource')
             ->setRequired('Select one Auth Source');
 

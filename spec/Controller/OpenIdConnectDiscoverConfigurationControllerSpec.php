@@ -15,6 +15,7 @@
 namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
 
 use PhpSpec\ObjectBehavior;
+use SimpleSAML\Configuration;
 use SimpleSAML\Modules\OpenIDConnect\Controller\OpenIdConnectDiscoverConfigurationController;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use Zend\Diactoros\Response\JsonResponse;
@@ -36,7 +37,7 @@ class OpenIdConnectDiscoverConfigurationControllerSpec extends ObjectBehavior
     public function it_returns_openid_connect_configuration(
         ServerRequest $request,
         ConfigurationService $configurationService,
-        \SimpleSAML_Configuration $oidcConfiguration
+        Configuration $oidcConfiguration
     ) {
         $configurationService->getOpenIDConnectConfiguration()->shouldBeCalled()->willReturn($oidcConfiguration);
         $configurationService->getOpenIDScopes()->shouldBeCalled()->willReturn(['openid' => 'openid']);

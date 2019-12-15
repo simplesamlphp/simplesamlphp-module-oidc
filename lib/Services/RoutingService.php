@@ -17,7 +17,10 @@ namespace SimpleSAML\Modules\OpenIDConnect\Services;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
+use SimpleSAML\Error\BadRequest;
+use SimpleSAML\Error\Exception;
 use SimpleSAML\Utils\Auth;
+use SimpleSAML\XHTML\Template;
 use Zend\Diactoros\Response;
 use Zend\Diactoros\Response\JsonResponse;
 use Zend\Diactoros\Response\SapiEmitter;
@@ -43,7 +46,7 @@ class RoutingService
         /** @var callable $controller */
         $response = $controller($serverRequest);
 
-        if ($response instanceof \SimpleSAML\XHTML\Template) {
+        if ($response instanceof Template) {
             $response->data['messages'] = $container->get(SessionMessagesService::class)->getMessages();
 
             return $response->show();
@@ -55,13 +58,13 @@ class RoutingService
             return $emitter->emit($response);
         }
 
-        throw new \SimpleSAML_Error_Error('Response type not supported: '.\get_class($response));
+        throw new Exception('Response type not supported: '.\get_class($response));
     }
 
     protected static function getController(string $controllerClassname, ContainerInterface $container)
     {
         if (!class_exists($controllerClassname)) {
-            throw new \SimpleSAML_Error_BadRequest("Controller does not exist: {$controllerClassname}");
+            throw new BadRequest("Controller does not exist: {$controllerClassname}");
         }
         $controllerReflectionClass = new \ReflectionClass($controllerClassname);
 

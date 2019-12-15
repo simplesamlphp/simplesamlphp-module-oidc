@@ -14,6 +14,7 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
+use SimpleSAML\Error\Exception;
 use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
 use SimpleSAML\Modules\OpenIDConnect\Factories\AuthSimpleFactory;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
@@ -44,7 +45,7 @@ class AuthenticationService
     }
 
     /**
-     * @throws \SimpleSAML_Error_Exception
+     * @throws Exception
      */
     public function getAuthenticateUser(string $authSource): UserEntity
     {
@@ -53,7 +54,7 @@ class AuthenticationService
 
         $claims = $authSimple->getAttributes();
         if (!\array_key_exists($this->userIdAttr, $claims)) {
-            throw new \SimpleSAML_Error_Exception('Attribute `useridattr` doesn\'t exists in claims. Available attributes are: '.implode(', ', array_keys($claims)));
+            throw new Exception('Attribute `useridattr` doesn\'t exists in claims. Available attributes are: '.implode(', ', array_keys($claims)));
         }
 
         $userId = $claims[$this->userIdAttr][0];

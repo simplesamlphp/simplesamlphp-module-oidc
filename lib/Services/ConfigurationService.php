@@ -14,6 +14,7 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
+use SimpleSAML\Configuration;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module;
 use SimpleSAML\Utils\HTTP;
@@ -43,14 +44,14 @@ class ConfigurationService
         $this->validateConfiguration();
     }
 
-    public function getSimpleSAMLConfiguration(): \SimpleSAML_Configuration
+    public function getSimpleSAMLConfiguration(): Configuration
     {
-        return \SimpleSAML_Configuration::getInstance();
+        return Configuration::getInstance();
     }
 
-    public function getOpenIDConnectConfiguration(): \SimpleSAML_Configuration
+    public function getOpenIDConnectConfiguration(): Configuration
     {
-        return \SimpleSAML_Configuration::getConfig('module_oidc.php');
+        return Configuration::getConfig('module_oidc.php');
     }
 
     public function getSimpleSAMLSelfURLHost()

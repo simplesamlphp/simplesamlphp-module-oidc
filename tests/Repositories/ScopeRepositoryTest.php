@@ -15,6 +15,7 @@
 namespace Tests\SimpleSAML\Modules\OpenIDConnect\Repositories;
 
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Configuration;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ScopeEntity;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
@@ -33,8 +34,8 @@ class ScopeRepositoryTest extends TestCase
             'database.slaves' => [],
         ];
 
-        \SimpleSAML_Configuration::loadFromArray($config, '', 'simplesaml');
-        \SimpleSAML_Configuration::setConfigDir(__DIR__.'/../../config-template');
+        Configuration::loadFromArray($config, '', 'simplesaml');
+        Configuration::setConfigDir(__DIR__.'/../../config-template');
         (new DatabaseMigration())->migrate();
     }
 

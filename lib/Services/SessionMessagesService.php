@@ -14,11 +14,13 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
+use SimpleSAML\Session;
+
 class SessionMessagesService
 {
     private $session;
 
-    public function __construct(\SimpleSAML_Session $session)
+    public function __construct(Session $session)
     {
         $this->session = $session;
     }
