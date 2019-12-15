@@ -5,7 +5,7 @@ This module adds support for the OpenID Connect protocol through a SimpleSAMLphp
 
 [![Build Status](https://travis-ci.org/rediris-es/simplesamlphp-module-oidc.svg?branch=master)](https://travis-ci.org/rediris-es/simplesamlphp-module-oidc) 
 [![Coverage Status](https://coveralls.io/repos/github/rediris-es/simplesamlphp-module-oidc/badge.svg?branch=master)](https://coveralls.io/github/rediris-es/simplesamlphp-module-oidc?branch=master)
-[![SimpleSAMLphp](https://img.shields.io/badge/simplesamlphp-1.15-red.svg)](https://simplesamlphp.org/)
+[![SimpleSAMLphp](https://img.shields.io/badge/simplesamlphp-1.18-red.svg)](https://simplesamlphp.org/)
 
 ![Main screen capture](docs/oidc.png)
 

@@ -98,7 +98,7 @@ jobs:
 
     - stage: quality
       php: 7.3
-      env: Codecov
+      env: Coveralls
       before_script:
         - composer update
         - php vendor/bin/phpunit
