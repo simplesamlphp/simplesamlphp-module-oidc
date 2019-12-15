@@ -34,7 +34,7 @@ class CsrfProtection extends BaseCsrfProtection
     /**
      * @return string
      */
-    public function getToken()
+    public function getToken(): string
     {
         $token = $this->session->getData('token', 'form');
 

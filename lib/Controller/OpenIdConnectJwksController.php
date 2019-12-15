@@ -39,7 +39,7 @@ class OpenIdConnectJwksController
      * @param \Zend\Diactoros\ServerRequest $request
      * @return \Zend\Diactoros\Response\JsonResponse
      */
-    public function __invoke(ServerRequest $request)
+    public function __invoke(ServerRequest $request): JsonResponse
     {
         return new JsonResponse([
             'keys' => $this->jsonWebKeySetService->keys(),

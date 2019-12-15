@@ -27,7 +27,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
     /**
      * @return string
      */
-    public function getTableName()
+    public function getTableName(): string
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
@@ -69,7 +69,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
         $password,
         $grantType,
         ClientEntityInterface $clientEntity
-    ) {
+    ): void {
         throw new \Exception('Not supported');
     }
 
@@ -78,7 +78,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
      * @param \SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity $userEntity
      * @return void
      */
-    public function add(UserEntity $userEntity)
+    public function add(UserEntity $userEntity): void
     {
         $this->database->write(
             "INSERT INTO {$this->getTableName()} (id, claims, updated_at, created_at) VALUES (:id, :claims, :updated_at, :created_at)",
@@ -91,7 +91,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
      * @param \SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity $userEntity
      * @return void
      */
-    public function delete(UserEntity $user)
+    public function delete(UserEntity $user): void
     {
         $this->database->write(
             "DELETE FROM {$this->getTableName()} WHERE id = :id",
@@ -106,7 +106,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
      * @param \SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity $userEntity
      * @return void
      */
-    public function update(UserEntity $user)
+    public function update(UserEntity $user): void
     {
         $this->database->write(
             "UPDATE {$this->getTableName()} SET claims = :claims, updated_at = :updated_at, created_at = :created_at WHERE id = :id",

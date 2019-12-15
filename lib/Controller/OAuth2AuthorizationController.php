@@ -56,7 +56,7 @@ class OAuth2AuthorizationController
      * @param \Zend\Diactoros\ServerRequest $request
      * @return \Psr\Http\Message\ResponseInterface
      */
-    public function __invoke(ServerRequest $request)
+    public function __invoke(ServerRequest $request): \Psr\Http\Message\ResponseInterface
     {
         $authSource = $this->getClientFromRequest($request)->getAuthSource();
         $user = $this->authenticationService->getAuthenticateUser($authSource);

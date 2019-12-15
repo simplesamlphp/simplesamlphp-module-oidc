@@ -39,7 +39,7 @@ class ClaimTranslatorExtractorFactory
     /**
      * @return \SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor
      */
-    public function build()
+    public function build(): ClaimTranslatorExtractor
     {
         $translatorTable = $this->configurationService->getOpenIDConnectConfiguration()->getArray('translate', []);
 

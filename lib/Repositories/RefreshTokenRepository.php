@@ -36,7 +36,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
     /**
      * @return \SimpleSAML\Modules\OpenIDConnect\Entity\RefreshTokenEntity
      */
-    public function getNewRefreshToken()
+    public function getNewRefreshToken(): RefreshTokenEntity
     {
         return new RefreshTokenEntity();
     }
@@ -47,7 +47,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
      *         \SimpleSAML\Modules\OpenIDConnect\Entity\RefreshTokenEntity) $refreshTokenEntity
      * @return void
      */
-    public function persistNewRefreshToken(RefreshTokenEntityInterface $refreshTokenEntity)
+    public function persistNewRefreshToken(RefreshTokenEntityInterface $refreshTokenEntity): void
     {
         $this->database->write(
             "INSERT INTO {$this->getTableName()} (id, expires_at, access_token_id, is_revoked) VALUES (:id, :expires_at, :access_token_id, :is_revoked)",
@@ -63,7 +63,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
      *
      * @return \SimpleSAML\Modules\OpenIDConnect\Entity\RefreshTokenEntity|null
      */
-    public function findById($tokenId)
+    public function findById(string $tokenId): ?RefreshTokenEntity
     {
         $stmt = $this->database->read(
             "SELECT * FROM {$this->getTableName()} WHERE id = :id",
@@ -118,7 +118,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
      * Removes expired refresh tokens.
      * @return void
      */
-    public function removeExpired()
+    public function removeExpired(): void
     {
         $this->database->write(
             "DELETE FROM {$this->getTableName()} WHERE expires_at < :now",
@@ -133,7 +133,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
      * @param \SimpleSAML\Modules\OpenIDConnect\Entity\RefreshTokenEntity $refreshTokenEntity
      * @return void
      */
-    private function update(RefreshTokenEntity $refreshTokenEntity)
+    private function update(RefreshTokenEntity $refreshTokenEntity): void
     {
         $this->database->write(
             "UPDATE {$this->getTableName()} SET expires_at = :expires_at, access_token_id = :access_token_id, is_revoked = :is_revoked WHERE id = :id",

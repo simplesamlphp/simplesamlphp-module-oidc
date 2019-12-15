@@ -98,7 +98,7 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
     /**
      * {@inheritdoc}
      */
-    public static function fromState(array $state)
+    public static function fromState(array $state): self
     {
         $client = new self();
 

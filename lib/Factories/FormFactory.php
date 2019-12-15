@@ -44,7 +44,7 @@ class FormFactory
      */
     public function build(string $classname)
     {
-        if (!class_exists($classname) && $classname instanceof Form) {
+        if (!class_exists($classname) && ($classname instanceof Form)) {
             throw new Exception("Invalid form: {$classname}");
         }
 

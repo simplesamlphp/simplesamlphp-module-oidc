@@ -94,7 +94,7 @@ class ClaimTranslatorExtractor extends ClaimExtractor
      *
      * @throws \OpenIDConnectServer\Exception\InvalidArgumentException
      */
-    public function __construct($claimSets = [], $translationTable = [])
+    public function __construct(array $claimSets = [], array $translationTable = [])
     {
         $this->translationTable = array_merge($this->translationTable, $translationTable);
 
@@ -133,7 +133,7 @@ class ClaimTranslatorExtractor extends ClaimExtractor
      * @param array $samlAttributes
      * @return array
      */
-    public function extract(array $scopes, array $samlAttributes)
+    public function extract(array $scopes, array $samlAttributes): array
     {
         $claims = $this->translateSamlAttributesToClaims($samlAttributes);
 

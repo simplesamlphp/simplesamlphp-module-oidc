@@ -48,7 +48,7 @@ class ClientResetSecretController
      * @param \Zend\Diactoros\ServerRequest $request
      * @return \Zend\Diactoros\Response\RedirectResponse
      */
-    public function __invoke(ServerRequest $request)
+    public function __invoke(ServerRequest $request): RedirectResponse
     {
         $client = $this->getClientFromRequest($request);
         $body = $request->getParsedBody();

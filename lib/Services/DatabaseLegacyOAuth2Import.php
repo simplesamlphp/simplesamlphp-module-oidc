@@ -47,7 +47,7 @@ class DatabaseLegacyOAuth2Import
         $oauth2ClientRepository = new OAuth2\Repositories\ClientRepository();
         $clients = $oauth2ClientRepository->findAll();
 
-        /** @var \OAuth2\Entity\ClientEntity $client */
+        /** @var \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $client */
         foreach ($clients as $client) {
             if ($this->clientRepository->findById($client['id'])) {
                 continue;

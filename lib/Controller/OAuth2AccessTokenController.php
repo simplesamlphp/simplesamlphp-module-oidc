@@ -39,7 +39,7 @@ class OAuth2AccessTokenController
      * @param \Zend\Diactoros\ServerRequest $request
      * @return \Psr\Http\Message\ResponseInterface
      */
-    public function __invoke(ServerRequest $request)
+    public function __invoke(ServerRequest $request): \Psr\Http\Message\ResponseInterface
     {
         return $this->authorizationServer->respondToAccessTokenRequest($request, new Response());
     }

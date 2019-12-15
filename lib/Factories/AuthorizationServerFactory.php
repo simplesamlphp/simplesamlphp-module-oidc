@@ -109,7 +109,7 @@ class AuthorizationServerFactory
     /**
      * @return \League\OAuth2\Server\AuthorizationServer
      */
-    public function build()
+    public function build(): AuthorizationServer
     {
         $privateKeyPath = Config::getCertPath('oidc_module.pem');
         $encryptionKey = Config::getSecretSalt();

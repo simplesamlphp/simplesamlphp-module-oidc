@@ -48,7 +48,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
      * @param string|null $userIdentifier
      * @return self
      */
-    public static function fromData(ClientEntityInterface $clientEntity, array $scopes, string $userIdentifier = null)
+    public static function fromData(ClientEntityInterface $clientEntity, array $scopes, string $userIdentifier = null): self
     {
         $accessToken = new self();
 
@@ -65,7 +65,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
     /**
      * {@inheritdoc}
      */
-    public static function fromState(array $state)
+    public static function fromState(array $state): self
     {
         $accessToken = new self();
 

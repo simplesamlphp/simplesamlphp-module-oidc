@@ -48,7 +48,7 @@ class ClientForm extends Form
      * @param \Nette\Forms\Form $form
      * @return void
      */
-    public function validateRedirectUri($form)
+    public function validateRedirectUri(Form $form): void
     {
         $values = $form->getValues();
         $redirect_uris = $values['redirect_uri'];
@@ -63,7 +63,7 @@ class ClientForm extends Form
     /**
      * {@inheritdoc}
      */
-    public function getValues($asArray = false)
+    public function getValues(bool $asArray = false): array
     {
         $values = parent::getValues(true);
 
@@ -88,7 +88,7 @@ class ClientForm extends Form
     /**
      * {@inheritdoc}
      */
-    public function setDefaults($values, $erase = false)
+    public function setDefaults(array $values, bool $erase = false): self
     {
         $values['redirect_uri'] = implode("\n", $values['redirect_uri']);
         $values['scopes'] = array_intersect($values['scopes'], array_keys($this->getScopes()));

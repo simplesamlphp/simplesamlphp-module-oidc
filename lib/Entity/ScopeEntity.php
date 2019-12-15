@@ -68,7 +68,7 @@ class ScopeEntity implements ScopeEntityInterface
     /**
      * @return string
      */
-    public function getIcon()
+    public function getIcon(): string
     {
         return $this->icon;
     }
@@ -77,7 +77,7 @@ class ScopeEntity implements ScopeEntityInterface
     /**
      * @return string
      */
-    public function getDescription()
+    public function getDescription(): string
     {
         return $this->description;
     }
@@ -86,7 +86,7 @@ class ScopeEntity implements ScopeEntityInterface
     /**
      * @return array
      */
-    public function getAttributes()
+    public function getAttributes(): array
     {
         return $this->attributes;
     }
@@ -95,7 +95,7 @@ class ScopeEntity implements ScopeEntityInterface
     /**
      * @return string
      */
-    public function jsonSerialize()
+    public function jsonSerialize(): string
     {
         return $this->getIdentifier();
     }

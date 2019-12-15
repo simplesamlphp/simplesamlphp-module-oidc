@@ -32,7 +32,7 @@ class RefreshTokenEntity implements RefreshTokenEntityInterface, MementoInterfac
      * @param array $state
      * @return self
      */
-    public static function fromState(array $state)
+    public static function fromState(array $state): self
     {
         $refreshToken = new self();
 

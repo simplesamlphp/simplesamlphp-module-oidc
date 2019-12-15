@@ -34,7 +34,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
      * @param array $state
      * @return self
      */
-    public static function fromState(array $state)
+    public static function fromState(array $state): self
     {
         $authCode = new self();
 

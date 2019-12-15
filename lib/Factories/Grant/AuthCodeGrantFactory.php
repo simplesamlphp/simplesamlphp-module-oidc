@@ -71,7 +71,7 @@ class AuthCodeGrantFactory
     /**
      * @return \League\OAuth2\Server\Grant\AuthCodeGrant
      */
-    public function build()
+    public function build(): AuthCodeGrant
     {
         $authCodeGrant = new AuthCodeGrant(
             $this->authCodeRepository,

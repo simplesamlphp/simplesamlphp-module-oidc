@@ -57,7 +57,7 @@ class IdTokenResponseFactory
     /**
      * @return \SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\IdTokenResponse
      */
-    public function build()
+    public function build(): IdTokenResponse
     {
         $builder = (new Builder())
             ->setIssuer($this->configurationService->getSimpleSAMLSelfURLHost())

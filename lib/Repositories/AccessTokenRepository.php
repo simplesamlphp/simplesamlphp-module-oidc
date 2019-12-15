@@ -61,7 +61,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
      *
      * @return AccessTokenEntity|null
      */
-    public function findById($tokenId)
+    public function findById(string $tokenId): ?AccessTokenEntity
     {
         $stmt = $this->database->read(
             "SELECT * FROM {$this->getTableName()} WHERE id = :id",
@@ -116,7 +116,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
      * Removes expired access tokens.
      * @return void
      */
-    public function removeExpired()
+    public function removeExpired(): void
     {
         $this->database->write(
             "DELETE FROM {$this->getTableName()} WHERE expires_at < :now",
@@ -131,7 +131,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
      * @param \SimpleSAML\Modules\OpenIDConnect\Entity\AccessTokenEntity $accessTokenEntity
      * @return void
      */
-    private function update(AccessTokenEntity $accessTokenEntity)
+    private function update(AccessTokenEntity $accessTokenEntity): void
     {
         $this->database->write(
             "UPDATE {$this->getTableName()} SET scopes = :scopes, expires_at = :expires_at, user_id = :user_id, client_id = :client_id, is_revoked = :is_revoked WHERE id = :id",

@@ -46,7 +46,7 @@ class ClientIndexController
      * @param \Zend\Diactoros\ServerRequest $request
      * @return \SimpleSAML\XHTML\Template
      */
-    public function __invoke(ServerRequest $request)
+    public function __invoke(ServerRequest $request): \SimpleSAML\XHTML\Template
     {
         $clients = $this->clientRepository->findAll();
 
