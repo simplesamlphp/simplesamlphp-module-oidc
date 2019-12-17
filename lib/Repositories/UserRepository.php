@@ -21,7 +21,7 @@ use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
 
 class UserRepository extends AbstractDatabaseRepository implements UserRepositoryInterface, IdentityProviderInterface
 {
-    const TABLE_NAME = 'oidc_user';
+    public const TABLE_NAME = 'oidc_user';
 
 
     /**

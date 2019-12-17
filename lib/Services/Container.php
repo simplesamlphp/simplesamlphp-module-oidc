@@ -104,9 +104,15 @@ class Container implements ContainerInterface
         );
         $this->services[AuthenticationService::class] = $authenticationService;
 
-        $accessTokenDuration = new \DateInterval($configurationService->getOpenIDConnectConfiguration()->getString('accessTokenDuration'));
-        $authCodeDuration = new \DateInterval($configurationService->getOpenIDConnectConfiguration()->getString('authCodeDuration'));
-        $refreshTokenDuration = new \DateInterval($configurationService->getOpenIDConnectConfiguration()->getString('refreshTokenDuration'));
+        $accessTokenDuration = new \DateInterval(
+            $configurationService->getOpenIDConnectConfiguration()->getString('accessTokenDuration')
+        );
+        $authCodeDuration = new \DateInterval(
+            $configurationService->getOpenIDConnectConfiguration()->getString('authCodeDuration')
+        );
+        $refreshTokenDuration = new \DateInterval(
+            $configurationService->getOpenIDConnectConfiguration()->getString('refreshTokenDuration')
+        );
         $enablePKCE = $configurationService->getOpenIDConnectConfiguration()->getBoolean('pkce', false);
         $passPhrase = $configurationService->getOpenIDConnectConfiguration()->getString('pass_phrase', null);
 
@@ -131,9 +137,7 @@ class Container implements ContainerInterface
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 
-        $implicitGrantFactory = new ImplicitGrantFactory(
-            $accessTokenDuration
-        );
+        $implicitGrantFactory = new ImplicitGrantFactory($accessTokenDuration);
         $this->services[ImplicitGrant::class] = $implicitGrantFactory->build();
 
         $refreshTokenGrantFactory = new RefreshTokenGrantFactory(
@@ -172,7 +176,7 @@ class Container implements ContainerInterface
     public function get($id)
     {
         if (false === $this->has($id)) {
-            throw new class($id) extends Exception implements NotFoundExceptionInterface {
+            throw new class ($id) extends Exception implements NotFoundExceptionInterface {
                 public function __construct(string $id)
                 {
                     parent::__construct("Service not found: {$id}.");

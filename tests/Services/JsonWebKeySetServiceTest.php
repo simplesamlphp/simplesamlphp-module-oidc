@@ -49,7 +49,7 @@ class JsonWebKeySetServiceTest extends TestCase
         // free resources
         openssl_pkey_free($pkGenerate);
 
-        file_put_contents(sys_get_temp_dir().'/oidc_module.crt', self::$pkGeneratePublic);
+        file_put_contents(sys_get_temp_dir() . '/oidc_module.crt', self::$pkGeneratePublic);
     }
 
 
@@ -58,7 +58,7 @@ class JsonWebKeySetServiceTest extends TestCase
      */
     public static function tearDownAfterClass()
     {
-        unlink(sys_get_temp_dir().'/oidc_module.crt');
+        unlink(sys_get_temp_dir() . '/oidc_module.crt');
     }
 
 

@@ -87,10 +87,10 @@ class ConfigurationService
         $scopes = $this->getOpenIDConnectConfiguration()->getArray('scopes', []);
         array_walk($scopes, function ($scope, $name) {
             if (\in_array($name, ['openid', 'profile', 'email', 'address', 'phone'], true)) {
-                throw new ConfigurationError('Protected scope can be overwrited: '.$name, 'oidc_config.php');
+                throw new ConfigurationError('Protected scope can be overwrited: ' . $name, 'oidc_config.php');
             }
             if (!\array_key_exists('description', $scope)) {
-                throw new ConfigurationError('Scope ['.$name.'] description not defined', 'module_oidc.php');
+                throw new ConfigurationError('Scope [' . $name . '] description not defined', 'module_oidc.php');
             }
         });
     }

@@ -21,7 +21,7 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
 class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeRepositoryInterface
 {
-    const TABLE_NAME = 'oidc_auth_code';
+    public const TABLE_NAME = 'oidc_auth_code';
 
 
     /**

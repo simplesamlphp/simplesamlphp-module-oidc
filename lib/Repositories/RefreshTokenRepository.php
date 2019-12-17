@@ -21,7 +21,7 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
 class RefreshTokenRepository extends AbstractDatabaseRepository implements RefreshTokenRepositoryInterface
 {
-    const TABLE_NAME = 'oidc_refresh_token';
+    public const TABLE_NAME = 'oidc_refresh_token';
 
 
     /**

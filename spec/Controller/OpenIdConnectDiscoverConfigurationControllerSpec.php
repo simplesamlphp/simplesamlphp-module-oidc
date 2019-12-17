@@ -28,8 +28,8 @@ class OpenIdConnectDiscoverConfigurationControllerSpec extends ObjectBehavior
      * @return void
      */
     public function let(
-        ConfigurationService $configurationService)
-    {
+        ConfigurationService $configurationService
+    ) {
         $this->beConstructedWith($configurationService);
     }
 

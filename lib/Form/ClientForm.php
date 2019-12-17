@@ -54,7 +54,7 @@ class ClientForm extends Form
         $redirect_uris = $values['redirect_uri'];
         foreach ($redirect_uris as $redirect_uri) {
             if (!preg_match(self::REGEX_URI, $redirect_uri)) {
-                $this->addError('Invalid URI: '.$redirect_uri);
+                $this->addError('Invalid URI: ' . $redirect_uri);
             }
         }
     }

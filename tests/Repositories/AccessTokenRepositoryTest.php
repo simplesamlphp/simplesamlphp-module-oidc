@@ -26,9 +26,9 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
 class AccessTokenRepositoryTest extends TestCase
 {
-    const CLIENT_ID = 'access_token_client_id';
-    const USER_ID = 'access_token_user_id';
-    const ACCESS_TOKEN_ID = 'access_token_id';
+    public const CLIENT_ID = 'access_token_client_id';
+    public const USER_ID = 'access_token_user_id';
+    public const ACCESS_TOKEN_ID = 'access_token_id';
 
     /**
      * @var AccessTokenRepository

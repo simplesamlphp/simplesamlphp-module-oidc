@@ -26,10 +26,10 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
 class AuthCodeRepositoryTest extends TestCase
 {
-    const CLIENT_ID = 'auth_code_client_id';
-    const USER_ID = 'auth_code_user_id';
-    const AUTH_CODE_ID = 'auth_code_id';
-    const REDIRECT_URI = 'http://localhost/redirect';
+    public const CLIENT_ID = 'auth_code_client_id';
+    public const USER_ID = 'auth_code_user_id';
+    public const AUTH_CODE_ID = 'auth_code_id';
+    public const REDIRECT_URI = 'http://localhost/redirect';
 
     /**
      * @var AuthCodeRepository

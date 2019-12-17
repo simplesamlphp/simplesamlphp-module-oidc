@@ -19,7 +19,7 @@ use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 
 class ClientRepository extends AbstractDatabaseRepository implements ClientRepositoryInterface
 {
-    const TABLE_NAME = 'oidc_client';
+    public const TABLE_NAME = 'oidc_client';
 
 
     /**

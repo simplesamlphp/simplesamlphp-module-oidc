@@ -25,9 +25,9 @@ use SimpleSAML\Modules\OpenIDConnect\Services\AuthenticationService;
 
 class AuthenticationServiceSpec extends ObjectBehavior
 {
-    const AUTH_SOURCE = 'auth_source';
-    const USER_ID_ATTR = 'uid';
-    const USERNAME = 'username';
+    public const AUTH_SOURCE = 'auth_source';
+    public const USER_ID_ATTR = 'uid';
+    public const USERNAME = 'username';
 
 
     /**

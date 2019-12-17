@@ -22,7 +22,7 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
 class AccessTokenRepository extends AbstractDatabaseRepository implements AccessTokenRepositoryInterface
 {
-    const TABLE_NAME = 'oidc_access_token';
+    public const TABLE_NAME = 'oidc_access_token';
 
     /**
      * {@inheritdoc}

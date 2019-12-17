@@ -50,7 +50,9 @@ class DatabaseMigration
     public function versions()
     {
         $versionsTablename = $this->versionsTableName();
-        $this->database->write("CREATE TABLE IF NOT EXISTS {$versionsTablename} (version VARCHAR(255) PRIMARY KEY NOT NULL)");
+        $this->database->write(
+            "CREATE TABLE IF NOT EXISTS {$versionsTablename} (version VARCHAR(255) PRIMARY KEY NOT NULL)"
+        );
 
         $versions = $this->database
             ->read("SELECT version FROM ${versionsTablename}")

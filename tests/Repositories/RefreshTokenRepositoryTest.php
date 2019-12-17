@@ -27,10 +27,10 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
 class RefreshTokenRepositoryTest extends TestCase
 {
-    const CLIENT_ID = 'refresh_token_client_id';
-    const USER_ID = 'refresh_token_user_id';
-    const ACCESS_TOKEN_ID = 'refresh_token_access_token_id';
-    const REFRESH_TOKEN_ID = 'refresh_token_id';
+    public const CLIENT_ID = 'refresh_token_client_id';
+    public const USER_ID = 'refresh_token_user_id';
+    public const ACCESS_TOKEN_ID = 'refresh_token_access_token_id';
+    public const REFRESH_TOKEN_ID = 'refresh_token_id';
 
     /**
      * @var RefreshTokenRepository
