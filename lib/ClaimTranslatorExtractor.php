@@ -19,6 +19,7 @@ use OpenIDConnectServer\Entities\ClaimSetEntity;
 
 class ClaimTranslatorExtractor extends ClaimExtractor
 {
+    /** @var array */
     protected $translationTable = [
         'sub' => [
             'eduPersonPrincipalName',
@@ -84,6 +85,7 @@ class ClaimTranslatorExtractor extends ClaimExtractor
         ],
     ];
 
+
     /**
      * ClaimTranslatorExtractor constructor.
      *
@@ -104,13 +106,18 @@ class ClaimTranslatorExtractor extends ClaimExtractor
         parent::__construct($claimSets);
     }
 
+
+    /**
+     * @param array $samlAttributes
+     * @return array
+     */
     private function translateSamlAttributesToClaims($samlAttributes): array
     {
         $claims = [];
 
         foreach ($this->translationTable as $claim => $samlMatches) {
             foreach ($samlMatches as $samlMatch) {
-                if (\array_key_exists($samlMatch, $samlAttributes)) {
+                if (array_key_exists($samlMatch, $samlAttributes)) {
                     $claims[$claim] = current($samlAttributes[$samlMatch]);
                     break;
                 }
@@ -120,6 +127,12 @@ class ClaimTranslatorExtractor extends ClaimExtractor
         return $claims;
     }
 
+
+    /**
+     * @param array $scopes
+     * @param array $samlAttributes
+     * @return array
+     */
     public function extract(array $scopes, array $samlAttributes)
     {
         $claims = $this->translateSamlAttributesToClaims($samlAttributes);

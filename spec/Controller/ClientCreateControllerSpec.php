@@ -31,6 +31,15 @@ use Zend\Diactoros\ServerRequest;
 
 class ClientCreateControllerSpec extends ObjectBehavior
 {
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory $templateFactory
+     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory $formFactory
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $sessionMessagesService
+     * @param \Zend\Diactoros\ServerRequest $serverRequest
+     * @param \Psr\Http\Message\UriInterface $uri
+     * @return void
+     */
     public function let(
         ClientRepository $clientRepository,
         TemplateFactory $templateFactory,
@@ -48,11 +57,24 @@ class ClientCreateControllerSpec extends ObjectBehavior
         $this->beConstructedWith($clientRepository, $templateFactory, $formFactory, $sessionMessagesService);
     }
 
+
+    /**
+     * @return void
+     */
     public function it_is_initializable()
     {
         $this->shouldHaveType(ClientCreateController::class);
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \SimpleSAML\XHTML\Template $template
+     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory $templateFactory
+     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory $formFactory
+     * @param \SimpleSAML\Modules\OpenIDConnect\Form\ClientForm $clientForm
+     * @return void
+     */
     public function it_shows_new_client_form(
         ServerRequest $request,
         Template $template,
@@ -68,6 +90,15 @@ class ClientCreateControllerSpec extends ObjectBehavior
         $this->__invoke($request)->shouldBe($template);
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory $formFactory
+     * @param \SimpleSAML\Modules\OpenIDConnect\Form\ClientForm $clientForm
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $sessionMessagesService
+     * @return void
+     */
     public function it_creates_new_client_from_form_data(
         ServerRequest $request,
         FormFactory $formFactory,

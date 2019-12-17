@@ -23,16 +23,29 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
 {
     const TABLE_NAME = 'oidc_auth_code';
 
+
+    /**
+     * @return string
+     */
     public function getTableName()
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
 
+
+    /**
+     * @return \SimpleSAML\Modules\OpenIDConnect\Entity\AuthCodeEntity
+     */
     public function getNewAuthCode()
     {
         return new AuthCodeEntity();
     }
 
+
+    /**
+     * @param \League\OAuth2\Server\Entities\AuthCodeEntityInterface $authCodeEntity
+     * @return void
+     */
     public function persistNewAuthCode(AuthCodeEntityInterface $authCodeEntity)
     {
         $this->database->write(
@@ -41,12 +54,13 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
         );
     }
 
+
     /**
      * Find Access Token by id.
      *
-     * @param $codeId
+     * @param string $codeId
      *
-     * @return AuthCodeEntityInterface|null
+     * @return \League\OAuth2\Server\Entities\AuthCodeEntityInterface|null
      */
     public function findById($codeId)
     {
@@ -67,6 +81,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
         return AuthCodeEntity::fromState($data);
     }
 
+
     /**
      * {@inheritdoc}
      */
@@ -83,6 +98,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
         $this->update($authCode);
     }
 
+
     /**
      * {@inheritdoc}
      */
@@ -98,8 +114,10 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
         return $authCode->isRevoked();
     }
 
+
     /**
      * Removes expired auth codes.
+     * @return void
      */
     public function removeExpired()
     {
@@ -111,6 +129,11 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
         );
     }
 
+
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\AuthCodeEntity $authCodeEntity
+     * @return void
+     */
     private function update(AuthCodeEntity $authCodeEntity)
     {
         $this->database->write(

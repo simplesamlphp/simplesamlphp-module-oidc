@@ -32,6 +32,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
 
+
     /**
      * {@inheritdoc}
      */
@@ -39,6 +40,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
     {
         return AccessTokenEntity::fromData($clientEntity, $scopes, $userIdentifier);
     }
+
 
     /**
      * {@inheritdoc}
@@ -51,10 +53,11 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         );
     }
 
+
     /**
      * Find Access Token by id.
      *
-     * @param $tokenId
+     * @param string$tokenId
      *
      * @return AccessTokenEntity|null
      */
@@ -77,6 +80,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         return AccessTokenEntity::fromState($data);
     }
 
+
     /**
      * {@inheritdoc}
      */
@@ -92,6 +96,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         $this->update($accessToken);
     }
 
+
     /**
      * {@inheritdoc}
      */
@@ -106,8 +111,10 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         return $accessToken->isRevoked();
     }
 
+
     /**
      * Removes expired access tokens.
+     * @return void
      */
     public function removeExpired()
     {
@@ -119,6 +126,11 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         );
     }
 
+
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\AccessTokenEntity $accessTokenEntity
+     * @return void
+     */
     private function update(AccessTokenEntity $accessTokenEntity)
     {
         $this->database->write(

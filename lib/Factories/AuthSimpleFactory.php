@@ -20,6 +20,9 @@ class AuthSimpleFactory
 {
     /**
      * @codeCoverageIgnore
+     *
+     * @param string $name
+     * @return \SimpleSAML\Auth\Simple
      */
     public function build(string $name): Simple
     {

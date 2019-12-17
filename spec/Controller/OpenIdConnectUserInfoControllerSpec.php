@@ -28,6 +28,13 @@ use Zend\Diactoros\ServerRequest;
 
 class OpenIdConnectUserInfoControllerSpec extends ObjectBehavior
 {
+    /**
+     * @param \League\OAuth2\Server\ResourceServer $resourceServer
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository $accessTokenRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository $userRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor $claimTranslatorExtractor
+     * @return void
+     */
     public function let(
         ResourceServer $resourceServer,
         AccessTokenRepository $accessTokenRepository,
@@ -37,11 +44,27 @@ class OpenIdConnectUserInfoControllerSpec extends ObjectBehavior
         $this->beConstructedWith($resourceServer, $accessTokenRepository, $userRepository, $claimTranslatorExtractor);
     }
 
+
+    /**
+     * @return void
+     */
     public function it_is_initializable()
     {
         $this->shouldHaveType(OpenIdConnectUserInfoController::class);
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \Psr\Http\Message\ServerRequestInterface $authorization
+     * @param \League\OAuth2\Server\ResourceServer $resourceServer
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository $accessTokenRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\AccessTokenEntity $accessTokenEntity
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository $userRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity $userEntity
+     * @param \SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor $claimTranslatorExtractor
+     * @return void
+     */
     public function it_returns_user_claims(
         ServerRequest $request,
         ServerRequestInterface $authorization,
@@ -67,6 +90,10 @@ class OpenIdConnectUserInfoControllerSpec extends ObjectBehavior
         $this->__invoke($request)->shouldHavePayload(['email' => 'userid@localhost.localdomain']);
     }
 
+
+    /**
+     * @return array
+     */
     public function getMatchers(): array
     {
         return [

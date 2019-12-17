@@ -21,26 +21,38 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
 class AuthCodeGrantFactory
 {
     /**
-     * @var AuthCodeRepository
+     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\AuthCodeRepository
      */
     private $authCodeRepository;
+
     /**
-     * @var RefreshTokenRepository
+     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository
      */
     private $refreshTokenRepository;
+
     /**
      * @var \DateInterval
      */
     private $refreshTokenDuration;
+
     /**
      * @var \DateInterval
      */
     private $authCodeDuration;
+
     /**
      * @var bool
      */
     private $enablePKCE;
 
+
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\AuthCodeRepository $authCodeRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository $refreshTokenRepository
+     * @param \DateInterval $refreshTokenDuration
+     * @param \DateInterval $authCodeDuration
+     * @param bool $enablePKCE
+     */
     public function __construct(
         AuthCodeRepository $authCodeRepository,
         RefreshTokenRepository $refreshTokenRepository,
@@ -55,8 +67,9 @@ class AuthCodeGrantFactory
         $this->enablePKCE = $enablePKCE;
     }
 
+
     /**
-     * @return AuthCodeGrant
+     * @return \League\OAuth2\Server\Grant\AuthCodeGrant
      */
     public function build()
     {

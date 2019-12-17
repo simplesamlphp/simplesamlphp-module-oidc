@@ -21,11 +21,24 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 {
     const TABLE_NAME = 'oidc_client';
 
+
+    /**
+     * @return string
+     */
     public function getTableName()
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
 
+
+
+    /**
+     * @param string $clientIdentifier
+     * @param string|null $grantType
+     * @param string|null $clientSecret
+     * @param bool $mustValidateSecret
+     * @return \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity|null
+     */
     public function getClientEntity($clientIdentifier, $grantType = null, $clientSecret = null, $mustValidateSecret = true)
     {
         $client = $this->findById($clientIdentifier);
@@ -41,6 +54,12 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         return $client;
     }
 
+
+
+    /**
+     * @param string $clientIdentifier
+     * @return \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity|null
+     */
     public function findById($clientIdentifier)
     {
         $stmt = $this->database->read(
@@ -57,6 +76,10 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         return ClientEntity::fromState(current($rows));
     }
 
+
+    /**
+     * @return \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity[]
+     */
     public function findAll()
     {
         $stmt = $this->database->read(
@@ -72,6 +95,11 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         return $clients;
     }
 
+
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $client
+     * @return void
+     */
     public function add(ClientEntity $client)
     {
         $this->database->write(
@@ -80,6 +108,11 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         );
     }
 
+
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $client
+     * @return void
+     */
     public function delete(ClientEntity $client)
     {
         $this->database->write(
@@ -90,6 +123,11 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         );
     }
 
+
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $client
+     * @return void
+     */
     public function update(ClientEntity $client)
     {
         $this->database->write(

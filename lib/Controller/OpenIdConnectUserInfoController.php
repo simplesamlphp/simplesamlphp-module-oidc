@@ -27,19 +27,29 @@ class OpenIdConnectUserInfoController
      * @var ResourceServer
      */
     private $resourceServer;
+
     /**
      * @var AccessTokenRepository
      */
     private $accessTokenRepository;
+
     /**
      * @var UserRepository
      */
     private $userRepository;
+
     /**
      * @var ClaimTranslatorExtractor
      */
     private $claimTranslatorExtractor;
 
+
+    /**
+     * @param \League\OAuth2\Server\ResourceServer $resourceServer
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository $accessTokenRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository $userRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor $claimTranslatorExtractor
+     */
     public function __construct(
         ResourceServer $resourceServer,
         AccessTokenRepository $accessTokenRepository,
@@ -52,6 +62,11 @@ class OpenIdConnectUserInfoController
         $this->claimTranslatorExtractor = $claimTranslatorExtractor;
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @return JsonResponse
+     */
     public function __invoke(ServerRequest $request)
     {
         $authorization = $this->resourceServer->validateAuthenticatedRequest($request);

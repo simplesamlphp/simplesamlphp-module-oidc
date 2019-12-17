@@ -25,12 +25,21 @@ class OpenIdConnectDiscoverConfigurationController
      */
     private $configurationService;
 
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService $configurationService
+     */
     public function __construct(
         ConfigurationService $configurationService
     ) {
         $this->configurationService = $configurationService;
     }
 
+
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $serverRequest
+     * @return \Zend\Diactoros\Response\JsonResponse
+     */
     public function __invoke(ServerRequest $serverRequest)
     {
         $scopes = $this->configurationService->getOpenIDScopes();

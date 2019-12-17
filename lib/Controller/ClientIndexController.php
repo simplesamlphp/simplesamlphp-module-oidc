@@ -24,17 +24,28 @@ class ClientIndexController
      * @var ClientRepository
      */
     private $clientRepository;
+
     /**
      * @var TemplateFactory
      */
     private $templateFactory;
 
+
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory $templateFactory
+     */
     public function __construct(ClientRepository $clientRepository, TemplateFactory $templateFactory)
     {
         $this->clientRepository = $clientRepository;
         $this->templateFactory = $templateFactory;
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @return \SimpleSAML\XHTML\Template
+     */
     public function __invoke(ServerRequest $request)
     {
         $clients = $this->clientRepository->findAll();

@@ -23,11 +23,19 @@ class ImplicitGrantFactory
      */
     private $accessTokenDuration;
 
+
+    /**
+     * @param \DateInterval $accessTokenDuration
+     */
     public function __construct(\DateInterval $accessTokenDuration)
     {
         $this->accessTokenDuration = $accessTokenDuration;
     }
 
+
+    /**
+     * @return \League\OAuth2\Server\Grant\ImplicitGrant
+     */
     public function build()
     {
         return new ImplicitGrant($this->accessTokenDuration);

@@ -25,6 +25,13 @@ use Zend\Diactoros\ServerRequest;
 
 class ClientIndexControllerSpec extends ObjectBehavior
 {
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory $templateFactory
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \Psr\Http\Message\UriInterface $uri
+     * @return void
+     */
     public function let(
         ClientRepository $clientRepository,
         TemplateFactory $templateFactory,
@@ -40,11 +47,23 @@ class ClientIndexControllerSpec extends ObjectBehavior
         $this->beConstructedWith($clientRepository, $templateFactory);
     }
 
+
+    /**
+     * @return void
+     */
     public function it_is_initializable()
     {
         $this->shouldHaveType(ClientIndexController::class);
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \SimpleSAML\XHTML\Template $template
+     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory $templateFactory
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
+     * @return void
+     */
     public function it_shows_client_index(
         ServerRequest $request,
         Template $template,

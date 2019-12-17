@@ -26,6 +26,13 @@ use Zend\Diactoros\ServerRequest;
 
 class OpenIdConnectInstallerControllerSpec extends ObjectBehavior
 {
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory $templateFactory
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $messages
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration $databaseMigration
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\DatabaseLegacyOAuth2Import $databaseLegacyOAuth2Import
+     * @return void
+     */
     public function let(
         TemplateFactory $templateFactory,
         SessionMessagesService $messages,
@@ -42,11 +49,21 @@ class OpenIdConnectInstallerControllerSpec extends ObjectBehavior
         );
     }
 
+
+    /**
+     * @return void
+     */
     public function it_is_initializable()
     {
         $this->shouldHaveType(OpenIdConnectInstallerController::class);
     }
 
+
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration $databaseMigration
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @return void
+     */
     public function it_returns_to_main_page_if_already_updated(
         DatabaseMigration $databaseMigration,
         ServerRequest $request
@@ -56,6 +73,13 @@ class OpenIdConnectInstallerControllerSpec extends ObjectBehavior
         $this->__invoke($request)->shouldBeAnInstanceOf(RedirectResponse::class);
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory $templateFactory
+     * @param \SimpleSAML\XHTML\Template $template
+     * @return void
+     */
     public function it_shows_information_page(
         ServerRequest $request,
         TemplateFactory $templateFactory,
@@ -71,6 +95,14 @@ class OpenIdConnectInstallerControllerSpec extends ObjectBehavior
         $this->__invoke($request)->shouldBeLike($template);
     }
 
+
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration $databaseMigration
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory $templateFactory
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $messages
+     * @return void
+     */
     public function it_requires_confirmation_before_install_schema(
         DatabaseMigration $databaseMigration,
         ServerRequest $request,
@@ -88,6 +120,14 @@ class OpenIdConnectInstallerControllerSpec extends ObjectBehavior
         $this->__invoke($request)->shouldBeLike($template);
     }
 
+
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration $databaseMigration
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\DatabaseLegacyOAuth2Import $databaseLegacyOAuth2Import
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $messages
+     * @return void
+     */
     public function it_creates_schema(
         DatabaseMigration $databaseMigration,
         DatabaseLegacyOAuth2Import $databaseLegacyOAuth2Import,
@@ -106,6 +146,14 @@ class OpenIdConnectInstallerControllerSpec extends ObjectBehavior
         $this->__invoke($request)->shouldBeAnInstanceOf(RedirectResponse::class);
     }
 
+
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration $databaseMigration
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\DatabaseLegacyOAuth2Import $databaseLegacyOAuth2Import
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $messages
+     * @return void
+     */
     public function it_imports_data_from_oauth2_module(
         DatabaseMigration $databaseMigration,
         DatabaseLegacyOAuth2Import $databaseLegacyOAuth2Import,

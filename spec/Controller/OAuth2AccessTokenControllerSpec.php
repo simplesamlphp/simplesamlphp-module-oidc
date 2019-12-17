@@ -24,16 +24,31 @@ use Zend\Diactoros\ServerRequest;
 
 class OAuth2AccessTokenControllerSpec extends ObjectBehavior
 {
+    /**
+     * @param \League\OAuth2\Server\AuthorizationServer $authorizationServer
+     * @return void
+     */
     public function let(AuthorizationServer $authorizationServer)
     {
         $this->beConstructedWith($authorizationServer);
     }
 
+
+    /**
+     * @return void
+     */
     public function it_is_initializable()
     {
         $this->shouldHaveType(OAuth2AccessTokenController::class);
     }
 
+
+    /**
+     * @param \League\OAuth2\Server\AuthorizationServer $authorizationServer
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \Zend\Diactoros\Response $response
+     * @return void
+     */
     public function it_responds_to_access_token_request(
         AuthorizationServer $authorizationServer,
         ServerRequest $request,

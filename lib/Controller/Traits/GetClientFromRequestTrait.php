@@ -27,11 +27,13 @@ trait GetClientFromRequestTrait
      */
     protected $clientRepository;
 
+
     /**
-     * @throws BadRequest
-     * @throws NotFound
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\NotFound
      *
-     * @return ClientEntity
+     * @return \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
      */
     protected function getClientFromRequest(ServerRequest $request)
     {

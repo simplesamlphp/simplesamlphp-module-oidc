@@ -21,20 +21,24 @@ use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 abstract class AbstractDatabaseRepository
 {
     /**
-     * @var Configuration
+     * @var \SimpleSAML\Configuration
      */
     protected $config;
+
     /**
-     * @var Database
+     * @var \SimpleSAML\Database
      */
     protected $database;
+
     /**
-     * @var ConfigurationService|null
+     * @var \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService|null
      */
     protected $configurationService;
 
+
     /**
      * ClientRepository constructor.
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository|null $configurationService
      */
     public function __construct(ConfigurationService $configurationService = null)
     {
@@ -43,5 +47,9 @@ abstract class AbstractDatabaseRepository
         $this->configurationService = $configurationService;
     }
 
+
+    /**
+     * @return string
+     */
     abstract public function getTableName();
 }

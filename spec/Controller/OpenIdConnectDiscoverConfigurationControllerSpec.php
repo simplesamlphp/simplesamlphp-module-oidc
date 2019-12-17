@@ -23,17 +23,32 @@ use Zend\Diactoros\ServerRequest;
 
 class OpenIdConnectDiscoverConfigurationControllerSpec extends ObjectBehavior
 {
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService $configurationService
+     * @return void
+     */
     public function let(
         ConfigurationService $configurationService)
     {
         $this->beConstructedWith($configurationService);
     }
 
+
+    /**
+     * @return void
+     */
     public function it_is_initializable()
     {
         $this->shouldHaveType(OpenIdConnectDiscoverConfigurationController::class);
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService $configurationService
+     * @param \SimpleSAML\Configuration $oidcConfiguration
+     * @return void
+     */
     public function it_returns_openid_connect_configuration(
         ServerRequest $request,
         ConfigurationService $configurationService,
@@ -63,6 +78,10 @@ class OpenIdConnectDiscoverConfigurationControllerSpec extends ObjectBehavior
         ]);
     }
 
+
+    /**
+     * @return array
+     */
     public function getMatchers(): array
     {
         return [

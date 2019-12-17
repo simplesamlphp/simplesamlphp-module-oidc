@@ -23,11 +23,20 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
 {
     const TABLE_NAME = 'oidc_user';
 
+
+    /**
+     * @return string
+     */
     public function getTableName()
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
 
+
+    /**
+     * @param string $identifier
+     * @return \SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity|null
+     */
     public function getUserEntityByIdentifier($identifier)
     {
         $stmt = $this->database->read(
@@ -44,8 +53,16 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
         return UserEntity::fromState(current($rows));
     }
 
+
     /**
      * @codeCoverageIgnore
+     *
+     * @param string $username
+     * @param string $password
+     * @param string $grantType
+     * @param \League\OAuth2\Server\Entities\ClientEntityInterface $clientEntity
+     * @return void
+     * @throws \Exception
      */
     public function getUserEntityByUserCredentials(
         $username,
@@ -56,6 +73,11 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
         throw new \Exception('Not supported');
     }
 
+
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity $userEntity
+     * @return void
+     */
     public function add(UserEntity $userEntity)
     {
         $this->database->write(
@@ -64,6 +86,11 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
         );
     }
 
+
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity $userEntity
+     * @return void
+     */
     public function delete(UserEntity $user)
     {
         $this->database->write(
@@ -74,6 +101,11 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
         );
     }
 
+
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity $userEntity
+     * @return void
+     */
     public function update(UserEntity $user)
     {
         $this->database->write(
