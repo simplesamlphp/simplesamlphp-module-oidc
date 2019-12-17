@@ -12,6 +12,11 @@
  * file that was distributed with this source code.
  */
 
+
+/**
+ * @param array &$croninfo
+ * @return void
+ */
 function oidc_hook_cron(&$croninfo)
 {
     assert('is_array($croninfo)');

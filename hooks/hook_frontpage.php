@@ -12,6 +12,10 @@
  * file that was distributed with this source code.
  */
 
+/**
+ * @param array &$links
+ * @return void
+ */
 function oidc_hook_frontpage(&$links)
 {
     assert('is_array($links)');
