@@ -28,6 +28,13 @@ use Zend\Diactoros\ServerRequest;
 
 class ClientShowControllerSpec extends ObjectBehavior
 {
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory $templateFactory
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \Psr\Http\Message\UriInterface
+     * @return void
+     */
     public function let(
         ClientRepository $clientRepository,
         TemplateFactory $templateFactory,
@@ -43,11 +50,24 @@ class ClientShowControllerSpec extends ObjectBehavior
         $this->beConstructedWith($clientRepository, $templateFactory);
     }
 
+
+    /**
+     * @return void
+     */
     public function it_is_initializable()
     {
         $this->shouldHaveType(ClientShowController::class);
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \SimpleSAML\XHTML\Template $template
+     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory $templateFactory
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
+     * @return void
+     */
     public function it_show_client_description(
         ServerRequest $request,
         Template $template,
@@ -62,6 +82,11 @@ class ClientShowControllerSpec extends ObjectBehavior
         $this->__invoke($request)->shouldBe($template);
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @return void
+     */
     public function it_throws_id_not_found_exception_in_show_action(
         ServerRequest $request
     ) {
@@ -70,6 +95,12 @@ class ClientShowControllerSpec extends ObjectBehavior
         $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
+     * @return void
+     */
     public function it_throws_client_not_found_exception_in_show_action(
         ServerRequest $request,
         ClientRepository $clientRepository

@@ -24,10 +24,12 @@ class ClientForm extends Form
      * RFC3986. AppendixB. Parsing a URI Reference with a Regular Expression.
      */
     const REGEX_URI = '/^[^:]+:\/\/?[^\s\/$.?#].[^\s]*$/';
+
     /**
-     * @var ConfigurationService
+     * @var \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService
      */
     private $configurationService;
+
 
     /**
      * {@inheritdoc}
@@ -41,8 +43,10 @@ class ClientForm extends Form
         $this->buildForm();
     }
 
+
     /**
-     * @param Form $form
+     * @param \Nette\Forms\Form $form
+     * @return void
      */
     public function validateRedirectUri($form)
     {
@@ -50,10 +54,11 @@ class ClientForm extends Form
         $redirect_uris = $values['redirect_uri'];
         foreach ($redirect_uris as $redirect_uri) {
             if (!preg_match(self::REGEX_URI, $redirect_uri)) {
-                $this->addError('Invalid URI: '.$redirect_uri);
+                $this->addError('Invalid URI: ' . $redirect_uri);
             }
         }
     }
+
 
     /**
      * {@inheritdoc}
@@ -79,6 +84,7 @@ class ClientForm extends Form
         return $values;
     }
 
+
     /**
      * {@inheritdoc}
      */
@@ -90,6 +96,10 @@ class ClientForm extends Form
         return parent::setDefaults($values, $erase);
     }
 
+
+    /**
+     * @return void
+     */
     protected function buildForm(): void
     {
         $this->getElementPrototype()->addAttributes(['class' => 'ui form']);
@@ -123,6 +133,10 @@ class ClientForm extends Form
             ->setRequired('Select one scope at least');
     }
 
+
+    /**
+     * @return array
+     */
     protected function getScopes(): array
     {
         $items = array_map(function ($item) {

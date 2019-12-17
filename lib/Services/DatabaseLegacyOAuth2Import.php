@@ -21,15 +21,23 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 class DatabaseLegacyOAuth2Import
 {
     /**
-     * @var ClientRepository
+     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository
      */
     private $clientRepository;
 
+
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
+     */
     public function __construct(ClientRepository $clientRepository)
     {
         $this->clientRepository = $clientRepository;
     }
 
+
+    /**
+     * @return void
+     */
     public function import()
     {
         if (!class_exists('\SimpleSAML\Modules\OAuth2\Repositories\ClientRepository')) {

@@ -58,7 +58,7 @@ class RoutingService
             return $emitter->emit($response);
         }
 
-        throw new Exception('Response type not supported: '.\get_class($response));
+        throw new Exception('Response type not supported: ' . \get_class($response));
     }
 
     protected static function getController(string $controllerClassname, ContainerInterface $container)
@@ -73,7 +73,7 @@ class RoutingService
         foreach ($controllerReflectionClass->getConstructor()->getParameters() as $parameter) {
             $className = $parameter->getClass()->getName();
             if (false === $container->has($className)) {
-                throw new \RuntimeException('Parameter or service not found: '.$className);
+                throw new \RuntimeException('Parameter or service not found: ' . $className);
             }
 
             $arguments[] = $container->get($className);

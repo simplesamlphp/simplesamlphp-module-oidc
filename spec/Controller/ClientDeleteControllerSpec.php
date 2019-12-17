@@ -30,6 +30,14 @@ use Zend\Diactoros\ServerRequest;
 
 class ClientDeleteControllerSpec extends ObjectBehavior
 {
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory $templateFactory
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $sessionMessagesService
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \Psr\Http\Message\UriInterface $uri
+     * @return void
+     */
     public function let(
         ClientRepository $clientRepository,
         TemplateFactory $templateFactory,
@@ -46,11 +54,24 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         $this->beConstructedWith($clientRepository, $templateFactory, $sessionMessagesService);
     }
 
+
+    /**
+     * @return void
+     */
     public function it_is_initializable()
     {
         $this->shouldHaveType(ClientDeleteController::class);
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \SimpleSAML\XHTML\Template $template
+     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory $templateFactory
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $clientEntity
+     * @return void
+     */
     public function it_asks_confirmation_before_delete_client(
         ServerRequest $request,
         Template $template,
@@ -67,6 +88,11 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         $this->__invoke($request)->shouldBe($template);
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @return void
+     */
     public function it_throws_id_not_found_exception_in_delete_action(
         ServerRequest $request
     ) {
@@ -75,6 +101,12 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
+     * @return void
+     */
     public function it_throws_client_not_found_exception_in_delete_action(
         ServerRequest $request,
         ClientRepository $clientRepository
@@ -85,6 +117,13 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         $this->shouldThrow(NotFound::class)->during('__invoke', [$request]);
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $clientEntity
+     * @return void
+     */
     public function it_throws_secret_not_found_exception_in_delete_action(
         ServerRequest $request,
         ClientRepository $clientRepository,
@@ -98,6 +137,13 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $clientEntity
+     * @return void
+     */
     public function it_throws_secret_invalid_exception_in_delete_action(
         ServerRequest $request,
         ClientRepository $clientRepository,
@@ -113,6 +159,14 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $clientEntity
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $sessionMessagesService
+     * @return void
+     */
     public function it_deletes_client(
         ServerRequest $request,
         ClientRepository $clientRepository,

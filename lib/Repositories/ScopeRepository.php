@@ -23,11 +23,14 @@ class ScopeRepository extends AbstractDatabaseRepository implements ScopeReposit
 {
     /**
      * @codeCoverageIgnore
+     *
+     * @return null
      */
     public function getTableName()
     {
         return null;
     }
+
 
     /**
      * {@inheritdoc}
@@ -54,6 +57,7 @@ class ScopeRepository extends AbstractDatabaseRepository implements ScopeReposit
 
         return $scope;
     }
+
 
     /**
      * {@inheritdoc}

@@ -20,6 +20,9 @@ use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
 
 class UserEntitySpec extends ObjectBehavior
 {
+    /**
+     * @return void
+     */
     public function let()
     {
         $this->beConstructedThrough('fromState', [
@@ -32,36 +35,64 @@ class UserEntitySpec extends ObjectBehavior
         ]);
     }
 
+
+    /**
+     * @return void
+     */
     public function it_is_initializable()
     {
         $this->shouldHaveType(UserEntity::class);
     }
 
+
+    /**
+     * @return void
+     */
     public function it_implements_memento_interface()
     {
         $this->shouldHaveType(MementoInterface::class);
     }
 
+
+    /**
+     * @return void
+     */
     public function it_has_an_id()
     {
         $this->getIdentifier()->shouldBeLike('id');
     }
 
+
+    /**
+     * @return void
+     */
     public function it_has_claims()
     {
         $this->getClaims()->shouldBeLike([]);
     }
 
+
+    /**
+     * @return void
+     */
     public function it_has_created_date_time()
     {
         $this->getCreatedAt()->format('Y-m-d H:i:s')->shouldBeLike('1970-01-01 00:00:00');
     }
 
+
+    /**
+     * @return void
+     */
     public function it_has_updated_date_time()
     {
         $this->getUpdatedAt()->format('Y-m-d H:i:s')->shouldBeLike('1970-01-01 00:00:00');
     }
 
+
+    /**
+     * @return void
+     */
     public function it_can_return_state()
     {
         $this->getState()->shouldBeLike([

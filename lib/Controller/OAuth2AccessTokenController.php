@@ -25,11 +25,20 @@ class OAuth2AccessTokenController
      */
     private $authorizationServer;
 
+
+    /**
+     * @param \League\OAuth2\Server\AuthorizationServer $authorizationServer
+     */
     public function __construct(AuthorizationServer $authorizationServer)
     {
         $this->authorizationServer = $authorizationServer;
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @return \Psr\Http\Message\ResponseInterface
+     */
     public function __invoke(ServerRequest $request)
     {
         return $this->authorizationServer->respondToAccessTokenRequest($request, new Response());

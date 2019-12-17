@@ -21,20 +21,31 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
 class RefreshTokenRepository extends AbstractDatabaseRepository implements RefreshTokenRepositoryInterface
 {
-    const TABLE_NAME = 'oidc_refresh_token';
+    public const TABLE_NAME = 'oidc_refresh_token';
 
+
+    /**
+     * @return string
+     */
     public function getTableName()
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
 
+
+    /**
+     * @return \SimpleSAML\Modules\OpenIDConnect\Entity\RefreshTokenEntity
+     */
     public function getNewRefreshToken()
     {
         return new RefreshTokenEntity();
     }
 
+
     /**
-     * @param RefreshTokenEntityInterface|RefreshTokenEntity $refreshTokenEntity
+     * @param (\League\OAuth2\Server\Entities\RefreshTokenEntityInterface|
+     *         \SimpleSAML\Modules\OpenIDConnect\Entity\RefreshTokenEntity) $refreshTokenEntity
+     * @return void
      */
     public function persistNewRefreshToken(RefreshTokenEntityInterface $refreshTokenEntity)
     {
@@ -44,12 +55,13 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         );
     }
 
+
     /**
      * Find Refresh Token by id.
      *
-     * @param $tokenId
+     * @param string $tokenId
      *
-     * @return RefreshTokenEntity|null
+     * @return \SimpleSAML\Modules\OpenIDConnect\Entity\RefreshTokenEntity|null
      */
     public function findById($tokenId)
     {
@@ -70,6 +82,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         return RefreshTokenEntity::fromState($data);
     }
 
+
     /**
      * {@inheritdoc}
      */
@@ -85,6 +98,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         $this->update($refreshToken);
     }
 
+
     /**
      * {@inheritdoc}
      */
@@ -99,8 +113,10 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         return $refreshToken->isRevoked();
     }
 
+
     /**
      * Removes expired refresh tokens.
+     * @return void
      */
     public function removeExpired()
     {
@@ -112,6 +128,11 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         );
     }
 
+
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\RefreshTokenEntity $refreshTokenEntity
+     * @return void
+     */
     private function update(RefreshTokenEntity $refreshTokenEntity)
     {
         $this->database->write(

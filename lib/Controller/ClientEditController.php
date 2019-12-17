@@ -32,16 +32,26 @@ class ClientEditController
     /**
      * @var TemplateFactory
      */
+
     private $templateFactory;
     /**
      * @var FormFactory
      */
     private $formFactory;
+
     /**
      * @var SessionMessagesService
      */
     private $messages;
 
+
+
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory $templateFactory
+     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory $formFactory
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $messages
+     */
     public function __construct(
         ClientRepository $clientRepository,
         TemplateFactory $templateFactory,
@@ -54,6 +64,11 @@ class ClientEditController
         $this->messages = $messages;
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @return \Zend\Diactoros\Response\RedirectResponse|\SimpleSAML\XHTML\Template
+     */
     public function __invoke(ServerRequest $request)
     {
         $client = $this->getClientFromRequest($request);

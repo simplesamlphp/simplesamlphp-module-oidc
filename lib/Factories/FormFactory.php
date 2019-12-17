@@ -21,26 +21,30 @@ use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 class FormFactory
 {
     /**
-     * @var ConfigurationService
+     * @var \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService
      */
     private $configurationService;
 
+
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService $configurationService
+     */
     public function __construct(ConfigurationService $configurationService)
     {
         $this->configurationService = $configurationService;
     }
 
+
     /**
      * @param string $name Form name
      *
-     * @throws Exception
+     * @throws \Exception
      *
      * @return mixed
      */
     public function build(string $classname)
     {
-        if (!class_exists($classname)
-            && $classname instanceof Form) {
+        if (!class_exists($classname) && $classname instanceof Form) {
             throw new Exception("Invalid form: {$classname}");
         }
 

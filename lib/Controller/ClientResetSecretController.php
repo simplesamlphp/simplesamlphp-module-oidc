@@ -32,12 +32,22 @@ class ClientResetSecretController
      */
     private $messages;
 
+
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $messages
+     */
     public function __construct(ClientRepository $clientRepository, SessionMessagesService $messages)
     {
         $this->clientRepository = $clientRepository;
         $this->messages = $messages;
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @return \Zend\Diactoros\Response\RedirectResponse
+     */
     public function __invoke(ServerRequest $request)
     {
         $client = $this->getClientFromRequest($request);

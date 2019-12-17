@@ -23,19 +23,26 @@ use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 class IdTokenResponseFactory
 {
     /**
-     * @var UserRepository
+     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository
      */
     private $userRepository;
 
     /**
-     * @var ConfigurationService
+     * @var \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService
      */
     private $configurationService;
+
     /**
-     * @var ClaimTranslatorExtractor
+     * @var \SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor
      */
     private $claimTranslatorExtractor;
 
+
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository $userRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService $configurationService
+     * @param \SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor $claimTranslatorExtractor
+     */
     public function __construct(
         UserRepository $userRepository,
         ConfigurationService $configurationService,
@@ -46,6 +53,10 @@ class IdTokenResponseFactory
         $this->claimTranslatorExtractor = $claimTranslatorExtractor;
     }
 
+
+    /**
+     * @return \SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\IdTokenResponse
+     */
     public function build()
     {
         $builder = (new Builder())

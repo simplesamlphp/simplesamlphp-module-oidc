@@ -36,10 +36,22 @@ class ScopeEntity implements ScopeEntityInterface
      */
     private $attributes;
 
+
+    /**
+     * Constructor
+     */
     private function __construct()
     {
     }
 
+
+    /**
+     * @param string $identifier
+     * @param string|null $description
+     * @param string|null $icon
+     * @param array $attributes
+     * @return self
+     */
     public static function fromData(string $identifier, string $description = null, string $icon = null, array $attributes = []): self
     {
         $scope = new self();
@@ -52,6 +64,7 @@ class ScopeEntity implements ScopeEntityInterface
         return $scope;
     }
 
+
     /**
      * @return string
      */
@@ -59,6 +72,7 @@ class ScopeEntity implements ScopeEntityInterface
     {
         return $this->icon;
     }
+
 
     /**
      * @return string
@@ -68,6 +82,7 @@ class ScopeEntity implements ScopeEntityInterface
         return $this->description;
     }
 
+
     /**
      * @return array
      */
@@ -75,6 +90,7 @@ class ScopeEntity implements ScopeEntityInterface
     {
         return $this->attributes;
     }
+
 
     /**
      * @return string

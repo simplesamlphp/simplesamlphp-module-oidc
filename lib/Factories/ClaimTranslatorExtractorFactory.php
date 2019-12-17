@@ -21,16 +21,24 @@ use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 class ClaimTranslatorExtractorFactory
 {
     /**
-     * @var ConfigurationService
+     * @var \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService
      */
     private $configurationService;
 
+
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService $configurationService
+     */
     public function __construct(
         ConfigurationService $configurationService
     ) {
         $this->configurationService = $configurationService;
     }
 
+
+    /**
+     * @return \SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor
+     */
     public function build()
     {
         $translatorTable = $this->configurationService->getOpenIDConnectConfiguration()->getArray('translate', []);

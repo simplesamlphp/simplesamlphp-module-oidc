@@ -29,19 +29,29 @@ class OpenIdConnectInstallerController
      * @var TemplateFactory
      */
     private $templateFactory;
+
     /**
      * @var SessionMessagesService
      */
     private $messages;
+
     /**
      * @var DatabaseMigration
      */
     private $databaseMigration;
+
     /**
      * @var DatabaseLegacyOAuth2Import
      */
     private $databaseLegacyOAuth2Import;
 
+
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory $templateFactory
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $messages
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration $databaseMigration
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\DatabaseLegacyOAuth2Import $databaseLegacyOAuth2Import
+     */
     public function __construct(
         TemplateFactory $templateFactory,
         SessionMessagesService $messages,
@@ -54,6 +64,11 @@ class OpenIdConnectInstallerController
         $this->databaseLegacyOAuth2Import = $databaseLegacyOAuth2Import;
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @return \Zend\Diactoros\Response\RedirectResponse|\SimpleSAML\XHTML\Template
+     */
     public function __invoke(ServerRequest $request)
     {
         if ($this->databaseMigration->isUpdated()) {

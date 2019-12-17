@@ -29,6 +29,11 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
     use AuthCodeTrait;
     use RevokeTokenTrait;
 
+
+    /**
+     * @param array $state
+     * @return self
+     */
     public static function fromState(array $state)
     {
         $authCode = new self();
@@ -48,6 +53,11 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
         return $authCode;
     }
 
+
+
+    /**
+     * @return array
+     */
     public function getState(): array
     {
         return [

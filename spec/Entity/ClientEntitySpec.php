@@ -21,6 +21,10 @@ use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\MementoInterface;
 
 class ClientEntitySpec extends ObjectBehavior
 {
+    /**
+     * @param \League\OAuth2\Server\Entities\ClientEntityInterface $clientEntity
+     * @return void
+     */
     public function let(ClientEntityInterface $clientEntity)
     {
         $clientEntity->getIdentifier()->willReturn('client_id');
@@ -39,57 +43,101 @@ class ClientEntitySpec extends ObjectBehavior
         ]);
     }
 
+
+    /**
+     * @return void
+     */
     public function it_is_initializable()
     {
         $this->shouldHaveType(ClientEntity::class);
     }
 
+
+    /**
+     * @return void
+     */
     public function it_implements_memento_interface()
     {
         $this->shouldHaveType(MementoInterface::class);
     }
 
+
+    /**
+     * @return void
+     */
     public function it_has_an_id()
     {
         $this->getIdentifier()->shouldBeLike('id');
     }
 
+
+    /**
+     * @return void
+     */
     public function it_has_a_secret()
     {
         $this->getSecret()->shouldBeLike('secret');
     }
 
+
+    /**
+     * @return void
+     */
     public function its_secret_can_be_changed()
     {
         $this->restoreSecret('new_secret');
         $this->getSecret()->shouldBeLike('new_secret');
     }
 
+
+    /**
+     * @return void
+     */
     public function it_has_a_description()
     {
         $this->getDescription()->shouldBeLike('description');
     }
 
+
+    /**
+     * @return void
+     */
     public function it_has_an_auth_source()
     {
         $this->getAuthSource()->shouldBeLike('auth_source');
     }
 
+
+    /**
+     * @return void
+     */
     public function it_has_direct_uris()
     {
         $this->getRedirectUri()->shouldBeLike(['https://localhost/redirect']);
     }
 
+
+    /**
+     * @return void
+     */
     public function it_has_scopes()
     {
         $this->getScopes()->shouldBeLike([]);
     }
 
+
+    /**
+     * @return void
+     */
     public function it_can_be_enabled()
     {
         $this->isEnabled()->shouldBeEqualTo(true);
     }
 
+
+    /**
+     * @return void
+     */
     public function it_can_return_state()
     {
         $this->getState()->shouldBeLike([
@@ -104,6 +152,10 @@ class ClientEntitySpec extends ObjectBehavior
         ]);
     }
 
+
+    /**
+     * @return void
+     */
     public function it_can_be_exported_as_array()
     {
         $this->toArray()->shouldBeLike([

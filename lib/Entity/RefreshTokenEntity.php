@@ -27,6 +27,11 @@ class RefreshTokenEntity implements RefreshTokenEntityInterface, MementoInterfac
     use EntityTrait;
     use RevokeTokenTrait;
 
+
+    /**
+     * @param array $state
+     * @return self
+     */
     public static function fromState(array $state)
     {
         $refreshToken = new self();
@@ -39,6 +44,10 @@ class RefreshTokenEntity implements RefreshTokenEntityInterface, MementoInterfac
         return $refreshToken;
     }
 
+
+    /**
+     * @return array
+     */
     public function getState(): array
     {
         return [

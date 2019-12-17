@@ -22,6 +22,9 @@ use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration;
 
 class UserRepositoryTest extends TestCase
 {
+    /**
+     * @return void
+     */
     protected function setUp()
     {
         $config = [
@@ -37,6 +40,10 @@ class UserRepositoryTest extends TestCase
         (new DatabaseMigration())->migrate();
     }
 
+
+    /**
+     * @return void
+     */
     public function testGetTableName()
     {
         $repository = new UserRepository();
@@ -44,6 +51,10 @@ class UserRepositoryTest extends TestCase
         $this->assertSame('phpunit_oidc_user', $repository->getTableName());
     }
 
+
+    /**
+     * @return void
+     */
     public function testAddAndFound()
     {
         $repository = new UserRepository();
@@ -54,6 +65,10 @@ class UserRepositoryTest extends TestCase
         $this->assertSame($user->getIdentifier(), 'uniqueid');
     }
 
+
+    /**
+     * @return void
+     */
     public function testNotFound()
     {
         $repository = new UserRepository();
@@ -62,6 +77,10 @@ class UserRepositoryTest extends TestCase
         $this->assertNull($user);
     }
 
+
+    /**
+     * @return void
+     */
     public function testUpdate()
     {
         $repository = new UserRepository();
@@ -73,6 +92,10 @@ class UserRepositoryTest extends TestCase
         $this->assertNotSame($user, $user2);
     }
 
+
+    /**
+     * @return void
+     */
     public function testDelete()
     {
         $repository = new UserRepository();

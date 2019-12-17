@@ -29,6 +29,13 @@ use Zend\Diactoros\ServerRequest;
 
 class ClientResetSecretControllerSpec extends ObjectBehavior
 {
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $sessionMessagesService
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \Psr\Http\Message\UriInterface $uri
+     * @return void
+     */
     public function let(
         ClientRepository $clientRepository,
         SessionMessagesService $sessionMessagesService,
@@ -44,11 +51,20 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         $this->beConstructedWith($clientRepository, $sessionMessagesService);
     }
 
+
+    /**
+     * @return void
+     */
     public function it_is_initializable()
     {
         $this->shouldHaveType(ClientResetSecretController::class);
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @return void
+     */
     public function it_throws_id_not_found_exception_in_reset_secret_action(
         ServerRequest $request
     ) {
@@ -57,6 +73,12 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
+     * @return void
+     */
     public function it_throws_client_not_found_exception_in_reset_secret_action(
         ServerRequest $request,
         ClientRepository $clientRepository
@@ -67,6 +89,13 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         $this->shouldThrow(NotFound::class)->during('__invoke', [$request]);
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
+     * @return void
+     */
     public function it_throws_secret_not_found_exception_in_reset_secret_action(
         ServerRequest $request,
         ClientRepository $clientRepository,
@@ -80,6 +109,13 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
+     * @return void
+     */
     public function it_throws_secret_invalid_exception_in_reset_secret_action(
         ServerRequest $request,
         ClientRepository $clientRepository,
@@ -95,6 +131,14 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $sessionMessagesService
+     * @return void
+     */
     public function it_reset_secrets_client(
         ServerRequest $request,
         ClientRepository $clientRepository,
@@ -116,6 +160,14 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         $this->__invoke($request)->shouldBeAnInstanceOf(RedirectResponse::class);
     }
 
+
+    /**
+     * @param \Zend\Diactoros\ServerRequest $request
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $sessionMessagesService
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
+     * @return void
+     */
     public function it_send_back_to_show_client_if_not_post_method_in_reset_action(
         ServerRequest $request,
         ClientRepository $clientRepository,
