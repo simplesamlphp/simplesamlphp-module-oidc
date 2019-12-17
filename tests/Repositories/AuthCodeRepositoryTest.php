@@ -36,6 +36,10 @@ class AuthCodeRepositoryTest extends TestCase
      */
     protected static $repository;
 
+
+    /**
+     * @return void
+     */
     public static function setUpBeforeClass()
     {
         $config = [
@@ -58,11 +62,19 @@ class AuthCodeRepositoryTest extends TestCase
         self::$repository = new AuthCodeRepository();
     }
 
+
+    /**
+     * @return void
+     */
     public function testGetTableName()
     {
         $this->assertSame('phpunit_oidc_auth_code', self::$repository->getTableName());
     }
 
+
+    /**
+     * @return void
+     */
     public function testAddAndFound()
     {
         $scopes = [
@@ -87,6 +99,10 @@ class AuthCodeRepositoryTest extends TestCase
         $this->assertEquals($authCode, $foundAuthCode);
     }
 
+
+    /**
+     * @return void
+     */
     public function testAddAndNotFound()
     {
         $notFoundAuthCode = self::$repository->findById('nocode');
@@ -94,6 +110,10 @@ class AuthCodeRepositoryTest extends TestCase
         $this->assertNull($notFoundAuthCode);
     }
 
+
+    /**
+     * @return void
+     */
     public function testRevokeCode()
     {
         self::$repository->revokeAuthCode(self::AUTH_CODE_ID);
@@ -102,22 +122,30 @@ class AuthCodeRepositoryTest extends TestCase
         $this->assertTrue($isRevoked);
     }
 
+
     /**
      * @expectedException \RuntimeException
+     * @return void
      */
     public function testErrorRevokeInvalidAuthCode()
     {
         self::$repository->revokeAuthCode('nocode');
     }
 
+
     /**
      * @expectedException \RuntimeException
+     * @return void
      */
     public function testErrorCheckIsRevokedInvalidAuthCode()
     {
         self::$repository->isAuthCodeRevoked('nocode');
     }
 
+
+    /**
+     * @return void
+     */
     public function testRemoveExpired()
     {
         self::$repository->removeExpired();

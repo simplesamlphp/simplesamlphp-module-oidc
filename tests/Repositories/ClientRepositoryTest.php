@@ -27,6 +27,10 @@ class ClientRepositoryTest extends TestCase
      */
     protected static $repository;
 
+
+    /**
+     * @return void
+     */
     public static function setUpBeforeClass()
     {
         $config = [
@@ -44,6 +48,10 @@ class ClientRepositoryTest extends TestCase
         self::$repository = new ClientRepository();
     }
 
+
+    /**
+     * @return void
+     */
     public function tearDown()
     {
         $clients = self::$repository->findAll();
@@ -53,11 +61,19 @@ class ClientRepositoryTest extends TestCase
         }
     }
 
+
+    /**
+     * @return void
+     */
     public function testGetTableName()
     {
         $this->assertSame('phpunit_oidc_client', self::$repository->getTableName());
     }
 
+
+    /**
+     * @return void
+     */
     public function testAddAndFound()
     {
         $client = self::getClient('clientid');
@@ -67,6 +83,10 @@ class ClientRepositoryTest extends TestCase
         $this->assertEquals($client, $foundClient);
     }
 
+
+    /**
+     * @return void
+     */
     public function testGetClientEntityWithoutSecretAndFound()
     {
         $client = self::getClient('clientid');
@@ -76,6 +96,10 @@ class ClientRepositoryTest extends TestCase
         $this->assertNotNull($client);
     }
 
+
+    /**
+     * @return void
+     */
     public function testGetClientEntityWithSecretAndFound()
     {
         $client = self::getClient('clientid');
@@ -85,6 +109,10 @@ class ClientRepositoryTest extends TestCase
         $this->assertNotNull($client);
     }
 
+
+    /**
+     * @return void
+     */
     public function testGetDisabledClientEntity()
     {
         $client = self::getClient('clientid', false);
@@ -94,6 +122,10 @@ class ClientRepositoryTest extends TestCase
         $this->assertNull($client);
     }
 
+
+    /**
+     * @return void
+     */
     public function testGetClientEntityWithWrongIdAndNotFound()
     {
         $client = self::getClient('clientid');
@@ -103,6 +135,10 @@ class ClientRepositoryTest extends TestCase
         $this->assertNull($client);
     }
 
+
+    /**
+     * @return void
+     */
     public function testFindAll()
     {
         $client = self::getClient('clientid');
@@ -113,6 +149,10 @@ class ClientRepositoryTest extends TestCase
         $this->assertInstanceOf(ClientEntity::class, current($clients));
     }
 
+
+    /**
+     * @return void
+     */
     public function testUpdate()
     {
         $client = self::getClient('clientid');
@@ -135,6 +175,10 @@ class ClientRepositoryTest extends TestCase
         $this->assertEquals($client, $foundClient);
     }
 
+
+    /**
+     * @return void
+     */
     public function testDelete()
     {
         $client = self::getClient('clientid');
@@ -147,6 +191,12 @@ class ClientRepositoryTest extends TestCase
         $this->assertNull($foundClient);
     }
 
+
+    /**
+     * @param string $id
+     * @param bool $enabled
+     * @return \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
+     */
     public static function getClient(string $id, bool $enabled = true)
     {
         return ClientEntity::fromData(

@@ -35,6 +35,10 @@ class AccessTokenRepositoryTest extends TestCase
      */
     protected static $repository;
 
+
+    /**
+     * @return void
+     */
     public static function setUpBeforeClass()
     {
         $config = [
@@ -57,11 +61,19 @@ class AccessTokenRepositoryTest extends TestCase
         self::$repository = new AccessTokenRepository();
     }
 
+
+    /**
+     * @return void
+     */
     public function testGetTableName()
     {
         $this->assertSame('phpunit_oidc_access_token', self::$repository->getTableName());
     }
 
+
+    /**
+     * @return void
+     */
     public function testAddAndFound()
     {
         $scopes = [
@@ -79,6 +91,10 @@ class AccessTokenRepositoryTest extends TestCase
         $this->assertEquals($accessToken, $foundAccessToken);
     }
 
+
+    /**
+     * @return void
+     */
     public function testAddAndNotFound()
     {
         $notFoundAccessToken = self::$repository->findById('notoken');
@@ -86,6 +102,10 @@ class AccessTokenRepositoryTest extends TestCase
         $this->assertNull($notFoundAccessToken);
     }
 
+
+    /**
+     * @return void
+     */
     public function testRevokeToken()
     {
         self::$repository->revokeAccessToken(self::ACCESS_TOKEN_ID);
@@ -94,22 +114,30 @@ class AccessTokenRepositoryTest extends TestCase
         $this->assertTrue($isRevoked);
     }
 
+
     /**
      * @expectedException \RuntimeException
+     * @return void
      */
     public function testErrorRevokeInvalidToken()
     {
         self::$repository->revokeAccessToken('notoken');
     }
 
+
     /**
      * @expectedException \RuntimeException
+     * @return void
      */
     public function testErrorCheckIsRevokedInvalidToken()
     {
         self::$repository->isAccessTokenRevoked('notoken');
     }
 
+
+    /**
+     * @return void
+     */
     public function testRemoveExpired()
     {
         self::$repository->removeExpired();

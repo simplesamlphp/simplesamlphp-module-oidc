@@ -23,6 +23,9 @@ use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration;
 
 class ScopeRepositoryTest extends TestCase
 {
+    /**
+     * @return void
+     */
     public static function setUpBeforeClass()
     {
         $config = [
@@ -39,6 +42,10 @@ class ScopeRepositoryTest extends TestCase
         (new DatabaseMigration())->migrate();
     }
 
+
+    /**
+     * @return void
+     */
     public function testGetScopeEntityByIdentifier()
     {
         $scopeRepository = new ScopeRepository(new ConfigurationService());
@@ -53,6 +60,10 @@ class ScopeRepositoryTest extends TestCase
         $this->assertEquals($expected, $scope);
     }
 
+
+    /**
+     * @return void
+     */
     public function testGetUnknownScope()
     {
         $scopeRepository = new ScopeRepository(new ConfigurationService());
@@ -62,6 +73,10 @@ class ScopeRepositoryTest extends TestCase
         $this->assertNull($scope);
     }
 
+
+    /**
+     * @return void
+     */
     public function testFinalizeScopes()
     {
         $scopeRepository = new ScopeRepository(new ConfigurationService());

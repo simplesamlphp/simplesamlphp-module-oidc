@@ -37,6 +37,10 @@ class RefreshTokenRepositoryTest extends TestCase
      */
     protected static $repository;
 
+
+    /**
+     * @return void
+     */
     public static function setUpBeforeClass()
     {
         $config = [
@@ -64,11 +68,19 @@ class RefreshTokenRepositoryTest extends TestCase
         self::$repository = new RefreshTokenRepository();
     }
 
+
+    /**
+     * @return void
+     */
     public function testGetTableName()
     {
         $this->assertSame('phpunit_oidc_refresh_token', self::$repository->getTableName());
     }
 
+
+    /**
+     * @return void
+     */
     public function testAddAndFound()
     {
         $accessToken = (new AccessTokenRepository())->findById(self::ACCESS_TOKEN_ID);
@@ -85,6 +97,10 @@ class RefreshTokenRepositoryTest extends TestCase
         $this->assertEquals($refreshToken, $foundRefreshToken);
     }
 
+
+    /**
+     * @return void
+     */
     public function testAddAndNotFound()
     {
         $notFoundRefreshToken = self::$repository->findById('notoken');
@@ -92,6 +108,10 @@ class RefreshTokenRepositoryTest extends TestCase
         $this->assertNull($notFoundRefreshToken);
     }
 
+
+    /**
+     * @return void
+     */
     public function testRevokeToken()
     {
         self::$repository->revokeRefreshToken(self::REFRESH_TOKEN_ID);
@@ -100,22 +120,30 @@ class RefreshTokenRepositoryTest extends TestCase
         $this->assertTrue($isRevoked);
     }
 
+
     /**
      * @expectedException \RuntimeException
+     * @void
      */
     public function testErrorRevokeInvalidToken()
     {
         self::$repository->revokeRefreshToken('notoken');
     }
 
+
     /**
      * @expectedException \RuntimeException
+     * @return void
      */
     public function testErrorCheckIsRevokedInvalidToken()
     {
         self::$repository->isRefreshTokenRevoked('notoken');
     }
 
+
+    /**
+     * @return void
+     */
     public function testRemoveExpired()
     {
         self::$repository->removeExpired();

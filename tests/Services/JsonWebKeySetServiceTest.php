@@ -27,6 +27,10 @@ class JsonWebKeySetServiceTest extends TestCase
      */
     private static $pkGeneratePublic;
 
+
+    /**
+     * @return void
+     */
     public static function setUpBeforeClass()
     {
         // From https://www.andrewzammit.com/blog/php-openssl-rsa-shared-key-generation/
@@ -48,11 +52,19 @@ class JsonWebKeySetServiceTest extends TestCase
         file_put_contents(sys_get_temp_dir().'/oidc_module.crt', self::$pkGeneratePublic);
     }
 
+
+    /**
+     * @return void
+     */
     public static function tearDownAfterClass()
     {
         unlink(sys_get_temp_dir().'/oidc_module.crt');
     }
 
+
+    /**
+     * @return void
+     */
     public function testKeys()
     {
         $config = [
@@ -72,8 +84,10 @@ class JsonWebKeySetServiceTest extends TestCase
         $this->assertEquals($JWKSet->all(), $jsonWebKeySetService->keys());
     }
 
+
     /**
      * @expectedException \Exception
+     * @return void
      */
     public function testCertificationFileNotFound()
     {
