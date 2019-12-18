@@ -169,7 +169,6 @@ class Container implements ContainerInterface
     /**
      * @param string $id
      *
-     * @throws \Psr\Container\NotFoundExceptionInterface
      * @throws \SimpleSAML\Error\Exception
      *
      * @return object
