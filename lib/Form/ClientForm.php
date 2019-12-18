@@ -23,7 +23,7 @@ class ClientForm extends Form
     /**
      * RFC3986. AppendixB. Parsing a URI Reference with a Regular Expression.
      */
-    const REGEX_URI = '/^[^:]+:\/\/?[^\s\/$.?#].[^\s]*$/';
+    public const REGEX_URI = '/^[^:]+:\/\/?[^\s\/$.?#].[^\s]*$/';
 
     /**
      * @var \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService

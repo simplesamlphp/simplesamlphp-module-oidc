@@ -143,7 +143,7 @@ class Container implements ContainerInterface
         $refreshTokenGrantFactory = new RefreshTokenGrantFactory(
             $refreshTokenRepository,
             $refreshTokenDuration
-            );
+        );
         $this->services[RefreshTokenGrant::class] = $refreshTokenGrantFactory->build();
 
         $authorizationServerFactory = new AuthorizationServerFactory(

@@ -101,7 +101,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
     public function add(ClientEntity $client): void
     {
         $this->database->write(
-              "INSERT INTO {$this->getTableName()} (id, secret, name, description, auth_source, redirect_uri, scopes, is_enabled) VALUES (:id, :secret, :name, :description, :auth_source, :redirect_uri, :scopes, :is_enabled)",
+            "INSERT INTO {$this->getTableName()} (id, secret, name, description, auth_source, redirect_uri, scopes, is_enabled) VALUES (:id, :secret, :name, :description, :auth_source, :redirect_uri, :scopes, :is_enabled)",
             $client->getState()
         );
     }

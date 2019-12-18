@@ -82,7 +82,7 @@ class AuthorizationServerFactory
      * @param \DateInterval $accessTokenDuration
      * @param \SimpleSAML\Modules\OpenIDConnect\Factories\IdTokenResponseFactory $idTokenResponseFactory
      * @param string|null $passPhrase
-     */ 
+     */
     public function __construct(
         ClientRepository $clientRepository,
         AccessTokenRepository $accessTokenRepository,
