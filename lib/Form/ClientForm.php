@@ -96,7 +96,7 @@ class ClientForm extends Form
     /**
      * {@inheritdoc}
      */
-    public function setDefaults(array $values, bool $erase = false): self
+    public function setDefaults($values, $erase = false)
     {
         $values['redirect_uri'] = implode("\n", $values['redirect_uri']);
         $values['scopes'] = array_intersect($values['scopes'], array_keys($this->getScopes()));
