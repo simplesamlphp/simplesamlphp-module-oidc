@@ -44,7 +44,7 @@ class DatabaseLegacyOAuth2Import
             return;
         }
 
-        $oauth2ClientRepository = new OAuth2\Repositories\ClientRepository();
+        $oauth2ClientRepository = new \SimpleSAML\Modules\OAuth2\Repositories\ClientRepository();
         $clients = $oauth2ClientRepository->findAll();
 
         /** @var \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $client */
