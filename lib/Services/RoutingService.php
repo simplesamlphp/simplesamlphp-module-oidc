@@ -28,6 +28,12 @@ use Zend\Diactoros\ServerRequestFactory;
 
 class RoutingService
 {
+    /**
+     * @throws \SimpleSAML\Error\Exception
+     * @param string $controllerClassname
+     * @param bool $authenticated
+     * @return void
+     */
     public static function call(string $controllerClassname, bool $authenticated = true)
     {
         if ($authenticated) {
@@ -61,6 +67,14 @@ class RoutingService
         throw new Exception('Response type not supported: ' . \get_class($response));
     }
 
+
+    /**
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \RuntimeException
+     * @param string $controllerClassname
+     * @param \Psr\Container\ContainerInterface $container
+     * @return \ReflectionClass
+     */
     protected static function getController(string $controllerClassname, ContainerInterface $container)
     {
         if (!class_exists($controllerClassname)) {
@@ -82,6 +96,10 @@ class RoutingService
         return $controllerReflectionClass->newInstanceArgs($arguments);
     }
 
+
+    /**
+     * @return void
+     */
     protected static function enableJsonExceptionResponse()
     {
         set_exception_handler(function (\Throwable $t) {

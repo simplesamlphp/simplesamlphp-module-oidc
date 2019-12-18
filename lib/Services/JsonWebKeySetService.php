@@ -26,6 +26,7 @@ class JsonWebKeySetService
      */
     private $jwkSet;
 
+
     public function __construct()
     {
         $publicKeyPath = Config::getCertPath('oidc_module.crt');
@@ -43,6 +44,10 @@ class JsonWebKeySetService
         $this->jwkSet = new JWKSet([$jwk]);
     }
 
+
+    /**
+     * @return \Jose\Component\Core\JWK[]
+     */
     public function keys()
     {
         return $this->jwkSet->all();

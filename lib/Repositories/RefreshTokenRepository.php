@@ -85,6 +85,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
 
     /**
      * {@inheritdoc}
+     * @return void
      */
     public function revokeRefreshToken($tokenId)
     {

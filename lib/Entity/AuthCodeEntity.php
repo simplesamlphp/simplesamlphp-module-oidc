@@ -38,9 +38,16 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
     {
         $authCode = new self();
 
-        $scopes = array_map(function ($scope) {
-            return ScopeEntity::fromData($scope);
-        }, json_decode($state['scopes'], true));
+        $scopes = array_map(
+            /**
+             * @param array $scope
+             * @return \SimpleSAML\Modules\OpenIDConnect\Entity\ScopeEntity
+             */
+            function ($scope) {
+                return ScopeEntity::fromData($scope);
+            },
+            json_decode($state['scopes'], true)
+        );
 
         $authCode->identifier = $state['id'];
         $authCode->scopes = $scopes;

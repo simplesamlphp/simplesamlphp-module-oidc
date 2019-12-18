@@ -44,6 +44,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
 
     /**
      * {@inheritdoc}
+     * @return void
      */
     public function persistNewAccessToken(AccessTokenEntityInterface $accessTokenEntity)
     {
@@ -57,7 +58,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
     /**
      * Find Access Token by id.
      *
-     * @param string$tokenId
+     * @param string $tokenId
      *
      * @return AccessTokenEntity|null
      */
@@ -83,6 +84,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
 
     /**
      * {@inheritdoc}
+     * @return void
      */
     public function revokeAccessToken($tokenId)
     {

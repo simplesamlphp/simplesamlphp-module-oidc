@@ -45,6 +45,7 @@ use SimpleSAML\Session;
 
 class Container implements ContainerInterface
 {
+    /** @var array */
     private $services = [];
 
     public function __construct()
@@ -168,8 +169,8 @@ class Container implements ContainerInterface
     /**
      * @param string $id
      *
-     * @throws NotFoundExceptionInterface
-     * @throws Exception
+     * @throws \Psr\Container\NotFoundExceptionInterface
+     * @throws \SimpleSAML\Error\Exception
      *
      * @return object
      */
@@ -187,8 +188,13 @@ class Container implements ContainerInterface
         return $this->services[$id];
     }
 
+
+    /**
+     * @param string $id
+     * @return bool
+     */
     public function has($id)
     {
-        return \array_key_exists($id, $this->services);
+        return array_key_exists($id, $this->services);
     }
 }

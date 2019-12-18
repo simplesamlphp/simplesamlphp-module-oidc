@@ -69,7 +69,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
         $password,
         $grantType,
         ClientEntityInterface $clientEntity
-    ): void {
+    ) {
         throw new \Exception('Not supported');
     }
 

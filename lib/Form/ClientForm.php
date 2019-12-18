@@ -61,17 +61,25 @@ class ClientForm extends Form
 
 
     /**
-     * {@inheritdoc}
+     * @param bool $asArray
+     * @return array
      */
-    public function getValues(bool $asArray = false): array
+    public function getValues($asArray = false)
     {
         $values = parent::getValues(true);
 
         // Sanitize Redirect URIs
         $redirect_uris = preg_split("/[\t\r\n]+/", $values['redirect_uri']);
-        $redirect_uris = array_filter($redirect_uris, function ($redirect_uri) {
-            return !empty(trim($redirect_uri));
-        });
+        $redirect_uris = array_filter(
+            $redirect_uris,
+            /**
+             * @param string $redirect_uri
+             * @return bool
+             */
+            function ($redirect_uri) {
+                return !empty(trim($redirect_uri));
+            }
+        );
         $values['redirect_uri'] = $redirect_uris;
         // openid scope is mandatory
         $values['scopes'] = array_unique(

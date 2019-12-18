@@ -84,6 +84,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
 
     /**
      * {@inheritdoc}
+     * @return void
      */
     public function revokeAuthCode($codeId)
     {
