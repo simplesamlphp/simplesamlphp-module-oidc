@@ -40,6 +40,14 @@
     <PossiblyUnusedMethod errorLevel="info" />
     <PropertyNotSetInConstructor errorLevel="suppress" />
     <MissingClosureReturnType errorLevel="suppress" />
+
+
+    <!-- Ignore UnresolvableInclude on CLI-scripts -->
+    <UnresolvableInclude>
+        <errorLevel type="suppress">
+            <file name="tests/bootstrap.php" />
+        </errorLevel>
+    </UnresolvableInclude>
   </issueHandlers>
 </psalm>
 
