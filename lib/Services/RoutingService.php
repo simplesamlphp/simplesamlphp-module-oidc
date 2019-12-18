@@ -83,7 +83,6 @@ class RoutingService
         $controllerReflectionClass = new \ReflectionClass($controllerClassname);
 
         $arguments = [];
-        /** @var \ReflectionParameter $parameter */
         foreach ($controllerReflectionClass->getConstructor()->getParameters() as $parameter) {
             $className = $parameter->getClass()->getName();
             if (false === $container->has($className)) {
@@ -92,7 +91,7 @@ class RoutingService
 
             $arguments[] = $container->get($className);
         }
-        /* @var callable $controller */
+
         return $controllerReflectionClass->newInstanceArgs($arguments);
     }
 
