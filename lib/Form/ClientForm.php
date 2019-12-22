@@ -23,7 +23,7 @@ class ClientForm extends Form
     /**
      * RFC3986. AppendixB. Parsing a URI Reference with a Regular Expression.
      */
-    const REGEX_URI = '/^[^:]+:\/\/?[^\s\/$.?#].[^\s]*$/';
+    public const REGEX_URI = '/^[^:]+:\/\/?[^\s\/$.?#].[^\s]*$/';
 
     /**
      * @var \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService
@@ -48,7 +48,7 @@ class ClientForm extends Form
      * @param \Nette\Forms\Form $form
      * @return void
      */
-    public function validateRedirectUri($form)
+    public function validateRedirectUri(Form $form): void
     {
         $values = $form->getValues();
         $redirect_uris = $values['redirect_uri'];
@@ -61,7 +61,8 @@ class ClientForm extends Form
 
 
     /**
-     * {@inheritdoc}
+     * @param bool $asArray
+     * @return array
      */
     public function getValues($asArray = false)
     {
@@ -69,9 +70,16 @@ class ClientForm extends Form
 
         // Sanitize Redirect URIs
         $redirect_uris = preg_split("/[\t\r\n]+/", $values['redirect_uri']);
-        $redirect_uris = array_filter($redirect_uris, function ($redirect_uri) {
-            return !empty(trim($redirect_uri));
-        });
+        $redirect_uris = array_filter(
+            $redirect_uris,
+            /**
+             * @param string $redirect_uri
+             * @return bool
+             */
+            function ($redirect_uri) {
+                return !empty(trim($redirect_uri));
+            }
+        );
         $values['redirect_uri'] = $redirect_uris;
         // openid scope is mandatory
         $values['scopes'] = array_unique(

@@ -28,6 +28,12 @@ use Zend\Diactoros\ServerRequestFactory;
 
 class RoutingService
 {
+    /**
+     * @throws \SimpleSAML\Error\Exception
+     * @param string $controllerClassname
+     * @param bool $authenticated
+     * @return void
+     */
     public static function call(string $controllerClassname, bool $authenticated = true)
     {
         if ($authenticated) {
@@ -49,18 +55,26 @@ class RoutingService
         if ($response instanceof Template) {
             $response->data['messages'] = $container->get(SessionMessagesService::class)->getMessages();
 
-            return $response->show();
+            $response->show();
         }
 
         if ($response instanceof ResponseInterface) {
             $emitter = new SapiEmitter();
 
-            return $emitter->emit($response);
+            $emitter->emit($response);
         }
 
-        throw new Exception('Response type not supported: ' . \get_class($response));
+        throw new Exception('Response type not supported: ' . get_class($response));
     }
 
+
+    /**
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \RuntimeException
+     * @param string $controllerClassname
+     * @param \Psr\Container\ContainerInterface $container
+     * @return \ReflectionClass
+     */
     protected static function getController(string $controllerClassname, ContainerInterface $container)
     {
         if (!class_exists($controllerClassname)) {
@@ -69,7 +83,6 @@ class RoutingService
         $controllerReflectionClass = new \ReflectionClass($controllerClassname);
 
         $arguments = [];
-        /** @var \ReflectionParameter $parameter */
         foreach ($controllerReflectionClass->getConstructor()->getParameters() as $parameter) {
             $className = $parameter->getClass()->getName();
             if (false === $container->has($className)) {
@@ -78,10 +91,14 @@ class RoutingService
 
             $arguments[] = $container->get($className);
         }
-        /* @var callable $controller */
+
         return $controllerReflectionClass->newInstanceArgs($arguments);
     }
 
+
+    /**
+     * @return void
+     */
     protected static function enableJsonExceptionResponse()
     {
         set_exception_handler(function (\Throwable $t) {

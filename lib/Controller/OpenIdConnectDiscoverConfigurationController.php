@@ -35,12 +35,11 @@ class OpenIdConnectDiscoverConfigurationController
     }
 
 
-
     /**
      * @param \Zend\Diactoros\ServerRequest $serverRequest
      * @return \Zend\Diactoros\Response\JsonResponse
      */
-    public function __invoke(ServerRequest $serverRequest)
+    public function __invoke(ServerRequest $serverRequest): JsonResponse
     {
         $scopes = $this->configurationService->getOpenIDScopes();
         $pkceIsEnabled = $this->configurationService->getOpenIDConnectConfiguration()->getBoolean('pkce');

@@ -82,7 +82,7 @@ class AuthorizationServerFactory
      * @param \DateInterval $accessTokenDuration
      * @param \SimpleSAML\Modules\OpenIDConnect\Factories\IdTokenResponseFactory $idTokenResponseFactory
      * @param string|null $passPhrase
-     */ 
+     */
     public function __construct(
         ClientRepository $clientRepository,
         AccessTokenRepository $accessTokenRepository,
@@ -109,7 +109,7 @@ class AuthorizationServerFactory
     /**
      * @return \League\OAuth2\Server\AuthorizationServer
      */
-    public function build()
+    public function build(): AuthorizationServer
     {
         $privateKeyPath = Config::getCertPath('oidc_module.pem');
         $encryptionKey = Config::getSecretSalt();

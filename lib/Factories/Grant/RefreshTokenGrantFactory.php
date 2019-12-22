@@ -46,7 +46,7 @@ class RefreshTokenGrantFactory
     /**
      * @return \League\OAuth2\Server\Grant\RefreshTokenGrant
      */
-    public function build()
+    public function build(): RefreshTokenGrant
     {
         $refreshTokenGrant = new RefreshTokenGrant($this->refreshTokenRepository);
         $refreshTokenGrant->setRefreshTokenTTL($this->refreshTokenDuration);

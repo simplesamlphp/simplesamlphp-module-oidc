@@ -39,7 +39,7 @@ class ResourceServerFactory
     /**
      * @return \League\OAuth2\Server\ResourceServer
      */
-    public function build()
+    public function build(): ResourceServer
     {
         $publicKeyPath = Config::getCertPath('oidc_module.crt');
 

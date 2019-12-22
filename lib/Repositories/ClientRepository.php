@@ -31,7 +31,6 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
     }
 
 
-
     /**
      * @param string $clientIdentifier
      * @param string|null $grantType
@@ -39,7 +38,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
      * @param bool $mustValidateSecret
      * @return \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity|null
      */
-    public function getClientEntity($clientIdentifier, $grantType = null, $clientSecret = null, $mustValidateSecret = true)
+    public function getClientEntity($clientIdentifier, $grantType = null, $clientSecret = null, $mustValidateSecret = true): ?ClientEntity
     {
         $client = $this->findById($clientIdentifier);
 
@@ -55,12 +54,11 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
     }
 
 
-
     /**
      * @param string $clientIdentifier
      * @return \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity|null
      */
-    public function findById($clientIdentifier)
+    public function findById($clientIdentifier): ?ClientEntity
     {
         $stmt = $this->database->read(
             "SELECT * FROM {$this->getTableName()} WHERE id = :id",
@@ -100,10 +98,10 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
      * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $client
      * @return void
      */
-    public function add(ClientEntity $client)
+    public function add(ClientEntity $client): void
     {
         $this->database->write(
-              "INSERT INTO {$this->getTableName()} (id, secret, name, description, auth_source, redirect_uri, scopes, is_enabled) VALUES (:id, :secret, :name, :description, :auth_source, :redirect_uri, :scopes, :is_enabled)",
+            "INSERT INTO {$this->getTableName()} (id, secret, name, description, auth_source, redirect_uri, scopes, is_enabled) VALUES (:id, :secret, :name, :description, :auth_source, :redirect_uri, :scopes, :is_enabled)",
             $client->getState()
         );
     }
@@ -113,7 +111,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
      * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $client
      * @return void
      */
-    public function delete(ClientEntity $client)
+    public function delete(ClientEntity $client): void
     {
         $this->database->write(
             "DELETE FROM {$this->getTableName()} WHERE id = :id",
@@ -128,7 +126,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
      * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $client
      * @return void
      */
-    public function update(ClientEntity $client)
+    public function update(ClientEntity $client): void
     {
         $this->database->write(
             "UPDATE {$this->getTableName()} SET secret = :secret, name = :name, description = :description, auth_source = :auth_source, redirect_uri = :redirect_uri, scopes = :scopes, is_enabled = :is_enabled WHERE id = :id",

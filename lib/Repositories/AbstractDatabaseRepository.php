@@ -38,7 +38,7 @@ abstract class AbstractDatabaseRepository
 
     /**
      * ClientRepository constructor.
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository|null $configurationService
+     * @param \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService|null $configurationService
      */
     public function __construct(ConfigurationService $configurationService = null)
     {

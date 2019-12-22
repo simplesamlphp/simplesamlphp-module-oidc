@@ -18,18 +18,32 @@ use SimpleSAML\Session;
 
 class SessionMessagesService
 {
+    /** @var \SimpleSAML\Session */
     private $session;
 
+
+    /**
+     * @param \SimpleSAML\Session $session
+     */
     public function __construct(Session $session)
     {
         $this->session = $session;
     }
 
+
+    /**
+     * @param string $value
+     * @return void
+     */
     public function addMessage(string $value)
     {
         $this->session->setData('message', uniqid(), $value);
     }
 
+
+    /**
+     * @return array
+     */
     public function getMessages()
     {
         $messages = $this->session->getDataOfType('message');

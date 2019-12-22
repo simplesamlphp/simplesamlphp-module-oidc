@@ -48,7 +48,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
      * @param string|null $userIdentifier
      * @return self
      */
-    public static function fromData(ClientEntityInterface $clientEntity, array $scopes, string $userIdentifier = null)
+    public static function fromData(ClientEntityInterface $clientEntity, array $scopes, string $userIdentifier = null): self
     {
         $accessToken = new self();
 
@@ -65,11 +65,12 @@ class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
     /**
      * {@inheritdoc}
      */
-    public static function fromState(array $state)
+    public static function fromState(array $state): self
     {
         $accessToken = new self();
 
-        $scopes = array_map(function ($scope) {
+        /** @psalm-var string $scope */
+        $scopes = array_map(function (string $scope) {
             return ScopeEntity::fromData($scope);
         }, json_decode($state['scopes'], true));
 

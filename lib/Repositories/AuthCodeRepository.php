@@ -27,7 +27,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
     /**
      * @return string
      */
-    public function getTableName()
+    public function getTableName(): string
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
@@ -36,7 +36,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
     /**
      * @return \SimpleSAML\Modules\OpenIDConnect\Entity\AuthCodeEntity
      */
-    public function getNewAuthCode()
+    public function getNewAuthCode(): AuthCodeEntity
     {
         return new AuthCodeEntity();
     }
@@ -62,7 +62,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
      *
      * @return \League\OAuth2\Server\Entities\AuthCodeEntityInterface|null
      */
-    public function findById($codeId)
+    public function findById(string $codeId): ?AuthCodeEntityInterface
     {
         $stmt = $this->database->read(
             "SELECT * FROM {$this->getTableName()} WHERE id = :id",
@@ -84,6 +84,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
 
     /**
      * {@inheritdoc}
+     * @return void
      */
     public function revokeAuthCode($codeId)
     {
@@ -119,7 +120,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
      * Removes expired auth codes.
      * @return void
      */
-    public function removeExpired()
+    public function removeExpired(): void
     {
         $this->database->write(
             "DELETE FROM {$this->getTableName()} WHERE expires_at < :now",

@@ -44,7 +44,7 @@ class ClientShowController
      * @param \Zend\Diactoros\ServerRequest $request
      * @return \SimpleSAML\XHTML\Template
      */
-    public function __invoke(ServerRequest $request)
+    public function __invoke(ServerRequest $request): \SimpleSAML\XHTML\Template
     {
         $client = $this->getClientFromRequest($request);
 

@@ -71,7 +71,7 @@ class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInter
     /**
      * {@inheritdoc}
      */
-    public static function fromState(array $state)
+    public static function fromState(array $state): self
     {
         $user = new self();
 

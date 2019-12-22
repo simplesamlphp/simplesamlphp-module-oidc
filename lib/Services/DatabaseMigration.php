@@ -28,11 +28,19 @@ class DatabaseMigration
      */
     private $database;
 
+
+    /**
+     * @param \SimpleSAML\Database|null $database
+     */
     public function __construct(Database $database = null)
     {
         $this->database = $database ?? Database::getInstance();
     }
 
+
+    /**
+     * @return bool
+     */
     public function isUpdated()
     {
         $implementedVersions = $this->versions();
@@ -47,6 +55,10 @@ class DatabaseMigration
         return empty($notImplementedVersions);
     }
 
+
+    /**
+     * @return array
+     */
     public function versions()
     {
         $versionsTablename = $this->versionsTableName();
@@ -61,6 +73,10 @@ class DatabaseMigration
         return $versions;
     }
 
+
+    /**
+     * @return void
+     */
     public function migrate()
     {
         $versionsTablename = $this->versionsTableName();
@@ -77,6 +93,10 @@ class DatabaseMigration
         }
     }
 
+
+    /**
+     * @return string
+     */
     private function versionsTableName(): string
     {
         $versionsTablename = $this->database->applyPrefix('oidc_migration_versions');
@@ -84,6 +104,10 @@ class DatabaseMigration
         return $versionsTablename;
     }
 
+
+    /**
+     * @return void
+     */
     private function version20180305180300()
     {
         $userTablename = $this->database->applyPrefix(UserRepository::TABLE_NAME);
@@ -160,6 +184,10 @@ EOT
         );
     }
 
+
+    /**
+     * @return void
+     */
     private function version20180425203400()
     {
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
@@ -170,6 +198,13 @@ EOT
         );
     }
 
+
+    /**
+     * @param array $columnNames
+     * @param string $prefix
+     * @param int $maxSize
+     * @return string
+     */
     private function generateIdentifierName(array $columnNames, $prefix = '', $maxSize = 30)
     {
         $hash = implode('', array_map(function ($column) {

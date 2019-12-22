@@ -36,7 +36,7 @@ class ImplicitGrantFactory
     /**
      * @return \League\OAuth2\Server\Grant\ImplicitGrant
      */
-    public function build()
+    public function build(): ImplicitGrant
     {
         return new ImplicitGrant($this->accessTokenDuration);
     }

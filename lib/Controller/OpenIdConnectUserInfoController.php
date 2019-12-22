@@ -67,7 +67,7 @@ class OpenIdConnectUserInfoController
      * @param \Zend\Diactoros\ServerRequest $request
      * @return JsonResponse
      */
-    public function __invoke(ServerRequest $request)
+    public function __invoke(ServerRequest $request): JsonResponse
     {
         $authorization = $this->resourceServer->validateAuthenticatedRequest($request);
 

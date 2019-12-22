@@ -16,6 +16,10 @@ namespace SimpleSAML\Modules\OpenIDConnect\Utils;
 
 class TimestampGenerator
 {
+    /**
+     * @param string $time
+     * @return \DateTime
+     */
     public static function utc($time = 'now')
     {
         return new \DateTime($time, new \DateTimeZone('UTC'));

@@ -35,7 +35,7 @@ trait GetClientFromRequestTrait
      *
      * @return \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
      */
-    protected function getClientFromRequest(ServerRequest $request)
+    protected function getClientFromRequest(ServerRequest $request): ClientEntity
     {
         $params = $request->getQueryParams();
         $clientId = $params['client_id'] ?? null;

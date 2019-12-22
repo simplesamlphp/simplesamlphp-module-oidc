@@ -123,7 +123,7 @@ class RefreshTokenRepositoryTest extends TestCase
 
     /**
      * @expectedException \RuntimeException
-     * @void
+     * @return void
      */
     public function testErrorRevokeInvalidToken()
     {

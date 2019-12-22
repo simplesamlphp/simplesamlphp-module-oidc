@@ -31,11 +31,12 @@
         "friendsofphp/php-cs-fixer": "^2.10",
         "friends-of-phpspec/phpspec-code-coverage": "^4.3",
         "php-coveralls/php-coveralls": "^2.0",
-        "phpspec/phpspec": "^4.3",
+        "phpspec/phpspec": "^6.1",
         "phpunit/php-code-coverage": "^6.0",
         "phpunit/phpcov": "^5.0",
         "phpunit/phpunit": "^7.0",
-        "simplesamlphp/simplesamlphp": "^1.18"
+        "simplesamlphp/simplesamlphp": "^1.18",
+        "simplesamlphp/simplesamlphp-test-framework": "^0.1.0"
     },
     "config": {
         "preferred-install": {

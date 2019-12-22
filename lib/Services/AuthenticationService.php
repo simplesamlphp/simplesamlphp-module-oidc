@@ -54,9 +54,9 @@ class AuthenticationService
 
         $claims = $authSimple->getAttributes();
         if (!\array_key_exists($this->userIdAttr, $claims)) {
-            $attr = implode(', ', array_keys($claims);
+            $attr = implode(', ', array_keys($claims));
             throw new Exception(
-                'Attribute `useridattr` doesn\'t exists in claims. Available attributes are: ' . $attr)
+                'Attribute `useridattr` doesn\'t exists in claims. Available attributes are: ' . $attr
             );
         }
 
