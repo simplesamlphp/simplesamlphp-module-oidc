@@ -176,7 +176,7 @@ class Container implements ContainerInterface
     public function get($id)
     {
         if (false === $this->has($id)) {
-            throw new class($id) extends Exception implements NotFoundExceptionInterface {
+            throw new class ($id) extends Exception implements NotFoundExceptionInterface {
                 public function __construct(string $id)
                 {
                     parent::__construct("Service not found: {$id}.");

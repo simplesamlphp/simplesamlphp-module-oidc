@@ -31,7 +31,7 @@ class FormFactory
     }
 
     /**
-     * @param string $classname Form name
+     * @param string $classname Form classname
      *
      * @throws \Exception
      *

@@ -35,7 +35,7 @@ class ScopeRepositoryTest extends TestCase
         ];
 
         Configuration::loadFromArray($config, '', 'simplesaml');
-        Configuration::setConfigDir(__DIR__.'/../../config-templates');
+        Configuration::setConfigDir(__DIR__ . '/../../config-templates');
         (new DatabaseMigration())->migrate();
     }
 

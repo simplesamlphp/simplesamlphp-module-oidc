@@ -46,7 +46,7 @@ function oidc_hook_cron(&$croninfo)
 
         $croninfo['summary'][] = 'Module `oidc` clean up. Removed expired entries from storage.';
     } catch (Exception $e) {
-        $message = 'Module `oidc` clean up cron script failed: '.$e->getMessage();
+        $message = 'Module `oidc` clean up cron script failed: ' . $e->getMessage();
         \SimpleSAML\Logger::warning($message);
         $croninfo['summary'][] = $message;
     }
