@@ -14,6 +14,7 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
+use Laminas\HttpHandlerRunner\Emitter\SapiEmitter;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -21,10 +22,9 @@ use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Utils\Auth;
 use SimpleSAML\XHTML\Template;
-use Zend\Diactoros\Response;
-use Zend\Diactoros\Response\JsonResponse;
-use Zend\Diactoros\Response\SapiEmitter;
-use Zend\Diactoros\ServerRequestFactory;
+use Laminas\Diactoros\Response;
+use Laminas\Diactoros\Response\JsonResponse;
+use Laminas\Diactoros\ServerRequestFactory;
 
 class RoutingService
 {
@@ -54,16 +54,20 @@ class RoutingService
         if ($response instanceof Template) {
             $response->data['messages'] = $container->get(SessionMessagesService::class)->getMessages();
 
-            $response->show();
+            $response->send();
+
+            return;
         }
 
         if ($response instanceof ResponseInterface) {
             $emitter = new SapiEmitter();
 
             $emitter->emit($response);
+
+            return;
         }
 
-        throw new Exception('Response type not supported: '.\get_class($response));
+        throw new Exception('Response type not supported: ' . \get_class($response));
     }
 
     protected static function getController(string $controllerClassname, ContainerInterface $container): object
@@ -80,12 +84,12 @@ class RoutingService
             foreach ($constructor->getParameters() as $parameter) {
                 $reflectionClass = $parameter->getClass();
                 if (null === $reflectionClass) {
-                    throw new \RuntimeException('Parameter not found in container: '.$parameter->getName());
+                    throw new \RuntimeException('Parameter not found in container: ' . $parameter->getName());
                 }
 
                 $className = $reflectionClass->getName();
                 if (false === $container->has($className)) {
-                    throw new \RuntimeException('Service not found in container: '.$className);
+                    throw new \RuntimeException('Service not found in container: ' . $className);
                 }
 
                 $arguments[] = $container->get($className);

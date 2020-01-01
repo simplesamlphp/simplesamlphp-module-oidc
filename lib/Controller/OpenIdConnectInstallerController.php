@@ -20,8 +20,8 @@ use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseLegacyOAuth2Import;
 use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 use SimpleSAML\Utils\HTTP;
-use Zend\Diactoros\Response\RedirectResponse;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequest;
 
 class OpenIdConnectInstallerController
 {
@@ -58,7 +58,7 @@ class OpenIdConnectInstallerController
     }
 
     /**
-     * @return \Zend\Diactoros\Response\RedirectResponse|\SimpleSAML\XHTML\Template
+     * @return \Laminas\Diactoros\Response\RedirectResponse|\SimpleSAML\XHTML\Template
      */
     public function __invoke(ServerRequest $request)
     {

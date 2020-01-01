@@ -18,7 +18,7 @@ use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Error\NotFound;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\ServerRequest;
 
 trait GetClientFromRequestTrait
 {
