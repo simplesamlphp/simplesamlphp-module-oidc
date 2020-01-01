@@ -41,20 +41,13 @@ class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInter
      */
     private $updatedAt;
 
-
     /**
-     * Constructor
+     * Constructor.
      */
     private function __construct()
     {
     }
 
-
-    /**
-     * @param string $identifier
-     * @param array $claims
-     * @return self
-     */
     public static function fromData(string $identifier, array $claims = []): self
     {
         $user = new self();
@@ -66,7 +59,6 @@ class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInter
 
         return $user;
     }
-
 
     /**
      * {@inheritdoc}
@@ -83,7 +75,6 @@ class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInter
         return $user;
     }
 
-
     /**
      * {@inheritdoc}
      */
@@ -97,10 +88,6 @@ class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInter
         ];
     }
 
-
-    /**
-     * @return string
-     */
     public function getIdentifier(): string
     {
         return $this->identifier;
@@ -111,11 +98,6 @@ class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInter
         return $this->claims;
     }
 
-
-    /**
-     * @param array $claims
-     * @return self
-     */
     public function setClaims(array $claims): self
     {
         $this->claims = $claims;
@@ -124,19 +106,11 @@ class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInter
         return $this;
     }
 
-
-    /**
-     * @return \DateTime
-     */
     public function getUpdatedAt(): \DateTime
     {
         return $this->updatedAt;
     }
 
-
-    /**
-     * @return \DateTime
-     */
     public function getCreatedAt(): \DateTime
     {
         return $this->createdAt;

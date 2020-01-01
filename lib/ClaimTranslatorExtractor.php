@@ -85,12 +85,10 @@ class ClaimTranslatorExtractor extends ClaimExtractor
         ],
     ];
 
-
     /**
      * ClaimTranslatorExtractor constructor.
      *
      * @param ClaimSetEntity[] $claimSets
-     * @param array            $translationTable
      *
      * @throws \OpenIDConnectServer\Exception\InvalidArgumentException
      */
@@ -106,10 +104,8 @@ class ClaimTranslatorExtractor extends ClaimExtractor
         parent::__construct($claimSets);
     }
 
-
     /**
      * @param array $samlAttributes
-     * @return array
      */
     private function translateSamlAttributesToClaims($samlAttributes): array
     {
@@ -117,7 +113,7 @@ class ClaimTranslatorExtractor extends ClaimExtractor
 
         foreach ($this->translationTable as $claim => $samlMatches) {
             foreach ($samlMatches as $samlMatch) {
-                if (array_key_exists($samlMatch, $samlAttributes)) {
+                if (\array_key_exists($samlMatch, $samlAttributes)) {
                     $claims[$claim] = current($samlAttributes[$samlMatch]);
                     break;
                 }
@@ -127,12 +123,6 @@ class ClaimTranslatorExtractor extends ClaimExtractor
         return $claims;
     }
 
-
-    /**
-     * @param array $scopes
-     * @param array $samlAttributes
-     * @return array
-     */
     public function extract(array $scopes, array $samlAttributes): array
     {
         $claims = $this->translateSamlAttributesToClaims($samlAttributes);

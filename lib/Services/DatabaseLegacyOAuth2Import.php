@@ -14,10 +14,12 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
-use SimpleSAML\Modules\OAuth2;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 
+/**
+ * Class DatabaseLegacyOAuth2Import.
+ */
 class DatabaseLegacyOAuth2Import
 {
     /**
@@ -25,17 +27,14 @@ class DatabaseLegacyOAuth2Import
      */
     private $clientRepository;
 
-
-    /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
-     */
     public function __construct(ClientRepository $clientRepository)
     {
         $this->clientRepository = $clientRepository;
     }
 
-
     /**
+     * @psalm-suppress UndefinedClass UndefinedMethod
+     *
      * @return void
      */
     public function import()

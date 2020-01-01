@@ -15,7 +15,10 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Controller;
 
 use League\OAuth2\Server\ResourceServer;
+use SimpleSAML\Error\UserNotFound;
 use SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor;
+use SimpleSAML\Modules\OpenIDConnect\Entity\AccessTokenEntity;
+use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
 use Zend\Diactoros\Response\JsonResponse;
@@ -43,13 +46,6 @@ class OpenIdConnectUserInfoController
      */
     private $claimTranslatorExtractor;
 
-
-    /**
-     * @param \League\OAuth2\Server\ResourceServer $resourceServer
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository $accessTokenRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository $userRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor $claimTranslatorExtractor
-     */
     public function __construct(
         ResourceServer $resourceServer,
         AccessTokenRepository $accessTokenRepository,
@@ -62,11 +58,6 @@ class OpenIdConnectUserInfoController
         $this->claimTranslatorExtractor = $claimTranslatorExtractor;
     }
 
-
-    /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @return JsonResponse
-     */
     public function __invoke(ServerRequest $request): JsonResponse
     {
         $authorization = $this->resourceServer->validateAuthenticatedRequest($request);
@@ -74,11 +65,33 @@ class OpenIdConnectUserInfoController
         $tokenId = $authorization->getAttribute('oauth_access_token_id');
         $scopes = $authorization->getAttribute('oauth_scopes');
 
-        $accessToken = $this->accessTokenRepository->findById($tokenId);
+        $user = $this->getUser($tokenId);
 
-        $user = $this->userRepository->getUserEntityByIdentifier($accessToken->getUserIdentifier());
         $claims = $this->claimTranslatorExtractor->extract($scopes, $user->getClaims());
 
         return new JsonResponse($claims);
+    }
+
+    /**
+     * @param $tokenId
+     *
+     * @throws UserNotFound
+     *
+     * @return UserEntity
+     */
+    private function getUser(string $tokenId)
+    {
+        $accessToken = $this->accessTokenRepository->findById($tokenId);
+        if (!$accessToken instanceof AccessTokenEntity) {
+            throw new UserNotFound('Access token not found');
+        }
+
+        $userIdentifier = (string) $accessToken->getUserIdentifier();
+        $user = $this->userRepository->getUserEntityByIdentifier($userIdentifier);
+        if (!$user instanceof UserEntity) {
+            throw new UserNotFound("User ${userIdentifier} not found");
+        }
+
+        return $user;
     }
 }

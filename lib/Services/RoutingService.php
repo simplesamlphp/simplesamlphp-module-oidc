@@ -30,8 +30,7 @@ class RoutingService
 {
     /**
      * @throws \SimpleSAML\Error\Exception
-     * @param string $controllerClassname
-     * @param bool $authenticated
+     *
      * @return void
      */
     public static function call(string $controllerClassname, bool $authenticated = true)
@@ -64,18 +63,10 @@ class RoutingService
             $emitter->emit($response);
         }
 
-        throw new Exception('Response type not supported: ' . get_class($response));
+        throw new Exception('Response type not supported: '.\get_class($response));
     }
 
-
-    /**
-     * @throws \SimpleSAML\Error\BadRequest
-     * @throws \RuntimeException
-     * @param string $controllerClassname
-     * @param \Psr\Container\ContainerInterface $container
-     * @return \ReflectionClass
-     */
-    protected static function getController(string $controllerClassname, ContainerInterface $container)
+    protected static function getController(string $controllerClassname, ContainerInterface $container): object
     {
         if (!class_exists($controllerClassname)) {
             throw new BadRequest("Controller does not exist: {$controllerClassname}");
@@ -83,18 +74,26 @@ class RoutingService
         $controllerReflectionClass = new \ReflectionClass($controllerClassname);
 
         $arguments = [];
-        foreach ($controllerReflectionClass->getConstructor()->getParameters() as $parameter) {
-            $className = $parameter->getClass()->getName();
-            if (false === $container->has($className)) {
-                throw new \RuntimeException('Parameter or service not found: ' . $className);
-            }
+        $constructor = $controllerReflectionClass->getConstructor();
 
-            $arguments[] = $container->get($className);
+        if (null !== $constructor) {
+            foreach ($constructor->getParameters() as $parameter) {
+                $reflectionClass = $parameter->getClass();
+                if (null === $reflectionClass) {
+                    throw new \RuntimeException('Parameter not found in container: '.$parameter->getName());
+                }
+
+                $className = $reflectionClass->getName();
+                if (false === $container->has($className)) {
+                    throw new \RuntimeException('Service not found in container: '.$className);
+                }
+
+                $arguments[] = $container->get($className);
+            }
         }
 
         return $controllerReflectionClass->newInstanceArgs($arguments);
     }
-
 
     /**
      * @return void
@@ -105,6 +104,7 @@ class RoutingService
             if ($t instanceof OAuthServerException) {
                 $response = $t->generateHttpResponse(new Response());
             } else {
+                $error = [];
                 $error['error'] = [
                     'code' => 500,
                     'message' => $t->getMessage(),

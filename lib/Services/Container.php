@@ -56,19 +56,19 @@ class Container implements ContainerInterface
         $configurationService = new ConfigurationService();
         $this->services[ConfigurationService::class] = $configurationService;
 
-        $clientRepository = new ClientRepository();
+        $clientRepository = new ClientRepository($configurationService);
         $this->services[ClientRepository::class] = $clientRepository;
 
-        $userRepository = new UserRepository();
+        $userRepository = new UserRepository($configurationService);
         $this->services[UserRepository::class] = $userRepository;
 
-        $authCodeRepository = new AuthCodeRepository();
+        $authCodeRepository = new AuthCodeRepository($configurationService);
         $this->services[AuthCodeRepository::class] = $authCodeRepository;
 
-        $refreshTokenRepository = new RefreshTokenRepository();
+        $refreshTokenRepository = new RefreshTokenRepository($configurationService);
         $this->services[RefreshTokenRepository::class] = $refreshTokenRepository;
 
-        $accessTokenRepository = new AccessTokenRepository();
+        $accessTokenRepository = new AccessTokenRepository($configurationService);
         $this->services[AccessTokenRepository::class] = $accessTokenRepository;
 
         $scopeRepository = new ScopeRepository($configurationService);
@@ -176,7 +176,7 @@ class Container implements ContainerInterface
     public function get($id)
     {
         if (false === $this->has($id)) {
-            throw new class ($id) extends Exception implements NotFoundExceptionInterface {
+            throw new class($id) extends Exception implements NotFoundExceptionInterface {
                 public function __construct(string $id)
                 {
                     parent::__construct("Service not found: {$id}.");
@@ -187,13 +187,13 @@ class Container implements ContainerInterface
         return $this->services[$id];
     }
 
-
     /**
      * @param string $id
+     *
      * @return bool
      */
     public function has($id)
     {
-        return array_key_exists($id, $this->services);
+        return \array_key_exists($id, $this->services);
     }
 }

@@ -30,9 +30,6 @@ use Zend\Diactoros\ServerRequest;
 class OAuth2AuthorizationControllerSpec extends ObjectBehavior
 {
     /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Services\AuthenticationService $authenticationService
-     * @param \League\OAuth2\Server\AuthorizationServer $authorizationServer
      * @return void
      */
     public function let(
@@ -43,7 +40,6 @@ class OAuth2AuthorizationControllerSpec extends ObjectBehavior
         $this->beConstructedWith($clientRepository, $authenticationService, $authorizationServer);
     }
 
-
     /**
      * @return void
      */
@@ -52,16 +48,9 @@ class OAuth2AuthorizationControllerSpec extends ObjectBehavior
         $this->shouldHaveType(OAuth2AuthorizationController::class);
     }
 
-
     /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $clientEntity
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity $userEntity
-     * @param \SimpleSAML\Modules\OpenIDConnect\Services\AuthenticationService $authenticationService
-     * @param \League\OAuth2\Server\AuthorizationServer $authorizationServer
-     * @param \League\OAuth2\Server\RequestTypes\AuthorizationRequest $authorizationRequest
-     * @param \Zend\Diactoros\ServerRequest $request
      * @param \Zend\Diactoros\Response $response
+     *
      * @return void
      */
     public function it_completes_authorization_request(

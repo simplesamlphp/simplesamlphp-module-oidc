@@ -31,25 +31,22 @@ abstract class AbstractDatabaseRepository
     protected $database;
 
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService|null
+     * @var \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService
      */
     protected $configurationService;
 
-
     /**
      * ClientRepository constructor.
-     * @param \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService|null $configurationService
      */
-    public function __construct(ConfigurationService $configurationService = null)
+    public function __construct(ConfigurationService $configurationService)
     {
         $this->config = Configuration::getOptionalConfig('module_oidc.php');
         $this->database = Database::getInstance();
         $this->configurationService = $configurationService;
     }
 
-
     /**
-     * @return string
+     * @return string|null
      */
     abstract public function getTableName();
 }

@@ -49,27 +49,14 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
      */
     private $isEnabled;
 
-
     /**
-     * Constructor
+     * Constructor.
      */
     private function __construct()
     {
         $this->isEnabled = true;
     }
 
-
-    /**
-     * @param string $id
-     * @param string $secret
-     * @param string $name
-     * @param string $description
-     * @param string $authSource
-     * @param array $redirectUri
-     * @param array $scopes
-     * @param bool $isEnabled
-     * @return self
-     */
     public static function fromData(
         string $id,
         string $secret,
@@ -94,7 +81,6 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
         return $client;
     }
 
-
     /**
      * {@inheritdoc}
      */
@@ -114,7 +100,6 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
         return $client;
     }
 
-
     /**
      * {@inheritdoc}
      */
@@ -132,10 +117,6 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
         ];
     }
 
-
-    /**
-     * @return array
-     */
     public function toArray(): array
     {
         return [
@@ -150,20 +131,11 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
         ];
     }
 
-
-    /**
-     * @return string
-     */
     public function getSecret(): string
     {
         return $this->secret;
     }
 
-
-    /**
-     * @param string $secret
-     * @return self
-     */
     public function restoreSecret(string $secret): self
     {
         $this->secret = $secret;
@@ -171,37 +143,21 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
         return $this;
     }
 
-
-    /**
-     * @return string
-     */
     public function getDescription(): string
     {
         return $this->description;
     }
 
-
-    /**
-     * @return string
-     */
     public function getAuthSource(): string
     {
         return $this->authSource;
     }
 
-
-    /**
-     * @return array
-     */
     public function getScopes(): array
     {
         return $this->scopes;
     }
 
-
-    /**
-     * @return bool
-     */
     public function isEnabled(): bool
     {
         return $this->isEnabled;

@@ -29,10 +29,8 @@ use Zend\Diactoros\ServerRequest;
 class ClientShowControllerSpec extends ObjectBehavior
 {
     /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory $templateFactory
-     * @param \Zend\Diactoros\ServerRequest $request
      * @param \Psr\Http\Message\UriInterface
+     *
      * @return void
      */
     public function let(
@@ -50,7 +48,6 @@ class ClientShowControllerSpec extends ObjectBehavior
         $this->beConstructedWith($clientRepository, $templateFactory);
     }
 
-
     /**
      * @return void
      */
@@ -59,13 +56,9 @@ class ClientShowControllerSpec extends ObjectBehavior
         $this->shouldHaveType(ClientShowController::class);
     }
 
-
     /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @param \SimpleSAML\XHTML\Template $template
-     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory $templateFactory
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
      * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
+     *
      * @return void
      */
     public function it_show_client_description(
@@ -82,9 +75,7 @@ class ClientShowControllerSpec extends ObjectBehavior
         $this->__invoke($request)->shouldBe($template);
     }
 
-
     /**
-     * @param \Zend\Diactoros\ServerRequest $request
      * @return void
      */
     public function it_throws_id_not_found_exception_in_show_action(
@@ -95,10 +86,7 @@ class ClientShowControllerSpec extends ObjectBehavior
         $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
     }
 
-
     /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
      * @return void
      */
     public function it_throws_client_not_found_exception_in_show_action(

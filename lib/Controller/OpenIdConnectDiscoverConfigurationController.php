@@ -25,25 +25,18 @@ class OpenIdConnectDiscoverConfigurationController
      */
     private $configurationService;
 
-    /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService $configurationService
-     */
     public function __construct(
         ConfigurationService $configurationService
     ) {
         $this->configurationService = $configurationService;
     }
 
-
-    /**
-     * @param \Zend\Diactoros\ServerRequest $serverRequest
-     * @return \Zend\Diactoros\Response\JsonResponse
-     */
     public function __invoke(ServerRequest $serverRequest): JsonResponse
     {
         $scopes = $this->configurationService->getOpenIDScopes();
         $pkceIsEnabled = $this->configurationService->getOpenIDConnectConfiguration()->getBoolean('pkce');
 
+        $metadata = [];
         $metadata['issuer'] = $this->configurationService->getSimpleSAMLSelfURLHost();
         $metadata['authorization_endpoint'] = $this->configurationService->getOpenIdConnectModuleURL('authorize.php');
         $metadata['token_endpoint'] = $this->configurationService->getOpenIdConnectModuleURL('access_token.php');

@@ -30,7 +30,6 @@ class ClientForm extends Form
      */
     private $configurationService;
 
-
     /**
      * {@inheritdoc}
      */
@@ -43,25 +42,20 @@ class ClientForm extends Form
         $this->buildForm();
     }
 
-
-    /**
-     * @param \Nette\Forms\Form $form
-     * @return void
-     */
     public function validateRedirectUri(Form $form): void
     {
         $values = $form->getValues();
         $redirect_uris = $values['redirect_uri'];
         foreach ($redirect_uris as $redirect_uri) {
             if (!preg_match(self::REGEX_URI, $redirect_uri)) {
-                $this->addError('Invalid URI: ' . $redirect_uri);
+                $this->addError('Invalid URI: '.$redirect_uri);
             }
         }
     }
 
-
     /**
      * @param bool $asArray
+     *
      * @return array
      */
     public function getValues($asArray = false)
@@ -74,6 +68,7 @@ class ClientForm extends Form
             $redirect_uris,
             /**
              * @param string $redirect_uri
+             *
              * @return bool
              */
             function ($redirect_uri) {
@@ -92,9 +87,11 @@ class ClientForm extends Form
         return $values;
     }
 
-
     /**
-     * {@inheritdoc}
+     * @param array $values
+     * @param bool  $erase
+     *
+     * @return Form
      */
     public function setDefaults($values, $erase = false)
     {
@@ -104,10 +101,6 @@ class ClientForm extends Form
         return parent::setDefaults($values, $erase);
     }
 
-
-    /**
-     * @return void
-     */
     protected function buildForm(): void
     {
         $this->getElementPrototype()->addAttributes(['class' => 'ui form']);
@@ -141,10 +134,6 @@ class ClientForm extends Form
             ->setRequired('Select one scope at least');
     }
 
-
-    /**
-     * @return array
-     */
     protected function getScopes(): array
     {
         $items = array_map(function ($item) {

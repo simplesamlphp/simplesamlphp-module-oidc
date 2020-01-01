@@ -18,14 +18,17 @@ use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
+use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration;
 
 class UserRepositoryTest extends TestCase
 {
     /**
-     * @return void
+     * @var UserRepository
      */
-    protected function setUp()
+    protected static $repository;
+
+    protected function setUp(): void
     {
         $config = [
             'database.dsn' => 'sqlite::memory:',
@@ -38,70 +41,51 @@ class UserRepositoryTest extends TestCase
 
         Configuration::loadFromArray($config, '', 'simplesaml');
         (new DatabaseMigration())->migrate();
+
+        $configurationService = new ConfigurationService();
+
+        self::$repository = new UserRepository($configurationService);
     }
 
-
-    /**
-     * @return void
-     */
-    public function testGetTableName()
+    public function testGetTableName(): void
     {
-        $repository = new UserRepository();
-
-        $this->assertSame('phpunit_oidc_user', $repository->getTableName());
+        $this->assertSame('phpunit_oidc_user', self::$repository->getTableName());
     }
 
-
-    /**
-     * @return void
-     */
-    public function testAddAndFound()
+    public function testAddAndFound(): void
     {
-        $repository = new UserRepository();
-        $repository->add(UserEntity::fromData('uniqueid'));
-        $user = $repository->getUserEntityByIdentifier('uniqueid');
+        self::$repository->add(UserEntity::fromData('uniqueid'));
+        $user = self::$repository->getUserEntityByIdentifier('uniqueid');
 
         $this->assertNotNull($user);
+        /** @psalm-suppress PossiblyNullReference */
         $this->assertSame($user->getIdentifier(), 'uniqueid');
     }
 
-
-    /**
-     * @return void
-     */
-    public function testNotFound()
+    public function testNotFound(): void
     {
-        $repository = new UserRepository();
-        $user = $repository->getUserEntityByIdentifier('unknownid');
+        $user = self::$repository->getUserEntityByIdentifier('unknownid');
 
         $this->assertNull($user);
     }
 
-
-    /**
-     * @return void
-     */
-    public function testUpdate()
+    public function testUpdate(): void
     {
-        $repository = new UserRepository();
-        $user = $repository->getUserEntityByIdentifier('uniqueid');
+        $user = self::$repository->getUserEntityByIdentifier('uniqueid');
+        /** @psalm-suppress PossiblyNullReference */
         $user->setClaims(['uid' => ['johndoe']]);
-        $repository->update($user);
+        self::$repository->update($user);
 
-        $user2 = $repository->getUserEntityByIdentifier('uniqueid');
+        $user2 = self::$repository->getUserEntityByIdentifier('uniqueid');
         $this->assertNotSame($user, $user2);
     }
 
-
-    /**
-     * @return void
-     */
-    public function testDelete()
+    public function testDelete(): void
     {
-        $repository = new UserRepository();
-        $user = $repository->getUserEntityByIdentifier('uniqueid');
-        $repository->delete($user);
-        $user = $repository->getUserEntityByIdentifier('uniqueid');
+        $user = self::$repository->getUserEntityByIdentifier('uniqueid');
+        /** @psalm-suppress PossiblyNullArgument */
+        self::$repository->delete($user);
+        $user = self::$repository->getUserEntityByIdentifier('uniqueid');
 
         $this->assertNull($user);
     }

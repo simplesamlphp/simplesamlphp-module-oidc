@@ -25,18 +25,13 @@ class FormFactory
      */
     private $configurationService;
 
-
-    /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService $configurationService
-     */
     public function __construct(ConfigurationService $configurationService)
     {
         $this->configurationService = $configurationService;
     }
 
-
     /**
-     * @param string $name Form name
+     * @param string $classname Form name
      *
      * @throws \Exception
      *
@@ -48,6 +43,7 @@ class FormFactory
             throw new Exception("Invalid form: {$classname}");
         }
 
+        /** @psalm-suppress InvalidStringClass */
         return new $classname($this->configurationService);
     }
 }

@@ -22,35 +22,29 @@ class ScopeEntity implements ScopeEntityInterface
     use EntityTrait;
 
     /**
-     * @var string
+     * @var string|null
      */
     private $icon;
 
     /**
-     * @var string
+     * @var string|null
      */
     private $description;
 
     /**
-     * @var array
+     * @var array<string>
      */
     private $attributes;
 
-
     /**
-     * Constructor
+     * Constructor.
      */
     private function __construct()
     {
     }
 
-
     /**
-     * @param string $identifier
-     * @param string|null $description
-     * @param string|null $icon
-     * @param array $attributes
-     * @return self
+     * @param array<string> $attributes
      */
     public static function fromData(string $identifier, string $description = null, string $icon = null, array $attributes = []): self
     {
@@ -64,37 +58,24 @@ class ScopeEntity implements ScopeEntityInterface
         return $scope;
     }
 
-
-    /**
-     * @return string
-     */
-    public function getIcon(): string
+    public function getIcon(): ?string
     {
         return $this->icon;
     }
 
-
-    /**
-     * @return string
-     */
-    public function getDescription(): string
+    public function getDescription(): ?string
     {
         return $this->description;
     }
 
-
     /**
-     * @return array
+     * @return array<string>
      */
     public function getAttributes(): array
     {
         return $this->attributes;
     }
 
-
-    /**
-     * @return string
-     */
     public function jsonSerialize(): string
     {
         return $this->getIdentifier();

@@ -35,11 +35,8 @@ class OAuth2AuthorizationController
      */
     private $authorizationServer;
 
-
     /**
      * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRespository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Services\AuthenticationService $authenticationService
-     * @param \League\OAuth2\Server\AuthorizationServer $authorizationServer
      */
     public function __construct(
         ClientRepository $clientRepository,
@@ -51,11 +48,6 @@ class OAuth2AuthorizationController
         $this->authorizationServer = $authorizationServer;
     }
 
-
-    /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @return \Psr\Http\Message\ResponseInterface
-     */
     public function __invoke(ServerRequest $request): \Psr\Http\Message\ResponseInterface
     {
         $authSource = $this->getClientFromRequest($request)->getAuthSource();

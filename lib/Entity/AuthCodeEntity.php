@@ -29,21 +29,15 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
     use AuthCodeTrait;
     use RevokeTokenTrait;
 
-
-    /**
-     * @param array $state
-     * @return self
-     */
     public static function fromState(array $state): self
     {
         $authCode = new self();
 
         $scopes = array_map(
             /**
-             * @param array $scope
              * @return \SimpleSAML\Modules\OpenIDConnect\Entity\ScopeEntity
              */
-            function ($scope) {
+            function (string $scope) {
                 return ScopeEntity::fromData($scope);
             },
             json_decode($state['scopes'], true)
@@ -60,11 +54,6 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
         return $authCode;
     }
 
-
-
-    /**
-     * @return array
-     */
     public function getState(): array
     {
         return [

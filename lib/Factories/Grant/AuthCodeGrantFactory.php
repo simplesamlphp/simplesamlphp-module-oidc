@@ -45,14 +45,6 @@ class AuthCodeGrantFactory
      */
     private $enablePKCE;
 
-
-    /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\AuthCodeRepository $authCodeRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository $refreshTokenRepository
-     * @param \DateInterval $refreshTokenDuration
-     * @param \DateInterval $authCodeDuration
-     * @param bool $enablePKCE
-     */
     public function __construct(
         AuthCodeRepository $authCodeRepository,
         RefreshTokenRepository $refreshTokenRepository,
@@ -67,10 +59,6 @@ class AuthCodeGrantFactory
         $this->enablePKCE = $enablePKCE;
     }
 
-
-    /**
-     * @return \League\OAuth2\Server\Grant\AuthCodeGrant
-     */
     public function build(): AuthCodeGrant
     {
         $authCodeGrant = new AuthCodeGrant(

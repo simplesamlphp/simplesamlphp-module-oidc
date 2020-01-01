@@ -23,10 +23,7 @@ use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration;
 
 class ScopeRepositoryTest extends TestCase
 {
-    /**
-     * @return void
-     */
-    public static function setUpBeforeClass()
+    public static function setUpBeforeClass(): void
     {
         $config = [
             'database.dsn' => 'sqlite::memory:',
@@ -38,15 +35,11 @@ class ScopeRepositoryTest extends TestCase
         ];
 
         Configuration::loadFromArray($config, '', 'simplesaml');
-        Configuration::setConfigDir(__DIR__ . '/../../config-templates');
+        Configuration::setConfigDir(__DIR__.'/../../config-templates');
         (new DatabaseMigration())->migrate();
     }
 
-
-    /**
-     * @return void
-     */
-    public function testGetScopeEntityByIdentifier()
+    public function testGetScopeEntityByIdentifier(): void
     {
         $scopeRepository = new ScopeRepository(new ConfigurationService());
 
@@ -60,24 +53,17 @@ class ScopeRepositoryTest extends TestCase
         $this->assertEquals($expected, $scope);
     }
 
-
     /**
-     * @return void
+     * @expectedException \League\OAuth2\Server\Exception\OAuthServerException
      */
-    public function testGetUnknownScope()
+    public function testGetUnknownScope(): void
     {
         $scopeRepository = new ScopeRepository(new ConfigurationService());
 
         $scope = $scopeRepository->getScopeEntityByIdentifier('none');
-
-        $this->assertNull($scope);
     }
 
-
-    /**
-     * @return void
-     */
-    public function testFinalizeScopes()
+    public function testFinalizeScopes(): void
     {
         $scopeRepository = new ScopeRepository(new ConfigurationService());
         $scopes = [

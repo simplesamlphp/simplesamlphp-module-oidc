@@ -34,12 +34,6 @@ use Zend\Diactoros\ServerRequest;
 class ClientEditControllerSpec extends ObjectBehavior
 {
     /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory $templateFactory
-     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory $formFactory
-     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $sessionMessagesService
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @param \Psr\Http\Message\UriInterface $uri
      * @return void
      */
     public function let(
@@ -59,7 +53,6 @@ class ClientEditControllerSpec extends ObjectBehavior
         $this->beConstructedWith($clientRepository, $templateFactory, $formFactory, $sessionMessagesService);
     }
 
-
     /**
      * @return void
      */
@@ -68,15 +61,7 @@ class ClientEditControllerSpec extends ObjectBehavior
         $this->shouldHaveType(ClientEditController::class);
     }
 
-
     /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @param \SimpleSAML\XHTML\Template $template
-     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory $templateFactory
-     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory $formFactory
-     * @param \SimpleSAML\Modules\OpenIDConnect\Form\ClientForm $clientForm
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $clientEntity
      * @return void
      */
     public function it_shows_edit_client_form(
@@ -113,14 +98,7 @@ class ClientEditControllerSpec extends ObjectBehavior
         $this->__invoke($request)->shouldBe($template);
     }
 
-
     /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory $formFactory
-     * @param \SimpleSAML\Modules\OpenIDConnect\Form\ClientForm $clientForm
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $clientEntity
-     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $sessionMessagesService
      * @return void
      */
     public function it_updates_client_from_edit_client_form_data(
@@ -176,9 +154,7 @@ class ClientEditControllerSpec extends ObjectBehavior
         $this->__invoke($request)->shouldBeAnInstanceOf(RedirectResponse::class);
     }
 
-
     /**
-     * @param \Zend\Diactoros\ServerRequest $request
      * @return void
      */
     public function it_throws_id_not_found_exception_in_edit_action(
@@ -189,10 +165,7 @@ class ClientEditControllerSpec extends ObjectBehavior
         $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
     }
 
-
     /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
      * @return void
      */
     public function it_throws_client_not_found_exception_in_edit_action(

@@ -27,7 +27,6 @@ class JsonWebKeySetServiceTest extends TestCase
      */
     private static $pkGeneratePublic;
 
-
     /**
      * @return void
      */
@@ -49,18 +48,16 @@ class JsonWebKeySetServiceTest extends TestCase
         // free resources
         openssl_pkey_free($pkGenerate);
 
-        file_put_contents(sys_get_temp_dir() . '/oidc_module.crt', self::$pkGeneratePublic);
+        file_put_contents(sys_get_temp_dir().'/oidc_module.crt', self::$pkGeneratePublic);
     }
-
 
     /**
      * @return void
      */
     public static function tearDownAfterClass()
     {
-        unlink(sys_get_temp_dir() . '/oidc_module.crt');
+        unlink(sys_get_temp_dir().'/oidc_module.crt');
     }
-
 
     /**
      * @return void
@@ -84,9 +81,9 @@ class JsonWebKeySetServiceTest extends TestCase
         $this->assertEquals($JWKSet->all(), $jsonWebKeySetService->keys());
     }
 
-
     /**
      * @expectedException \Exception
+     *
      * @return void
      */
     public function testCertificationFileNotFound()

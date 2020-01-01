@@ -31,22 +31,17 @@ class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
     use EntityTrait;
     use RevokeTokenTrait;
 
-
     /**
-     * Constructor
+     * Constructor.
      */
     private function __construct()
     {
     }
 
-
     /**
      * Create new Access Token from data.
      *
-     * @param ClientEntityInterface $clientEntity
      * @param ScopeEntityInterface[] $scopes
-     * @param string|null $userIdentifier
-     * @return self
      */
     public static function fromData(ClientEntityInterface $clientEntity, array $scopes, string $userIdentifier = null): self
     {
@@ -60,7 +55,6 @@ class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
 
         return $accessToken;
     }
-
 
     /**
      * {@inheritdoc}
@@ -83,7 +77,6 @@ class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
 
         return $accessToken;
     }
-
 
     /**
      * {@inheritdoc}

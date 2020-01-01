@@ -25,20 +25,11 @@ class OpenIdConnectJwksController
      */
     private $jsonWebKeySetService;
 
-
-    /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Services\JsonWebKeySetService $jsonWebKeySetService
-     */
     public function __construct(JsonWebKeySetService $jsonWebKeySetService)
     {
         $this->jsonWebKeySetService = $jsonWebKeySetService;
     }
 
-
-    /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @return \Zend\Diactoros\Response\JsonResponse
-     */
     public function __invoke(ServerRequest $request): JsonResponse
     {
         return new JsonResponse([

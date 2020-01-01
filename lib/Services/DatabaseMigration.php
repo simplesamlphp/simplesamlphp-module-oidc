@@ -28,15 +28,10 @@ class DatabaseMigration
      */
     private $database;
 
-
-    /**
-     * @param \SimpleSAML\Database|null $database
-     */
     public function __construct(Database $database = null)
     {
         $this->database = $database ?? Database::getInstance();
     }
-
 
     /**
      * @return bool
@@ -55,7 +50,6 @@ class DatabaseMigration
         return empty($notImplementedVersions);
     }
 
-
     /**
      * @return array
      */
@@ -72,7 +66,6 @@ class DatabaseMigration
 
         return $versions;
     }
-
 
     /**
      * @return void
@@ -93,17 +86,12 @@ class DatabaseMigration
         }
     }
 
-
-    /**
-     * @return string
-     */
     private function versionsTableName(): string
     {
         $versionsTablename = $this->database->applyPrefix('oidc_migration_versions');
 
         return $versionsTablename;
     }
-
 
     /**
      * @return void
@@ -184,7 +172,6 @@ EOT
         );
     }
 
-
     /**
      * @return void
      */
@@ -198,11 +185,10 @@ EOT
         );
     }
 
-
     /**
-     * @param array $columnNames
      * @param string $prefix
-     * @param int $maxSize
+     * @param int    $maxSize
+     *
      * @return string
      */
     private function generateIdentifierName(array $columnNames, $prefix = '', $maxSize = 30)

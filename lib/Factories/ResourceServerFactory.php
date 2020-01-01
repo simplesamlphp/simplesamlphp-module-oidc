@@ -26,19 +26,11 @@ class ResourceServerFactory
      */
     private $accessTokenRepository;
 
-
-    /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository $accessTokenRepository
-     */
     public function __construct(AccessTokenRepository $accessTokenRepository)
     {
         $this->accessTokenRepository = $accessTokenRepository;
     }
 
-
-    /**
-     * @return \League\OAuth2\Server\ResourceServer
-     */
     public function build(): ResourceServer
     {
         $publicKeyPath = Config::getCertPath('oidc_module.crt');

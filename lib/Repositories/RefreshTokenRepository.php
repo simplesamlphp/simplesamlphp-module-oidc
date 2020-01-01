@@ -15,6 +15,7 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Repositories;
 
 use League\OAuth2\Server\Entities\RefreshTokenEntityInterface;
+use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
 use SimpleSAML\Modules\OpenIDConnect\Entity\RefreshTokenEntity;
 use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
@@ -22,7 +23,6 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 class RefreshTokenRepository extends AbstractDatabaseRepository implements RefreshTokenRepositoryInterface
 {
     public const TABLE_NAME = 'oidc_refresh_token';
-
 
     /**
      * @return string
@@ -32,36 +32,31 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
 
-
     /**
-     * @return \SimpleSAML\Modules\OpenIDConnect\Entity\RefreshTokenEntity
+     * {@inheritdoc}
      */
     public function getNewRefreshToken(): RefreshTokenEntity
     {
         return new RefreshTokenEntity();
     }
 
-
     /**
-     * @param (\League\OAuth2\Server\Entities\RefreshTokenEntityInterface|
-     *         \SimpleSAML\Modules\OpenIDConnect\Entity\RefreshTokenEntity) $refreshTokenEntity
-     * @return void
+     * {@inheritdoc}
      */
     public function persistNewRefreshToken(RefreshTokenEntityInterface $refreshTokenEntity): void
     {
+        if (!$refreshTokenEntity instanceof RefreshTokenEntity) {
+            throw OAuthServerException::invalidRefreshToken();
+        }
+
         $this->database->write(
             "INSERT INTO {$this->getTableName()} (id, expires_at, access_token_id, is_revoked) VALUES (:id, :expires_at, :access_token_id, :is_revoked)",
             $refreshTokenEntity->getState()
         );
     }
 
-
     /**
      * Find Refresh Token by id.
-     *
-     * @param string $tokenId
-     *
-     * @return \SimpleSAML\Modules\OpenIDConnect\Entity\RefreshTokenEntity|null
      */
     public function findById(string $tokenId): ?RefreshTokenEntity
     {
@@ -77,15 +72,14 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         }
 
         $data = current($rows);
-        $data['access_token'] = (new AccessTokenRepository())->findById($data['access_token_id']);
+        $accessTokenRepository = new AccessTokenRepository($this->configurationService);
+        $data['access_token'] = ($accessTokenRepository)->findById($data['access_token_id']);
 
         return RefreshTokenEntity::fromState($data);
     }
 
-
     /**
      * {@inheritdoc}
-     * @return void
      */
     public function revokeRefreshToken($tokenId)
     {
@@ -98,7 +92,6 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         $refreshToken->revoke();
         $this->update($refreshToken);
     }
-
 
     /**
      * {@inheritdoc}
@@ -114,10 +107,8 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         return $refreshToken->isRevoked();
     }
 
-
     /**
      * Removes expired refresh tokens.
-     * @return void
      */
     public function removeExpired(): void
     {
@@ -129,11 +120,6 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         );
     }
 
-
-    /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\RefreshTokenEntity $refreshTokenEntity
-     * @return void
-     */
     private function update(RefreshTokenEntity $refreshTokenEntity): void
     {
         $this->database->write(

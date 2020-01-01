@@ -25,20 +25,12 @@ class ClaimTranslatorExtractorFactory
      */
     private $configurationService;
 
-
-    /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService $configurationService
-     */
     public function __construct(
         ConfigurationService $configurationService
     ) {
         $this->configurationService = $configurationService;
     }
 
-
-    /**
-     * @return \SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor
-     */
     public function build(): ClaimTranslatorExtractor
     {
         $translatorTable = $this->configurationService->getOpenIDConnectConfiguration()->getArray('translate', []);
@@ -46,11 +38,11 @@ class ClaimTranslatorExtractorFactory
         $scopes = $this->configurationService->getOpenIDPrivateScopes();
         $scopes = array_map(
             /**
-             * @param array $config
-             * @param array $scope
+             * @param array<array<string>> $config
+             *
              * @return \OpenIDConnectServer\Entities\ClaimSetEntity
              */
-            function ($config, $scope) {
+            function (array $config, string $scope) {
                 return new ClaimSetEntity($scope, $config['attributes'] ?? []);
             },
             $scopes,

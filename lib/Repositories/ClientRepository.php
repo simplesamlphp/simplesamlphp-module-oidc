@@ -14,13 +14,13 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Repositories;
 
+use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 
 class ClientRepository extends AbstractDatabaseRepository implements ClientRepositoryInterface
 {
     public const TABLE_NAME = 'oidc_client';
-
 
     /**
      * @return string
@@ -30,33 +30,26 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
 
-
     /**
-     * @param string $clientIdentifier
-     * @param string|null $grantType
-     * @param string|null $clientSecret
-     * @param bool $mustValidateSecret
-     * @return \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity|null
+     * {@inheritdoc}
      */
-    public function getClientEntity($clientIdentifier, $grantType = null, $clientSecret = null, $mustValidateSecret = true): ?ClientEntity
+    public function getClientEntity($clientIdentifier, $grantType = null, $clientSecret = null, $mustValidateSecret = true)
     {
         $client = $this->findById($clientIdentifier);
 
-        if (!$client) {
-            return null;
+        if (!$client instanceof ClientEntity) {
+            throw OAuthServerException::invalidClient();
         }
 
         if (false === $client->isEnabled()) {
-            return null;
+            throw OAuthServerException::accessDenied('Client is disabled');
         }
 
         return $client;
     }
 
-
     /**
      * @param string $clientIdentifier
-     * @return \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity|null
      */
     public function findById($clientIdentifier): ?ClientEntity
     {
@@ -73,7 +66,6 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
         return ClientEntity::fromState(current($rows));
     }
-
 
     /**
      * @return \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity[]
@@ -93,11 +85,6 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         return $clients;
     }
 
-
-    /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $client
-     * @return void
-     */
     public function add(ClientEntity $client): void
     {
         $this->database->write(
@@ -106,11 +93,6 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         );
     }
 
-
-    /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $client
-     * @return void
-     */
     public function delete(ClientEntity $client): void
     {
         $this->database->write(
@@ -121,11 +103,6 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         );
     }
 
-
-    /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $client
-     * @return void
-     */
     public function update(ClientEntity $client): void
     {
         $this->database->write(

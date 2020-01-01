@@ -12,9 +12,9 @@
  * file that was distributed with this source code.
  */
 
-
 /**
  * @param array &$croninfo
+ *
  * @return void
  */
 function oidc_hook_cron(&$croninfo)
@@ -32,19 +32,21 @@ function oidc_hook_cron(&$croninfo)
         return;
     }
 
+    $container = new \SimpleSAML\Modules\OpenIDConnect\Services\Container();
+
     try {
-        $accessTokenRepository = new \SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository();
+        $accessTokenRepository = $container->get(\SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository::class);
         $accessTokenRepository->removeExpired();
 
-        $authTokenRepository = new \SimpleSAML\Modules\OpenIDConnect\Repositories\AuthCodeRepository();
+        $authTokenRepository = $container->get(\SimpleSAML\Modules\OpenIDConnect\Repositories\AuthCodeRepository::class);
         $authTokenRepository->removeExpired();
 
-        $refreshTokenRepository = new \SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository();
+        $refreshTokenRepository = $container->get(\SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository::class);
         $refreshTokenRepository->removeExpired();
 
         $croninfo['summary'][] = 'Module `oidc` clean up. Removed expired entries from storage.';
     } catch (Exception $e) {
-        $message = 'Module `oidc` clean up cron script failed: ' . $e->getMessage();
+        $message = 'Module `oidc` clean up cron script failed: '.$e->getMessage();
         \SimpleSAML\Logger::warning($message);
         $croninfo['summary'][] = $message;
     }

@@ -21,6 +21,7 @@ use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
+use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration;
 use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
@@ -35,11 +36,7 @@ class AccessTokenRepositoryTest extends TestCase
      */
     protected static $repository;
 
-
-    /**
-     * @return void
-     */
-    public static function setUpBeforeClass()
+    public static function setUpBeforeClass(): void
     {
         $config = [
             'database.dsn' => 'sqlite::memory:',
@@ -53,28 +50,22 @@ class AccessTokenRepositoryTest extends TestCase
         Configuration::loadFromArray($config, '', 'simplesaml');
         (new DatabaseMigration())->migrate();
 
-        $client = ClientRepositoryTest::getClient(self::CLIENT_ID);
-        (new ClientRepository())->add($client);
-        $user = UserEntity::fromData(self::USER_ID);
-        (new UserRepository())->add($user);
+        $configurationService = new ConfigurationService();
 
-        self::$repository = new AccessTokenRepository();
+        $client = ClientRepositoryTest::getClient(self::CLIENT_ID);
+        (new ClientRepository($configurationService))->add($client);
+        $user = UserEntity::fromData(self::USER_ID);
+        (new UserRepository($configurationService))->add($user);
+
+        self::$repository = new AccessTokenRepository($configurationService);
     }
 
-
-    /**
-     * @return void
-     */
-    public function testGetTableName()
+    public function testGetTableName(): void
     {
         $this->assertSame('phpunit_oidc_access_token', self::$repository->getTableName());
     }
 
-
-    /**
-     * @return void
-     */
-    public function testAddAndFound()
+    public function testAddAndFound(): void
     {
         $scopes = [
             ScopeEntity::fromData('openid'),
@@ -91,22 +82,14 @@ class AccessTokenRepositoryTest extends TestCase
         $this->assertEquals($accessToken, $foundAccessToken);
     }
 
-
-    /**
-     * @return void
-     */
-    public function testAddAndNotFound()
+    public function testAddAndNotFound(): void
     {
         $notFoundAccessToken = self::$repository->findById('notoken');
 
         $this->assertNull($notFoundAccessToken);
     }
 
-
-    /**
-     * @return void
-     */
-    public function testRevokeToken()
+    public function testRevokeToken(): void
     {
         self::$repository->revokeAccessToken(self::ACCESS_TOKEN_ID);
         $isRevoked = self::$repository->isAccessTokenRevoked(self::ACCESS_TOKEN_ID);
@@ -114,31 +97,23 @@ class AccessTokenRepositoryTest extends TestCase
         $this->assertTrue($isRevoked);
     }
 
-
     /**
      * @expectedException \RuntimeException
-     * @return void
      */
-    public function testErrorRevokeInvalidToken()
+    public function testErrorRevokeInvalidToken(): void
     {
         self::$repository->revokeAccessToken('notoken');
     }
 
-
     /**
      * @expectedException \RuntimeException
-     * @return void
      */
-    public function testErrorCheckIsRevokedInvalidToken()
+    public function testErrorCheckIsRevokedInvalidToken(): void
     {
         self::$repository->isAccessTokenRevoked('notoken');
     }
 
-
-    /**
-     * @return void
-     */
-    public function testRemoveExpired()
+    public function testRemoveExpired(): void
     {
         self::$repository->removeExpired();
         $notFoundAccessToken = self::$repository->findById(self::ACCESS_TOKEN_ID);

@@ -40,30 +40,20 @@ class ConfigurationService
         ],
     ];
 
-
     public function __construct()
     {
         $this->validateConfiguration();
     }
 
-
-    /**
-     * @return \SimpleSAML\Configuration
-     */
     public function getSimpleSAMLConfiguration(): Configuration
     {
         return Configuration::getInstance();
     }
 
-
-    /**
-     * @return \SimpleSAML\Configuration
-     */
     public function getOpenIDConnectConfiguration(): Configuration
     {
         return Configuration::getConfig('module_oidc.php');
     }
-
 
     /**
      * @return string
@@ -73,11 +63,6 @@ class ConfigurationService
         return HTTP::getSelfURLHost();
     }
 
-
-    /**
-     * @param string|null $path
-     * @return string
-     */
     public function getOpenIdConnectModuleURL(string $path = null): string
     {
         $base = Module::getModuleURL('oidc');
@@ -89,7 +74,6 @@ class ConfigurationService
         return $base;
     }
 
-
     /**
      * @return array
      */
@@ -100,7 +84,6 @@ class ConfigurationService
         return array_merge(self::$standardClaims, $scopes);
     }
 
-
     /**
      * @return array
      */
@@ -109,9 +92,9 @@ class ConfigurationService
         return $this->getOpenIDConnectConfiguration()->getArray('scopes', []);
     }
 
-
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
+     *
      * @return void
      */
     private function validateConfiguration()
@@ -120,16 +103,17 @@ class ConfigurationService
         array_walk(
             $scopes,
             /**
-             * @param array $scope
+             * @param array  $scope
              * @param string $name
+             *
              * @return void
              */
             function ($scope, $name) {
-                if (in_array($name, ['openid', 'profile', 'email', 'address', 'phone'], true)) {
-                    throw new ConfigurationError('Protected scope can be overwrited: ' . $name, 'oidc_config.php');
+                if (\in_array($name, ['openid', 'profile', 'email', 'address', 'phone'], true)) {
+                    throw new ConfigurationError('Protected scope can be overwrited: '.$name, 'oidc_config.php');
                 }
-                if (!array_key_exists('description', $scope)) {
-                    throw new ConfigurationError('Scope [' . $name . '] description not defined', 'module_oidc.php');
+                if (!\array_key_exists('description', $scope)) {
+                    throw new ConfigurationError('Scope ['.$name.'] description not defined', 'module_oidc.php');
                 }
             }
         );

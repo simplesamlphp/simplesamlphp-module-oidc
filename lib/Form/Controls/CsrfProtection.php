@@ -32,7 +32,6 @@ class CsrfProtection extends BaseCsrfProtection
 
 
     /**
-     * @return string
      */
     public function getToken(): string
     {
