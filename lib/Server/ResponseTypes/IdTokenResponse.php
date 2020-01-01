@@ -79,22 +79,21 @@ class IdTokenResponse extends BearerTokenResponse
 
         // Add required id_token claims
         $builder = $this->builder
-            ->setAudience($accessToken->getClient()->getIdentifier())
-            ->setIssuedAt(time())
-            ->setExpiration($accessToken->getExpiryDateTime()->getTimestamp())
-            ->setSubject($userEntity->getIdentifier())
+            ->permittedFor($accessToken->getClient()->getIdentifier())
+            ->issuedAt(time())
+            ->expiresAt($accessToken->getExpiryDateTime()->getTimestamp())
+            ->relatedTo($userEntity->getIdentifier())
         ;
 
         // Need a claim factory here to reduce the number of claims by provided scope.
         $claims = $this->claimExtractor->extract($accessToken->getScopes(), $userEntity->getClaims());
 
         foreach ($claims as $claimName => $claimValue) {
-            $builder->set($claimName, $claimValue);
+            $builder->withClaim($claimName, $claimValue);
         }
 
-        $token = $builder
-            ->sign(new Sha256(), new Key($this->privateKey->getKeyPath(), $this->privateKey->getPassPhrase()))
-            ->getToken();
+        $key = new Key($this->privateKey->getKeyPath(), $this->privateKey->getPassPhrase());
+        $token = $builder->getToken(new Sha256(), $key);
 
         return [
             'id_token' => (string) $token,
