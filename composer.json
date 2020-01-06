@@ -64,9 +64,9 @@
     "scripts": {
         "pre-commit": [
             "vendor/bin/check-syntax-php.sh",
-            "vendor/simplesamlphp/simplesamlphp-test-framework/bin/check-syntax-json.sh",
-            "vendor/simplesamlphp/simplesamlphp-test-framework/bin/check-syntax-xml.sh",
-            "vendor/simplesamlphp/simplesamlphp-test-framework/bin/check-syntax-yaml.sh",
+            "vendor/bin/check-syntax-json.sh",
+            "vendor/bin/check-syntax-xml.sh",
+            "vendor/bin/check-syntax-yaml.sh",
             "vendor/bin/security-checker security:check",
             "vendor/bin/psalm",
             "vendor/bin/psalter --issues=UnnecessaryVarAnnotation --dry-run",
