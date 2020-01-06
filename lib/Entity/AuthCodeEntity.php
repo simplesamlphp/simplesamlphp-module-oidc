@@ -58,7 +58,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
     {
         return [
             'id' => $this->getIdentifier(),
-            'scopes' => json_encode($this->getScopes()),
+            'scopes' => json_encode($this->scopes),
             'expires_at' => $this->getExpiryDateTime()->format('Y-m-d H:i:s'),
             'user_id' => $this->getUserIdentifier(),
             'client_id' => $this->client->getIdentifier(),
