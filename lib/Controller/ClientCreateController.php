@@ -83,7 +83,7 @@ class ClientCreateController
 
             $this->messages->addMessage('{oidc:client:added}');
 
-            return new RedirectResponse(HTTP::addURLParameters('index.php', []));
+            return new RedirectResponse(HTTP::addURLParameters('show.php', ['client_id' => $client['id']]));
         }
 
         return $this->templateFactory->render('oidc:clients/new.twig', [

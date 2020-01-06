@@ -82,7 +82,7 @@ class ClientEditController
 
             $this->messages->addMessage('{oidc:client:updated}');
 
-            return new RedirectResponse(HTTP::addURLParameters('index.php', []));
+            return new RedirectResponse(HTTP::addURLParameters('show.php', ['client_id' => $client->getIdentifier()]));
         }
 
         return $this->templateFactory->render('oidc:clients/edit.twig', [
