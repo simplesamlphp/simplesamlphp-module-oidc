@@ -20,10 +20,7 @@ use SimpleSAML\Utils\Random;
 
 class CsrfProtection extends BaseCsrfProtection
 {
-    /**
-     * @param string $errorMessage
-     *
-    public function __construct($errorMessage)
+    public function __construct(?string $errorMessage)
     {
         parent::__construct($errorMessage);
 
@@ -31,8 +28,6 @@ class CsrfProtection extends BaseCsrfProtection
     }
 
 
-    /**
-     */
     public function getToken(): string
     {
         $token = $this->session->getData('token', 'form');
