@@ -84,12 +84,12 @@ class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
     public function getState(): array
     {
         return [
-            'id' => $this->identifier,
-            'scopes' => json_encode($this->scopes),
-            'expires_at' => $this->expiryDateTime->format('Y-m-d H:i:s'),
-            'user_id' => $this->userIdentifier,
-            'client_id' => $this->client->getIdentifier(),
-            'is_revoked' => $this->isRevoked,
+            'id' => $this->getIdentifier(),
+            'scopes' => json_encode($this->getScopes()),
+            'expires_at' => $this->getExpiryDateTime()->format('Y-m-d H:i:s'),
+            'user_id' => $this->getUserIdentifier(),
+            'client_id' => $this->getClient()->getIdentifier(),
+            'is_revoked' => (int) $this->isRevoked(),
         ];
     }
 }

@@ -106,14 +106,14 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
     public function getState(): array
     {
         return [
-            'id' => $this->identifier,
-            'secret' => $this->secret,
-            'name' => $this->name,
-            'description' => $this->description,
-            'auth_source' => $this->authSource,
-            'redirect_uri' => json_encode($this->redirectUri),
-            'scopes' => json_encode($this->scopes),
-            'is_enabled' => $this->isEnabled ? 1 : 0,
+            'id' => $this->getIdentifier(),
+            'secret' => $this->getSecret(),
+            'name' => $this->getName(),
+            'description' => $this->getDescription(),
+            'auth_source' => $this->getAuthSource(),
+            'redirect_uri' => json_encode($this->getRedirectUri()),
+            'scopes' => json_encode($this->getScopes()),
+            'is_enabled' => (int) $this->isEnabled,
         ];
     }
 

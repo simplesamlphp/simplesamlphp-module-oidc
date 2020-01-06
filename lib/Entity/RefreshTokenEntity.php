@@ -42,10 +42,10 @@ class RefreshTokenEntity implements RefreshTokenEntityInterface, MementoInterfac
     public function getState(): array
     {
         return [
-            'id' => $this->identifier,
-            'expires_at' => $this->expiryDateTime->format('Y-m-d H:i:s'),
-            'access_token_id' => $this->accessToken->getIdentifier(),
-            'is_revoked' => $this->isRevoked,
+            'id' => $this->getIdentifier(),
+            'expires_at' => $this->getExpiryDateTime()->format('Y-m-d H:i:s'),
+            'access_token_id' => $this->getAccessToken()->getIdentifier(),
+            'is_revoked' => (int) $this->isRevoked(),
         ];
     }
 }
