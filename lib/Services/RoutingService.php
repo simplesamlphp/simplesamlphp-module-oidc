@@ -55,13 +55,14 @@ class RoutingService
         if ($response instanceof Template) {
             $response->data['messages'] = $container->get(SessionMessagesService::class)->getMessages();
 
-            $response->show();
+            return $response->show();
+	    
         }
 
         if ($response instanceof ResponseInterface) {
             $emitter = new SapiEmitter();
 
-            $emitter->emit($response);
+            return $emitter->emit($response);
         }
 
         throw new Exception('Response type not supported: ' . get_class($response));

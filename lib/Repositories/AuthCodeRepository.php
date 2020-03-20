@@ -48,9 +48,13 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
      */
     public function persistNewAuthCode(AuthCodeEntityInterface $authCodeEntity)
     {
+	    $state = $authCodeEntity->getState();
+	    $state['is_revoked'] = $state['is_revoked'] ? 'true' : 'false';
+	    
         $this->database->write(
             "INSERT INTO {$this->getTableName()} (id, scopes, expires_at, user_id, client_id, is_revoked, redirect_uri) VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked, :redirect_uri)",
-            $authCodeEntity->getState()
+            //$authCodeEntity->getState()
+            $state
         );
     }
 

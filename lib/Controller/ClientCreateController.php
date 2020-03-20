@@ -21,6 +21,7 @@ use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Form\ClientForm;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
+use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use SimpleSAML\Utils\HTTP;
 use SimpleSAML\Utils\Random;
 use Zend\Diactoros\Response\RedirectResponse;
@@ -45,6 +46,10 @@ class ClientCreateController
      */
     private $messages;
 
+    /**
+     * @var \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService
+     */
+    private $configuration;
 
     /**
      * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
@@ -56,12 +61,14 @@ class ClientCreateController
         ClientRepository $clientRepository,
         TemplateFactory $templateFactory,
         FormFactory $formFactory,
-        SessionMessagesService $messages
+	SessionMessagesService $messages,
+	ConfigurationService $configuration
     ) {
         $this->clientRepository = $clientRepository;
         $this->templateFactory = $templateFactory;
         $this->formFactory = $formFactory;
         $this->messages = $messages;
+	$this->configuration = $configuration;
     }
 
 
@@ -72,7 +79,9 @@ class ClientCreateController
     public function __invoke(ServerRequest $request)
     {
         $form = $this->formFactory->build(ClientForm::class);
-        $form->setAction($request->getUri());
+	$formAction = $this->configuration->getOpenIdConnectModuleURL('clients/new.php');
+        //$form->setAction($request->getUri());
+        $form->setAction($formAction);
 
         if ($form->isSuccess()) {
             $client = $form->getValues();

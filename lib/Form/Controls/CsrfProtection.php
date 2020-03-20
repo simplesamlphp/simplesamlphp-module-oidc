@@ -23,6 +23,7 @@ class CsrfProtection extends BaseCsrfProtection
     /**
      * @param string $errorMessage
      *
+     */
     public function __construct($errorMessage)
     {
         parent::__construct($errorMessage);
