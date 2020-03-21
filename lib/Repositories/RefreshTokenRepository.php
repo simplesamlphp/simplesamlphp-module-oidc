@@ -49,9 +49,11 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
      */
     public function persistNewRefreshToken(RefreshTokenEntityInterface $refreshTokenEntity): void
     {
+        $state = $refreshTokenEntity->getState();
+        $state['is_revoked'] = $state['is_revoked'] ? 'true' : 'false';
         $this->database->write(
             "INSERT INTO {$this->getTableName()} (id, expires_at, access_token_id, is_revoked) VALUES (:id, :expires_at, :access_token_id, :is_revoked)",
-            $refreshTokenEntity->getState()
+            $state
         );
     }
 

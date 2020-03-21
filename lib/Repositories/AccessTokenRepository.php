@@ -48,9 +48,12 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
      */
     public function persistNewAccessToken(AccessTokenEntityInterface $accessTokenEntity)
     {
+        $state = $accessTokenEntity->getState();
+        $state["is_revoked"] = $state["is_revoked"] ? 'true' : 'false';
+
         $this->database->write(
             "INSERT INTO {$this->getTableName()} (id, scopes, expires_at, user_id, client_id, is_revoked) VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked)",
-            $accessTokenEntity->getState()
+            $state
         );
     }
 
