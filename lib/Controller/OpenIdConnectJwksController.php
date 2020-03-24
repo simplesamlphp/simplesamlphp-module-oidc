@@ -42,7 +42,7 @@ class OpenIdConnectJwksController
     public function __invoke(ServerRequest $request): JsonResponse
     {
         return new JsonResponse([
-            'keys' => $this->jsonWebKeySetService->keys(),
+            'keys' => array_values($this->jsonWebKeySetService->keys()),
         ]);
     }
 }
