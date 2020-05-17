@@ -22,6 +22,7 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
+use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration;
 use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
@@ -37,11 +38,7 @@ class RefreshTokenRepositoryTest extends TestCase
      */
     protected static $repository;
 
-
-    /**
-     * @return void
-     */
-    public static function setUpBeforeClass()
+    public static function setUpBeforeClass(): void
     {
         $config = [
             'database.dsn' => 'sqlite::memory:',
@@ -55,39 +52,35 @@ class RefreshTokenRepositoryTest extends TestCase
         Configuration::loadFromArray($config, '', 'simplesaml');
         (new DatabaseMigration())->migrate();
 
+        $configurationService = new ConfigurationService();
+
         $client = ClientRepositoryTest::getClient(self::CLIENT_ID);
-        (new ClientRepository())->add($client);
+        (new ClientRepository($configurationService))->add($client);
         $user = UserEntity::fromData(self::USER_ID);
-        (new UserRepository())->add($user);
+        (new UserRepository($configurationService))->add($user);
 
         $accessToken = AccessTokenEntity::fromData($client, [], self::USER_ID);
         $accessToken->setIdentifier(self::ACCESS_TOKEN_ID);
-        $accessToken->setExpiryDateTime(new \DateTime('yesterday'));
-        (new AccessTokenRepository())->persistNewAccessToken($accessToken);
+        $accessToken->setExpiryDateTime(new \DateTimeImmutable('yesterday'));
+        (new AccessTokenRepository($configurationService))->persistNewAccessToken($accessToken);
 
-        self::$repository = new RefreshTokenRepository();
+        self::$repository = new RefreshTokenRepository($configurationService);
     }
 
-
-    /**
-     * @return void
-     */
-    public function testGetTableName()
+    public function testGetTableName(): void
     {
         $this->assertSame('phpunit_oidc_refresh_token', self::$repository->getTableName());
     }
 
-
-    /**
-     * @return void
-     */
-    public function testAddAndFound()
+    public function testAddAndFound(): void
     {
-        $accessToken = (new AccessTokenRepository())->findById(self::ACCESS_TOKEN_ID);
+        $configurationService = new ConfigurationService();
+        $accessToken = (new AccessTokenRepository($configurationService))->findById(self::ACCESS_TOKEN_ID);
 
         $refreshToken = self::$repository->getNewRefreshToken();
         $refreshToken->setIdentifier(self::REFRESH_TOKEN_ID);
-        $refreshToken->setExpiryDateTime(TimestampGenerator::utc('yesterday'));
+        $refreshToken->setExpiryDateTime(\DateTimeImmutable::createFromMutable(TimestampGenerator::utc('yesterday')));
+        /** @psalm-suppress PossiblyNullArgument */
         $refreshToken->setAccessToken($accessToken);
 
         self::$repository->persistNewRefreshToken($refreshToken);
@@ -97,22 +90,14 @@ class RefreshTokenRepositoryTest extends TestCase
         $this->assertEquals($refreshToken, $foundRefreshToken);
     }
 
-
-    /**
-     * @return void
-     */
-    public function testAddAndNotFound()
+    public function testAddAndNotFound(): void
     {
         $notFoundRefreshToken = self::$repository->findById('notoken');
 
         $this->assertNull($notFoundRefreshToken);
     }
 
-
-    /**
-     * @return void
-     */
-    public function testRevokeToken()
+    public function testRevokeToken(): void
     {
         self::$repository->revokeRefreshToken(self::REFRESH_TOKEN_ID);
         $isRevoked = self::$repository->isRefreshTokenRevoked(self::REFRESH_TOKEN_ID);
@@ -120,31 +105,21 @@ class RefreshTokenRepositoryTest extends TestCase
         $this->assertTrue($isRevoked);
     }
 
-
-    /**
-     * @expectedException \RuntimeException
-     * @return void
-     */
-    public function testErrorRevokeInvalidToken()
+    public function testErrorRevokeInvalidToken(): void
     {
+        $this->expectException(\RuntimeException::class);
+
         self::$repository->revokeRefreshToken('notoken');
     }
 
-
-    /**
-     * @expectedException \RuntimeException
-     * @return void
-     */
-    public function testErrorCheckIsRevokedInvalidToken()
+    public function testErrorCheckIsRevokedInvalidToken(): void
     {
+        $this->expectException(\RuntimeException::class);
+
         self::$repository->isRefreshTokenRevoked('notoken');
     }
 
-
-    /**
-     * @return void
-     */
-    public function testRemoveExpired()
+    public function testRemoveExpired(): void
     {
         self::$repository->removeExpired();
         $notFoundRefreshToken = self::$repository->findById(self::REFRESH_TOKEN_ID);

@@ -28,15 +28,10 @@ class DatabaseMigration
      */
     private $database;
 
-
-    /**
-     * @param \SimpleSAML\Database|null $database
-     */
     public function __construct(Database $database = null)
     {
         $this->database = $database ?? Database::getInstance();
     }
-
 
     /**
      * @return bool
@@ -55,7 +50,6 @@ class DatabaseMigration
         return empty($notImplementedVersions);
     }
 
-
     /**
      * @return array
      */
@@ -72,7 +66,6 @@ class DatabaseMigration
 
         return $versions;
     }
-
 
     /**
      * @return void
@@ -91,19 +84,19 @@ class DatabaseMigration
             $this->version20180425203400();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20180425203400')");
         }
+
+        if (!\in_array('20200517071100', $versions, true)) {
+            $this->version20200517071100();
+            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20200517071100')");
+        }
     }
 
-
-    /**
-     * @return string
-     */
     private function versionsTableName(): string
     {
         $versionsTablename = $this->database->applyPrefix('oidc_migration_versions');
 
         return $versionsTablename;
     }
-
 
     /**
      * @return void
@@ -146,8 +139,10 @@ EOT
             user_id VARCHAR(255) NOT NULL,                          
             client_id VARCHAR(255) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
-            CONSTRAINT {$fkAccessTokenUser} FOREIGN KEY (user_id) REFERENCES ${userTablename} (id) ON DELETE CASCADE,                                 
-            CONSTRAINT {$fkAccessTokenClient} FOREIGN KEY (client_id) REFERENCES ${clientTableName} (id) ON DELETE CASCADE                                
+            CONSTRAINT {$fkAccessTokenUser} FOREIGN KEY (user_id) 
+                REFERENCES ${userTablename} (id) ON DELETE CASCADE,                                 
+            CONSTRAINT {$fkAccessTokenClient} FOREIGN KEY (client_id) 
+                REFERENCES ${clientTableName} (id) ON DELETE CASCADE                                
         )
 EOT
         );
@@ -160,7 +155,8 @@ EOT
             expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             access_token_id VARCHAR(255) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
-            CONSTRAINT {$fkRefreshTokenAccessToken} FOREIGN KEY (access_token_id) REFERENCES ${accessTokenTableName} (id) ON DELETE CASCADE
+            CONSTRAINT {$fkRefreshTokenAccessToken} FOREIGN KEY (access_token_id)
+                REFERENCES ${accessTokenTableName} (id) ON DELETE CASCADE
         )
 EOT
         );
@@ -177,13 +173,14 @@ EOT
             client_id VARCHAR(255) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
             redirect_uri TEXT NOT NULL,
-            CONSTRAINT {$fkAuthCodeUser} FOREIGN KEY (user_id) REFERENCES ${userTablename} (id) ON DELETE CASCADE,                                 
-            CONSTRAINT {$fkAuthCodeClient} FOREIGN KEY (client_id) REFERENCES ${clientTableName} (id) ON DELETE CASCADE                                            
+            CONSTRAINT {$fkAuthCodeUser} FOREIGN KEY (user_id)
+                REFERENCES ${userTablename} (id) ON DELETE CASCADE,                                 
+            CONSTRAINT {$fkAuthCodeClient} FOREIGN KEY (client_id)
+                REFERENCES ${clientTableName} (id) ON DELETE CASCADE                                            
         )
 EOT
         );
     }
-
 
     /**
      * @return void
@@ -198,11 +195,20 @@ EOT
         );
     }
 
+    private function version20200517071100()
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE ${clientTableName}
+            ADD is_confidential BOOLEAN NOT NULL DEFAULT false 
+EOT
+        );
+    }
 
     /**
-     * @param array $columnNames
      * @param string $prefix
-     * @param int $maxSize
+     * @param int    $maxSize
+     *
      * @return string
      */
     private function generateIdentifierName(array $columnNames, $prefix = '', $maxSize = 30)

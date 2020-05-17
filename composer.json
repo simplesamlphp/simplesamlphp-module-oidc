@@ -18,25 +18,27 @@
     ],
     "require": {
         "php": ">=7.2.0",
+        "ext-json": "*",
         "ext-openssl": "*",
-        "league/oauth2-server": "^7.0",
+        "league/oauth2-server": "^8.1.0",
         "nette/forms": "^2.4",
         "psr/container": "^1.0",
         "simplesamlphp/composer-module-installer": "^1.0",
         "web-token/jwt-framework": "^2.1",
         "steverhoades/oauth2-openid-connect-server": "^1.0",
-        "zendframework/zend-diactoros": "^1.3"
+        "laminas/laminas-diactoros": "^2.2.1",
+        "laminas/laminas-httphandlerrunner": "^1.1.0"
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^2.10",
         "friends-of-phpspec/phpspec-code-coverage": "^4.3",
         "php-coveralls/php-coveralls": "^2.0",
         "phpspec/phpspec": "^6.1",
-        "phpunit/php-code-coverage": "^6.0",
-        "phpunit/phpcov": "^5.0",
-        "phpunit/phpunit": "^7.0",
-        "simplesamlphp/simplesamlphp": "^1.18",
-        "simplesamlphp/simplesamlphp-test-framework": "^0.1.0"
+        "phpunit/php-code-coverage": "^7.0.7",
+        "phpunit/phpcov": "^6.0",
+        "phpunit/phpunit": "^8.5",
+        "simplesamlphp/simplesamlphp": "^1.18,<1.19",
+        "simplesamlphp/simplesamlphp-test-framework": "^0.1.9"
     },
     "config": {
         "preferred-install": {
@@ -58,5 +60,21 @@
         "branch-alias": {
             "dev-master": "1.0.x-dev"
         }
+    },
+    "scripts": {
+        "pre-commit": [
+            "vendor/bin/check-syntax-php.sh",
+            "vendor/bin/check-syntax-json.sh",
+            "vendor/bin/check-syntax-xml.sh",
+            "vendor/bin/check-syntax-yaml.sh",
+            "vendor/bin/security-checker security:check",
+            "vendor/bin/psalm",
+            "vendor/bin/psalter --issues=UnnecessaryVarAnnotation --dry-run",
+            "vendor/bin/phpcs"
+        ],
+        "tests": [
+            "vendor/bin/phpunit --no-coverage",
+            "vendor/bin/phpspec run "
+        ]
     }
 }

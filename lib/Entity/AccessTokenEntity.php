@@ -31,25 +31,23 @@ class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
     use EntityTrait;
     use RevokeTokenTrait;
 
-
     /**
-     * Constructor
+     * Constructor.
      */
     private function __construct()
     {
     }
 
-
     /**
      * Create new Access Token from data.
      *
-     * @param ClientEntityInterface $clientEntity
      * @param ScopeEntityInterface[] $scopes
-     * @param string|null $userIdentifier
-     * @return self
      */
-    public static function fromData(ClientEntityInterface $clientEntity, array $scopes, string $userIdentifier = null): self
-    {
+    public static function fromData(
+        ClientEntityInterface $clientEntity,
+        array $scopes,
+        string $userIdentifier = null
+    ): self {
         $accessToken = new self();
 
         $accessToken->setClient($clientEntity);
@@ -60,7 +58,6 @@ class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
 
         return $accessToken;
     }
-
 
     /**
      * {@inheritdoc}
@@ -76,7 +73,9 @@ class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
 
         $accessToken->identifier = $state['id'];
         $accessToken->scopes = $scopes;
-        $accessToken->expiryDateTime = TimestampGenerator::utc($state['expires_at']);
+        $accessToken->expiryDateTime = \DateTimeImmutable::createFromMutable(
+            TimestampGenerator::utc($state['expires_at'])
+        );
         $accessToken->userIdentifier = $state['user_id'];
         $accessToken->client = $state['client'];
         $accessToken->isRevoked = (bool) $state['is_revoked'];
@@ -84,19 +83,18 @@ class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
         return $accessToken;
     }
 
-
     /**
      * {@inheritdoc}
      */
     public function getState(): array
     {
         return [
-            'id' => $this->identifier,
+            'id' => $this->getIdentifier(),
             'scopes' => json_encode($this->scopes),
-            'expires_at' => $this->expiryDateTime->format('Y-m-d H:i:s'),
-            'user_id' => $this->userIdentifier,
-            'client_id' => $this->client->getIdentifier(),
-            'is_revoked' => $this->isRevoked,
+            'expires_at' => $this->getExpiryDateTime()->format('Y-m-d H:i:s'),
+            'user_id' => $this->getUserIdentifier(),
+            'client_id' => $this->getClient()->getIdentifier(),
+            'is_revoked' => (int) $this->isRevoked(),
         ];
     }
 }

@@ -22,5 +22,8 @@
     <logging>
         <log type="coverage-clover" target="build/logs/clover.xml"/>
     </logging>
+    <php>
+        <env name="SIMPLESAMLPHP_CONFIG_DIR" value="tests/config" />
+    </php>
 </phpunit>
 

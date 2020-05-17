@@ -24,10 +24,6 @@ class TemplateFactory
      */
     private $configuration;
 
-
-    /**
-     * @param \SimpleSAML\Configuration $configuration
-     */
     public function __construct(Configuration $configuration)
     {
         $config = $configuration->toArray();
@@ -36,12 +32,6 @@ class TemplateFactory
         $this->configuration = new Configuration($config, 'oidc');
     }
 
-
-    /**
-     * @param string $templateName
-     * @param array $data
-     * @return \SimpleSAML\XHTML\Template
-     */
     public function render(string $templateName, array $data = []): Template
     {
         $template = new Template($this->configuration, $templateName);

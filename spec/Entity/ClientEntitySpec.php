@@ -22,7 +22,6 @@ use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\MementoInterface;
 class ClientEntitySpec extends ObjectBehavior
 {
     /**
-     * @param \League\OAuth2\Server\Entities\ClientEntityInterface $clientEntity
      * @return void
      */
     public function let(ClientEntityInterface $clientEntity)
@@ -39,10 +38,10 @@ class ClientEntitySpec extends ObjectBehavior
                 'redirect_uri' => json_encode(['https://localhost/redirect']),
                 'scopes' => json_encode([]),
                 'is_enabled' => true,
+                'is_confidential' => false,
             ],
         ]);
     }
-
 
     /**
      * @return void
@@ -52,7 +51,6 @@ class ClientEntitySpec extends ObjectBehavior
         $this->shouldHaveType(ClientEntity::class);
     }
 
-
     /**
      * @return void
      */
@@ -60,7 +58,6 @@ class ClientEntitySpec extends ObjectBehavior
     {
         $this->shouldHaveType(MementoInterface::class);
     }
-
 
     /**
      * @return void
@@ -70,7 +67,6 @@ class ClientEntitySpec extends ObjectBehavior
         $this->getIdentifier()->shouldBeLike('id');
     }
 
-
     /**
      * @return void
      */
@@ -78,7 +74,6 @@ class ClientEntitySpec extends ObjectBehavior
     {
         $this->getSecret()->shouldBeLike('secret');
     }
-
 
     /**
      * @return void
@@ -89,7 +84,6 @@ class ClientEntitySpec extends ObjectBehavior
         $this->getSecret()->shouldBeLike('new_secret');
     }
 
-
     /**
      * @return void
      */
@@ -97,7 +91,6 @@ class ClientEntitySpec extends ObjectBehavior
     {
         $this->getDescription()->shouldBeLike('description');
     }
-
 
     /**
      * @return void
@@ -107,7 +100,6 @@ class ClientEntitySpec extends ObjectBehavior
         $this->getAuthSource()->shouldBeLike('auth_source');
     }
 
-
     /**
      * @return void
      */
@@ -115,7 +107,6 @@ class ClientEntitySpec extends ObjectBehavior
     {
         $this->getRedirectUri()->shouldBeLike(['https://localhost/redirect']);
     }
-
 
     /**
      * @return void
@@ -125,7 +116,6 @@ class ClientEntitySpec extends ObjectBehavior
         $this->getScopes()->shouldBeLike([]);
     }
 
-
     /**
      * @return void
      */
@@ -134,6 +124,13 @@ class ClientEntitySpec extends ObjectBehavior
         $this->isEnabled()->shouldBeEqualTo(true);
     }
 
+    /**
+     * @return void
+     */
+    public function it_can_be_confidential()
+    {
+        $this->isConfidential()->shouldBeEqualTo(false);
+    }
 
     /**
      * @return void
@@ -149,9 +146,9 @@ class ClientEntitySpec extends ObjectBehavior
             'redirect_uri' => json_encode(['https://localhost/redirect']),
             'scopes' => json_encode([]),
             'is_enabled' => true,
+            'is_confidential' => false,
         ]);
     }
-
 
     /**
      * @return void
@@ -167,6 +164,7 @@ class ClientEntitySpec extends ObjectBehavior
             'redirect_uri' => ['https://localhost/redirect'],
             'scopes' => [],
             'is_enabled' => true,
+            'is_confidential' => false,
         ]);
     }
 }

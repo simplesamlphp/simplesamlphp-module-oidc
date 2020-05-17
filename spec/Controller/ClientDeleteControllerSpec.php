@@ -25,17 +25,12 @@ use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 use SimpleSAML\XHTML\Template;
-use Zend\Diactoros\Response\RedirectResponse;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequest;
 
 class ClientDeleteControllerSpec extends ObjectBehavior
 {
     /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory $templateFactory
-     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $sessionMessagesService
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @param \Psr\Http\Message\UriInterface $uri
      * @return void
      */
     public function let(
@@ -54,7 +49,6 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         $this->beConstructedWith($clientRepository, $templateFactory, $sessionMessagesService);
     }
 
-
     /**
      * @return void
      */
@@ -63,13 +57,7 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         $this->shouldHaveType(ClientDeleteController::class);
     }
 
-
     /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @param \SimpleSAML\XHTML\Template $template
-     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory $templateFactory
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $clientEntity
      * @return void
      */
     public function it_asks_confirmation_before_delete_client(
@@ -84,13 +72,13 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         $request->getMethod()->shouldBeCalled()->willReturn('get');
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
 
-        $templateFactory->render('oidc:clients/delete.twig', ['client' => $clientEntity])->shouldBeCalled()->willReturn($template);
+        $templateFactory->render('oidc:clients/delete.twig', ['client' => $clientEntity])
+            ->shouldBeCalled()
+            ->willReturn($template);
         $this->__invoke($request)->shouldBe($template);
     }
 
-
     /**
-     * @param \Zend\Diactoros\ServerRequest $request
      * @return void
      */
     public function it_throws_id_not_found_exception_in_delete_action(
@@ -101,10 +89,7 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
     }
 
-
     /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
      * @return void
      */
     public function it_throws_client_not_found_exception_in_delete_action(
@@ -117,11 +102,7 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         $this->shouldThrow(NotFound::class)->during('__invoke', [$request]);
     }
 
-
     /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $clientEntity
      * @return void
      */
     public function it_throws_secret_not_found_exception_in_delete_action(
@@ -137,11 +118,7 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
     }
 
-
     /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $clientEntity
      * @return void
      */
     public function it_throws_secret_invalid_exception_in_delete_action(
@@ -159,12 +136,7 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
     }
 
-
     /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $clientEntity
-     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $sessionMessagesService
      * @return void
      */
     public function it_deletes_client(

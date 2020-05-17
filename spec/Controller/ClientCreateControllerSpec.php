@@ -26,18 +26,14 @@ use SimpleSAML\Modules\OpenIDConnect\Form\ClientForm;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 use SimpleSAML\XHTML\Template;
-use Zend\Diactoros\Response\RedirectResponse;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequest;
 
 class ClientCreateControllerSpec extends ObjectBehavior
 {
     /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory $templateFactory
-     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory $formFactory
-     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $sessionMessagesService
-     * @param \Zend\Diactoros\ServerRequest $serverRequest
-     * @param \Psr\Http\Message\UriInterface $uri
+     * @param \Laminas\Diactoros\ServerRequest $serverRequest
+     *
      * @return void
      */
     public function let(
@@ -57,7 +53,6 @@ class ClientCreateControllerSpec extends ObjectBehavior
         $this->beConstructedWith($clientRepository, $templateFactory, $formFactory, $sessionMessagesService);
     }
 
-
     /**
      * @return void
      */
@@ -66,13 +61,7 @@ class ClientCreateControllerSpec extends ObjectBehavior
         $this->shouldHaveType(ClientCreateController::class);
     }
 
-
     /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @param \SimpleSAML\XHTML\Template $template
-     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory $templateFactory
-     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory $formFactory
-     * @param \SimpleSAML\Modules\OpenIDConnect\Form\ClientForm $clientForm
      * @return void
      */
     public function it_shows_new_client_form(
@@ -86,17 +75,13 @@ class ClientCreateControllerSpec extends ObjectBehavior
         $clientForm->setAction(Argument::any())->shouldBeCalled();
         $clientForm->isSuccess()->shouldBeCalled()->willReturn(false);
 
-        $templateFactory->render('oidc:clients/new.twig', ['form' => $clientForm])->shouldBeCalled()->willReturn($template);
+        $templateFactory->render('oidc:clients/new.twig', ['form' => $clientForm])
+            ->shouldBeCalled()
+            ->willReturn($template);
         $this->__invoke($request)->shouldBe($template);
     }
 
-
     /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory $formFactory
-     * @param \SimpleSAML\Modules\OpenIDConnect\Form\ClientForm $clientForm
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $sessionMessagesService
      * @return void
      */
     public function it_creates_new_client_from_form_data(
@@ -117,6 +102,7 @@ class ClientCreateControllerSpec extends ObjectBehavior
             'redirect_uri' => ['http://localhost/redirect'],
             'scopes' => ['openid'],
             'is_enabled' => true,
+            'is_confidential' => false,
         ]);
 
         $clientRepository->add(Argument::type(ClientEntity::class))->shouldBeCalled();

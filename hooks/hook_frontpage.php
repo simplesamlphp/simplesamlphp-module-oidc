@@ -14,6 +14,7 @@
 
 /**
  * @param array &$links
+ *
  * @return void
  */
 function oidc_hook_frontpage(&$links)

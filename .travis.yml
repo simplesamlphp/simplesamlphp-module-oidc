@@ -23,6 +23,7 @@ before_script:
 
 script:
   - php vendor/bin/phpunit --no-coverage
+  - php vendor/bin/phpspec run
 
 jobs:
   fast_finish: true

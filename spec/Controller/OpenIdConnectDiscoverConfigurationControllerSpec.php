@@ -18,13 +18,12 @@ use PhpSpec\ObjectBehavior;
 use SimpleSAML\Configuration;
 use SimpleSAML\Modules\OpenIDConnect\Controller\OpenIdConnectDiscoverConfigurationController;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
-use Zend\Diactoros\Response\JsonResponse;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response\JsonResponse;
+use Laminas\Diactoros\ServerRequest;
 
 class OpenIdConnectDiscoverConfigurationControllerSpec extends ObjectBehavior
 {
     /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService $configurationService
      * @return void
      */
     public function let(
@@ -32,7 +31,6 @@ class OpenIdConnectDiscoverConfigurationControllerSpec extends ObjectBehavior
     ) {
         $this->beConstructedWith($configurationService);
     }
-
 
     /**
      * @return void
@@ -42,11 +40,7 @@ class OpenIdConnectDiscoverConfigurationControllerSpec extends ObjectBehavior
         $this->shouldHaveType(OpenIdConnectDiscoverConfigurationController::class);
     }
 
-
     /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @param \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService $configurationService
-     * @param \SimpleSAML\Configuration $oidcConfiguration
      * @return void
      */
     public function it_returns_openid_connect_configuration(
@@ -54,15 +48,23 @@ class OpenIdConnectDiscoverConfigurationControllerSpec extends ObjectBehavior
         ConfigurationService $configurationService,
         Configuration $oidcConfiguration
     ) {
-        $configurationService->getOpenIDConnectConfiguration()->shouldBeCalled()->willReturn($oidcConfiguration);
-        $configurationService->getOpenIDScopes()->shouldBeCalled()->willReturn(['openid' => 'openid']);
-        $oidcConfiguration->getBoolean('pkce')->shouldBeCalled()->willReturn(true);
+        $configurationService->getOpenIDConnectConfiguration()->shouldBeCalled()
+            ->willReturn($oidcConfiguration);
+        $configurationService->getOpenIDScopes()->shouldBeCalled()
+            ->willReturn(['openid' => 'openid']);
+        $oidcConfiguration->getBoolean('pkce')->shouldBeCalled()
+            ->willReturn(true);
 
-        $configurationService->getSimpleSAMLSelfURLHost()->shouldBeCalled()->willReturn('http://localhost');
-        $configurationService->getOpenIdConnectModuleURL('authorize.php')->willReturn('http://localhost/authorize.php');
-        $configurationService->getOpenIdConnectModuleURL('access_token.php')->willReturn('http://localhost/access_token.php');
-        $configurationService->getOpenIdConnectModuleURL('userinfo.php')->willReturn('http://localhost/userinfo.php');
-        $configurationService->getOpenIdConnectModuleURL('jwks.php')->willReturn('http://localhost/jwks.php');
+        $configurationService->getSimpleSAMLSelfURLHost()->shouldBeCalled()
+            ->willReturn('http://localhost');
+        $configurationService->getOpenIdConnectModuleURL('authorize.php')
+            ->willReturn('http://localhost/authorize.php');
+        $configurationService->getOpenIdConnectModuleURL('access_token.php')
+            ->willReturn('http://localhost/access_token.php');
+        $configurationService->getOpenIdConnectModuleURL('userinfo.php')
+            ->willReturn('http://localhost/userinfo.php');
+        $configurationService->getOpenIdConnectModuleURL('jwks.php')
+            ->willReturn('http://localhost/jwks.php');
 
         $this->__invoke($request)->shouldHavePayload([
             'issuer' => 'http://localhost',
@@ -78,10 +80,6 @@ class OpenIdConnectDiscoverConfigurationControllerSpec extends ObjectBehavior
         ]);
     }
 
-
-    /**
-     * @return array
-     */
     public function getMatchers(): array
     {
         return [

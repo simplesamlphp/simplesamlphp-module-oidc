@@ -15,8 +15,8 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Controller;
 
 use League\OAuth2\Server\AuthorizationServer;
-use Zend\Diactoros\Response;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response;
+use Laminas\Diactoros\ServerRequest;
 
 class OAuth2AccessTokenController
 {
@@ -25,20 +25,11 @@ class OAuth2AccessTokenController
      */
     private $authorizationServer;
 
-
-    /**
-     * @param \League\OAuth2\Server\AuthorizationServer $authorizationServer
-     */
     public function __construct(AuthorizationServer $authorizationServer)
     {
         $this->authorizationServer = $authorizationServer;
     }
 
-
-    /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @return \Psr\Http\Message\ResponseInterface
-     */
     public function __invoke(ServerRequest $request): \Psr\Http\Message\ResponseInterface
     {
         return $this->authorizationServer->respondToAccessTokenRequest($request, new Response());

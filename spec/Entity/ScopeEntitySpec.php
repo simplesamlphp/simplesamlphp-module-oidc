@@ -32,7 +32,6 @@ class ScopeEntitySpec extends ObjectBehavior
         ]);
     }
 
-
     /**
      * @return void
      */
@@ -40,7 +39,6 @@ class ScopeEntitySpec extends ObjectBehavior
     {
         $this->shouldHaveType(ScopeEntity::class);
     }
-
 
     /**
      * @return void
@@ -50,7 +48,6 @@ class ScopeEntitySpec extends ObjectBehavior
         $this->getIdentifier()->shouldBeLike('id');
     }
 
-
     /**
      * @return void
      */
@@ -58,7 +55,6 @@ class ScopeEntitySpec extends ObjectBehavior
     {
         $this->getIcon()->shouldBeLike('icon');
     }
-
 
     /**
      * @return void
@@ -68,7 +64,6 @@ class ScopeEntitySpec extends ObjectBehavior
         $this->getDescription()->shouldBeLike('description');
     }
 
-
     /**
      * @return void
      */
@@ -76,7 +71,6 @@ class ScopeEntitySpec extends ObjectBehavior
     {
         $this->getAttributes()->shouldBeLike(['attrid' => 'attrval']);
     }
-
 
     /**
      * @return void

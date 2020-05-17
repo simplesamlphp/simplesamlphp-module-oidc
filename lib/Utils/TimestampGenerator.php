@@ -18,6 +18,7 @@ class TimestampGenerator
 {
     /**
      * @param string $time
+     *
      * @return \DateTime
      */
     public static function utc($time = 'now')

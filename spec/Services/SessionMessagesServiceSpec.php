@@ -22,14 +22,12 @@ use SimpleSAML\Session;
 class SessionMessagesServiceSpec extends ObjectBehavior
 {
     /**
-     * @param \SimpleSAML\Session $session
      * @return void
      */
     public function let(Session $session)
     {
         $this->beConstructedWith($session);
     }
-
 
     /**
      * @return void
@@ -39,9 +37,7 @@ class SessionMessagesServiceSpec extends ObjectBehavior
         $this->shouldHaveType(SessionMessagesService::class);
     }
 
-
     /**
-     * @param \SimpleSAML\Session $session
      * @return void
      */
     public function it_adds_message(Session $session)
@@ -51,9 +47,7 @@ class SessionMessagesServiceSpec extends ObjectBehavior
         $this->addMessage('value');
     }
 
-
     /**
-     * @param \SimpleSAML\Session $session
      * @return void
      */
     public function it_gets_messages(Session $session)

@@ -24,16 +24,12 @@ use SimpleSAML\Modules\OpenIDConnect\Controller\ClientResetSecretController;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
-use Zend\Diactoros\Response\RedirectResponse;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequest;
 
 class ClientResetSecretControllerSpec extends ObjectBehavior
 {
     /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $sessionMessagesService
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @param \Psr\Http\Message\UriInterface $uri
      * @return void
      */
     public function let(
@@ -51,7 +47,6 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         $this->beConstructedWith($clientRepository, $sessionMessagesService);
     }
 
-
     /**
      * @return void
      */
@@ -60,9 +55,7 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         $this->shouldHaveType(ClientResetSecretController::class);
     }
 
-
     /**
-     * @param \Zend\Diactoros\ServerRequest $request
      * @return void
      */
     public function it_throws_id_not_found_exception_in_reset_secret_action(
@@ -73,10 +66,7 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
     }
 
-
     /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
      * @return void
      */
     public function it_throws_client_not_found_exception_in_reset_secret_action(
@@ -89,11 +79,9 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         $this->shouldThrow(NotFound::class)->during('__invoke', [$request]);
     }
 
-
     /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
      * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
+     *
      * @return void
      */
     public function it_throws_secret_not_found_exception_in_reset_secret_action(
@@ -109,11 +97,9 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
     }
 
-
     /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
      * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
+     *
      * @return void
      */
     public function it_throws_secret_invalid_exception_in_reset_secret_action(
@@ -131,12 +117,9 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
     }
 
-
     /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
      * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
-     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $sessionMessagesService
+     *
      * @return void
      */
     public function it_reset_secrets_client(
@@ -160,12 +143,9 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         $this->__invoke($request)->shouldBeAnInstanceOf(RedirectResponse::class);
     }
 
-
     /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $sessionMessagesService
      * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
+     *
      * @return void
      */
     public function it_send_back_to_show_client_if_not_post_method_in_reset_action(

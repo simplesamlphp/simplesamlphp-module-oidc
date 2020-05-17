@@ -21,15 +21,11 @@ use SimpleSAML\Modules\OpenIDConnect\Controller\ClientIndexController;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\XHTML\Template;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\ServerRequest;
 
 class ClientIndexControllerSpec extends ObjectBehavior
 {
     /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory $templateFactory
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @param \Psr\Http\Message\UriInterface $uri
      * @return void
      */
     public function let(
@@ -47,7 +43,6 @@ class ClientIndexControllerSpec extends ObjectBehavior
         $this->beConstructedWith($clientRepository, $templateFactory);
     }
 
-
     /**
      * @return void
      */
@@ -56,12 +51,7 @@ class ClientIndexControllerSpec extends ObjectBehavior
         $this->shouldHaveType(ClientIndexController::class);
     }
 
-
     /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @param \SimpleSAML\XHTML\Template $template
-     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory $templateFactory
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
      * @return void
      */
     public function it_shows_client_index(

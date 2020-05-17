@@ -17,20 +17,18 @@ namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
 use PhpSpec\ObjectBehavior;
 use SimpleSAML\Modules\OpenIDConnect\Controller\OpenIdConnectJwksController;
 use SimpleSAML\Modules\OpenIDConnect\Services\JsonWebKeySetService;
-use Zend\Diactoros\Response\JsonResponse;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response\JsonResponse;
+use Laminas\Diactoros\ServerRequest;
 
 class OpenIdConnectJwksControllerSpec extends ObjectBehavior
 {
     /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Services\JsonWebKeySetService $jsonWebKeySet
      * @return void
      */
     public function let(JsonWebKeySetService $jsonWebKeySet)
     {
         $this->beConstructedWith($jsonWebKeySet);
     }
-
 
     /**
      * @return void
@@ -40,10 +38,7 @@ class OpenIdConnectJwksControllerSpec extends ObjectBehavior
         $this->shouldHaveType(OpenIdConnectJwksController::class);
     }
 
-
     /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @param \SimpleSAML\Modules\OpenIDConnect\Services\JsonWebKeySetService $jsonWebKeySet
      * @return void
      */
     public function it_returns_json_keys(
@@ -66,10 +61,6 @@ class OpenIdConnectJwksControllerSpec extends ObjectBehavior
         $this->__invoke($request)->shouldHavePayload(['keys' => $keys]);
     }
 
-
-    /**
-     * @return array
-     */
     public function getMatchers(): array
     {
         return [

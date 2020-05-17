@@ -40,37 +40,18 @@ class AuthCodeGrantFactory
      */
     private $authCodeDuration;
 
-    /**
-     * @var bool
-     */
-    private $enablePKCE;
-
-
-    /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\AuthCodeRepository $authCodeRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository $refreshTokenRepository
-     * @param \DateInterval $refreshTokenDuration
-     * @param \DateInterval $authCodeDuration
-     * @param bool $enablePKCE
-     */
     public function __construct(
         AuthCodeRepository $authCodeRepository,
         RefreshTokenRepository $refreshTokenRepository,
         \DateInterval $refreshTokenDuration,
-        \DateInterval $authCodeDuration,
-        bool $enablePKCE
+        \DateInterval $authCodeDuration
     ) {
         $this->authCodeRepository = $authCodeRepository;
         $this->refreshTokenRepository = $refreshTokenRepository;
         $this->refreshTokenDuration = $refreshTokenDuration;
         $this->authCodeDuration = $authCodeDuration;
-        $this->enablePKCE = $enablePKCE;
     }
 
-
-    /**
-     * @return \League\OAuth2\Server\Grant\AuthCodeGrant
-     */
     public function build(): AuthCodeGrant
     {
         $authCodeGrant = new AuthCodeGrant(
@@ -79,10 +60,6 @@ class AuthCodeGrantFactory
             $this->authCodeDuration
         );
         $authCodeGrant->setRefreshTokenTTL($this->refreshTokenDuration);
-
-        if ($this->enablePKCE) {
-            $authCodeGrant->enableCodeExchangeProof();
-        }
 
         return $authCodeGrant;
     }

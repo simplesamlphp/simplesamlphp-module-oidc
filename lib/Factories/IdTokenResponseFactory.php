@@ -37,12 +37,6 @@ class IdTokenResponseFactory
      */
     private $claimTranslatorExtractor;
 
-
-    /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository $userRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService $configurationService
-     * @param \SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor $claimTranslatorExtractor
-     */
     public function __construct(
         UserRepository $userRepository,
         ConfigurationService $configurationService,
@@ -53,15 +47,11 @@ class IdTokenResponseFactory
         $this->claimTranslatorExtractor = $claimTranslatorExtractor;
     }
 
-
-    /**
-     * @return \SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\IdTokenResponse
-     */
     public function build(): IdTokenResponse
     {
         $builder = (new Builder())
-            ->setIssuer($this->configurationService->getSimpleSAMLSelfURLHost())
-            ->setHeader('kid', 'oidc')
+            ->issuedBy($this->configurationService->getSimpleSAMLSelfURLHost())
+            ->withHeader('kid', 'oidc')
         ;
 
         $token = new IdTokenResponse(

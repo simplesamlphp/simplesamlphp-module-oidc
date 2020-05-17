@@ -14,6 +14,7 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Form;
 
+use Nette\Forms\Controls\CsrfProtection;
 use Nette\Forms\Form;
 use SimpleSAML\Auth\Source;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
@@ -30,7 +31,6 @@ class ClientForm extends Form
      */
     private $configurationService;
 
-
     /**
      * {@inheritdoc}
      */
@@ -43,11 +43,6 @@ class ClientForm extends Form
         $this->buildForm();
     }
 
-
-    /**
-     * @param \Nette\Forms\Form $form
-     * @return void
-     */
     public function validateRedirectUri(Form $form): void
     {
         $values = $form->getValues();
@@ -59,9 +54,9 @@ class ClientForm extends Form
         }
     }
 
-
     /**
      * @param bool $asArray
+     *
      * @return array
      */
     public function getValues($asArray = false)
@@ -74,6 +69,7 @@ class ClientForm extends Form
             $redirect_uris,
             /**
              * @param string $redirect_uri
+             *
              * @return bool
              */
             function ($redirect_uri) {
@@ -92,9 +88,11 @@ class ClientForm extends Form
         return $values;
     }
 
-
     /**
-     * {@inheritdoc}
+     * @param array $values
+     * @param bool  $erase
+     *
+     * @return Form
      */
     public function setDefaults($values, $erase = false)
     {
@@ -104,10 +102,6 @@ class ClientForm extends Form
         return parent::setDefaults($values, $erase);
     }
 
-
-    /**
-     * @return void
-     */
     protected function buildForm(): void
     {
         $this->getElementPrototype()->addAttributes(['class' => 'ui form']);
@@ -115,7 +109,7 @@ class ClientForm extends Form
         $this->onValidate[] = [$this, 'validateRedirectUri'];
 
         $this->setMethod('POST');
-        $this->addComponent(new Controls\CsrfProtection(null), Form::PROTECTOR_ID);
+        $this->addComponent(new CsrfProtection(null), Form::PROTECTOR_ID);
 
         $this->addText('name', '{oidc:client:name}')
             ->setMaxLength(255)
@@ -126,6 +120,8 @@ class ClientForm extends Form
             ->setRequired('Write one redirect URI at least');
 
         $this->addCheckbox('is_enabled', '{oidc:client:is_enabled}');
+
+        $this->addCheckbox('is_confidential', '{oidc:client:is_confidential}');
 
         $this->addSelect('auth_source', '{oidc:client:auth_source}:')
             ->setAttribute('class', 'ui fluid dropdown')
@@ -141,10 +137,6 @@ class ClientForm extends Form
             ->setRequired('Select one scope at least');
     }
 
-
-    /**
-     * @return array
-     */
     protected function getScopes(): array
     {
         $items = array_map(function ($item) {

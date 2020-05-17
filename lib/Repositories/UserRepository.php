@@ -23,18 +23,14 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
 {
     public const TABLE_NAME = 'oidc_user';
 
-
-    /**
-     * @return string
-     */
     public function getTableName(): string
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
 
-
     /**
      * @param string $identifier
+     *
      * @return \SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity|null
      */
     public function getUserEntityByIdentifier($identifier)
@@ -53,16 +49,8 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
         return UserEntity::fromState(current($rows));
     }
 
-
     /**
-     * @codeCoverageIgnore
-     *
-     * @param string $username
-     * @param string $password
-     * @param string $grantType
-     * @param \League\OAuth2\Server\Entities\ClientEntityInterface $clientEntity
-     * @return void
-     * @throws \Exception
+     * {@inheritdoc}
      */
     public function getUserEntityByUserCredentials(
         $username,
@@ -73,23 +61,20 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
         throw new \Exception('Not supported');
     }
 
-
-    /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity $userEntity
-     * @return void
-     */
     public function add(UserEntity $userEntity): void
     {
+        $stmt = sprintf(
+            "INSERT INTO %s (id, claims, updated_at, created_at) VALUES (:id, :claims, :updated_at, :created_at)",
+            $this->getTableName()
+        );
         $this->database->write(
-            "INSERT INTO {$this->getTableName()} (id, claims, updated_at, created_at) VALUES (:id, :claims, :updated_at, :created_at)",
+            $stmt,
             $userEntity->getState()
         );
     }
 
-
     /**
      * @param \SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity $userEntity
-     * @return void
      */
     public function delete(UserEntity $user): void
     {
@@ -101,15 +86,18 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
         );
     }
 
-
     /**
      * @param \SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity $userEntity
-     * @return void
      */
     public function update(UserEntity $user): void
     {
+        $stmt = sprintf(
+            "UPDATE %s SET claims = :claims, updated_at = :updated_at, created_at = :created_at WHERE id = :id",
+            $this->getTableName()
+        );
+
         $this->database->write(
-            "UPDATE {$this->getTableName()} SET claims = :claims, updated_at = :updated_at, created_at = :created_at WHERE id = :id",
+            $stmt,
             $user->getState()
         );
     }

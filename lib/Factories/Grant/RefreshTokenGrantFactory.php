@@ -29,11 +29,6 @@ class RefreshTokenGrantFactory
      */
     private $refreshTokenDuration;
 
-
-    /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository $refreshTokenRepository
-     * @param \DateInterval $refreshTokenDuration
-     */
     public function __construct(
         RefreshTokenRepository $refreshTokenRepository,
         \DateInterval $refreshTokenDuration
@@ -42,10 +37,6 @@ class RefreshTokenGrantFactory
         $this->refreshTokenDuration = $refreshTokenDuration;
     }
 
-
-    /**
-     * @return \League\OAuth2\Server\Grant\RefreshTokenGrant
-     */
     public function build(): RefreshTokenGrant
     {
         $refreshTokenGrant = new RefreshTokenGrant($this->refreshTokenRepository);

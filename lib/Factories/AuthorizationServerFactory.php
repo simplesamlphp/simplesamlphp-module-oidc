@@ -71,17 +71,8 @@ class AuthorizationServerFactory
      */
     private $idTokenResponseFactory;
 
-
     /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository $accessTokenRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository $scopeRepository
-     * @param \League\OAuth2\Server\Grant\AuthCodeGrant $authCodeGrant
-     * @param \League\OAuth2\Server\Grant\ImplicitGrant $implicitGrant
-     * @param \League\OAuth2\Server\Grant\RefreshTokenGrant $refreshTokenGrant
-     * @param \DateInterval $accessTokenDuration
      * @param \SimpleSAML\Modules\OpenIDConnect\Factories\IdTokenResponseFactory $idTokenResponseFactory
-     * @param string|null $passPhrase
      */
     public function __construct(
         ClientRepository $clientRepository,
@@ -105,10 +96,6 @@ class AuthorizationServerFactory
         $this->passPhrase = $passPhrase;
     }
 
-
-    /**
-     * @return \League\OAuth2\Server\AuthorizationServer
-     */
     public function build(): AuthorizationServer
     {
         $privateKeyPath = Config::getCertPath('oidc_module.pem');

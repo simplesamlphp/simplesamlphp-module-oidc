@@ -49,27 +49,14 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
      */
     private $isEnabled;
 
-
     /**
-     * Constructor
+     * Constructor.
      */
     private function __construct()
     {
         $this->isEnabled = true;
     }
 
-
-    /**
-     * @param string $id
-     * @param string $secret
-     * @param string $name
-     * @param string $description
-     * @param string $authSource
-     * @param array $redirectUri
-     * @param array $scopes
-     * @param bool $isEnabled
-     * @return self
-     */
     public static function fromData(
         string $id,
         string $secret,
@@ -78,7 +65,8 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
         string $authSource,
         array $redirectUri,
         array $scopes,
-        bool $isEnabled
+        bool $isEnabled,
+        bool $isConfidential = false
     ): self {
         $client = new self();
 
@@ -90,10 +78,10 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
         $client->redirectUri = $redirectUri;
         $client->scopes = $scopes;
         $client->isEnabled = $isEnabled;
+        $client->isConfidential = $isConfidential;
 
         return $client;
     }
-
 
     /**
      * {@inheritdoc}
@@ -110,10 +98,10 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
         $client->redirectUri = json_decode($state['redirect_uri'], true);
         $client->scopes = json_decode($state['scopes'], true);
         $client->isEnabled = (bool) $state['is_enabled'];
+        $client->isConfidential = (bool) ($state['is_confidential'] ?? false);
 
         return $client;
     }
-
 
     /**
      * {@inheritdoc}
@@ -121,21 +109,18 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
     public function getState(): array
     {
         return [
-            'id' => $this->identifier,
-            'secret' => $this->secret,
-            'name' => $this->name,
-            'description' => $this->description,
-            'auth_source' => $this->authSource,
-            'redirect_uri' => json_encode($this->redirectUri),
-            'scopes' => json_encode($this->scopes),
-            'is_enabled' => $this->isEnabled ? 1 : 0,
+            'id' => $this->getIdentifier(),
+            'secret' => $this->getSecret(),
+            'name' => $this->getName(),
+            'description' => $this->getDescription(),
+            'auth_source' => $this->getAuthSource(),
+            'redirect_uri' => json_encode($this->getRedirectUri()),
+            'scopes' => json_encode($this->getScopes()),
+            'is_enabled' => (int) $this->isEnabled(),
+            'is_confidential' => (int) $this->isConfidential(),
         ];
     }
 
-
-    /**
-     * @return array
-     */
     public function toArray(): array
     {
         return [
@@ -147,23 +132,15 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
             'redirect_uri' => $this->redirectUri,
             'scopes' => $this->scopes,
             'is_enabled' => $this->isEnabled,
+            'is_confidential' => $this->isConfidential,
         ];
     }
 
-
-    /**
-     * @return string
-     */
     public function getSecret(): string
     {
         return $this->secret;
     }
 
-
-    /**
-     * @param string $secret
-     * @return self
-     */
     public function restoreSecret(string $secret): self
     {
         $this->secret = $secret;
@@ -171,37 +148,21 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
         return $this;
     }
 
-
-    /**
-     * @return string
-     */
     public function getDescription(): string
     {
         return $this->description;
     }
 
-
-    /**
-     * @return string
-     */
     public function getAuthSource(): string
     {
         return $this->authSource;
     }
 
-
-    /**
-     * @return array
-     */
     public function getScopes(): array
     {
         return $this->scopes;
     }
 
-
-    /**
-     * @return bool
-     */
     public function isEnabled(): bool
     {
         return $this->isEnabled;

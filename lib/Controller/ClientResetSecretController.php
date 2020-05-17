@@ -20,8 +20,8 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 use SimpleSAML\Utils\HTTP;
 use SimpleSAML\Utils\Random;
-use Zend\Diactoros\Response\RedirectResponse;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequest;
 
 class ClientResetSecretController
 {
@@ -32,22 +32,12 @@ class ClientResetSecretController
      */
     private $messages;
 
-
-    /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $messages
-     */
     public function __construct(ClientRepository $clientRepository, SessionMessagesService $messages)
     {
         $this->clientRepository = $clientRepository;
         $this->messages = $messages;
     }
 
-
-    /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @return \Zend\Diactoros\Response\RedirectResponse
-     */
     public function __invoke(ServerRequest $request): RedirectResponse
     {
         $client = $this->getClientFromRequest($request);

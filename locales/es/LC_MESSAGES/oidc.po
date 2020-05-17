@@ -64,6 +64,9 @@ msgstr "Borrar Client OpenID Connect"
 msgid "{oidc:client:confirm_delete}"
 msgstr "Por favor, confirme que desea borrar este cliente. Esta acción no se puede deshacer."
 
+msgid "{oidc:edit}"
+msgstr "Editar"
+
 msgid "{oidc:delete}"
 msgstr "Borrar"
 
@@ -120,3 +123,9 @@ msgstr "Activado"
 
 msgid "{oidc:oidc:title}"
 msgstr "Registro de clientes OpenID Connect"
+
+msgid "{oidc:client:is_confidential}"
+msgstr "Cliente seguro"
+
+msgid "{oidc:client:state}"
+msgstr "Estado"

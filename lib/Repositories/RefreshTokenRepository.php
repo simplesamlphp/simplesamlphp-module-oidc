@@ -15,6 +15,7 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Repositories;
 
 use League\OAuth2\Server\Entities\RefreshTokenEntityInterface;
+use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
 use SimpleSAML\Modules\OpenIDConnect\Entity\RefreshTokenEntity;
 use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
@@ -23,45 +24,45 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
 {
     public const TABLE_NAME = 'oidc_refresh_token';
 
-
     /**
      * @return string
      */
-    public function getTableName()
+    public function getTableName(): string
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
 
-
     /**
-     * @return \SimpleSAML\Modules\OpenIDConnect\Entity\RefreshTokenEntity
+     * {@inheritdoc}
      */
     public function getNewRefreshToken(): RefreshTokenEntity
     {
         return new RefreshTokenEntity();
     }
 
-
     /**
-     * @param (\League\OAuth2\Server\Entities\RefreshTokenEntityInterface|
-     *         \SimpleSAML\Modules\OpenIDConnect\Entity\RefreshTokenEntity) $refreshTokenEntity
-     * @return void
+     * {@inheritdoc}
      */
     public function persistNewRefreshToken(RefreshTokenEntityInterface $refreshTokenEntity): void
     {
+        if (!$refreshTokenEntity instanceof RefreshTokenEntity) {
+            throw OAuthServerException::invalidRefreshToken();
+        }
+
+        $stmt = sprintf(
+            "INSERT INTO %s (id, expires_at, access_token_id, is_revoked) "
+                . "VALUES (:id, :expires_at, :access_token_id, :is_revoked)",
+            $this->getTableName()
+        );
+
         $this->database->write(
-            "INSERT INTO {$this->getTableName()} (id, expires_at, access_token_id, is_revoked) VALUES (:id, :expires_at, :access_token_id, :is_revoked)",
+            $stmt,
             $refreshTokenEntity->getState()
         );
     }
 
-
     /**
      * Find Refresh Token by id.
-     *
-     * @param string $tokenId
-     *
-     * @return \SimpleSAML\Modules\OpenIDConnect\Entity\RefreshTokenEntity|null
      */
     public function findById(string $tokenId): ?RefreshTokenEntity
     {
@@ -77,15 +78,14 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         }
 
         $data = current($rows);
-        $data['access_token'] = (new AccessTokenRepository())->findById($data['access_token_id']);
+        $accessTokenRepository = new AccessTokenRepository($this->configurationService);
+        $data['access_token'] = ($accessTokenRepository)->findById($data['access_token_id']);
 
         return RefreshTokenEntity::fromState($data);
     }
 
-
     /**
      * {@inheritdoc}
-     * @return void
      */
     public function revokeRefreshToken($tokenId)
     {
@@ -98,7 +98,6 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         $refreshToken->revoke();
         $this->update($refreshToken);
     }
-
 
     /**
      * {@inheritdoc}
@@ -114,10 +113,8 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         return $refreshToken->isRevoked();
     }
 
-
     /**
      * Removes expired refresh tokens.
-     * @return void
      */
     public function removeExpired(): void
     {
@@ -129,15 +126,16 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         );
     }
 
-
-    /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\RefreshTokenEntity $refreshTokenEntity
-     * @return void
-     */
     private function update(RefreshTokenEntity $refreshTokenEntity): void
     {
+        $stmt = sprintf(
+            "UPDATE %s SET expires_at = :expires_at, access_token_id = :access_token_id, is_revoked = :is_revoked "
+                . "WHERE id = :id",
+            $this->getTableName()
+        );
+
         $this->database->write(
-            "UPDATE {$this->getTableName()} SET expires_at = :expires_at, access_token_id = :access_token_id, is_revoked = :is_revoked WHERE id = :id",
+            $stmt,
             $refreshTokenEntity->getState()
         );
     }

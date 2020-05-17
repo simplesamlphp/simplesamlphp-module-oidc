@@ -29,11 +29,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
     public const USER_ID_ATTR = 'uid';
     public const USERNAME = 'username';
 
-
     /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository $userRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\AuthSimpleFactory $authSimpleFactory
-     * @param \SimpleSAML\Auth\Simple $simple
      * @return void
      */
     public function let(
@@ -48,7 +44,6 @@ class AuthenticationServiceSpec extends ObjectBehavior
         ]);
     }
 
-
     /**
      * @return void
      */
@@ -57,10 +52,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
         $this->shouldHaveType(AuthenticationService::class);
     }
 
-
     /**
-     * @param \SimpleSAML\Auth\Simple $simple
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository $userRepository
      * @return void
      */
     public function it_creates_new_user(
@@ -77,11 +69,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
         $this->getAuthenticateUser(self::AUTH_SOURCE)->shouldHaveClaims([self::USER_ID_ATTR => [self::USERNAME]]);
     }
 
-
     /**
-     * @param \SimpleSAML\Auth\Simple $simple
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository $userRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity $userEntity
      * @return void
      */
     public function it_returns_an_user(
@@ -101,9 +89,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
         $this->getAuthenticateUser(self::AUTH_SOURCE)->shouldBe($userEntity);
     }
 
-
     /**
-     * @param \SimpleSAML\Auth\Simple $simple
      * @return void
      */
     public function it_throws_exception_if_claims_not_exists(
@@ -117,10 +103,6 @@ class AuthenticationServiceSpec extends ObjectBehavior
         $this->shouldThrow(Exception::class)->during('getAuthenticateUser', [self::AUTH_SOURCE]);
     }
 
-
-    /**
-     * @return array
-     */
     public function getMatchers(): array
     {
         return [

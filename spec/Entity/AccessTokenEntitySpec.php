@@ -22,7 +22,6 @@ use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\MementoInterface;
 class AccessTokenEntitySpec extends ObjectBehavior
 {
     /**
-     * @param \League\OAuth2\Server\Entities\ClientEntityInterface $clientEntity
      * @return void
      */
     public function let(ClientEntityInterface $clientEntity)
@@ -41,7 +40,6 @@ class AccessTokenEntitySpec extends ObjectBehavior
         ]);
     }
 
-
     /**
      * @return void
      */
@@ -49,7 +47,6 @@ class AccessTokenEntitySpec extends ObjectBehavior
     {
         $this->shouldHaveType(AccessTokenEntity::class);
     }
-
 
     /**
      * @return void
@@ -59,7 +56,6 @@ class AccessTokenEntitySpec extends ObjectBehavior
         $this->shouldHaveType(MementoInterface::class);
     }
 
-
     /**
      * @return void
      */
@@ -67,7 +63,6 @@ class AccessTokenEntitySpec extends ObjectBehavior
     {
         $this->getIdentifier()->shouldBeEqualTo('id');
     }
-
 
     /**
      * @return void
@@ -77,7 +72,6 @@ class AccessTokenEntitySpec extends ObjectBehavior
         $this->getScopes()->shouldBeEqualTo([]);
     }
 
-
     /**
      * @return void
      */
@@ -85,7 +79,6 @@ class AccessTokenEntitySpec extends ObjectBehavior
     {
         $this->getExpiryDateTime()->format('Y-m-d H:i:s')->shouldBeLike('1970-01-01 00:00:00');
     }
-
 
     /**
      * @return void
@@ -95,16 +88,13 @@ class AccessTokenEntitySpec extends ObjectBehavior
         $this->getUserIdentifier()->shouldBeEqualTo('user_id');
     }
 
-
     /**
-     * @param \League\OAuth2\Server\Entities\ClientEntityInterface $clientEntity
      * @return void
      */
     public function it_has_a_client(ClientEntityInterface $clientEntity)
     {
         $this->getClient()->shouldBe($clientEntity);
     }
-
 
     /**
      * @return void
@@ -113,7 +103,6 @@ class AccessTokenEntitySpec extends ObjectBehavior
     {
         $this->isRevoked()->shouldBeEqualTo(false);
     }
-
 
     /**
      * @return void

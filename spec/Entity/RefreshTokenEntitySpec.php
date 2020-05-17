@@ -22,7 +22,6 @@ use SimpleSAML\Modules\OpenIDConnect\Entity\RefreshTokenEntity;
 class RefreshTokenEntitySpec extends ObjectBehavior
 {
     /**
-     * @param \League\OAuth2\Server\Entities\AccessTokenEntityInterface $accessTokenEntity
      * @return void
      */
     public function let(AccessTokenEntityInterface $accessTokenEntity)
@@ -39,7 +38,6 @@ class RefreshTokenEntitySpec extends ObjectBehavior
         ]);
     }
 
-
     /**
      * @return void
      */
@@ -47,7 +45,6 @@ class RefreshTokenEntitySpec extends ObjectBehavior
     {
         $this->shouldHaveType(RefreshTokenEntity::class);
     }
-
 
     /**
      * @return void
@@ -57,7 +54,6 @@ class RefreshTokenEntitySpec extends ObjectBehavior
         $this->shouldHaveType(MementoInterface::class);
     }
 
-
     /**
      * @return void
      */
@@ -65,7 +61,6 @@ class RefreshTokenEntitySpec extends ObjectBehavior
     {
         $this->getIdentifier()->shouldBeEqualTo('id');
     }
-
 
     /**
      * @return void
@@ -75,16 +70,13 @@ class RefreshTokenEntitySpec extends ObjectBehavior
         $this->getExpiryDateTime()->format('Y-m-d H:i:s')->shouldBeLike('1970-01-01 00:00:00');
     }
 
-
     /**
-     * @param \League\OAuth2\Server\Entities\AccessTokenEntityInterface $accessTokenEntity
      * @return void
      */
     public function it_has_an_access_token(AccessTokenEntityInterface $accessTokenEntity)
     {
         $this->getAccessToken()->shouldBe($accessTokenEntity);
     }
-
 
     /**
      * @return void
@@ -93,7 +85,6 @@ class RefreshTokenEntitySpec extends ObjectBehavior
     {
         $this->isRevoked()->shouldBeEqualTo(false);
     }
-
 
     /**
      * @return void

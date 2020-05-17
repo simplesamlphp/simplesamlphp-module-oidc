@@ -22,8 +22,8 @@ use SimpleSAML\Modules\OpenIDConnect\Form\ClientForm;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 use SimpleSAML\Utils\HTTP;
-use Zend\Diactoros\Response\RedirectResponse;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequest;
 
 class ClientEditController
 {
@@ -32,7 +32,6 @@ class ClientEditController
     /**
      * @var TemplateFactory
      */
-
     private $templateFactory;
     /**
      * @var FormFactory
@@ -44,14 +43,6 @@ class ClientEditController
      */
     private $messages;
 
-
-
-    /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRepository
-     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory $templateFactory
-     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory $formFactory
-     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $messages
-     */
     public function __construct(
         ClientRepository $clientRepository,
         TemplateFactory $templateFactory,
@@ -64,10 +55,8 @@ class ClientEditController
         $this->messages = $messages;
     }
 
-
     /**
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @return \Zend\Diactoros\Response\RedirectResponse|\SimpleSAML\XHTML\Template
+     * @return \Laminas\Diactoros\Response\RedirectResponse|\SimpleSAML\XHTML\Template
      */
     public function __invoke(ServerRequest $request)
     {
@@ -88,12 +77,13 @@ class ClientEditController
                 $data['auth_source'],
                 $data['redirect_uri'],
                 $data['scopes'],
-                (bool) $data['is_enabled']
+                (bool) $data['is_enabled'],
+                (bool) $data['is_confidential']
             ));
 
             $this->messages->addMessage('{oidc:client:updated}');
 
-            return new RedirectResponse(HTTP::addURLParameters('index.php', []));
+            return new RedirectResponse(HTTP::addURLParameters('show.php', ['client_id' => $client->getIdentifier()]));
         }
 
         return $this->templateFactory->render('oidc:clients/edit.twig', [

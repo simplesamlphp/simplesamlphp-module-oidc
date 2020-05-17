@@ -17,6 +17,7 @@ namespace SimpleSAML\Modules\OpenIDConnect\Repositories;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface;
 use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
+use SimpleSAML\Error\Assertion;
 use SimpleSAML\Modules\OpenIDConnect\Entity\AccessTokenEntity;
 use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
@@ -27,11 +28,10 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
     /**
      * {@inheritdoc}
      */
-    public function getTableName()
+    public function getTableName(): string
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
-
 
     /**
      * {@inheritdoc}
@@ -41,26 +41,29 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         return AccessTokenEntity::fromData($clientEntity, $scopes, $userIdentifier);
     }
 
-
     /**
      * {@inheritdoc}
-     * @return void
      */
     public function persistNewAccessToken(AccessTokenEntityInterface $accessTokenEntity)
     {
+        if (!$accessTokenEntity instanceof AccessTokenEntity) {
+            throw new Assertion('Invalid AccessTokenEntity');
+        }
+
+        $stmt = sprintf(
+            "INSERT INTO %s (id, scopes, expires_at, user_id, client_id, is_revoked) "
+                . "VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked)",
+            $this->getTableName()
+        );
+
         $this->database->write(
-            "INSERT INTO {$this->getTableName()} (id, scopes, expires_at, user_id, client_id, is_revoked) VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked)",
+            $stmt,
             $accessTokenEntity->getState()
         );
     }
 
-
     /**
      * Find Access Token by id.
-     *
-     * @param string $tokenId
-     *
-     * @return AccessTokenEntity|null
      */
     public function findById(string $tokenId): ?AccessTokenEntity
     {
@@ -76,28 +79,26 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         }
 
         $data = current($rows);
-        $data['client'] = (new ClientRepository())->findById($data['client_id']);
+        $clientRepository = new ClientRepository($this->configurationService);
+        $data['client'] = $clientRepository->findById($data['client_id']);
 
         return AccessTokenEntity::fromState($data);
     }
 
-
     /**
      * {@inheritdoc}
-     * @return void
      */
     public function revokeAccessToken($tokenId)
     {
         $accessToken = $this->findById($tokenId);
 
-        if (!$accessToken) {
+        if (!$accessToken instanceof AccessTokenEntity) {
             throw new \RuntimeException("AccessToken not found: {$tokenId}");
         }
 
         $accessToken->revoke();
         $this->update($accessToken);
     }
-
 
     /**
      * {@inheritdoc}
@@ -113,10 +114,8 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         return $accessToken->isRevoked();
     }
 
-
     /**
      * Removes expired access tokens.
-     * @return void
      */
     public function removeExpired(): void
     {
@@ -128,15 +127,16 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         );
     }
 
-
-    /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\AccessTokenEntity $accessTokenEntity
-     * @return void
-     */
     private function update(AccessTokenEntity $accessTokenEntity): void
     {
+        $stmt = sprintf(
+            "UPDATE %s SET scopes = :scopes, expires_at = :expires_at, user_id = :user_id, "
+                . "client_id = :client_id, is_revoked = :is_revoked WHERE id = :id",
+            $this->getTableName()
+        );
+
         $this->database->write(
-            "UPDATE {$this->getTableName()} SET scopes = :scopes, expires_at = :expires_at, user_id = :user_id, client_id = :client_id, is_revoked = :is_revoked WHERE id = :id",
+            $stmt,
             $accessTokenEntity->getState()
         );
     }

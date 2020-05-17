@@ -19,20 +19,18 @@ use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
 use Psr\Http\Message\ResponseInterface;
 use SimpleSAML\Modules\OpenIDConnect\Controller\OAuth2AccessTokenController;
-use Zend\Diactoros\Response;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response;
+use Laminas\Diactoros\ServerRequest;
 
 class OAuth2AccessTokenControllerSpec extends ObjectBehavior
 {
     /**
-     * @param \League\OAuth2\Server\AuthorizationServer $authorizationServer
      * @return void
      */
     public function let(AuthorizationServer $authorizationServer)
     {
         $this->beConstructedWith($authorizationServer);
     }
-
 
     /**
      * @return void
@@ -42,11 +40,9 @@ class OAuth2AccessTokenControllerSpec extends ObjectBehavior
         $this->shouldHaveType(OAuth2AccessTokenController::class);
     }
 
-
     /**
-     * @param \League\OAuth2\Server\AuthorizationServer $authorizationServer
-     * @param \Zend\Diactoros\ServerRequest $request
-     * @param \Zend\Diactoros\Response $response
+     * @param \Laminas\Diactoros\Response $response
+     *
      * @return void
      */
     public function it_responds_to_access_token_request(
@@ -54,7 +50,9 @@ class OAuth2AccessTokenControllerSpec extends ObjectBehavior
         ServerRequest $request,
         ResponseInterface $response
     ) {
-        $authorizationServer->respondToAccessTokenRequest($request, Argument::type(Response::class))->shouldBeCalled()->willReturn($response);
+        $authorizationServer->respondToAccessTokenRequest($request, Argument::type(Response::class))
+            ->shouldBeCalled()
+            ->willReturn($response);
 
         $this->__invoke($request)->shouldBe($response);
     }

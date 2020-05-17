@@ -35,7 +35,6 @@ class UserEntitySpec extends ObjectBehavior
         ]);
     }
 
-
     /**
      * @return void
      */
@@ -43,7 +42,6 @@ class UserEntitySpec extends ObjectBehavior
     {
         $this->shouldHaveType(UserEntity::class);
     }
-
 
     /**
      * @return void
@@ -53,7 +51,6 @@ class UserEntitySpec extends ObjectBehavior
         $this->shouldHaveType(MementoInterface::class);
     }
 
-
     /**
      * @return void
      */
@@ -61,7 +58,6 @@ class UserEntitySpec extends ObjectBehavior
     {
         $this->getIdentifier()->shouldBeLike('id');
     }
-
 
     /**
      * @return void
@@ -71,7 +67,6 @@ class UserEntitySpec extends ObjectBehavior
         $this->getClaims()->shouldBeLike([]);
     }
 
-
     /**
      * @return void
      */
@@ -80,7 +75,6 @@ class UserEntitySpec extends ObjectBehavior
         $this->getCreatedAt()->format('Y-m-d H:i:s')->shouldBeLike('1970-01-01 00:00:00');
     }
 
-
     /**
      * @return void
      */
@@ -88,7 +82,6 @@ class UserEntitySpec extends ObjectBehavior
     {
         $this->getUpdatedAt()->format('Y-m-d H:i:s')->shouldBeLike('1970-01-01 00:00:00');
     }
-
 
     /**
      * @return void

@@ -14,6 +14,7 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Repositories;
 
+use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 
@@ -21,42 +22,52 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 {
     public const TABLE_NAME = 'oidc_client';
 
-
     /**
      * @return string
      */
-    public function getTableName()
+    public function getTableName(): string
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
 
-
     /**
-     * @param string $clientIdentifier
-     * @param string|null $grantType
-     * @param string|null $clientSecret
-     * @param bool $mustValidateSecret
-     * @return \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity|null
+     * {@inheritdoc}
      */
-    public function getClientEntity($clientIdentifier, $grantType = null, $clientSecret = null, $mustValidateSecret = true): ?ClientEntity
+    public function getClientEntity($clientIdentifier)
     {
         $client = $this->findById($clientIdentifier);
 
-        if (!$client) {
+        if (!$client instanceof ClientEntity) {
             return null;
         }
 
         if (false === $client->isEnabled()) {
-            return null;
+            throw OAuthServerException::accessDenied('Client is disabled');
         }
 
         return $client;
     }
 
+    /**
+     * @inheritDoc
+     */
+    public function validateClient($clientIdentifier, $clientSecret, $grantType)
+    {
+        $client = $this->getClientEntity($clientIdentifier);
+
+        if (!$client instanceof ClientEntity) {
+            return false;
+        }
+
+        if ($client->isConfidential()) {
+            return hash_equals($client->getSecret(), (string) $clientSecret);
+        }
+
+        return true;
+    }
 
     /**
      * @param string $clientIdentifier
-     * @return \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity|null
      */
     public function findById($clientIdentifier): ?ClientEntity
     {
@@ -73,7 +84,6 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
         return ClientEntity::fromState(current($rows));
     }
-
 
     /**
      * @return \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity[]
@@ -93,24 +103,42 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         return $clients;
     }
 
-
-    /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $client
-     * @return void
-     */
     public function add(ClientEntity $client): void
     {
+        $stmt = sprintf(
+            <<<EOS
+            INSERT INTO %s (
+                id,
+                secret,
+                name,
+                description,
+                auth_source,
+                redirect_uri,
+                scopes,
+                is_enabled,
+                 is_confidential
+            )
+            VALUES (
+                :id,
+                :secret,
+                :name,
+                :description,
+                :auth_source,
+                :redirect_uri,
+                :scopes,
+                :is_enabled,
+                :is_confidential
+            )
+EOS
+            ,
+            $this->getTableName()
+        );
         $this->database->write(
-            "INSERT INTO {$this->getTableName()} (id, secret, name, description, auth_source, redirect_uri, scopes, is_enabled) VALUES (:id, :secret, :name, :description, :auth_source, :redirect_uri, :scopes, :is_enabled)",
+            $stmt,
             $client->getState()
         );
     }
 
-
-    /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $client
-     * @return void
-     */
     public function delete(ClientEntity $client): void
     {
         $this->database->write(
@@ -121,15 +149,27 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         );
     }
 
-
-    /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $client
-     * @return void
-     */
     public function update(ClientEntity $client): void
     {
+        $stmt = sprintf(
+            <<<EOF
+            UPDATE %s SET 
+                secret = :secret,
+                name = :name,
+                description = :description,
+                auth_source = :auth_source,
+                redirect_uri = :redirect_uri,
+                scopes = :scopes,
+                is_enabled = :is_enabled,
+                is_confidential = :is_confidential
+            WHERE id = :id
+EOF
+            ,
+            $this->getTableName()
+        );
+
         $this->database->write(
-            "UPDATE {$this->getTableName()} SET secret = :secret, name = :name, description = :description, auth_source = :auth_source, redirect_uri = :redirect_uri, scopes = :scopes, is_enabled = :is_enabled WHERE id = :id",
+            $stmt,
             $client->getState()
         );
     }

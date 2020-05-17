@@ -22,7 +22,13 @@
         <thead>
         <tr>
             <th colspan="2">
-                {% trans '{oidc:client_list}' %}
+                <span class="ui header">
+                     {% trans '{oidc:client_list}' %}
+                </span>
+
+                <a href="{{ moduleURL('oidc/clients/new.php') }}" class="ui primary labeled icon button right floated">
+                    <i class="add icon"></i>{% trans '{oidc:add_client}' %}
+                </a>
             </th>
         </tr>
         </thead>
@@ -41,9 +47,9 @@
                 </td>
                 <td class="collapsing">
                     <div class="ui mini buttons">
-                        <a class="ui icon button" href="{{ moduleurlpath }}/clients/show.php?client_id={{ client.identifier }}"><i class="eye icon"></i></a>
-                        <a class="ui icon button" href="{{ moduleurlpath }}/clients/edit.php?client_id={{ client.identifier }}"><i class="edit icon"></i></a>
-                        <a class="ui icon button" href="{{ moduleurlpath }}/clients/delete.php?client_id={{ client.identifier }}"><i class="trash icon"></i></a>
+                        <a class="ui icon button" href="{{ moduleURL('oidc/clients/show.php?client_id=' ~ client.identifier) }}"><i class="eye icon"></i></a>
+                        <a class="ui icon button" href="{{ moduleURL('oidc/clients/edit.php?client_id=' ~ client.identifier) }}"><i class="edit icon"></i></a>
+                        <a class="ui icon button" href="{{ moduleURL('oidc/clients/delete.php?client_id=' ~ client.identifier) }}"><i class="trash icon"></i></a>
                     </div>
                 </td>
             </tr>
@@ -69,9 +75,6 @@
                         <i class="right chevron icon"></i>
                     </span>
                 </div>
-                <a href="{{ moduleurlpath }}/clients/new.php" class="ui primary labeled icon button">
-                    <i class="add icon"></i>{% trans '{oidc:add_client}' %}
-                </a>
             </th>
         </tr>
         </tfoot>

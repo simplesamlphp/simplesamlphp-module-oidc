@@ -56,19 +56,19 @@ class Container implements ContainerInterface
         $configurationService = new ConfigurationService();
         $this->services[ConfigurationService::class] = $configurationService;
 
-        $clientRepository = new ClientRepository();
+        $clientRepository = new ClientRepository($configurationService);
         $this->services[ClientRepository::class] = $clientRepository;
 
-        $userRepository = new UserRepository();
+        $userRepository = new UserRepository($configurationService);
         $this->services[UserRepository::class] = $userRepository;
 
-        $authCodeRepository = new AuthCodeRepository();
+        $authCodeRepository = new AuthCodeRepository($configurationService);
         $this->services[AuthCodeRepository::class] = $authCodeRepository;
 
-        $refreshTokenRepository = new RefreshTokenRepository();
+        $refreshTokenRepository = new RefreshTokenRepository($configurationService);
         $this->services[RefreshTokenRepository::class] = $refreshTokenRepository;
 
-        $accessTokenRepository = new AccessTokenRepository();
+        $accessTokenRepository = new AccessTokenRepository($configurationService);
         $this->services[AccessTokenRepository::class] = $accessTokenRepository;
 
         $scopeRepository = new ScopeRepository($configurationService);
@@ -114,7 +114,6 @@ class Container implements ContainerInterface
         $refreshTokenDuration = new \DateInterval(
             $configurationService->getOpenIDConnectConfiguration()->getString('refreshTokenDuration')
         );
-        $enablePKCE = $configurationService->getOpenIDConnectConfiguration()->getBoolean('pkce', false);
         $passPhrase = $configurationService->getOpenIDConnectConfiguration()->getString('pass_phrase', null);
 
         $claimTranslatorExtractor = (new ClaimTranslatorExtractorFactory(
@@ -133,8 +132,7 @@ class Container implements ContainerInterface
             $authCodeRepository,
             $refreshTokenRepository,
             $refreshTokenDuration,
-            $authCodeDuration,
-            $enablePKCE
+            $authCodeDuration
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 
@@ -187,13 +185,13 @@ class Container implements ContainerInterface
         return $this->services[$id];
     }
 
-
     /**
      * @param string $id
+     *
      * @return bool
      */
     public function has($id)
     {
-        return array_key_exists($id, $this->services);
+        return \array_key_exists($id, $this->services);
     }
 }

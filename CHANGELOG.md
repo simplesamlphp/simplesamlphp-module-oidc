@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.0.0-rc.2] - 2020-05-17
+### Added
+- Second release candidate
+- Updated league/oauth2-server to version 8.1
+### Changed
+- Removed pkce config option
+- New field _is_confidential_ in client (disabled for previous clients)
+- Update database schema
+
 ## [1.0.0-rc.1] - 2018-11-13
 ### Added
 - First release candidate
