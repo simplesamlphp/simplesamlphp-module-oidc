@@ -16,7 +16,7 @@
 
     <!-- Ignore deprecated classes -->
     <ignoreFiles>
-       <directory name="www/resources" />
+       <directory name="www/assets" />
     </ignoreFiles>
   </projectFiles>
 
