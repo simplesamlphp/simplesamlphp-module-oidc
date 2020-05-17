@@ -14,6 +14,8 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
+use Lcobucci\JWT\Signer;
+use Lcobucci\JWT\Signer\Rsa\Sha256;
 use SimpleSAML\Configuration;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module;
@@ -117,5 +119,20 @@ class ConfigurationService
                 }
             }
         );
+    }
+
+    public function getSigner(): Signer
+    {
+        /** @psalm-var class-string $signerClassname */
+        $signerClassname = (string) $this->getOpenIDConnectConfiguration()->getString('signer', Sha256::class);
+
+        $class = new \ReflectionClass($signerClassname);
+        $signer = $class->newInstance();
+
+        if (!$signer instanceof Signer) {
+            return new Sha256();
+        }
+
+        return $signer;
     }
 }
