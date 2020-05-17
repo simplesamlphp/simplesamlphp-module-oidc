@@ -24,6 +24,7 @@ use SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Form\ClientForm;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
+use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 use SimpleSAML\XHTML\Template;
 use Laminas\Diactoros\Response\RedirectResponse;
@@ -37,6 +38,7 @@ class ClientCreateControllerSpec extends ObjectBehavior
      * @return void
      */
     public function let(
+        ConfigurationService $configurationService,
         ClientRepository $clientRepository,
         TemplateFactory $templateFactory,
         FormFactory $formFactory,
@@ -47,10 +49,12 @@ class ClientCreateControllerSpec extends ObjectBehavior
         $_SERVER['REQUEST_URI'] = '/';
         Configuration::loadFromArray([], '', 'simplesaml');
 
+        $configurationService->getOpenIdConnectModuleURL(Argument::any())->willReturn("url");
+
         $request->getUri()->willReturn($uri);
         $uri->getPath()->willReturn('/');
 
-        $this->beConstructedWith($clientRepository, $templateFactory, $formFactory, $sessionMessagesService);
+        $this->beConstructedWith($configurationService, $clientRepository, $templateFactory, $formFactory, $sessionMessagesService);
     }
 
     /**
