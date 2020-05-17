@@ -26,8 +26,14 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
 class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
 {
-    use AccessTokenTrait, TokenEntityTrait, EntityTrait, RevokeTokenTrait;
+    use AccessTokenTrait;
+    use TokenEntityTrait;
+    use EntityTrait;
+    use RevokeTokenTrait;
 
+    /**
+     * Constructor.
+     */
     private function __construct()
     {
     }
@@ -35,14 +41,13 @@ class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
     /**
      * Create new Access Token from data.
      *
-     * @param ClientEntityInterface      $clientEntity
-     * @param array|ScopeEntityInterface $scopes
-     * @param string|null                $userIdentifier
-     *
-     * @return AccessTokenEntity
+     * @param ScopeEntityInterface[] $scopes
      */
-    public static function fromData(ClientEntityInterface $clientEntity, array $scopes, string $userIdentifier = null)
-    {
+    public static function fromData(
+        ClientEntityInterface $clientEntity,
+        array $scopes,
+        string $userIdentifier = null
+    ): self {
         $accessToken = new self();
 
         $accessToken->setClient($clientEntity);
@@ -57,17 +62,20 @@ class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
     /**
      * {@inheritdoc}
      */
-    public static function fromState(array $state)
+    public static function fromState(array $state): self
     {
         $accessToken = new self();
 
-        $scopes = array_map(function ($scope) {
+        /** @psalm-var string $scope */
+        $scopes = array_map(function (string $scope) {
             return ScopeEntity::fromData($scope);
         }, json_decode($state['scopes'], true));
 
         $accessToken->identifier = $state['id'];
         $accessToken->scopes = $scopes;
-        $accessToken->expiryDateTime = TimestampGenerator::utc($state['expires_at']);
+        $accessToken->expiryDateTime = \DateTimeImmutable::createFromMutable(
+            TimestampGenerator::utc($state['expires_at'])
+        );
         $accessToken->userIdentifier = $state['user_id'];
         $accessToken->client = $state['client'];
         $accessToken->isRevoked = (bool) $state['is_revoked'];
@@ -81,12 +89,12 @@ class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
     public function getState(): array
     {
         return [
-            'id' => $this->identifier,
+            'id' => $this->getIdentifier(),
             'scopes' => json_encode($this->scopes),
-            'expires_at' => $this->expiryDateTime->format('Y-m-d H:i:s'),
-            'user_id' => $this->userIdentifier,
-            'client_id' => $this->client->getIdentifier(),
-            'is_revoked' => $this->isRevoked,
+            'expires_at' => $this->getExpiryDateTime()->format('Y-m-d H:i:s'),
+            'user_id' => $this->getUserIdentifier(),
+            'client_id' => $this->getClient()->getIdentifier(),
+            'is_revoked' => (int) $this->isRevoked(),
         ];
     }
 }

@@ -24,19 +24,30 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
 class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
 {
-    use EntityTrait, TokenEntityTrait, AuthCodeTrait, RevokeTokenTrait;
+    use EntityTrait;
+    use TokenEntityTrait;
+    use AuthCodeTrait;
+    use RevokeTokenTrait;
 
-    public static function fromState(array $state)
+    public static function fromState(array $state): self
     {
         $authCode = new self();
 
-        $scopes = array_map(function ($scope) {
-            return ScopeEntity::fromData($scope);
-        }, json_decode($state['scopes'], true));
+        $scopes = array_map(
+            /**
+             * @return \SimpleSAML\Modules\OpenIDConnect\Entity\ScopeEntity
+             */
+            function (string $scope) {
+                return ScopeEntity::fromData($scope);
+            },
+            json_decode($state['scopes'], true)
+        );
 
         $authCode->identifier = $state['id'];
         $authCode->scopes = $scopes;
-        $authCode->expiryDateTime = TimestampGenerator::utc($state['expires_at']);
+        $authCode->expiryDateTime = \DateTimeImmutable::createFromMutable(
+            TimestampGenerator::utc($state['expires_at'])
+        );
         $authCode->userIdentifier = $state['user_id'];
         $authCode->client = $state['client'];
         $authCode->isRevoked = (bool) $state['is_revoked'];
@@ -48,13 +59,13 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
     public function getState(): array
     {
         return [
-            'id' => $this->identifier,
+            'id' => $this->getIdentifier(),
             'scopes' => json_encode($this->scopes),
-            'expires_at' => $this->expiryDateTime->format('Y-m-d H:i:s'),
-            'user_id' => $this->userIdentifier,
+            'expires_at' => $this->getExpiryDateTime()->format('Y-m-d H:i:s'),
+            'user_id' => $this->getUserIdentifier(),
             'client_id' => $this->client->getIdentifier(),
-            'is_revoked' => $this->isRevoked,
-            'redirect_uri' => $this->redirectUri,
+            'is_revoked' => (int) $this->isRevoked(),
+            'redirect_uri' => $this->getRedirectUri(),
         ];
     }
 }

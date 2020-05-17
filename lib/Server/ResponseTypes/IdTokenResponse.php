@@ -16,7 +16,6 @@ namespace SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes;
 
 use Lcobucci\JWT\Builder;
 use Lcobucci\JWT\Signer\Key;
-use Lcobucci\JWT\Signer\Rsa\Sha256;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
@@ -24,6 +23,7 @@ use League\OAuth2\Server\ResponseTypes\BearerTokenResponse;
 use OpenIDConnectServer\ClaimExtractor;
 use OpenIDConnectServer\Entities\ClaimSetInterface;
 use OpenIDConnectServer\Repositories\IdentityProviderInterface;
+use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 
 /**
  * Class IdTokenResponse.
@@ -45,23 +45,21 @@ class IdTokenResponse extends BearerTokenResponse
      */
     protected $claimExtractor;
     /**
-     * @var Builder
+     * @var ConfigurationService
      */
-    private $builder;
+    private $configurationService;
 
     public function __construct(
         IdentityProviderInterface $identityProvider,
         ClaimExtractor $claimExtractor,
-        Builder $builder
+        ConfigurationService $configurationService
     ) {
         $this->identityProvider = $identityProvider;
         $this->claimExtractor = $claimExtractor;
-        $this->builder = $builder;
+        $this->configurationService = $configurationService;
     }
 
     /**
-     * @param AccessTokenEntityInterface $accessToken
-     *
      * @return array
      */
     protected function getExtraParams(AccessTokenEntityInterface $accessToken)
@@ -80,27 +78,36 @@ class IdTokenResponse extends BearerTokenResponse
         }
 
         // Add required id_token claims
-        $builder = $this->builder
-            ->setAudience($accessToken->getClient()->getIdentifier())
-            ->setIssuedAt(time())
-            ->setExpiration($accessToken->getExpiryDateTime()->getTimestamp())
-            ->setSubject($userEntity->getIdentifier())
-        ;
+        $builder = $this->getBuilder($accessToken, $userEntity);
 
         // Need a claim factory here to reduce the number of claims by provided scope.
         $claims = $this->claimExtractor->extract($accessToken->getScopes(), $userEntity->getClaims());
 
         foreach ($claims as $claimName => $claimValue) {
-            $builder->set($claimName, $claimValue);
+            $builder->withClaim($claimName, $claimValue);
         }
 
-        $token = $builder
-            ->sign(new Sha256(), new Key($this->privateKey->getKeyPath(), $this->privateKey->getPassPhrase()))
-            ->getToken();
+        $token = $builder->getToken(
+            $this->configurationService->getSigner(),
+            new Key($this->privateKey->getKeyPath(), $this->privateKey->getPassPhrase())
+        );
 
         return [
             'id_token' => (string) $token,
         ];
+    }
+
+    protected function getBuilder(AccessTokenEntityInterface $accessToken, UserEntityInterface $userEntity)
+    {
+        return (new Builder())
+            ->issuedBy($this->configurationService->getSimpleSAMLSelfURLHost())
+            ->permittedFor($accessToken->getClient()->getIdentifier())
+            ->identifiedBy($accessToken->getIdentifier())
+            ->canOnlyBeUsedAfter(\time())
+            ->expiresAt($accessToken->getExpiryDateTime()->getTimestamp())
+            ->relatedTo($userEntity->getIdentifier())
+            ->issuedAt(\time())
+            ->withHeader('kid', '0');
     }
 
     /**

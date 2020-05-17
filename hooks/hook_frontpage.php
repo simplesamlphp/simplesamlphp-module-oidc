@@ -12,6 +12,11 @@
  * file that was distributed with this source code.
  */
 
+/**
+ * @param array &$links
+ *
+ * @return void
+ */
 function oidc_hook_frontpage(&$links)
 {
     assert('is_array($links)');
@@ -21,7 +26,7 @@ function oidc_hook_frontpage(&$links)
 
     if (!$isUpdated) {
         $links['federation']['oidcregistry'] = [
-            'href' => \SimpleSAML_Module::getModuleURL('oidc/install.php'),
+            'href' => \SimpleSAML\Module::getModuleURL('oidc/install.php'),
             'text' => [
                 'en' => 'OpenID Connect Installation',
                 'es' => 'Instalación de OpenID Connect',
@@ -38,7 +43,7 @@ function oidc_hook_frontpage(&$links)
     }
 
     $links['federation']['oidcregistry'] = [
-        'href' => \SimpleSAML_Module::getModuleURL('oidc/clients/'),
+        'href' => \SimpleSAML\Module::getModuleURL('oidc/clients/'),
         'text' => [
             'en' => 'OpenID Connect Client Registry',
             'es' => 'Registro de clientes OpenID Connect',

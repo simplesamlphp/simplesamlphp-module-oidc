@@ -28,7 +28,7 @@ class ImplicitGrantFactory
         $this->accessTokenDuration = $accessTokenDuration;
     }
 
-    public function build()
+    public function build(): ImplicitGrant
     {
         return new ImplicitGrant($this->accessTokenDuration);
     }

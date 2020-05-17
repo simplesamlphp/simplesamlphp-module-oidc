@@ -2,8 +2,13 @@
 
 {% set pagetitle = 'Show OpenID Connect Client' | trans %}
 
+{% block pre_breadcrump %}
+    <span class="divider">/</span>
+    <a class="section" href="{{ moduleURL('oidc/clients/') }}">{% trans 'OpenID Connect Client Registry' %}</a>
+{% endblock %}
+
 {% block content %}
-    <h2>{{ pagetitle }}</h2>
+    <h2 class="ui header">{{ pagetitle }}</h2>
 
     <div class="ui hidden divider"></div>
 
@@ -11,23 +16,36 @@
         <tbody>
         <tr>
             <td class="collapsing">{% trans '{oidc:client:name}' %}</td>
-            <td>{{ client.name }}</td>
+            <td>
+                {{ client.name }}
+            </td>
         </tr>
         <tr>
             <td class="collapsing">{% trans '{oidc:client:description}' %}</td>
             <td>{{ client.description }}</td>
         </tr>
         <tr>
+            <td class="collapsing">{% trans '{oidc:client:state}' %}</td>
+            <td>
+                <span class="ui {{ client.isEnabled ? 'green' : 'red' }} tiny label">
+                    {% trans '{oidc:client:is_enabled}' %}
+                </span>
+                <span class="ui {{ client.isConfidential ? 'green' : 'red' }} tiny label">
+                    {% trans '{oidc:client:is_confidential}' %}
+                </span>
+            </td>
+        </tr>
+        <tr>
             <td class="collapsing">{% trans '{oidc:client:identifier}' %}</td>
             <td>{{ client.identifier }}
-                <i data-clipboard-text="{{ client.identifier }}" data-content="{% trans '{oidc:copy}' %}" data-inverted="" class="copy link icon"></i>
+                <i data-clipboard-text="{{ client.identifier }}" data-html="{% trans '{oidc:copy}' %}" class="copy link icon"></i>
             </td>
         </tr>
         <tr>
             <td class="collapsing">{% trans '{oidc:client:secret}' %}</td>
             <td>
                 {{ client.secret }}
-                <i data-clipboard-text="{{ client.secret }}" data-content="{% trans '{oidc:copy}' %}" data-inverted="" class="copy link icon"></i>
+                <i data-clipboard-text="{{ client.secret }}" data-html="{% trans '{oidc:copy}' %}" class="copy link icon"></i>
             </td>
         </tr>
         <tr>
@@ -60,17 +78,19 @@
             <th></th>
             <th>
                 <div class="ui buttons">
-                    <a href="{{ moduleurlpath }}/clients/" class="ui small primary labeled icon button">
+                    <a href="{{ moduleURL('oidc/clients/') }}" class="ui small primary labeled icon button">
                         <i class="arrow left icon"></i> {% trans '{oidc:return}' %}
                     </a>
+                    <a href="{{ moduleURL('oidc/clients/edit.php?client_id=' ~ client.identifier) }}" class="ui small labeled icon button">
+                        <i class="edit icon"></i> {% trans '{oidc:edit}' %}
+                    </a>
                     <div class="ui small teal labeled icon button">
-                        <i class="refresh icon"></i>
-                        {% trans '{oidc:client:reset_secret}' %}
+                        <i class="refresh icon"></i> {% trans '{oidc:client:reset_secret}' %}
                     </div>
                     <div class="ui flowing popup top left transition hidden">
                         <h4 class="ui header">{% trans '{oidc:client:reset_secret}' %}</h4>
                         <p>{% trans '{oidc:client:reset_secret_warning}' %}</p>
-                        <form method="post" action="{{ moduleurlpath }}/clients/reset.php?client_id={{ client.identifier }}">
+                        <form method="post" action="{{ moduleURL('oidc/clients/reset.php?client_id=' ~ client.identifier) }}">
                             <input type="hidden" name="secret" value="{{ client.secret }}">
                             <input type="submit" class="ui button" value="{% trans '{oidc:confirm}' %}">
                         </form>
@@ -85,9 +105,10 @@
 
 {% block postload %}
     {{ parent() }}
-    <script src="{{ moduleurlpath }}/resources/clipboard/clipboard.min.js"></script>
+    <script src="{{ asset('clipboard/clipboard.min.js', 'oidc') }}"></script>
     <script>
         $('.copy.link').popup();
+
         new ClipboardJS('.copy.link')
             .on('success', function (e) {
                 e.clearSelection();

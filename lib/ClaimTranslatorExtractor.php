@@ -19,6 +19,7 @@ use OpenIDConnectServer\Entities\ClaimSetEntity;
 
 class ClaimTranslatorExtractor extends ClaimExtractor
 {
+    /** @var array */
     protected $translationTable = [
         'sub' => [
             'eduPersonPrincipalName',
@@ -88,11 +89,10 @@ class ClaimTranslatorExtractor extends ClaimExtractor
      * ClaimTranslatorExtractor constructor.
      *
      * @param ClaimSetEntity[] $claimSets
-     * @param array            $translationTable
      *
      * @throws \OpenIDConnectServer\Exception\InvalidArgumentException
      */
-    public function __construct($claimSets = [], $translationTable = [])
+    public function __construct(array $claimSets = [], array $translationTable = [])
     {
         $this->translationTable = array_merge($this->translationTable, $translationTable);
 
@@ -104,13 +104,16 @@ class ClaimTranslatorExtractor extends ClaimExtractor
         parent::__construct($claimSets);
     }
 
+    /**
+     * @param array $samlAttributes
+     */
     private function translateSamlAttributesToClaims($samlAttributes): array
     {
         $claims = [];
 
         foreach ($this->translationTable as $claim => $samlMatches) {
             foreach ($samlMatches as $samlMatch) {
-                if (array_key_exists($samlMatch, $samlAttributes)) {
+                if (\array_key_exists($samlMatch, $samlAttributes)) {
                     $claims[$claim] = current($samlAttributes[$samlMatch]);
                     break;
                 }
@@ -120,7 +123,7 @@ class ClaimTranslatorExtractor extends ClaimExtractor
         return $claims;
     }
 
-    public function extract(array $scopes, array $samlAttributes)
+    public function extract(array $scopes, array $samlAttributes): array
     {
         $claims = $this->translateSamlAttributesToClaims($samlAttributes);
 

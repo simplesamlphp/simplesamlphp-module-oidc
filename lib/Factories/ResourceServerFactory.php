@@ -22,7 +22,7 @@ use SimpleSAML\Utils\Config;
 class ResourceServerFactory
 {
     /**
-     * @var AccessTokenRepository
+     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository
      */
     private $accessTokenRepository;
 
@@ -31,7 +31,7 @@ class ResourceServerFactory
         $this->accessTokenRepository = $accessTokenRepository;
     }
 
-    public function build()
+    public function build(): ResourceServer
     {
         $publicKeyPath = Config::getCertPath('oidc_module.crt');
 

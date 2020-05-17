@@ -14,34 +14,62 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Repositories;
 
+use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 
 class ClientRepository extends AbstractDatabaseRepository implements ClientRepositoryInterface
 {
-    const TABLE_NAME = 'oidc_client';
+    public const TABLE_NAME = 'oidc_client';
 
-    public function getTableName()
+    /**
+     * @return string
+     */
+    public function getTableName(): string
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
 
-    public function getClientEntity($clientIdentifier, $grantType = null, $clientSecret = null, $mustValidateSecret = true)
+    /**
+     * {@inheritdoc}
+     */
+    public function getClientEntity($clientIdentifier)
     {
         $client = $this->findById($clientIdentifier);
 
-        if (!$client) {
+        if (!$client instanceof ClientEntity) {
             return null;
         }
 
         if (false === $client->isEnabled()) {
-            return null;
+            throw OAuthServerException::accessDenied('Client is disabled');
         }
 
         return $client;
     }
 
-    public function findById($clientIdentifier)
+    /**
+     * @inheritDoc
+     */
+    public function validateClient($clientIdentifier, $clientSecret, $grantType)
+    {
+        $client = $this->getClientEntity($clientIdentifier);
+
+        if (!$client instanceof ClientEntity) {
+            return false;
+        }
+
+        if ($client->isConfidential()) {
+            return hash_equals($client->getSecret(), (string) $clientSecret);
+        }
+
+        return true;
+    }
+
+    /**
+     * @param string $clientIdentifier
+     */
+    public function findById($clientIdentifier): ?ClientEntity
     {
         $stmt = $this->database->read(
             "SELECT * FROM {$this->getTableName()} WHERE id = :id",
@@ -57,6 +85,9 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         return ClientEntity::fromState(current($rows));
     }
 
+    /**
+     * @return \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity[]
+     */
     public function findAll()
     {
         $stmt = $this->database->read(
@@ -72,15 +103,43 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         return $clients;
     }
 
-    public function add(ClientEntity $client)
+    public function add(ClientEntity $client): void
     {
+        $stmt = sprintf(
+            <<<EOS
+            INSERT INTO %s (
+                id,
+                secret,
+                name,
+                description,
+                auth_source,
+                redirect_uri,
+                scopes,
+                is_enabled,
+                 is_confidential
+            )
+            VALUES (
+                :id,
+                :secret,
+                :name,
+                :description,
+                :auth_source,
+                :redirect_uri,
+                :scopes,
+                :is_enabled,
+                :is_confidential
+            )
+EOS
+            ,
+            $this->getTableName()
+        );
         $this->database->write(
-              "INSERT INTO {$this->getTableName()} (id, secret, name, description, auth_source, redirect_uri, scopes, is_enabled) VALUES (:id, :secret, :name, :description, :auth_source, :redirect_uri, :scopes, :is_enabled)",
+            $stmt,
             $client->getState()
         );
     }
 
-    public function delete(ClientEntity $client)
+    public function delete(ClientEntity $client): void
     {
         $this->database->write(
             "DELETE FROM {$this->getTableName()} WHERE id = :id",
@@ -90,10 +149,27 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         );
     }
 
-    public function update(ClientEntity $client)
+    public function update(ClientEntity $client): void
     {
+        $stmt = sprintf(
+            <<<EOF
+            UPDATE %s SET 
+                secret = :secret,
+                name = :name,
+                description = :description,
+                auth_source = :auth_source,
+                redirect_uri = :redirect_uri,
+                scopes = :scopes,
+                is_enabled = :is_enabled,
+                is_confidential = :is_confidential
+            WHERE id = :id
+EOF
+            ,
+            $this->getTableName()
+        );
+
         $this->database->write(
-            "UPDATE {$this->getTableName()} SET secret = :secret, name = :name, description = :description, auth_source = :auth_source, redirect_uri = :redirect_uri, scopes = :scopes, is_enabled = :is_enabled WHERE id = :id",
+            $stmt,
             $client->getState()
         );
     }

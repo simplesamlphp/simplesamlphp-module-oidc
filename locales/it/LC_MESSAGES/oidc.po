@@ -61,6 +61,9 @@ msgstr "Cancella Client OpenID Connect"
 msgid "{oidc:client:confirm_delete}"
 msgstr "Gentilmente, conferma che vuoi cancellare questo client. Questa cancellazione non può essere ripristinata."
 
+msgid "{oidc:edit}"
+msgstr "Modifica"
+
 msgid "{oidc:delete}"
 msgstr "Cancella"
 

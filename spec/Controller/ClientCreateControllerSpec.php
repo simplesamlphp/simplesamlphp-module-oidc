@@ -17,19 +17,28 @@ namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
 use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
 use Psr\Http\Message\UriInterface;
+use SimpleSAML\Configuration;
 use SimpleSAML\Modules\OpenIDConnect\Controller\ClientCreateController;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Form\ClientForm;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
+use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
-use Zend\Diactoros\Response\RedirectResponse;
-use Zend\Diactoros\ServerRequest;
+use SimpleSAML\XHTML\Template;
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequest;
 
 class ClientCreateControllerSpec extends ObjectBehavior
 {
+    /**
+     * @param \Laminas\Diactoros\ServerRequest $serverRequest
+     *
+     * @return void
+     */
     public function let(
+        ConfigurationService $configurationService,
         ClientRepository $clientRepository,
         TemplateFactory $templateFactory,
         FormFactory $formFactory,
@@ -38,22 +47,30 @@ class ClientCreateControllerSpec extends ObjectBehavior
         UriInterface $uri
     ) {
         $_SERVER['REQUEST_URI'] = '/';
-        \SimpleSAML_Configuration::loadFromArray([], '', 'simplesaml');
+        Configuration::loadFromArray([], '', 'simplesaml');
+
+        $configurationService->getOpenIdConnectModuleURL(Argument::any())->willReturn("url");
 
         $request->getUri()->willReturn($uri);
         $uri->getPath()->willReturn('/');
 
-        $this->beConstructedWith($clientRepository, $templateFactory, $formFactory, $sessionMessagesService);
+        $this->beConstructedWith($configurationService, $clientRepository, $templateFactory, $formFactory, $sessionMessagesService);
     }
 
+    /**
+     * @return void
+     */
     public function it_is_initializable()
     {
         $this->shouldHaveType(ClientCreateController::class);
     }
 
+    /**
+     * @return void
+     */
     public function it_shows_new_client_form(
         ServerRequest $request,
-        \SimpleSAML_XHTML_Template $template,
+        Template $template,
         TemplateFactory $templateFactory,
         FormFactory $formFactory,
         ClientForm $clientForm
@@ -62,10 +79,15 @@ class ClientCreateControllerSpec extends ObjectBehavior
         $clientForm->setAction(Argument::any())->shouldBeCalled();
         $clientForm->isSuccess()->shouldBeCalled()->willReturn(false);
 
-        $templateFactory->render('oidc:clients/new.twig', ['form' => $clientForm])->shouldBeCalled()->willReturn($template);
+        $templateFactory->render('oidc:clients/new.twig', ['form' => $clientForm])
+            ->shouldBeCalled()
+            ->willReturn($template);
         $this->__invoke($request)->shouldBe($template);
     }
 
+    /**
+     * @return void
+     */
     public function it_creates_new_client_from_form_data(
         ServerRequest $request,
         FormFactory $formFactory,
@@ -84,6 +106,7 @@ class ClientCreateControllerSpec extends ObjectBehavior
             'redirect_uri' => ['http://localhost/redirect'],
             'scopes' => ['openid'],
             'is_enabled' => true,
+            'is_confidential' => false,
         ]);
 
         $clientRepository->add(Argument::type(ClientEntity::class))->shouldBeCalled();

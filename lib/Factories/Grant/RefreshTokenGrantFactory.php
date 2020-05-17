@@ -20,9 +20,10 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
 class RefreshTokenGrantFactory
 {
     /**
-     * @var RefreshTokenRepository
+     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository
      */
     private $refreshTokenRepository;
+
     /**
      * @var \DateInterval
      */
@@ -36,7 +37,7 @@ class RefreshTokenGrantFactory
         $this->refreshTokenDuration = $refreshTokenDuration;
     }
 
-    public function build()
+    public function build(): RefreshTokenGrant
     {
         $refreshTokenGrant = new RefreshTokenGrant($this->refreshTokenRepository);
         $refreshTokenGrant->setRefreshTokenTTL($this->refreshTokenDuration);

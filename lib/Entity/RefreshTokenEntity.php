@@ -23,14 +23,18 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
 class RefreshTokenEntity implements RefreshTokenEntityInterface, MementoInterface
 {
-    use RefreshTokenTrait, EntityTrait, RevokeTokenTrait;
+    use RefreshTokenTrait;
+    use EntityTrait;
+    use RevokeTokenTrait;
 
-    public static function fromState(array $state)
+    public static function fromState(array $state): self
     {
         $refreshToken = new self();
 
         $refreshToken->identifier = $state['id'];
-        $refreshToken->expiryDateTime = TimestampGenerator::utc($state['expires_at']);
+        $refreshToken->expiryDateTime = \DateTimeImmutable::createFromMutable(
+            TimestampGenerator::utc($state['expires_at'])
+        );
         $refreshToken->accessToken = $state['access_token'];
         $refreshToken->isRevoked = (bool) $state['is_revoked'];
 
@@ -40,10 +44,10 @@ class RefreshTokenEntity implements RefreshTokenEntityInterface, MementoInterfac
     public function getState(): array
     {
         return [
-            'id' => $this->identifier,
-            'expires_at' => $this->expiryDateTime->format('Y-m-d H:i:s'),
-            'access_token_id' => $this->accessToken->getIdentifier(),
-            'is_revoked' => $this->isRevoked,
+            'id' => $this->getIdentifier(),
+            'expires_at' => $this->getExpiryDateTime()->format('Y-m-d H:i:s'),
+            'access_token_id' => $this->getAccessToken()->getIdentifier(),
+            'is_revoked' => (int) $this->isRevoked(),
         ];
     }
 }

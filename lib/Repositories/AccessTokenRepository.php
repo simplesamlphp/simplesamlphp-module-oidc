@@ -17,17 +17,18 @@ namespace SimpleSAML\Modules\OpenIDConnect\Repositories;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface;
 use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
+use SimpleSAML\Error\Assertion;
 use SimpleSAML\Modules\OpenIDConnect\Entity\AccessTokenEntity;
 use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
 class AccessTokenRepository extends AbstractDatabaseRepository implements AccessTokenRepositoryInterface
 {
-    const TABLE_NAME = 'oidc_access_token';
+    public const TABLE_NAME = 'oidc_access_token';
 
     /**
      * {@inheritdoc}
      */
-    public function getTableName()
+    public function getTableName(): string
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
@@ -45,20 +46,26 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
      */
     public function persistNewAccessToken(AccessTokenEntityInterface $accessTokenEntity)
     {
+        if (!$accessTokenEntity instanceof AccessTokenEntity) {
+            throw new Assertion('Invalid AccessTokenEntity');
+        }
+
+        $stmt = sprintf(
+            "INSERT INTO %s (id, scopes, expires_at, user_id, client_id, is_revoked) "
+                . "VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked)",
+            $this->getTableName()
+        );
+
         $this->database->write(
-            "INSERT INTO {$this->getTableName()} (id, scopes, expires_at, user_id, client_id, is_revoked) VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked)",
+            $stmt,
             $accessTokenEntity->getState()
         );
     }
 
     /**
      * Find Access Token by id.
-     *
-     * @param $tokenId
-     *
-     * @return null|AccessTokenEntity
      */
-    public function findById($tokenId)
+    public function findById(string $tokenId): ?AccessTokenEntity
     {
         $stmt = $this->database->read(
             "SELECT * FROM {$this->getTableName()} WHERE id = :id",
@@ -72,7 +79,8 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         }
 
         $data = current($rows);
-        $data['client'] = (new ClientRepository())->findById($data['client_id']);
+        $clientRepository = new ClientRepository($this->configurationService);
+        $data['client'] = $clientRepository->findById($data['client_id']);
 
         return AccessTokenEntity::fromState($data);
     }
@@ -84,7 +92,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
     {
         $accessToken = $this->findById($tokenId);
 
-        if (!$accessToken) {
+        if (!$accessToken instanceof AccessTokenEntity) {
             throw new \RuntimeException("AccessToken not found: {$tokenId}");
         }
 
@@ -109,7 +117,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
     /**
      * Removes expired access tokens.
      */
-    public function removeExpired()
+    public function removeExpired(): void
     {
         $this->database->write(
             "DELETE FROM {$this->getTableName()} WHERE expires_at < :now",
@@ -119,10 +127,16 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         );
     }
 
-    private function update(AccessTokenEntity $accessTokenEntity)
+    private function update(AccessTokenEntity $accessTokenEntity): void
     {
+        $stmt = sprintf(
+            "UPDATE %s SET scopes = :scopes, expires_at = :expires_at, user_id = :user_id, "
+                . "client_id = :client_id, is_revoked = :is_revoked WHERE id = :id",
+            $this->getTableName()
+        );
+
         $this->database->write(
-            "UPDATE {$this->getTableName()} SET scopes = :scopes, expires_at = :expires_at, user_id = :user_id, client_id = :client_id, is_revoked = :is_revoked WHERE id = :id",
+            $stmt,
             $accessTokenEntity->getState()
         );
     }

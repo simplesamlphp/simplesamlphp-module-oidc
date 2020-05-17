@@ -15,8 +15,8 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Controller;
 
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
-use Zend\Diactoros\Response\JsonResponse;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response\JsonResponse;
+use Laminas\Diactoros\ServerRequest;
 
 class OpenIdConnectDiscoverConfigurationController
 {
@@ -31,11 +31,12 @@ class OpenIdConnectDiscoverConfigurationController
         $this->configurationService = $configurationService;
     }
 
-    public function __invoke(ServerRequest $serverRequest)
+    public function __invoke(ServerRequest $serverRequest): JsonResponse
     {
         $scopes = $this->configurationService->getOpenIDScopes();
         $pkceIsEnabled = $this->configurationService->getOpenIDConnectConfiguration()->getBoolean('pkce');
 
+        $metadata = [];
         $metadata['issuer'] = $this->configurationService->getSimpleSAMLSelfURLHost();
         $metadata['authorization_endpoint'] = $this->configurationService->getOpenIdConnectModuleURL('authorize.php');
         $metadata['token_endpoint'] = $this->configurationService->getOpenIdConnectModuleURL('access_token.php');

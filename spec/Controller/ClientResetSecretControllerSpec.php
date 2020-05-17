@@ -17,15 +17,21 @@ namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
 use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
 use Psr\Http\Message\UriInterface;
+use SimpleSAML\Configuration;
+use SimpleSAML\Error\BadRequest;
+use SimpleSAML\Error\NotFound;
 use SimpleSAML\Modules\OpenIDConnect\Controller\ClientResetSecretController;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
-use Zend\Diactoros\Response\RedirectResponse;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequest;
 
 class ClientResetSecretControllerSpec extends ObjectBehavior
 {
+    /**
+     * @return void
+     */
     public function let(
         ClientRepository $clientRepository,
         SessionMessagesService $sessionMessagesService,
@@ -33,7 +39,7 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         UriInterface $uri
     ) {
         $_SERVER['REQUEST_URI'] = '/';
-        \SimpleSAML_Configuration::loadFromArray([], '', 'simplesaml');
+        Configuration::loadFromArray([], '', 'simplesaml');
 
         $request->getUri()->willReturn($uri);
         $uri->getPath()->willReturn('/');
@@ -41,19 +47,28 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         $this->beConstructedWith($clientRepository, $sessionMessagesService);
     }
 
+    /**
+     * @return void
+     */
     public function it_is_initializable()
     {
         $this->shouldHaveType(ClientResetSecretController::class);
     }
 
+    /**
+     * @return void
+     */
     public function it_throws_id_not_found_exception_in_reset_secret_action(
         ServerRequest $request
     ) {
         $request->getQueryParams()->shouldBeCalled()->willReturn([]);
 
-        $this->shouldThrow(\SimpleSAML_Error_BadRequest::class)->during('__invoke', [$request]);
+        $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
     }
 
+    /**
+     * @return void
+     */
     public function it_throws_client_not_found_exception_in_reset_secret_action(
         ServerRequest $request,
         ClientRepository $clientRepository
@@ -61,9 +76,14 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn(null);
 
-        $this->shouldThrow(\SimpleSAML_Error_NotFound::class)->during('__invoke', [$request]);
+        $this->shouldThrow(NotFound::class)->during('__invoke', [$request]);
     }
 
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
+     *
+     * @return void
+     */
     public function it_throws_secret_not_found_exception_in_reset_secret_action(
         ServerRequest $request,
         ClientRepository $clientRepository,
@@ -74,9 +94,14 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         $request->getParsedBody()->shouldBeCalled()->willReturn([]);
         $request->getMethod()->shouldBeCalled()->willReturn('post');
 
-        $this->shouldThrow(\SimpleSAML_Error_BadRequest::class)->during('__invoke', [$request]);
+        $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
     }
 
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
+     *
+     * @return void
+     */
     public function it_throws_secret_invalid_exception_in_reset_secret_action(
         ServerRequest $request,
         ClientRepository $clientRepository,
@@ -89,9 +114,14 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
         $clientEntity->getSecret()->shouldBeCalled()->willReturn('validsecret');
 
-        $this->shouldThrow(\SimpleSAML_Error_BadRequest::class)->during('__invoke', [$request]);
+        $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
     }
 
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
+     *
+     * @return void
+     */
     public function it_reset_secrets_client(
         ServerRequest $request,
         ClientRepository $clientRepository,
@@ -113,6 +143,11 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         $this->__invoke($request)->shouldBeAnInstanceOf(RedirectResponse::class);
     }
 
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
+     *
+     * @return void
+     */
     public function it_send_back_to_show_client_if_not_post_method_in_reset_action(
         ServerRequest $request,
         ClientRepository $clientRepository,

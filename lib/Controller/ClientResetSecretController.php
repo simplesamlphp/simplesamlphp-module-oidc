@@ -14,13 +14,14 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Controller;
 
+use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Modules\OpenIDConnect\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 use SimpleSAML\Utils\HTTP;
 use SimpleSAML\Utils\Random;
-use Zend\Diactoros\Response\RedirectResponse;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequest;
 
 class ClientResetSecretController
 {
@@ -37,7 +38,7 @@ class ClientResetSecretController
         $this->messages = $messages;
     }
 
-    public function __invoke(ServerRequest $request)
+    public function __invoke(ServerRequest $request): RedirectResponse
     {
         $client = $this->getClientFromRequest($request);
         $body = $request->getParsedBody();
@@ -45,11 +46,11 @@ class ClientResetSecretController
 
         if ('POST' === mb_strtoupper($request->getMethod())) {
             if (!$clientSecret) {
-                throw new \SimpleSAML_Error_BadRequest('Client secret is missing.');
+                throw new BadRequest('Client secret is missing.');
             }
 
             if ($clientSecret !== $client->getSecret()) {
-                throw new \SimpleSAML_Error_BadRequest('Client secret is invalid.');
+                throw new BadRequest('Client secret is invalid.');
             }
 
             $client->restoreSecret(Random::generateID());

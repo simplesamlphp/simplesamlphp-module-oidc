@@ -23,11 +23,14 @@ use SimpleSAML\Modules\OpenIDConnect\Entity\AccessTokenEntity;
 use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
-use Zend\Diactoros\Response\JsonResponse;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response\JsonResponse;
+use Laminas\Diactoros\ServerRequest;
 
 class OpenIdConnectUserInfoControllerSpec extends ObjectBehavior
 {
+    /**
+     * @return void
+     */
     public function let(
         ResourceServer $resourceServer,
         AccessTokenRepository $accessTokenRepository,
@@ -37,11 +40,17 @@ class OpenIdConnectUserInfoControllerSpec extends ObjectBehavior
         $this->beConstructedWith($resourceServer, $accessTokenRepository, $userRepository, $claimTranslatorExtractor);
     }
 
+    /**
+     * @return void
+     */
     public function it_is_initializable()
     {
         $this->shouldHaveType(OpenIdConnectUserInfoController::class);
     }
 
+    /**
+     * @return void
+     */
     public function it_returns_user_claims(
         ServerRequest $request,
         ServerRequestInterface $authorization,

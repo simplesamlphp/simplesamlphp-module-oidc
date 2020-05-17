@@ -16,13 +16,15 @@ namespace SimpleSAML\Modules\OpenIDConnect\Repositories;
 
 use League\OAuth2\Server\Entities\ClientEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
+use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
+use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ScopeEntity;
 
 class ScopeRepository extends AbstractDatabaseRepository implements ScopeRepositoryInterface
 {
     /**
-     * @codeCoverageIgnore
+     * {@inheritdoc}
      */
     public function getTableName()
     {
@@ -36,8 +38,8 @@ class ScopeRepository extends AbstractDatabaseRepository implements ScopeReposit
     {
         $scopes = $this->configurationService->getOpenIDScopes();
 
-        if (false === array_key_exists($identifier, $scopes)) {
-            return null;
+        if (false === \array_key_exists($identifier, $scopes)) {
+            throw OAuthServerException::invalidScope($identifier);
         }
 
         $scope = $scopes[$identifier];
@@ -64,6 +66,10 @@ class ScopeRepository extends AbstractDatabaseRepository implements ScopeReposit
         ClientEntityInterface $clientEntity,
         $userIdentifier = null
     ) {
+        if (!$clientEntity instanceof ClientEntity) {
+            return [];
+        }
+
         return array_filter($scopes, function (ScopeEntityInterface $scope) use ($clientEntity) {
             return \in_array($scope->getIdentifier(), $clientEntity->getScopes(), true);
         });

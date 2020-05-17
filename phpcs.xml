@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<ruleset name="SimpleSAMLphp OIDC module ruleset">
+    <config name="ignore_warnings_on_exit" value="1"/>
+
+    <description>
+        By default it is less stringent about long lines than other coding standards
+    </description>
+
+    <file>config-templates</file>
+    <file>hooks</file>
+    <file>lib</file>
+    <file>spec</file>
+    <file>tests</file>
+    <file>www</file>
+
+    <!-- Use this to exclude paths. You can have multiple patterns -->
+    <!--<exclude-pattern>*/tests/*</exclude-pattern>-->
+    <!--<exclude-pattern>*/other/*</exclude-pattern>-->
+
+    <!-- Exclude files with method names that we cannot immediately fix -->
+    <rule ref="PSR1.Methods.CamelCapsMethodName.NotCamelCaps">
+        <exclude-pattern>spec/*</exclude-pattern>
+    </rule>
+
+    <!-- This is the rule we inherit from. If you want to exlude some specific rules, see the docs on how to do that -->
+    <rule ref="PSR12"/>
+</ruleset>
+

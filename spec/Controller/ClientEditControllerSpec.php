@@ -14,22 +14,31 @@
 
 namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
 
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequest;
 use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
 use Psr\Http\Message\UriInterface;
+use SimpleSAML\Configuration;
+use SimpleSAML\Error\BadRequest;
+use SimpleSAML\Error\NotFound;
 use SimpleSAML\Modules\OpenIDConnect\Controller\ClientEditController;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Form\ClientForm;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
+use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
-use Zend\Diactoros\Response\RedirectResponse;
-use Zend\Diactoros\ServerRequest;
+use SimpleSAML\XHTML\Template;
 
 class ClientEditControllerSpec extends ObjectBehavior
 {
+    /**
+     * @return void
+     */
     public function let(
+        ConfigurationService $configurationService,
         ClientRepository $clientRepository,
         TemplateFactory $templateFactory,
         FormFactory $formFactory,
@@ -38,22 +47,30 @@ class ClientEditControllerSpec extends ObjectBehavior
         UriInterface $uri
     ) {
         $_SERVER['REQUEST_URI'] = '/';
-        \SimpleSAML_Configuration::loadFromArray([], '', 'simplesaml');
+        Configuration::loadFromArray([], '', 'simplesaml');
+
+        $configurationService->getOpenIdConnectModuleURL()->willReturn("url");
 
         $request->getUri()->willReturn($uri);
         $uri->getPath()->willReturn('/');
 
-        $this->beConstructedWith($clientRepository, $templateFactory, $formFactory, $sessionMessagesService);
+        $this->beConstructedWith($configurationService, $clientRepository, $templateFactory, $formFactory, $sessionMessagesService);
     }
 
+    /**
+     * @return void
+     */
     public function it_is_initializable()
     {
         $this->shouldHaveType(ClientEditController::class);
     }
 
+    /**
+     * @return void
+     */
     public function it_shows_edit_client_form(
         ServerRequest $request,
-        \SimpleSAML_XHTML_Template $template,
+        Template $template,
         TemplateFactory $templateFactory,
         FormFactory $formFactory,
         ClientForm $clientForm,
@@ -70,6 +87,7 @@ class ClientEditControllerSpec extends ObjectBehavior
             'scopes' => ['openid'],
             'is_enabled' => true,
         ];
+        $clientEntity->getIdentifier()->shouldBeCalled()->willReturn('clientid');
 
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
@@ -81,10 +99,14 @@ class ClientEditControllerSpec extends ObjectBehavior
 
         $clientForm->isSuccess()->shouldBeCalled()->willReturn(false);
 
-        $templateFactory->render('oidc:clients/edit.twig', ['form' => $clientForm])->shouldBeCalled()->willReturn($template);
+        $templateFactory->render('oidc:clients/edit.twig', ['form' => $clientForm])
+            ->shouldBeCalled()->willReturn($template);
         $this->__invoke($request)->shouldBe($template);
     }
 
+    /**
+     * @return void
+     */
     public function it_updates_client_from_edit_client_form_data(
         ServerRequest $request,
         FormFactory $formFactory,
@@ -102,6 +124,7 @@ class ClientEditControllerSpec extends ObjectBehavior
             'redirect_uri' => ['http://localhost/redirect'],
             'scopes' => ['openid'],
             'is_enabled' => true,
+            'is_confidential' => false,
         ];
 
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
@@ -121,6 +144,7 @@ class ClientEditControllerSpec extends ObjectBehavior
             'redirect_uri' => ['http://localhost/redirect'],
             'scopes' => ['openid'],
             'is_enabled' => true,
+            'is_confidential' => false,
         ]);
 
         $clientRepository->update(Argument::exact(ClientEntity::fromData(
@@ -131,21 +155,28 @@ class ClientEditControllerSpec extends ObjectBehavior
             'auth_source',
             ['http://localhost/redirect'],
             ['openid'],
-            true
+            true,
+            false
         )))->shouldBeCalled();
         $sessionMessagesService->addMessage('{oidc:client:updated}')->shouldBeCalled();
 
         $this->__invoke($request)->shouldBeAnInstanceOf(RedirectResponse::class);
     }
 
+    /**
+     * @return void
+     */
     public function it_throws_id_not_found_exception_in_edit_action(
         ServerRequest $request
     ) {
         $request->getQueryParams()->shouldBeCalled()->willReturn([]);
 
-        $this->shouldThrow(\SimpleSAML_Error_BadRequest::class)->during('__invoke', [$request]);
+        $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
     }
 
+    /**
+     * @return void
+     */
     public function it_throws_client_not_found_exception_in_edit_action(
         ServerRequest $request,
         ClientRepository $clientRepository
@@ -153,6 +184,6 @@ class ClientEditControllerSpec extends ObjectBehavior
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn(null);
 
-        $this->shouldThrow(\SimpleSAML_Error_NotFound::class)->during('__invoke', [$request]);
+        $this->shouldThrow(NotFound::class)->during('__invoke', [$request]);
     }
 }

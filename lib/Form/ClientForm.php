@@ -14,7 +14,9 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Form;
 
+use Nette\Forms\Controls\CsrfProtection;
 use Nette\Forms\Form;
+use SimpleSAML\Auth\Source;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 
 class ClientForm extends Form
@@ -22,9 +24,10 @@ class ClientForm extends Form
     /**
      * RFC3986. AppendixB. Parsing a URI Reference with a Regular Expression.
      */
-    const REGEX_URI = '/^[^:]+:\/\/?[^\s\/$.?#].[^\s]*$/';
+    public const REGEX_URI = '/^[^:]+:\/\/?[^\s\/$.?#].[^\s]*$/';
+
     /**
-     * @var ConfigurationService
+     * @var \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService
      */
     private $configurationService;
 
@@ -40,22 +43,21 @@ class ClientForm extends Form
         $this->buildForm();
     }
 
-    /**
-     * @param Form $form
-     */
-    public function validateRedirectUri($form)
+    public function validateRedirectUri(Form $form): void
     {
         $values = $form->getValues();
         $redirect_uris = $values['redirect_uri'];
         foreach ($redirect_uris as $redirect_uri) {
             if (!preg_match(self::REGEX_URI, $redirect_uri)) {
-                $this->addError('Invalid URI: '.$redirect_uri);
+                $this->addError('Invalid URI: ' . $redirect_uri);
             }
         }
     }
 
     /**
-     * {@inheritdoc}
+     * @param bool $asArray
+     *
+     * @return array
      */
     public function getValues($asArray = false)
     {
@@ -63,9 +65,17 @@ class ClientForm extends Form
 
         // Sanitize Redirect URIs
         $redirect_uris = preg_split("/[\t\r\n]+/", $values['redirect_uri']);
-        $redirect_uris = array_filter($redirect_uris, function ($redirect_uri) {
-            return !empty(trim($redirect_uri));
-        });
+        $redirect_uris = array_filter(
+            $redirect_uris,
+            /**
+             * @param string $redirect_uri
+             *
+             * @return bool
+             */
+            function ($redirect_uri) {
+                return !empty(trim($redirect_uri));
+            }
+        );
         $values['redirect_uri'] = $redirect_uris;
         // openid scope is mandatory
         $values['scopes'] = array_unique(
@@ -79,7 +89,10 @@ class ClientForm extends Form
     }
 
     /**
-     * {@inheritdoc}
+     * @param array $values
+     * @param bool  $erase
+     *
+     * @return Form
      */
     public function setDefaults($values, $erase = false)
     {
@@ -96,7 +109,7 @@ class ClientForm extends Form
         $this->onValidate[] = [$this, 'validateRedirectUri'];
 
         $this->setMethod('POST');
-        $this->addComponent(new Controls\CsrfProtection(null), Form::PROTECTOR_ID);
+        $this->addComponent(new CsrfProtection(null), Form::PROTECTOR_ID);
 
         $this->addText('name', '{oidc:client:name}')
             ->setMaxLength(255)
@@ -108,9 +121,11 @@ class ClientForm extends Form
 
         $this->addCheckbox('is_enabled', '{oidc:client:is_enabled}');
 
+        $this->addCheckbox('is_confidential', '{oidc:client:is_confidential}');
+
         $this->addSelect('auth_source', '{oidc:client:auth_source}:')
             ->setAttribute('class', 'ui fluid dropdown')
-            ->setItems(\SimpleSAML_Auth_Source::getSources(), false)
+            ->setItems(Source::getSources(), false)
             ->setPrompt('Pick an AuthSource')
             ->setRequired('Select one Auth Source');
 
@@ -122,9 +137,6 @@ class ClientForm extends Form
             ->setRequired('Select one scope at least');
     }
 
-    /**
-     * @return array
-     */
     protected function getScopes(): array
     {
         $items = array_map(function ($item) {

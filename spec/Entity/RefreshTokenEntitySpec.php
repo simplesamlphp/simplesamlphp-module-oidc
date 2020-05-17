@@ -21,6 +21,9 @@ use SimpleSAML\Modules\OpenIDConnect\Entity\RefreshTokenEntity;
 
 class RefreshTokenEntitySpec extends ObjectBehavior
 {
+    /**
+     * @return void
+     */
     public function let(AccessTokenEntityInterface $accessTokenEntity)
     {
         $accessTokenEntity->getIdentifier()->willReturn('access_token_id');
@@ -35,36 +38,57 @@ class RefreshTokenEntitySpec extends ObjectBehavior
         ]);
     }
 
+    /**
+     * @return void
+     */
     public function it_is_initializable()
     {
         $this->shouldHaveType(RefreshTokenEntity::class);
     }
 
+    /**
+     * @return void
+     */
     public function it_implements_memento_interface()
     {
         $this->shouldHaveType(MementoInterface::class);
     }
 
+    /**
+     * @return void
+     */
     public function it_has_an_id()
     {
         $this->getIdentifier()->shouldBeEqualTo('id');
     }
 
+    /**
+     * @return void
+     */
     public function it_has_expiry_date_time()
     {
         $this->getExpiryDateTime()->format('Y-m-d H:i:s')->shouldBeLike('1970-01-01 00:00:00');
     }
 
+    /**
+     * @return void
+     */
     public function it_has_an_access_token(AccessTokenEntityInterface $accessTokenEntity)
     {
         $this->getAccessToken()->shouldBe($accessTokenEntity);
     }
 
+    /**
+     * @return void
+     */
     public function it_can_be_revoked()
     {
         $this->isRevoked()->shouldBeEqualTo(false);
     }
 
+    /**
+     * @return void
+     */
     public function it_can_return_state()
     {
         $this->getState()->shouldBeLike([

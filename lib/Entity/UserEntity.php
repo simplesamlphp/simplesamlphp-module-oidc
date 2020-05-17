@@ -41,6 +41,9 @@ class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInter
      */
     private $updatedAt;
 
+    /**
+     * Constructor.
+     */
     private function __construct()
     {
     }
@@ -60,7 +63,7 @@ class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInter
     /**
      * {@inheritdoc}
      */
-    public static function fromState(array $state)
+    public static function fromState(array $state): self
     {
         $user = new self();
 
@@ -78,10 +81,10 @@ class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInter
     public function getState(): array
     {
         return [
-            'id' => $this->identifier,
-            'claims' => json_encode($this->claims),
-            'updated_at' => $this->updatedAt->format('Y-m-d H:i:s'),
-            'created_at' => $this->createdAt->format('Y-m-d H:i:s'),
+            'id' => $this->getIdentifier(),
+            'claims' => json_encode($this->getClaims()),
+            'updated_at' => $this->getUpdatedAt()->format('Y-m-d H:i:s'),
+            'created_at' => $this->getCreatedAt()->format('Y-m-d H:i:s'),
         ];
     }
 

@@ -16,16 +16,23 @@ namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
 
 use PhpSpec\ObjectBehavior;
 use Psr\Http\Message\UriInterface;
+use SimpleSAML\Configuration;
+use SimpleSAML\Error\BadRequest;
+use SimpleSAML\Error\NotFound;
 use SimpleSAML\Modules\OpenIDConnect\Controller\ClientDeleteController;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
-use Zend\Diactoros\Response\RedirectResponse;
-use Zend\Diactoros\ServerRequest;
+use SimpleSAML\XHTML\Template;
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequest;
 
 class ClientDeleteControllerSpec extends ObjectBehavior
 {
+    /**
+     * @return void
+     */
     public function let(
         ClientRepository $clientRepository,
         TemplateFactory $templateFactory,
@@ -34,7 +41,7 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         UriInterface $uri
     ) {
         $_SERVER['REQUEST_URI'] = '/';
-        \SimpleSAML_Configuration::loadFromArray([], '', 'simplesaml');
+        Configuration::loadFromArray([], '', 'simplesaml');
 
         $request->getUri()->willReturn($uri);
         $uri->getPath()->willReturn('/');
@@ -42,14 +49,20 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         $this->beConstructedWith($clientRepository, $templateFactory, $sessionMessagesService);
     }
 
+    /**
+     * @return void
+     */
     public function it_is_initializable()
     {
         $this->shouldHaveType(ClientDeleteController::class);
     }
 
+    /**
+     * @return void
+     */
     public function it_asks_confirmation_before_delete_client(
         ServerRequest $request,
-        \SimpleSAML_XHTML_Template $template,
+        Template $template,
         TemplateFactory $templateFactory,
         ClientRepository $clientRepository,
         ClientEntity $clientEntity
@@ -59,18 +72,26 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         $request->getMethod()->shouldBeCalled()->willReturn('get');
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
 
-        $templateFactory->render('oidc:clients/delete.twig', ['client' => $clientEntity])->shouldBeCalled()->willReturn($template);
+        $templateFactory->render('oidc:clients/delete.twig', ['client' => $clientEntity])
+            ->shouldBeCalled()
+            ->willReturn($template);
         $this->__invoke($request)->shouldBe($template);
     }
 
+    /**
+     * @return void
+     */
     public function it_throws_id_not_found_exception_in_delete_action(
         ServerRequest $request
     ) {
         $request->getQueryParams()->shouldBeCalled()->willReturn([]);
 
-        $this->shouldThrow(\SimpleSAML_Error_BadRequest::class)->during('__invoke', [$request]);
+        $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
     }
 
+    /**
+     * @return void
+     */
     public function it_throws_client_not_found_exception_in_delete_action(
         ServerRequest $request,
         ClientRepository $clientRepository
@@ -78,9 +99,12 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn(null);
 
-        $this->shouldThrow(\SimpleSAML_Error_NotFound::class)->during('__invoke', [$request]);
+        $this->shouldThrow(NotFound::class)->during('__invoke', [$request]);
     }
 
+    /**
+     * @return void
+     */
     public function it_throws_secret_not_found_exception_in_delete_action(
         ServerRequest $request,
         ClientRepository $clientRepository,
@@ -91,9 +115,12 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         $request->getParsedBody()->shouldBeCalled()->willReturn([]);
         $request->getMethod()->shouldBeCalled()->willReturn('post');
 
-        $this->shouldThrow(\SimpleSAML_Error_BadRequest::class)->during('__invoke', [$request]);
+        $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
     }
 
+    /**
+     * @return void
+     */
     public function it_throws_secret_invalid_exception_in_delete_action(
         ServerRequest $request,
         ClientRepository $clientRepository,
@@ -106,9 +133,12 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
         $clientEntity->getSecret()->shouldBeCalled()->willReturn('validsecret');
 
-        $this->shouldThrow(\SimpleSAML_Error_BadRequest::class)->during('__invoke', [$request]);
+        $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
     }
 
+    /**
+     * @return void
+     */
     public function it_deletes_client(
         ServerRequest $request,
         ClientRepository $clientRepository,

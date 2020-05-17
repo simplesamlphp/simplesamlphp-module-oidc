@@ -16,39 +16,49 @@ namespace SimpleSAML\Modules\OpenIDConnect\Repositories;
 
 use League\OAuth2\Server\Entities\AuthCodeEntityInterface;
 use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface;
+use SimpleSAML\Error\Assertion;
 use SimpleSAML\Modules\OpenIDConnect\Entity\AuthCodeEntity;
 use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
 class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeRepositoryInterface
 {
-    const TABLE_NAME = 'oidc_auth_code';
+    public const TABLE_NAME = 'oidc_auth_code';
 
-    public function getTableName()
+    public function getTableName(): string
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
 
-    public function getNewAuthCode()
+    public function getNewAuthCode(): AuthCodeEntity
     {
         return new AuthCodeEntity();
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function persistNewAuthCode(AuthCodeEntityInterface $authCodeEntity)
     {
+        if (!$authCodeEntity instanceof AuthCodeEntity) {
+            throw new Assertion('Invalid AccessTokenEntity');
+        }
+
+        $stmt = sprintf(
+            "INSERT INTO %s (id, scopes, expires_at, user_id, client_id, is_revoked, redirect_uri) "
+                . "VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked, :redirect_uri)",
+            $this->getTableName()
+        );
+
         $this->database->write(
-            "INSERT INTO {$this->getTableName()} (id, scopes, expires_at, user_id, client_id, is_revoked, redirect_uri) VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked, :redirect_uri)",
+            $stmt,
             $authCodeEntity->getState()
         );
     }
 
     /**
      * Find Access Token by id.
-     *
-     * @param $codeId
-     *
-     * @return null|AuthCodeEntityInterface
      */
-    public function findById($codeId)
+    public function findById(string $codeId): ?AuthCodeEntityInterface
     {
         $stmt = $this->database->read(
             "SELECT * FROM {$this->getTableName()} WHERE id = :id",
@@ -62,7 +72,8 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
         }
 
         $data = current($rows);
-        $data['client'] = (new ClientRepository())->findById($data['client_id']);
+        $clientRepository = new ClientRepository($this->configurationService);
+        $data['client'] = $clientRepository->findById($data['client_id']);
 
         return AuthCodeEntity::fromState($data);
     }
@@ -72,10 +83,9 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
      */
     public function revokeAuthCode($codeId)
     {
-        /** @var AuthCodeEntity $authCode */
         $authCode = $this->findById($codeId);
 
-        if (!$authCode) {
+        if (!$authCode instanceof AuthCodeEntity) {
             throw new \RuntimeException("AuthCode not found: {$codeId}");
         }
 
@@ -88,10 +98,9 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
      */
     public function isAuthCodeRevoked($tokenId)
     {
-        /** @var AuthCodeEntity $authCode */
         $authCode = $this->findById($tokenId);
 
-        if (!$authCode) {
+        if (!$authCode instanceof AuthCodeEntity) {
             throw new \RuntimeException("AuthCode not found: {$tokenId}");
         }
 
@@ -101,7 +110,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
     /**
      * Removes expired auth codes.
      */
-    public function removeExpired()
+    public function removeExpired(): void
     {
         $this->database->write(
             "DELETE FROM {$this->getTableName()} WHERE expires_at < :now",
@@ -111,10 +120,29 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
         );
     }
 
+    /**
+     * @return void
+     */
     private function update(AuthCodeEntity $authCodeEntity)
     {
+        $stmt = sprintf(
+            <<<EOS
+            UPDATE %s 
+            SET 
+                scopes = :scopes,
+                expires_at = :expires_at,
+                user_id = :user_id,
+                client_id = :client_id,
+                is_revoked = :is_revoked,
+                redirect_uri = :redirect_uri
+            WHERE id = :id
+EOS
+            ,
+            $this->getTableName()
+        );
+
         $this->database->write(
-            "UPDATE {$this->getTableName()} SET scopes = :scopes, expires_at = :expires_at, user_id = :user_id, client_id = :client_id, is_revoked = :is_revoked, redirect_uri = :redirect_uri WHERE id = :id",
+            $stmt,
             $authCodeEntity->getState()
         );
     }

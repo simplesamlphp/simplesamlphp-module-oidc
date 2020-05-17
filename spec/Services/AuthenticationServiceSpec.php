@@ -17,6 +17,7 @@ namespace spec\SimpleSAML\Modules\OpenIDConnect\Services;
 use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
 use SimpleSAML\Auth\Simple;
+use SimpleSAML\Error\Exception;
 use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
 use SimpleSAML\Modules\OpenIDConnect\Factories\AuthSimpleFactory;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
@@ -24,10 +25,13 @@ use SimpleSAML\Modules\OpenIDConnect\Services\AuthenticationService;
 
 class AuthenticationServiceSpec extends ObjectBehavior
 {
-    const AUTH_SOURCE = 'auth_source';
-    const USER_ID_ATTR = 'uid';
-    const USERNAME = 'username';
+    public const AUTH_SOURCE = 'auth_source';
+    public const USER_ID_ATTR = 'uid';
+    public const USERNAME = 'username';
 
+    /**
+     * @return void
+     */
     public function let(
         UserRepository $userRepository,
         AuthSimpleFactory $authSimpleFactory,
@@ -40,11 +44,17 @@ class AuthenticationServiceSpec extends ObjectBehavior
         ]);
     }
 
+    /**
+     * @return void
+     */
     public function it_is_initializable()
     {
         $this->shouldHaveType(AuthenticationService::class);
     }
 
+    /**
+     * @return void
+     */
     public function it_creates_new_user(
         Simple $simple,
         UserRepository $userRepository
@@ -59,6 +69,9 @@ class AuthenticationServiceSpec extends ObjectBehavior
         $this->getAuthenticateUser(self::AUTH_SOURCE)->shouldHaveClaims([self::USER_ID_ATTR => [self::USERNAME]]);
     }
 
+    /**
+     * @return void
+     */
     public function it_returns_an_user(
         Simple $simple,
         UserRepository $userRepository,
@@ -76,6 +89,9 @@ class AuthenticationServiceSpec extends ObjectBehavior
         $this->getAuthenticateUser(self::AUTH_SOURCE)->shouldBe($userEntity);
     }
 
+    /**
+     * @return void
+     */
     public function it_throws_exception_if_claims_not_exists(
         Simple $simple
     ) {
@@ -84,7 +100,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
             'eduPersonTargetedId' => [self::USERNAME],
         ]);
 
-        $this->shouldThrow(\SimpleSAML_Error_Exception::class)->during('getAuthenticateUser', [self::AUTH_SOURCE]);
+        $this->shouldThrow(Exception::class)->during('getAuthenticateUser', [self::AUTH_SOURCE]);
     }
 
     public function getMatchers(): array

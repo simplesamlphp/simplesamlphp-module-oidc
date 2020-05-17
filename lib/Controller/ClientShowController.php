@@ -17,7 +17,7 @@ namespace SimpleSAML\Modules\OpenIDConnect\Controller;
 use SimpleSAML\Modules\OpenIDConnect\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\ServerRequest;
 
 class ClientShowController
 {
@@ -34,7 +34,7 @@ class ClientShowController
         $this->templateFactory = $templateFactory;
     }
 
-    public function __invoke(ServerRequest $request)
+    public function __invoke(ServerRequest $request): \SimpleSAML\XHTML\Template
     {
         $client = $this->getClientFromRequest($request);
 

@@ -21,13 +21,18 @@ use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
 
 class UserRepository extends AbstractDatabaseRepository implements UserRepositoryInterface, IdentityProviderInterface
 {
-    const TABLE_NAME = 'oidc_user';
+    public const TABLE_NAME = 'oidc_user';
 
-    public function getTableName()
+    public function getTableName(): string
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
 
+    /**
+     * @param string $identifier
+     *
+     * @return \SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity|null
+     */
     public function getUserEntityByIdentifier($identifier)
     {
         $stmt = $this->database->read(
@@ -45,7 +50,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
     }
 
     /**
-     * @codeCoverageIgnore
+     * {@inheritdoc}
      */
     public function getUserEntityByUserCredentials(
         $username,
@@ -56,15 +61,22 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
         throw new \Exception('Not supported');
     }
 
-    public function add(UserEntity $userEntity)
+    public function add(UserEntity $userEntity): void
     {
+        $stmt = sprintf(
+            "INSERT INTO %s (id, claims, updated_at, created_at) VALUES (:id, :claims, :updated_at, :created_at)",
+            $this->getTableName()
+        );
         $this->database->write(
-            "INSERT INTO {$this->getTableName()} (id, claims, updated_at, created_at) VALUES (:id, :claims, :updated_at, :created_at)",
+            $stmt,
             $userEntity->getState()
         );
     }
 
-    public function delete(UserEntity $user)
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity $userEntity
+     */
+    public function delete(UserEntity $user): void
     {
         $this->database->write(
             "DELETE FROM {$this->getTableName()} WHERE id = :id",
@@ -74,10 +86,18 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
         );
     }
 
-    public function update(UserEntity $user)
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity $userEntity
+     */
+    public function update(UserEntity $user): void
     {
+        $stmt = sprintf(
+            "UPDATE %s SET claims = :claims, updated_at = :updated_at, created_at = :created_at WHERE id = :id",
+            $this->getTableName()
+        );
+
         $this->database->write(
-            "UPDATE {$this->getTableName()} SET claims = :claims, updated_at = :updated_at, created_at = :created_at WHERE id = :id",
+            $stmt,
             $user->getState()
         );
     }

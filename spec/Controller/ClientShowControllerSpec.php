@@ -16,14 +16,23 @@ namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
 
 use PhpSpec\ObjectBehavior;
 use Psr\Http\Message\UriInterface;
+use SimpleSAML\Configuration;
+use SimpleSAML\Error\BadRequest;
+use SimpleSAML\Error\NotFound;
 use SimpleSAML\Modules\OpenIDConnect\Controller\ClientShowController;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
-use Zend\Diactoros\ServerRequest;
+use SimpleSAML\XHTML\Template;
+use Laminas\Diactoros\ServerRequest;
 
 class ClientShowControllerSpec extends ObjectBehavior
 {
+    /**
+     * @param \Psr\Http\Message\UriInterface
+     *
+     * @return void
+     */
     public function let(
         ClientRepository $clientRepository,
         TemplateFactory $templateFactory,
@@ -31,7 +40,7 @@ class ClientShowControllerSpec extends ObjectBehavior
         UriInterface $uri
     ) {
         $_SERVER['REQUEST_URI'] = '/';
-        \SimpleSAML_Configuration::loadFromArray([], '', 'simplesaml');
+        Configuration::loadFromArray([], '', 'simplesaml');
 
         $request->getUri()->willReturn($uri);
         $uri->getPath()->willReturn('/');
@@ -39,14 +48,22 @@ class ClientShowControllerSpec extends ObjectBehavior
         $this->beConstructedWith($clientRepository, $templateFactory);
     }
 
+    /**
+     * @return void
+     */
     public function it_is_initializable()
     {
         $this->shouldHaveType(ClientShowController::class);
     }
 
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
+     *
+     * @return void
+     */
     public function it_show_client_description(
         ServerRequest $request,
-        \SimpleSAML_XHTML_Template $template,
+        Template $template,
         TemplateFactory $templateFactory,
         ClientRepository $clientRepository,
         ClientEntity $clientEntity
@@ -54,18 +71,25 @@ class ClientShowControllerSpec extends ObjectBehavior
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
 
-        $templateFactory->render('oidc:clients/show.twig', ['client' => $clientEntity])->shouldBeCalled()->willReturn($template);
+        $templateFactory->render('oidc:clients/show.twig', ['client' => $clientEntity])
+            ->shouldBeCalled()->willReturn($template);
         $this->__invoke($request)->shouldBe($template);
     }
 
+    /**
+     * @return void
+     */
     public function it_throws_id_not_found_exception_in_show_action(
         ServerRequest $request
     ) {
         $request->getQueryParams()->shouldBeCalled()->willReturn([]);
 
-        $this->shouldThrow(\SimpleSAML_Error_BadRequest::class)->during('__invoke', [$request]);
+        $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
     }
 
+    /**
+     * @return void
+     */
     public function it_throws_client_not_found_exception_in_show_action(
         ServerRequest $request,
         ClientRepository $clientRepository
@@ -73,6 +97,6 @@ class ClientShowControllerSpec extends ObjectBehavior
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn(null);
 
-        $this->shouldThrow(\SimpleSAML_Error_NotFound::class)->during('__invoke', [$request]);
+        $this->shouldThrow(NotFound::class)->during('__invoke', [$request]);
     }
 }

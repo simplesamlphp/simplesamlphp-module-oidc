@@ -14,24 +14,26 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Controller;
 
+use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Modules\OpenIDConnect\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 use SimpleSAML\Utils\HTTP;
-use Zend\Diactoros\Response\RedirectResponse;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequest;
 
 class ClientDeleteController
 {
     use GetClientFromRequestTrait;
 
     /**
-     * @var TemplateFactory
+     * @var \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory
      */
     private $templateFactory;
+
     /**
-     * @var SessionMessagesService
+     * @var \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService
      */
     private $messages;
 
@@ -45,6 +47,9 @@ class ClientDeleteController
         $this->messages = $messages;
     }
 
+    /**
+     * @return \Laminas\Diactoros\Response\RedirectResponse|\SimpleSAML\XHTML\Template
+     */
     public function __invoke(ServerRequest $request)
     {
         $client = $this->getClientFromRequest($request);
@@ -53,11 +58,11 @@ class ClientDeleteController
 
         if ('POST' === mb_strtoupper($request->getMethod())) {
             if (!$clientSecret) {
-                throw new \SimpleSAML_Error_BadRequest('Client secret is missing.');
+                throw new BadRequest('Client secret is missing.');
             }
 
             if ($clientSecret !== $client->getSecret()) {
-                throw new \SimpleSAML_Error_BadRequest('Client secret is invalid.');
+                throw new BadRequest('Client secret is invalid.');
             }
 
             $this->clientRepository->delete($client);

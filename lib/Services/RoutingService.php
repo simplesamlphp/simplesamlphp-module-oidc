@@ -14,17 +14,25 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
+use Laminas\HttpHandlerRunner\Emitter\SapiEmitter;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
+use SimpleSAML\Error\BadRequest;
+use SimpleSAML\Error\Exception;
 use SimpleSAML\Utils\Auth;
-use Zend\Diactoros\Response;
-use Zend\Diactoros\Response\JsonResponse;
-use Zend\Diactoros\Response\SapiEmitter;
-use Zend\Diactoros\ServerRequestFactory;
+use SimpleSAML\XHTML\Template;
+use Laminas\Diactoros\Response;
+use Laminas\Diactoros\Response\JsonResponse;
+use Laminas\Diactoros\ServerRequestFactory;
 
 class RoutingService
 {
+    /**
+     * @throws \SimpleSAML\Error\Exception
+     *
+     * @return void
+     */
     public static function call(string $controllerClassname, bool $authenticated = true)
     {
         if ($authenticated) {
@@ -43,48 +51,64 @@ class RoutingService
         /** @var callable $controller */
         $response = $controller($serverRequest);
 
-        if ($response instanceof \SimpleSAML_XHTML_Template) {
+        if ($response instanceof Template) {
             $response->data['messages'] = $container->get(SessionMessagesService::class)->getMessages();
 
-            return $response->show();
+            $response->send();
+
+            return;
         }
 
         if ($response instanceof ResponseInterface) {
             $emitter = new SapiEmitter();
 
-            return $emitter->emit($response);
+            $emitter->emit($response);
+
+            return;
         }
 
-        throw new \SimpleSAML_Error_Error('Response type not supported: '.\get_class($response));
+        throw new Exception('Response type not supported: ' . \get_class($response));
     }
 
-    protected static function getController(string $controllerClassname, ContainerInterface $container)
+    protected static function getController(string $controllerClassname, ContainerInterface $container): object
     {
         if (!class_exists($controllerClassname)) {
-            throw new \SimpleSAML_Error_BadRequest("Controller does not exist: {$controllerClassname}");
+            throw new BadRequest("Controller does not exist: {$controllerClassname}");
         }
         $controllerReflectionClass = new \ReflectionClass($controllerClassname);
 
         $arguments = [];
-        /** @var \ReflectionParameter $parameter */
-        foreach ($controllerReflectionClass->getConstructor()->getParameters() as $parameter) {
-            $className = $parameter->getClass()->getName();
-            if (false === $container->has($className)) {
-                throw new \RuntimeException('Parameter or service not found: '.$className);
-            }
+        $constructor = $controllerReflectionClass->getConstructor();
 
-            $arguments[] = $container->get($className);
+        if (null !== $constructor) {
+            foreach ($constructor->getParameters() as $parameter) {
+                $reflectionClass = $parameter->getClass();
+                if (null === $reflectionClass) {
+                    throw new \RuntimeException('Parameter not found in container: ' . $parameter->getName());
+                }
+
+                $className = $reflectionClass->getName();
+                if (false === $container->has($className)) {
+                    throw new \RuntimeException('Service not found in container: ' . $className);
+                }
+
+                $arguments[] = $container->get($className);
+            }
         }
-        /* @var callable $controller */
+
         return $controllerReflectionClass->newInstanceArgs($arguments);
     }
 
+    /**
+     * @return void
+     */
     protected static function enableJsonExceptionResponse()
     {
         set_exception_handler(function (\Throwable $t) {
             if ($t instanceof OAuthServerException) {
                 $response = $t->generateHttpResponse(new Response());
             } else {
+                $error = [];
                 $error['error'] = [
                     'code' => 500,
                     'message' => $t->getMessage(),

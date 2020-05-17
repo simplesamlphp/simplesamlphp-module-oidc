@@ -20,8 +20,8 @@ use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseLegacyOAuth2Import;
 use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 use SimpleSAML\Utils\HTTP;
-use Zend\Diactoros\Response\RedirectResponse;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequest;
 
 class OpenIdConnectInstallerController
 {
@@ -29,14 +29,17 @@ class OpenIdConnectInstallerController
      * @var TemplateFactory
      */
     private $templateFactory;
+
     /**
      * @var SessionMessagesService
      */
     private $messages;
+
     /**
      * @var DatabaseMigration
      */
     private $databaseMigration;
+
     /**
      * @var DatabaseLegacyOAuth2Import
      */
@@ -54,6 +57,9 @@ class OpenIdConnectInstallerController
         $this->databaseLegacyOAuth2Import = $databaseLegacyOAuth2Import;
     }
 
+    /**
+     * @return \Laminas\Diactoros\Response\RedirectResponse|\SimpleSAML\XHTML\Template
+     */
     public function __invoke(ServerRequest $request)
     {
         if ($this->databaseMigration->isUpdated()) {
@@ -63,7 +69,7 @@ class OpenIdConnectInstallerController
         $oauth2Enabled = \in_array('oauth2', Module::getModules(), true);
 
         $parsedBody = $request->getParsedBody();
-        if ('POST' === $request->getMethod() && $parsedBody['migrate'] ?? false) {
+        if ('POST' === $request->getMethod() && ($parsedBody['migrate'] ?? false)) {
             $this->databaseMigration->migrate();
             $this->messages->addMessage('{oidc:install:finished}');
 

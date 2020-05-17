@@ -33,6 +33,9 @@ class DatabaseMigration
         $this->database = $database ?? Database::getInstance();
     }
 
+    /**
+     * @return bool
+     */
     public function isUpdated()
     {
         $implementedVersions = $this->versions();
@@ -47,10 +50,15 @@ class DatabaseMigration
         return empty($notImplementedVersions);
     }
 
+    /**
+     * @return array
+     */
     public function versions()
     {
         $versionsTablename = $this->versionsTableName();
-        $this->database->write("CREATE TABLE IF NOT EXISTS {$versionsTablename} (version VARCHAR(255) PRIMARY KEY NOT NULL)");
+        $this->database->write(
+            "CREATE TABLE IF NOT EXISTS {$versionsTablename} (version VARCHAR(255) PRIMARY KEY NOT NULL)"
+        );
 
         $versions = $this->database
             ->read("SELECT version FROM ${versionsTablename}")
@@ -59,6 +67,9 @@ class DatabaseMigration
         return $versions;
     }
 
+    /**
+     * @return void
+     */
     public function migrate()
     {
         $versionsTablename = $this->versionsTableName();
@@ -73,11 +84,13 @@ class DatabaseMigration
             $this->version20180425203400();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20180425203400')");
         }
+
+        if (!\in_array('20200517071100', $versions, true)) {
+            $this->version20200517071100();
+            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20200517071100')");
+        }
     }
 
-    /**
-     * @return string
-     */
     private function versionsTableName(): string
     {
         $versionsTablename = $this->database->applyPrefix('oidc_migration_versions');
@@ -85,6 +98,9 @@ class DatabaseMigration
         return $versionsTablename;
     }
 
+    /**
+     * @return void
+     */
     private function version20180305180300()
     {
         $userTablename = $this->database->applyPrefix(UserRepository::TABLE_NAME);
@@ -123,8 +139,10 @@ EOT
             user_id VARCHAR(255) NOT NULL,                          
             client_id VARCHAR(255) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
-            CONSTRAINT {$fkAccessTokenUser} FOREIGN KEY (user_id) REFERENCES ${userTablename} (id) ON DELETE CASCADE,                                 
-            CONSTRAINT {$fkAccessTokenClient} FOREIGN KEY (client_id) REFERENCES ${clientTableName} (id) ON DELETE CASCADE                                
+            CONSTRAINT {$fkAccessTokenUser} FOREIGN KEY (user_id) 
+                REFERENCES ${userTablename} (id) ON DELETE CASCADE,                                 
+            CONSTRAINT {$fkAccessTokenClient} FOREIGN KEY (client_id) 
+                REFERENCES ${clientTableName} (id) ON DELETE CASCADE                                
         )
 EOT
         );
@@ -137,7 +155,8 @@ EOT
             expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             access_token_id VARCHAR(255) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
-            CONSTRAINT {$fkRefreshTokenAccessToken} FOREIGN KEY (access_token_id) REFERENCES ${accessTokenTableName} (id) ON DELETE CASCADE
+            CONSTRAINT {$fkRefreshTokenAccessToken} FOREIGN KEY (access_token_id)
+                REFERENCES ${accessTokenTableName} (id) ON DELETE CASCADE
         )
 EOT
         );
@@ -154,13 +173,18 @@ EOT
             client_id VARCHAR(255) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
             redirect_uri TEXT NOT NULL,
-            CONSTRAINT {$fkAuthCodeUser} FOREIGN KEY (user_id) REFERENCES ${userTablename} (id) ON DELETE CASCADE,                                 
-            CONSTRAINT {$fkAuthCodeClient} FOREIGN KEY (client_id) REFERENCES ${clientTableName} (id) ON DELETE CASCADE                                            
+            CONSTRAINT {$fkAuthCodeUser} FOREIGN KEY (user_id)
+                REFERENCES ${userTablename} (id) ON DELETE CASCADE,                                 
+            CONSTRAINT {$fkAuthCodeClient} FOREIGN KEY (client_id)
+                REFERENCES ${clientTableName} (id) ON DELETE CASCADE                                            
         )
 EOT
         );
     }
 
+    /**
+     * @return void
+     */
     private function version20180425203400()
     {
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
@@ -171,6 +195,22 @@ EOT
         );
     }
 
+    private function version20200517071100()
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE ${clientTableName}
+            ADD is_confidential BOOLEAN NOT NULL DEFAULT false 
+EOT
+        );
+    }
+
+    /**
+     * @param string $prefix
+     * @param int    $maxSize
+     *
+     * @return string
+     */
     private function generateIdentifierName(array $columnNames, $prefix = '', $maxSize = 30)
     {
         $hash = implode('', array_map(function ($column) {

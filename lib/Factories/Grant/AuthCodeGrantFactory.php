@@ -21,44 +21,38 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
 class AuthCodeGrantFactory
 {
     /**
-     * @var AuthCodeRepository
+     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\AuthCodeRepository
      */
     private $authCodeRepository;
+
     /**
-     * @var RefreshTokenRepository
+     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository
      */
     private $refreshTokenRepository;
+
     /**
      * @var \DateInterval
      */
     private $refreshTokenDuration;
+
     /**
      * @var \DateInterval
      */
     private $authCodeDuration;
-    /**
-     * @var bool
-     */
-    private $enablePKCE;
 
     public function __construct(
         AuthCodeRepository $authCodeRepository,
         RefreshTokenRepository $refreshTokenRepository,
         \DateInterval $refreshTokenDuration,
-        \DateInterval $authCodeDuration,
-        bool $enablePKCE
+        \DateInterval $authCodeDuration
     ) {
         $this->authCodeRepository = $authCodeRepository;
         $this->refreshTokenRepository = $refreshTokenRepository;
         $this->refreshTokenDuration = $refreshTokenDuration;
         $this->authCodeDuration = $authCodeDuration;
-        $this->enablePKCE = $enablePKCE;
     }
 
-    /**
-     * @return AuthCodeGrant
-     */
-    public function build()
+    public function build(): AuthCodeGrant
     {
         $authCodeGrant = new AuthCodeGrant(
             $this->authCodeRepository,
@@ -66,10 +60,6 @@ class AuthCodeGrantFactory
             $this->authCodeDuration
         );
         $authCodeGrant->setRefreshTokenTTL($this->refreshTokenDuration);
-
-        if ($this->enablePKCE) {
-            $authCodeGrant->enableCodeExchangeProof();
-        }
 
         return $authCodeGrant;
     }

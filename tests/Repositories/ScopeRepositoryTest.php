@@ -14,7 +14,9 @@
 
 namespace Tests\SimpleSAML\Modules\OpenIDConnect\Repositories;
 
+use League\OAuth2\Server\Exception\OAuthServerException;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Configuration;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ScopeEntity;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
@@ -22,7 +24,7 @@ use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration;
 
 class ScopeRepositoryTest extends TestCase
 {
-    public static function setUpBeforeClass()
+    public static function setUpBeforeClass(): void
     {
         $config = [
             'database.dsn' => 'sqlite::memory:',
@@ -33,12 +35,12 @@ class ScopeRepositoryTest extends TestCase
             'database.slaves' => [],
         ];
 
-        \SimpleSAML_Configuration::loadFromArray($config, '', 'simplesaml');
-        \SimpleSAML_Configuration::setConfigDir(__DIR__.'/../../config-template');
+        Configuration::loadFromArray($config, '', 'simplesaml');
+        Configuration::setConfigDir(__DIR__ . '/../../config-templates');
         (new DatabaseMigration())->migrate();
     }
 
-    public function testGetScopeEntityByIdentifier()
+    public function testGetScopeEntityByIdentifier(): void
     {
         $scopeRepository = new ScopeRepository(new ConfigurationService());
 
@@ -52,16 +54,16 @@ class ScopeRepositoryTest extends TestCase
         $this->assertEquals($expected, $scope);
     }
 
-    public function testGetUnknownScope()
+    public function testGetUnknownScope(): void
     {
+        $this->expectException(OAuthServerException::class);
+
         $scopeRepository = new ScopeRepository(new ConfigurationService());
 
-        $scope = $scopeRepository->getScopeEntityByIdentifier('none');
-
-        $this->assertNull($scope);
+        $scopeRepository->getScopeEntityByIdentifier('none');
     }
 
-    public function testFinalizeScopes()
+    public function testFinalizeScopes(): void
     {
         $scopeRepository = new ScopeRepository(new ConfigurationService());
         $scopes = [

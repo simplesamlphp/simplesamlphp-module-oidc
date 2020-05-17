@@ -16,7 +16,7 @@ namespace SimpleSAML\Modules\OpenIDConnect\Controller;
 
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\ServerRequest;
 
 class ClientIndexController
 {
@@ -24,6 +24,7 @@ class ClientIndexController
      * @var ClientRepository
      */
     private $clientRepository;
+
     /**
      * @var TemplateFactory
      */
@@ -35,7 +36,7 @@ class ClientIndexController
         $this->templateFactory = $templateFactory;
     }
 
-    public function __invoke(ServerRequest $request)
+    public function __invoke(ServerRequest $request): \SimpleSAML\XHTML\Template
     {
         $clients = $this->clientRepository->findAll();
 

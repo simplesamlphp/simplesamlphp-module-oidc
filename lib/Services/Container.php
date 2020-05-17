@@ -21,7 +21,9 @@ use League\OAuth2\Server\Grant\RefreshTokenGrant;
 use League\OAuth2\Server\ResourceServer;
 use Psr\Container\ContainerInterface;
 use Psr\Container\NotFoundExceptionInterface;
+use SimpleSAML\Configuration;
 use SimpleSAML\Database;
+use SimpleSAML\Error\Exception;
 use SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor;
 use SimpleSAML\Modules\OpenIDConnect\Factories\AuthorizationServerFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\AuthSimpleFactory;
@@ -39,32 +41,34 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
+use SimpleSAML\Session;
 
 class Container implements ContainerInterface
 {
+    /** @var array */
     private $services = [];
 
     public function __construct()
     {
-        $simpleSAMLConfiguration = \SimpleSAML_Configuration::getInstance();
-        $oidcModuleConfiguration = \SimpleSAML_Configuration::getConfig('module_oidc.php');
+        $simpleSAMLConfiguration = Configuration::getInstance();
+        $oidcModuleConfiguration = Configuration::getConfig('module_oidc.php');
 
         $configurationService = new ConfigurationService();
         $this->services[ConfigurationService::class] = $configurationService;
 
-        $clientRepository = new ClientRepository();
+        $clientRepository = new ClientRepository($configurationService);
         $this->services[ClientRepository::class] = $clientRepository;
 
-        $userRepository = new UserRepository();
+        $userRepository = new UserRepository($configurationService);
         $this->services[UserRepository::class] = $userRepository;
 
-        $authCodeRepository = new AuthCodeRepository();
+        $authCodeRepository = new AuthCodeRepository($configurationService);
         $this->services[AuthCodeRepository::class] = $authCodeRepository;
 
-        $refreshTokenRepository = new RefreshTokenRepository();
+        $refreshTokenRepository = new RefreshTokenRepository($configurationService);
         $this->services[RefreshTokenRepository::class] = $refreshTokenRepository;
 
-        $accessTokenRepository = new AccessTokenRepository();
+        $accessTokenRepository = new AccessTokenRepository($configurationService);
         $this->services[AccessTokenRepository::class] = $accessTokenRepository;
 
         $scopeRepository = new ScopeRepository($configurationService);
@@ -88,7 +92,7 @@ class Container implements ContainerInterface
         $jsonWebKeySetService = new JsonWebKeySetService();
         $this->services[JsonWebKeySetService::class] = $jsonWebKeySetService;
 
-        $sessionMessagesService = new SessionMessagesService(\SimpleSAML_Session::getSessionFromRequest());
+        $sessionMessagesService = new SessionMessagesService(Session::getSessionFromRequest());
         $this->services[SessionMessagesService::class] = $sessionMessagesService;
 
         $templateFactory = new TemplateFactory($simpleSAMLConfiguration);
@@ -101,10 +105,15 @@ class Container implements ContainerInterface
         );
         $this->services[AuthenticationService::class] = $authenticationService;
 
-        $accessTokenDuration = new \DateInterval($configurationService->getOpenIDConnectConfiguration()->getString('accessTokenDuration'));
-        $authCodeDuration = new \DateInterval($configurationService->getOpenIDConnectConfiguration()->getString('authCodeDuration'));
-        $refreshTokenDuration = new \DateInterval($configurationService->getOpenIDConnectConfiguration()->getString('refreshTokenDuration'));
-        $enablePKCE = $configurationService->getOpenIDConnectConfiguration()->getBoolean('pkce', false);
+        $accessTokenDuration = new \DateInterval(
+            $configurationService->getOpenIDConnectConfiguration()->getString('accessTokenDuration')
+        );
+        $authCodeDuration = new \DateInterval(
+            $configurationService->getOpenIDConnectConfiguration()->getString('authCodeDuration')
+        );
+        $refreshTokenDuration = new \DateInterval(
+            $configurationService->getOpenIDConnectConfiguration()->getString('refreshTokenDuration')
+        );
         $passPhrase = $configurationService->getOpenIDConnectConfiguration()->getString('pass_phrase', null);
 
         $claimTranslatorExtractor = (new ClaimTranslatorExtractorFactory(
@@ -123,20 +132,17 @@ class Container implements ContainerInterface
             $authCodeRepository,
             $refreshTokenRepository,
             $refreshTokenDuration,
-            $authCodeDuration,
-            $enablePKCE
+            $authCodeDuration
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 
-        $implicitGrantFactory = new ImplicitGrantFactory(
-            $accessTokenDuration
-        );
+        $implicitGrantFactory = new ImplicitGrantFactory($accessTokenDuration);
         $this->services[ImplicitGrant::class] = $implicitGrantFactory->build();
 
         $refreshTokenGrantFactory = new RefreshTokenGrantFactory(
             $refreshTokenRepository,
             $refreshTokenDuration
-            );
+        );
         $this->services[RefreshTokenGrant::class] = $refreshTokenGrantFactory->build();
 
         $authorizationServerFactory = new AuthorizationServerFactory(
@@ -161,15 +167,14 @@ class Container implements ContainerInterface
     /**
      * @param string $id
      *
-     * @throws NotFoundExceptionInterface
-     * @throws \SimpleSAML_Error_Exception
+     * @throws \SimpleSAML\Error\Exception
      *
      * @return object
      */
     public function get($id)
     {
         if (false === $this->has($id)) {
-            throw new class($id) extends \SimpleSAML_Error_Exception implements NotFoundExceptionInterface {
+            throw new class ($id) extends Exception implements NotFoundExceptionInterface {
                 public function __construct(string $id)
                 {
                     parent::__construct("Service not found: {$id}.");
@@ -180,8 +185,13 @@ class Container implements ContainerInterface
         return $this->services[$id];
     }
 
+    /**
+     * @param string $id
+     *
+     * @return bool
+     */
     public function has($id)
     {
-        return array_key_exists($id, $this->services);
+        return \array_key_exists($id, $this->services);
     }
 }

@@ -18,8 +18,8 @@ use League\OAuth2\Server\AuthorizationServer;
 use SimpleSAML\Modules\OpenIDConnect\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\AuthenticationService;
-use Zend\Diactoros\Response;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response;
+use Laminas\Diactoros\ServerRequest;
 
 class OAuth2AuthorizationController
 {
@@ -29,11 +29,15 @@ class OAuth2AuthorizationController
      * @var AuthenticationService
      */
     private $authenticationService;
+
     /**
      * @var AuthorizationServer
      */
     private $authorizationServer;
 
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRespository
+     */
     public function __construct(
         ClientRepository $clientRepository,
         AuthenticationService $authenticationService,
@@ -44,7 +48,7 @@ class OAuth2AuthorizationController
         $this->authorizationServer = $authorizationServer;
     }
 
-    public function __invoke(ServerRequest $request)
+    public function __invoke(ServerRequest $request): \Psr\Http\Message\ResponseInterface
     {
         $authSource = $this->getClientFromRequest($request)->getAuthSource();
         $user = $this->authenticationService->getAuthenticateUser($authSource);

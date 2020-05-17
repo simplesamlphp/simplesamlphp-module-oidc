@@ -14,20 +14,29 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
+use SimpleSAML\Session;
+
 class SessionMessagesService
 {
+    /** @var \SimpleSAML\Session */
     private $session;
 
-    public function __construct(\SimpleSAML_Session $session)
+    public function __construct(Session $session)
     {
         $this->session = $session;
     }
 
+    /**
+     * @return void
+     */
     public function addMessage(string $value)
     {
         $this->session->setData('message', uniqid(), $value);
     }
 
+    /**
+     * @return array
+     */
     public function getMessages()
     {
         $messages = $this->session->getDataOfType('message');

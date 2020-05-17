@@ -5,7 +5,7 @@ This module adds support for the OpenID Connect protocol through a SimpleSAMLphp
 
 [![Build Status](https://travis-ci.org/rediris-es/simplesamlphp-module-oidc.svg?branch=master)](https://travis-ci.org/rediris-es/simplesamlphp-module-oidc) 
 [![Coverage Status](https://coveralls.io/repos/github/rediris-es/simplesamlphp-module-oidc/badge.svg?branch=master)](https://coveralls.io/github/rediris-es/simplesamlphp-module-oidc?branch=master)
-[![SimpleSAMLphp](https://img.shields.io/badge/simplesamlphp-1.15-red.svg)](https://simplesamlphp.org/)
+[![SimpleSAMLphp](https://img.shields.io/badge/simplesamlphp-1.18-red.svg)](https://simplesamlphp.org/)
 
 ![Main screen capture](docs/oidc.png)
 
@@ -148,3 +148,8 @@ Once the database schema has been created, you can open the _Federation_ tab fro
 
 The module lets you create, read, update and delete all the RP you want. To see the client id and the client secret press the show button.
 
+### Create client options
+
+* Enabled: You can enable or disable a client. Disabled by default.
+* Secure client: The client is secure if it is capable of securely storing a secret. Unsecure clients
+must provide a PCKS token (code_challenge parameter during authorization phase). Disabled by default. 

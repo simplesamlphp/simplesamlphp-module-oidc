@@ -21,7 +21,7 @@ use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 class ClaimTranslatorExtractorFactory
 {
     /**
-     * @var ConfigurationService
+     * @var \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService
      */
     private $configurationService;
 
@@ -31,14 +31,23 @@ class ClaimTranslatorExtractorFactory
         $this->configurationService = $configurationService;
     }
 
-    public function build()
+    public function build(): ClaimTranslatorExtractor
     {
         $translatorTable = $this->configurationService->getOpenIDConnectConfiguration()->getArray('translate', []);
 
         $scopes = $this->configurationService->getOpenIDPrivateScopes();
-        $scopes = array_map(function ($config, $scope) {
-            return new ClaimSetEntity($scope, $config['attributes'] ?? []);
-        }, $scopes, array_keys($scopes));
+        $scopes = array_map(
+            /**
+             * @param array<array<string>> $config
+             *
+             * @return \OpenIDConnectServer\Entities\ClaimSetEntity
+             */
+            function (array $config, string $scope) {
+                return new ClaimSetEntity($scope, $config['attributes'] ?? []);
+            },
+            $scopes,
+            array_keys($scopes)
+        );
 
         return new ClaimTranslatorExtractor($scopes, $translatorTable);
     }

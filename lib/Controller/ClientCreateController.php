@@ -14,51 +14,65 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Controller;
 
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequest;
 use SimpleSAML\Modules\OpenIDConnect\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Form\ClientForm;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
+use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 use SimpleSAML\Utils\HTTP;
 use SimpleSAML\Utils\Random;
-use Zend\Diactoros\Response\RedirectResponse;
-use Zend\Diactoros\ServerRequest;
 
 class ClientCreateController
 {
     use GetClientFromRequestTrait;
 
     /**
-     * @var TemplateFactory
+     * @var ConfigurationService
+     */
+    private $configurationService;
+
+    /**
+     * @var \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory
      */
     private $templateFactory;
+
     /**
-     * @var FormFactory
+     * @var \SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory
      */
     private $formFactory;
+
     /**
-     * @var SessionMessagesService
+     * @var \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService
      */
     private $messages;
 
     public function __construct(
+        ConfigurationService $configurationService,
         ClientRepository $clientRepository,
         TemplateFactory $templateFactory,
         FormFactory $formFactory,
         SessionMessagesService $messages
     ) {
+        $this->configurationService = $configurationService;
         $this->clientRepository = $clientRepository;
         $this->templateFactory = $templateFactory;
         $this->formFactory = $formFactory;
         $this->messages = $messages;
     }
 
+    /**
+     * @return \Laminas\Diactoros\Response\RedirectResponse|\SimpleSAML\XHTML\Template
+     */
     public function __invoke(ServerRequest $request)
     {
         $form = $this->formFactory->build(ClientForm::class);
-        $form->setAction($request->getUri());
+        $formAction = $this->configurationService->getOpenIdConnectModuleURL('clients/new.php');
+        $form->setAction($formAction);
 
         if ($form->isSuccess()) {
             $client = $form->getValues();
@@ -73,12 +87,13 @@ class ClientCreateController
                 $client['auth_source'],
                 $client['redirect_uri'],
                 $client['scopes'],
-                $client['is_enabled']
+                $client['is_enabled'],
+                $client['is_confidential']
             ));
 
             $this->messages->addMessage('{oidc:client:added}');
 
-            return new RedirectResponse(HTTP::addURLParameters('index.php', []));
+            return new RedirectResponse(HTTP::addURLParameters('show.php', ['client_id' => $client['id']]));
         }
 
         return $this->templateFactory->render('oidc:clients/new.twig', [

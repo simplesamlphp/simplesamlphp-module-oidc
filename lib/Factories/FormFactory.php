@@ -15,12 +15,13 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Factories;
 
 use Nette\Forms\Form;
+use SimpleSAML\Error\Exception;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 
 class FormFactory
 {
     /**
-     * @var ConfigurationService
+     * @var \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService
      */
     private $configurationService;
 
@@ -30,19 +31,19 @@ class FormFactory
     }
 
     /**
-     * @param string $name Form name
+     * @param string $classname Form classname
      *
-     * @throws \SimpleSAML_Error_Exception
+     * @throws \Exception
      *
      * @return mixed
      */
     public function build(string $classname)
     {
-        if (!class_exists($classname)
-            && $classname instanceof Form) {
-            throw new \SimpleSAML_Error_Exception("Invalid form: {$classname}");
+        if (!class_exists($classname) && ($classname instanceof Form)) {
+            throw new Exception("Invalid form: {$classname}");
         }
 
+        /** @psalm-suppress InvalidStringClass */
         return new $classname($this->configurationService);
     }
 }

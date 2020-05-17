@@ -14,7 +14,6 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Factories;
 
-use Lcobucci\JWT\Builder;
 use SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
 use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\IdTokenResponse;
@@ -23,16 +22,17 @@ use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 class IdTokenResponseFactory
 {
     /**
-     * @var UserRepository
+     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository
      */
     private $userRepository;
 
     /**
-     * @var ConfigurationService
+     * @var \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService
      */
     private $configurationService;
+
     /**
-     * @var ClaimTranslatorExtractor
+     * @var \SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor
      */
     private $claimTranslatorExtractor;
 
@@ -46,19 +46,12 @@ class IdTokenResponseFactory
         $this->claimTranslatorExtractor = $claimTranslatorExtractor;
     }
 
-    public function build()
+    public function build(): IdTokenResponse
     {
-        $builder = (new Builder())
-            ->setIssuer($this->configurationService->getSimpleSAMLSelfURLHost())
-            ->setHeader('kid', 'oidc')
-        ;
-
-        $token = new IdTokenResponse(
+        return new IdTokenResponse(
             $this->userRepository,
             $this->claimTranslatorExtractor,
-            $builder
+            $this->configurationService
         );
-
-        return $token;
     }
 }

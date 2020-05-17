@@ -17,27 +17,40 @@ namespace spec\SimpleSAML\Modules\OpenIDConnect\Services;
 use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
+use SimpleSAML\Session;
 
 class SessionMessagesServiceSpec extends ObjectBehavior
 {
-    public function let(\SimpleSAML_Session $session)
+    /**
+     * @return void
+     */
+    public function let(Session $session)
     {
         $this->beConstructedWith($session);
     }
 
+    /**
+     * @return void
+     */
     public function it_is_initializable()
     {
         $this->shouldHaveType(SessionMessagesService::class);
     }
 
-    public function it_adds_message(\SimpleSAML_Session $session)
+    /**
+     * @return void
+     */
+    public function it_adds_message(Session $session)
     {
         $session->setData('message', Argument::any(), 'value')->shouldBeCalled();
 
         $this->addMessage('value');
     }
 
-    public function it_gets_messages(\SimpleSAML_Session $session)
+    /**
+     * @return void
+     */
+    public function it_gets_messages(Session $session)
     {
         $session->getDataOfType('message')->shouldBeCalled()->willReturn([
             'msg1' => 'Message one.',

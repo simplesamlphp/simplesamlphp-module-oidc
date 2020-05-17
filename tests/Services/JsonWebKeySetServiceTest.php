@@ -14,9 +14,10 @@
 
 namespace Tests\SimpleSAML\Modules\OpenIDConnect\Services;
 
-use Jose\Factory\JWKFactory;
-use Jose\Object\JWKSet;
+use Jose\Component\Core\JWKSet;
+use Jose\Component\KeyManagement\JWKFactory;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Configuration;
 use SimpleSAML\Modules\OpenIDConnect\Services\JsonWebKeySetService;
 
 class JsonWebKeySetServiceTest extends TestCase
@@ -26,7 +27,10 @@ class JsonWebKeySetServiceTest extends TestCase
      */
     private static $pkGeneratePublic;
 
-    public static function setUpBeforeClass()
+    /**
+     * @return void
+     */
+    public static function setUpBeforeClass(): void
     {
         // From https://www.andrewzammit.com/blog/php-openssl-rsa-shared-key-generation/
         $pkGenerate = openssl_pkey_new([
@@ -44,43 +48,47 @@ class JsonWebKeySetServiceTest extends TestCase
         // free resources
         openssl_pkey_free($pkGenerate);
 
-        file_put_contents(sys_get_temp_dir().'/oidc_module.crt', self::$pkGeneratePublic);
+        file_put_contents(sys_get_temp_dir() . '/oidc_module.crt', self::$pkGeneratePublic);
     }
 
-    public static function tearDownAfterClass()
+    /**
+     * @return void
+     */
+    public static function tearDownAfterClass(): void
     {
-        unlink(sys_get_temp_dir().'/oidc_module.crt');
+        unlink(sys_get_temp_dir() . '/oidc_module.crt');
     }
 
+    /**
+     * @return void
+     */
     public function testKeys()
     {
         $config = [
             'certdir' => sys_get_temp_dir(),
         ];
-        \SimpleSAML_Configuration::loadFromArray($config, '', 'simplesaml');
+        Configuration::loadFromArray($config, '', 'simplesaml');
 
         $jwk = JWKFactory::createFromKey(self::$pkGeneratePublic, null, [
             'kid' => 'oidc',
             'use' => 'sig',
             'alg' => 'RS256',
         ]);
-        $JWKSet = new JWKSet();
-        $JWKSet->addKey($jwk);
+        $JWKSet = new JWKSet([$jwk]);
 
         $jsonWebKeySetService = new JsonWebKeySetService();
 
-        $this->assertEquals($JWKSet->getKeys(), $jsonWebKeySetService->keys());
+        $this->assertEquals($JWKSet->all(), $jsonWebKeySetService->keys());
     }
 
-    /**
-     * @expectedException \SimpleSAML_Error_Error
-     */
-    public function testCertificationFileNotFound()
+    public function testCertificationFileNotFound(): void
     {
+        $this->expectException(\Exception::class);
+
         $config = [
             'certdir' => __DIR__,
         ];
-        \SimpleSAML_Configuration::loadFromArray($config, '', 'simplesaml');
+        Configuration::loadFromArray($config, '', 'simplesaml');
 
         new JsonWebKeySetService();
     }

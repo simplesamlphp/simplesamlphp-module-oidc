@@ -27,42 +27,53 @@ use SimpleSAML\Utils\Config;
 class AuthorizationServerFactory
 {
     /**
-     * @var ClientRepository
+     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository
      */
     private $clientRepository;
+
     /**
-     * @var AccessTokenRepository
+     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository
      */
     private $accessTokenRepository;
+
     /**
-     * @var ScopeRepository
+     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository
      */
     private $scopeRepository;
+
     /**
-     * @var AuthCodeGrant
+     * @var \League\OAuth2\Server\Grant\AuthCodeGrant
      */
     private $authCodeGrant;
+
     /**
-     * @var ImplicitGrant
+     * @var \League\OAuth2\Server\Grant\ImplicitGrant
      */
     private $implicitGrant;
+
     /**
-     * @var RefreshTokenGrant
+     * @var \League\OAuth2\Server\Grant\RefreshTokenGrant
      */
     private $refreshTokenGrant;
+
     /**
      * @var \DateInterval
      */
     private $accessTokenDuration;
+
     /**
      * @var string|null
      */
     private $passPhrase;
+
     /**
-     * @var IdTokenResponseFactory
+     * @var \SimpleSAML\Modules\OpenIDConnect\Factories\IdTokenResponseFactory
      */
     private $idTokenResponseFactory;
 
+    /**
+     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\IdTokenResponseFactory $idTokenResponseFactory
+     */
     public function __construct(
         ClientRepository $clientRepository,
         AccessTokenRepository $accessTokenRepository,
@@ -85,7 +96,7 @@ class AuthorizationServerFactory
         $this->passPhrase = $passPhrase;
     }
 
-    public function build()
+    public function build(): AuthorizationServer
     {
         $privateKeyPath = Config::getCertPath('oidc_module.pem');
         $encryptionKey = Config::getSecretSalt();

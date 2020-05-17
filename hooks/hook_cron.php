@@ -12,13 +12,22 @@
  * file that was distributed with this source code.
  */
 
+use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
+use SimpleSAML\Modules\OpenIDConnect\Repositories\AuthCodeRepository;
+use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
+
+/**
+ * @param array &$croninfo
+ *
+ * @return void
+ */
 function oidc_hook_cron(&$croninfo)
 {
     assert('is_array($croninfo)');
     assert('array_key_exists("summary", $croninfo)');
     assert('array_key_exists("tag", $croninfo)');
 
-    $oidcConfig = SimpleSAML_Configuration::getConfig('module_oidc.php');
+    $oidcConfig = \SimpleSAML\Configuration::getConfig('module_oidc.php');
 
     if (null === $oidcConfig->getValue('cron_tag', 'hourly')) {
         return;
@@ -27,19 +36,21 @@ function oidc_hook_cron(&$croninfo)
         return;
     }
 
+    $container = new \SimpleSAML\Modules\OpenIDConnect\Services\Container();
+
     try {
-        $accessTokenRepository = new \SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository();
+        $accessTokenRepository = $container->get(AccessTokenRepository::class);
         $accessTokenRepository->removeExpired();
 
-        $authTokenRepository = new \SimpleSAML\Modules\OpenIDConnect\Repositories\AuthCodeRepository();
+        $authTokenRepository = $container->get(AuthCodeRepository::class);
         $authTokenRepository->removeExpired();
 
-        $refreshTokenRepository = new \SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository();
+        $refreshTokenRepository = $container->get(RefreshTokenRepository::class);
         $refreshTokenRepository->removeExpired();
 
         $croninfo['summary'][] = 'Module `oidc` clean up. Removed expired entries from storage.';
     } catch (Exception $e) {
-        $message = 'Module `oidc` clean up cron script failed: '.$e->getMessage();
+        $message = 'Module `oidc` clean up cron script failed: ' . $e->getMessage();
         \SimpleSAML\Logger::warning($message);
         $croninfo['summary'][] = $message;
     }

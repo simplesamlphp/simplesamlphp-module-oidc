@@ -14,9 +14,11 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Controller\Traits;
 
+use SimpleSAML\Error\BadRequest;
+use SimpleSAML\Error\NotFound;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\ServerRequest;
 
 trait GetClientFromRequestTrait
 {
@@ -26,25 +28,21 @@ trait GetClientFromRequestTrait
     protected $clientRepository;
 
     /**
-     * @param ServerRequest $request
-     *
-     * @throws \SimpleSAML_Error_BadRequest
-     * @throws \SimpleSAML_Error_NotFound
-     *
-     * @return ClientEntity
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\NotFound
      */
-    protected function getClientFromRequest(ServerRequest $request)
+    protected function getClientFromRequest(ServerRequest $request): ClientEntity
     {
         $params = $request->getQueryParams();
         $clientId = $params['client_id'] ?? null;
 
         if (!$clientId) {
-            throw new \SimpleSAML_Error_BadRequest('Client id is missing.');
+            throw new BadRequest('Client id is missing.');
         }
 
         $client = $this->clientRepository->findById($clientId);
         if (!$client) {
-            throw new \SimpleSAML_Error_NotFound('Client not found.');
+            throw new NotFound('Client not found.');
         }
 
         return $client;

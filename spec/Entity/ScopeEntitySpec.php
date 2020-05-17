@@ -19,6 +19,9 @@ use SimpleSAML\Modules\OpenIDConnect\Entity\ScopeEntity;
 
 class ScopeEntitySpec extends ObjectBehavior
 {
+    /**
+     * @return void
+     */
     public function let()
     {
         $this->beConstructedThrough('fromData', [
@@ -29,31 +32,49 @@ class ScopeEntitySpec extends ObjectBehavior
         ]);
     }
 
+    /**
+     * @return void
+     */
     public function it_is_initializable()
     {
         $this->shouldHaveType(ScopeEntity::class);
     }
 
+    /**
+     * @return void
+     */
     public function it_has_an_id()
     {
         $this->getIdentifier()->shouldBeLike('id');
     }
 
+    /**
+     * @return void
+     */
     public function it_has_an_icon()
     {
         $this->getIcon()->shouldBeLike('icon');
     }
 
+    /**
+     * @return void
+     */
     public function it_has_a_description()
     {
         $this->getDescription()->shouldBeLike('description');
     }
 
+    /**
+     * @return void
+     */
     public function it_has_attributes()
     {
         $this->getAttributes()->shouldBeLike(['attrid' => 'attrval']);
     }
 
+    /**
+     * @return void
+     */
     public function it_is_serializable()
     {
         $this->jsonSerialize()->shouldBeLike('id');
