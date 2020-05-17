@@ -102,6 +102,7 @@ class ClientCreateControllerSpec extends ObjectBehavior
             'redirect_uri' => ['http://localhost/redirect'],
             'scopes' => ['openid'],
             'is_enabled' => true,
+            'is_confidential' => false,
         ]);
 
         $clientRepository->add(Argument::type(ClientEntity::class))->shouldBeCalled();
