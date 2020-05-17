@@ -51,7 +51,7 @@ class IdTokenResponseFactory
         return new IdTokenResponse(
             $this->userRepository,
             $this->claimTranslatorExtractor,
-            $this->configurationService,
+            $this->configurationService
         );
     }
 }
