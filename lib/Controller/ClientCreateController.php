@@ -22,6 +22,7 @@ use SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Form\ClientForm;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
+use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 use SimpleSAML\Utils\HTTP;
 use SimpleSAML\Utils\Random;
@@ -29,6 +30,11 @@ use SimpleSAML\Utils\Random;
 class ClientCreateController
 {
     use GetClientFromRequestTrait;
+
+    /**
+     * @var ConfigurationService
+     */
+    private $configurationService;
 
     /**
      * @var \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory
@@ -46,11 +52,13 @@ class ClientCreateController
     private $messages;
 
     public function __construct(
+        ConfigurationService $configurationService,
         ClientRepository $clientRepository,
         TemplateFactory $templateFactory,
         FormFactory $formFactory,
         SessionMessagesService $messages
     ) {
+        $this->configurationService = $configurationService;
         $this->clientRepository = $clientRepository;
         $this->templateFactory = $templateFactory;
         $this->formFactory = $formFactory;
@@ -63,7 +71,8 @@ class ClientCreateController
     public function __invoke(ServerRequest $request)
     {
         $form = $this->formFactory->build(ClientForm::class);
-        $form->setAction($request->getUri());
+        $formAction = $this->configurationService->getOpenIdConnectModuleURL('clients/new.php');
+        $form->setAction($formAction);
 
         if ($form->isSuccess()) {
             $client = $form->getValues();

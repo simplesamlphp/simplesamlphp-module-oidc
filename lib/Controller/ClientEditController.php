@@ -20,6 +20,7 @@ use SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Form\ClientForm;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
+use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 use SimpleSAML\Utils\HTTP;
 use Laminas\Diactoros\Response\RedirectResponse;
@@ -28,6 +29,11 @@ use Laminas\Diactoros\ServerRequest;
 class ClientEditController
 {
     use GetClientFromRequestTrait;
+
+    /**
+     * @var ConfigurationService
+     */
+    private $configurationService;
 
     /**
      * @var TemplateFactory
@@ -44,11 +50,13 @@ class ClientEditController
     private $messages;
 
     public function __construct(
+        ConfigurationService $configurationService,
         ClientRepository $clientRepository,
         TemplateFactory $templateFactory,
         FormFactory $formFactory,
         SessionMessagesService $messages
     ) {
+        $this->configurationService = $configurationService;
         $this->clientRepository = $clientRepository;
         $this->templateFactory = $templateFactory;
         $this->formFactory = $formFactory;
@@ -63,7 +71,11 @@ class ClientEditController
         $client = $this->getClientFromRequest($request);
 
         $form = $this->formFactory->build(ClientForm::class);
-        $form->setAction($request->getUri());
+        $formAction = sprintf("%s/clients/edit.php?client_id=%s",
+            $this->configurationService->getOpenIdConnectModuleURL(),
+            $client->getIdentifier()
+        ) ;
+        $form->setAction($formAction);
         $form->setDefaults($client->toArray());
 
         if ($form->isSuccess()) {
