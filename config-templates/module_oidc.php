@@ -24,6 +24,12 @@ $config = [
     // Tag to run storage cleanup script using the cron module...
     'cron_tag' => 'hourly',
 
+    // Set token signer
+    // See Lcobucci\JWT\Signer algorithms in https://github.com/lcobucci/jwt/tree/master/src/Signer
+    'signer' => \Lcobucci\JWT\Signer\Rsa\Sha256::class,
+    // 'signer' => \Lcobucci\JWT\Signer\Hmac\Sha256::class,
+    // 'signer' => \Lcobucci\JWT\Signer\Ecdsa\Sha256::class,
+
     // this is the auth source used for authentication,
     'auth' => 'default-sp',
     // useridattr is the attribute-name that contains the userid as returned from idp
