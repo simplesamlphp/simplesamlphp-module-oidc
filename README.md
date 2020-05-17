@@ -148,3 +148,8 @@ Once the database schema has been created, you can open the _Federation_ tab fro
 
 The module lets you create, read, update and delete all the RP you want. To see the client id and the client secret press the show button.
 
+### Create client options
+
+* Enabled: You can enable or disable a client. Disabled by default.
+* Secure client: The client is secure if it is capable of securely storing a secret. Unsecure clients
+must provide a PCKS token (code_challenge parameter during authorization phase). Disabled by default. 
