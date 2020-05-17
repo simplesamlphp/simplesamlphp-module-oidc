@@ -46,8 +46,12 @@ class ScopeEntity implements ScopeEntityInterface
     /**
      * @param array<string> $attributes
      */
-    public static function fromData(string $identifier, string $description = null, string $icon = null, array $attributes = []): self
-    {
+    public static function fromData(
+        string $identifier,
+        string $description = null,
+        string $icon = null,
+        array $attributes = []
+    ): self {
         $scope = new self();
 
         $scope->identifier = $identifier;

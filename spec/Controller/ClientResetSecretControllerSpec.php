@@ -24,8 +24,8 @@ use SimpleSAML\Modules\OpenIDConnect\Controller\ClientResetSecretController;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
-use Zend\Diactoros\Response\RedirectResponse;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequest;
 
 class ClientResetSecretControllerSpec extends ObjectBehavior
 {

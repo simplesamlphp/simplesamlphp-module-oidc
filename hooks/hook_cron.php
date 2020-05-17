@@ -12,6 +12,10 @@
  * file that was distributed with this source code.
  */
 
+use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
+use SimpleSAML\Modules\OpenIDConnect\Repositories\AuthCodeRepository;
+use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
+
 /**
  * @param array &$croninfo
  *
@@ -35,13 +39,13 @@ function oidc_hook_cron(&$croninfo)
     $container = new \SimpleSAML\Modules\OpenIDConnect\Services\Container();
 
     try {
-        $accessTokenRepository = $container->get(\SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository::class);
+        $accessTokenRepository = $container->get(AccessTokenRepository::class);
         $accessTokenRepository->removeExpired();
 
-        $authTokenRepository = $container->get(\SimpleSAML\Modules\OpenIDConnect\Repositories\AuthCodeRepository::class);
+        $authTokenRepository = $container->get(AuthCodeRepository::class);
         $authTokenRepository->removeExpired();
 
-        $refreshTokenRepository = $container->get(\SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository::class);
+        $refreshTokenRepository = $container->get(RefreshTokenRepository::class);
         $refreshTokenRepository->removeExpired();
 
         $croninfo['summary'][] = 'Module `oidc` clean up. Removed expired entries from storage.';

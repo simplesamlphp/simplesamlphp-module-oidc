@@ -67,7 +67,7 @@ class ScopeRepository extends AbstractDatabaseRepository implements ScopeReposit
         $userIdentifier = null
     ) {
         if (!$clientEntity instanceof ClientEntity) {
-            throw OAuthServerException::invalidClient();
+            return [];
         }
 
         return array_filter($scopes, function (ScopeEntityInterface $scope) use ($clientEntity) {

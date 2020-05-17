@@ -45,7 +45,9 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
 
         $authCode->identifier = $state['id'];
         $authCode->scopes = $scopes;
-        $authCode->expiryDateTime = TimestampGenerator::utc($state['expires_at']);
+        $authCode->expiryDateTime = \DateTimeImmutable::createFromMutable(
+            TimestampGenerator::utc($state['expires_at'])
+        );
         $authCode->userIdentifier = $state['user_id'];
         $authCode->client = $state['client'];
         $authCode->isRevoked = (bool) $state['is_revoked'];

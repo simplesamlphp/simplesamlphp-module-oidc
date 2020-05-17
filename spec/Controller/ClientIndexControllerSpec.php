@@ -21,7 +21,7 @@ use SimpleSAML\Modules\OpenIDConnect\Controller\ClientIndexController;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\XHTML\Template;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\ServerRequest;
 
 class ClientIndexControllerSpec extends ObjectBehavior
 {

@@ -24,8 +24,8 @@ use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\AuthenticationService;
-use Zend\Diactoros\Response;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response;
+use Laminas\Diactoros\ServerRequest;
 
 class OAuth2AuthorizationControllerSpec extends ObjectBehavior
 {
@@ -49,7 +49,7 @@ class OAuth2AuthorizationControllerSpec extends ObjectBehavior
     }
 
     /**
-     * @param \Zend\Diactoros\Response $response
+     * @param \Laminas\Diactoros\Response $response
      *
      * @return void
      */
@@ -63,17 +63,32 @@ class OAuth2AuthorizationControllerSpec extends ObjectBehavior
         ServerRequest $request,
         ResponseInterface $response
     ) {
-        $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
-        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
-        $clientEntity->getAuthSource()->shouldBeCalled()->willReturn('authSource');
+        $request->getQueryParams()
+            ->shouldBeCalled()
+            ->willReturn(['client_id' => 'clientid']);
+        $clientRepository->findById('clientid')
+            ->shouldBeCalled()
+            ->willReturn($clientEntity);
+        $clientEntity->getAuthSource()
+            ->shouldBeCalled()
+            ->willReturn('authSource');
 
-        $authenticationService->getAuthenticateUser('authSource')->shouldBeCalled()->willReturn($userEntity);
-        $authorizationServer->validateAuthorizationRequest($request)->shouldBeCalled()->willReturn($authorizationRequest);
-        $authorizationRequest->setUser($userEntity)->shouldBeCalled();
-        $authorizationRequest->setAuthorizationApproved(true)->shouldBeCalled();
+        $authenticationService->getAuthenticateUser('authSource')
+            ->shouldBeCalled()
+            ->willReturn($userEntity);
+        $authorizationServer->validateAuthorizationRequest($request)
+            ->shouldBeCalled()
+            ->willReturn($authorizationRequest);
+        $authorizationRequest->setUser($userEntity)
+            ->shouldBeCalled();
+        $authorizationRequest->setAuthorizationApproved(true)
+            ->shouldBeCalled();
 
-        $authorizationServer->completeAuthorizationRequest($authorizationRequest, Argument::type(Response::class))->shouldBeCalled()->willReturn($response);
+        $authorizationServer->completeAuthorizationRequest($authorizationRequest, Argument::type(Response::class))
+            ->shouldBeCalled()
+            ->willReturn($response);
 
-        $this->__invoke($request)->shouldBe($response);
+        $this->__invoke($request)
+            ->shouldBe($response);
     }
 }

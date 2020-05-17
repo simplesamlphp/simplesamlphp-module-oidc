@@ -14,6 +14,8 @@
 
 namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
 
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequest;
 use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
 use Psr\Http\Message\UriInterface;
@@ -28,8 +30,6 @@ use SimpleSAML\Modules\OpenIDConnect\Form\ClientForm;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 use SimpleSAML\XHTML\Template;
-use Zend\Diactoros\Response\RedirectResponse;
-use Zend\Diactoros\ServerRequest;
 
 class ClientEditControllerSpec extends ObjectBehavior
 {
@@ -94,7 +94,8 @@ class ClientEditControllerSpec extends ObjectBehavior
 
         $clientForm->isSuccess()->shouldBeCalled()->willReturn(false);
 
-        $templateFactory->render('oidc:clients/edit.twig', ['form' => $clientForm])->shouldBeCalled()->willReturn($template);
+        $templateFactory->render('oidc:clients/edit.twig', ['form' => $clientForm])
+            ->shouldBeCalled()->willReturn($template);
         $this->__invoke($request)->shouldBe($template);
     }
 
@@ -118,6 +119,7 @@ class ClientEditControllerSpec extends ObjectBehavior
             'redirect_uri' => ['http://localhost/redirect'],
             'scopes' => ['openid'],
             'is_enabled' => true,
+            'is_confidential' => false,
         ];
 
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
@@ -137,6 +139,7 @@ class ClientEditControllerSpec extends ObjectBehavior
             'redirect_uri' => ['http://localhost/redirect'],
             'scopes' => ['openid'],
             'is_enabled' => true,
+            'is_confidential' => false,
         ]);
 
         $clientRepository->update(Argument::exact(ClientEntity::fromData(
@@ -147,7 +150,8 @@ class ClientEditControllerSpec extends ObjectBehavior
             'auth_source',
             ['http://localhost/redirect'],
             ['openid'],
-            true
+            true,
+            false
         )))->shouldBeCalled();
         $sessionMessagesService->addMessage('{oidc:client:updated}')->shouldBeCalled();
 

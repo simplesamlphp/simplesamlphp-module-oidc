@@ -71,9 +71,15 @@ class AccessTokenRepositoryTest extends TestCase
             ScopeEntity::fromData('openid'),
         ];
 
-        $accessToken = self::$repository->getNewToken(ClientRepositoryTest::getClient(self::CLIENT_ID), $scopes, self::USER_ID);
+        $accessToken = self::$repository->getNewToken(
+            ClientRepositoryTest::getClient(self::CLIENT_ID),
+            $scopes,
+            self::USER_ID
+        );
         $accessToken->setIdentifier(self::ACCESS_TOKEN_ID);
-        $accessToken->setExpiryDateTime(TimestampGenerator::utc('yesterday'));
+        $accessToken->setExpiryDateTime(\DateTimeImmutable::createFromMutable(
+            TimestampGenerator::utc('yesterday')
+        ));
 
         self::$repository->persistNewAccessToken($accessToken);
 
@@ -97,19 +103,17 @@ class AccessTokenRepositoryTest extends TestCase
         $this->assertTrue($isRevoked);
     }
 
-    /**
-     * @expectedException \RuntimeException
-     */
     public function testErrorRevokeInvalidToken(): void
     {
+        $this->expectException(\RuntimeException::class);
+
         self::$repository->revokeAccessToken('notoken');
     }
 
-    /**
-     * @expectedException \RuntimeException
-     */
     public function testErrorCheckIsRevokedInvalidToken(): void
     {
+        $this->expectException(\RuntimeException::class);
+
         self::$repository->isAccessTokenRevoked('notoken');
     }
 

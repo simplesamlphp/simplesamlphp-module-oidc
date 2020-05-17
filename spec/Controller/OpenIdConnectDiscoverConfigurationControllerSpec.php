@@ -18,8 +18,8 @@ use PhpSpec\ObjectBehavior;
 use SimpleSAML\Configuration;
 use SimpleSAML\Modules\OpenIDConnect\Controller\OpenIdConnectDiscoverConfigurationController;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
-use Zend\Diactoros\Response\JsonResponse;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response\JsonResponse;
+use Laminas\Diactoros\ServerRequest;
 
 class OpenIdConnectDiscoverConfigurationControllerSpec extends ObjectBehavior
 {
@@ -48,15 +48,23 @@ class OpenIdConnectDiscoverConfigurationControllerSpec extends ObjectBehavior
         ConfigurationService $configurationService,
         Configuration $oidcConfiguration
     ) {
-        $configurationService->getOpenIDConnectConfiguration()->shouldBeCalled()->willReturn($oidcConfiguration);
-        $configurationService->getOpenIDScopes()->shouldBeCalled()->willReturn(['openid' => 'openid']);
-        $oidcConfiguration->getBoolean('pkce')->shouldBeCalled()->willReturn(true);
+        $configurationService->getOpenIDConnectConfiguration()->shouldBeCalled()
+            ->willReturn($oidcConfiguration);
+        $configurationService->getOpenIDScopes()->shouldBeCalled()
+            ->willReturn(['openid' => 'openid']);
+        $oidcConfiguration->getBoolean('pkce')->shouldBeCalled()
+            ->willReturn(true);
 
-        $configurationService->getSimpleSAMLSelfURLHost()->shouldBeCalled()->willReturn('http://localhost');
-        $configurationService->getOpenIdConnectModuleURL('authorize.php')->willReturn('http://localhost/authorize.php');
-        $configurationService->getOpenIdConnectModuleURL('access_token.php')->willReturn('http://localhost/access_token.php');
-        $configurationService->getOpenIdConnectModuleURL('userinfo.php')->willReturn('http://localhost/userinfo.php');
-        $configurationService->getOpenIdConnectModuleURL('jwks.php')->willReturn('http://localhost/jwks.php');
+        $configurationService->getSimpleSAMLSelfURLHost()->shouldBeCalled()
+            ->willReturn('http://localhost');
+        $configurationService->getOpenIdConnectModuleURL('authorize.php')
+            ->willReturn('http://localhost/authorize.php');
+        $configurationService->getOpenIdConnectModuleURL('access_token.php')
+            ->willReturn('http://localhost/access_token.php');
+        $configurationService->getOpenIdConnectModuleURL('userinfo.php')
+            ->willReturn('http://localhost/userinfo.php');
+        $configurationService->getOpenIdConnectModuleURL('jwks.php')
+            ->willReturn('http://localhost/jwks.php');
 
         $this->__invoke($request)->shouldHavePayload([
             'issuer' => 'http://localhost',

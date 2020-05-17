@@ -25,8 +25,8 @@ use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 use SimpleSAML\XHTML\Template;
-use Zend\Diactoros\Response\RedirectResponse;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequest;
 
 class ClientDeleteControllerSpec extends ObjectBehavior
 {
@@ -72,7 +72,9 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         $request->getMethod()->shouldBeCalled()->willReturn('get');
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
 
-        $templateFactory->render('oidc:clients/delete.twig', ['client' => $clientEntity])->shouldBeCalled()->willReturn($template);
+        $templateFactory->render('oidc:clients/delete.twig', ['client' => $clientEntity])
+            ->shouldBeCalled()
+            ->willReturn($template);
         $this->__invoke($request)->shouldBe($template);
     }
 

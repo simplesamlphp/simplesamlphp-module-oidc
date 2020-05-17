@@ -28,7 +28,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
     /**
      * {@inheritdoc}
      */
-    public function getTableName()
+    public function getTableName(): string
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
@@ -50,8 +50,14 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
             throw new Assertion('Invalid AccessTokenEntity');
         }
 
+        $stmt = sprintf(
+            "INSERT INTO %s (id, scopes, expires_at, user_id, client_id, is_revoked) "
+                . "VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked)",
+            $this->getTableName()
+        );
+
         $this->database->write(
-            "INSERT INTO {$this->getTableName()} (id, scopes, expires_at, user_id, client_id, is_revoked) VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked)",
+            $stmt,
             $accessTokenEntity->getState()
         );
     }
@@ -123,8 +129,14 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
 
     private function update(AccessTokenEntity $accessTokenEntity): void
     {
+        $stmt = sprintf(
+            "UPDATE %s SET scopes = :scopes, expires_at = :expires_at, user_id = :user_id, "
+                . "client_id = :client_id, is_revoked = :is_revoked WHERE id = :id",
+            $this->getTableName()
+        );
+
         $this->database->write(
-            "UPDATE {$this->getTableName()} SET scopes = :scopes, expires_at = :expires_at, user_id = :user_id, client_id = :client_id, is_revoked = :is_revoked WHERE id = :id",
+            $stmt,
             $accessTokenEntity->getState()
         );
     }

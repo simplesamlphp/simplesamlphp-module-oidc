@@ -17,8 +17,8 @@ namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
 use PhpSpec\ObjectBehavior;
 use SimpleSAML\Modules\OpenIDConnect\Controller\OpenIdConnectJwksController;
 use SimpleSAML\Modules\OpenIDConnect\Services\JsonWebKeySetService;
-use Zend\Diactoros\Response\JsonResponse;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response\JsonResponse;
+use Laminas\Diactoros\ServerRequest;
 
 class OpenIdConnectJwksControllerSpec extends ObjectBehavior
 {

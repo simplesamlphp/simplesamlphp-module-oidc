@@ -19,8 +19,8 @@ use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
 use Psr\Http\Message\ResponseInterface;
 use SimpleSAML\Modules\OpenIDConnect\Controller\OAuth2AccessTokenController;
-use Zend\Diactoros\Response;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response;
+use Laminas\Diactoros\ServerRequest;
 
 class OAuth2AccessTokenControllerSpec extends ObjectBehavior
 {
@@ -41,7 +41,7 @@ class OAuth2AccessTokenControllerSpec extends ObjectBehavior
     }
 
     /**
-     * @param \Zend\Diactoros\Response $response
+     * @param \Laminas\Diactoros\Response $response
      *
      * @return void
      */
@@ -50,7 +50,9 @@ class OAuth2AccessTokenControllerSpec extends ObjectBehavior
         ServerRequest $request,
         ResponseInterface $response
     ) {
-        $authorizationServer->respondToAccessTokenRequest($request, Argument::type(Response::class))->shouldBeCalled()->willReturn($response);
+        $authorizationServer->respondToAccessTokenRequest($request, Argument::type(Response::class))
+            ->shouldBeCalled()
+            ->willReturn($response);
 
         $this->__invoke($request)->shouldBe($response);
     }

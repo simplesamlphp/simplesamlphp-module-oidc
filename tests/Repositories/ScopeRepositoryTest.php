@@ -14,6 +14,7 @@
 
 namespace Tests\SimpleSAML\Modules\OpenIDConnect\Repositories;
 
+use League\OAuth2\Server\Exception\OAuthServerException;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ScopeEntity;
@@ -53,14 +54,13 @@ class ScopeRepositoryTest extends TestCase
         $this->assertEquals($expected, $scope);
     }
 
-    /**
-     * @expectedException \League\OAuth2\Server\Exception\OAuthServerException
-     */
     public function testGetUnknownScope(): void
     {
+        $this->expectException(OAuthServerException::class);
+
         $scopeRepository = new ScopeRepository(new ConfigurationService());
 
-        $scope = $scopeRepository->getScopeEntityByIdentifier('none');
+        $scopeRepository->getScopeEntityByIdentifier('none');
     }
 
     public function testFinalizeScopes(): void

@@ -26,13 +26,13 @@ use SimpleSAML\Modules\OpenIDConnect\Form\ClientForm;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 use SimpleSAML\XHTML\Template;
-use Zend\Diactoros\Response\RedirectResponse;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequest;
 
 class ClientCreateControllerSpec extends ObjectBehavior
 {
     /**
-     * @param \Zend\Diactoros\ServerRequest $serverRequest
+     * @param \Laminas\Diactoros\ServerRequest $serverRequest
      *
      * @return void
      */
@@ -75,7 +75,9 @@ class ClientCreateControllerSpec extends ObjectBehavior
         $clientForm->setAction(Argument::any())->shouldBeCalled();
         $clientForm->isSuccess()->shouldBeCalled()->willReturn(false);
 
-        $templateFactory->render('oidc:clients/new.twig', ['form' => $clientForm])->shouldBeCalled()->willReturn($template);
+        $templateFactory->render('oidc:clients/new.twig', ['form' => $clientForm])
+            ->shouldBeCalled()
+            ->willReturn($template);
         $this->__invoke($request)->shouldBe($template);
     }
 

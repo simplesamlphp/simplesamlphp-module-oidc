@@ -77,7 +77,7 @@ class AuthCodeRepositoryTest extends TestCase
         $authCode->setIdentifier(self::AUTH_CODE_ID);
         $authCode->setClient(ClientRepositoryTest::getClient(self::CLIENT_ID));
         $authCode->setUserIdentifier(self::USER_ID);
-        $authCode->setExpiryDateTime(TimestampGenerator::utc('yesterday'));
+        $authCode->setExpiryDateTime(\DateTimeImmutable::createFromMutable(TimestampGenerator::utc('yesterday')));
         $authCode->setRedirectUri(self::REDIRECT_URI);
         foreach ($scopes as $scope) {
             $authCode->addScope($scope);
@@ -105,19 +105,17 @@ class AuthCodeRepositoryTest extends TestCase
         $this->assertTrue($isRevoked);
     }
 
-    /**
-     * @expectedException \RuntimeException
-     */
     public function testErrorRevokeInvalidAuthCode(): void
     {
+        $this->expectException(\RuntimeException::class);
+
         self::$repository->revokeAuthCode('nocode');
     }
 
-    /**
-     * @expectedException \RuntimeException
-     */
     public function testErrorCheckIsRevokedInvalidAuthCode(): void
     {
+        $this->expectException(\RuntimeException::class);
+
         self::$repository->isAuthCodeRevoked('nocode');
     }
 

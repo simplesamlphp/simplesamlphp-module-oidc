@@ -46,7 +46,6 @@ class DatabaseLegacyOAuth2Import
         $oauth2ClientRepository = new \SimpleSAML\Modules\OAuth2\Repositories\ClientRepository();
         $clients = $oauth2ClientRepository->findAll();
 
-        /** @var \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity $client */
         foreach ($clients as $client) {
             if ($this->clientRepository->findById($client['id'])) {
                 continue;
@@ -60,7 +59,8 @@ class DatabaseLegacyOAuth2Import
                 $client['auth_source'],
                 $client['redirect_uri'],
                 $client['scopes'],
-                true
+                true,
+                false
             ));
         }
     }

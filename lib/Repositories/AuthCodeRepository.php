@@ -43,8 +43,14 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
             throw new Assertion('Invalid AccessTokenEntity');
         }
 
+        $stmt = sprintf(
+            "INSERT INTO %s (id, scopes, expires_at, user_id, client_id, is_revoked, redirect_uri) "
+                . "VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked, :redirect_uri)",
+            $this->getTableName()
+        );
+
         $this->database->write(
-            "INSERT INTO {$this->getTableName()} (id, scopes, expires_at, user_id, client_id, is_revoked, redirect_uri) VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked, :redirect_uri)",
+            $stmt,
             $authCodeEntity->getState()
         );
     }
@@ -119,8 +125,24 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
      */
     private function update(AuthCodeEntity $authCodeEntity)
     {
+        $stmt = sprintf(
+            <<<EOS
+            UPDATE %s 
+            SET 
+                scopes = :scopes,
+                expires_at = :expires_at,
+                user_id = :user_id,
+                client_id = :client_id,
+                is_revoked = :is_revoked,
+                redirect_uri = :redirect_uri
+            WHERE id = :id
+EOS
+            ,
+            $this->getTableName()
+        );
+
         $this->database->write(
-            "UPDATE {$this->getTableName()} SET scopes = :scopes, expires_at = :expires_at, user_id = :user_id, client_id = :client_id, is_revoked = :is_revoked, redirect_uri = :redirect_uri WHERE id = :id",
+            $stmt,
             $authCodeEntity->getState()
         );
     }

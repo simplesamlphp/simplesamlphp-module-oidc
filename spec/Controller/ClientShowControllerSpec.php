@@ -24,7 +24,7 @@ use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\XHTML\Template;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\ServerRequest;
 
 class ClientShowControllerSpec extends ObjectBehavior
 {
@@ -71,7 +71,8 @@ class ClientShowControllerSpec extends ObjectBehavior
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
 
-        $templateFactory->render('oidc:clients/show.twig', ['client' => $clientEntity])->shouldBeCalled()->willReturn($template);
+        $templateFactory->render('oidc:clients/show.twig', ['client' => $clientEntity])
+            ->shouldBeCalled()->willReturn($template);
         $this->__invoke($request)->shouldBe($template);
     }
 

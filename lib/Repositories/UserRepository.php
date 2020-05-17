@@ -63,8 +63,12 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
 
     public function add(UserEntity $userEntity): void
     {
+        $stmt = sprintf(
+            "INSERT INTO %s (id, claims, updated_at, created_at) VALUES (:id, :claims, :updated_at, :created_at)",
+            $this->getTableName()
+        );
         $this->database->write(
-            "INSERT INTO {$this->getTableName()} (id, claims, updated_at, created_at) VALUES (:id, :claims, :updated_at, :created_at)",
+            $stmt,
             $userEntity->getState()
         );
     }
@@ -87,8 +91,13 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
      */
     public function update(UserEntity $user): void
     {
+        $stmt = sprintf(
+            "UPDATE %s SET claims = :claims, updated_at = :updated_at, created_at = :created_at WHERE id = :id",
+            $this->getTableName()
+        );
+
         $this->database->write(
-            "UPDATE {$this->getTableName()} SET claims = :claims, updated_at = :updated_at, created_at = :created_at WHERE id = :id",
+            $stmt,
             $user->getState()
         );
     }

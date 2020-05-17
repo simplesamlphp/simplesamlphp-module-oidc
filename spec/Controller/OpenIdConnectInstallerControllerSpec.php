@@ -21,8 +21,8 @@ use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseLegacyOAuth2Import;
 use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 use SimpleSAML\XHTML\Template;
-use Zend\Diactoros\Response\RedirectResponse;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequest;
 
 class OpenIdConnectInstallerControllerSpec extends ObjectBehavior
 {

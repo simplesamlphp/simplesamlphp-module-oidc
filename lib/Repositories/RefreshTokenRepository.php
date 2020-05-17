@@ -27,7 +27,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
     /**
      * @return string
      */
-    public function getTableName()
+    public function getTableName(): string
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
@@ -49,8 +49,14 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
             throw OAuthServerException::invalidRefreshToken();
         }
 
+        $stmt = sprintf(
+            "INSERT INTO %s (id, expires_at, access_token_id, is_revoked) "
+                . "VALUES (:id, :expires_at, :access_token_id, :is_revoked)",
+            $this->getTableName()
+        );
+
         $this->database->write(
-            "INSERT INTO {$this->getTableName()} (id, expires_at, access_token_id, is_revoked) VALUES (:id, :expires_at, :access_token_id, :is_revoked)",
+            $stmt,
             $refreshTokenEntity->getState()
         );
     }
@@ -122,8 +128,14 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
 
     private function update(RefreshTokenEntity $refreshTokenEntity): void
     {
+        $stmt = sprintf(
+            "UPDATE %s SET expires_at = :expires_at, access_token_id = :access_token_id, is_revoked = :is_revoked "
+                . "WHERE id = :id",
+            $this->getTableName()
+        );
+
         $this->database->write(
-            "UPDATE {$this->getTableName()} SET expires_at = :expires_at, access_token_id = :access_token_id, is_revoked = :is_revoked WHERE id = :id",
+            $stmt,
             $refreshTokenEntity->getState()
         );
     }

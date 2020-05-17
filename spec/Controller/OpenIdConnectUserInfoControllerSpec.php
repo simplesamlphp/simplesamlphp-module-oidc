@@ -23,8 +23,8 @@ use SimpleSAML\Modules\OpenIDConnect\Entity\AccessTokenEntity;
 use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
-use Zend\Diactoros\Response\JsonResponse;
-use Zend\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response\JsonResponse;
+use Laminas\Diactoros\ServerRequest;
 
 class OpenIdConnectUserInfoControllerSpec extends ObjectBehavior
 {

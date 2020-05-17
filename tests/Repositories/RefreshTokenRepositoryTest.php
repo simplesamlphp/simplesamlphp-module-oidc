@@ -61,7 +61,7 @@ class RefreshTokenRepositoryTest extends TestCase
 
         $accessToken = AccessTokenEntity::fromData($client, [], self::USER_ID);
         $accessToken->setIdentifier(self::ACCESS_TOKEN_ID);
-        $accessToken->setExpiryDateTime(new \DateTime('yesterday'));
+        $accessToken->setExpiryDateTime(new \DateTimeImmutable('yesterday'));
         (new AccessTokenRepository($configurationService))->persistNewAccessToken($accessToken);
 
         self::$repository = new RefreshTokenRepository($configurationService);
@@ -79,7 +79,7 @@ class RefreshTokenRepositoryTest extends TestCase
 
         $refreshToken = self::$repository->getNewRefreshToken();
         $refreshToken->setIdentifier(self::REFRESH_TOKEN_ID);
-        $refreshToken->setExpiryDateTime(TimestampGenerator::utc('yesterday'));
+        $refreshToken->setExpiryDateTime(\DateTimeImmutable::createFromMutable(TimestampGenerator::utc('yesterday')));
         /** @psalm-suppress PossiblyNullArgument */
         $refreshToken->setAccessToken($accessToken);
 
@@ -105,19 +105,17 @@ class RefreshTokenRepositoryTest extends TestCase
         $this->assertTrue($isRevoked);
     }
 
-    /**
-     * @expectedException \RuntimeException
-     */
     public function testErrorRevokeInvalidToken(): void
     {
+        $this->expectException(\RuntimeException::class);
+
         self::$repository->revokeRefreshToken('notoken');
     }
 
-    /**
-     * @expectedException \RuntimeException
-     */
     public function testErrorCheckIsRevokedInvalidToken(): void
     {
+        $this->expectException(\RuntimeException::class);
+
         self::$repository->isRefreshTokenRevoked('notoken');
     }
 
