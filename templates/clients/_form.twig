@@ -63,7 +63,7 @@
 
         <div class="ui buttons">
             {% block action %}{% endblock %}
-            <a class="ui secondary icon labeled button" href="{{ moduleurlpath }}/clients/">
+            <a class="ui secondary icon labeled button" href="{{ moduleURL('oidc/clients/') }}">
                 <i class="left arrow icon"></i>
                 {% trans '{oidc:return}' %}
             </a>
