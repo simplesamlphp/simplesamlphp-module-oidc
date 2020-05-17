@@ -38,6 +38,7 @@ class ClientEntitySpec extends ObjectBehavior
                 'redirect_uri' => json_encode(['https://localhost/redirect']),
                 'scopes' => json_encode([]),
                 'is_enabled' => true,
+                'is_confidential' => false,
             ],
         ]);
     }
@@ -126,6 +127,14 @@ class ClientEntitySpec extends ObjectBehavior
     /**
      * @return void
      */
+    public function it_can_be_confidential()
+    {
+        $this->isConfidential()->shouldBeEqualTo(false);
+    }
+
+    /**
+     * @return void
+     */
     public function it_can_return_state()
     {
         $this->getState()->shouldBeLike([
@@ -137,6 +146,7 @@ class ClientEntitySpec extends ObjectBehavior
             'redirect_uri' => json_encode(['https://localhost/redirect']),
             'scopes' => json_encode([]),
             'is_enabled' => true,
+            'is_confidential' => false,
         ]);
     }
 
@@ -154,6 +164,7 @@ class ClientEntitySpec extends ObjectBehavior
             'redirect_uri' => ['https://localhost/redirect'],
             'scopes' => [],
             'is_enabled' => true,
+            'is_confidential' => false,
         ]);
     }
 }

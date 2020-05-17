@@ -121,6 +121,8 @@ class ClientForm extends Form
 
         $this->addCheckbox('is_enabled', '{oidc:client:is_enabled}');
 
+        $this->addCheckbox('is_confidential', '{oidc:client:is_confidential}');
+
         $this->addSelect('auth_source', '{oidc:client:auth_source}:')
             ->setAttribute('class', 'ui fluid dropdown')
             ->setItems(Source::getSources(), false)

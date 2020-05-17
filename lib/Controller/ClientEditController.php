@@ -77,7 +77,8 @@ class ClientEditController
                 $data['auth_source'],
                 $data['redirect_uri'],
                 $data['scopes'],
-                (bool) $data['is_enabled']
+                (bool) $data['is_enabled'],
+                (bool) $data['is_confidential']
             ));
 
             $this->messages->addMessage('{oidc:client:updated}');

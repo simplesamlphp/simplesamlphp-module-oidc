@@ -14,6 +14,7 @@
 
 namespace Tests\SimpleSAML\Modules\OpenIDConnect\Repositories;
 
+use League\OAuth2\Server\Exception\OAuthServerException;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
@@ -70,44 +71,57 @@ class ClientRepositoryTest extends TestCase
         $this->assertEquals($client, $foundClient);
     }
 
-    public function testGetClientEntityWithoutSecretAndFound(): void
+    public function testGetClientEntity(): void
     {
         $client = self::getClient('clientid');
         self::$repository->add($client);
 
-        $client = self::$repository->getClientEntity('clientid', null, null, false);
+        $client = self::$repository->getClientEntity('clientid');
         $this->assertNotNull($client);
     }
 
-    public function testGetClientEntityWithSecretAndFound(): void
-    {
-        $client = self::getClient('clientid');
-        self::$repository->add($client);
-
-        $client = self::$repository->getClientEntity('clientid', null, 'clientsecret', true);
-        $this->assertNotNull($client);
-    }
-
-    /**
-     * @expectedException \League\OAuth2\Server\Exception\OAuthServerException
-     */
     public function testGetDisabledClientEntity(): void
     {
+        $this->expectException(OAuthServerException::class);
+
         $client = self::getClient('clientid', false);
         self::$repository->add($client);
 
-        $client = self::$repository->getClientEntity('clientid', null, 'wrongsecret', true);
+        $client = self::$repository->getClientEntity('clientid');
     }
 
-    /**
-     * @expectedException \League\OAuth2\Server\Exception\OAuthServerException
-     */
-    public function testGetClientEntityWithWrongIdAndNotFound(): void
+    public function testNotFoundClient(): void
     {
-        $client = self::getClient('clientid');
+        $client = self::$repository->getClientEntity('unknownid');
+
+        $this->assertNull($client);
+    }
+
+    public function testValidateConfidentialClient(): void
+    {
+        $client = self::getClient('clientid', true, true);
         self::$repository->add($client);
 
-        $client = self::$repository->getClientEntity('wrongid', null, null, false);
+        $validate = self::$repository->validateClient('clientid', 'clientsecret', null);
+        $this->assertTrue($validate);
+    }
+
+    public function testValidatePublicClient(): void
+    {
+        $client = self::getClient('clientid', true);
+        self::$repository->add($client);
+
+        $validate = self::$repository->validateClient('clientid', null, null);
+        $this->assertTrue($validate);
+    }
+
+    public function testNotValidateConfidentialClientWithWrongSecret()
+    {
+        $client = self::getClient('clientid', true, true);
+        self::$repository->add($client);
+
+        $validate = self::$repository->validateClient('clientid', 'wrongclientsecret', null);
+        $this->assertFalse($validate);
     }
 
     public function testFindAll(): void
@@ -133,7 +147,8 @@ class ClientRepositoryTest extends TestCase
             'admin',
             ['http://localhost/redirect'],
             ['openid'],
-            true
+            true,
+            false
         );
 
         self::$repository->update($client);
@@ -155,7 +170,7 @@ class ClientRepositoryTest extends TestCase
         $this->assertNull($foundClient);
     }
 
-    public static function getClient(string $id, bool $enabled = true): ClientEntity
+    public static function getClient(string $id, bool $enabled = true, bool $confidential = false): ClientEntity
     {
         return ClientEntity::fromData(
             $id,
@@ -165,7 +180,8 @@ class ClientRepositoryTest extends TestCase
             'admin',
             ['http://localhost/redirect'],
             ['openid'],
-            $enabled
+            $enabled,
+            $confidential
         );
     }
 }

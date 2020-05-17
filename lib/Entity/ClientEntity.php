@@ -65,7 +65,8 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
         string $authSource,
         array $redirectUri,
         array $scopes,
-        bool $isEnabled
+        bool $isEnabled,
+        bool $isConfidential = false
     ): self {
         $client = new self();
 
@@ -77,6 +78,7 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
         $client->redirectUri = $redirectUri;
         $client->scopes = $scopes;
         $client->isEnabled = $isEnabled;
+        $client->isConfidential = $isConfidential;
 
         return $client;
     }
@@ -96,6 +98,7 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
         $client->redirectUri = json_decode($state['redirect_uri'], true);
         $client->scopes = json_decode($state['scopes'], true);
         $client->isEnabled = (bool) $state['is_enabled'];
+        $client->isConfidential = (bool) ($state['is_confidential'] ?? false);
 
         return $client;
     }
@@ -113,7 +116,8 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
             'auth_source' => $this->getAuthSource(),
             'redirect_uri' => json_encode($this->getRedirectUri()),
             'scopes' => json_encode($this->getScopes()),
-            'is_enabled' => (int) $this->isEnabled,
+            'is_enabled' => (int) $this->isEnabled(),
+            'is_confidential' => (int) $this->isConfidential(),
         ];
     }
 
@@ -128,6 +132,7 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
             'redirect_uri' => $this->redirectUri,
             'scopes' => $this->scopes,
             'is_enabled' => $this->isEnabled,
+            'is_confidential' => $this->isConfidential,
         ];
     }
 

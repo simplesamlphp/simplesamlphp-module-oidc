@@ -114,7 +114,6 @@ class Container implements ContainerInterface
         $refreshTokenDuration = new \DateInterval(
             $configurationService->getOpenIDConnectConfiguration()->getString('refreshTokenDuration')
         );
-        $enablePKCE = $configurationService->getOpenIDConnectConfiguration()->getBoolean('pkce', false);
         $passPhrase = $configurationService->getOpenIDConnectConfiguration()->getString('pass_phrase', null);
 
         $claimTranslatorExtractor = (new ClaimTranslatorExtractorFactory(
@@ -133,8 +132,7 @@ class Container implements ContainerInterface
             $authCodeRepository,
             $refreshTokenRepository,
             $refreshTokenDuration,
-            $authCodeDuration,
-            $enablePKCE
+            $authCodeDuration
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 
