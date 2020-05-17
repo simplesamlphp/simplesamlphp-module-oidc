@@ -123,3 +123,9 @@ msgstr "Activado"
 
 msgid "{oidc:oidc:title}"
 msgstr "Registro de clientes OpenID Connect"
+
+msgid "{oidc:client:is_confidential}"
+msgstr "Cliente seguro"
+
+msgid "{oidc:client:state}"
+msgstr "Estado"

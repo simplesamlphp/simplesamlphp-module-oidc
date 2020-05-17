@@ -2,6 +2,11 @@
 
 {% set pagetitle = 'Delete OpenID Connect Client' | trans %}
 
+{% block pre_breadcrump %}
+    <span class="divider">/</span>
+    <a class="section" href="{{ moduleurlpath }}/clients/index.php">{% trans 'OpenID Connect Client Registry' %}</a>
+{% endblock %}
+
 {% block content %}
     <h2>{{ pagetitle }}</h2>
 

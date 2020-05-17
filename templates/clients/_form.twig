@@ -32,6 +32,14 @@
             </div>
         </div>
 
+        <div class="field">
+            <div class="ui checkbox">
+                <input name="is_confidential" id="frm-is_confidential" {% if form['is_confidential'].filled %}checked=""{% endif %} type="checkbox">
+
+                <label for="frm-is_confidential">{% trans '{oidc:client:is_confidential}' %}</label>
+            </div>
+        </div>
+
         <div class="field required">
             <label for="frm-redirect_uri">{% trans '{oidc:client:redirect_uri}' %}</label>
 

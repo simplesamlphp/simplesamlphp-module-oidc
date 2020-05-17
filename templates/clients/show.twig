@@ -2,8 +2,13 @@
 
 {% set pagetitle = 'Show OpenID Connect Client' | trans %}
 
+{% block pre_breadcrump %}
+    <span class="divider">/</span>
+    <a class="section" href="{{ moduleurlpath }}/clients/index.php">{% trans 'OpenID Connect Client Registry' %}</a>
+{% endblock %}
+
 {% block content %}
-    <h2>{{ pagetitle }}</h2>
+    <h2 class="ui header">{{ pagetitle }}</h2>
 
     <div class="ui hidden divider"></div>
 
@@ -11,11 +16,24 @@
         <tbody>
         <tr>
             <td class="collapsing">{% trans '{oidc:client:name}' %}</td>
-            <td>{{ client.name }}</td>
+            <td>
+                {{ client.name }}
+            </td>
         </tr>
         <tr>
             <td class="collapsing">{% trans '{oidc:client:description}' %}</td>
             <td>{{ client.description }}</td>
+        </tr>
+        <tr>
+            <td class="collapsing">{% trans '{oidc:client:state}' %}</td>
+            <td>
+                <span class="ui {{ client.isEnabled ? 'green' : 'red' }} tiny label">
+                    {% trans '{oidc:client:is_enabled}' %}
+                </span>
+                <span class="ui {{ client.isConfidential ? 'green' : 'red' }} tiny label">
+                    {% trans '{oidc:client:is_confidential}' %}
+                </span>
+            </td>
         </tr>
         <tr>
             <td class="collapsing">{% trans '{oidc:client:identifier}' %}</td>

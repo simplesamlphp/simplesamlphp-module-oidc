@@ -53,12 +53,17 @@
                 </div>
             </div>
             <div class="ui red segment">
+
                 <div class="ui breadcrumb">
                     <a href="/{{ baseurlpath }}" class="section">
                         SimpleSAMLphp
                     </a>
-                    <span class="divider">/</span>
-                    <div class="active section">{{ pagetitle }}</div>
+                    {% block pre_breadcrump %}{% endblock %}
+                    {% block breadcrump %}
+                        <span class="divider">/</span>
+                        <div class="active section">{{ pagetitle }}</div>
+                    {% endblock %}
+                    {% block post_breadcrump %}{% endblock %}
                 </div>
 
                 {% if not hideLanguageBar %}
@@ -74,19 +79,19 @@
                 </div>
                 {% endif %}
 
-
+                <div class="ui hidden divider"></div>
 
                 {% block contentwrapper %}
 
-                {% if messages is not empty %}
-                <div class="ui positive message">
-                    {% for message in messages %}
-                    <p>{% trans message %}</p>
-                    {% endfor %}
-                </div>
-                {% endif %}
+                    {% if messages is not empty %}
+                    <div class="ui positive message">
+                        {% for message in messages %}
+                        <p>{% trans message %}</p>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
 
-                {% block content %}{% endblock %}
+                    {% block content %}{% endblock %}
 
                 {% endblock %}
             </div>
