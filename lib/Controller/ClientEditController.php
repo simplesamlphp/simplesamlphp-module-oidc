@@ -71,7 +71,8 @@ class ClientEditController
         $client = $this->getClientFromRequest($request);
 
         $form = $this->formFactory->build(ClientForm::class);
-        $formAction = sprintf("%s/clients/edit.php?client_id=%s",
+        $formAction = sprintf(
+            "%s/clients/edit.php?client_id=%s",
             $this->configurationService->getOpenIdConnectModuleURL(),
             $client->getIdentifier()
         ) ;
