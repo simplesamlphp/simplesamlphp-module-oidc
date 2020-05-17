@@ -1,0 +1,160 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"POT-Creation-Date: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: fr\n"
+"X-Generator: Poedit 2.2.1\n"
+
+#, fuzzy
+msgid "{oidc:add_client}"
+msgstr "Ajouter un client"
+
+#, fuzzy
+msgid "{oidc:search}"
+msgstr "Rechercher"
+
+#, fuzzy
+msgid "{oidc:no_clients}"
+msgstr "Aucun client"
+
+#, fuzzy
+msgid "{oidc:client_list}"
+msgstr "Liste des clients"
+
+#, fuzzy
+msgid "{oidc:client:name}"
+msgstr "Nom"
+
+msgid "{oidc:client:description}"
+msgstr "Description"
+
+msgid "{oidc:client:identifier}"
+msgstr "Client id."
+
+msgid "{oidc:client:secret}"
+msgstr "Client secret"
+
+msgid "{oidc:client:auth_source}"
+msgstr "Auth. source"
+
+msgid "{oidc:client:redirect_uri}"
+msgstr "Redirect URI"
+
+msgid "{oidc:client:scopes}"
+msgstr "Scopes"
+
+#, fuzzy
+msgid "{oidc:submit}"
+msgstr "Soumettre"
+
+#, fuzzy
+msgid "{oidc:create}"
+msgstr "Créer"
+
+#, fuzzy
+msgid "{oidc:save}"
+msgstr "Enregistrer"
+
+#, fuzzy
+msgid "{oidc:return}"
+msgstr "Retour"
+
+#, fuzzy
+msgid "{oidc:install}"
+msgstr "Installer"
+
+#, fuzzy
+msgid "{oidc:copy}"
+msgstr "Copier le code"
+
+#, fuzzy
+msgid "{oidc:copied}"
+msgstr "Copié!"
+
+#, fuzzy
+msgid "{oidc:confirm}"
+msgstr "Confirmer"
+
+msgid "{oidc:client:delete}"
+msgstr "Détruire le client OpenID Connect"
+
+#, fuzzy
+msgid "{oidc:client:confirm_delete}"
+msgstr "Confirmer la suppression du client. Cette action est irréversible."
+
+#, fuzzy
+msgid "{oidc:delete}"
+msgstr "Supprimer"
+
+#, fuzzy
+msgid "{oidc:client:added}"
+msgstr "Ajout du client réussi."
+
+#, fuzzy
+msgid "{oidc:client:removed}"
+msgstr "Suppression du client réussie."
+
+#, fuzzy
+msgid "{oidc:client:updated}"
+msgstr "Mise à jour du client réussie."
+
+#, fuzzy
+msgid "{oidc:client:redirect_uri_help}"
+msgstr "Ajouter un URI valide."
+
+#, fuzzy
+msgid "{oidc:client:name_not_empty}"
+msgstr "Saisir un nom pour le client."
+
+#, fuzzy
+msgid "{oidc:client:redirect_uri_not_empty}"
+msgstr "Saisir au moins un URI."
+
+#, fuzzy
+msgid "{oidc:client:redirect_uri_not_valid}"
+msgstr "Certaines des adresses de redirection ne sont pas valides."
+
+#, fuzzy
+msgid "{oidc:client:auth_source_not_empty}"
+msgstr "Sélectionner un Auth. source."
+
+#, fuzzy
+msgid "{oidc:client:scopes_not_empty}"
+msgstr "Sélectionner au moins une valeur de scope"
+
+#, fuzzy
+msgid "{oidc:client:reset_secret}"
+msgstr "Réinitialiser la valeur de Client secret."
+
+#, fuzzy
+msgid "{oidc:client:reset_secret_warning}"
+msgstr "Cette action modifiera la valeur de Client secret et est irréversible."
+
+#, fuzzy
+msgid "{oidc:client:secret_updated}"
+msgstr "Mise à jour réussie de la valeur de Client secret."
+
+msgid "{oidc:install:oauth2}"
+msgstr "Vérifier si vous voulez migrer les données depuis le module désuet oauth2."
+
+#, fuzzy
+msgid "{oidc:install:description}"
+msgstr "L'installateur aidera à créer la base de données et à migrer les informations, si nécessaire. "
+
+#, fuzzy
+msgid "{oidc:install:finished}"
+msgstr "La base de données a été créée."
+
+#, fuzzy
+msgid "{oidc:import:finished}"
+msgstr "Les clients du module désuet oauth2 ont été importés."
+
+#, fuzzy
+msgid "{oidc:client:is_enabled}"
+msgstr "Activé."
