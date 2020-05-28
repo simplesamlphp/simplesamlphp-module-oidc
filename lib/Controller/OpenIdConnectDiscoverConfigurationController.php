@@ -34,7 +34,7 @@ class OpenIdConnectDiscoverConfigurationController
     public function __invoke(ServerRequest $serverRequest): JsonResponse
     {
         $scopes = $this->configurationService->getOpenIDScopes();
-        $pkceIsEnabled = $this->configurationService->getOpenIDConnectConfiguration()->getBoolean('pkce');
+        $pkceIsEnabled = $this->configurationService->getOpenIDConnectConfiguration()->getBoolean('pkce', false);
 
         $metadata = [];
         $metadata['issuer'] = $this->configurationService->getSimpleSAMLSelfURLHost();
