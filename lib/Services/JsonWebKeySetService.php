@@ -17,6 +17,7 @@ namespace SimpleSAML\Modules\OpenIDConnect\Services;
 use Jose\Component\Core\JWKSet;
 use Jose\Component\KeyManagement\JWKFactory;
 use SimpleSAML\Error\Exception;
+use SimpleSAML\Modules\OpenIDConnect\Utils\FingerprintGenerator;
 use SimpleSAML\Utils\Config;
 
 class JsonWebKeySetService
@@ -34,8 +35,10 @@ class JsonWebKeySetService
             throw new Exception("OpenId Connect certification file does not exists: {$publicKeyPath}.");
         }
 
+        $kid = FingerprintGenerator::forFile($publicKeyPath);
+
         $jwk = JWKFactory::createFromKeyFile($publicKeyPath, null, [
-            'kid' => 'oidc',
+            'kid' => $kid,
             'use' => 'sig',
             'alg' => 'RS256',
         ]);
