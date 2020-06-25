@@ -86,15 +86,25 @@ class ClaimTranslatorExtractor extends ClaimExtractor
     ];
 
     /**
+     * Claims for which it is allowed to have multiple values.
+     * @var array $allowedMultiValueClaims
+     */
+    protected $allowedMultiValueClaims;
+
+    /**
      * ClaimTranslatorExtractor constructor.
      *
      * @param ClaimSetEntity[] $claimSets
      *
+     * @param array $translationTable
+     * @param array $allowedMultipleValueClaims
      * @throws \OpenIDConnectServer\Exception\InvalidArgumentException
      */
-    public function __construct(array $claimSets = [], array $translationTable = [])
+    public function __construct(array $claimSets = [], array $translationTable = [], array $allowedMultipleValueClaims = [])
     {
         $this->translationTable = array_merge($this->translationTable, $translationTable);
+
+        $this->allowedMultiValueClaims = $allowedMultipleValueClaims;
 
         $this->protectedClaims[] = 'openid';
         $this->addClaimSet(new ClaimSetEntity('openid', [
@@ -114,7 +124,9 @@ class ClaimTranslatorExtractor extends ClaimExtractor
         foreach ($this->translationTable as $claim => $samlMatches) {
             foreach ($samlMatches as $samlMatch) {
                 if (\array_key_exists($samlMatch, $samlAttributes)) {
-                    $claims[$claim] = current($samlAttributes[$samlMatch]);
+                    $claims[$claim] = in_array($claim, $this->allowedMultiValueClaims) ?
+                        $samlAttributes[$samlMatch] :
+                        current($samlAttributes[$samlMatch]);
                     break;
                 }
             }
