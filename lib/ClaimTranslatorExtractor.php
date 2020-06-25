@@ -26,6 +26,10 @@ class ClaimTranslatorExtractor extends ClaimExtractor
             'eduPersonTargetedID',
             'eduPersonUniqueId',
         ],
+        'name' => [
+            'cn',
+            'displayName',
+        ],
         'family_name' => [
             'sn',
         ],
