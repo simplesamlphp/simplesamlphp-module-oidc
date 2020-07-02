@@ -48,12 +48,8 @@ class OpenIdConnectDiscoverConfigurationControllerSpec extends ObjectBehavior
         ConfigurationService $configurationService,
         Configuration $oidcConfiguration
     ) {
-        $configurationService->getOpenIDConnectConfiguration()->shouldBeCalled()
-            ->willReturn($oidcConfiguration);
         $configurationService->getOpenIDScopes()->shouldBeCalled()
             ->willReturn(['openid' => 'openid']);
-        $oidcConfiguration->getBoolean('pkce')->shouldBeCalled()
-            ->willReturn(true);
 
         $configurationService->getSimpleSAMLSelfURLHost()->shouldBeCalled()
             ->willReturn('http://localhost');
