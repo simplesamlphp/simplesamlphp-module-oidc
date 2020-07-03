@@ -1,8 +1,6 @@
 <?php
 
-
 namespace SimpleSAML\Modules\OpenIDConnect\Utils;
-
 
 class FingerprintGenerator
 {
@@ -19,7 +17,7 @@ class FingerprintGenerator
     {
         $fingerprint = hash_file($algo, $path);
 
-        if (false === $fingerprint) {
+        if (false === (bool) $fingerprint) {
             throw new \InvalidArgumentException('Could not create a fingerprint for provided file using' .
                 ' provided algorithm.');
         }
@@ -40,7 +38,7 @@ class FingerprintGenerator
     {
         $fingerprint = hash($algo, $content);
 
-        if (false === $fingerprint) {
+        if (false === (bool) $fingerprint) {
             throw new \InvalidArgumentException('Could not create a fingerprint for provided content using' .
                 ' provided algorithm.');
         }
