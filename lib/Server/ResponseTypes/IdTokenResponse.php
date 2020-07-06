@@ -107,7 +107,7 @@ class IdTokenResponse extends BearerTokenResponse
             ->expiresAt($accessToken->getExpiryDateTime()->getTimestamp())
             ->relatedTo($userEntity->getIdentifier())
             ->issuedAt(\time())
-            ->withHeader('kid', '0');
+            ->withHeader('kid', 'oidc');
     }
 
     /**
