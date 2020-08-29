@@ -79,6 +79,9 @@ msgstr "The client was updated successfully."
 msgid "{oidc:client:redirect_uri_help}"
 msgstr "Add a valid URI"
 
+msgid "{oidc:client:auth_source_help}"
+msgstr "If no auth. source is selected, the default one from configuration file will be used."
+
 msgid "{oidc:client:name_not_empty}"
 msgstr "Please, enter a name."
 

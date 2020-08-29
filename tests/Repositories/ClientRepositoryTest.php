@@ -144,11 +144,11 @@ class ClientRepositoryTest extends TestCase
             'newclientsecret',
             'Client',
             'Description',
-            'admin',
             ['http://localhost/redirect'],
             ['openid'],
             true,
-            false
+            false,
+            'admin'
         );
 
         self::$repository->update($client);
@@ -177,11 +177,11 @@ class ClientRepositoryTest extends TestCase
             'clientsecret',
             'Client',
             'Description',
-            'admin',
             ['http://localhost/redirect'],
             ['openid'],
             $enabled,
-            $confidential
+            $confidential,
+            'admin'
         );
     }
 }

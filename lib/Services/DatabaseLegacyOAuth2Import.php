@@ -56,11 +56,11 @@ class DatabaseLegacyOAuth2Import
                 $client['secret'],
                 $client['name'],
                 $client['description'],
-                $client['auth_source'],
                 $client['redirect_uri'],
                 $client['scopes'],
                 true,
-                false
+                false,
+                $client['auth_source']
             ));
         }
     }
