@@ -89,6 +89,11 @@ class DatabaseMigration
             $this->version20200517071100();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20200517071100')");
         }
+
+        if (!\in_array('20200901163000', $versions, true)) {
+            $this->version20200901163000();
+            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20200901163000')");
+        }
     }
 
     private function versionsTableName(): string
@@ -201,6 +206,16 @@ EOT
         $this->database->write(<<< EOT
         ALTER TABLE ${clientTableName}
             ADD is_confidential BOOLEAN NOT NULL DEFAULT false 
+EOT
+        );
+    }
+
+    private function version20200901163000()
+    {
+        $clientTableName = $this->database->applyPrefix(AuthCodeRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE ${clientTableName}
+            ADD nonce TEXT NULL 
 EOT
         );
     }

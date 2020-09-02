@@ -134,6 +134,7 @@ class Container implements ContainerInterface
             $refreshTokenDuration,
             $authCodeDuration
         );
+        // TODO mivanci convert to OidcAuthCodeGrant and collection of grants?
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 
         $implicitGrantFactory = new ImplicitGrantFactory($accessTokenDuration);

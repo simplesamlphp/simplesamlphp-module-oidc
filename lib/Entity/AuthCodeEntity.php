@@ -14,19 +14,19 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Entity;
 
-use League\OAuth2\Server\Entities\AuthCodeEntityInterface;
-use League\OAuth2\Server\Entities\Traits\AuthCodeTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\TokenEntityTrait;
+use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\OidcAuthCodeEntityInterface;
 use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\MementoInterface;
+use SimpleSAML\Modules\OpenIDConnect\Entity\Traits\OidcAuthCodeTrait;
 use SimpleSAML\Modules\OpenIDConnect\Entity\Traits\RevokeTokenTrait;
 use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
-class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
+class AuthCodeEntity implements OidcAuthCodeEntityInterface, MementoInterface
 {
     use EntityTrait;
     use TokenEntityTrait;
-    use AuthCodeTrait;
+    use OidcAuthCodeTrait;
     use RevokeTokenTrait;
 
     public static function fromState(array $state): self
@@ -52,6 +52,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
         $authCode->client = $state['client'];
         $authCode->isRevoked = (bool) $state['is_revoked'];
         $authCode->redirectUri = $state['redirect_uri'];
+        $authCode->nonce = $state['nonce'];
 
         return $authCode;
     }
@@ -66,6 +67,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
             'client_id' => $this->client->getIdentifier(),
             'is_revoked' => (int) $this->isRevoked(),
             'redirect_uri' => $this->getRedirectUri(),
+            'nonce' => $this->getNonce(),
         ];
     }
 }
