@@ -12,5 +12,5 @@ interface OidcAuthCodeRepositoryInterface extends AuthCodeRepositoryInterface
      *
      * @return OidcAuthCodeEntityInterface
      */
-    public function getNewAuthCode();
+    public function getNewAuthCode(): OidcAuthCodeEntityInterface;
 }

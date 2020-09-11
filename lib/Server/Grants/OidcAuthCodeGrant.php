@@ -101,9 +101,9 @@ class OidcAuthCodeGrant extends AuthCodeGrant
     }
 
     /**
-     * {@inheritdoc}
+     * @inheritDoc
      */
-    public function completeAuthorizationRequest(AuthorizationRequest $authorizationRequest)
+    public function completeAuthorizationRequest(AuthorizationRequest $authorizationRequest): ResponseTypeInterface
     {
         if ($authorizationRequest instanceof OidcAuthorizationRequest) {
             return $this->completeOidcAuthorizationRequest($authorizationRequest);
@@ -120,7 +120,7 @@ class OidcAuthCodeGrant extends AuthCodeGrant
      * @throws OAuthServerException
      * @throws UniqueTokenIdentifierConstraintViolationException
      */
-    public function completeOidcAuthorizationRequest(OidcAuthorizationRequest $authorizationRequest)
+    public function completeOidcAuthorizationRequest(OidcAuthorizationRequest $authorizationRequest): RedirectResponse
     {
         $user = $authorizationRequest->getUser();
         if ($user instanceof UserEntityInterface === false) {
@@ -137,7 +137,7 @@ class OidcAuthCodeGrant extends AuthCodeGrant
                 $this->authCodeTTL,
                 $authorizationRequest->getClient(),
                 $user->getIdentifier(),
-                $authorizationRequest->getRedirectUri(),
+                $finalRedirectUri,
                 $authorizationRequest->getScopes(),
                 $authorizationRequest->getNonce()
             );
@@ -187,14 +187,25 @@ class OidcAuthCodeGrant extends AuthCodeGrant
         );
     }
 
+    /**
+     * @param DateInterval $authCodeTTL
+     * @param ClientEntityInterface $client
+     * @param string $userIdentifier
+     * @param string $redirectUri
+     * @param array $scopes
+     * @param string|null $nonce
+     * @return OidcAuthCodeEntityInterface
+     * @throws OAuthServerException
+     * @throws UniqueTokenIdentifierConstraintViolationException
+     */
     protected function issueOidcAuthCode(
         DateInterval $authCodeTTL,
         ClientEntityInterface $client,
-        $userIdentifier,
-        $redirectUri,
+        string $userIdentifier,
+        string $redirectUri,
         array $scopes = [],
         string $nonce = null
-    ) {
+    ): OidcAuthCodeEntityInterface {
         $maxGenerationAttempts = self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
 
         $authCode = $this->authCodeRepository->getNewAuthCode();
@@ -222,6 +233,8 @@ class OidcAuthCodeGrant extends AuthCodeGrant
                 }
             }
         }
+
+        throw OAuthServerException::serverError('Could not issue OIDC Auth Code.');
     }
 
     /**
@@ -257,7 +270,7 @@ class OidcAuthCodeGrant extends AuthCodeGrant
         ServerRequestInterface $request,
         ResponseTypeInterface $responseType,
         DateInterval $accessTokenTTL
-    ) {
+    ): ResponseTypeInterface {
         list($clientId) = $this->getClientCredentials($request);
 
         $client = $this->getClientEntityOrFail($clientId, $request);
@@ -368,7 +381,7 @@ class OidcAuthCodeGrant extends AuthCodeGrant
         $authCodePayload,
         ClientEntityInterface $client,
         ServerRequestInterface $request
-    ) {
+    ): void {
         if (!\property_exists($authCodePayload, 'auth_code_id')) {
             throw OAuthServerException::invalidRequest('code', 'Authorization code malformed');
         }
