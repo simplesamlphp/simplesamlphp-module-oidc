@@ -12,5 +12,5 @@ interface NonceResponseTypeInterface
     /**
      * @return string|null
      */
-    public function getNonce();
+    public function getNonce(): ?string;
 }

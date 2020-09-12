@@ -210,7 +210,7 @@ EOT
         );
     }
 
-    private function version20200901163000()
+    private function version20200901163000(): void
     {
         $clientTableName = $this->database->applyPrefix(AuthCodeRepository::TABLE_NAME);
         $this->database->write(<<< EOT

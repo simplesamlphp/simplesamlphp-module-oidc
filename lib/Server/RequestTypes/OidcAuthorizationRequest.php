@@ -17,7 +17,7 @@ class OidcAuthorizationRequest extends AuthorizationRequest
     /**
      * @return string|null
      */
-    public function getNonce()
+    public function getNonce(): ?string
     {
         return $this->nonce;
     }
@@ -25,7 +25,7 @@ class OidcAuthorizationRequest extends AuthorizationRequest
     /**
      * @param string $nonce
      */
-    public function setNonce(string $nonce)
+    public function setNonce(string $nonce): void
     {
         $this->nonce = $nonce;
     }
@@ -36,8 +36,9 @@ class OidcAuthorizationRequest extends AuthorizationRequest
      * @return OidcAuthorizationRequest
      * @throws OidcServerException
      */
-    public static function fromOAuth2AuthorizationRequest(AuthorizationRequest $authorizationRequest)
-    {
+    public static function fromOAuth2AuthorizationRequest(
+        AuthorizationRequest $authorizationRequest
+    ): OidcAuthorizationRequest {
         static::validateOptionalOAuth2ButRequiredOidcParams($authorizationRequest);
 
         $oidcAuthorizationRequest = new self();
@@ -63,7 +64,7 @@ class OidcAuthorizationRequest extends AuthorizationRequest
      * @param AuthorizationRequest $authorizationRequest
      * @return bool
      */
-    public static function isOidcCandidate(AuthorizationRequest $authorizationRequest)
+    public static function isOidcCandidate(AuthorizationRequest $authorizationRequest): bool
     {
         // Check if the scopes contain 'oidc' scope
         return (bool) Arr::find($authorizationRequest->getScopes(), function (ScopeEntityInterface $scope) {
@@ -78,7 +79,7 @@ class OidcAuthorizationRequest extends AuthorizationRequest
      * @param AuthorizationRequest $authorizationRequest OAuth2 validated authorization request.
      * @throws OidcServerException
      */
-    public static function validateOptionalOAuth2ButRequiredOidcParams(AuthorizationRequest $authorizationRequest)
+    public static function validateOptionalOAuth2ButRequiredOidcParams(AuthorizationRequest $authorizationRequest): void
     {
         if (! self::isOidcCandidate($authorizationRequest)) {
             throw OidcServerException::invalidRequest(

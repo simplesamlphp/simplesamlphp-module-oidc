@@ -16,7 +16,7 @@ trait OidcAuthCodeTrait
     /**
      * @inheritDoc
      */
-    public function getNonce()
+    public function getNonce(): ?string
     {
         return $this->nonce;
     }
@@ -24,7 +24,7 @@ trait OidcAuthCodeTrait
     /**
      * @inheritDoc
      */
-    public function setNonce($nonce)
+    public function setNonce($nonce): void
     {
         $this->nonce = $nonce;
     }

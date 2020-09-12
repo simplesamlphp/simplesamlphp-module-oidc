@@ -117,7 +117,7 @@ class AuthCodeEntitySpec extends ObjectBehavior
     /**
      * @return void
      */
-    public function it_has_a_nonce()
+    public function it_has_a_nonce(): void
     {
         $this->getNonce()->shouldBeEqualTo('nonce');
     }

@@ -378,7 +378,7 @@ class OidcAuthCodeGrant extends AuthCodeGrant
      * @throws OAuthServerException
      */
     protected function validateAuthorizationCode(
-        $authCodePayload,
+        \stdClass $authCodePayload,
         ClientEntityInterface $client,
         ServerRequestInterface $request
     ): void {

@@ -152,7 +152,7 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
     /**
      * @return string|null
      */
-    public function getNonce()
+    public function getNonce(): ?string
     {
         return $this->nonce;
     }

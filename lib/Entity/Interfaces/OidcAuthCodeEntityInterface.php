@@ -9,10 +9,10 @@ interface OidcAuthCodeEntityInterface extends AuthCodeEntityInterface
     /**
      * @return string|null
      */
-    public function getNonce();
+    public function getNonce(): ?string;
 
     /**
      * @param string $nonce
      */
-    public function setNonce(string $nonce);
+    public function setNonce(string $nonce): void;
 }
