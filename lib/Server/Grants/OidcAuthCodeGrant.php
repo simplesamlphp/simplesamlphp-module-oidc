@@ -69,7 +69,7 @@ class OidcAuthCodeGrant extends AuthCodeGrant
      * @throws OAuthServerException
      * @throws OidcServerException
      */
-    public function validateAuthorizationRequest(ServerRequestInterface $request)
+    public function validateAuthorizationRequest(ServerRequestInterface $request): AuthorizationRequest
     {
         $oAuth2authorizationRequest = parent::validateAuthorizationRequest($request);
 
