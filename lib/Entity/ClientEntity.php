@@ -35,7 +35,7 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
     private $description;
 
     /**
-     * @var string
+     * @var string|null
      */
     private $authSource;
 
@@ -62,11 +62,11 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
         string $secret,
         string $name,
         string $description,
-        string $authSource,
         array $redirectUri,
         array $scopes,
         bool $isEnabled,
-        bool $isConfidential = false
+        bool $isConfidential = false,
+        ?string $authSource = null
     ): self {
         $client = new self();
 
@@ -153,7 +153,7 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
         return $this->description;
     }
 
-    public function getAuthSource(): string
+    public function getAuthSource(): ?string
     {
         return $this->authSource;
     }

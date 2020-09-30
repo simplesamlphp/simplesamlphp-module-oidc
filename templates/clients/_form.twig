@@ -51,6 +51,7 @@
             <label for="frm-auth_source">{% trans '{oidc:client:auth_source}' %}</label>
 
             {{ form['auth_source'].control | raw }}
+            <small class="helper">{% trans '{oidc:client:redirect_uri_help}' %}</small>
         </div>
 
         <div class="field required">
@@ -112,12 +113,7 @@
                     },
                     auth_source: {
                         identifier: 'auth_source',
-                        rules: [
-                            {
-                                type: 'empty',
-                                prompt: '{% trans "{oidc:client:auth_source_not_empty}" %}'
-                            }
-                        ]
+                        rules: []
                     },
                     scopes: {
                         identifier: 'scopes[]',

@@ -87,11 +87,11 @@ class ClientEditController
                 $client->getSecret(),
                 $data['name'],
                 $data['description'],
-                $data['auth_source'],
                 $data['redirect_uri'],
                 $data['scopes'],
                 (bool) $data['is_enabled'],
-                (bool) $data['is_confidential']
+                (bool) $data['is_confidential'],
+                $data['auth_source']
             ));
 
             $this->messages->addMessage('{oidc:client:updated}');

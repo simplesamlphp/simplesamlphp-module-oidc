@@ -30,8 +30,10 @@ $config = [
     // 'signer' => \Lcobucci\JWT\Signer\Hmac\Sha256::class,
     // 'signer' => \Lcobucci\JWT\Signer\Ecdsa\Sha256::class,
 
-    // this is the auth source used for authentication,
+    // this is the default auth source used for authentication if the auth source
+    // is not specified on particular client
     'auth' => 'default-sp',
+
     // useridattr is the attribute-name that contains the userid as returned from idp
     'useridattr' => 'uid',
 

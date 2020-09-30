@@ -152,11 +152,11 @@ class ClientEditControllerSpec extends ObjectBehavior
             'validsecret',
             'name',
             'description',
-            'auth_source',
             ['http://localhost/redirect'],
             ['openid'],
             true,
-            false
+            false,
+            'auth_source'
         )))->shouldBeCalled();
         $sessionMessagesService->addMessage('{oidc:client:updated}')->shouldBeCalled();
 
