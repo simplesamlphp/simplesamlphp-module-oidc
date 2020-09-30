@@ -56,6 +56,10 @@ $config = [
 //            'eduPersonTargetedID',
 //            'eduPersonUniqueId',
 //        ],
+//        'name' => [
+//            'cn',
+//            'displayName',
+//        ],
 //        'family_name' => [
 //            'sn',
 //        ],
