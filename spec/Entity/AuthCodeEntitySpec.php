@@ -37,6 +37,7 @@ class AuthCodeEntitySpec extends ObjectBehavior
                 'client' => $clientEntity,
                 'is_revoked' => false,
                 'redirect_uri' => 'https://localhost/redirect',
+                'nonce' => 'nonce'
             ],
         ]);
     }
@@ -116,6 +117,14 @@ class AuthCodeEntitySpec extends ObjectBehavior
     /**
      * @return void
      */
+    public function it_has_a_nonce(): void
+    {
+        $this->getNonce()->shouldBeEqualTo('nonce');
+    }
+
+    /**
+     * @return void
+     */
     public function it_can_return_state()
     {
         $this->getState()->shouldBeLike([
@@ -126,6 +135,7 @@ class AuthCodeEntitySpec extends ObjectBehavior
             'client_id' => 'client_id',
             'is_revoked' => false,
             'redirect_uri' => 'https://localhost/redirect',
+            'nonce' => 'nonce'
         ]);
     }
 }

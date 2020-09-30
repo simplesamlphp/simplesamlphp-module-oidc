@@ -15,12 +15,13 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Repositories;
 
 use League\OAuth2\Server\Entities\AuthCodeEntityInterface;
-use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface;
 use SimpleSAML\Error\Assertion;
 use SimpleSAML\Modules\OpenIDConnect\Entity\AuthCodeEntity;
+use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\OidcAuthCodeEntityInterface;
+use SimpleSAML\Modules\OpenIDConnect\Repositories\Interfaces\OidcAuthCodeRepositoryInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
 
-class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeRepositoryInterface
+class AuthCodeRepository extends AbstractDatabaseRepository implements OidcAuthCodeRepositoryInterface
 {
     public const TABLE_NAME = 'oidc_auth_code';
 
@@ -29,7 +30,10 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
 
-    public function getNewAuthCode(): AuthCodeEntity
+    /**
+     * @return OidcAuthCodeEntityInterface
+     */
+    public function getNewAuthCode(): OidcAuthCodeEntityInterface
     {
         return new AuthCodeEntity();
     }
@@ -40,12 +44,12 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
     public function persistNewAuthCode(AuthCodeEntityInterface $authCodeEntity)
     {
         if (!$authCodeEntity instanceof AuthCodeEntity) {
-            throw new Assertion('Invalid AccessTokenEntity');
+            throw new Assertion('Invalid AuthCodeEntity');
         }
 
         $stmt = sprintf(
-            "INSERT INTO %s (id, scopes, expires_at, user_id, client_id, is_revoked, redirect_uri) "
-                . "VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked, :redirect_uri)",
+            "INSERT INTO %s (id, scopes, expires_at, user_id, client_id, is_revoked, redirect_uri, nonce) "
+                . "VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked, :redirect_uri, :nonce)",
             $this->getTableName()
         );
 
@@ -56,7 +60,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
     }
 
     /**
-     * Find Access Token by id.
+     * Find Auth Code by id.
      */
     public function findById(string $codeId): ?AuthCodeEntityInterface
     {
@@ -134,7 +138,8 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
                 user_id = :user_id,
                 client_id = :client_id,
                 is_revoked = :is_revoked,
-                redirect_uri = :redirect_uri
+                redirect_uri = :redirect_uri,
+                nonce = :nonce
             WHERE id = :id
 EOS
             ,

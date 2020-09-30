@@ -23,6 +23,7 @@ use League\OAuth2\Server\ResponseTypes\BearerTokenResponse;
 use OpenIDConnectServer\ClaimExtractor;
 use OpenIDConnectServer\Entities\ClaimSetInterface;
 use OpenIDConnectServer\Repositories\IdentityProviderInterface;
+use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use SimpleSAML\Modules\OpenIDConnect\Utils\FingerprintGenerator;
 use SimpleSAML\Utils\Config;
@@ -35,7 +36,7 @@ use SimpleSAML\Utils\Config;
  *
  * @see https://github.com/steverhoades/oauth2-openid-connect-server/blob/master/src/IdTokenResponse.php
  */
-class IdTokenResponse extends BearerTokenResponse
+class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeInterface
 {
     /**
      * @var IdentityProviderInterface
@@ -46,10 +47,16 @@ class IdTokenResponse extends BearerTokenResponse
      * @var ClaimExtractor
      */
     protected $claimExtractor;
+
     /**
      * @var ConfigurationService
      */
     private $configurationService;
+
+    /**
+     * @var string|null
+     */
+    protected $nonce;
 
     public function __construct(
         IdentityProviderInterface $identityProvider,
@@ -81,6 +88,10 @@ class IdTokenResponse extends BearerTokenResponse
 
         // Add required id_token claims
         $builder = $this->getBuilder($accessToken, $userEntity);
+
+        if (null !== $this->getNonce()) {
+            $builder->withClaim('nonce', $this->getNonce());
+        }
 
         // Need a claim factory here to reduce the number of claims by provided scope.
         $claims = $this->claimExtractor->extract($accessToken->getScopes(), $userEntity->getClaims());
@@ -130,5 +141,21 @@ class IdTokenResponse extends BearerTokenResponse
         }
 
         return $valid;
+    }
+
+    /**
+     * @param string $nonce
+     */
+    public function setNonce(string $nonce): void
+    {
+        $this->nonce = $nonce;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function getNonce(): ?string
+    {
+        return $this->nonce;
     }
 }
