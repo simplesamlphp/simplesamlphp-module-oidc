@@ -34,7 +34,6 @@ class OpenIdConnectDiscoverConfigurationController
     public function __invoke(ServerRequest $serverRequest): JsonResponse
     {
         $scopes = $this->configurationService->getOpenIDScopes();
-        $pkceIsEnabled = $this->configurationService->getOpenIDConnectConfiguration()->getBoolean('pkce');
 
         $metadata = [];
         $metadata['issuer'] = $this->configurationService->getSimpleSAMLSelfURLHost();
@@ -43,12 +42,10 @@ class OpenIdConnectDiscoverConfigurationController
         $metadata['userinfo_endpoint'] = $this->configurationService->getOpenIdConnectModuleURL('userinfo.php');
         $metadata['jwks_uri'] = $this->configurationService->getOpenIdConnectModuleURL('jwks.php');
         $metadata['scopes_supported'] = array_keys($scopes);
-        $metadata['response_types_supported'] = ['code', 'token', 'id_token token'];
+        $metadata['response_types_supported'] = ['code', 'token'];
         $metadata['subject_types_supported'] = ['public'];
         $metadata['id_token_signing_alg_values_supported'] = ['RS256'];
-        if ($pkceIsEnabled) {
-            $metadata['code_challenge_methods_supported'] = ['plain', 'S256'];
-        }
+        $metadata['code_challenge_methods_supported'] = ['plain', 'S256'];
 
         return new JsonResponse($metadata);
     }
