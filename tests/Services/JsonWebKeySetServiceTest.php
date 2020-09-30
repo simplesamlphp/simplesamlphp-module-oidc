@@ -19,6 +19,7 @@ use Jose\Component\KeyManagement\JWKFactory;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Modules\OpenIDConnect\Services\JsonWebKeySetService;
+use SimpleSAML\Modules\OpenIDConnect\Utils\FingerprintGenerator;
 
 class JsonWebKeySetServiceTest extends TestCase
 {
@@ -69,8 +70,10 @@ class JsonWebKeySetServiceTest extends TestCase
         ];
         Configuration::loadFromArray($config, '', 'simplesaml');
 
+        $kid = FingerprintGenerator::forString(self::$pkGeneratePublic);
+
         $jwk = JWKFactory::createFromKey(self::$pkGeneratePublic, null, [
-            'kid' => 'oidc',
+            'kid' => $kid,
             'use' => 'sig',
             'alg' => 'RS256',
         ]);

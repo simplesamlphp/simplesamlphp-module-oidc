@@ -25,6 +25,8 @@ use OpenIDConnectServer\Entities\ClaimSetInterface;
 use OpenIDConnectServer\Repositories\IdentityProviderInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
+use SimpleSAML\Modules\OpenIDConnect\Utils\FingerprintGenerator;
+use SimpleSAML\Utils\Config;
 
 /**
  * Class IdTokenResponse.
@@ -118,7 +120,7 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
             ->expiresAt($accessToken->getExpiryDateTime()->getTimestamp())
             ->relatedTo($userEntity->getIdentifier())
             ->issuedAt(\time())
-            ->withHeader('kid', '0');
+            ->withHeader('kid', FingerprintGenerator::forFile(Config::getCertPath('oidc_module.crt')));
     }
 
     /**

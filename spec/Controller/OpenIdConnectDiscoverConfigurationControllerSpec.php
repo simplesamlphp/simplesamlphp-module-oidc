@@ -48,12 +48,8 @@ class OpenIdConnectDiscoverConfigurationControllerSpec extends ObjectBehavior
         ConfigurationService $configurationService,
         Configuration $oidcConfiguration
     ) {
-        $configurationService->getOpenIDConnectConfiguration()->shouldBeCalled()
-            ->willReturn($oidcConfiguration);
         $configurationService->getOpenIDScopes()->shouldBeCalled()
             ->willReturn(['openid' => 'openid']);
-        $oidcConfiguration->getBoolean('pkce')->shouldBeCalled()
-            ->willReturn(true);
 
         $configurationService->getSimpleSAMLSelfURLHost()->shouldBeCalled()
             ->willReturn('http://localhost');
@@ -73,7 +69,7 @@ class OpenIdConnectDiscoverConfigurationControllerSpec extends ObjectBehavior
             'userinfo_endpoint' => 'http://localhost/userinfo.php',
             'jwks_uri' => 'http://localhost/jwks.php',
             'scopes_supported' => ['openid'],
-            'response_types_supported' => ['code', 'token', 'id_token token'],
+            'response_types_supported' => ['code', 'token'],
             'subject_types_supported' => ['public'],
             'id_token_signing_alg_values_supported' => ['RS256'],
             'code_challenge_methods_supported' => ['plain', 'S256'],

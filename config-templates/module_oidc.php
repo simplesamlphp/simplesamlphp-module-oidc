@@ -30,8 +30,10 @@ $config = [
     // 'signer' => \Lcobucci\JWT\Signer\Hmac\Sha256::class,
     // 'signer' => \Lcobucci\JWT\Signer\Ecdsa\Sha256::class,
 
-    // this is the auth source used for authentication,
+    // this is the default auth source used for authentication if the auth source
+    // is not specified on particular client
     'auth' => 'default-sp',
+
     // useridattr is the attribute-name that contains the userid as returned from idp
     'useridattr' => 'uid',
 
@@ -42,6 +44,8 @@ $config = [
          */
 //        'private' => [
 //            'description' => 'private scope',
+//            'claim_name_prefix' => '', // Prefix to apply for all claim names from this scope
+//            'are_multiple_claim_values_allowed' => false, // Are claims for this scope allowed to have multiple values
 //            'attributes' => ['national_document_id']
 //        ],
     ],
@@ -55,6 +59,10 @@ $config = [
 //            'eduPersonPrincipalName',
 //            'eduPersonTargetedID',
 //            'eduPersonUniqueId',
+//        ],
+//        'name' => [
+//            'cn',
+//            'displayName',
 //        ],
 //        'family_name' => [
 //            'sn',

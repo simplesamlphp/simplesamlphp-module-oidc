@@ -24,6 +24,7 @@ use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\AuthenticationService;
+use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use Laminas\Diactoros\Response;
 use Laminas\Diactoros\ServerRequest;
 
@@ -33,11 +34,12 @@ class OAuth2AuthorizationControllerSpec extends ObjectBehavior
      * @return void
      */
     public function let(
+        ConfigurationService $configurationService,
         ClientRepository $clientRepository,
         AuthenticationService $authenticationService,
         AuthorizationServer $authorizationServer
     ) {
-        $this->beConstructedWith($clientRepository, $authenticationService, $authorizationServer);
+        $this->beConstructedWith($configurationService, $clientRepository, $authenticationService, $authorizationServer);
     }
 
     /**

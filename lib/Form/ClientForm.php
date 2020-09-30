@@ -124,10 +124,9 @@ class ClientForm extends Form
         $this->addCheckbox('is_confidential', '{oidc:client:is_confidential}');
 
         $this->addSelect('auth_source', '{oidc:client:auth_source}:')
-            ->setAttribute('class', 'ui fluid dropdown')
+            ->setAttribute('class', 'ui fluid dropdown clearable')
             ->setItems(Source::getSources(), false)
-            ->setPrompt('Pick an AuthSource')
-            ->setRequired('Select one Auth Source');
+            ->setPrompt('Pick an AuthSource');
 
         $scopes = $this->getScopes();
 

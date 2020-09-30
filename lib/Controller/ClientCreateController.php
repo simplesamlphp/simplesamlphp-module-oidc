@@ -84,11 +84,11 @@ class ClientCreateController
                 $client['secret'],
                 $client['name'],
                 $client['description'],
-                $client['auth_source'],
                 $client['redirect_uri'],
                 $client['scopes'],
                 $client['is_enabled'],
-                $client['is_confidential']
+                $client['is_confidential'],
+                $client['auth_source']
             ));
 
             $this->messages->addMessage('{oidc:client:added}');
