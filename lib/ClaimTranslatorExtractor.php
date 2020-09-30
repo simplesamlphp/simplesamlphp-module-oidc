@@ -127,10 +127,10 @@ class ClaimTranslatorExtractor extends ClaimExtractor
         return $claims;
     }
 
-    public function extract(array $scopes, array $samlAttributes): array
+    public function extract(array $scopes, array $claims): array
     {
-        $claims = $this->translateSamlAttributesToClaims($samlAttributes);
+        $translatedClaims = $this->translateSamlAttributesToClaims($claims);
 
-        return parent::extract($scopes, $claims);
+        return parent::extract($scopes, $translatedClaims);
     }
 }
