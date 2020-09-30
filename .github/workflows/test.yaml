@@ -59,6 +59,7 @@ jobs:
     integration:
         name: Integration
         runs-on: ubuntu-latest
+        needs: [ quality ]
 
         steps:
             -   name: Checkout
