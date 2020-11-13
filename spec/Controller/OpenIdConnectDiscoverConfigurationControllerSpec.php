@@ -15,21 +15,36 @@
 namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
 
 use PhpSpec\ObjectBehavior;
-use SimpleSAML\Configuration;
 use SimpleSAML\Modules\OpenIDConnect\Controller\OpenIdConnectDiscoverConfigurationController;
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use Laminas\Diactoros\Response\JsonResponse;
 use Laminas\Diactoros\ServerRequest;
+use SimpleSAML\Modules\OpenIDConnect\Services\OidcProviderMetadataService;
 
 class OpenIdConnectDiscoverConfigurationControllerSpec extends ObjectBehavior
 {
+    public const OIDC_OP_METADATA = [
+        'issuer' => 'http://localhost',
+        'authorization_endpoint' => 'http://localhost/authorize.php',
+        'token_endpoint' => 'http://localhost/access_token.php',
+        'userinfo_endpoint' => 'http://localhost/userinfo.php',
+        'jwks_uri' => 'http://localhost/jwks.php',
+        'scopes_supported' => ['openid'],
+        'response_types_supported' => ['code', 'token'],
+        'subject_types_supported' => ['public'],
+        'id_token_signing_alg_values_supported' => ['RS256'],
+        'code_challenge_methods_supported' => ['plain', 'S256'],
+    ];
+
     /**
+     * @param OidcProviderMetadataService $oidcProviderMetadataService
      * @return void
      */
     public function let(
-        ConfigurationService $configurationService
-    ) {
-        $this->beConstructedWith($configurationService);
+        OidcProviderMetadataService $oidcProviderMetadataService
+    ): void {
+        $oidcProviderMetadataService->getMetadata()->willReturn(self::OIDC_OP_METADATA);
+
+        $this->beConstructedWith($oidcProviderMetadataService);
     }
 
     /**
@@ -41,39 +56,13 @@ class OpenIdConnectDiscoverConfigurationControllerSpec extends ObjectBehavior
     }
 
     /**
+     * @param ServerRequest $request
      * @return void
      */
     public function it_returns_openid_connect_configuration(
-        ServerRequest $request,
-        ConfigurationService $configurationService,
-        Configuration $oidcConfiguration
-    ) {
-        $configurationService->getOpenIDScopes()->shouldBeCalled()
-            ->willReturn(['openid' => 'openid']);
-
-        $configurationService->getSimpleSAMLSelfURLHost()->shouldBeCalled()
-            ->willReturn('http://localhost');
-        $configurationService->getOpenIdConnectModuleURL('authorize.php')
-            ->willReturn('http://localhost/authorize.php');
-        $configurationService->getOpenIdConnectModuleURL('access_token.php')
-            ->willReturn('http://localhost/access_token.php');
-        $configurationService->getOpenIdConnectModuleURL('userinfo.php')
-            ->willReturn('http://localhost/userinfo.php');
-        $configurationService->getOpenIdConnectModuleURL('jwks.php')
-            ->willReturn('http://localhost/jwks.php');
-
-        $this->__invoke($request)->shouldHavePayload([
-            'issuer' => 'http://localhost',
-            'authorization_endpoint' => 'http://localhost/authorize.php',
-            'token_endpoint' => 'http://localhost/access_token.php',
-            'userinfo_endpoint' => 'http://localhost/userinfo.php',
-            'jwks_uri' => 'http://localhost/jwks.php',
-            'scopes_supported' => ['openid'],
-            'response_types_supported' => ['code', 'token'],
-            'subject_types_supported' => ['public'],
-            'id_token_signing_alg_values_supported' => ['RS256'],
-            'code_challenge_methods_supported' => ['plain', 'S256'],
-        ]);
+        ServerRequest $request
+    ): void {
+        $this->__invoke($request)->shouldHavePayload(self::OIDC_OP_METADATA);
     }
 
     public function getMatchers(): array

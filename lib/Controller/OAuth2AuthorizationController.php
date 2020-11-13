@@ -15,22 +15,12 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Controller;
 
 use League\OAuth2\Server\AuthorizationServer;
-use SimpleSAML\Modules\OpenIDConnect\Controller\Traits\GetClientFromRequestTrait;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\AuthenticationService;
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use Laminas\Diactoros\Response;
 use Laminas\Diactoros\ServerRequest;
 
 class OAuth2AuthorizationController
 {
-    use GetClientFromRequestTrait;
-
-    /**
-     * @var ConfigurationService
-     */
-    private $configurationService;
-
     /**
      * @var AuthenticationService
      */
@@ -42,31 +32,23 @@ class OAuth2AuthorizationController
     private $authorizationServer;
 
     /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository $clientRespository
+     * @param AuthenticationService $authenticationService
+     * @param AuthorizationServer $authorizationServer
      */
     public function __construct(
-        ConfigurationService $configurationService,
-        ClientRepository $clientRepository,
         AuthenticationService $authenticationService,
         AuthorizationServer $authorizationServer
     ) {
-        $this->configurationService = $configurationService;
-        $this->clientRepository = $clientRepository;
         $this->authenticationService = $authenticationService;
         $this->authorizationServer = $authorizationServer;
     }
 
     public function __invoke(ServerRequest $request): \Psr\Http\Message\ResponseInterface
     {
-        $authSource = $this->getClientFromRequest($request)->getAuthSource();
-
-        if (!$authSource) {
-            $authSource = $this->configurationService->getOpenIDConnectConfiguration()->getString('auth');
-        }
-
-        $user = $this->authenticationService->getAuthenticateUser($authSource);
-
         $authorizationRequest = $this->authorizationServer->validateAuthorizationRequest($request);
+
+        $user = $this->authenticationService->getAuthenticateUser($request);
+
         $authorizationRequest->setUser($user);
         $authorizationRequest->setAuthorizationApproved(true);
 

@@ -24,6 +24,7 @@ use Psr\Container\NotFoundExceptionInterface;
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
 use SimpleSAML\Error\Exception;
+use SimpleSAML\Metadata\MetaDataStorageHandler;
 use SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor;
 use SimpleSAML\Modules\OpenIDConnect\Factories\AuthorizationServerFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\AuthSimpleFactory;
@@ -98,9 +99,26 @@ class Container implements ContainerInterface
         $templateFactory = new TemplateFactory($simpleSAMLConfiguration);
         $this->services[TemplateFactory::class] = $templateFactory;
 
+        $authProcService = new AuthProcService($configurationService);
+        $this->services[AuthProcService::class] = $authProcService;
+
+        $oidcProviderMetadataService = new OidcProviderMetadataService($configurationService);
+        $this->services[OidcProviderMetadataService::class] = $oidcProviderMetadataService;
+
+        $metadataStorageHandler = MetaDataStorageHandler::getMetadataHandler();
+        $this->services[MetaDataStorageHandler::class] = $metadataStorageHandler;
+
+        $idProviderMetadataService = new IdProviderMetadataService($metadataStorageHandler);
+        $this->services[IdProviderMetadataService::class] = $idProviderMetadataService;
+
         $authenticationService = new AuthenticationService(
+            $configurationService,
             $userRepository,
             $authSimpleFactory,
+            $authProcService,
+            $clientRepository,
+            $oidcProviderMetadataService,
+            $idProviderMetadataService,
             $oidcModuleConfiguration->getString('useridattr', 'uid')
         );
         $this->services[AuthenticationService::class] = $authenticationService;

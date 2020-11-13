@@ -24,22 +24,21 @@ use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\AuthenticationService;
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use Laminas\Diactoros\Response;
 use Laminas\Diactoros\ServerRequest;
 
 class OAuth2AuthorizationControllerSpec extends ObjectBehavior
 {
     /**
+     * @param AuthenticationService $authenticationService
+     * @param AuthorizationServer $authorizationServer
      * @return void
      */
     public function let(
-        ConfigurationService $configurationService,
-        ClientRepository $clientRepository,
         AuthenticationService $authenticationService,
         AuthorizationServer $authorizationServer
-    ) {
-        $this->beConstructedWith($configurationService, $clientRepository, $authenticationService, $authorizationServer);
+    ): void {
+        $this->beConstructedWith($authenticationService, $authorizationServer);
     }
 
     /**
@@ -51,13 +50,16 @@ class OAuth2AuthorizationControllerSpec extends ObjectBehavior
     }
 
     /**
-     * @param \Laminas\Diactoros\Response $response
-     *
+     * @param UserEntity $userEntity
+     * @param AuthenticationService $authenticationService
+     * @param AuthorizationServer $authorizationServer
+     * @param AuthorizationRequest $authorizationRequest
+     * @param ServerRequest $request
+     * @param ResponseInterface $response
      * @return void
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
     public function it_completes_authorization_request(
-        ClientRepository $clientRepository,
-        ClientEntity $clientEntity,
         UserEntity $userEntity,
         AuthenticationService $authenticationService,
         AuthorizationServer $authorizationServer,
@@ -65,22 +67,12 @@ class OAuth2AuthorizationControllerSpec extends ObjectBehavior
         ServerRequest $request,
         ResponseInterface $response
     ) {
-        $request->getQueryParams()
-            ->shouldBeCalled()
-            ->willReturn(['client_id' => 'clientid']);
-        $clientRepository->findById('clientid')
-            ->shouldBeCalled()
-            ->willReturn($clientEntity);
-        $clientEntity->getAuthSource()
-            ->shouldBeCalled()
-            ->willReturn('authSource');
-
-        $authenticationService->getAuthenticateUser('authSource')
-            ->shouldBeCalled()
-            ->willReturn($userEntity);
         $authorizationServer->validateAuthorizationRequest($request)
             ->shouldBeCalled()
             ->willReturn($authorizationRequest);
+        $authenticationService->getAuthenticateUser($request)
+            ->shouldBeCalled()
+            ->willReturn($userEntity);
         $authorizationRequest->setUser($userEntity)
             ->shouldBeCalled();
         $authorizationRequest->setAuthorizationApproved(true)
