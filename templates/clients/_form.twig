@@ -47,11 +47,11 @@
             <small class="helper">{% trans '{oidc:client:redirect_uri_help}' %}</small>
         </div>
 
-        <div class="field required">
+        <div class="field">
             <label for="frm-auth_source">{% trans '{oidc:client:auth_source}' %}</label>
 
             {{ form['auth_source'].control | raw }}
-            <small class="helper">{% trans '{oidc:client:redirect_uri_help}' %}</small>
+            <small class="helper">{% trans '{oidc:client:auth_source_help}' %}</small>
         </div>
 
         <div class="field required">
