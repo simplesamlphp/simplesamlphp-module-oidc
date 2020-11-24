@@ -87,6 +87,46 @@ $config = [
 ];
 ```
 
+#### Auth Proc Filters
+This module will not execute standard Auth Proc Filters which are used during regular SAML authN, reason being that 
+not all expected entities are participating in the authN process (most notably the Service Provider - SP). 
+Because of that, OIDC module provides its own 'authproc.oidc' configuration option which can be used to designate 
+specific Auth Proc Filters which will run only during OIDC authN. 
+
+However, there are some considerations. OIDC authN state array will not contain all the keys which are 
+available during SAML authN, like Service Provider metadata. If you are using an existing filter, make sure it does 
+not rely on some non-existent state data. At the moment, only the following SAML authN data will be available:
+* 'Attributes'
+* 'Authority'
+* 'AuthnInstant'
+* 'Expire'
+* 'IdPMetadata'
+* 'Source'
+
+In addition to that, the following OIDC related data will be available in the state array:
+* 'OidcProviderMetadata' - contains information otherwise available from the OIDC configuration URL.
+* 'OidcRelyingPartyMetadata' - contains information about the OIDC client making the authN request.
+* 'OidcAuthorizationRequestParameters' - contains relevant authorization request query parameters.
+
+Note: at the moment there is no support for showing a page to the user in a filter, and then resuming the filtering.
+Only the common filter use cases are supported like attribute handling, logging, or similar. 
+
+You can add Auth Proc filters in the 'authproc.oidc' config option in the same manner as described in the [Auth Proc 
+documentation](https://simplesamlphp.org/docs/stable/simplesamlphp-authproc).
+
+```php
+<?php
+
+$config = [
+    'authproc.oidc' => [
+        50 => [
+            'class' => 'core:AttributeAdd',
+            'groups' => ['users', 'members'],
+        ],
+    ],
+];
+```
+
 #### Cron hook
 
 This module requires [cron module](https://simplesamlphp.org/docs/stable/cron:cron) is active to remove old tokens.
