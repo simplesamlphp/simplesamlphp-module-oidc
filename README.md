@@ -50,6 +50,8 @@ $config = [
     'scopes' => [
         'private' => [
             'description' => 'private scope',
+            'claim_name_prefix' => '', // Optional prefix for claim names
+            'are_multiple_claim_values_allowed' => false, // Allow or disallow multiple values for claims
             'attributes' => ['national_document_id']
         ],
     ],
