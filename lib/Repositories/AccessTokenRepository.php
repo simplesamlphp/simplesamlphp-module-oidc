@@ -119,8 +119,16 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
      */
     public function removeExpired(): void
     {
+        $accessTokenTableName = $this->getTableName();
+        $refreshTokenTableName = $this->database->applyPrefix(RefreshTokenRepository::TABLE_NAME);
+
+        // Delete expired access tokens, but only if the corresponding refresh token is also expired.
         $this->database->write(
-            "DELETE FROM {$this->getTableName()} WHERE expires_at < :now",
+            "DELETE FROM {$accessTokenTableName} WHERE expires_at < :now AND
+                NOT EXISTS (
+                    SELECT 1 FROM {$refreshTokenTableName}
+                    WHERE {$accessTokenTableName}.id = {$refreshTokenTableName}.access_token_id AND expires_at > :now
+                )",
             [
                 'now' => TimestampGenerator::utc()->format('Y-m-d H:i:s'),
             ]

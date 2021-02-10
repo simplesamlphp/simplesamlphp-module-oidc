@@ -102,7 +102,7 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
 
         $token = $builder->getToken(
             $this->configurationService->getSigner(),
-            new Key($this->privateKey->getKeyPath(), $this->privateKey->getPassPhrase())
+            new Key($this->privateKey->getKeyPath(), $this->privateKey->getPassPhrase() ?? '')
         );
 
         return [
