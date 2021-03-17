@@ -14,39 +14,25 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Controller;
 
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use Laminas\Diactoros\Response\JsonResponse;
 use Laminas\Diactoros\ServerRequest;
+use SimpleSAML\Modules\OpenIDConnect\Services\OidcProviderMetadataService;
 
 class OpenIdConnectDiscoverConfigurationController
 {
     /**
-     * @var ConfigurationService
+     * @var OidcProviderMetadataService
      */
-    private $configurationService;
+    private $oidcProviderMetadataService;
 
     public function __construct(
-        ConfigurationService $configurationService
+        OidcProviderMetadataService $oidcProviderMetadataService
     ) {
-        $this->configurationService = $configurationService;
+        $this->oidcProviderMetadataService = $oidcProviderMetadataService;
     }
 
     public function __invoke(ServerRequest $serverRequest): JsonResponse
     {
-        $scopes = $this->configurationService->getOpenIDScopes();
-
-        $metadata = [];
-        $metadata['issuer'] = $this->configurationService->getSimpleSAMLSelfURLHost();
-        $metadata['authorization_endpoint'] = $this->configurationService->getOpenIdConnectModuleURL('authorize.php');
-        $metadata['token_endpoint'] = $this->configurationService->getOpenIdConnectModuleURL('access_token.php');
-        $metadata['userinfo_endpoint'] = $this->configurationService->getOpenIdConnectModuleURL('userinfo.php');
-        $metadata['jwks_uri'] = $this->configurationService->getOpenIdConnectModuleURL('jwks.php');
-        $metadata['scopes_supported'] = array_keys($scopes);
-        $metadata['response_types_supported'] = ['code', 'token'];
-        $metadata['subject_types_supported'] = ['public'];
-        $metadata['id_token_signing_alg_values_supported'] = ['RS256'];
-        $metadata['code_challenge_methods_supported'] = ['plain', 'S256'];
-
-        return new JsonResponse($metadata);
+        return new JsonResponse($this->oidcProviderMetadataService->getMetadata());
     }
 }

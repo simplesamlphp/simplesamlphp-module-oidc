@@ -104,8 +104,11 @@ class ClaimTranslatorExtractor extends ClaimExtractor
      * @param array $allowedMultipleValueClaims
      * @throws \OpenIDConnectServer\Exception\InvalidArgumentException
      */
-    public function __construct(array $claimSets = [], array $translationTable = [], array $allowedMultipleValueClaims = [])
-    {
+    public function __construct(
+        array $claimSets = [],
+        array $translationTable = [],
+        array $allowedMultipleValueClaims = []
+    ) {
         $this->translationTable = array_merge($this->translationTable, $translationTable);
 
         $this->allowedMultiValueClaims = $allowedMultipleValueClaims;

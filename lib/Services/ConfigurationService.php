@@ -135,4 +135,15 @@ class ConfigurationService
 
         return $signer;
     }
+
+    /**
+     * Get autproc filters defined in the OIDC configuration.
+     *
+     * @return array
+     * @throws \Exception
+     */
+    public function getAuthProcFilters(): array
+    {
+        return $this->getOpenIDConnectConfiguration()->getArray('authproc.oidc', []);
+    }
 }
