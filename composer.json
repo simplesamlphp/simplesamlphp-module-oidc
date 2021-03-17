@@ -67,7 +67,6 @@
             "vendor/bin/check-syntax-json.sh",
             "vendor/bin/check-syntax-xml.sh",
             "vendor/bin/check-syntax-yaml.sh",
-            "vendor/bin/security-checker security:check",
             "vendor/bin/psalm",
             "vendor/bin/psalter --issues=UnnecessaryVarAnnotation --dry-run",
             "vendor/bin/phpcs"
