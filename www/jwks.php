@@ -15,4 +15,4 @@
 use SimpleSAML\Modules\OpenIDConnect\Controller\OpenIdConnectJwksController;
 use SimpleSAML\Modules\OpenIDConnect\Services\RoutingService;
 
-RoutingService::call(OpenIdConnectJwksController::class, false);
+RoutingService::call(OpenIdConnectJwksController::class, false, true);

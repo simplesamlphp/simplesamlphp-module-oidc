@@ -15,4 +15,4 @@
 use SimpleSAML\Modules\OpenIDConnect\Controller\OpenIdConnectUserInfoController;
 use SimpleSAML\Modules\OpenIDConnect\Services\RoutingService;
 
-RoutingService::call(OpenIdConnectUserInfoController::class, false);
+RoutingService::call(OpenIdConnectUserInfoController::class, false, true);

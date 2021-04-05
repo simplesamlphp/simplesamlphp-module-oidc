@@ -15,4 +15,4 @@
 use SimpleSAML\Modules\OpenIDConnect\Controller\OAuth2AuthorizationController;
 use SimpleSAML\Modules\OpenIDConnect\Services\RoutingService;
 
-RoutingService::call(OAuth2AuthorizationController::class, false);
+RoutingService::call(OAuth2AuthorizationController::class, false, true);
