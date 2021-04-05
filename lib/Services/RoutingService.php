@@ -14,6 +14,9 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
+use Laminas\Diactoros\Response;
+use Laminas\Diactoros\Response\JsonResponse;
+use Laminas\Diactoros\ServerRequestFactory;
 use Laminas\HttpHandlerRunner\Emitter\SapiEmitter;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Container\ContainerInterface;
@@ -22,9 +25,6 @@ use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Utils\Auth;
 use SimpleSAML\XHTML\Template;
-use Laminas\Diactoros\Response;
-use Laminas\Diactoros\Response\JsonResponse;
-use Laminas\Diactoros\ServerRequestFactory;
 
 class RoutingService
 {
@@ -33,22 +33,20 @@ class RoutingService
      *
      * @return void
      */
-    public static function call(string $controllerClassname, bool $authenticated = true)
+    public static function call(string $controllerClassname, bool $authenticated = true, bool $jsonResponse = false)
     {
         if ($authenticated) {
             Auth::requireAdmin();
         }
 
-        $serverRequest = ServerRequestFactory::fromGlobals();
-        if ($accept = $serverRequest->getHeader('accept')) {
-            if (false !== array_search('application/json', $accept, true)) {
-                self::enableJsonExceptionResponse();
-            }
+        if ($jsonResponse) {
+            self::enableJsonExceptionResponse();
         }
 
         $container = new Container();
-        $controller = self::getController($controllerClassname, $container);
         /** @var callable $controller */
+        $controller = self::getController($controllerClassname, $container);
+        $serverRequest = ServerRequestFactory::fromGlobals();
         $response = $controller($serverRequest);
 
         if ($response instanceof Template) {

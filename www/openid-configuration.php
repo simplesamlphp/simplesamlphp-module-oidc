@@ -15,4 +15,4 @@
 use SimpleSAML\Modules\OpenIDConnect\Controller\OpenIdConnectDiscoverConfigurationController;
 use SimpleSAML\Modules\OpenIDConnect\Services\RoutingService;
 
-RoutingService::call(OpenIdConnectDiscoverConfigurationController::class, false);
+RoutingService::call(OpenIdConnectDiscoverConfigurationController::class, false, true);
