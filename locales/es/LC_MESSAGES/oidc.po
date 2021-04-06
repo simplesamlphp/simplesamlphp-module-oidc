@@ -132,3 +132,6 @@ msgstr "Cliente seguro"
 
 msgid "{oidc:client:state}"
 msgstr "Estado"
+
+msgid "{oidc:client:csrf_error}"
+msgstr "Su sesión ha expirado. Por favor, vuelva a la página de inicio e inténtelo de nuevo."

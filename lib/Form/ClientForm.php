@@ -109,7 +109,7 @@ class ClientForm extends Form
         $this->onValidate[] = [$this, 'validateRedirectUri'];
 
         $this->setMethod('POST');
-        $this->addComponent(new CsrfProtection(null), Form::PROTECTOR_ID);
+        $this->addComponent(new CsrfProtection('{oidc:client:csrf_error}'), Form::PROTECTOR_ID);
 
         $this->addText('name', '{oidc:client:name}')
             ->setMaxLength(255)
