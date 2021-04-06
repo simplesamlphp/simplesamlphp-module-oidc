@@ -8,7 +8,11 @@
     {{ form.render('begin') }}
         {% if form.hasErrors %}
             <div class="ui negative message">
-                {{ form.render('errors') }}
+                <ul>
+                    {% for error in form.getErrors %}
+                        <li>{{ error | trans }}</li>
+                    {% endfor %}
+                </ul>
             </div>
         {% endif %}
 

@@ -14,9 +14,9 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Form;
 
-use Nette\Forms\Controls\CsrfProtection;
 use Nette\Forms\Form;
 use SimpleSAML\Auth\Source;
+use SimpleSAML\Modules\OpenIDConnect\Form\Controls\CsrfProtection;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 
 class ClientForm extends Form
@@ -109,7 +109,7 @@ class ClientForm extends Form
         $this->onValidate[] = [$this, 'validateRedirectUri'];
 
         $this->setMethod('POST');
-        $this->addComponent(new CsrfProtection(null), Form::PROTECTOR_ID);
+        $this->addComponent(new CsrfProtection('{oidc:client:csrf_error}'), Form::PROTECTOR_ID);
 
         $this->addText('name', '{oidc:client:name}')
             ->setMaxLength(255)
