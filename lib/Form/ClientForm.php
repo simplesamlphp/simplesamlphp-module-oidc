@@ -14,9 +14,9 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Form;
 
-use Nette\Forms\Controls\CsrfProtection;
 use Nette\Forms\Form;
 use SimpleSAML\Auth\Source;
+use SimpleSAML\Modules\OpenIDConnect\Form\Controls\CsrfProtection;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 
 class ClientForm extends Form
