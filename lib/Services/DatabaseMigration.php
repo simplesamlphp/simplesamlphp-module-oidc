@@ -57,7 +57,7 @@ class DatabaseMigration
     {
         $versionsTablename = $this->versionsTableName();
         $this->database->write(
-            "CREATE TABLE IF NOT EXISTS {$versionsTablename} (version VARCHAR(255) PRIMARY KEY NOT NULL)"
+            "CREATE TABLE IF NOT EXISTS {$versionsTablename} (version VARCHAR(191) PRIMARY KEY NOT NULL)"
         );
 
         $versions = $this->database
@@ -98,9 +98,7 @@ class DatabaseMigration
 
     private function versionsTableName(): string
     {
-        $versionsTablename = $this->database->applyPrefix('oidc_migration_versions');
-
-        return $versionsTablename;
+        return $this->database->applyPrefix('oidc_migration_versions');
     }
 
     /**
@@ -111,7 +109,7 @@ class DatabaseMigration
         $userTablename = $this->database->applyPrefix(UserRepository::TABLE_NAME);
         $this->database->write(<<< EOT
         CREATE TABLE ${userTablename} (
-            id VARCHAR(255) PRIMARY KEY NOT NULL,
+            id VARCHAR(191) PRIMARY KEY NOT NULL,
             claims TEXT,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -122,7 +120,7 @@ EOT
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
         $this->database->write(<<< EOT
         CREATE TABLE ${clientTableName} (
-            id VARCHAR(255) PRIMARY KEY NOT NULL,
+            id VARCHAR(191) PRIMARY KEY NOT NULL,
             secret VARCHAR(255) NOT NULL,
             name VARCHAR(255) NOT NULL,
             description VARCHAR(255) NOT NULL,
@@ -138,11 +136,11 @@ EOT
         $fkAccessTokenClient = $this->generateIdentifierName([$accessTokenTableName, 'client_id'], 'fk');
         $this->database->write(<<< EOT
         CREATE TABLE ${accessTokenTableName} (
-            id VARCHAR(255) PRIMARY KEY NOT NULL,
+            id VARCHAR(191) PRIMARY KEY NOT NULL,
             scopes TEXT,
             expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            user_id VARCHAR(255) NOT NULL,                          
-            client_id VARCHAR(255) NOT NULL,
+            user_id VARCHAR(191) NOT NULL,                          
+            client_id VARCHAR(191) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
             CONSTRAINT {$fkAccessTokenUser} FOREIGN KEY (user_id) 
                 REFERENCES ${userTablename} (id) ON DELETE CASCADE,                                 
@@ -156,9 +154,9 @@ EOT
         $fkRefreshTokenAccessToken = $this->generateIdentifierName([$refreshTokenTableName, 'access_token_id'], 'fk');
         $this->database->write(<<< EOT
         CREATE TABLE ${refreshTokenTableName} (
-            id VARCHAR(255) PRIMARY KEY NOT NULL,          
+            id VARCHAR(191) PRIMARY KEY NOT NULL,          
             expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            access_token_id VARCHAR(255) NOT NULL,
+            access_token_id VARCHAR(191) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
             CONSTRAINT {$fkRefreshTokenAccessToken} FOREIGN KEY (access_token_id)
                 REFERENCES ${accessTokenTableName} (id) ON DELETE CASCADE
@@ -171,11 +169,11 @@ EOT
         $fkAuthCodeClient = $this->generateIdentifierName([$authCodeTableName, 'client_id'], 'fk');
         $this->database->write(<<< EOT
         CREATE TABLE ${authCodeTableName} (
-            id VARCHAR(255) PRIMARY KEY NOT NULL,
+            id VARCHAR(191) PRIMARY KEY NOT NULL,
             scopes TEXT,
             expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            user_id VARCHAR(255) NOT NULL,                          
-            client_id VARCHAR(255) NOT NULL,
+            user_id VARCHAR(191) NOT NULL,                          
+            client_id VARCHAR(191) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
             redirect_uri TEXT NOT NULL,
             CONSTRAINT {$fkAuthCodeUser} FOREIGN KEY (user_id)
