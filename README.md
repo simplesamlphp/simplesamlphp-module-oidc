@@ -197,3 +197,47 @@ The module lets you create, read, update and delete all the RP you want. To see 
 * Enabled: You can enable or disable a client. Disabled by default.
 * Secure client: The client is secure if it is capable of securely storing a secret. Unsecure clients
 must provide a PCKS token (code_challenge parameter during authorization phase). Disabled by default. 
+
+## Using Docker
+
+### With current git branch.
+To explore the module using docker run the below command. This will run an SSP image, with the current oidc module mounted
+in the container, along with some configuration files. Any code changes you make to your git checkout are "live" in
+the container, allowing you to test and iterate different things.
+
+```
+GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+docker run --name ssp-oidc-dev \
+   --mount type=bind,source="$(pwd)",target=/var/simplesamlphp/staging-modules/oidc,readonly \
+  -e STAGINGCOMPOSERREPOS=oidc \
+  -e COMPOSER_REQUIRE="rediris-es/simplesamlphp-module-oidc:dev-$GIT_BRANCH" \
+  -e SSP_ADMIN_PASSWORD=secret1 \
+  --mount type=bind,source="$(pwd)/docker/ssp/module_oidc.php",target=/var/simplesamlphp/config/module_oidc.php,readonly \
+  --mount type=bind,source="$(pwd)/docker/ssp/authsources.php",target=/var/simplesamlphp/config/authsources.php,readonly \
+  --mount type=bind,source="$(pwd)/docker/ssp/config-override.php",target=/var/simplesamlphp/config/config-override.php,readonly \
+  --mount type=bind,source="$(pwd)/docker/ssp/oidc_module.crt",target=/var/simplesamlphp/cert/oidc_module.crt,readonly \
+  --mount type=bind,source="$(pwd)/docker/ssp/oidc_module.pem",target=/var/simplesamlphp/cert/oidc_module.pem,readonly \
+  --mount type=bind,source="$(pwd)/docker/apache-override.cf",target=/etc/apache2/sites-enabled/ssp-override.cf,readonly \
+   -p 443:443 cirrusid/simplesamlphp:1.19.0
+```
+
+Visit https://localhost/simplesaml/ and confirm you get the default page.
+Then navigate to [OIDC screen](https://localhost/simplesaml/module.php/oidc/install.php)
+and you can add a client.
+
+You may view the OIDC configuration endpoint at `https://localhost/.well-known/openid-configuration`
+
+### Docker compose: Work in Progress
+
+WIP
+
+Docker compose will run several containers to make it easier to test scenarios.
+Currently working on:  the RP container refuses to connect to the OP's .well-known endpoint because it uses self-signed certificates. This makes local testing difficult.
+
+```
+export GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+docker-compose -f docker/docker-compose.yml --project-directory . up
+```
+
+RP: https://rp.local.stack-dev.cirrusidentity.com/
+OP: https://op.local.stack-dev.cirrusidentity.com/simplesaml/
