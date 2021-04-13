@@ -144,6 +144,10 @@ class AuthenticationService
             }, ARRAY_FILTER_USE_KEY),
         ];
 
+        // Source and destination entity IDs, useful for eg. F-ticks logging...
+        $state['Source'] = ['entityid' => $state['Oidc']['OpenIdProviderMetadata']['issuer']];
+        $state['Destination'] = ['entityid' => $state['Oidc']['RelyingPartyMetadata']['id']];
+
         return $state;
     }
 }

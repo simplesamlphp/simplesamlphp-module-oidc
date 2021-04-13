@@ -43,6 +43,9 @@ $config = [
     //
     // At the moment, the following SAML authN data will be available during OIDC authN in the sate array:
     // - ['Attributes'], ['Authority'], ['AuthnInstant'], ['Expire']
+    // Source and destination will have entity IDs corresponding to the OP issuer ID and Client ID respectively.
+    // - ['Source']['entityid'] - contains OpenId Provider issuer ID
+    // - ['Destination']['entityid'] - contains Relying Party (OIDC Client) ID
     // In addition to that, the following OIDC related data will be available in the state array:
     // - ['Oidc']['OpenIdProviderMetadata'] - contains information otherwise available from the OIDC configuration URL.
     // - ['Oidc']['RelyingPartyMetadata'] - contains information about the OIDC client making the authN request.
