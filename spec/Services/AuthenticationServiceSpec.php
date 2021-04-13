@@ -27,7 +27,6 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\AuthenticationService;
 use SimpleSAML\Modules\OpenIDConnect\Services\AuthProcService;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
-use SimpleSAML\Modules\OpenIDConnect\Services\IdProviderMetadataService;
 use SimpleSAML\Modules\OpenIDConnect\Services\OidcProviderMetadataService;
 
 class AuthenticationServiceSpec extends ObjectBehavior
@@ -61,7 +60,6 @@ class AuthenticationServiceSpec extends ObjectBehavior
      * @param ClientRepository $clientRepository
      * @param ConfigurationService $configurationService
      * @param OidcProviderMetadataService $oidcProviderMetadataService
-     * @param IdProviderMetadataService $idProviderMetadataService
      * @return void
      */
     public function let(
@@ -73,8 +71,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
         AuthProcService $authProcService,
         ClientRepository $clientRepository,
         ConfigurationService $configurationService,
-        OidcProviderMetadataService $oidcProviderMetadataService,
-        IdProviderMetadataService $idProviderMetadataService
+        OidcProviderMetadataService $oidcProviderMetadataService
     ): void {
         $request->getQueryParams()->willReturn(self::AUTHZ_REQUEST_PARAMS);
         $clientEntity->getAuthSource()->willReturn(self::AUTH_SOURCE);
@@ -84,7 +81,6 @@ class AuthenticationServiceSpec extends ObjectBehavior
         $simple->getAuthDataArray()->willReturn(self::AUTH_DATA);
         $authSimpleFactory->build(self::AUTH_SOURCE)->willReturn($simple);
         $oidcProviderMetadataService->getMetadata()->willReturn(self::OIDC_METADATA);
-        $idProviderMetadataService->getMetadata()->willReturn(self::IDP_METADATA);
         $configurationService->getAuthProcFilters()->willReturn([]);
         $authProcService->processState(Argument::type('array'))->willReturn(self::STATE);
 
@@ -95,7 +91,6 @@ class AuthenticationServiceSpec extends ObjectBehavior
             $authProcService,
             $clientRepository,
             $oidcProviderMetadataService,
-            $idProviderMetadataService,
             self::USER_ID_ATTR
         );
     }

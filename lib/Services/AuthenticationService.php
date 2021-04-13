@@ -56,11 +56,6 @@ class AuthenticationService
      */
     private $oidcProviderMetadataService;
 
-    /**
-     * @var IdProviderMetadataService
-     */
-    private $idProviderMetadataService;
-
     public function __construct(
         ConfigurationService $configurationService,
         UserRepository $userRepository,
@@ -68,7 +63,6 @@ class AuthenticationService
         AuthProcService $authProcService,
         ClientRepository $clientRepository,
         OidcProviderMetadataService $oidcProviderMetadataService,
-        IdProviderMetadataService $idProviderMetadataService,
         string $userIdAttr
     ) {
         $this->configurationService = $configurationService;
@@ -77,7 +71,6 @@ class AuthenticationService
         $this->authProcService = $authProcService;
         $this->clientRepository = $clientRepository;
         $this->oidcProviderMetadataService = $oidcProviderMetadataService;
-        $this->idProviderMetadataService = $idProviderMetadataService;
         $this->userIdAttr = $userIdAttr;
     }
 
@@ -150,8 +143,6 @@ class AuthenticationService
             $relevantAuthzParams = ['response_type', 'client_id', 'redirect_uri', 'scope', 'code_challenge_method'];
             return in_array($key, $relevantAuthzParams);
         }, ARRAY_FILTER_USE_KEY);
-
-        $state['Source'] = $state['IdPMetadata'] = $this->idProviderMetadataService->getMetadata();
 
         return $state;
     }
