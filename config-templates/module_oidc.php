@@ -42,11 +42,11 @@ $config = [
     // like Service Provider metadata, etc.
     //
     // At the moment, the following SAML authN data will be available during OIDC authN in the sate array:
-    // - 'Attributes', 'Authority', 'AuthnInstant', 'Expire', 'IdPMetadata', 'Source'
+    // - ['Attributes'], ['Authority'], ['AuthnInstant'], ['Expire']
     // In addition to that, the following OIDC related data will be available in the state array:
-    // - 'OidcOpenIdProviderMetadata' - contains information otherwise available from the OIDC configuration URL.
-    // - 'OidcRelyingPartyMetadata' - contains information about the OIDC client making the authN request.
-    // - 'OidcAuthorizationRequestParameters' - contains relevant authorization request query parameters.
+    // - ['Oidc']['OpenIdProviderMetadata'] - contains information otherwise available from the OIDC configuration URL.
+    // - ['Oidc']['RelyingPartyMetadata'] - contains information about the OIDC client making the authN request.
+    // - ['Oidc']['AuthorizationRequestParameters'] - contains relevant authorization request query parameters.
     //
     // List of authproc filters which will run for every OIDC authN. Add filters as described in docs for SAML authproc
     // @see https://simplesamlphp.org/docs/stable/simplesamlphp-authproc

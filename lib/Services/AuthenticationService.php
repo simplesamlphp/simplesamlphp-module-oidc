@@ -133,16 +133,16 @@ class AuthenticationService
     {
         $state = $authSimple->getAuthDataArray();
 
-        $state['OidcOpenIdProviderMetadata'] = $this->oidcOpenIdProviderMetadataService->getMetadata();
-
-        $state['OidcRelyingPartyMetadata'] = array_filter($client->toArray(), function (string $key) {
-            return $key !== 'secret';
-        }, ARRAY_FILTER_USE_KEY);
-
-        $state['OidcAuthorizationRequestParameters'] = array_filter($request->getQueryParams(), function (string $key) {
-            $relevantAuthzParams = ['response_type', 'client_id', 'redirect_uri', 'scope', 'code_challenge_method'];
-            return in_array($key, $relevantAuthzParams);
-        }, ARRAY_FILTER_USE_KEY);
+        $state['Oidc'] = [
+            'OpenIdProviderMetadata' => $this->oidcOpenIdProviderMetadataService->getMetadata(),
+            'RelyingPartyMetadata' => array_filter($client->toArray(), function (string $key) {
+                return $key !== 'secret';
+            }, ARRAY_FILTER_USE_KEY),
+            'AuthorizationRequestParameters' => array_filter($request->getQueryParams(), function (string $key) {
+                $relevantAuthzParams = ['response_type', 'client_id', 'redirect_uri', 'scope', 'code_challenge_method'];
+                return in_array($key, $relevantAuthzParams);
+            }, ARRAY_FILTER_USE_KEY),
+        ];
 
         return $state;
     }
