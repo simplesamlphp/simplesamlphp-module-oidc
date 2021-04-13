@@ -14,6 +14,7 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Repositories;
 
+use League\OAuth2\Server\Entities\ClientEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
@@ -103,6 +104,42 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         return $clients;
     }
 
+    /**
+     * @param int $page
+     *
+     * @return array{numPages: int, currentPage: int, items: ClientEntityInterface[]}
+     */
+    public function findPaginated(int $page = 1): array
+    {
+        $total = $this->count();
+        $limit = $this->getItemsPerPage();
+
+        $numPages = (int)ceil($total / $limit);
+        $numPages = $numPages < 1 ? 1 : $numPages;
+
+        $page = $page > $numPages ? $numPages : $page;
+        $page = $page < 1 ? 1 : $page;
+
+        $offset = ($page - 1) * $limit;
+
+        $stmt = $this->database->read(
+            "SELECT * FROM {$this->getTableName()} ORDER BY name ASC LIMIT {$limit} OFFSET {$offset}"
+        );
+
+        /** @var ClientEntityInterface[] $clients */
+        $clients = [];
+
+        foreach ($stmt->fetchAll() as $state) {
+            $clients[] = ClientEntity::fromState($state);
+        }
+
+        return [
+            'numPages' => $numPages,
+            'currentPage' => $page,
+            'items' => $clients
+        ];
+    }
+
     public function add(ClientEntity $client): void
     {
         $stmt = sprintf(
@@ -172,5 +209,22 @@ EOF
             $stmt,
             $client->getState()
         );
+    }
+
+    private function count(): int
+    {
+        $stmt = $this->database->read(
+            "SELECT COUNT(id) FROM {$this->getTableName()}"
+        );
+        $stmt->execute();
+
+        return (int) $stmt->fetchColumn(0);
+    }
+
+    private function getItemsPerPage(): int
+    {
+        $itemsPerPage = $this->config->getInteger('items_per_page', 20);
+
+        return $itemsPerPage < 0 ? 20 : $itemsPerPage;
     }
 }

@@ -38,10 +38,16 @@ class ClientIndexController
 
     public function __invoke(ServerRequest $request): \SimpleSAML\XHTML\Template
     {
-        $clients = $this->clientRepository->findAll();
+        $queryParams = $request->getQueryParams();
+
+        $page = array_key_exists('page', $queryParams) ? (int) $queryParams['page'] : 1;
+
+        $pagination = $this->clientRepository->findPaginated($page);
 
         return $this->templateFactory->render('oidc:clients/index.twig', [
-            'clients' => $clients,
+            'clients' => $pagination['items'],
+            'numPages' => $pagination['numPages'],
+            'currentPage' => $pagination['currentPage'],
         ]);
     }
 }

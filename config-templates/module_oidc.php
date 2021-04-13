@@ -13,6 +13,9 @@
  */
 
 $config = [
+    // pagination
+    'items_per_page' => 20,
+
     // The private key passphrase (optional)
     // 'pass_phrase' => 'secret',
 
