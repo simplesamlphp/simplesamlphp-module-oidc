@@ -1,0 +1,19 @@
+{
+    "server": {
+        "discoveryUrl": "https://oidc-conformance.uat.cirrusidentity.com/.well-known/openid-configuration"
+    },
+    "client": {
+        "client_id": "_55a99a1d298da921cb27d700d4604352e51171ebc4",
+        "client_secret": "_8967dd97d07cc59db7055e84ac00e79005157c1132"
+    },
+    "client_secret_post": {
+        "client_id": "_0afb7d18e54b2de8205a93e38ca119e62ee321d031",
+        "client_secret": "_944e73bbeec7850d32b68f1b5c780562c955967e4e"
+    },
+    "client2": {
+        "client_id": "_34efb61060172a11d62101bc804db789f8f9100b0e",
+        "client_secret": "_91a4607a1c10ba801268929b961b3f6c067ff82d21"
+    },
+    "alias": "simplesamlphp-module-oidc",
+    "description": "Testing of simplesamlphp-module-oidc"
+}

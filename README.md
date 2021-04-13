@@ -227,6 +227,37 @@ and you can add a client.
 
 You may view the OIDC configuration endpoint at `https://localhost/.well-known/openid-configuration`
 
+### Build Image to Deploy for Conformance Tests
+
+
+Build an image
+```bash
+GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+# Replace invalid tag characters when doing build
+IMAGE_TAG=$(tr '/' '_' <<< $GIT_BRANCH)
+docker build -t "rediris-es/simplesamlphp-oidc:dev-$IMAGE_TAG" \
+  --build-arg OIDC_VERSION=dev-${GIT_BRANCH} \
+  -f docker/Dockerfile .
+
+docker run --name ssp-oidc-dev-image \
+  -e SSP_ADMIN_PASSWORD=secret1 \
+  -p 443:443 rediris-es/simplesamlphp-oidc:dev-$IMAGE_TAG
+
+```
+
+Publish the image. This is temporarily published into the cirrusid namespace.
+
+```
+docker tag "rediris-es/simplesamlphp-oidc:dev-$IMAGE_TAG" "cirrusid/simplesamlphp-oidc:dev-$IMAGE_TAG"
+docker push "cirrusid/simplesamlphp-oidc:dev-$IMAGE_TAG"
+```
+
+To dump the database
+```bash
+docker exec ssp-oidc-dev-image sqlite3  /var/simplesamlphp/data/mydb.sq3 '.dump' > docker/conformance.sql
+```
+
+Conformance tests are easier 
 ### Docker compose: Work in Progress
 
 WIP

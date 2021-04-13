@@ -37,7 +37,7 @@ class ResourceServerFactory
 
         return new ResourceServer(
             $this->accessTokenRepository,
-            new CryptKey($publicKeyPath, null, false)
+            new CryptKey($publicKeyPath)
         );
     }
 }

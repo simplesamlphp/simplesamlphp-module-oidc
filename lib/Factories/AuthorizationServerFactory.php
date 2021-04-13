@@ -106,7 +106,7 @@ class AuthorizationServerFactory
             $this->clientRepository,
             $this->accessTokenRepository,
             $this->scopeRepository,
-            new CryptKey($privateKeyPath, $this->passPhrase, false),
+            new CryptKey($privateKeyPath, $this->passPhrase),
             $encryptionKey,
             $idTokenResponse
         );
