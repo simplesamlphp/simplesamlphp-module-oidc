@@ -16,23 +16,23 @@ namespace SimpleSAML\Modules\OpenIDConnect\Controller;
 
 use Laminas\Diactoros\Response\JsonResponse;
 use Laminas\Diactoros\ServerRequest;
-use SimpleSAML\Modules\OpenIDConnect\Services\OidcProviderMetadataService;
+use SimpleSAML\Modules\OpenIDConnect\Services\OidcOpenIdProviderMetadataService;
 
 class OpenIdConnectDiscoverConfigurationController
 {
     /**
-     * @var OidcProviderMetadataService
+     * @var OidcOpenIdProviderMetadataService
      */
-    private $oidcProviderMetadataService;
+    private $oidcOpenIdProviderMetadataService;
 
     public function __construct(
-        OidcProviderMetadataService $oidcProviderMetadataService
+        OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService
     ) {
-        $this->oidcProviderMetadataService = $oidcProviderMetadataService;
+        $this->oidcOpenIdProviderMetadataService = $oidcOpenIdProviderMetadataService;
     }
 
     public function __invoke(ServerRequest $serverRequest): JsonResponse
     {
-        return new JsonResponse($this->oidcProviderMetadataService->getMetadata());
+        return new JsonResponse($this->oidcOpenIdProviderMetadataService->getMetadata());
     }
 }

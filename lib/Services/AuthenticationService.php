@@ -52,9 +52,9 @@ class AuthenticationService
     private $authProcService;
 
     /**
-     * @var OidcProviderMetadataService
+     * @var OidcOpenIdProviderMetadataService
      */
-    private $oidcProviderMetadataService;
+    private $oidcOpenIdProviderMetadataService;
 
     public function __construct(
         ConfigurationService $configurationService,
@@ -62,7 +62,7 @@ class AuthenticationService
         AuthSimpleFactory $authSimpleFactory,
         AuthProcService $authProcService,
         ClientRepository $clientRepository,
-        OidcProviderMetadataService $oidcProviderMetadataService,
+        OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService,
         string $userIdAttr
     ) {
         $this->configurationService = $configurationService;
@@ -70,7 +70,7 @@ class AuthenticationService
         $this->authSimpleFactory = $authSimpleFactory;
         $this->authProcService = $authProcService;
         $this->clientRepository = $clientRepository;
-        $this->oidcProviderMetadataService = $oidcProviderMetadataService;
+        $this->oidcOpenIdProviderMetadataService = $oidcOpenIdProviderMetadataService;
         $this->userIdAttr = $userIdAttr;
     }
 
@@ -133,7 +133,7 @@ class AuthenticationService
     {
         $state = $authSimple->getAuthDataArray();
 
-        $state['OidcProviderMetadata'] = $this->oidcProviderMetadataService->getMetadata();
+        $state['OidcOpenIdProviderMetadata'] = $this->oidcOpenIdProviderMetadataService->getMetadata();
 
         $state['OidcRelyingPartyMetadata'] = array_filter($client->toArray(), function (string $key) {
             return $key !== 'secret';

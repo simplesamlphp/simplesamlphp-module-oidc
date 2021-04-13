@@ -27,7 +27,7 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\AuthenticationService;
 use SimpleSAML\Modules\OpenIDConnect\Services\AuthProcService;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
-use SimpleSAML\Modules\OpenIDConnect\Services\OidcProviderMetadataService;
+use SimpleSAML\Modules\OpenIDConnect\Services\OidcOpenIdProviderMetadataService;
 
 class AuthenticationServiceSpec extends ObjectBehavior
 {
@@ -44,7 +44,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
     public const CLIENT_ENTITY = ['id' => 'clientid', 'redirect_uri' => 'https://rp.example.org'];
     public const STATE = [
         'Attributes' => self::AUTH_DATA['Attributes'],
-        'OidcProviderMetadata' => self::OIDC_METADATA,
+        'OidcOpenIdProviderMetadata' => self::OIDC_METADATA,
         'OidcRelyingPartyMetadata' => self::CLIENT_ENTITY,
         'IdPMetadata' => self::IDP_METADATA
     ];
@@ -59,7 +59,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
      * @param AuthProcService $authProcService
      * @param ClientRepository $clientRepository
      * @param ConfigurationService $configurationService
-     * @param OidcProviderMetadataService $oidcProviderMetadataService
+     * @param OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService
      * @return void
      */
     public function let(
@@ -71,7 +71,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
         AuthProcService $authProcService,
         ClientRepository $clientRepository,
         ConfigurationService $configurationService,
-        OidcProviderMetadataService $oidcProviderMetadataService
+        OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService
     ): void {
         $request->getQueryParams()->willReturn(self::AUTHZ_REQUEST_PARAMS);
         $clientEntity->getAuthSource()->willReturn(self::AUTH_SOURCE);
@@ -80,7 +80,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
         $simple->getAttributes()->willReturn(self::AUTH_DATA['Attributes']);
         $simple->getAuthDataArray()->willReturn(self::AUTH_DATA);
         $authSimpleFactory->build(self::AUTH_SOURCE)->willReturn($simple);
-        $oidcProviderMetadataService->getMetadata()->willReturn(self::OIDC_METADATA);
+        $oidcOpenIdProviderMetadataService->getMetadata()->willReturn(self::OIDC_METADATA);
         $configurationService->getAuthProcFilters()->willReturn([]);
         $authProcService->processState(Argument::type('array'))->willReturn(self::STATE);
 
@@ -90,7 +90,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
             $authSimpleFactory,
             $authProcService,
             $clientRepository,
-            $oidcProviderMetadataService,
+            $oidcOpenIdProviderMetadataService,
             self::USER_ID_ATTR
         );
     }

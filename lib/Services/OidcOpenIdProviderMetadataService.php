@@ -3,12 +3,12 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
 /**
- * OpenID Connect (OIDC) Provider Metadata Service - provides information about OIDC authentication server.
+ * OpenID Provider Metadata Service - provides information about OIDC authentication server.
  *
- * Class OPMetadataService
+ * Class OidcOpenIdProviderMetadataService
  * @package SimpleSAML\Modules\OpenIDConnect\Services
  */
-class OidcProviderMetadataService
+class OidcOpenIdProviderMetadataService
 {
     /**
      * @var ConfigurationService

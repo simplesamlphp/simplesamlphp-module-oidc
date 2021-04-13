@@ -44,7 +44,7 @@ $config = [
     // At the moment, the following SAML authN data will be available during OIDC authN in the sate array:
     // - 'Attributes', 'Authority', 'AuthnInstant', 'Expire', 'IdPMetadata', 'Source'
     // In addition to that, the following OIDC related data will be available in the state array:
-    // - 'OidcProviderMetadata' - contains information otherwise available from the OIDC configuration URL.
+    // - 'OidcOpenIdProviderMetadata' - contains information otherwise available from the OIDC configuration URL.
     // - 'OidcRelyingPartyMetadata' - contains information about the OIDC client making the authN request.
     // - 'OidcAuthorizationRequestParameters' - contains relevant authorization request query parameters.
     //
