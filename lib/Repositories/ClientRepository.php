@@ -113,7 +113,9 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
     {
         $total = $this->count();
         $limit = $this->getItemsPerPage();
+
         $numPages = (int)ceil($total / $limit);
+        $numPages = $numPages < 1 ? 1 : $numPages;
 
         $page = $page > $numPages ? $numPages : $page;
         $page = $page < 1 ? 1 : $page;
