@@ -67,13 +67,15 @@
         <tr>
             <th colspan="2">
                 <div class="ui right floated pagination menu">
-                    <span class="icon item">
+                    <a class="icon item {{ currentPage == 1 ? 'disabled' }}" href="{{ moduleURL('oidc/clients/', {page: currentPage - 1}) }}">
                         <i class="left chevron icon"></i>
-                    </span>
-                    <span class="item active">1</span>
-                    <span class="icon item">
+                    </a>
+                    {% for i in range(1, numPages) %}
+                        <a class="item {{ currentPage == i ? 'active disabled' }}" href="{{ moduleURL('oidc/clients/', {page: i}) }}">{{ i }}</a>
+                    {% endfor %}
+                    <a class="icon item {{ currentPage == numPages ? 'disabled' }}" href="{{ moduleURL('oidc/clients/', {page: currentPage + 1}) }}">
                         <i class="right chevron icon"></i>
-                    </span>
+                    </a>
                 </div>
             </th>
         </tr>
