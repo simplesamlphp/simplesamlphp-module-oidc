@@ -27,29 +27,29 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
 use SimpleSAML\Modules\OpenIDConnect\Services\AuthenticationService;
 use SimpleSAML\Modules\OpenIDConnect\Services\AuthProcService;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
-use SimpleSAML\Modules\OpenIDConnect\Services\IdProviderMetadataService;
-use SimpleSAML\Modules\OpenIDConnect\Services\OidcProviderMetadataService;
+use SimpleSAML\Modules\OpenIDConnect\Services\OidcOpenIdProviderMetadataService;
 
 class AuthenticationServiceSpec extends ObjectBehavior
 {
     public const AUTH_SOURCE = 'auth_source';
     public const USER_ID_ATTR = 'uid';
     public const USERNAME = 'username';
-    public const OIDC_METADATA = ['issuer' => 'https://idp.example.org'];
-    public const IDP_METADATA = ['entityid' => 'https://idp.example.org'];
+    public const OIDC_OP_METADATA = ['issuer' => 'https://idp.example.org'];
     public const USER_ENTITY_ATTRIBUTES = [
         self::USER_ID_ATTR => [self::USERNAME],
         'eduPersonTargetedId' => [self::USERNAME],
     ];
     public const AUTH_DATA = ['Attributes' => self::USER_ENTITY_ATTRIBUTES];
     public const CLIENT_ENTITY = ['id' => 'clientid', 'redirect_uri' => 'https://rp.example.org'];
+    public const AUTHZ_REQUEST_PARAMS = ['client_id' => 'clientid', 'redirect_uri' => 'https://rp.example.org'];
     public const STATE = [
         'Attributes' => self::AUTH_DATA['Attributes'],
-        'OidcProviderMetadata' => self::OIDC_METADATA,
-        'OidcRelyingPartyMetadata' => self::CLIENT_ENTITY,
-        'IdPMetadata' => self::IDP_METADATA
+        'Oidc' => [
+            'OpenIdProviderMetadata' => self::OIDC_OP_METADATA,
+            'RelyingPartyMetadata' => self::CLIENT_ENTITY,
+            'AuthorizationRequestParameters' => self::AUTHZ_REQUEST_PARAMS,
+        ],
     ];
-    public const AUTHZ_REQUEST_PARAMS = ['client_id' => 'clientid', 'redirect_uri' => 'https://rp.example.org'];
 
     /**
      * @param ServerRequest $request
@@ -60,8 +60,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
      * @param AuthProcService $authProcService
      * @param ClientRepository $clientRepository
      * @param ConfigurationService $configurationService
-     * @param OidcProviderMetadataService $oidcProviderMetadataService
-     * @param IdProviderMetadataService $idProviderMetadataService
+     * @param OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService
      * @return void
      */
     public function let(
@@ -73,8 +72,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
         AuthProcService $authProcService,
         ClientRepository $clientRepository,
         ConfigurationService $configurationService,
-        OidcProviderMetadataService $oidcProviderMetadataService,
-        IdProviderMetadataService $idProviderMetadataService
+        OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService
     ): void {
         $request->getQueryParams()->willReturn(self::AUTHZ_REQUEST_PARAMS);
         $clientEntity->getAuthSource()->willReturn(self::AUTH_SOURCE);
@@ -83,8 +81,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
         $simple->getAttributes()->willReturn(self::AUTH_DATA['Attributes']);
         $simple->getAuthDataArray()->willReturn(self::AUTH_DATA);
         $authSimpleFactory->build(self::AUTH_SOURCE)->willReturn($simple);
-        $oidcProviderMetadataService->getMetadata()->willReturn(self::OIDC_METADATA);
-        $idProviderMetadataService->getMetadata()->willReturn(self::IDP_METADATA);
+        $oidcOpenIdProviderMetadataService->getMetadata()->willReturn(self::OIDC_OP_METADATA);
         $configurationService->getAuthProcFilters()->willReturn([]);
         $authProcService->processState(Argument::type('array'))->willReturn(self::STATE);
 
@@ -94,8 +91,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
             $authSimpleFactory,
             $authProcService,
             $clientRepository,
-            $oidcProviderMetadataService,
-            $idProviderMetadataService,
+            $oidcOpenIdProviderMetadataService,
             self::USER_ID_ATTR
         );
     }

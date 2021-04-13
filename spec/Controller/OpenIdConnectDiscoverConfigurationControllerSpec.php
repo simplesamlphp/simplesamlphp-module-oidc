@@ -18,7 +18,7 @@ use PhpSpec\ObjectBehavior;
 use SimpleSAML\Modules\OpenIDConnect\Controller\OpenIdConnectDiscoverConfigurationController;
 use Laminas\Diactoros\Response\JsonResponse;
 use Laminas\Diactoros\ServerRequest;
-use SimpleSAML\Modules\OpenIDConnect\Services\OidcProviderMetadataService;
+use SimpleSAML\Modules\OpenIDConnect\Services\OidcOpenIdProviderMetadataService;
 
 class OpenIdConnectDiscoverConfigurationControllerSpec extends ObjectBehavior
 {
@@ -36,15 +36,15 @@ class OpenIdConnectDiscoverConfigurationControllerSpec extends ObjectBehavior
     ];
 
     /**
-     * @param OidcProviderMetadataService $oidcProviderMetadataService
+     * @param OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService
      * @return void
      */
     public function let(
-        OidcProviderMetadataService $oidcProviderMetadataService
+        OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService
     ): void {
-        $oidcProviderMetadataService->getMetadata()->willReturn(self::OIDC_OP_METADATA);
+        $oidcOpenIdProviderMetadataService->getMetadata()->willReturn(self::OIDC_OP_METADATA);
 
-        $this->beConstructedWith($oidcProviderMetadataService);
+        $this->beConstructedWith($oidcOpenIdProviderMetadataService);
     }
 
     /**

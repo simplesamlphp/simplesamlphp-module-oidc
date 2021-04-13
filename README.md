@@ -98,17 +98,19 @@ specific Auth Proc Filters which will run only during OIDC authN.
 However, there are some considerations. OIDC authN state array will not contain all the keys which are 
 available during SAML authN, like Service Provider metadata. If you are using an existing filter, make sure it does 
 not rely on some non-existent state data. At the moment, only the following SAML authN data will be available:
-* 'Attributes'
-* 'Authority'
-* 'AuthnInstant'
-* 'Expire'
-* 'IdPMetadata'
-* 'Source'
+* \['Attributes'\]
+* \['Authority'\]
+* \['AuthnInstant'\]
+* \['Expire'\]
+
+Source and destination will have entity IDs corresponding to the OP issuer ID and Client ID respectively.
+* \['Source'\]\['entityid'\] - contains OpenId Provider issuer ID
+* \['Destination'\]\['entityid'\] - contains Relying Party (OIDC Client) ID
 
 In addition to that, the following OIDC related data will be available in the state array:
-* 'OidcProviderMetadata' - contains information otherwise available from the OIDC configuration URL.
-* 'OidcRelyingPartyMetadata' - contains information about the OIDC client making the authN request.
-* 'OidcAuthorizationRequestParameters' - contains relevant authorization request query parameters.
+* \['Oidc'\]\['OpenIdProviderMetadata'\] - contains information otherwise available from the OIDC configuration URL.
+* \['Oidc'\]\['RelyingPartyMetadata'\] - contains information about the OIDC client making the authN request.
+* \['Oidc'\]\['AuthorizationRequestParameters'\] - contains relevant authorization request query parameters.
 
 Note: at the moment there is no support for showing a page to the user in a filter, and then resuming the filtering.
 Only the common filter use cases are supported like attribute handling, logging, or similar. 

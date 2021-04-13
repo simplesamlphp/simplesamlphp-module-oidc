@@ -4,9 +4,9 @@ namespace spec\SimpleSAML\Modules\OpenIDConnect\Services;
 
 use PhpSpec\ObjectBehavior;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
-use SimpleSAML\Modules\OpenIDConnect\Services\OidcProviderMetadataService;
+use SimpleSAML\Modules\OpenIDConnect\Services\OidcOpenIdProviderMetadataService;
 
-class OidcProviderMetadataServiceSpec extends ObjectBehavior
+class OidcOpenIdProviderMetadataServiceSpec extends ObjectBehavior
 {
     public function let(
         ConfigurationService $configurationService
@@ -30,7 +30,7 @@ class OidcProviderMetadataServiceSpec extends ObjectBehavior
 
     public function it_is_initializable()
     {
-        $this->shouldHaveType(OidcProviderMetadataService::class);
+        $this->shouldHaveType(OidcOpenIdProviderMetadataService::class);
     }
 
     public function it_returns_expected_metadata(): void

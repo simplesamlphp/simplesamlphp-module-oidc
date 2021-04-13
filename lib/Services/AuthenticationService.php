@@ -52,14 +52,9 @@ class AuthenticationService
     private $authProcService;
 
     /**
-     * @var OidcProviderMetadataService
+     * @var OidcOpenIdProviderMetadataService
      */
-    private $oidcProviderMetadataService;
-
-    /**
-     * @var IdProviderMetadataService
-     */
-    private $idProviderMetadataService;
+    private $oidcOpenIdProviderMetadataService;
 
     public function __construct(
         ConfigurationService $configurationService,
@@ -67,8 +62,7 @@ class AuthenticationService
         AuthSimpleFactory $authSimpleFactory,
         AuthProcService $authProcService,
         ClientRepository $clientRepository,
-        OidcProviderMetadataService $oidcProviderMetadataService,
-        IdProviderMetadataService $idProviderMetadataService,
+        OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService,
         string $userIdAttr
     ) {
         $this->configurationService = $configurationService;
@@ -76,8 +70,7 @@ class AuthenticationService
         $this->authSimpleFactory = $authSimpleFactory;
         $this->authProcService = $authProcService;
         $this->clientRepository = $clientRepository;
-        $this->oidcProviderMetadataService = $oidcProviderMetadataService;
-        $this->idProviderMetadataService = $idProviderMetadataService;
+        $this->oidcOpenIdProviderMetadataService = $oidcOpenIdProviderMetadataService;
         $this->userIdAttr = $userIdAttr;
     }
 
@@ -140,18 +133,20 @@ class AuthenticationService
     {
         $state = $authSimple->getAuthDataArray();
 
-        $state['OidcProviderMetadata'] = $this->oidcProviderMetadataService->getMetadata();
+        $state['Oidc'] = [
+            'OpenIdProviderMetadata' => $this->oidcOpenIdProviderMetadataService->getMetadata(),
+            'RelyingPartyMetadata' => array_filter($client->toArray(), function (string $key) {
+                return $key !== 'secret';
+            }, ARRAY_FILTER_USE_KEY),
+            'AuthorizationRequestParameters' => array_filter($request->getQueryParams(), function (string $key) {
+                $relevantAuthzParams = ['response_type', 'client_id', 'redirect_uri', 'scope', 'code_challenge_method'];
+                return in_array($key, $relevantAuthzParams);
+            }, ARRAY_FILTER_USE_KEY),
+        ];
 
-        $state['OidcRelyingPartyMetadata'] = array_filter($client->toArray(), function (string $key) {
-            return $key !== 'secret';
-        }, ARRAY_FILTER_USE_KEY);
-
-        $state['OidcAuthorizationRequestParameters'] = array_filter($request->getQueryParams(), function (string $key) {
-            $relevantAuthzParams = ['response_type', 'client_id', 'redirect_uri', 'scope', 'code_challenge_method'];
-            return in_array($key, $relevantAuthzParams);
-        }, ARRAY_FILTER_USE_KEY);
-
-        $state['Source'] = $state['IdPMetadata'] = $this->idProviderMetadataService->getMetadata();
+        // Source and destination entity IDs, useful for eg. F-ticks logging...
+        $state['Source'] = ['entityid' => $state['Oidc']['OpenIdProviderMetadata']['issuer']];
+        $state['Destination'] = ['entityid' => $state['Oidc']['RelyingPartyMetadata']['id']];
 
         return $state;
     }
