@@ -38,6 +38,7 @@ class ClientIndexControllerSpec extends ObjectBehavior
         Configuration::loadFromArray([], '', 'simplesaml');
 
         $request->getUri()->willReturn($uri);
+        $request->getQueryParams()->willReturn(['page' => 1]);
         $uri->getPath()->willReturn('/');
 
         $this->beConstructedWith($clientRepository, $templateFactory);
@@ -60,8 +61,16 @@ class ClientIndexControllerSpec extends ObjectBehavior
         TemplateFactory $templateFactory,
         ClientRepository $clientRepository
     ) {
-        $clientRepository->findAll()->shouldBeCalled()->willReturn([]);
-        $templateFactory->render('oidc:clients/index.twig', ['clients' => []])->shouldBeCalled()->willReturn($template);
+        $clientRepository->findPaginated(1)->shouldBeCalled()->willReturn([
+            'items' => [],
+            'numPages' => 1,
+            'currentPage' => 1
+        ]);
+        $templateFactory->render('oidc:clients/index.twig', [
+            'clients' => [],
+            'numPages' => 1,
+            'currentPage' => 1
+        ])->shouldBeCalled()->willReturn($template);
 
         $this->__invoke($request)->shouldBe($template);
     }
