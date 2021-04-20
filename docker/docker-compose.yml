@@ -9,9 +9,14 @@ services:
       - ./docker/nginx-certs/:/etc/nginx/certs
     links:
       - oidc-op
-      - oidc-rp
+#      - oidc-rp
   oidc-op:
     hostname: op.local.stack-dev.cirrusidentity.com
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        OIDC_VERSION: dev-${GIT_BRANCH}
     environment:
       - STAGINGCOMPOSERREPOS=oidc
       - COMPOSER_REQUIRE=rediris-es/simplesamlphp-module-oidc:dev-${GIT_BRANCH}
@@ -25,22 +30,27 @@ services:
       - ./docker/ssp/module_oidc.php:/var/simplesamlphp/config/module_oidc.php:ro
       - ./docker/ssp/authsources.php:/var/simplesamlphp/config/authsources.php:ro
       - ./docker/ssp/config-override.php:/var/simplesamlphp/config/config-override.php:ro
-      - ./docker/ssp/oidc_module.crt:/var/simplesamlphp/cert/oidc_module.crt:ro
-      - ./docker/ssp/oidc_module.pem:/var/simplesamlphp/cert/oidc_module.pem:ro
       - ./docker/apache-override.cf:/etc/apache2/sites-enabled/ssp-override.cf:ro
-    image: cirrusid/simplesamlphp:1.19.0
-  oidc-rp:
-    ports:
-      - "12080:80"
-    environment:
-      - OID_DISCOVERY=https://op.local.stack-dev.cirrusidentity.com/.well-known/openid-configuration
-      - OID_CLIENT_ID=replacewithclientid
-      - OID_CLIENT_SECRET=replacewithclientsecret
-      - PROXY_HOST=my-service
-      - PROXY_PORT=443
-      - PROXY_PROTOCOL=https
-      - VIRTUAL_HOST=rp.local.stack-dev.cirrusidentity.com
-      - VIRTUAL_PORT=80
-      - VIRTUAL_PROTO=http
-      - CERT_NAME=default
-    image: evry/oidc-proxy
+#    image: cirrusid/simplesamlphp:1.19.0
+# oidc-rp still need work
+#  oidc-rp:
+#    ports:
+#      - "12080:80"
+#    environment:
+#      - OID_DISCOVERY=https://op.local.stack-dev.cirrusidentity.com/.well-known/openid-configuration
+#      - OID_CLIENT_ID=replacewithclientid
+#      - OID_CLIENT_SECRET=replacewithclientsecret
+#      - PROXY_HOST=my-service
+#      - PROXY_PORT=443
+#      - PROXY_PROTOCOL=https
+#      - VIRTUAL_HOST=rp.local.stack-dev.cirrusidentity.com
+#      - VIRTUAL_PORT=80
+#      - VIRTUAL_PROTO=http
+#      - CERT_NAME=default
+#    image: evry/oidc-proxy
+
+# Connect to the conformance-suite network to make it easier to communicate between components
+networks:
+  default:
+    external:
+      name: conformance-suite_default

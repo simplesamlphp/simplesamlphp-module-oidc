@@ -15,5 +15,5 @@
         "client_secret": "_91a4607a1c10ba801268929b961b3f6c067ff82d21"
     },
     "alias": "simplesamlphp-module-oidc",
-    "description": "Testing of simplesamlphp-module-oidc"
+    "description": "Testing of simplesamlphp-module-oidc running in publicly accessible location"
 }

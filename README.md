@@ -201,6 +201,7 @@ must provide a PCKS token (code_challenge parameter during authorization phase).
 ## Using Docker
 
 ### With current git branch.
+
 To explore the module using docker run the below command. This will run an SSP image, with the current oidc module mounted
 in the container, along with some configuration files. Any code changes you make to your git checkout are "live" in
 the container, allowing you to test and iterate different things.
@@ -229,8 +230,8 @@ You may view the OIDC configuration endpoint at `https://localhost/.well-known/o
 
 ### Build Image to Deploy for Conformance Tests
 
+Build an image that contains a pre-configured sqlite database.
 
-Build an image
 ```bash
 GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 # Replace invalid tag characters when doing build
@@ -245,30 +246,41 @@ docker run --name ssp-oidc-dev-image \
 
 ```
 
-Publish the image. This is temporarily published into the cirrusid namespace.
+Publish the image somewhere you can retrieve it.
+Temporarily, this will occasionally get published into the cirrusid Docker namespace.
 
 ```
 docker tag "rediris-es/simplesamlphp-oidc:dev-$IMAGE_TAG" "cirrusid/simplesamlphp-oidc:dev-$IMAGE_TAG"
 docker push "cirrusid/simplesamlphp-oidc:dev-$IMAGE_TAG"
 ```
 
+The database is not currently on a share volume, so any changes will get lost if the container restarts.
+You may want to back it up.
 To dump the database
 ```bash
 docker exec ssp-oidc-dev-image sqlite3  /var/simplesamlphp/data/mydb.sq3 '.dump' > docker/conformance.sql
 ```
 
-Conformance tests are easier 
-### Docker compose: Work in Progress
+Conformance tests are easier to run locally, see the `Docker compose` section and [CONFORMANCE_TEST.md](CONFORMANCE_TEST.md)
 
-WIP
+### Docker compose
 
 Docker compose will run several containers to make it easier to test scenarios.
-Currently working on:  the RP container refuses to connect to the OP's .well-known endpoint because it uses self-signed certificates. This makes local testing difficult.
 
 ```
 export GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 docker-compose -f docker/docker-compose.yml --project-directory . up
 ```
 
-RP: https://rp.local.stack-dev.cirrusidentity.com/
-OP: https://op.local.stack-dev.cirrusidentity.com/simplesaml/
+Visit the [OP](https://op.local.stack-dev.cirrusidentity.com/simplesaml/) and confirm a few clients already exist.
+
+Conformance tests are easier to run locally, see [CONFORMANCE_TEST.md](CONFORMANCE_TEST.md)
+
+Work in Progress:
+  * Adding RPs to docker compose. Issue: the RP container refuses to connect to the OP's .well-known endpoint because
+  it uses self-signed certificates. This makes local testing difficult.
+  * Allow testing with different databases
+
+## Running Conformance Tests
+
+See [CONFORMANCE_TEST.md](CONFORMANCE_TEST.md)

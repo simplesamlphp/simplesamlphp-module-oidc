@@ -5,12 +5,7 @@ INSERT INTO oidc_migration_versions VALUES('20180305180300');
 INSERT INTO oidc_migration_versions VALUES('20180425203400');
 INSERT INTO oidc_migration_versions VALUES('20200517071100');
 INSERT INTO oidc_migration_versions VALUES('20200901163000');
-CREATE TABLE oidc_user (
-            id VARCHAR(191) PRIMARY KEY NOT NULL,
-            claims TEXT,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        );
+INSERT INTO oidc_user VALUES('student','{"uid":["student"],"eduPersonAffiliation":["member","student"]}','2021-04-20 22:11:31','2021-04-20 22:11:31');
 CREATE TABLE oidc_client (
             id VARCHAR(191) PRIMARY KEY NOT NULL,
             secret VARCHAR(255) NOT NULL,
@@ -20,9 +15,9 @@ CREATE TABLE oidc_client (
             redirect_uri TEXT NOT NULL,
             scopes TEXT NOT NULL
         , is_enabled BOOLEAN NOT NULL DEFAULT true, is_confidential BOOLEAN NOT NULL DEFAULT false);
-INSERT INTO oidc_client VALUES('_55a99a1d298da921cb27d700d4604352e51171ebc4','_8967dd97d07cc59db7055e84ac00e79005157c1132','Conformance Client 1',replace('Client 1 for Conformance Testing  https://openid.net/certification/connect_op_testing/\n','\n',char(10)),'example-userpass','["https:\/\/www.certification.openid.net\/test\/a\/simplesamlphp-module-oidc\/callback"]','["openid","profile","email"]',1,1);
-INSERT INTO oidc_client VALUES('_34efb61060172a11d62101bc804db789f8f9100b0e','_91a4607a1c10ba801268929b961b3f6c067ff82d21','Conformance Client 2','','example-userpass','["https:\/\/www.certification.openid.net\/test\/a\/simplesamlphp-module-oidc\/callback"]','["openid","profile","email"]',1,1);
-INSERT INTO oidc_client VALUES('_0afb7d18e54b2de8205a93e38ca119e62ee321d031','_944e73bbeec7850d32b68f1b5c780562c955967e4e','Conformance Client 3','Client for client_secret_post','example-userpass','["https:\/\/www.certification.openid.net\/test\/a\/simplesamlphp-module-oidc\/callback"]','["openid","profile","email"]',1,1);
+INSERT INTO oidc_client VALUES('_55a99a1d298da921cb27d700d4604352e51171ebc4','_8967dd97d07cc59db7055e84ac00e79005157c1132','Conformance Client 1',replace('Client 1 for Conformance Testing  https://openid.net/certification/connect_op_testing/\n','\n',char(10)),'example-userpass','["https:\/\/localhost.emobix.co.uk:8443\/test\/a\/simplesamlphp-module-oidc\/callback","https:\/\/www.certification.openid.net\/test\/a\/simplesamlphp-module-oidc\/callback"]','["openid","profile","email"]',1,1);
+INSERT INTO oidc_client VALUES('_34efb61060172a11d62101bc804db789f8f9100b0e','_91a4607a1c10ba801268929b961b3f6c067ff82d21','Conformance Client 2','','example-userpass','["https:\/\/localhost.emobix.co.uk:8443\/test\/a\/simplesamlphp-module-oidc\/callback","https:\/\/www.certification.openid.net\/test\/a\/simplesamlphp-module-oidc\/callback"]','["openid","profile","email"]',1,1);
+INSERT INTO oidc_client VALUES('_0afb7d18e54b2de8205a93e38ca119e62ee321d031','_944e73bbeec7850d32b68f1b5c780562c955967e4e','Conformance Client 3','Client for client_secret_post','example-userpass','["https:\/\/localhost.emobix.co.uk:8443\/test\/a\/simplesamlphp-module-oidc\/callback","https:\/\/www.certification.openid.net\/test\/a\/simplesamlphp-module-oidc\/callback"]','["openid","profile","email"]',1,1);
 CREATE TABLE oidc_access_token (
             id VARCHAR(191) PRIMARY KEY NOT NULL,
             scopes TEXT,

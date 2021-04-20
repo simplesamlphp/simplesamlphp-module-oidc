@@ -3,6 +3,7 @@ FROM cirrusid/simplesamlphp:1.19.0
 RUN apt-get update && apt-get install -y sqlite3
 # Prepopulate the DB with items needed for testing
 ADD docker/conformance.sql /tmp/
+# Preload some clients
 RUN sqlite3 /var/simplesamlphp/data/mydb.sq3  < /tmp/conformance.sql \
     && chown www-data /var/simplesamlphp/data/mydb.sq3 
 

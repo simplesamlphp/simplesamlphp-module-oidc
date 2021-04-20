@@ -3,6 +3,51 @@
 The OpenID foundation provides conformance tests. This is a guide to setting up and running
 them against this SSP module.
 
+# Running Conformance Tests Locally
+
+This approach is best when you want to test changes without having to deploy your project
+
+## Run Conformance Images
+
+Clone the conformance test git repo, build the software and run it.
+
+```bash
+git clone https://gitlab.com/openid/conformance-suite.git
+cd conformance-suite
+# Version 4.1.10 has a bug when building
+git checkout release-v4.1.9
+MAVEN_CACHE=./m2 docker-compose -f builder-compose.yml run builder
+docker-compose up
+```
+
+This will startup the Java conformance app and a MongoDB server. You'll need to configure a test.
+
+Visit https://localhost:8443/ and "Create a new plan".
+The Test Plan should be "OpenID Connect Core: Basic Certification Profile Authorization server test"
+which is under "Test an OpenID Provider / Authorization Server".
+
+Then click on the JSON tab and enter the JSON from file `conformance-tests/conformance-basic-local.json`.
+This file contains several clients and a OIDC discovery config for running against a local SSP OIDC
+
+You'll need to get your OIDC SSP image running next
+
+## Run SSP
+
+You'll need to run SSP with OIDC on the same docker network as the compliance tests so they are able to communicate.
+
+See "Docker Compose" section of the main README.
+
+## Run Conformance Tests
+
+The conformance tests are interactive to make you authenticate. Some of the tests require you to clear cookies to confirm
+certain test scenarios, while others require you to have session cookies to test the RP signaling to the OP that the user
+should reauthenticate. The tests may also redirect you to https://localhost.emobix.co.uk:8443/  which will resolve to
+the conformance Java container. You'll need to accept any SSL connection warnings.
+
+Eventually these test can have [the browser portion automated](https://gitlab.com/openid/conformance-suite/-/wikis/Design/BrowserControl)
+though the Conformance tests authors recommend getting them all to pass first.
+
+
 # Running Hosted Tests
 
 OpenID foundation hosts the conformance testing software and allows you to test it against your server.
@@ -12,5 +57,12 @@ In this situation your OIDC OP must be accessible to the public internet.
 
 The docker image created in the README.md is designed to be used for running the conformance tests.
 It contains an sqlite database pre-populated with data that can be used for these tests.
-Build and run the image some where.
+Build and run the image somewhere.
+
+## Register and Create Conformance Tests
+
+Visit https://openid.net/certification/instructions/
+You can use the `json` deployment configurations under `conformance-tests` to configure your cloud instances. Update your
+`discoveryUrl` to reflect the location you deployed SSP. You may also need to adjust `alias` since that is used in all
+client redirect URIs and may conflict with existing test suites.
 
