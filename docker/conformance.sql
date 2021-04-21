@@ -5,7 +5,12 @@ INSERT INTO oidc_migration_versions VALUES('20180305180300');
 INSERT INTO oidc_migration_versions VALUES('20180425203400');
 INSERT INTO oidc_migration_versions VALUES('20200517071100');
 INSERT INTO oidc_migration_versions VALUES('20200901163000');
-INSERT INTO oidc_user VALUES('student','{"uid":["student"],"eduPersonAffiliation":["member","student"]}','2021-04-20 22:11:31','2021-04-20 22:11:31');
+CREATE TABLE oidc_user (
+            id VARCHAR(191) PRIMARY KEY NOT NULL,
+            claims TEXT,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
 CREATE TABLE oidc_client (
             id VARCHAR(191) PRIMARY KEY NOT NULL,
             secret VARCHAR(255) NOT NULL,

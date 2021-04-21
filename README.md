@@ -265,11 +265,13 @@ Conformance tests are easier to run locally, see the `Docker compose` section an
 
 ### Docker compose
 
-Docker compose will run several containers to make it easier to test scenarios.
+Docker compose will run several containers to make it easier to test scenarios. It will build an image
+that contains OIDC module. You may remove the ``--build`` argument if you want docker-compose to reuse
+previously running container.
 
 ```
 export GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-docker-compose -f docker/docker-compose.yml --project-directory . up
+docker-compose -f docker/docker-compose.yml --project-directory . up --build
 ```
 
 Visit the [OP](https://op.local.stack-dev.cirrusidentity.com/simplesaml/) and confirm a few clients already exist.
