@@ -16,6 +16,7 @@ namespace SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes;
 
 use Lcobucci\JWT\Builder;
 use Lcobucci\JWT\Signer\Key;
+use Lcobucci\JWT\Token\RegisteredClaims;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
@@ -97,7 +98,31 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
         $claims = $this->claimExtractor->extract($accessToken->getScopes(), $userEntity->getClaims());
 
         foreach ($claims as $claimName => $claimValue) {
-            $builder->withClaim($claimName, $claimValue);
+            switch ($claimName) {
+                case RegisteredClaims::AUDIENCE:
+                    $builder->permittedFor($claimValue);
+                    break;
+                case RegisteredClaims::EXPIRATION_TIME:
+                    $builder->expiresAt(new \DateTimeImmutable('@' . $claimValue));
+                    break;
+                case RegisteredClaims::ID:
+                    $builder->identifiedBy($claimValue);
+                    break;
+                case RegisteredClaims::ISSUED_AT:
+                    $builder->issuedAt(new \DateTimeImmutable('@' . $claimValue));
+                    break;
+                case RegisteredClaims::ISSUER:
+                    $builder->issuedBy($claimValue);
+                    break;
+                case RegisteredClaims::NOT_BEFORE:
+                    $builder->canOnlyBeUsedAfter(new \DateTimeImmutable('@' . $claimValue));
+                    break;
+                case RegisteredClaims::SUBJECT:
+                    $builder->relatedTo($claimValue);
+                    break;
+                default:
+                    $builder->withClaim($claimName, $claimValue);
+           }
         }
 
         $token = $builder->getToken(
@@ -116,10 +141,10 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
             ->issuedBy($this->configurationService->getSimpleSAMLSelfURLHost())
             ->permittedFor($accessToken->getClient()->getIdentifier())
             ->identifiedBy($accessToken->getIdentifier())
-            ->canOnlyBeUsedAfter(\time())
-            ->expiresAt($accessToken->getExpiryDateTime()->getTimestamp())
+            ->canOnlyBeUsedAfter(new \DateTimeImmutable('now'))
+            ->expiresAt($accessToken->getExpiryDateTime())
             ->relatedTo($userEntity->getIdentifier())
-            ->issuedAt(\time())
+            ->issuedAt(new \DateTimeImmutable('now'))
             ->withHeader('kid', FingerprintGenerator::forFile(Config::getCertPath('oidc_module.crt')));
     }
 
