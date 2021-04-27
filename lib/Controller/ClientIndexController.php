@@ -41,13 +41,15 @@ class ClientIndexController
         $queryParams = $request->getQueryParams();
 
         $page = array_key_exists('page', $queryParams) ? (int) $queryParams['page'] : 1;
+        $query = array_key_exists('q', $queryParams) ? (string) $queryParams['q'] : '';
 
-        $pagination = $this->clientRepository->findPaginated($page);
+        $pagination = $this->clientRepository->findPaginated($page, $query);
 
         return $this->templateFactory->render('oidc:clients/index.twig', [
             'clients' => $pagination['items'],
             'numPages' => $pagination['numPages'],
             'currentPage' => $pagination['currentPage'],
+            'query' => $query,
         ]);
     }
 }
