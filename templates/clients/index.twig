@@ -7,13 +7,16 @@
 
     <div class="ui hidden divider"></div>
 
-    <div class="ui secondary  menu">
+    <div class="ui secondary menu">
         <div class="right menu">
             <div class="item">
-                <div class="ui icon disabled input">
-                    <input placeholder="{% trans '{oidc:search}' %}" type="text">
-                    <i class="search link icon"></i>
-                </div>
+                <form action="{{ moduleURL('oidc/clients/') }}" method="get">
+                    <div class="ui right action left icon input">
+                        <i class="search link icon"></i>
+                        <input name="q" placeholder="{% trans '{oidc:search}' %}" type="text" value="{{ query }}">
+                        <div class="ui button" onclick="location.href = '{{ moduleURL('oidc/clients/') }}'">Reset</div>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -67,13 +70,13 @@
         <tr>
             <th colspan="2">
                 <div class="ui right floated pagination menu">
-                    <a class="icon item {{ currentPage == 1 ? 'disabled' }}" href="{{ moduleURL('oidc/clients/', {page: currentPage - 1}) }}">
+                    <a class="icon item {{ currentPage == 1 ? 'disabled' }}" href="{{ moduleURL('oidc/clients/', {page: currentPage - 1, q: query}) }}">
                         <i class="left chevron icon"></i>
                     </a>
                     {% for i in range(1, numPages) %}
-                        <a class="item {{ currentPage == i ? 'active disabled' }}" href="{{ moduleURL('oidc/clients/', {page: i}) }}">{{ i }}</a>
+                        <a class="item {{ currentPage == i ? 'active disabled' }}" href="{{ moduleURL('oidc/clients/', {page: i, q: query}) }}">{{ i }}</a>
                     {% endfor %}
-                    <a class="icon item {{ currentPage == numPages ? 'disabled' }}" href="{{ moduleURL('oidc/clients/', {page: currentPage + 1}) }}">
+                    <a class="icon item {{ currentPage == numPages ? 'disabled' }}" href="{{ moduleURL('oidc/clients/', {page: currentPage + 1, q: query}) }}">
                         <i class="right chevron icon"></i>
                     </a>
                 </div>
