@@ -106,32 +106,27 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
     /**
      * @param int $page
+     * @param string $query
      *
      * @return array{numPages: int, currentPage: int, items: ClientEntityInterface[]}
      */
-    public function findPaginated(int $page = 1): array
+    public function findPaginated(int $page = 1, string $query = ''): array
     {
-        $total = $this->count();
+        $query = mb_substr($query, 0, 2000);
+        $total = $this->count($query);
         $limit = $this->getItemsPerPage();
-
-        $numPages = (int)ceil($total / $limit);
-        $numPages = $numPages < 1 ? 1 : $numPages;
-
-        $page = $page > $numPages ? $numPages : $page;
-        $page = $page < 1 ? 1 : $page;
-
-        $offset = ($page - 1) * $limit;
+        $numPages = $this->calculateNumOfPages($total, $limit);
+        $page = $this->calculateCurrentPage($page, $numPages);
+        $offset = $this->calculateOffset($page, $limit);
 
         $stmt = $this->database->read(
-            "SELECT * FROM {$this->getTableName()} ORDER BY name ASC LIMIT {$limit} OFFSET {$offset}"
+            "SELECT * FROM {$this->getTableName()} WHERE name LIKE :name ORDER BY name ASC LIMIT {$limit} OFFSET {$offset}",
+            ['name' => '%' . $query . '%']
         );
 
-        /** @var ClientEntityInterface[] $clients */
-        $clients = [];
-
-        foreach ($stmt->fetchAll() as $state) {
-            $clients[] = ClientEntity::fromState($state);
-        }
+        $clients = array_map(function ($state) {
+            return ClientEntity::fromState($state);
+        }, $stmt->fetchAll());
 
         return [
             'numPages' => $numPages,
@@ -211,10 +206,11 @@ EOF
         );
     }
 
-    private function count(): int
+    private function count(string $query): int
     {
         $stmt = $this->database->read(
-            "SELECT COUNT(id) FROM {$this->getTableName()}"
+            "SELECT COUNT(id) FROM {$this->getTableName()} WHERE name LIKE :name",
+            ['name' => '%' . $query . '%']
         );
         $stmt->execute();
 
@@ -223,8 +219,47 @@ EOF
 
     private function getItemsPerPage(): int
     {
-        $itemsPerPage = $this->config->getInteger('items_per_page', 20);
+        return $this->config->getIntegerRange('items_per_page', 1, 100, 20);
+    }
 
-        return $itemsPerPage < 0 ? 20 : $itemsPerPage;
+    /**
+     * @param int $total
+     * @param int $limit
+     * @return int
+     */
+    private function calculateNumOfPages(int $total, int $limit): int
+    {
+        $numPages = (int)ceil($total / $limit);
+
+        return $numPages < 1 ? 1 : $numPages;
+    }
+
+    /**
+     * @param int $page
+     * @param int $numPages
+     * @return int
+     */
+    private function calculateCurrentPage(int $page, int $numPages): int
+    {
+        if ($page > $numPages) {
+            return $numPages;
+        }
+
+        if ($page < 1) {
+            return 1;
+        }
+
+        return $page;
+    }
+
+
+    /**
+     * @param int $page
+     * @param int $limit
+     * @return float|int
+     */
+    private function calculateOffset(int $page, int $limit)
+    {
+        return ($page - 1) * $limit;
     }
 }

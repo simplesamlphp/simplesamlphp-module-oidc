@@ -124,6 +124,12 @@ class ClientRepositoryTest extends TestCase
         $this->assertFalse($validate);
     }
 
+    public function testNotValidateWhenClientDoesNotExists()
+    {
+        $validate = self::$repository->validateClient('clientid', 'wrongclientsecret', null);
+        $this->assertFalse($validate);
+    }
+
     public function testFindAll(): void
     {
         $client = self::getClient('clientid');
@@ -132,6 +138,42 @@ class ClientRepositoryTest extends TestCase
         $clients = self::$repository->findAll();
         $this->assertCount(1, $clients);
         $this->assertInstanceOf(ClientEntity::class, current($clients));
+    }
+
+    public function testFindPaginated(): void
+    {
+        array_map(function ($i) {
+            self::$repository->add(self::getClient('clientid' . $i));
+        }, range(1, 21));
+
+        $clientPageOne = self::$repository->findPaginated(1);
+        self::assertCount(20, $clientPageOne['items']);
+        self::assertEquals(2, $clientPageOne['numPages']);
+        self::assertEquals(1, $clientPageOne['currentPage']);
+        $clientPageTwo = self::$repository->findPaginated(2);
+        self::assertCount(1, $clientPageTwo['items']);
+        self::assertEquals(2, $clientPageTwo['numPages']);
+        self::assertEquals(2, $clientPageTwo['currentPage']);
+    }
+
+    public function testFindPageInRange(): void
+    {
+        array_map(function ($i) {
+            self::$repository->add(self::getClient('clientid' . $i));
+        }, range(1, 21));
+
+        $clientPageOne = self::$repository->findPaginated(0);
+        self::assertEquals(1, $clientPageOne['currentPage']);
+        $clientPageOne = self::$repository->findPaginated(3);
+        self::assertEquals(2, $clientPageOne['currentPage']);
+    }
+
+    public function testFindPaginationWithEmptyList()
+    {
+        $clientPageOne = self::$repository->findPaginated(0);
+        self::assertEquals(1, $clientPageOne['numPages']);
+        self::assertEquals(1, $clientPageOne['currentPage']);
+        self::assertCount(0, $clientPageOne['items']);
     }
 
     public function testUpdate(): void
