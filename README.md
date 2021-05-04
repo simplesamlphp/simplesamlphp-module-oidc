@@ -197,3 +197,92 @@ The module lets you create, read, update and delete all the RP you want. To see 
 * Enabled: You can enable or disable a client. Disabled by default.
 * Secure client: The client is secure if it is capable of securely storing a secret. Unsecure clients
 must provide a PCKS token (code_challenge parameter during authorization phase). Disabled by default. 
+
+## Using Docker
+
+### With current git branch.
+
+To explore the module using docker run the below command. This will run an SSP image, with the current oidc module mounted
+in the container, along with some configuration files. Any code changes you make to your git checkout are "live" in
+the container, allowing you to test and iterate different things.
+
+```
+GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+docker run --name ssp-oidc-dev \
+   --mount type=bind,source="$(pwd)",target=/var/simplesamlphp/staging-modules/oidc,readonly \
+  -e STAGINGCOMPOSERREPOS=oidc \
+  -e COMPOSER_REQUIRE="rediris-es/simplesamlphp-module-oidc:dev-$GIT_BRANCH" \
+  -e SSP_ADMIN_PASSWORD=secret1 \
+  --mount type=bind,source="$(pwd)/docker/ssp/module_oidc.php",target=/var/simplesamlphp/config/module_oidc.php,readonly \
+  --mount type=bind,source="$(pwd)/docker/ssp/authsources.php",target=/var/simplesamlphp/config/authsources.php,readonly \
+  --mount type=bind,source="$(pwd)/docker/ssp/config-override.php",target=/var/simplesamlphp/config/config-override.php,readonly \
+  --mount type=bind,source="$(pwd)/docker/ssp/oidc_module.crt",target=/var/simplesamlphp/cert/oidc_module.crt,readonly \
+  --mount type=bind,source="$(pwd)/docker/ssp/oidc_module.pem",target=/var/simplesamlphp/cert/oidc_module.pem,readonly \
+  --mount type=bind,source="$(pwd)/docker/apache-override.cf",target=/etc/apache2/sites-enabled/ssp-override.cf,readonly \
+   -p 443:443 cirrusid/simplesamlphp:1.19.0
+```
+
+Visit https://localhost/simplesaml/ and confirm you get the default page.
+Then navigate to [OIDC screen](https://localhost/simplesaml/module.php/oidc/install.php)
+and you can add a client.
+
+You may view the OIDC configuration endpoint at `https://localhost/.well-known/openid-configuration`
+
+### Build Image to Deploy for Conformance Tests
+
+Build an image that contains a pre-configured sqlite database.
+
+```bash
+GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+# Replace invalid tag characters when doing build
+IMAGE_TAG=$(tr '/' '_' <<< $GIT_BRANCH)
+docker build -t "rediris-es/simplesamlphp-oidc:dev-$IMAGE_TAG" \
+  --build-arg OIDC_VERSION=dev-${GIT_BRANCH} \
+  -f docker/Dockerfile .
+
+docker run --name ssp-oidc-dev-image \
+  -e SSP_ADMIN_PASSWORD=secret1 \
+  -p 443:443 rediris-es/simplesamlphp-oidc:dev-$IMAGE_TAG
+
+```
+
+Publish the image somewhere you can retrieve it.
+Temporarily, this will occasionally get published into the cirrusid Docker namespace.
+
+```
+docker tag "rediris-es/simplesamlphp-oidc:dev-$IMAGE_TAG" "cirrusid/simplesamlphp-oidc:dev-$IMAGE_TAG"
+docker push "cirrusid/simplesamlphp-oidc:dev-$IMAGE_TAG"
+```
+
+The database is not currently on a share volume, so any changes will get lost if the container restarts.
+You may want to back it up.
+To dump the database
+```bash
+docker exec ssp-oidc-dev-image sqlite3  /var/simplesamlphp/data/mydb.sq3 '.dump' > docker/conformance.sql
+```
+
+Conformance tests are easier to run locally, see the `Docker compose` section and [CONFORMANCE_TEST.md](CONFORMANCE_TEST.md)
+
+### Docker compose
+
+Docker compose will run several containers to make it easier to test scenarios. It will build an image
+that contains OIDC module. You may remove the ``--build`` argument if you want docker-compose to reuse
+previously running container.
+
+```
+export GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+docker-compose -f docker/docker-compose.yml --project-directory . up --build
+```
+
+Visit the [OP](https://op.local.stack-dev.cirrusidentity.com/simplesaml/) and confirm a few clients already exist.
+
+Conformance tests are easier to run locally, see [CONFORMANCE_TEST.md](CONFORMANCE_TEST.md)
+
+Work in Progress:
+  * Adding RPs to docker compose. Issue: the RP container refuses to connect to the OP's .well-known endpoint because
+  it uses self-signed certificates. This makes local testing difficult.
+  * Allow testing with different databases
+
+## Running Conformance Tests
+
+See [CONFORMANCE_TEST.md](CONFORMANCE_TEST.md)

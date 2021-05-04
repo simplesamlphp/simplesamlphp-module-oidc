@@ -1,0 +1,2 @@
+RewriteEngine On
+RewriteRule ^/.well-known/openid-configuration(.*) /${SSP_APACHE_ALIAS}module.php/oidc/openid-configuration.php$1 [PT]
