@@ -39,7 +39,7 @@ class ScopeRepository extends AbstractDatabaseRepository implements ScopeReposit
         $scopes = $this->configurationService->getOpenIDScopes();
 
         if (false === \array_key_exists($identifier, $scopes)) {
-            throw OAuthServerException::invalidScope($identifier);
+            return null;
         }
 
         $scope = $scopes[$identifier];
