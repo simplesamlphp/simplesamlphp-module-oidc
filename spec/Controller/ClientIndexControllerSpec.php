@@ -15,6 +15,7 @@
 namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
 
 use PhpSpec\ObjectBehavior;
+use Prophecy\Argument;
 use Psr\Http\Message\UriInterface;
 use SimpleSAML\Configuration;
 use SimpleSAML\Modules\OpenIDConnect\Controller\ClientIndexController;
@@ -61,7 +62,7 @@ class ClientIndexControllerSpec extends ObjectBehavior
         TemplateFactory $templateFactory,
         ClientRepository $clientRepository
     ) {
-        $clientRepository->findPaginated(1)->shouldBeCalled()->willReturn([
+        $clientRepository->findPaginated(1, '')->shouldBeCalled()->willReturn([
             'items' => [],
             'numPages' => 1,
             'currentPage' => 1
@@ -69,7 +70,8 @@ class ClientIndexControllerSpec extends ObjectBehavior
         $templateFactory->render('oidc:clients/index.twig', [
             'clients' => [],
             'numPages' => 1,
-            'currentPage' => 1
+            'currentPage' => 1,
+            'query' => '',
         ])->shouldBeCalled()->willReturn($template);
 
         $this->__invoke($request)->shouldBe($template);
