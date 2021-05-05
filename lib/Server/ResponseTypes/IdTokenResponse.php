@@ -15,7 +15,9 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes;
 
 use Lcobucci\JWT\Builder;
+use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Signer\Key;
+use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Token\RegisteredClaims;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
@@ -86,9 +88,14 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
         } elseif (false === is_a($userEntity, ClaimSetInterface::class)) {
             throw new \RuntimeException('UserEntity must implement ClaimSetInterface');
         }
-
+        $jwtConfig = Configuration::forAsymmetricSigner(
+            $this->configurationService->getSigner(),
+            InMemory::plainText($this->privateKey->getKeyPath(), $this->privateKey->getPassPhrase() ?? ''),
+            // The public key is not needed for signing
+            InMemory::empty()
+        );
         // Add required id_token claims
-        $builder = $this->getBuilder($accessToken, $userEntity);
+        $builder = $this->getBuilder($jwtConfig, $accessToken, $userEntity);
 
         if (null !== $this->getNonce()) {
             $builder->withClaim('nonce', $this->getNonce());
@@ -126,18 +133,19 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
         }
 
         $token = $builder->getToken(
-            $this->configurationService->getSigner(),
-            new Key($this->privateKey->getKeyPath(), $this->privateKey->getPassPhrase() ?? '')
+            $jwtConfig->signer(),
+            $jwtConfig->signingKey()
         );
 
         return [
-            'id_token' => (string) $token,
+            'id_token' =>  $token->toString(),
         ];
     }
 
-    protected function getBuilder(AccessTokenEntityInterface $accessToken, UserEntityInterface $userEntity)
+    protected function getBuilder(Configuration $jwtConfig, AccessTokenEntityInterface $accessToken, UserEntityInterface $userEntity)
     {
-        return (new Builder())
+
+        return $jwtConfig->builder()
             ->issuedBy($this->configurationService->getSimpleSAMLSelfURLHost())
             ->permittedFor($accessToken->getClient()->getIdentifier())
             ->identifiedBy($accessToken->getIdentifier())
