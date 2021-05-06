@@ -33,6 +33,10 @@ $config = [
     // 'signer' => \Lcobucci\JWT\Signer\Hmac\Sha256::class,
     // 'signer' => \Lcobucci\JWT\Signer\Ecdsa\Sha256::class,
 
+    // The key id to use in the header. Default is a finger print of the public key
+    // 'kid' => 'abcd',
+
+
     // this is the default auth source used for authentication if the auth source
     // is not specified on particular client
     'auth' => 'default-sp',

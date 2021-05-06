@@ -41,12 +41,12 @@ class IdTokenResponseSpec extends ObjectBehavior
         ClientEntity $clientEntity
     ): void {
         $certFolder = dirname(__DIR__, 3) . '/docker/ssp/';
-        Configuration::setPreLoadedConfig(
-            Configuration::loadFromArray([
-                'example' => 'key',
-                'certdir' => $certFolder,
-            ])
-        );
+//        Configuration::setPreLoadedConfig(
+//            Configuration::loadFromArray([
+//                'example' => 'key',
+//                'certdir' => $certFolder,
+//            ])
+//        );
         $claimExtractor = new ClaimExtractor();
         $userId = 'theUserId';
         $userEntity = UserEntity::fromData($userId, []);
@@ -62,6 +62,7 @@ class IdTokenResponseSpec extends ObjectBehavior
         $identityProvider->getUserEntityByIdentifier($userId)->willReturn($userEntity);
         $configurationService->getSigner()->willReturn(new Sha256());
         $configurationService->getSimpleSAMLSelfURLHost()->willReturn('https://myissuer');
+        $configurationService->getKeyId()->willReturn('myKeyId');
 
         $clientEntity->getIdentifier()->willReturn('clientId');
         $accessToken->getClient()->willReturn($clientEntity);

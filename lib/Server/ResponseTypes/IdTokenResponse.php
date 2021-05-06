@@ -14,9 +14,7 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes;
 
-use Lcobucci\JWT\Builder;
 use Lcobucci\JWT\Configuration;
-use Lcobucci\JWT\Signer\Key;
 use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Token\RegisteredClaims;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
@@ -28,8 +26,6 @@ use OpenIDConnectServer\Entities\ClaimSetInterface;
 use OpenIDConnectServer\Repositories\IdentityProviderInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
-use SimpleSAML\Modules\OpenIDConnect\Utils\FingerprintGenerator;
-use SimpleSAML\Utils\Config;
 
 /**
  * Class IdTokenResponse.
@@ -132,10 +128,11 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
            }
         }
 
-        $token = $builder->getToken(
-            $jwtConfig->signer(),
-            $jwtConfig->signingKey()
-        );
+        $token = $builder->withHeader('kid', $this->configurationService->getKeyId())
+            ->getToken(
+                $jwtConfig->signer(),
+                $jwtConfig->signingKey()
+            );
 
         return [
             'id_token' =>  $token->toString(),
@@ -152,8 +149,7 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
             ->canOnlyBeUsedAfter(new \DateTimeImmutable('now'))
             ->expiresAt($accessToken->getExpiryDateTime())
             ->relatedTo($userEntity->getIdentifier())
-            ->issuedAt(new \DateTimeImmutable('now'))
-            ->withHeader('kid', FingerprintGenerator::forFile(Config::getCertPath('oidc_module.crt')));
+            ->issuedAt(new \DateTimeImmutable('now'));
     }
 
     /**
