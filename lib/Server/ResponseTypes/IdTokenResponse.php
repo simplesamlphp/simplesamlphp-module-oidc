@@ -15,6 +15,7 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes;
 
 use Lcobucci\JWT\Configuration;
+use Lcobucci\JWT\Encoding\ChainedFormatter;
 use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Token\RegisteredClaims;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
@@ -141,8 +142,8 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
 
     protected function getBuilder(Configuration $jwtConfig, AccessTokenEntityInterface $accessToken, UserEntityInterface $userEntity)
     {
-
-        return $jwtConfig->builder()
+        // Ignore microseconds when handling dates.
+        return $jwtConfig->builder(ChainedFormatter::withUnixTimestampDates())
             ->issuedBy($this->configurationService->getSimpleSAMLSelfURLHost())
             ->permittedFor($accessToken->getClient()->getIdentifier())
             ->identifiedBy($accessToken->getIdentifier())
