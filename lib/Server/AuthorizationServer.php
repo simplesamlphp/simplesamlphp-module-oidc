@@ -64,11 +64,12 @@ class AuthorizationServer extends OAuth2AuthorizationServer
      */
     public function validateAuthorizationRequest(ServerRequestInterface $request): AuthorizationRequest
     {
+        $state = $request->getQueryParams()['state'] ?? null;
+
         // TODO mivanci Since client and redirect uri validation is now in this class, we should also implement
         // custom grants and override validation methods in each grant...
         $client = $this->getClientOrFail($request);
         $redirectUri = $this->getRedirectUriOrFail($client, $request);
-        $state = $request->getQueryParams()['state'] ?? null;
 
         foreach ($this->enabledGrantTypes as $grantType) {
             if ($grantType->canRespondToAuthorizationRequest($request)) {
@@ -76,12 +77,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
             }
         }
 
-        $payload = [];
-        if ($state !== null) {
-            $payload['state'] = $state;
-        }
-        // Client and redirect URI validation passed, so we can safely redirect to the RP.
-        throw OidcServerException::unsupportedResponseType($redirectUri, $payload);
+        throw OidcServerException::unsupportedResponseType($redirectUri, $state);
     }
 
     /**
