@@ -7,7 +7,7 @@ use DateInterval;
 use League\OAuth2\Server\CodeChallengeVerifiers\CodeChallengeVerifierInterface;
 use League\OAuth2\Server\CodeChallengeVerifiers\PlainVerifier;
 use League\OAuth2\Server\CodeChallengeVerifiers\S256Verifier;
-use League\OAuth2\Server\Entities\ClientEntityInterface;
+use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
@@ -189,7 +189,7 @@ class OidcAuthCodeGrant extends AuthCodeGrant
 
     /**
      * @param DateInterval $authCodeTTL
-     * @param ClientEntityInterface $client
+     * @param OAuth2ClientEntityInterface $client
      * @param string $userIdentifier
      * @param string $redirectUri
      * @param array $scopes
@@ -200,7 +200,7 @@ class OidcAuthCodeGrant extends AuthCodeGrant
      */
     protected function issueOidcAuthCode(
         DateInterval $authCodeTTL,
-        ClientEntityInterface $client,
+        OAuth2ClientEntityInterface $client,
         string $userIdentifier,
         string $redirectUri,
         array $scopes = [],
@@ -373,13 +373,13 @@ class OidcAuthCodeGrant extends AuthCodeGrant
      * Reimplementation because of private parent access
      *
      * @param \stdClass $authCodePayload
-     * @param ClientEntityInterface $client
+     * @param OAuth2ClientEntityInterface $client
      * @param ServerRequestInterface $request
      * @throws OAuthServerException
      */
     protected function validateAuthorizationCode(
         \stdClass $authCodePayload,
-        ClientEntityInterface $client,
+        OAuth2ClientEntityInterface $client,
         ServerRequestInterface $request
     ): void {
         if (!\property_exists($authCodePayload, 'auth_code_id')) {

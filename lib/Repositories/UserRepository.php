@@ -14,7 +14,7 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Repositories;
 
-use League\OAuth2\Server\Entities\ClientEntityInterface;
+use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Repositories\UserRepositoryInterface;
 use OpenIDConnectServer\Repositories\IdentityProviderInterface;
 use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
@@ -56,7 +56,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
         $username,
         $password,
         $grantType,
-        ClientEntityInterface $clientEntity
+        OAuth2ClientEntityInterface $clientEntity
     ) {
         throw new \Exception('Not supported');
     }

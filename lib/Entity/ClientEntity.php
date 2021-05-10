@@ -14,12 +14,11 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Entity;
 
-use League\OAuth2\Server\Entities\ClientEntityInterface;
+use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
 use League\OAuth2\Server\Entities\Traits\ClientTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\MementoInterface;
 
-class ClientEntity implements ClientEntityInterface, MementoInterface
+class ClientEntity implements ClientEntityInterface
 {
     use EntityTrait;
     use ClientTrait;
@@ -67,7 +66,7 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
         bool $isEnabled,
         bool $isConfidential = false,
         ?string $authSource = null
-    ): self {
+    ): ClientEntityInterface {
         $client = new self();
 
         $client->identifier = $id;
@@ -141,7 +140,7 @@ class ClientEntity implements ClientEntityInterface, MementoInterface
         return $this->secret;
     }
 
-    public function restoreSecret(string $secret): self
+    public function restoreSecret(string $secret): ClientEntityInterface
     {
         $this->secret = $secret;
 

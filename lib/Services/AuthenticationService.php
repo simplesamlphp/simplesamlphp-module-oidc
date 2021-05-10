@@ -18,7 +18,7 @@ use Laminas\Diactoros\ServerRequest;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Modules\OpenIDConnect\Controller\Traits\GetClientFromRequestTrait;
-use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
+use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
 use SimpleSAML\Modules\OpenIDConnect\Factories\AuthSimpleFactory;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
@@ -113,11 +113,11 @@ class AuthenticationService
     /**
      * Get auth source defined on the client. If not set on the client, get the default auth source defined in config.
      *
-     * @param ClientEntity $client
+     * @param ClientEntityInterface $client
      * @return string
      * @throws \Exception
      */
-    private function resolveAuthSource(ClientEntity $client): string
+    private function resolveAuthSource(ClientEntityInterface $client): string
     {
         return $client->getAuthSource() ??
             $this->configurationService->getOpenIDConnectConfiguration()->getString('auth');
@@ -125,11 +125,11 @@ class AuthenticationService
 
     /**
      * @param Simple $authSimple
-     * @param ClientEntity $client
+     * @param ClientEntityInterface $client
      * @param ServerRequest $request
      * @return array
      */
-    private function prepareStateArray(Simple $authSimple, ClientEntity $client, ServerRequest $request): array
+    private function prepareStateArray(Simple $authSimple, ClientEntityInterface $client, ServerRequest $request): array
     {
         $state = $authSimple->getAuthDataArray();
 
