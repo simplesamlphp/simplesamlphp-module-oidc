@@ -25,16 +25,20 @@ class OidcServerException extends OAuthServerException
      * @param string|null $state
      */
     public function __construct(
-        $message,
-        $code,
-        $errorType,
-        $httpStatusCode = 400,
-        $hint = null,
-        $redirectUri = null,
+        string $message,
+        int $code,
+        string $errorType,
+        int $httpStatusCode = 400,
+        string $hint = null,
+        string $redirectUri = null,
         Throwable $previous = null,
         string $state = null
     ) {
         parent::__construct($message, $code, $errorType, $httpStatusCode, $hint, $redirectUri, $previous);
+
+        if ($hint !== null) {
+            $message .= ' (' . $hint . ')';
+        }
 
         $payload = [
             'error' => $errorType,
@@ -63,6 +67,24 @@ class OidcServerException extends OAuthServerException
         $hint = 'Check that all required parameters have been provided';
 
         return new self($errorMessage, 2, 'unsupported_response_type', 400, $hint, $redirectUri, null, $state);
+    }
+
+    /**
+     * Invalid scope error.
+     *
+     * @param string $scope The bad scope
+     * @param string|null $redirectUri A HTTP URI to redirect the user back to
+     * @param string|null $state
+     * @return static
+     */
+    public static function invalidScope($scope, $redirectUri = null, string $state = null): OidcServerException
+    {
+        // OAuthServerException correctly implements this error, however, it misses state parameter.
+        $e = parent::invalidScope($scope, $redirectUri);
+
+        $e->setPayload(\array_merge($e->getPayload(), ['state' => $state]));
+
+        return $e;
     }
 
     /**

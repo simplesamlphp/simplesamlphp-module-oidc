@@ -5,7 +5,8 @@ namespace SimpleSAML\Modules\OpenIDConnect\Server;
 use Defuse\Crypto\Key;
 use League\OAuth2\Server\AuthorizationServer as OAuth2AuthorizationServer;
 use League\OAuth2\Server\CryptKey;
-use League\OAuth2\Server\Entities\ClientEntityInterface;
+use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
+use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
@@ -18,10 +19,22 @@ use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
 
 class AuthorizationServer extends OAuth2AuthorizationServer
 {
+    public const SCOPE_DELIMITER_STRING = ' ';
+
     /**
      * @var ClientRepositoryInterface
      */
     protected $clientRepository;
+
+    /**
+     * @var ScopeRepositoryInterface
+     */
+    protected $scopeRepository;
+
+    /**
+     * @var string
+     */
+    protected $defaultScope = '';
 
     /**
      * New server instance.
@@ -51,6 +64,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         );
 
         $this->clientRepository = $clientRepository;
+        $this->scopeRepository = $scopeRepository;
     }
 
     /**
@@ -66,10 +80,13 @@ class AuthorizationServer extends OAuth2AuthorizationServer
     {
         $state = $request->getQueryParams()['state'] ?? null;
 
-        // TODO mivanci Since client and redirect uri validation is now in this class, we should also implement
-        // custom grants and override validation methods in each grant...
+        // TODO mivanci
+        // Override validation in each grant
+        // Handle authorization request instance here
+
         $client = $this->getClientOrFail($request);
         $redirectUri = $this->getRedirectUriOrFail($client, $request);
+        $scopes = $this->getScopesOrFail($client, $request, $redirectUri, $state);
 
         foreach ($this->enabledGrantTypes as $grantType) {
             if ($grantType->canRespondToAuthorizationRequest($request)) {
@@ -149,5 +166,63 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         }
 
         return $redirectUri;
+    }
+
+    protected function getScopesOrFail(
+        ClientEntityInterface $client,
+        ServerRequestInterface $request,
+        string $redirectUri = null,
+        string $state = null
+    ): array {
+        $scopes = $this->convertScopesQueryStringToArray($request->getQueryParams()['scope'] ?? $this->defaultScope);
+
+        $validScopes = [];
+
+        foreach ($scopes as $scopeItem) {
+            $scope = $this->scopeRepository->getScopeEntityByIdentifier($scopeItem);
+
+            if ($scope instanceof ScopeEntityInterface === false) {
+                throw OidcServerException::invalidScope($scopeItem, $redirectUri, $state);
+            }
+
+            // Since we register clients with specific scopes upfront, we can check for valid scopes for the client.
+            if (! \in_array($scope->getIdentifier(), $client->getScopes(), true)) {
+                throw OidcServerException::invalidScope($scopeItem, $redirectUri, $state);
+            }
+
+            $validScopes[] = $scope;
+        }
+
+        return $validScopes;
+    }
+
+    /**
+     * Converts a scopes query string to an array to easily iterate for validation.
+     *
+     * @param string $scopes
+     *
+     * @return array
+     */
+    private function convertScopesQueryStringToArray(string $scopes): array
+    {
+        return \array_filter(\explode(self::SCOPE_DELIMITER_STRING, \trim($scopes)), function ($scope) {
+            return !empty($scope);
+        });
+    }
+
+    /**
+     * @return string
+     */
+    public function getDefaultScope(): string
+    {
+        return $this->defaultScope;
+    }
+
+    /**
+     * @param string $defaultScope
+     */
+    public function setDefaultScope($defaultScope): void
+    {
+        $this->defaultScope = $defaultScope;
     }
 }
