@@ -132,22 +132,10 @@ class AuthorizationServer extends OAuth2AuthorizationServer
     {
         $redirectUri = $request->getQueryParams()['redirect_uri'] ?? null;
 
-        // Return default redirect URI if none provided on request.
+        // On OAuth2 redirect_uri is optional if there is only one registered, however we will always require it
+        // since this is OIDC oriented package and in OIDC this parameter is required.
         if ($redirectUri === null) {
-            // In OAuth2, redirect_uri is optional if only one is registered.
-            /** @psalm-suppress PossiblyInvalidArgument */
-            if (
-                empty($client->getRedirectUri()) ||
-                (\is_array($client->getRedirectUri()) && \count($client->getRedirectUri()) !== 1)
-            ) {
-                $this->getEmitter()->emit(new RequestEvent(RequestEvent::CLIENT_AUTHENTICATION_FAILED, $request));
-                throw OidcServerException::invalidClient($request);
-            }
-
-            /** @psalm-suppress InvalidReturnStatement */
-            return \is_array($client->getRedirectUri())
-                ? $client->getRedirectUri()[0]
-                : $client->getRedirectUri();
+            throw OidcServerException::invalidRequest('redirect_uri');
         }
 
         /** @psalm-suppress PossiblyInvalidArgument */
