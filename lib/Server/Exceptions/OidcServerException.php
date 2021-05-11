@@ -151,6 +151,27 @@ class OidcServerException extends OAuthServerException
     }
 
     /**
+     * Prompt none requires that user should be authenticated.
+     *
+     * @param string|null $hint
+     * @param string|null $redirectUri
+     * @param Throwable|null $previous
+     * @param string|null $state
+     *
+     * @return self
+     */
+    public static function loginRequired(
+        $hint = null,
+        $redirectUri = null,
+        Throwable $previous = null,
+        $state = null
+    ): OidcServerException {
+        $errorMessage = "End-User is not already authenticated.";
+
+        return new self($errorMessage, 6, 'login_required', 400, $hint, $redirectUri, $previous, $state);
+    }
+
+    /**
      * Returns the current payload.
      *
      * @return array

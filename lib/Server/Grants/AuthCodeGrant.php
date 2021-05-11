@@ -102,6 +102,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements PkceEnabledGrantTypeI
             throw new BadRequest($reason);
         }
 
+        $this->requestRulesManager->check($request);
+
         $scopes = $this->getScopesOrFail($request, $this->scopeRepository, $this->defaultScope, $redirectUri, $state);
 
         $oAuth2AuthorizationRequest = new OAuth2AuthorizationRequest();

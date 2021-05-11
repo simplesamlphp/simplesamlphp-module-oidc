@@ -42,6 +42,7 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\PromptRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Session;
 
@@ -120,7 +121,9 @@ class Container implements ContainerInterface
         $this->services[AuthenticationService::class] = $authenticationService;
 
         // Request Rules
+        $promptRule = new PromptRule($authSimpleFactory);
         $requestRuleManager = new RequestRulesManager();
+        $requestRuleManager->add($promptRule);
         $this->services[RequestRulesManager::class] = $requestRuleManager;
 
         $accessTokenDuration = new \DateInterval(
