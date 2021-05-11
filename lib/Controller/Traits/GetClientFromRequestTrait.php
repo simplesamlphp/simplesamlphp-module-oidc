@@ -14,11 +14,11 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Controller\Traits;
 
+use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Error\NotFound;
 use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
-use Laminas\Diactoros\ServerRequest;
 
 trait GetClientFromRequestTrait
 {
@@ -31,7 +31,7 @@ trait GetClientFromRequestTrait
      * @throws BadRequest
      * @throws NotFound
      */
-    protected function getClientFromRequest(ServerRequest $request): ClientEntityInterface
+    protected function getClientFromRequest(ServerRequestInterface $request): ClientEntityInterface
     {
         $params = $request->getQueryParams();
         $clientId = $params['client_id'] ?? null;
