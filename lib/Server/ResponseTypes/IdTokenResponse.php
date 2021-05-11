@@ -14,8 +14,9 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes;
 
-use Lcobucci\JWT\Builder;
-use Lcobucci\JWT\Signer\Key;
+use Lcobucci\JWT\Configuration;
+use Lcobucci\JWT\Encoding\ChainedFormatter;
+use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Token\RegisteredClaims;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
@@ -27,7 +28,6 @@ use OpenIDConnectServer\Repositories\IdentityProviderInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use SimpleSAML\Modules\OpenIDConnect\Utils\FingerprintGenerator;
-use SimpleSAML\Utils\Config;
 
 /**
  * Class IdTokenResponse.
@@ -86,9 +86,14 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
         } elseif (false === is_a($userEntity, ClaimSetInterface::class)) {
             throw new \RuntimeException('UserEntity must implement ClaimSetInterface');
         }
-
+        $jwtConfig = Configuration::forAsymmetricSigner(
+            $this->configurationService->getSigner(),
+            InMemory::plainText($this->privateKey->getKeyPath(), $this->privateKey->getPassPhrase() ?? ''),
+            // The public key is not needed for signing
+            InMemory::empty()
+        );
         // Add required id_token claims
-        $builder = $this->getBuilder($accessToken, $userEntity);
+        $builder = $this->getBuilder($jwtConfig, $accessToken, $userEntity);
 
         if (null !== $this->getNonce()) {
             $builder->withClaim('nonce', $this->getNonce());
@@ -122,30 +127,35 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
                     break;
                 default:
                     $builder->withClaim($claimName, $claimValue);
-           }
+            }
         }
 
-        $token = $builder->getToken(
-            $this->configurationService->getSigner(),
-            new Key($this->privateKey->getKeyPath(), $this->privateKey->getPassPhrase() ?? '')
-        );
+        $kid = FingerprintGenerator::forFile($this->configurationService->getCertPath());
+        $token = $builder->withHeader('kid', $kid)
+            ->getToken(
+                $jwtConfig->signer(),
+                $jwtConfig->signingKey()
+            );
 
         return [
-            'id_token' => (string) $token,
+            'id_token' =>  $token->toString(),
         ];
     }
 
-    protected function getBuilder(AccessTokenEntityInterface $accessToken, UserEntityInterface $userEntity)
-    {
-        return (new Builder())
+    protected function getBuilder(
+        Configuration $jwtConfig,
+        AccessTokenEntityInterface $accessToken,
+        UserEntityInterface $userEntity
+    ) {
+        // Ignore microseconds when handling dates.
+        return $jwtConfig->builder(ChainedFormatter::withUnixTimestampDates())
             ->issuedBy($this->configurationService->getSimpleSAMLSelfURLHost())
             ->permittedFor($accessToken->getClient()->getIdentifier())
             ->identifiedBy($accessToken->getIdentifier())
             ->canOnlyBeUsedAfter(new \DateTimeImmutable('now'))
             ->expiresAt($accessToken->getExpiryDateTime())
             ->relatedTo($userEntity->getIdentifier())
-            ->issuedAt(new \DateTimeImmutable('now'))
-            ->withHeader('kid', FingerprintGenerator::forFile(Config::getCertPath('oidc_module.crt')));
+            ->issuedAt(new \DateTimeImmutable('now'));
     }
 
     /**

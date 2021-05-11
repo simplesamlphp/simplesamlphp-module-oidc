@@ -16,9 +16,12 @@ namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
 use Lcobucci\JWT\Signer;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
+use PhpParser\Node\Scalar\String_;
 use SimpleSAML\Configuration;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module;
+use SimpleSAML\Modules\OpenIDConnect\Utils\FingerprintGenerator;
+use SimpleSAML\Utils\Config;
 use SimpleSAML\Utils\HTTP;
 
 class ConfigurationService
@@ -134,6 +137,15 @@ class ConfigurationService
         }
 
         return $signer;
+    }
+
+    /**
+     * Return the path to the public certificate
+     * @return string The file system path
+     */
+    public function getCertPath(): string
+    {
+        return Config::getCertPath('oidc_module.crt');
     }
 
     /**
