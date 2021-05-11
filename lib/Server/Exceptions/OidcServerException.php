@@ -3,6 +3,7 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Server\Exceptions;
 
 use League\OAuth2\Server\Exception\OAuthServerException;
+use Psr\Http\Message\ResponseInterface;
 use Throwable;
 
 class OidcServerException extends OAuthServerException
@@ -11,6 +12,21 @@ class OidcServerException extends OAuthServerException
      * @var array
      */
     protected $payload;
+
+    /**
+     * @var int
+     */
+    protected $httpStatusCode;
+
+    /**
+     * @var string
+     */
+    protected $errorType;
+
+    /**
+     * @var null|string
+     */
+    protected $redirectUri;
 
     /**
      * Throw a new exception.
@@ -35,6 +51,10 @@ class OidcServerException extends OAuthServerException
         string $state = null
     ) {
         parent::__construct($message, $code, $errorType, $httpStatusCode, $hint, $redirectUri, $previous);
+
+        $this->httpStatusCode = $httpStatusCode;
+        $this->errorType = $errorType;
+        $this->redirectUri = $redirectUri;
 
         if ($hint !== null) {
             $message .= ' (' . $hint . ')';
@@ -81,8 +101,32 @@ class OidcServerException extends OAuthServerException
     {
         // OAuthServerException correctly implements this error, however, it misses state parameter.
         $e = parent::invalidScope($scope, $redirectUri);
+        $e->setState($state);
 
-        $e->setPayload(\array_merge($e->getPayload(), ['state' => $state]));
+        return $e;
+    }
+
+    /**
+     * Invalid request error with redirect ability.
+     *
+     * @param string $parameter
+     * @param string|null $hint
+     * @param Throwable|null $previous
+     * @param string|null $redirectUri
+     * @param string|null $state
+     * @return static
+     */
+    public static function invalidRequest(
+        $parameter,
+        $hint = null,
+        Throwable $previous = null,
+        string $redirectUri = null,
+        string $state = null
+    ): OidcServerException {
+        $e = parent::invalidRequest($parameter, $hint, $previous);
+        // OAuthServerException misses the ability to set redirectUri for invalid requests, as well as state.
+        $e->setRedirectUri($redirectUri);
+        $e->setState($state);
 
         return $e;
     }
@@ -105,5 +149,90 @@ class OidcServerException extends OAuthServerException
     public function setPayload(array $payload)
     {
         $this->payload = $payload;
+    }
+
+    /**
+     * @param string|null $redirectUri Set to string, or unset it with null
+     */
+    public function setRedirectUri(string $redirectUri = null): void
+    {
+        $this->redirectUri = $redirectUri;
+    }
+
+    /**
+     * Check if the exception has an associated redirect URI.
+     *
+     * Returns whether the exception includes a redirect, since
+     * getHttpStatusCode() doesn't return a 302 when there's a
+     * redirect enabled. This helps when you want to override local
+     * error pages but want to let redirects through.
+     *
+     * @return bool
+     */
+    public function hasRedirect(): bool
+    {
+        return $this->redirectUri !== null;
+    }
+
+    /**
+     * Returns the Redirect URI used for redirecting.
+     *
+     * @return string|null
+     */
+    public function getRedirectUri(): ?string
+    {
+        return $this->redirectUri;
+    }
+
+    /**
+     * @param string|null $state Set to string, or unset it with null
+     */
+    public function setState(string $state = null): void
+    {
+        if ($state === null) {
+            unset($this->payload['state']);
+            return;
+        }
+
+        $this->payload['state'] = $state;
+    }
+
+    /**
+     * Generate a HTTP response.
+     *
+     * @param ResponseInterface $response
+     * @param bool              $useFragment True if errors should be in the URI fragment instead of query string
+     * @param int               $jsonOptions options passed to json_encode
+     *
+     * @return ResponseInterface
+     */
+    public function generateHttpResponse(
+        ResponseInterface $response,
+        $useFragment = false,
+        $jsonOptions = 0
+    ): ResponseInterface {
+        $headers = $this->getHttpHeaders();
+
+        $payload = $this->getPayload();
+
+        if ($this->redirectUri !== null) {
+            if ($useFragment === true) {
+                $this->redirectUri .= (\strstr($this->redirectUri, '#') === false) ? '#' : '&';
+            } else {
+                $this->redirectUri .= (\strstr($this->redirectUri, '?') === false) ? '?' : '&';
+            }
+
+            return $response->withStatus(302)->withHeader('Location', $this->redirectUri . \http_build_query($payload));
+        }
+
+        foreach ($headers as $header => $content) {
+            $response = $response->withHeader($header, $content);
+        }
+
+        $responseBody = \json_encode($payload, $jsonOptions) ?: 'JSON encoding of payload failed';
+
+        $response->getBody()->write($responseBody);
+
+        return $response->withStatus($this->getHttpStatusCode());
     }
 }

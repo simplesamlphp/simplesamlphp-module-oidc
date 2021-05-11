@@ -4,7 +4,11 @@ namespace SimpleSAML\Modules\OpenIDConnect\Server;
 
 use Defuse\Crypto\Key;
 use League\OAuth2\Server\AuthorizationServer as OAuth2AuthorizationServer;
+use League\OAuth2\Server\CodeChallengeVerifiers\CodeChallengeVerifierInterface;
+use League\OAuth2\Server\CodeChallengeVerifiers\PlainVerifier;
+use League\OAuth2\Server\CodeChallengeVerifiers\S256Verifier;
 use League\OAuth2\Server\CryptKey;
+use League\OAuth2\Server\Grant\GrantTypeInterface;
 use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
@@ -37,6 +41,11 @@ class AuthorizationServer extends OAuth2AuthorizationServer
     protected $defaultScope = '';
 
     /**
+     * @var CodeChallengeVerifierInterface[]
+     */
+    protected $codeChallengeVerifiers = [];
+
+    /**
      * New server instance.
      *
      * @param ClientRepositoryInterface $clientRepository
@@ -65,6 +74,14 @@ class AuthorizationServer extends OAuth2AuthorizationServer
 
         $this->clientRepository = $clientRepository;
         $this->scopeRepository = $scopeRepository;
+
+        if (\in_array('sha256', \hash_algos(), true)) {
+            $s256Verifier = new S256Verifier();
+            $this->codeChallengeVerifiers[$s256Verifier->getMethod()] = $s256Verifier;
+        }
+
+        $plainVerifier = new PlainVerifier();
+        $this->codeChallengeVerifiers[$plainVerifier->getMethod()] = $plainVerifier;
     }
 
     /**
@@ -78,23 +95,37 @@ class AuthorizationServer extends OAuth2AuthorizationServer
      */
     public function validateAuthorizationRequest(ServerRequestInterface $request): AuthorizationRequest
     {
+        /** @var string|null $state */
         $state = $request->getQueryParams()['state'] ?? null;
-
-        // TODO mivanci
-        // Override validation in each grant
-        // Handle authorization request instance here
 
         $client = $this->getClientOrFail($request);
         $redirectUri = $this->getRedirectUriOrFail($client, $request);
         $scopes = $this->getScopesOrFail($client, $request, $redirectUri, $state);
+        $grantType = $this->getGrantTypeOrFail($request, $redirectUri, $state);
 
-        foreach ($this->enabledGrantTypes as $grantType) {
-            if ($grantType->canRespondToAuthorizationRequest($request)) {
-                return $grantType->validateAuthorizationRequest($request);
-            }
+        // TODO mivanci
+        // Override validation in each grant
+        // $authorizationRequest = $grantType->validateAuthorizationRequest($request);
+        $authorizationRequest = new AuthorizationRequest();
+
+        $authorizationRequest->setClient($client);
+        $authorizationRequest->setRedirectUri($redirectUri);
+        $authorizationRequest->setScopes($scopes);
+        $authorizationRequest->setGrantTypeId($grantType->getIdentifier());
+
+        if ($state !== null) {
+            $authorizationRequest->setState($state);
         }
 
-        throw OidcServerException::unsupportedResponseType($redirectUri, $state);
+        if (! $client->isConfidential()) {
+            $codeChallenge = $this->getCodeChallengeOrFail($request, $redirectUri);
+            $codeChallengeMethod = $this->getCodeChallengeMethodOrFail($request, $redirectUri);
+
+            $authorizationRequest->setCodeChallenge($codeChallenge);
+            $authorizationRequest->setCodeChallengeMethod($codeChallengeMethod);
+        }
+
+        return $authorizationRequest;
     }
 
     /**
@@ -191,7 +222,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
      *
      * @return array
      */
-    private function convertScopesQueryStringToArray(string $scopes): array
+    protected function convertScopesQueryStringToArray(string $scopes): array
     {
         return \array_filter(\explode(self::SCOPE_DELIMITER_STRING, \trim($scopes)), function ($scope) {
             return !empty($scope);
@@ -212,5 +243,71 @@ class AuthorizationServer extends OAuth2AuthorizationServer
     public function setDefaultScope($defaultScope): void
     {
         $this->defaultScope = $defaultScope;
+    }
+
+    protected function getGrantTypeOrFail(
+        ServerRequestInterface $request,
+        string $redirectUri,
+        string $state = null
+    ): GrantTypeInterface {
+        foreach ($this->enabledGrantTypes as $grantType) {
+            if ($grantType->canRespondToAuthorizationRequest($request)) {
+                return $grantType;
+            }
+        }
+
+        throw OidcServerException::unsupportedResponseType($redirectUri, $state);
+    }
+
+    protected function getCodeChallengeOrFail(
+        ServerRequestInterface $request,
+        string $redirectUri,
+        string $state = null
+    ): string {
+        $codeChallenge = $request->getQueryParams()['code_challenge'] ?? null;
+
+        if ($codeChallenge === null) {
+            throw OidcServerException::invalidRequest(
+                'code_challenge',
+                'Code challenge must be provided for public clients',
+                null,
+                $redirectUri,
+                $state
+            );
+        }
+
+        // Validate code_challenge according to RFC-7636
+        // @see: https://tools.ietf.org/html/rfc7636#section-4.2
+        if (\preg_match('/^[A-Za-z0-9-._~]{43,128}$/', $codeChallenge) !== 1) {
+            throw OidcServerException::invalidRequest(
+                'code_challenge',
+                'Code challenge must follow the specifications of RFC-7636.',
+                null,
+                $redirectUri
+            );
+        }
+
+        return $codeChallenge;
+    }
+
+    protected function getCodeChallengeMethodOrFail(ServerRequestInterface $request, string $redirectUri): string
+    {
+        $codeChallengeMethod = $request->getQueryParams()['code_challenge_method'] ?? 'plain';
+
+        if (\array_key_exists($codeChallengeMethod, $this->codeChallengeVerifiers) === false) {
+            throw OidcServerException::invalidRequest(
+                'code_challenge_method',
+                'Code challenge method must be one of ' . \implode(', ', \array_map(
+                    function ($method) {
+                        return '`' . $method . '`';
+                    },
+                    \array_keys($this->codeChallengeVerifiers)
+                )),
+                null,
+                $redirectUri
+            );
+        }
+
+        return $codeChallengeMethod;
     }
 }
