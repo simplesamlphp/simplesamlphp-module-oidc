@@ -139,10 +139,13 @@ class ConfigurationService
         return $signer;
     }
 
-    public function getKeyId(): String
+    /**
+     * Return the path to the public certificate
+     * @return string The file system path
+     */
+    public function getCertPath(): string
     {
-        $defaultKeyId = FingerprintGenerator::forFile(Config::getCertPath('oidc_module.crt'));
-        return $this->getOpenIDConnectConfiguration()->getString('kid', $defaultKeyId);
+        return Config::getCertPath('oidc_module.crt');
     }
 
     /**

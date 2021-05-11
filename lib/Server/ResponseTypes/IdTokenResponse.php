@@ -27,6 +27,7 @@ use OpenIDConnectServer\Entities\ClaimSetInterface;
 use OpenIDConnectServer\Repositories\IdentityProviderInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
+use SimpleSAML\Modules\OpenIDConnect\Utils\FingerprintGenerator;
 
 /**
  * Class IdTokenResponse.
@@ -126,10 +127,11 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
                     break;
                 default:
                     $builder->withClaim($claimName, $claimValue);
-           }
+            }
         }
 
-        $token = $builder->withHeader('kid', $this->configurationService->getKeyId())
+        $kid = FingerprintGenerator::forFile($this->configurationService->getCertPath());
+        $token = $builder->withHeader('kid', $kid)
             ->getToken(
                 $jwtConfig->signer(),
                 $jwtConfig->signingKey()
@@ -140,8 +142,11 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
         ];
     }
 
-    protected function getBuilder(Configuration $jwtConfig, AccessTokenEntityInterface $accessToken, UserEntityInterface $userEntity)
-    {
+    protected function getBuilder(
+        Configuration $jwtConfig,
+        AccessTokenEntityInterface $accessToken,
+        UserEntityInterface $userEntity
+    ) {
         // Ignore microseconds when handling dates.
         return $jwtConfig->builder(ChainedFormatter::withUnixTimestampDates())
             ->issuedBy($this->configurationService->getSimpleSAMLSelfURLHost())

@@ -35,7 +35,7 @@ class IdTokenResponseSpec extends ObjectBehavior
     public const ISSUER = 'someIssuer';
     public const CLIENT_ID = 'clientId';
     public const SUBJECT = 'userId';
-    public const KEY_ID = 'theKeyId';
+    public const KEY_ID = 'f0687e30bc113bef19f5ec6762f902e0';
 
     private $certFolder;
 
@@ -60,7 +60,7 @@ class IdTokenResponseSpec extends ObjectBehavior
         $identityProvider->getUserEntityByIdentifier(self::SUBJECT)->willReturn($userEntity);
         $configurationService->getSigner()->willReturn(new Sha256());
         $configurationService->getSimpleSAMLSelfURLHost()->willReturn(self::ISSUER);
-        $configurationService->getKeyId()->willReturn(self::KEY_ID);
+        $configurationService->getCertPath()->willReturn($this->certFolder . '/oidc_module.crt');
 
         $clientEntity->getIdentifier()->willReturn(self::CLIENT_ID);
         $accessToken->getClient()->willReturn($clientEntity);
@@ -81,7 +81,7 @@ class IdTokenResponseSpec extends ObjectBehavior
         $this->shouldHaveType(IdTokenResponse::class);
     }
 
-    public function it_can_generate_response(AccessTokenEntity $accessToken )
+    public function it_can_generate_response(AccessTokenEntity $accessToken)
     {
         $response = new Response();
         $this->setAccessToken($accessToken);
@@ -125,9 +125,11 @@ class IdTokenResponseSpec extends ObjectBehavior
                         InMemory::plainText(file_get_contents($this->certFolder . '/oidc_module.crt'))
                     )
                 );
-                
+
                 if ($token->headers()->get('kid') !== self::KEY_ID) {
-                    throw new FailureException('Wrong key id. Expected ' . self::KEY_ID . ' was ' . $token->headers()->get('kid'));
+                    throw new FailureException(
+                        'Wrong key id. Expected ' . self::KEY_ID . ' was ' . $token->headers()->get('kid')
+                    );
                 }
 
                 $dateWithNoMicroseconds = ['nbf', 'exp', 'iat'];
@@ -146,5 +148,4 @@ class IdTokenResponseSpec extends ObjectBehavior
             },
         ];
     }
-
 }
