@@ -84,7 +84,7 @@ class Container implements ContainerInterface
         $databaseLegacyOAuth2Import = new DatabaseLegacyOAuth2Import($clientRepository);
         $this->services[DatabaseLegacyOAuth2Import::class] = $databaseLegacyOAuth2Import;
 
-        $authSimpleFactory = new AuthSimpleFactory();
+        $authSimpleFactory = new AuthSimpleFactory($clientRepository, $configurationService);
         $this->services[AuthSimpleFactory::class] = $authSimpleFactory;
 
         $formFactory = new FormFactory($configurationService);
@@ -109,7 +109,6 @@ class Container implements ContainerInterface
         $this->services[MetaDataStorageHandler::class] = $metadataStorageHandler;
 
         $authenticationService = new AuthenticationService(
-            $configurationService,
             $userRepository,
             $authSimpleFactory,
             $authProcService,

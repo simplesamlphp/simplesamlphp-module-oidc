@@ -29,11 +29,6 @@ class AuthenticationService
     use GetClientFromRequestTrait;
 
     /**
-     * @var ConfigurationService
-     */
-    private $configurationService;
-
-    /**
      * @var UserRepository
      */
     private $userRepository;
@@ -45,19 +40,16 @@ class AuthenticationService
      * @var string
      */
     private $userIdAttr;
-
     /**
      * @var AuthProcService
      */
     private $authProcService;
-
     /**
      * @var OidcOpenIdProviderMetadataService
      */
     private $oidcOpenIdProviderMetadataService;
 
     public function __construct(
-        ConfigurationService $configurationService,
         UserRepository $userRepository,
         AuthSimpleFactory $authSimpleFactory,
         AuthProcService $authProcService,
@@ -65,7 +57,6 @@ class AuthenticationService
         OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService,
         string $userIdAttr
     ) {
-        $this->configurationService = $configurationService;
         $this->userRepository = $userRepository;
         $this->authSimpleFactory = $authSimpleFactory;
         $this->authProcService = $authProcService;
@@ -82,9 +73,8 @@ class AuthenticationService
     public function getAuthenticateUser(ServerRequest $request): UserEntity
     {
         $oidcClient = $this->getClientFromRequest($request);
-        $authSource = $this->resolveAuthSource($oidcClient);
+        $authSimple = $this->authSimpleFactory->build($request);
 
-        $authSimple = $this->authSimpleFactory->build($authSource);
         $authSimple->requireAuth();
 
         $state = $this->prepareStateArray($authSimple, $oidcClient, $request);
@@ -108,19 +98,6 @@ class AuthenticationService
         }
 
         return $user;
-    }
-
-    /**
-     * Get auth source defined on the client. If not set on the client, get the default auth source defined in config.
-     *
-     * @param ClientEntityInterface $client
-     * @return string
-     * @throws \Exception
-     */
-    private function resolveAuthSource(ClientEntityInterface $client): string
-    {
-        return $client->getAuthSource() ??
-            $this->configurationService->getOpenIDConnectConfiguration()->getString('auth');
     }
 
     /**

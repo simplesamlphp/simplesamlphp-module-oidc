@@ -14,15 +14,52 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Factories;
 
+use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Auth\Simple;
+use SimpleSAML\Modules\OpenIDConnect\Controller\Traits\GetClientFromRequestTrait;
+use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
+use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
+use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 
 class AuthSimpleFactory
 {
+    use GetClientFromRequestTrait;
+
+    /**
+     * @var ConfigurationService
+     */
+    private $configurationService;
+
+    public function __construct(
+        ClientRepository $clientRepository,
+        ConfigurationService $configurationService
+    ) {
+        $this->clientRepository = $clientRepository;
+        $this->configurationService = $configurationService;
+    }
+
     /**
      * @codeCoverageIgnore
      */
-    public function build(string $name): Simple
+    public function build(ServerRequestInterface $request): Simple
     {
-        return new Simple($name);
+        $client = $this->getClientFromRequest($request);
+        $authSource = $this->resolveAuthSource($client);
+
+        return new Simple($authSource);
+    }
+
+    /**
+     * Get auth source defined on the client. If not set on the client, get the default auth source defined in config.
+     *
+     * @param ClientEntity $client
+     * @return string
+     * @throws \Exception
+     */
+    private function resolveAuthSource(ClientEntity $client): string
+    {
+        $defaultAuthSource = $this->configurationService->getOpenIDConnectConfiguration()->getString('auth');
+
+        return $client->getAuthSource() ?? $defaultAuthSource;
     }
 }
