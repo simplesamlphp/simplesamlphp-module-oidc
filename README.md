@@ -270,8 +270,7 @@ that contains OIDC module. You may remove the ``--build`` argument if you want d
 previously running container.
 
 ```
-export GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-docker-compose -f docker/docker-compose.yml --project-directory . up --build
+GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD) docker-compose -f docker/docker-compose.yml --project-directory . up --build
 ```
 
 Visit the [OP](https://op.local.stack-dev.cirrusidentity.com/simplesaml/) and confirm a few clients already exist.
