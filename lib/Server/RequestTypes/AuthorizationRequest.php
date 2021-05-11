@@ -3,11 +3,11 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Server\RequestTypes;
 
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
-use League\OAuth2\Server\RequestTypes\AuthorizationRequest;
+use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Arr;
 
-class OidcAuthorizationRequest extends AuthorizationRequest
+class AuthorizationRequest extends OAuth2AuthorizationRequest
 {
     /**
      * @var string|null
@@ -31,40 +31,40 @@ class OidcAuthorizationRequest extends AuthorizationRequest
     }
 
     /**
-     * @param AuthorizationRequest $authorizationRequest
+     * @param OAuth2AuthorizationRequest $oAuth2authorizationRequest
      *
-     * @return OidcAuthorizationRequest
+     * @return AuthorizationRequest
      * @throws OidcServerException
      */
     public static function fromOAuth2AuthorizationRequest(
-        AuthorizationRequest $authorizationRequest
-    ): OidcAuthorizationRequest {
-        static::validateOptionalOAuth2ButRequiredOidcParams($authorizationRequest);
+        OAuth2AuthorizationRequest $oAuth2authorizationRequest
+    ): AuthorizationRequest {
+        static::validateOptionalOAuth2ButRequiredOidcParams($oAuth2authorizationRequest);
 
-        $oidcAuthorizationRequest = new self();
-        $oidcAuthorizationRequest->setGrantTypeId($authorizationRequest->getGrantTypeId());
+        $authorizationRequest = new self();
+        $authorizationRequest->setGrantTypeId($oAuth2authorizationRequest->getGrantTypeId());
 
-        $oidcAuthorizationRequest->setClient($authorizationRequest->getClient());
-        $oidcAuthorizationRequest->setRedirectUri($authorizationRequest->getRedirectUri());
-        $oidcAuthorizationRequest->setScopes($authorizationRequest->getScopes());
-        $oidcAuthorizationRequest->setCodeChallenge($authorizationRequest->getCodeChallenge());
-        $oidcAuthorizationRequest->setCodeChallengeMethod($authorizationRequest->getCodeChallengeMethod());
+        $authorizationRequest->setClient($oAuth2authorizationRequest->getClient());
+        $authorizationRequest->setRedirectUri($oAuth2authorizationRequest->getRedirectUri());
+        $authorizationRequest->setScopes($oAuth2authorizationRequest->getScopes());
+        $authorizationRequest->setCodeChallenge($oAuth2authorizationRequest->getCodeChallenge());
+        $authorizationRequest->setCodeChallengeMethod($oAuth2authorizationRequest->getCodeChallengeMethod());
 
-        $state = $authorizationRequest->getState();
+        $state = $oAuth2authorizationRequest->getState();
         if (null !== $state) {
-            $oidcAuthorizationRequest->setState($state);
+            $authorizationRequest->setState($state);
         }
 
-        return $oidcAuthorizationRequest;
+        return $authorizationRequest;
     }
 
     /**
      * Check if the given authorization request is OIDC authorization request candidate.
      *
-     * @param AuthorizationRequest $authorizationRequest
+     * @param OAuth2AuthorizationRequest $authorizationRequest
      * @return bool
      */
-    public static function isOidcCandidate(AuthorizationRequest $authorizationRequest): bool
+    public static function isOidcCandidate(OAuth2AuthorizationRequest $authorizationRequest): bool
     {
         // Check if the scopes contain 'oidc' scope
         return (bool) Arr::find($authorizationRequest->getScopes(), function (ScopeEntityInterface $scope) {
@@ -76,11 +76,12 @@ class OidcAuthorizationRequest extends AuthorizationRequest
      * Validate parameters which are not required in OAuth2, but are required in OIDC.
      * The $authorizationRequest should already be OAuth2 validated.
      *
-     * @param AuthorizationRequest $authorizationRequest OAuth2 validated authorization request.
+     * @param OAuth2AuthorizationRequest $authorizationRequest OAuth2 validated authorization request.
      * @throws OidcServerException
      */
-    public static function validateOptionalOAuth2ButRequiredOidcParams(AuthorizationRequest $authorizationRequest): void
-    {
+    public static function validateOptionalOAuth2ButRequiredOidcParams(
+        OAuth2AuthorizationRequest $authorizationRequest
+    ): void {
         if (! self::isOidcCandidate($authorizationRequest)) {
             throw OidcServerException::invalidRequest(
                 'scope',

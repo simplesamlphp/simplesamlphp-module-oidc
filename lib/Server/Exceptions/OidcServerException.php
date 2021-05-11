@@ -132,6 +132,25 @@ class OidcServerException extends OAuthServerException
     }
 
     /**
+     * @param string|null $hint
+     * @param string|null $redirectUri
+     * @param Throwable|null $previous
+     * @param string|null $state
+     * @return static
+     */
+    public static function accessDenied(
+        $hint = null,
+        $redirectUri = null,
+        Throwable $previous = null,
+        string $state = null
+    ): OidcServerException {
+        $e = parent::accessDenied($hint, $redirectUri, $previous);
+        $e->setState($state);
+
+        return $e;
+    }
+
+    /**
      * Returns the current payload.
      *
      * @return array

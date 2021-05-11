@@ -16,7 +16,7 @@ namespace SimpleSAML\Modules\OpenIDConnect\Factories;
 
 use SimpleSAML\Modules\OpenIDConnect\Server\AuthorizationServer;
 use League\OAuth2\Server\CryptKey;
-use League\OAuth2\Server\Grant\AuthCodeGrant;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\AuthCodeGrant;
 use League\OAuth2\Server\Grant\ImplicitGrant;
 use League\OAuth2\Server\Grant\RefreshTokenGrant;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
@@ -27,32 +27,32 @@ use SimpleSAML\Utils\Config;
 class AuthorizationServerFactory
 {
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository
+     * @var ClientRepository
      */
     private $clientRepository;
 
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository
+     * @var AccessTokenRepository
      */
     private $accessTokenRepository;
 
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository
+     * @var ScopeRepository
      */
     private $scopeRepository;
 
     /**
-     * @var \League\OAuth2\Server\Grant\AuthCodeGrant
+     * @var AuthCodeGrant
      */
     private $authCodeGrant;
 
     /**
-     * @var \League\OAuth2\Server\Grant\ImplicitGrant
+     * @var ImplicitGrant
      */
     private $implicitGrant;
 
     /**
-     * @var \League\OAuth2\Server\Grant\RefreshTokenGrant
+     * @var RefreshTokenGrant
      */
     private $refreshTokenGrant;
 
@@ -67,12 +67,20 @@ class AuthorizationServerFactory
     private $passPhrase;
 
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Factories\IdTokenResponseFactory
+     * @var IdTokenResponseFactory
      */
     private $idTokenResponseFactory;
 
     /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\IdTokenResponseFactory $idTokenResponseFactory
+     * @param ClientRepository $clientRepository
+     * @param AccessTokenRepository $accessTokenRepository
+     * @param ScopeRepository $scopeRepository
+     * @param AuthCodeGrant $authCodeGrant
+     * @param ImplicitGrant $implicitGrant
+     * @param RefreshTokenGrant $refreshTokenGrant
+     * @param \DateInterval $accessTokenDuration
+     * @param IdTokenResponseFactory $idTokenResponseFactory
+     * @param string|null $passPhrase
      */
     public function __construct(
         ClientRepository $clientRepository,

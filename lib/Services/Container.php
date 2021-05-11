@@ -15,7 +15,7 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
 use SimpleSAML\Modules\OpenIDConnect\Server\AuthorizationServer;
-use League\OAuth2\Server\Grant\AuthCodeGrant;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\AuthCodeGrant;
 use League\OAuth2\Server\Grant\ImplicitGrant;
 use League\OAuth2\Server\Grant\RefreshTokenGrant;
 use League\OAuth2\Server\ResourceServer;
@@ -148,7 +148,6 @@ class Container implements ContainerInterface
             $refreshTokenDuration,
             $authCodeDuration
         );
-        // TODO mivanci convert to OidcAuthCodeGrant and collection of grants?
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 
         $implicitGrantFactory = new ImplicitGrantFactory($accessTokenDuration);

@@ -16,10 +16,11 @@ use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
 use League\OAuth2\Server\RequestEvent;
-use League\OAuth2\Server\RequestTypes\AuthorizationRequest;
+use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
+use SimpleSAML\Modules\OpenIDConnect\Server\RequestTypes\AuthorizationRequest;
 
 class AuthorizationServer extends OAuth2AuthorizationServer
 {
@@ -89,11 +90,11 @@ class AuthorizationServer extends OAuth2AuthorizationServer
      *
      * @param ServerRequestInterface $request
      *
-     * @return AuthorizationRequest
+     * @return OAuth2AuthorizationRequest
      * @throws OAuthServerException
      *
      */
-    public function validateAuthorizationRequest(ServerRequestInterface $request): AuthorizationRequest
+    public function validateAuthorizationRequest(ServerRequestInterface $request): OAuth2AuthorizationRequest
     {
         /** @var string|null $state */
         $state = $request->getQueryParams()['state'] ?? null;
@@ -105,27 +106,38 @@ class AuthorizationServer extends OAuth2AuthorizationServer
 
         // TODO mivanci
         // Override validation in each grant
-        // $authorizationRequest = $grantType->validateAuthorizationRequest($request);
-        $authorizationRequest = new AuthorizationRequest();
+        $oAuth2AuthorizationRequest = $grantType->validateAuthorizationRequest($request);
 
-        $authorizationRequest->setClient($client);
-        $authorizationRequest->setRedirectUri($redirectUri);
-        $authorizationRequest->setScopes($scopes);
-        $authorizationRequest->setGrantTypeId($grantType->getIdentifier());
+        $oAuth2AuthorizationRequest->setClient($client);
+        $oAuth2AuthorizationRequest->setRedirectUri($redirectUri);
+        $oAuth2AuthorizationRequest->setScopes($scopes);
+        $oAuth2AuthorizationRequest->setGrantTypeId($grantType->getIdentifier());
 
         if ($state !== null) {
-            $authorizationRequest->setState($state);
+            $oAuth2AuthorizationRequest->setState($state);
         }
 
         if (! $client->isConfidential()) {
             $codeChallenge = $this->getCodeChallengeOrFail($request, $redirectUri);
             $codeChallengeMethod = $this->getCodeChallengeMethodOrFail($request, $redirectUri);
 
-            $authorizationRequest->setCodeChallenge($codeChallenge);
-            $authorizationRequest->setCodeChallengeMethod($codeChallengeMethod);
+            $oAuth2AuthorizationRequest->setCodeChallenge($codeChallenge);
+            $oAuth2AuthorizationRequest->setCodeChallengeMethod($codeChallengeMethod);
         }
 
-        return $authorizationRequest;
+        if (AuthorizationRequest::isOidcCandidate($oAuth2AuthorizationRequest)) {
+            $authorizationRequest = AuthorizationRequest::fromOAuth2AuthorizationRequest($oAuth2AuthorizationRequest);
+
+            /** @var string|null $nonce */
+            $nonce = $request->getQueryParams()['nonce'] ?? null;
+            if ($nonce !== null) {
+                $authorizationRequest->setNonce($nonce);
+            }
+
+            return $authorizationRequest;
+        }
+
+        return $oAuth2AuthorizationRequest;
     }
 
     /**
