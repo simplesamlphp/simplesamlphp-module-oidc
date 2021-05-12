@@ -17,7 +17,7 @@ namespace SimpleSAML\Modules\OpenIDConnect\Factories;
 use SimpleSAML\Modules\OpenIDConnect\Server\AuthorizationServer;
 use League\OAuth2\Server\CryptKey;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\AuthCodeGrant;
-use League\OAuth2\Server\Grant\ImplicitGrant;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\OAuth2ImplicitGrant;
 use League\OAuth2\Server\Grant\RefreshTokenGrant;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
@@ -47,9 +47,9 @@ class AuthorizationServerFactory
     private $authCodeGrant;
 
     /**
-     * @var ImplicitGrant
+     * @var OAuth2ImplicitGrant
      */
-    private $implicitGrant;
+    private $oAuth2ImplicitGrant;
 
     /**
      * @var RefreshTokenGrant
@@ -76,7 +76,7 @@ class AuthorizationServerFactory
      * @param AccessTokenRepository $accessTokenRepository
      * @param ScopeRepository $scopeRepository
      * @param AuthCodeGrant $authCodeGrant
-     * @param ImplicitGrant $implicitGrant
+     * @param OAuth2ImplicitGrant $oAuth2ImplicitGrant
      * @param RefreshTokenGrant $refreshTokenGrant
      * @param \DateInterval $accessTokenDuration
      * @param IdTokenResponseFactory $idTokenResponseFactory
@@ -87,7 +87,7 @@ class AuthorizationServerFactory
         AccessTokenRepository $accessTokenRepository,
         ScopeRepository $scopeRepository,
         AuthCodeGrant $authCodeGrant,
-        ImplicitGrant $implicitGrant,
+        OAuth2ImplicitGrant $oAuth2ImplicitGrant,
         RefreshTokenGrant $refreshTokenGrant,
         \DateInterval $accessTokenDuration,
         IdTokenResponseFactory $idTokenResponseFactory,
@@ -97,7 +97,7 @@ class AuthorizationServerFactory
         $this->accessTokenRepository = $accessTokenRepository;
         $this->scopeRepository = $scopeRepository;
         $this->authCodeGrant = $authCodeGrant;
-        $this->implicitGrant = $implicitGrant;
+        $this->oAuth2ImplicitGrant = $oAuth2ImplicitGrant;
         $this->refreshTokenGrant = $refreshTokenGrant;
         $this->accessTokenDuration = $accessTokenDuration;
         $this->idTokenResponseFactory = $idTokenResponseFactory;
@@ -125,7 +125,7 @@ class AuthorizationServerFactory
         );
 
         $authorizationServer->enableGrantType(
-            $this->implicitGrant,
+            $this->oAuth2ImplicitGrant,
             $this->accessTokenDuration
         );
 

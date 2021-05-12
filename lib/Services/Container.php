@@ -16,7 +16,7 @@ namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
 use SimpleSAML\Modules\OpenIDConnect\Server\AuthorizationServer;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\AuthCodeGrant;
-use League\OAuth2\Server\Grant\ImplicitGrant;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\OAuth2ImplicitGrant;
 use League\OAuth2\Server\Grant\RefreshTokenGrant;
 use League\OAuth2\Server\ResourceServer;
 use Psr\Container\ContainerInterface;
@@ -31,7 +31,7 @@ use SimpleSAML\Modules\OpenIDConnect\Factories\AuthSimpleFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\ClaimTranslatorExtractorFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\Grant\AuthCodeGrantFactory;
-use SimpleSAML\Modules\OpenIDConnect\Factories\Grant\ImplicitGrantFactory;
+use SimpleSAML\Modules\OpenIDConnect\Factories\Grant\OAuth2ImplicitGrantFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\Grant\RefreshTokenGrantFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\IdTokenResponseFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\ResourceServerFactory;
@@ -150,8 +150,8 @@ class Container implements ContainerInterface
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 
-        $implicitGrantFactory = new ImplicitGrantFactory($accessTokenDuration);
-        $this->services[ImplicitGrant::class] = $implicitGrantFactory->build();
+        $oAuth2ImplicitGrantFactory = new OAuth2ImplicitGrantFactory($accessTokenDuration);
+        $this->services[OAuth2ImplicitGrant::class] = $oAuth2ImplicitGrantFactory->build();
 
         $refreshTokenGrantFactory = new RefreshTokenGrantFactory(
             $refreshTokenRepository,
@@ -164,7 +164,7 @@ class Container implements ContainerInterface
             $accessTokenRepository,
             $scopeRepository,
             $this->services[AuthCodeGrant::class],
-            $this->services[ImplicitGrant::class],
+            $this->services[OAuth2ImplicitGrant::class],
             $this->services[RefreshTokenGrant::class],
             $accessTokenDuration,
             $idTokenResponseFactory,

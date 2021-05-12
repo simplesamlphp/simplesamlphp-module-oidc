@@ -20,6 +20,7 @@ use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2Authorizatio
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\PkceEnabledGrantTypeInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\RequestTypes\AuthorizationRequest;
 
 class AuthorizationServer extends OAuth2AuthorizationServer
@@ -47,6 +48,11 @@ class AuthorizationServer extends OAuth2AuthorizationServer
     protected $codeChallengeVerifiers = [];
 
     /**
+     * @var bool $isPkceEnabled
+     */
+    protected $isPkceEnabled;
+
+    /**
      * New server instance.
      *
      * @param ClientRepositoryInterface $clientRepository
@@ -55,6 +61,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
      * @param CryptKey|string $privateKey
      * @param string|Key $encryptionKey
      * @param null|ResponseTypeInterface $responseType
+     * @param bool $isPkceEnabled
      */
     public function __construct(
         ClientRepositoryInterface $clientRepository,
@@ -62,7 +69,8 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         ScopeRepositoryInterface $scopeRepository,
         $privateKey,
         $encryptionKey,
-        ResponseTypeInterface $responseType = null
+        ResponseTypeInterface $responseType = null,
+        bool $isPkceEnabled = true
     ) {
         parent::__construct(
             $clientRepository,
@@ -83,6 +91,8 @@ class AuthorizationServer extends OAuth2AuthorizationServer
 
         $plainVerifier = new PlainVerifier();
         $this->codeChallengeVerifiers[$plainVerifier->getMethod()] = $plainVerifier;
+
+        $this->isPkceEnabled = $isPkceEnabled;
     }
 
     /**
@@ -104,8 +114,6 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         $scopes = $this->getScopesOrFail($client, $request, $redirectUri, $state);
         $grantType = $this->getGrantTypeOrFail($request, $redirectUri, $state);
 
-        // TODO mivanci
-        // Override validation in each grant
         $oAuth2AuthorizationRequest = $grantType->validateAuthorizationRequest($request);
 
         $oAuth2AuthorizationRequest->setClient($client);
@@ -117,7 +125,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
             $oAuth2AuthorizationRequest->setState($state);
         }
 
-        if (! $client->isConfidential()) {
+        if ($this->shouldCheckPkce($grantType, $client)) {
             $codeChallenge = $this->getCodeChallengeOrFail($request, $redirectUri);
             $codeChallengeMethod = $this->getCodeChallengeMethodOrFail($request, $redirectUri);
 
@@ -321,5 +329,12 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         }
 
         return $codeChallengeMethod;
+    }
+
+    protected function shouldCheckPkce(GrantTypeInterface $grantType, ClientEntityInterface $client): bool
+    {
+        return $this->isPkceEnabled &&
+            $grantType instanceof PkceEnabledGrantTypeInterface &&
+            ! $client->isConfidential();
     }
 }

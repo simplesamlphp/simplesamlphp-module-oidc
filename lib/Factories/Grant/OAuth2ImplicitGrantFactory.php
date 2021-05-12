@@ -14,9 +14,9 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Factories\Grant;
 
-use League\OAuth2\Server\Grant\ImplicitGrant;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\OAuth2ImplicitGrant;
 
-class ImplicitGrantFactory
+class OAuth2ImplicitGrantFactory
 {
     /**
      * @var \DateInterval
@@ -28,8 +28,8 @@ class ImplicitGrantFactory
         $this->accessTokenDuration = $accessTokenDuration;
     }
 
-    public function build(): ImplicitGrant
+    public function build(): OAuth2ImplicitGrant
     {
-        return new ImplicitGrant($this->accessTokenDuration);
+        return new OAuth2ImplicitGrant($this->accessTokenDuration);
     }
 }
