@@ -9,9 +9,9 @@ use League\OAuth2\Server\CodeChallengeVerifiers\PlainVerifier;
 use League\OAuth2\Server\CodeChallengeVerifiers\S256Verifier;
 use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Grant\GrantTypeInterface;
+use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
-use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
@@ -96,21 +96,21 @@ class AuthorizationServer extends OAuth2AuthorizationServer
     }
 
     /**
-     * Validate an authorization request
-     *
-     * @param ServerRequestInterface $request
-     *
-     * @return OAuth2AuthorizationRequest
-     * @throws OAuthServerException
-     *
+     * @inheritDoc
      */
     public function validateAuthorizationRequest(ServerRequestInterface $request): OAuth2AuthorizationRequest
     {
         /** @var string|null $state */
         $state = $request->getQueryParams()['state'] ?? null;
 
-        $client = $this->getClientOrFail($request);
-        $redirectUri = $this->getRedirectUriOrFail($client, $request);
+        try {
+            $client = $this->getClientOrFail($request);
+            $redirectUri = $this->getRedirectUriOrFail($client, $request);
+        } catch (OidcServerException $exception) {
+            $reason = \sprintf("%s %s", $exception->getMessage(), $exception->getHint() ?? '');
+            throw new BadRequest($reason);
+        }
+
         $scopes = $this->getScopesOrFail($client, $request, $redirectUri, $state);
         $grantType = $this->getGrantTypeOrFail($request, $redirectUri, $state);
 

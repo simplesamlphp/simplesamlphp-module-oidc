@@ -22,6 +22,7 @@ use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
 use SimpleSAML\Error\BadRequest;
+use SimpleSAML\Error\Error;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Utils\Auth;
 use SimpleSAML\XHTML\Template;
@@ -103,7 +104,9 @@ class RoutingService
     protected static function enableJsonExceptionResponse()
     {
         set_exception_handler(function (\Throwable $t) {
-            if ($t instanceof OAuthServerException) {
+            if ($t instanceof Error) {
+                return $t->show();
+            } elseif ($t instanceof OAuthServerException) {
                 $response = $t->generateHttpResponse(new Response());
             } else {
                 $error = [];
