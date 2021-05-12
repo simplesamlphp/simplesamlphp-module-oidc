@@ -1,8 +1,6 @@
 <?php
 
-
 namespace SimpleSAML\Modules\OpenIDConnect\Server\Grants;
-
 
 class ImplicitGrant
 {
