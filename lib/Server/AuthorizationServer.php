@@ -20,8 +20,10 @@ use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2Authorizatio
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\OidcCapableGrantTypeInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\PkceEnabledGrantTypeInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\RequestTypes\AuthorizationRequest;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Arr;
 
 class AuthorizationServer extends OAuth2AuthorizationServer
 {
@@ -133,19 +135,19 @@ class AuthorizationServer extends OAuth2AuthorizationServer
             $oAuth2AuthorizationRequest->setCodeChallengeMethod($codeChallengeMethod);
         }
 
-        if (AuthorizationRequest::isOidcCandidate($oAuth2AuthorizationRequest)) {
-            $authorizationRequest = AuthorizationRequest::fromOAuth2AuthorizationRequest($oAuth2AuthorizationRequest);
-
-            /** @var string|null $nonce */
-            $nonce = $request->getQueryParams()['nonce'] ?? null;
-            if ($nonce !== null) {
-                $authorizationRequest->setNonce($nonce);
-            }
-
-            return $authorizationRequest;
+        if (! $this->isOidcCandidate($grantType, $oAuth2AuthorizationRequest)) {
+            return $oAuth2AuthorizationRequest;
         }
 
-        return $oAuth2AuthorizationRequest;
+        $authorizationRequest = $this->fromOAuth2ToOidcAuthorizationRequest($oAuth2AuthorizationRequest);
+
+        /** @var string|null $nonce */
+        $nonce = $request->getQueryParams()['nonce'] ?? null;
+        if ($nonce !== null) {
+            $authorizationRequest->setNonce($nonce);
+        }
+
+        return $authorizationRequest;
     }
 
     /**
@@ -336,5 +338,52 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         return $this->isPkceEnabled &&
             $grantType instanceof PkceEnabledGrantTypeInterface &&
             ! $client->isConfidential();
+    }
+
+    /**
+     * Check if the grant type and OAuth authorization request is OIDC candidate (can respond with ID token).
+     *
+     * @param GrantTypeInterface $grantType
+     * @param OAuth2AuthorizationRequest $authorizationRequest
+     * @return bool
+     */
+    public function isOidcCandidate(
+        GrantTypeInterface $grantType,
+        OAuth2AuthorizationRequest $authorizationRequest
+    ): bool {
+        if (! $grantType instanceof OidcCapableGrantTypeInterface) {
+            return false;
+        }
+
+        // Check if the scopes contain 'oidc' scope
+        // TODO mivanci move away from static Arr dependency
+        return (bool) Arr::find($authorizationRequest->getScopes(), function (ScopeEntityInterface $scope) {
+            return $scope->getIdentifier() === 'openid';
+        });
+    }
+
+    /**
+     * @param OAuth2AuthorizationRequest $oAuth2authorizationRequest
+     *
+     * @return AuthorizationRequest
+     */
+    public function fromOAuth2ToOidcAuthorizationRequest(
+        OAuth2AuthorizationRequest $oAuth2authorizationRequest
+    ): AuthorizationRequest {
+        $authorizationRequest = new AuthorizationRequest();
+        $authorizationRequest->setGrantTypeId($oAuth2authorizationRequest->getGrantTypeId());
+
+        $authorizationRequest->setClient($oAuth2authorizationRequest->getClient());
+        $authorizationRequest->setRedirectUri($oAuth2authorizationRequest->getRedirectUri());
+        $authorizationRequest->setScopes($oAuth2authorizationRequest->getScopes());
+        $authorizationRequest->setCodeChallenge($oAuth2authorizationRequest->getCodeChallenge());
+        $authorizationRequest->setCodeChallengeMethod($oAuth2authorizationRequest->getCodeChallengeMethod());
+
+        $state = $oAuth2authorizationRequest->getState();
+        if (null !== $state) {
+            $authorizationRequest->setState($state);
+        }
+
+        return $authorizationRequest;
     }
 }
