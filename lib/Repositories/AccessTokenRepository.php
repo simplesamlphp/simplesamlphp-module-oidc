@@ -15,7 +15,7 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Repositories;
 
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
-use League\OAuth2\Server\Entities\ClientEntityInterface;
+use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
 use SimpleSAML\Error\Assertion;
 use SimpleSAML\Modules\OpenIDConnect\Entity\AccessTokenEntity;
@@ -36,7 +36,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
     /**
      * {@inheritdoc}
      */
-    public function getNewToken(ClientEntityInterface $clientEntity, array $scopes, $userIdentifier = null)
+    public function getNewToken(OAuth2ClientEntityInterface $clientEntity, array $scopes, $userIdentifier = null)
     {
         return AccessTokenEntity::fromData($clientEntity, $scopes, $userIdentifier);
     }

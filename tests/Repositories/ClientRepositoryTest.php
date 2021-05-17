@@ -19,6 +19,7 @@ use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
+use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration;
 
@@ -212,8 +213,11 @@ class ClientRepositoryTest extends TestCase
         $this->assertNull($foundClient);
     }
 
-    public static function getClient(string $id, bool $enabled = true, bool $confidential = false): ClientEntity
-    {
+    public static function getClient(
+        string $id,
+        bool $enabled = true,
+        bool $confidential = false
+    ): ClientEntityInterface {
         return ClientEntity::fromData(
             $id,
             'clientsecret',

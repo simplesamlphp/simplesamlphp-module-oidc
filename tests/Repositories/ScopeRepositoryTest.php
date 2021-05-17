@@ -56,11 +56,9 @@ class ScopeRepositoryTest extends TestCase
 
     public function testGetUnknownScope(): void
     {
-        $this->expectException(OAuthServerException::class);
-
         $scopeRepository = new ScopeRepository(new ConfigurationService());
 
-        $scopeRepository->getScopeEntityByIdentifier('none');
+        $this->assertNull($scopeRepository->getScopeEntityByIdentifier('none'));
     }
 
     public function testFinalizeScopes(): void

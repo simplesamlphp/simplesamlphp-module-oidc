@@ -15,7 +15,7 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Entity;
 
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
-use League\OAuth2\Server\Entities\ClientEntityInterface;
+use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Entities\Traits\AccessTokenTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
@@ -44,7 +44,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
      * @param ScopeEntityInterface[] $scopes
      */
     public static function fromData(
-        ClientEntityInterface $clientEntity,
+        OAuth2ClientEntityInterface $clientEntity,
         array $scopes,
         string $userIdentifier = null
     ): self {

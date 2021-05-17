@@ -7,27 +7,40 @@ use DateInterval;
 use League\OAuth2\Server\CodeChallengeVerifiers\CodeChallengeVerifierInterface;
 use League\OAuth2\Server\CodeChallengeVerifiers\PlainVerifier;
 use League\OAuth2\Server\CodeChallengeVerifiers\S256Verifier;
-use League\OAuth2\Server\Entities\ClientEntityInterface;
+use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
+use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
-use League\OAuth2\Server\Grant\AuthCodeGrant;
+use League\OAuth2\Server\Grant\AuthCodeGrant as OAuth2AuthCodeGrant;
 use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface;
 use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
 use League\OAuth2\Server\RequestEvent;
-use League\OAuth2\Server\RequestTypes\AuthorizationRequest;
+use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Error\BadRequest;
+use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\OidcAuthCodeEntityInterface;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\Interfaces\OidcAuthCodeRepositoryInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
-use SimpleSAML\Modules\OpenIDConnect\Server\RequestTypes\OidcAuthorizationRequest;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\OidcCapableGrantTypeInterface;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\PkceEnabledGrantTypeInterface;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Traits\ClientRedirectUriValidationTrait;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Traits\PkceValidationTrait;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Traits\ScopesValidationTrait;
+use SimpleSAML\Modules\OpenIDConnect\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Arr;
 
-class OidcAuthCodeGrant extends AuthCodeGrant
+class AuthCodeGrant extends OAuth2AuthCodeGrant implements PkceEnabledGrantTypeInterface, OidcCapableGrantTypeInterface
 {
+    use ClientRedirectUriValidationTrait;
+    use ScopesValidationTrait;
+    use PkceValidationTrait;
+
     /**
      * @var DateInterval
      */
@@ -42,6 +55,11 @@ class OidcAuthCodeGrant extends AuthCodeGrant
      * @var OidcAuthCodeRepositoryInterface
      */
     protected $authCodeRepository;
+
+    /**
+     * @var bool $requireCodeChallengeForPublicClients
+     */
+    protected $requireCodeChallengeForPublicClients = true;
 
     public function __construct(
         AuthCodeRepositoryInterface $authCodeRepository,
@@ -63,49 +81,118 @@ class OidcAuthCodeGrant extends AuthCodeGrant
 
     /**
      * {@inheritdoc}
-     *
-     * @param ServerRequestInterface $request
-     * @return OidcAuthorizationRequest|AuthorizationRequest
-     * @throws OAuthServerException
-     * @throws OidcServerException
      */
-    public function validateAuthorizationRequest(ServerRequestInterface $request): AuthorizationRequest
+    public function validateAuthorizationRequest(ServerRequestInterface $request): OAuth2AuthorizationRequest
     {
-        $oAuth2authorizationRequest = parent::validateAuthorizationRequest($request);
+        /** @var string|null $state */
+        $state = $request->getQueryParams()['state'] ?? null;
 
-        // Always set redirect_uri.
-        // In database, in table 'oidc_auth_code', attribute 'redirect_uri' is not nullable.
-        // However, in OAuth2 spcec the 'redirect_uri' param is optional if the client has one redirect URI registered,
-        // which makes the validation pass. This results in a database write error (writing a NULL
-        // to a NON NULL attribute) for requests which don't have
-        // redirect_uri param. For now, the param is set by getting the default redirect_uri from client.
-        // TODO consider alternative: always require redirect URI param.
-        if (! $oAuth2authorizationRequest->getRedirectUri()) {
-            $oAuth2authorizationRequest->setRedirectUri($this->getClientRedirectUri($oAuth2authorizationRequest));
+        try {
+            $client = $this->getClientOrFail($request);
+            $redirectUri = $this->getRedirectUriOrFail($client, $request);
+        } catch (OidcServerException $exception) {
+            $reason = \sprintf("%s %s", $exception->getMessage(), $exception->getHint() ?? '');
+            throw new BadRequest($reason);
         }
 
-        if (! OidcAuthorizationRequest::isOidcCandidate($oAuth2authorizationRequest)) {
-            return $oAuth2authorizationRequest;
+        $scopes = $this->getScopesOrFail($request, $this->scopeRepository, $this->defaultScope, $redirectUri, $state);
+
+        $oAuth2AuthorizationRequest = new OAuth2AuthorizationRequest();
+
+        $oAuth2AuthorizationRequest->setClient($client);
+        $oAuth2AuthorizationRequest->setRedirectUri($redirectUri);
+        $oAuth2AuthorizationRequest->setScopes($scopes);
+        $oAuth2AuthorizationRequest->setGrantTypeId($this->getIdentifier());
+
+        if ($state !== null) {
+            $oAuth2AuthorizationRequest->setState($state);
         }
 
-        $oidcAuthorizationRequest =
-            OidcAuthorizationRequest::fromOAuth2AuthorizationRequest($oAuth2authorizationRequest);
+        if ($this->shouldCheckPkce($client)) {
+            $codeChallenge = $this->getCodeChallengeOrFail($request, $redirectUri);
+            $codeChallengeMethod = $this->getCodeChallengeMethodOrFail(
+                $request,
+                $this->codeChallengeVerifiers,
+                $redirectUri
+            );
 
-        $nonceParameter = $this->getQueryStringParameter('nonce', $request);
-
-        if ($nonceParameter !== null) {
-            $oidcAuthorizationRequest->setNonce($nonceParameter);
+            $oAuth2AuthorizationRequest->setCodeChallenge($codeChallenge);
+            $oAuth2AuthorizationRequest->setCodeChallengeMethod($codeChallengeMethod);
         }
 
-        return $oidcAuthorizationRequest;
+        if (! $this->isOidcCandidate($oAuth2AuthorizationRequest)) {
+            return $oAuth2AuthorizationRequest;
+        }
+
+        $authorizationRequest = $this->fromOAuth2ToOidcAuthorizationRequest($oAuth2AuthorizationRequest);
+
+        /** @var string|null $nonce */
+        $nonce = $request->getQueryParams()['nonce'] ?? null;
+        if ($nonce !== null) {
+            $authorizationRequest->setNonce($nonce);
+        }
+
+        return $authorizationRequest;
+    }
+
+    /**
+     * @param ClientEntityInterface $client
+     * @return bool
+     */
+    protected function shouldCheckPkce(ClientEntityInterface $client): bool
+    {
+        return $this->requireCodeChallengeForPublicClients &&
+            ! $client->isConfidential();
+    }
+
+    /**
+     * Check if the authorization request is OIDC candidate (can respond with ID token).
+     *
+     * @param OAuth2AuthorizationRequest $authorizationRequest
+     * @return bool
+     */
+    public function isOidcCandidate(
+        OAuth2AuthorizationRequest $authorizationRequest
+    ): bool {
+        // Check if the scopes contain 'oidc' scope
+        // TODO mivanci move away from static Arr dependency
+        return (bool) Arr::find($authorizationRequest->getScopes(), function (ScopeEntityInterface $scope) {
+            return $scope->getIdentifier() === 'openid';
+        });
+    }
+
+    /**
+     * @param OAuth2AuthorizationRequest $oAuth2authorizationRequest
+     *
+     * @return AuthorizationRequest
+     */
+    public function fromOAuth2ToOidcAuthorizationRequest(
+        OAuth2AuthorizationRequest $oAuth2authorizationRequest
+    ): AuthorizationRequest {
+        $authorizationRequest = new AuthorizationRequest();
+        $authorizationRequest->setGrantTypeId($oAuth2authorizationRequest->getGrantTypeId());
+
+        $authorizationRequest->setClient($oAuth2authorizationRequest->getClient());
+        $authorizationRequest->setRedirectUri($oAuth2authorizationRequest->getRedirectUri());
+        $authorizationRequest->setScopes($oAuth2authorizationRequest->getScopes());
+        $authorizationRequest->setCodeChallenge($oAuth2authorizationRequest->getCodeChallenge());
+        $authorizationRequest->setCodeChallengeMethod($oAuth2authorizationRequest->getCodeChallengeMethod());
+
+        $state = $oAuth2authorizationRequest->getState();
+        if (null !== $state) {
+            $authorizationRequest->setState($state);
+        }
+
+        return $authorizationRequest;
     }
 
     /**
      * @inheritDoc
      */
-    public function completeAuthorizationRequest(AuthorizationRequest $authorizationRequest): ResponseTypeInterface
-    {
-        if ($authorizationRequest instanceof OidcAuthorizationRequest) {
+    public function completeAuthorizationRequest(
+        OAuth2AuthorizationRequest $authorizationRequest
+    ): ResponseTypeInterface {
+        if ($authorizationRequest instanceof AuthorizationRequest) {
             return $this->completeOidcAuthorizationRequest($authorizationRequest);
         }
 
@@ -115,13 +202,14 @@ class OidcAuthCodeGrant extends AuthCodeGrant
     /**
      * This is reimplementation of OAuth2 completeAuthorizationRequest method with addition of nonce handling.
      *
-     * @param OidcAuthorizationRequest $authorizationRequest
+     * @param AuthorizationRequest $authorizationRequest
      * @return RedirectResponse
      * @throws OAuthServerException
      * @throws UniqueTokenIdentifierConstraintViolationException
      */
-    public function completeOidcAuthorizationRequest(OidcAuthorizationRequest $authorizationRequest): RedirectResponse
-    {
+    public function completeOidcAuthorizationRequest(
+        AuthorizationRequest $authorizationRequest
+    ): RedirectResponse {
         $user = $authorizationRequest->getUser();
         if ($user instanceof UserEntityInterface === false) {
             throw new LogicException('An instance of UserEntityInterface should be set on the ' .
@@ -131,65 +219,62 @@ class OidcAuthCodeGrant extends AuthCodeGrant
         $finalRedirectUri = $authorizationRequest->getRedirectUri()
             ?? $this->getClientRedirectUri($authorizationRequest);
 
-        // The user approved the client, redirect them back with an auth code
-        if ($authorizationRequest->isAuthorizationApproved() === true) {
-            $authCode = $this->issueOidcAuthCode(
-                $this->authCodeTTL,
-                $authorizationRequest->getClient(),
-                $user->getIdentifier(),
+        if ($authorizationRequest->isAuthorizationApproved() !== true) {
+            // The user denied the client, redirect them back with an error
+            throw OidcServerException::accessDenied(
+                'The user denied the request',
                 $finalRedirectUri,
-                $authorizationRequest->getScopes(),
-                $authorizationRequest->getNonce()
+                null,
+                $authorizationRequest->getState()
             );
-
-            $payload = [
-                'client_id'             => $authCode->getClient()->getIdentifier(),
-                'redirect_uri'          => $authCode->getRedirectUri(),
-                'auth_code_id'          => $authCode->getIdentifier(),
-                'scopes'                => $authCode->getScopes(),
-                'user_id'               => $authCode->getUserIdentifier(),
-                'expire_time'           => (new DateTimeImmutable())->add($this->authCodeTTL)->getTimestamp(),
-                'code_challenge'        => $authorizationRequest->getCodeChallenge(),
-                'code_challenge_method' => $authorizationRequest->getCodeChallengeMethod(),
-                'nonce'                 => $authorizationRequest->getNonce(),
-            ];
-
-            $jsonPayload = \json_encode($payload);
-
-            if ($jsonPayload === false) {
-                throw new LogicException('An error was encountered when JSON encoding the authorization ' .
-                    'request response');
-            }
-
-            $response = new RedirectResponse();
-            $response->setRedirectUri(
-                $this->makeRedirectUri(
-                    $finalRedirectUri,
-                    [
-                        'code'  => $this->encrypt($jsonPayload),
-                        'state' => $authorizationRequest->getState(),
-                    ]
-                )
-            );
-
-            return $response;
         }
 
-        // The user denied the client, redirect them back with an error
-        throw OAuthServerException::accessDenied(
-            'The user denied the request',
+        // The user approved the client, redirect them back with an auth code
+        $authCode = $this->issueOidcAuthCode(
+            $this->authCodeTTL,
+            $authorizationRequest->getClient(),
+            $user->getIdentifier(),
+            $finalRedirectUri,
+            $authorizationRequest->getScopes(),
+            $authorizationRequest->getNonce()
+        );
+
+        $payload = [
+            'client_id'             => $authCode->getClient()->getIdentifier(),
+            'redirect_uri'          => $authCode->getRedirectUri(),
+            'auth_code_id'          => $authCode->getIdentifier(),
+            'scopes'                => $authCode->getScopes(),
+            'user_id'               => $authCode->getUserIdentifier(),
+            'expire_time'           => (new DateTimeImmutable())->add($this->authCodeTTL)->getTimestamp(),
+            'code_challenge'        => $authorizationRequest->getCodeChallenge(),
+            'code_challenge_method' => $authorizationRequest->getCodeChallengeMethod(),
+            'nonce'                 => $authorizationRequest->getNonce(),
+        ];
+
+        $jsonPayload = \json_encode($payload);
+
+        if ($jsonPayload === false) {
+            throw new LogicException('An error was encountered when JSON encoding the authorization ' .
+                'request response');
+        }
+
+        $response = new RedirectResponse();
+        $response->setRedirectUri(
             $this->makeRedirectUri(
                 $finalRedirectUri,
                 [
+                    'code'  => $this->encrypt($jsonPayload),
                     'state' => $authorizationRequest->getState(),
                 ]
             )
         );
+
+        return $response;
     }
 
     /**
      * @param DateInterval $authCodeTTL
-     * @param ClientEntityInterface $client
+     * @param OAuth2ClientEntityInterface $client
      * @param string $userIdentifier
      * @param string $redirectUri
      * @param array $scopes
@@ -200,7 +285,7 @@ class OidcAuthCodeGrant extends AuthCodeGrant
      */
     protected function issueOidcAuthCode(
         DateInterval $authCodeTTL,
-        ClientEntityInterface $client,
+        OAuth2ClientEntityInterface $client,
         string $userIdentifier,
         string $redirectUri,
         array $scopes = [],
@@ -240,11 +325,11 @@ class OidcAuthCodeGrant extends AuthCodeGrant
     /**
      * Get the client redirect URI if not set in the request.
      *
-     * @param AuthorizationRequest $authorizationRequest
+     * @param OAuth2AuthorizationRequest $authorizationRequest
      *
      * @return string
      */
-    protected function getClientRedirectUri(AuthorizationRequest $authorizationRequest): string
+    protected function getClientRedirectUri(OAuth2AuthorizationRequest $authorizationRequest): string
     {
         $rediretctUri = $authorizationRequest->getClient()->getRedirectUri();
 
@@ -373,13 +458,13 @@ class OidcAuthCodeGrant extends AuthCodeGrant
      * Reimplementation because of private parent access
      *
      * @param \stdClass $authCodePayload
-     * @param ClientEntityInterface $client
+     * @param OAuth2ClientEntityInterface $client
      * @param ServerRequestInterface $request
      * @throws OAuthServerException
      */
     protected function validateAuthorizationCode(
         \stdClass $authCodePayload,
-        ClientEntityInterface $client,
+        OAuth2ClientEntityInterface $client,
         ServerRequestInterface $request
     ): void {
         if (!\property_exists($authCodePayload, 'auth_code_id')) {

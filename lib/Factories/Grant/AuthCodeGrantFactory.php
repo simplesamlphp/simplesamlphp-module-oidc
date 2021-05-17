@@ -14,7 +14,7 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Factories\Grant;
 
-use SimpleSAML\Modules\OpenIDConnect\Server\Grants\OidcAuthCodeGrant;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\AuthCodeGrant;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\AuthCodeRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
 
@@ -52,9 +52,9 @@ class AuthCodeGrantFactory
         $this->authCodeDuration = $authCodeDuration;
     }
 
-    public function build(): OidcAuthCodeGrant
+    public function build(): AuthCodeGrant
     {
-        $authCodeGrant = new OidcAuthCodeGrant(
+        $authCodeGrant = new AuthCodeGrant(
             $this->authCodeRepository,
             $this->refreshTokenRepository,
             $this->authCodeDuration
