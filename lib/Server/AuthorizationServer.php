@@ -113,7 +113,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
             throw new BadRequest($reason);
         }
 
-        $scopes = $this->getScopesOrFail($client, $request, $redirectUri, $state);
+        $scopes = $this->getScopesOrFail($request, $redirectUri, $state);
         $grantType = $this->getGrantTypeOrFail($request, $redirectUri, $state);
 
         $oAuth2AuthorizationRequest = $grantType->validateAuthorizationRequest($request);
@@ -210,7 +210,6 @@ class AuthorizationServer extends OAuth2AuthorizationServer
     }
 
     protected function getScopesOrFail(
-        ClientEntityInterface $client,
         ServerRequestInterface $request,
         string $redirectUri = null,
         string $state = null
