@@ -226,11 +226,6 @@ class AuthorizationServer extends OAuth2AuthorizationServer
                 throw OidcServerException::invalidScope($scopeItem, $redirectUri, $state);
             }
 
-            // Since we register clients with specific scopes upfront, we can check for valid scopes for the client.
-            if (! \in_array($scope->getIdentifier(), $client->getScopes(), true)) {
-                throw OidcServerException::invalidScope($scopeItem, $redirectUri, $state);
-            }
-
             $validScopes[] = $scope;
         }
 
