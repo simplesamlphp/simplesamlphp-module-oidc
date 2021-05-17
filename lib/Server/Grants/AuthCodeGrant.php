@@ -8,6 +8,7 @@ use League\OAuth2\Server\CodeChallengeVerifiers\CodeChallengeVerifierInterface;
 use League\OAuth2\Server\CodeChallengeVerifiers\PlainVerifier;
 use League\OAuth2\Server\CodeChallengeVerifiers\S256Verifier;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
+use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
@@ -20,16 +21,26 @@ use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Error\BadRequest;
+use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\OidcAuthCodeEntityInterface;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\Interfaces\OidcAuthCodeRepositoryInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\OidcCapableGrantTypeInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\PkceEnabledGrantTypeInterface;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Traits\ClientRedirectUriValidationTrait;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Traits\PkceValidationTrait;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Traits\ScopesValidationTrait;
 use SimpleSAML\Modules\OpenIDConnect\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Arr;
 
 class AuthCodeGrant extends OAuth2AuthCodeGrant implements PkceEnabledGrantTypeInterface, OidcCapableGrantTypeInterface
 {
+    use ClientRedirectUriValidationTrait;
+    use ScopesValidationTrait;
+    use PkceValidationTrait;
+
     /**
      * @var DateInterval
      */
@@ -44,6 +55,11 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements PkceEnabledGrantTypeI
      * @var OidcAuthCodeRepositoryInterface
      */
     protected $authCodeRepository;
+
+    /**
+     * @var bool $requireCodeChallengeForPublicClients
+     */
+    protected $requireCodeChallengeForPublicClients = true;
 
     public function __construct(
         AuthCodeRepositoryInterface $authCodeRepository,
@@ -68,8 +84,106 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements PkceEnabledGrantTypeI
      */
     public function validateAuthorizationRequest(ServerRequestInterface $request): OAuth2AuthorizationRequest
     {
-        // No specific validation needed, so we can return new authz request.
-        return new OAuth2AuthorizationRequest();
+        /** @var string|null $state */
+        $state = $request->getQueryParams()['state'] ?? null;
+
+        try {
+            $client = $this->getClientOrFail($request);
+            $redirectUri = $this->getRedirectUriOrFail($client, $request);
+        } catch (OidcServerException $exception) {
+            $reason = \sprintf("%s %s", $exception->getMessage(), $exception->getHint() ?? '');
+            throw new BadRequest($reason);
+        }
+
+        $scopes = $this->getScopesOrFail($request, $this->scopeRepository, $this->defaultScope, $redirectUri, $state);
+
+        $oAuth2AuthorizationRequest = new OAuth2AuthorizationRequest();
+
+        $oAuth2AuthorizationRequest->setClient($client);
+        $oAuth2AuthorizationRequest->setRedirectUri($redirectUri);
+        $oAuth2AuthorizationRequest->setScopes($scopes);
+        $oAuth2AuthorizationRequest->setGrantTypeId($this->getIdentifier());
+
+        if ($state !== null) {
+            $oAuth2AuthorizationRequest->setState($state);
+        }
+
+        if ($this->shouldCheckPkce($client)) {
+            $codeChallenge = $this->getCodeChallengeOrFail($request, $redirectUri);
+            $codeChallengeMethod = $this->getCodeChallengeMethodOrFail(
+                $request,
+                $this->codeChallengeVerifiers,
+                $redirectUri
+            );
+
+            $oAuth2AuthorizationRequest->setCodeChallenge($codeChallenge);
+            $oAuth2AuthorizationRequest->setCodeChallengeMethod($codeChallengeMethod);
+        }
+
+        if (! $this->isOidcCandidate($oAuth2AuthorizationRequest)) {
+            return $oAuth2AuthorizationRequest;
+        }
+
+        $authorizationRequest = $this->fromOAuth2ToOidcAuthorizationRequest($oAuth2AuthorizationRequest);
+
+        /** @var string|null $nonce */
+        $nonce = $request->getQueryParams()['nonce'] ?? null;
+        if ($nonce !== null) {
+            $authorizationRequest->setNonce($nonce);
+        }
+
+        return $authorizationRequest;
+    }
+
+    /**
+     * @param ClientEntityInterface $client
+     * @return bool
+     */
+    protected function shouldCheckPkce(ClientEntityInterface $client): bool
+    {
+        return $this->requireCodeChallengeForPublicClients &&
+            ! $client->isConfidential();
+    }
+
+    /**
+     * Check if the authorization request is OIDC candidate (can respond with ID token).
+     *
+     * @param OAuth2AuthorizationRequest $authorizationRequest
+     * @return bool
+     */
+    public function isOidcCandidate(
+        OAuth2AuthorizationRequest $authorizationRequest
+    ): bool {
+        // Check if the scopes contain 'oidc' scope
+        // TODO mivanci move away from static Arr dependency
+        return (bool) Arr::find($authorizationRequest->getScopes(), function (ScopeEntityInterface $scope) {
+            return $scope->getIdentifier() === 'openid';
+        });
+    }
+
+    /**
+     * @param OAuth2AuthorizationRequest $oAuth2authorizationRequest
+     *
+     * @return AuthorizationRequest
+     */
+    public function fromOAuth2ToOidcAuthorizationRequest(
+        OAuth2AuthorizationRequest $oAuth2authorizationRequest
+    ): AuthorizationRequest {
+        $authorizationRequest = new AuthorizationRequest();
+        $authorizationRequest->setGrantTypeId($oAuth2authorizationRequest->getGrantTypeId());
+
+        $authorizationRequest->setClient($oAuth2authorizationRequest->getClient());
+        $authorizationRequest->setRedirectUri($oAuth2authorizationRequest->getRedirectUri());
+        $authorizationRequest->setScopes($oAuth2authorizationRequest->getScopes());
+        $authorizationRequest->setCodeChallenge($oAuth2authorizationRequest->getCodeChallenge());
+        $authorizationRequest->setCodeChallengeMethod($oAuth2authorizationRequest->getCodeChallengeMethod());
+
+        $state = $oAuth2authorizationRequest->getState();
+        if (null !== $state) {
+            $authorizationRequest->setState($state);
+        }
+
+        return $authorizationRequest;
     }
 
     /**
