@@ -34,6 +34,7 @@ use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Traits\ScopesValidationTrait;
 use SimpleSAML\Modules\OpenIDConnect\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Arr;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
 
 class AuthCodeGrant extends OAuth2AuthCodeGrant implements PkceEnabledGrantTypeInterface, OidcCapableGrantTypeInterface
 {
@@ -55,6 +56,10 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements PkceEnabledGrantTypeI
      * @var OidcAuthCodeRepositoryInterface
      */
     protected $authCodeRepository;
+    /**
+     * @var RequestRulesManager
+     */
+    private $requestRulesManager;
 
     /**
      * @var bool $requireCodeChallengeForPublicClients
@@ -64,11 +69,13 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements PkceEnabledGrantTypeI
     public function __construct(
         AuthCodeRepositoryInterface $authCodeRepository,
         RefreshTokenRepositoryInterface $refreshTokenRepository,
-        DateInterval $authCodeTTL
+        DateInterval $authCodeTTL,
+        RequestRulesManager $requestRulesManager
     ) {
         parent::__construct($authCodeRepository, $refreshTokenRepository, $authCodeTTL);
 
         $this->authCodeTTL = $authCodeTTL;
+        $this->requestRulesManager = $requestRulesManager;
 
         if (\in_array('sha256', \hash_algos(), true)) {
             $s256Verifier = new S256Verifier();
@@ -94,6 +101,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements PkceEnabledGrantTypeI
             $reason = \sprintf("%s %s", $exception->getMessage(), $exception->getHint() ?? '');
             throw new BadRequest($reason);
         }
+
+        $this->requestRulesManager->check($request);
 
         $scopes = $this->getScopesOrFail($request, $this->scopeRepository, $this->defaultScope, $redirectUri, $state);
 

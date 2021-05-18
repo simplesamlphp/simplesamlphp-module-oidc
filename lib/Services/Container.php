@@ -42,6 +42,8 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\PromptRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Session;
 
 class Container implements ContainerInterface
@@ -84,7 +86,7 @@ class Container implements ContainerInterface
         $databaseLegacyOAuth2Import = new DatabaseLegacyOAuth2Import($clientRepository);
         $this->services[DatabaseLegacyOAuth2Import::class] = $databaseLegacyOAuth2Import;
 
-        $authSimpleFactory = new AuthSimpleFactory();
+        $authSimpleFactory = new AuthSimpleFactory($clientRepository, $configurationService);
         $this->services[AuthSimpleFactory::class] = $authSimpleFactory;
 
         $formFactory = new FormFactory($configurationService);
@@ -109,7 +111,6 @@ class Container implements ContainerInterface
         $this->services[MetaDataStorageHandler::class] = $metadataStorageHandler;
 
         $authenticationService = new AuthenticationService(
-            $configurationService,
             $userRepository,
             $authSimpleFactory,
             $authProcService,
@@ -118,6 +119,12 @@ class Container implements ContainerInterface
             $oidcModuleConfiguration->getString('useridattr', 'uid')
         );
         $this->services[AuthenticationService::class] = $authenticationService;
+
+        // Request Rules
+        $promptRule = new PromptRule($authSimpleFactory);
+        $requestRuleManager = new RequestRulesManager();
+        $requestRuleManager->add($promptRule);
+        $this->services[RequestRulesManager::class] = $requestRuleManager;
 
         $accessTokenDuration = new \DateInterval(
             $configurationService->getOpenIDConnectConfiguration()->getString('accessTokenDuration')
@@ -146,7 +153,8 @@ class Container implements ContainerInterface
             $authCodeRepository,
             $refreshTokenRepository,
             $refreshTokenDuration,
-            $authCodeDuration
+            $authCodeDuration,
+            $requestRuleManager
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 
