@@ -87,9 +87,9 @@ $config = [
 //        'given_name' => [
 //            'givenName',
 //        ],
-//        'middle_name' => [
-//            // Empty
-//        ],
+        'middle_name' => [
+            'middle_name'
+        ],
 //        'nickname' => [
 //            'eduPersonNickname',
 //        ],
@@ -100,44 +100,50 @@ $config = [
 //            'labeledURI',
 //            'description',
 //        ],
-//        'picture' => [
-//            'jpegPhoto',
-//        ],
-//        'website' => [
-//            // Empty
-//        ],
-//        'gender' => [
-//            // Empty
-//        ],
-//        'birthdate' => [
-//            // Empty
-//        ],
-//        'zoneinfo' => [
-//            // Empty
-//        ],
+        'picture' => [
+            'jpegURL',
+        ],
+        'website' => [
+            'website'
+        ],
+        'gender' => [
+            'gender'
+        ],
+        'birthdate' => [
+            'birthdate'
+        ],
+        'zoneinfo' => [
+            'zoneinfo'
+        ],
 //        'locale' => [
 //            'preferredLanguage',
 //        ],
-//        'updated_at' => [
-//            // Empty
-//        ],
+        'int:updated_at' => [
+            'updated_at'
+        ],
 //        'email' => [
 //            'mail',
 //        ],
-//        'email_verified' => [
-//            // Empty
-//        ],
-//        'address' => [
-//            'postalAddress',
-//        ],
+        'bool:email_verified' => [
+            'email_verified'
+        ],
+        'address' => [
+            'formatted' => ['postalAddress'],
+            'street_address' => ['street_address'],
+            'locality' => ['locality'],
+            'region' => ['region'],
+            'postal_code' => ['postal_code'],
+            'country' => ['country'],
+        ],
+
 //        'phone_number' => [
 //            'mobile',
 //            'telephoneNumber',
 //            'homePhone',
 //        ],
-//        'phone_number_verified' => [
-//            // Empty
-//        ],
+        'bool:phone_number_verified' => [
+            'phone_number_verified'
+        ],
         /*
          * Optional scopes attributes
          */
