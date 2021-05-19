@@ -1,13 +1,16 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Utils\Checker;
+namespace SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules;
 
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Modules\OpenIDConnect\Factories\AuthSimpleFactory;
 use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\RequestRuleInterface;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultBagInterface;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultInterface;
 
-class PromptRule implements RequestRule
+class PromptRule implements RequestRuleInterface
 {
     /**
      * @var AuthSimpleFactory
@@ -19,13 +22,13 @@ class PromptRule implements RequestRule
         $this->authSimpleFactory = $authSimpleFactory;
     }
 
-    public function checkRule(ServerRequestInterface $request): array
+    public function checkRule(ServerRequestInterface $request, ResultBagInterface $currentResultBag): ?ResultInterface
     {
         $authSimple = $this->authSimpleFactory->build($request);
 
         $queryParams = $request->getQueryParams();
         if (!array_key_exists('prompt', $queryParams)) {
-            return [];
+            return null;
         }
 
         $prompt = explode(" ", $queryParams['prompt']);
@@ -48,6 +51,6 @@ class PromptRule implements RequestRule
             $authSimple->logout(['ReturnTo' => (string) $uri]);
         }
 
-        return [];
+        return null;
     }
 }

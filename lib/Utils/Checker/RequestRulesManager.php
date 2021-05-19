@@ -3,34 +3,45 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Utils\Checker;
 
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\RequestRuleInterface;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultBagInterface;
 
 class RequestRulesManager
 {
     /**
-     * @var RequestRule[]
+     * @var RequestRuleInterface[] $rules
      */
     private $rules = [];
 
-    protected $result  = [];
+    /**
+     * @var ResultBagInterface $resultBag
+     */
+    protected $resultBag;
 
     public function __construct(array $rules = [])
     {
         foreach ($rules as $rule) {
             $this->add($rule);
         }
+
+        $this->resultBag = new ResultBag();
     }
 
-    public function add(RequestRule $rule)
+    public function add(RequestRuleInterface $rule)
     {
         $this->rules[] = $rule;
     }
 
-    public function check(ServerRequestInterface $request): array
+    public function check(ServerRequestInterface $request): ResultBagInterface
     {
         foreach ($this->rules as $rule) {
-            $this->result = array_merge($this->result, $rule->checkRule($request));
+            $result = $rule->checkRule($request, $this->resultBag);
+
+            if ($result !== null) {
+                $this->resultBag->add($result);
+            }
         }
 
-        return $this->result;
+        return $this->resultBag;
     }
 }
