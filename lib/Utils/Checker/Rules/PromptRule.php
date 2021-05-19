@@ -22,8 +22,11 @@ class PromptRule implements RequestRuleInterface
         $this->authSimpleFactory = $authSimpleFactory;
     }
 
-    public function checkRule(ServerRequestInterface $request, ResultBagInterface $currentResultBag): ?ResultInterface
-    {
+    public function checkRule(
+        ServerRequestInterface $request,
+        ResultBagInterface $currentResultBag,
+        array $data
+    ): ?ResultInterface {
         $authSimple = $this->authSimpleFactory->build($request);
 
         $queryParams = $request->getQueryParams();

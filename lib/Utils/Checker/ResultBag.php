@@ -17,7 +17,7 @@ class ResultBag implements ResultBagInterface
      */
     public function add(ResultInterface $result): void
     {
-        $this->results[$result->getKey()] = $result->getValue();
+        $this->results[$result->getKey()] = $result;
     }
 
     /**

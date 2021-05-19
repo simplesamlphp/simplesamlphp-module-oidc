@@ -44,6 +44,7 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\PromptRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\ScopeRule;
 use SimpleSAML\Session;
 
 class Container implements ContainerInterface
@@ -124,7 +125,9 @@ class Container implements ContainerInterface
         $promptRule = new PromptRule($authSimpleFactory);
         $requestRuleManager = new RequestRulesManager();
         $requestRuleManager->add($promptRule);
-        // TODO will probably have to sepparate rules for token request validation...
+        $scopesRule = new ScopeRule($scopeRepository);
+        $requestRuleManager->add($scopesRule);
+        // TODO separate rules for each grant and for each request (authorization and token)...
         $this->services[RequestRulesManager::class] = $requestRuleManager;
 
         $accessTokenDuration = new \DateInterval(

@@ -5,6 +5,7 @@ namespace SimpleSAML\Modules\OpenIDConnect\Utils\Checker;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\RequestRuleInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultBagInterface;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultInterface;
 
 class RequestRulesManager
 {
@@ -17,6 +18,9 @@ class RequestRulesManager
      * @var ResultBagInterface $resultBag
      */
     protected $resultBag;
+
+    /** @var array $data Which will be available during each check */
+    protected $data = [];
 
     public function __construct(array $rules = [])
     {
@@ -35,7 +39,7 @@ class RequestRulesManager
     public function check(ServerRequestInterface $request): ResultBagInterface
     {
         foreach ($this->rules as $rule) {
-            $result = $rule->checkRule($request, $this->resultBag);
+            $result = $rule->checkRule($request, $this->resultBag, $this->data);
 
             if ($result !== null) {
                 $this->resultBag->add($result);
@@ -43,5 +47,24 @@ class RequestRulesManager
         }
 
         return $this->resultBag;
+    }
+
+    /**
+     * Predefine (add) the existing result so it can be used by other checkers during check.
+     * @param ResultInterface $result
+     */
+    public function predefineResult(ResultInterface $result): void
+    {
+        $this->resultBag->add($result);
+    }
+
+    /**
+     * Set data which will be available in each check, using key value pair
+     * @param $key
+     * @param $value
+     */
+    public function setData($key, $value): void
+    {
+        $this->data[$key] = $value;
     }
 }
