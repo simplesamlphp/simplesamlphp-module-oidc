@@ -11,6 +11,8 @@ class RequestRulesManager
      */
     private $rules = [];
 
+    protected $result  = [];
+
     public function __construct(array $rules = [])
     {
         foreach ($rules as $rule) {
@@ -23,10 +25,12 @@ class RequestRulesManager
         $this->rules[] = $rule;
     }
 
-    public function check(ServerRequestInterface $request)
+    public function check(ServerRequestInterface $request): array
     {
         foreach ($this->rules as $rule) {
-            $rule->checkRule($request);
+            $this->result = array_merge($this->result, $rule->checkRule($request));
         }
+
+        return $this->result;
     }
 }

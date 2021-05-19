@@ -19,33 +19,35 @@ class PromptRule implements RequestRule
         $this->authSimpleFactory = $authSimpleFactory;
     }
 
-    public function checkRule(ServerRequestInterface $request)
+    public function checkRule(ServerRequestInterface $request): array
     {
         $authSimple = $this->authSimpleFactory->build($request);
 
         $queryParams = $request->getQueryParams();
         if (!array_key_exists('prompt', $queryParams)) {
-            return;
+            return [];
         }
 
         $prompt = explode(" ", $queryParams['prompt']);
-        if (count($prompt) > 1 && in_array('none', $prompt)) {
+        if (count($prompt) > 1 && in_array('none', $prompt, true)) {
             throw OAuthServerException::invalidRequest('prompt', 'Invalid prompt parameter');
         }
 
-        if (in_array('none', $prompt) && !$authSimple->isAuthenticated()) {
+        if (in_array('none', $prompt, true) && !$authSimple->isAuthenticated()) {
             throw OidcServerException::loginRequired(
                 null,
-                $request->getQueryParams()['redirect_uri'],
+                $queryParams['redirect_uri'],
                 null,
-                $request->getQueryParams()['state']
+                $queryParams['state'] ?? null
             );
         }
 
-        if (in_array('login', $prompt) && $authSimple->isAuthenticated()) {
+        if (in_array('login', $prompt, true) && $authSimple->isAuthenticated()) {
             unset($queryParams['prompt']);
             $uri = $request->getUri()->withQuery(http_build_query($queryParams));
             $authSimple->logout(['ReturnTo' => (string) $uri]);
         }
+
+        return [];
     }
 }

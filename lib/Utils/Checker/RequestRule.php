@@ -7,5 +7,5 @@ use Psr\Http\Message\ServerRequestInterface;
 
 interface RequestRule
 {
-    public function checkRule(ServerRequestInterface $request);
+    public function checkRule(ServerRequestInterface $request): array;
 }

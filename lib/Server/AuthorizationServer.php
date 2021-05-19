@@ -51,7 +51,6 @@ class AuthorizationServer extends OAuth2AuthorizationServer
     public function validateAuthorizationRequest(ServerRequestInterface $request): OAuth2AuthorizationRequest
     {
         // state and redirectUri is used here so we can return HTTP redirect error in case of invalid response_type.
-
         /** @var string|null $state */
         $state = $request->getQueryParams()['state'] ?? null;
 
@@ -62,6 +61,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
             $reason = \sprintf("%s %s", $exception->getMessage(), $exception->getHint() ?? '');
             throw new BadRequest($reason);
         }
+
 
         foreach ($this->enabledGrantTypes as $grantType) {
             if ($grantType->canRespondToAuthorizationRequest($request)) {
