@@ -462,6 +462,10 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         // ScopeRule needs to have some things available in order to work properly...
         $this->requestRulesManager->setData('default_scope', $this->defaultScope);
         $this->requestRulesManager->setData('scope_delimiter_string', self::SCOPE_DELIMITER_STRING);
+        $shouldCheckPkce = $this->shouldCheckPkce($client);
+        if ($shouldCheckPkce) {
+            $this->requestRulesManager->setData('should_check_pkce', true);
+        }
 
         $resultBag = $this->requestRulesManager->check($request);
 
@@ -479,9 +483,11 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $oAuth2AuthorizationRequest->setState($state);
         }
 
-        // TODO mivanci refactor to specific rules to use in rules manager.
-        if ($this->shouldCheckPkce($client)) {
-            $codeChallenge = $this->getCodeChallengeOrFail($request, $redirectUri);
+        if ($shouldCheckPkce) {
+            /** @var string $codeChallenge */
+            $codeChallenge = $resultBag->getOrFail('code_challenge')->getValue();
+
+            // TODO mivanci refactor to specific rules to use in rules manager.
             $codeChallengeMethod = $this->getCodeChallengeMethodOrFail(
                 $request,
                 $this->codeChallengeVerifiers,

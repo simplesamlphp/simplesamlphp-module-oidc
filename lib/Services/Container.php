@@ -42,6 +42,7 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\PromptRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\ScopeRule;
@@ -121,12 +122,14 @@ class Container implements ContainerInterface
         );
         $this->services[AuthenticationService::class] = $authenticationService;
 
-        // Request Rules
+        // Request rules, order is important
         $promptRule = new PromptRule($authSimpleFactory);
+        $scopesRule = new ScopeRule($scopeRepository);
+        $codeChallengeRule = new CodeChallengeRule();
         $requestRuleManager = new RequestRulesManager();
         $requestRuleManager->add($promptRule);
-        $scopesRule = new ScopeRule($scopeRepository);
         $requestRuleManager->add($scopesRule);
+        $requestRuleManager->add($codeChallengeRule);
         // TODO separate rules for each grant and for each request (authorization and token)...
         $this->services[RequestRulesManager::class] = $requestRuleManager;
 
