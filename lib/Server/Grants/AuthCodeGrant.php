@@ -484,7 +484,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $resultBag = $this->requestRulesManager->check($request, $rulesToExecute);
 
         /** @var array $scopes */
-        $scopes = $resultBag->getOrFail('scope')->getValue();
+        $scopes = $resultBag->getOrFail(ScopeRule::getKey())->getValue();
 
         $oAuth2AuthorizationRequest = new OAuth2AuthorizationRequest();
 
@@ -499,8 +499,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         if ($shouldCheckPkce) {
             /** @var string $codeChallenge */
-            $codeChallenge = $resultBag->getOrFail('code_challenge')->getValue();
-            $codeChallengeMethod = $resultBag->getOrFail('code_challenge_method')->getValue();
+            $codeChallenge = $resultBag->getOrFail(CodeChallengeRule::getKey())->getValue();
+            $codeChallengeMethod = $resultBag->getOrFail(CodeChallengeMethodRule::getKey())->getValue();
 
             $oAuth2AuthorizationRequest->setCodeChallenge($codeChallenge);
             $oAuth2AuthorizationRequest->setCodeChallengeMethod($codeChallengeMethod);
