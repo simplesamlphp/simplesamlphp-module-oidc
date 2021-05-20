@@ -38,11 +38,14 @@ class PromptRule implements RequestRuleInterface
         if (count($prompt) > 1 && in_array('none', $prompt, true)) {
             throw OAuthServerException::invalidRequest('prompt', 'Invalid prompt parameter');
         }
+        // Use only validated redirect_uri.
+        /** @var string $redirectUri */
+        $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::getKey())->getValue();
 
         if (in_array('none', $prompt, true) && !$authSimple->isAuthenticated()) {
             throw OidcServerException::loginRequired(
                 null,
-                $queryParams['redirect_uri'],
+                $redirectUri,
                 null,
                 $queryParams['state'] ?? null
             );
