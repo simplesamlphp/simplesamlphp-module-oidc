@@ -102,6 +102,10 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
         // Need a claim factory here to reduce the number of claims by provided scope.
         $claims = $this->claimExtractor->extract($accessToken->getScopes(), $userEntity->getClaims());
 
+        // Per https://openid.net/specs/openid-connect-core-1_0.html#rfc.section.5.4 certain claims
+        // should only be added in certain scenarios. Allow deployer to control this.
+        $addClaimsFromScopesToIdToken = $this->configurationService->getOpenIDConnectConfiguration()
+            ->getBoolean('alwaysAddClaimsToIdToken', true);
         foreach ($claims as $claimName => $claimValue) {
             switch ($claimName) {
                 case RegisteredClaims::AUDIENCE:
@@ -126,7 +130,9 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
                     $builder->relatedTo($claimValue);
                     break;
                 default:
-                    $builder->withClaim($claimName, $claimValue);
+                    if ($addClaimsFromScopesToIdToken) {
+                        $builder->withClaim($claimName, $claimValue);
+                    }
             }
         }
 
