@@ -48,6 +48,7 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeMethodRule
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\PromptRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RedirectUriRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\ScopeRule;
 use SimpleSAML\Session;
 
@@ -130,7 +131,8 @@ class Container implements ContainerInterface
 
         $requestRules = [
             // TODO enable this after dynamic rules choosing is enabled
-            // new ClientIdRule($clientRepository),
+            //new ClientIdRule($clientRepository),
+            //new RedirectUriRule(),
             new PromptRule($authSimpleFactory),
             new ScopeRule($scopeRepository),
             new CodeChallengeRule(),
