@@ -40,10 +40,14 @@ class RequestRulesManager
         $this->rules[$rule::getKey()] = $rule;
     }
 
-    public function check(ServerRequestInterface $request): ResultBagInterface
+    public function check(ServerRequestInterface $request, array $ruleKeysToExecute): ResultBagInterface
     {
-        foreach ($this->rules as $rule) {
-            $result = $rule->checkRule($request, $this->resultBag, $this->data);
+        foreach ($ruleKeysToExecute as $ruleKey) {
+            if (! isset($this->rules[$ruleKey])) {
+                throw new \LogicException(\sprintf('Rule for key %s not defined.', $ruleKey));
+            }
+
+            $result = $this->rules[$ruleKey]->checkRule($request, $this->resultBag, $this->data);
 
             if ($result !== null) {
                 $this->resultBag->add($result);

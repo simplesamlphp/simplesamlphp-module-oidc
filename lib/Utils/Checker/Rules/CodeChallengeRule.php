@@ -19,14 +19,10 @@ class CodeChallengeRule implements RequestRuleInterface
         ResultBagInterface $currentResultBag,
         array $data
     ): ?ResultInterface {
-        if (! isset($data['should_check_pkce'])) {
-            return null;
-        }
-
         /** @var string $redirectUri */
-        $redirectUri = $currentResultBag->getOrFail('redirect_uri')->getValue();
+        $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::getKey())->getValue();
         /** @var string|null $state */
-        $state = $currentResultBag->getOrFail('state')->getValue();
+        $state = $currentResultBag->getOrFail(StateRule::getKey())->getValue();
 
         $codeChallenge = $request->getQueryParams()['code_challenge'] ?? null;
 

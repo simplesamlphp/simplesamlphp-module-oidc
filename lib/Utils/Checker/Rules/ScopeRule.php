@@ -32,9 +32,9 @@ class ScopeRule implements RequestRuleInterface
         array $data
     ): ?ResultInterface {
         /** @var string $redirectUri */
-        $redirectUri = $currentResultBag->getOrFail('redirect_uri')->getValue();
+        $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::getKey())->getValue();
         /** @var string|null $state */
-        $state = $currentResultBag->getOrFail('state')->getValue();
+        $state = $currentResultBag->getOrFail(StateRule::getKey())->getValue();
         /** @var string $defaultScope */
         $defaultScope = $data['default_scope'] ?? '';
         /** @var string $scopeDelimiterString */

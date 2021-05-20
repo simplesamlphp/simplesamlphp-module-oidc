@@ -34,6 +34,12 @@ use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\NonceRespon
 use SimpleSAML\Modules\OpenIDConnect\Utils\Arr;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Result;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeMethodRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\PromptRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RedirectUriRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\ScopeRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\StateRule;
 
 class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     PkceEnabledGrantTypeInterface,
@@ -456,21 +462,26 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         string $redirectUri,
         string $state = null
     ): OAuth2AuthorizationRequest {
-        // TODO mivanci move to result keys from request rules
-        // Since we have already validated redirect_uri and we have state, make it available for other checkers.
-        $this->requestRulesManager->predefineResult(new Result('redirect_uri', $redirectUri));
-        $this->requestRulesManager->predefineResult(new Result('state', $state));
+        $rulesToExecute = [
+            PromptRule::getKey(),
+            ScopeRule::getKey(),
+        ];
 
-        // ScopeRule needs to have some things available in order to work properly...
+        // Since we have already validated redirect_uri and we have state, make it available for other checkers.
+        $this->requestRulesManager->predefineResult(new Result(RedirectUriRule::getKey(), $redirectUri));
+        $this->requestRulesManager->predefineResult(new Result(StateRule::getKey(), $state));
+
+        // Some rules have to have certain things available in order to work properly...
         $this->requestRulesManager->setData('default_scope', $this->defaultScope);
         $this->requestRulesManager->setData('scope_delimiter_string', self::SCOPE_DELIMITER_STRING);
 
         $shouldCheckPkce = $this->shouldCheckPkce($client);
         if ($shouldCheckPkce) {
-            $this->requestRulesManager->setData('should_check_pkce', true);
+            $rulesToExecute[] = CodeChallengeRule::getKey();
+            $rulesToExecute[] = CodeChallengeMethodRule::getKey();
         }
 
-        $resultBag = $this->requestRulesManager->check($request);
+        $resultBag = $this->requestRulesManager->check($request, $rulesToExecute);
 
         /** @var array $scopes */
         $scopes = $resultBag->getOrFail('scope')->getValue();
