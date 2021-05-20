@@ -3,6 +3,7 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Utils\Checker;
 
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\RequestRuleInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultInterface;
@@ -40,6 +41,12 @@ class RequestRulesManager
         $this->rules[$rule::getKey()] = $rule;
     }
 
+    /**
+     * @param ServerRequestInterface $request
+     * @param array $ruleKeysToExecute
+     * @return ResultBagInterface
+     * @throws OidcServerException
+     */
     public function check(ServerRequestInterface $request, array $ruleKeysToExecute): ResultBagInterface
     {
         foreach ($ruleKeysToExecute as $ruleKey) {

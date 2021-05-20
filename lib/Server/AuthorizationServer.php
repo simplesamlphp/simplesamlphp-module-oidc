@@ -10,19 +10,24 @@ use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Error\Exception;
 use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\AuthorizationValidatableWithClientAndRedirectUriInterface;
-use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Traits\ClientRedirectUriValidationTrait;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\ClientIdRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RedirectUriRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\StateRule;
 
 class AuthorizationServer extends OAuth2AuthorizationServer
 {
-    use ClientRedirectUriValidationTrait;
-
     /**
      * @var ClientRepositoryInterface
      */
     protected $clientRepository;
+
+    /**
+     * @var RequestRulesManager|null
+     */
+    protected $requestRulesManager;
 
     /**
      * @inheritDoc
@@ -33,7 +38,8 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         ScopeRepositoryInterface $scopeRepository,
         $privateKey,
         $encryptionKey,
-        ResponseTypeInterface $responseType = null
+        ResponseTypeInterface $responseType = null,
+        RequestRulesManager $requestRulesManager = null
     ) {
         parent::__construct(
             $clientRepository,
@@ -45,6 +51,10 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         );
 
         $this->clientRepository = $clientRepository;
+
+        if ($requestRulesManager !== null) {
+            $this->requestRulesManager = $requestRulesManager;
+        }
     }
 
     /**
@@ -52,17 +62,27 @@ class AuthorizationServer extends OAuth2AuthorizationServer
      */
     public function validateAuthorizationRequest(ServerRequestInterface $request): OAuth2AuthorizationRequest
     {
-        // state and redirectUri is used here so we can return HTTP redirect error in case of invalid response_type.
-        /** @var string|null $state */
-        $state = $request->getQueryParams()['state'] ?? null;
+        if ($this->requestRulesManager === null) {
+            throw new \LogicException('Can not validate request (no RequestRulesManager defined)');
+        }
+
+        $rulesToExecute = [
+            StateRule::getKey(),
+            ClientIdRule::getKey(),
+            RedirectUriRule::getKey()
+        ];
 
         try {
-            $client = $this->getClientOrFail($request);
-            $redirectUri = $this->getRedirectUriOrFail($client, $request);
+            $resultBag = $this->requestRulesManager->check($request, $rulesToExecute);
         } catch (OidcServerException $exception) {
             $reason = \sprintf("%s %s", $exception->getMessage(), $exception->getHint() ?? '');
             throw new BadRequest($reason);
         }
+
+        // state and redirectUri is used here so we can return HTTP redirect error in case of invalid response_type.
+        $state = $resultBag->getOrFail(StateRule::getKey())->getValue();
+        $client = $resultBag->getOrFail(ClientIdRule::getKey())->getValue();
+        $redirectUri = $resultBag->getOrFail(RedirectUriRule::getKey())->getValue();
 
         foreach ($this->enabledGrantTypes as $grantType) {
             if ($grantType->canRespondToAuthorizationRequest($request)) {
@@ -81,5 +101,10 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         }
 
         throw OidcServerException::unsupportedResponseType($redirectUri, $state);
+    }
+
+    public function setRequestRulesManager(RequestRulesManager $requestRulesManager): void
+    {
+        $this->requestRulesManager = $requestRulesManager;
     }
 }

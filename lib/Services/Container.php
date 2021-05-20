@@ -192,6 +192,7 @@ class Container implements ContainerInterface
             $this->services[RefreshTokenGrant::class],
             $accessTokenDuration,
             $idTokenResponseFactory,
+            $requestRuleManager,
             $passPhrase
         );
         $this->services[AuthorizationServer::class] = $authorizationServerFactory->build();
