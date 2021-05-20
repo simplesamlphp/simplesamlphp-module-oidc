@@ -3,17 +3,25 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Modules\OpenIDConnect\Repositories\CodeChallengeVerifiersRepository;
 use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\RequestRuleInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Result;
 
-class CodeChallengeRule implements RequestRuleInterface
+class CodeChallengeMethodRule implements RequestRuleInterface
 {
     /**
-     * @inheritDoc
+     * @var CodeChallengeVerifiersRepository
      */
+    protected $codeChallengeVerifiersRepository;
+
+    public function __construct(CodeChallengeVerifiersRepository $codeChallengeVerifiersRepository)
+    {
+        $this->codeChallengeVerifiersRepository = $codeChallengeVerifiersRepository;
+    }
+
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
@@ -28,34 +36,29 @@ class CodeChallengeRule implements RequestRuleInterface
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail('state')->getValue();
 
-        $codeChallenge = $request->getQueryParams()['code_challenge'] ?? null;
+        $codeChallengeMethod = $request->getQueryParams()['code_challenge_method'] ?? 'plain';
+        $codeChallengeVerifiers = $this->codeChallengeVerifiersRepository->getAll();
 
-        if ($codeChallenge === null) {
+        if (\array_key_exists($codeChallengeMethod, $codeChallengeVerifiers) === false) {
             throw OidcServerException::invalidRequest(
-                'code_challenge',
-                'Code challenge must be provided for public clients',
+                'code_challenge_method',
+                'Code challenge method must be one of ' . \implode(', ', \array_map(
+                    function ($method) {
+                        return '`' . $method . '`';
+                    },
+                    \array_keys($codeChallengeVerifiers)
+                )),
                 null,
                 $redirectUri,
                 $state
             );
         }
 
-        // Validate code_challenge according to RFC-7636
-        // @see: https://tools.ietf.org/html/rfc7636#section-4.2
-        if (\preg_match('/^[A-Za-z0-9-._~]{43,128}$/', $codeChallenge) !== 1) {
-            throw OidcServerException::invalidRequest(
-                'code_challenge',
-                'Code challenge must follow the specifications of RFC-7636.',
-                null,
-                $redirectUri
-            );
-        }
-
-        return new Result(self::getKey(), $codeChallenge);
+        return new Result(self::getKey(), $codeChallengeMethod);
     }
 
     public static function getKey(): string
     {
-        return 'code_challenge';
+        return 'code_challenge_method';
     }
 }

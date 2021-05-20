@@ -29,7 +29,6 @@ use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\AuthorizationValid
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\OidcCapableGrantTypeInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\PkceEnabledGrantTypeInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Traits\PkceValidationTrait;
-use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Traits\ScopesValidationTrait;
 use SimpleSAML\Modules\OpenIDConnect\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Arr;
@@ -41,7 +40,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     OidcCapableGrantTypeInterface,
     AuthorizationValidatableWithClientAndRedirectUriInterface
 {
-    use ScopesValidationTrait;
     use PkceValidationTrait;
 
     /**
@@ -303,6 +301,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      * @throws OAuthServerException
      *
      * @return ResponseTypeInterface
+     *
+     * TODO refactor to request checkers
      */
     public function respondToAccessTokenRequest(
         ServerRequestInterface $request,
@@ -456,12 +456,15 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         string $redirectUri,
         string $state = null
     ): OAuth2AuthorizationRequest {
+        // TODO mivanci move to result keys from request rules
         // Since we have already validated redirect_uri and we have state, make it available for other checkers.
         $this->requestRulesManager->predefineResult(new Result('redirect_uri', $redirectUri));
         $this->requestRulesManager->predefineResult(new Result('state', $state));
+
         // ScopeRule needs to have some things available in order to work properly...
         $this->requestRulesManager->setData('default_scope', $this->defaultScope);
         $this->requestRulesManager->setData('scope_delimiter_string', self::SCOPE_DELIMITER_STRING);
+
         $shouldCheckPkce = $this->shouldCheckPkce($client);
         if ($shouldCheckPkce) {
             $this->requestRulesManager->setData('should_check_pkce', true);
@@ -486,13 +489,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         if ($shouldCheckPkce) {
             /** @var string $codeChallenge */
             $codeChallenge = $resultBag->getOrFail('code_challenge')->getValue();
-
-            // TODO mivanci refactor to specific rules to use in rules manager.
-            $codeChallengeMethod = $this->getCodeChallengeMethodOrFail(
-                $request,
-                $this->codeChallengeVerifiers,
-                $redirectUri
-            );
+            $codeChallengeMethod = $resultBag->getOrFail('code_challenge_method')->getValue();
 
             $oAuth2AuthorizationRequest->setCodeChallenge($codeChallenge);
             $oAuth2AuthorizationRequest->setCodeChallengeMethod($codeChallengeMethod);

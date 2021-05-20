@@ -57,14 +57,14 @@ class ScopeRule implements RequestRuleInterface
             $validScopes[] = $scope;
         }
 
-        return new Result('scope', $validScopes);
+        return new Result(self::getKey(), $validScopes);
     }
 
     /**
      * Converts a scopes query string to an array to easily iterate for validation.
      *
      * @param string $scopes
-     *
+     * @param string $scopeDelimiterString
      * @return array
      */
     protected function convertScopesQueryStringToArray(string $scopes, string $scopeDelimiterString): array
@@ -72,5 +72,10 @@ class ScopeRule implements RequestRuleInterface
         return \array_filter(\explode($scopeDelimiterString, \trim($scopes)), function ($scope) {
             return !empty($scope);
         });
+    }
+
+    public static function getKey(): string
+    {
+        return 'scope';
     }
 }

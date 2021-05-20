@@ -14,6 +14,7 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
+use SimpleSAML\Modules\OpenIDConnect\Repositories\CodeChallengeVerifiersRepository;
 use SimpleSAML\Modules\OpenIDConnect\Server\AuthorizationServer;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\AuthCodeGrant;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\OAuth2ImplicitGrant;
@@ -42,6 +43,7 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\PromptRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
@@ -122,15 +124,16 @@ class Container implements ContainerInterface
         );
         $this->services[AuthenticationService::class] = $authenticationService;
 
-        // Request rules, order is important
-        $promptRule = new PromptRule($authSimpleFactory);
-        $scopesRule = new ScopeRule($scopeRepository);
-        $codeChallengeRule = new CodeChallengeRule();
-        $requestRuleManager = new RequestRulesManager();
-        $requestRuleManager->add($promptRule);
-        $requestRuleManager->add($scopesRule);
-        $requestRuleManager->add($codeChallengeRule);
-        // TODO separate rules for each grant and for each request (authorization and token)...
+        $codeChallengeVerifiersRepository = new CodeChallengeVerifiersRepository();
+        $this->services[CodeChallengeVerifiersRepository::class] = $codeChallengeVerifiersRepository;
+
+        $requestRules = [
+            new PromptRule($authSimpleFactory),
+            new ScopeRule($scopeRepository),
+            new CodeChallengeRule(),
+            new CodeChallengeMethodRule($codeChallengeVerifiersRepository),
+        ];
+        $requestRuleManager = new RequestRulesManager($requestRules);
         $this->services[RequestRulesManager::class] = $requestRuleManager;
 
         $accessTokenDuration = new \DateInterval(

@@ -7,6 +7,12 @@ use Psr\Http\Message\ServerRequestInterface;
 interface RequestRuleInterface
 {
     /**
+     * Get rule key, that is, rule identifier.
+     * @return string
+     */
+    public static function getKey(): string;
+
+    /**
      * Check specific rule.
      * @param ServerRequestInterface $request
      * @param ResultBagInterface $currentResultBag ResultBag with all results of the checks performed to current check

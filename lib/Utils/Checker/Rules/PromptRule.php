@@ -56,4 +56,9 @@ class PromptRule implements RequestRuleInterface
 
         return null;
     }
+
+    public static function getKey(): string
+    {
+        return 'prompt';
+    }
 }

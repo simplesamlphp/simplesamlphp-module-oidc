@@ -22,6 +22,10 @@ class RequestRulesManager
     /** @var array $data Which will be available during each check */
     protected $data = [];
 
+    /**
+     * RequestRulesManager constructor.
+     * @param RequestRuleInterface[] $rules
+     */
     public function __construct(array $rules = [])
     {
         foreach ($rules as $rule) {
@@ -33,7 +37,7 @@ class RequestRulesManager
 
     public function add(RequestRuleInterface $rule)
     {
-        $this->rules[] = $rule;
+        $this->rules[$rule::getKey()] = $rule;
     }
 
     public function check(ServerRequestInterface $request): ResultBagInterface
