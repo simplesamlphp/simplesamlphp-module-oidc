@@ -8,7 +8,6 @@ use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2Authorizatio
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\AuthorizationValidatableWithClientAndRedirectUriInterface;
-use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Traits\ScopesValidationTrait;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Result;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RedirectUriRule;
@@ -17,8 +16,6 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\StateRule;
 
 class OAuth2ImplicitGrant extends ImplicitGrant implements AuthorizationValidatableWithClientAndRedirectUriInterface
 {
-    use ScopesValidationTrait;
-
     /**
      * @var RequestRulesManager
      */

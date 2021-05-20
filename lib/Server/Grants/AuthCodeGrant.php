@@ -28,7 +28,6 @@ use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\AuthorizationValidatableWithClientAndRedirectUriInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\OidcCapableGrantTypeInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\PkceEnabledGrantTypeInterface;
-use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Traits\PkceValidationTrait;
 use SimpleSAML\Modules\OpenIDConnect\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Arr;
@@ -46,8 +45,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     OidcCapableGrantTypeInterface,
     AuthorizationValidatableWithClientAndRedirectUriInterface
 {
-    use PkceValidationTrait;
-
     /**
      * @var DateInterval
      */
