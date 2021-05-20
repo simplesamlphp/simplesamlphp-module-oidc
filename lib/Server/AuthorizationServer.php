@@ -25,7 +25,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
     protected $clientRepository;
 
     /**
-     * @var RequestRulesManager|null
+     * @var RequestRulesManager
      */
     protected $requestRulesManager;
 
@@ -52,9 +52,10 @@ class AuthorizationServer extends OAuth2AuthorizationServer
 
         $this->clientRepository = $clientRepository;
 
-        if ($requestRulesManager !== null) {
-            $this->requestRulesManager = $requestRulesManager;
+        if ($requestRulesManager === null) {
+            throw new \LogicException('Can not validate request (no RequestRulesManager defined)');
         }
+        $this->requestRulesManager = $requestRulesManager;
     }
 
     /**
@@ -62,10 +63,6 @@ class AuthorizationServer extends OAuth2AuthorizationServer
      */
     public function validateAuthorizationRequest(ServerRequestInterface $request): OAuth2AuthorizationRequest
     {
-        if ($this->requestRulesManager === null) {
-            throw new \LogicException('Can not validate request (no RequestRulesManager defined)');
-        }
-
         $rulesToExecute = [
             StateRule::getKey(),
             ClientIdRule::getKey(),
@@ -101,10 +98,5 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         }
 
         throw OidcServerException::unsupportedResponseType($redirectUri, $state);
-    }
-
-    public function setRequestRulesManager(RequestRulesManager $requestRulesManager): void
-    {
-        $this->requestRulesManager = $requestRulesManager;
     }
 }
