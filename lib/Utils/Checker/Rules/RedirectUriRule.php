@@ -43,7 +43,7 @@ class RedirectUriRule extends AbstractRule
             \is_array($client->getRedirectUri()) &&
             \in_array($redirectUri, $client->getRedirectUri(), true) === false
         ) {
-            throw OidcServerException::invalidClient($request);
+            throw OidcServerException::invalidRequest('redirect_uri');
         }
 
         return new Result($this->getKey(), $redirectUri);
