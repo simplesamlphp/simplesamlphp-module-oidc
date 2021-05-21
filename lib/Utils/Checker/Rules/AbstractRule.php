@@ -15,6 +15,6 @@ abstract class AbstractRule implements RequestRuleInterface
      */
     public function getKey(): string
     {
-        return self::class;
+        return static::class;
     }
 }
