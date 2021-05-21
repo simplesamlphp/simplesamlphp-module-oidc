@@ -7,16 +7,8 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultBagInterface
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Result;
 
-class StateRule implements \SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\RequestRuleInterface
+class StateRule extends AbstractRule
 {
-    /**
-     * @inheritDoc
-     */
-    public static function getKey(): string
-    {
-        return 'state';
-    }
-
     /**
      * @inheritDoc
      */
@@ -28,6 +20,6 @@ class StateRule implements \SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Inter
         /** @var string|null $state */
         $state = $request->getQueryParams()['state'] ?? null;
 
-        return new Result(self::getKey(), $state);
+        return new Result($this->getKey(), $state);
     }
 }

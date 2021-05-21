@@ -4,12 +4,11 @@ namespace SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\RequestRuleInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Result;
 
-class CodeChallengeRule implements RequestRuleInterface
+class CodeChallengeRule extends AbstractRule
 {
     /**
      * @inheritDoc
@@ -20,9 +19,9 @@ class CodeChallengeRule implements RequestRuleInterface
         array $data
     ): ?ResultInterface {
         /** @var string $redirectUri */
-        $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::getKey())->getValue();
+        $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
         /** @var string|null $state */
-        $state = $currentResultBag->getOrFail(StateRule::getKey())->getValue();
+        $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
         $codeChallenge = $request->getQueryParams()['code_challenge'] ?? null;
 
@@ -47,11 +46,6 @@ class CodeChallengeRule implements RequestRuleInterface
             );
         }
 
-        return new Result(self::getKey(), $codeChallenge);
-    }
-
-    public static function getKey(): string
-    {
-        return 'code_challenge';
+        return new Result($this->getKey(), $codeChallenge);
     }
 }

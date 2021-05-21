@@ -460,13 +460,13 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         string $state = null
     ): OAuth2AuthorizationRequest {
         $rulesToExecute = [
-            PromptRule::getKey(),
-            ScopeRule::getKey(),
+            PromptRule::class,
+            ScopeRule::class,
         ];
 
         // Since we have already validated redirect_uri and we have state, make it available for other checkers.
-        $this->requestRulesManager->predefineResult(new Result(RedirectUriRule::getKey(), $redirectUri));
-        $this->requestRulesManager->predefineResult(new Result(StateRule::getKey(), $state));
+        $this->requestRulesManager->predefineResult(new Result(RedirectUriRule::class, $redirectUri));
+        $this->requestRulesManager->predefineResult(new Result(StateRule::class, $state));
 
         // Some rules have to have certain things available in order to work properly...
         $this->requestRulesManager->setData('default_scope', $this->defaultScope);
@@ -474,14 +474,14 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         $shouldCheckPkce = $this->shouldCheckPkce($client);
         if ($shouldCheckPkce) {
-            $rulesToExecute[] = CodeChallengeRule::getKey();
-            $rulesToExecute[] = CodeChallengeMethodRule::getKey();
+            $rulesToExecute[] = CodeChallengeRule::class;
+            $rulesToExecute[] = CodeChallengeMethodRule::class;
         }
 
         $resultBag = $this->requestRulesManager->check($request, $rulesToExecute);
 
         /** @var array $scopes */
-        $scopes = $resultBag->getOrFail(ScopeRule::getKey())->getValue();
+        $scopes = $resultBag->getOrFail(ScopeRule::class)->getValue();
 
         $oAuth2AuthorizationRequest = new OAuth2AuthorizationRequest();
 
@@ -496,8 +496,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         if ($shouldCheckPkce) {
             /** @var string $codeChallenge */
-            $codeChallenge = $resultBag->getOrFail(CodeChallengeRule::getKey())->getValue();
-            $codeChallengeMethod = $resultBag->getOrFail(CodeChallengeMethodRule::getKey())->getValue();
+            $codeChallenge = $resultBag->getOrFail(CodeChallengeRule::class)->getValue();
+            $codeChallengeMethod = $resultBag->getOrFail(CodeChallengeMethodRule::class)->getValue();
 
             $oAuth2AuthorizationRequest->setCodeChallenge($codeChallenge);
             $oAuth2AuthorizationRequest->setCodeChallengeMethod($codeChallengeMethod);

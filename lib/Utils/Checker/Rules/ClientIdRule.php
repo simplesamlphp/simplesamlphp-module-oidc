@@ -6,12 +6,11 @@ use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\RequestRuleInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Result;
 
-class ClientIdRule implements RequestRuleInterface
+class ClientIdRule extends AbstractRule
 {
     /**
      * @var ClientRepositoryInterface $clientRepository
@@ -21,14 +20,6 @@ class ClientIdRule implements RequestRuleInterface
     public function __construct(ClientRepositoryInterface $clientRepository)
     {
         $this->clientRepository = $clientRepository;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public static function getKey(): string
-    {
-        return 'client_id';
     }
 
     /**
@@ -51,6 +42,6 @@ class ClientIdRule implements RequestRuleInterface
             throw OidcServerException::invalidClient($request);
         }
 
-        return new Result(self::getKey(), $client);
+        return new Result($this->getKey(), $client);
     }
 }

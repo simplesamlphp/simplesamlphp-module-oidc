@@ -6,12 +6,11 @@ use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\RequestRuleInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Result;
 
-class ScopeRule implements RequestRuleInterface
+class ScopeRule extends AbstractRule
 {
     /**
      * @var ScopeRepositoryInterface $scopeRepository
@@ -32,9 +31,9 @@ class ScopeRule implements RequestRuleInterface
         array $data
     ): ?ResultInterface {
         /** @var string $redirectUri */
-        $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::getKey())->getValue();
+        $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
         /** @var string|null $state */
-        $state = $currentResultBag->getOrFail(StateRule::getKey())->getValue();
+        $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
         /** @var string $defaultScope */
         $defaultScope = $data['default_scope'] ?? '';
         /** @var string $scopeDelimiterString */
@@ -57,7 +56,7 @@ class ScopeRule implements RequestRuleInterface
             $validScopes[] = $scope;
         }
 
-        return new Result(self::getKey(), $validScopes);
+        return new Result($this->getKey(), $validScopes);
     }
 
     /**
@@ -72,10 +71,5 @@ class ScopeRule implements RequestRuleInterface
         return \array_filter(\explode($scopeDelimiterString, \trim($scopes)), function ($scope) {
             return !empty($scope);
         });
-    }
-
-    public static function getKey(): string
-    {
-        return 'scope';
     }
 }

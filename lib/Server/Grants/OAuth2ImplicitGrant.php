@@ -45,12 +45,12 @@ class OAuth2ImplicitGrant extends ImplicitGrant implements AuthorizationValidata
         string $state = null
     ): OAuth2AuthorizationRequest {
         $rulesToExecute = [
-            ScopeRule::getKey(),
+            ScopeRule::class,
         ];
 
         // Since we have already validated redirect_uri and we have state, make it available for other checkers.
-        $this->requestRulesManager->predefineResult(new Result(RedirectUriRule::getKey(), $redirectUri));
-        $this->requestRulesManager->predefineResult(new Result(StateRule::getKey(), $state));
+        $this->requestRulesManager->predefineResult(new Result(RedirectUriRule::class, $redirectUri));
+        $this->requestRulesManager->predefineResult(new Result(StateRule::class, $state));
 
         // Some rules have to have certain things available in order to work properly...
         $this->requestRulesManager->setData('default_scope', $this->defaultScope);
@@ -59,7 +59,7 @@ class OAuth2ImplicitGrant extends ImplicitGrant implements AuthorizationValidata
         $resultBag = $this->requestRulesManager->check($request, $rulesToExecute);
 
         /** @var array $scopes */
-        $scopes = $resultBag->getOrFail(ScopeRule::getKey())->getValue();
+        $scopes = $resultBag->getOrFail(ScopeRule::class)->getValue();
 
         $oAuth2AuthorizationRequest = new OAuth2AuthorizationRequest();
 

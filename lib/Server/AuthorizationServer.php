@@ -64,9 +64,9 @@ class AuthorizationServer extends OAuth2AuthorizationServer
     public function validateAuthorizationRequest(ServerRequestInterface $request): OAuth2AuthorizationRequest
     {
         $rulesToExecute = [
-            StateRule::getKey(),
-            ClientIdRule::getKey(),
-            RedirectUriRule::getKey()
+            StateRule::class,
+            ClientIdRule::class,
+            RedirectUriRule::class
         ];
 
         try {
@@ -77,9 +77,9 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         }
 
         // state and redirectUri is used here so we can return HTTP redirect error in case of invalid response_type.
-        $state = $resultBag->getOrFail(StateRule::getKey())->getValue();
-        $client = $resultBag->getOrFail(ClientIdRule::getKey())->getValue();
-        $redirectUri = $resultBag->getOrFail(RedirectUriRule::getKey())->getValue();
+        $state = $resultBag->getOrFail(StateRule::class)->getValue();
+        $client = $resultBag->getOrFail(ClientIdRule::class)->getValue();
+        $redirectUri = $resultBag->getOrFail(RedirectUriRule::class)->getValue();
 
         foreach ($this->enabledGrantTypes as $grantType) {
             if ($grantType->canRespondToAuthorizationRequest($request)) {

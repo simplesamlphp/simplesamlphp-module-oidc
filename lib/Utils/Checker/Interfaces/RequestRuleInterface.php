@@ -11,7 +11,7 @@ interface RequestRuleInterface
      * Get rule key, that is, rule identifier.
      * @return string
      */
-    public static function getKey(): string;
+    public function getKey(): string;
 
     /**
      * Check specific rule.

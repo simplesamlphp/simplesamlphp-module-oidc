@@ -38,7 +38,7 @@ class RequestRulesManager
 
     public function add(RequestRuleInterface $rule)
     {
-        $this->rules[$rule::getKey()] = $rule;
+        $this->rules[$rule->getKey()] = $rule;
     }
 
     /**

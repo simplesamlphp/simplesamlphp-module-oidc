@@ -5,21 +5,12 @@ namespace SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\RequestRuleInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Result;
 
-class RedirectUriRule implements RequestRuleInterface
+class RedirectUriRule extends AbstractRule
 {
-    /**
-     * @inheritDoc
-     */
-    public static function getKey(): string
-    {
-        return 'redirect_uri';
-    }
-
     /**
      * @inheritDoc
      */
@@ -28,7 +19,7 @@ class RedirectUriRule implements RequestRuleInterface
         ResultBagInterface $currentResultBag,
         array $data
     ): ?ResultInterface {
-        $client = $currentResultBag->getOrFail(ClientIdRule::getKey())->getValue();
+        $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
         if (! $client instanceof ClientEntityInterface) {
             throw new \LogicException('Can not check redirect_uri, client is not ClientEntityInterface.');
         }
@@ -55,6 +46,6 @@ class RedirectUriRule implements RequestRuleInterface
             throw OidcServerException::invalidClient($request);
         }
 
-        return new Result(self::getKey(), $redirectUri);
+        return new Result($this->getKey(), $redirectUri);
     }
 }

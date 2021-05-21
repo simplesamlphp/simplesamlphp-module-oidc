@@ -6,11 +6,10 @@ use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Modules\OpenIDConnect\Factories\AuthSimpleFactory;
 use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\RequestRuleInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultInterface;
 
-class PromptRule implements RequestRuleInterface
+class PromptRule extends AbstractRule
 {
     /**
      * @var AuthSimpleFactory
@@ -40,7 +39,7 @@ class PromptRule implements RequestRuleInterface
         }
         // Use only validated redirect_uri.
         /** @var string $redirectUri */
-        $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::getKey())->getValue();
+        $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
 
         if (in_array('none', $prompt, true) && !$authSimple->isAuthenticated()) {
             throw OidcServerException::loginRequired(
@@ -58,10 +57,5 @@ class PromptRule implements RequestRuleInterface
         }
 
         return null;
-    }
-
-    public static function getKey(): string
-    {
-        return 'prompt';
     }
 }
