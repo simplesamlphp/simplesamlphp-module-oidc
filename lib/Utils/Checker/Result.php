@@ -16,6 +16,11 @@ class Result implements ResultInterface
      */
     protected $value;
 
+    /**
+     * Result constructor.
+     * @param string $key
+     * @param mixed $value
+     */
     public function __construct(string $key, $value = null)
     {
         $this->key = $key;

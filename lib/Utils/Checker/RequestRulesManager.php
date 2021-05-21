@@ -36,7 +36,7 @@ class RequestRulesManager
         $this->resultBag = new ResultBag();
     }
 
-    public function add(RequestRuleInterface $rule)
+    public function add(RequestRuleInterface $rule): void
     {
         $this->rules[$rule->getKey()] = $rule;
     }
@@ -75,10 +75,10 @@ class RequestRulesManager
 
     /**
      * Set data which will be available in each check, using key value pair
-     * @param $key
-     * @param $value
+     * @param string $key
+     * @param mixed $value
      */
-    public function setData($key, $value): void
+    public function setData(string $key, $value): void
     {
         $this->data[$key] = $value;
     }
