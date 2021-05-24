@@ -14,13 +14,13 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Factories\Grant;
 
-use League\OAuth2\Server\Grant\RefreshTokenGrant;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\RefreshTokenGrant;
 
 class RefreshTokenGrantFactory
 {
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository
+     * @var RefreshTokenRepository
      */
     private $refreshTokenRepository;
 

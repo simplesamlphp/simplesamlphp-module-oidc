@@ -193,6 +193,20 @@ class OidcServerException extends OAuthServerException
     }
 
     /**
+     * Invalid refresh token.
+     *
+     * @param null|string $hint
+     * @param Throwable   $previous
+     *
+     * @return self
+     * @psalm-suppress LessSpecificImplementedReturnType
+     */
+    public static function invalidRefreshToken($hint = null, Throwable $previous = null)
+    {
+        return new self('The refresh token is invalid.', 8, 'invalid_grant', 400, $hint, null, $previous);
+    }
+
+    /**
      * Returns the current payload.
      *
      * @return array
