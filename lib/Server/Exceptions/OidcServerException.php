@@ -172,6 +172,41 @@ class OidcServerException extends OAuthServerException
     }
 
     /**
+     * Prompt none requires that user should be authenticated.
+     *
+     * @param string|null $hint
+     * @param string|null $redirectUri
+     * @param Throwable|null $previous
+     * @param string|null $state
+     *
+     * @return self
+     */
+    public static function requestNotSupported(
+        $hint = null,
+        $redirectUri = null,
+        Throwable $previous = null,
+        $state = null
+    ): OidcServerException {
+        $errorMessage = "Request object not supported.";
+
+        return new self($errorMessage, 7, 'request_not_supported', 400, $hint, $redirectUri, $previous, $state);
+    }
+
+    /**
+     * Invalid refresh token.
+     *
+     * @param null|string $hint
+     * @param Throwable   $previous
+     *
+     * @return self
+     * @psalm-suppress LessSpecificImplementedReturnType
+     */
+    public static function invalidRefreshToken($hint = null, Throwable $previous = null)
+    {
+        return new self('The refresh token is invalid.', 8, 'invalid_grant', 400, $hint, null, $previous);
+    }
+
+    /**
      * Returns the current payload.
      *
      * @return array
