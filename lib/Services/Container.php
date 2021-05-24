@@ -14,6 +14,7 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
+use SimpleSAML\Modules\OpenIDConnect\Repositories\CodeChallengeVerifiersRepository;
 use SimpleSAML\Modules\OpenIDConnect\Server\AuthorizationServer;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\AuthCodeGrant;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\OAuth2ImplicitGrant;
@@ -42,8 +43,14 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\PromptRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\ClientIdRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeMethodRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\PromptRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RedirectUriRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\ScopeRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\StateRule;
 use SimpleSAML\Session;
 
 class Container implements ContainerInterface
@@ -120,10 +127,19 @@ class Container implements ContainerInterface
         );
         $this->services[AuthenticationService::class] = $authenticationService;
 
-        // Request Rules
-        $promptRule = new PromptRule($authSimpleFactory);
-        $requestRuleManager = new RequestRulesManager();
-        $requestRuleManager->add($promptRule);
+        $codeChallengeVerifiersRepository = new CodeChallengeVerifiersRepository();
+        $this->services[CodeChallengeVerifiersRepository::class] = $codeChallengeVerifiersRepository;
+
+        $requestRules = [
+            new StateRule(),
+            new ClientIdRule($clientRepository),
+            new RedirectUriRule(),
+            new PromptRule($authSimpleFactory),
+            new ScopeRule($scopeRepository),
+            new CodeChallengeRule(),
+            new CodeChallengeMethodRule($codeChallengeVerifiersRepository),
+        ];
+        $requestRuleManager = new RequestRulesManager($requestRules);
         $this->services[RequestRulesManager::class] = $requestRuleManager;
 
         $accessTokenDuration = new \DateInterval(
@@ -158,7 +174,7 @@ class Container implements ContainerInterface
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 
-        $oAuth2ImplicitGrantFactory = new OAuth2ImplicitGrantFactory($accessTokenDuration);
+        $oAuth2ImplicitGrantFactory = new OAuth2ImplicitGrantFactory($accessTokenDuration, $requestRuleManager);
         $this->services[OAuth2ImplicitGrant::class] = $oAuth2ImplicitGrantFactory->build();
 
         $refreshTokenGrantFactory = new RefreshTokenGrantFactory(
@@ -176,6 +192,7 @@ class Container implements ContainerInterface
             $this->services[RefreshTokenGrant::class],
             $accessTokenDuration,
             $idTokenResponseFactory,
+            $requestRuleManager,
             $passPhrase
         );
         $this->services[AuthorizationServer::class] = $authorizationServerFactory->build();

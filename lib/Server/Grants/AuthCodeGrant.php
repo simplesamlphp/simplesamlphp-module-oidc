@@ -21,27 +21,30 @@ use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\OidcAuthCodeEntityInterface;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\Interfaces\OidcAuthCodeRepositoryInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\AuthorizationValidatableWithClientAndRedirectUriInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\OidcCapableGrantTypeInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\PkceEnabledGrantTypeInterface;
-use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Traits\ClientRedirectUriValidationTrait;
-use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Traits\PkceValidationTrait;
-use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Traits\ScopesValidationTrait;
 use SimpleSAML\Modules\OpenIDConnect\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Arr;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Result;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeMethodRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\PromptRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RedirectUriRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\ScopeRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\StateRule;
 
-class AuthCodeGrant extends OAuth2AuthCodeGrant implements PkceEnabledGrantTypeInterface, OidcCapableGrantTypeInterface
+class AuthCodeGrant extends OAuth2AuthCodeGrant implements
+    PkceEnabledGrantTypeInterface,
+    OidcCapableGrantTypeInterface,
+    AuthorizationValidatableWithClientAndRedirectUriInterface
 {
-    use ClientRedirectUriValidationTrait;
-    use ScopesValidationTrait;
-    use PkceValidationTrait;
-
     /**
      * @var DateInterval
      */
@@ -84,64 +87,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements PkceEnabledGrantTypeI
 
         $plainVerifier = new PlainVerifier();
         $this->codeChallengeVerifiers[$plainVerifier->getMethod()] = $plainVerifier;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function validateAuthorizationRequest(ServerRequestInterface $request): OAuth2AuthorizationRequest
-    {
-        /** @var string|null $state */
-        $state = $request->getQueryParams()['state'] ?? null;
-
-        try {
-            $client = $this->getClientOrFail($request);
-            $redirectUri = $this->getRedirectUriOrFail($client, $request);
-        } catch (OidcServerException $exception) {
-            $reason = \sprintf("%s %s", $exception->getMessage(), $exception->getHint() ?? '');
-            throw new BadRequest($reason);
-        }
-
-        $this->requestRulesManager->check($request);
-
-        $scopes = $this->getScopesOrFail($request, $this->scopeRepository, $this->defaultScope, $redirectUri, $state);
-
-        $oAuth2AuthorizationRequest = new OAuth2AuthorizationRequest();
-
-        $oAuth2AuthorizationRequest->setClient($client);
-        $oAuth2AuthorizationRequest->setRedirectUri($redirectUri);
-        $oAuth2AuthorizationRequest->setScopes($scopes);
-        $oAuth2AuthorizationRequest->setGrantTypeId($this->getIdentifier());
-
-        if ($state !== null) {
-            $oAuth2AuthorizationRequest->setState($state);
-        }
-
-        if ($this->shouldCheckPkce($client)) {
-            $codeChallenge = $this->getCodeChallengeOrFail($request, $redirectUri);
-            $codeChallengeMethod = $this->getCodeChallengeMethodOrFail(
-                $request,
-                $this->codeChallengeVerifiers,
-                $redirectUri
-            );
-
-            $oAuth2AuthorizationRequest->setCodeChallenge($codeChallenge);
-            $oAuth2AuthorizationRequest->setCodeChallengeMethod($codeChallengeMethod);
-        }
-
-        if (! $this->isOidcCandidate($oAuth2AuthorizationRequest)) {
-            return $oAuth2AuthorizationRequest;
-        }
-
-        $authorizationRequest = $this->fromOAuth2ToOidcAuthorizationRequest($oAuth2AuthorizationRequest);
-
-        /** @var string|null $nonce */
-        $nonce = $request->getQueryParams()['nonce'] ?? null;
-        if ($nonce !== null) {
-            $authorizationRequest->setNonce($nonce);
-        }
-
-        return $authorizationRequest;
     }
 
     /**
@@ -359,6 +304,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements PkceEnabledGrantTypeI
      * @throws OAuthServerException
      *
      * @return ResponseTypeInterface
+     *
+     * TODO refactor to request checkers
      */
     public function respondToAccessTokenRequest(
         ServerRequestInterface $request,
@@ -501,5 +448,73 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements PkceEnabledGrantTypeI
         if ($authCodePayload->redirect_uri !== $redirectUri) {
             throw OAuthServerException::invalidRequest('redirect_uri', 'Invalid redirect URI');
         }
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function validateAuthorizationRequestWithClientAndRedirectUri(
+        ServerRequestInterface $request,
+        ClientEntityInterface $client,
+        string $redirectUri,
+        string $state = null
+    ): OAuth2AuthorizationRequest {
+        $rulesToExecute = [
+            PromptRule::class,
+            ScopeRule::class,
+        ];
+
+        // Since we have already validated redirect_uri and we have state, make it available for other checkers.
+        $this->requestRulesManager->predefineResult(new Result(RedirectUriRule::class, $redirectUri));
+        $this->requestRulesManager->predefineResult(new Result(StateRule::class, $state));
+
+        // Some rules have to have certain things available in order to work properly...
+        $this->requestRulesManager->setData('default_scope', $this->defaultScope);
+        $this->requestRulesManager->setData('scope_delimiter_string', self::SCOPE_DELIMITER_STRING);
+
+        $shouldCheckPkce = $this->shouldCheckPkce($client);
+        if ($shouldCheckPkce) {
+            $rulesToExecute[] = CodeChallengeRule::class;
+            $rulesToExecute[] = CodeChallengeMethodRule::class;
+        }
+
+        $resultBag = $this->requestRulesManager->check($request, $rulesToExecute);
+
+        /** @var array $scopes */
+        $scopes = $resultBag->getOrFail(ScopeRule::class)->getValue();
+
+        $oAuth2AuthorizationRequest = new OAuth2AuthorizationRequest();
+
+        $oAuth2AuthorizationRequest->setClient($client);
+        $oAuth2AuthorizationRequest->setRedirectUri($redirectUri);
+        $oAuth2AuthorizationRequest->setScopes($scopes);
+        $oAuth2AuthorizationRequest->setGrantTypeId($this->getIdentifier());
+
+        if ($state !== null) {
+            $oAuth2AuthorizationRequest->setState($state);
+        }
+
+        if ($shouldCheckPkce) {
+            /** @var string $codeChallenge */
+            $codeChallenge = $resultBag->getOrFail(CodeChallengeRule::class)->getValue();
+            $codeChallengeMethod = $resultBag->getOrFail(CodeChallengeMethodRule::class)->getValue();
+
+            $oAuth2AuthorizationRequest->setCodeChallenge($codeChallenge);
+            $oAuth2AuthorizationRequest->setCodeChallengeMethod($codeChallengeMethod);
+        }
+
+        if (! $this->isOidcCandidate($oAuth2AuthorizationRequest)) {
+            return $oAuth2AuthorizationRequest;
+        }
+
+        $authorizationRequest = $this->fromOAuth2ToOidcAuthorizationRequest($oAuth2AuthorizationRequest);
+
+        /** @var string|null $nonce */
+        $nonce = $request->getQueryParams()['nonce'] ?? null;
+        if ($nonce !== null) {
+            $authorizationRequest->setNonce($nonce);
+        }
+
+        return $authorizationRequest;
     }
 }

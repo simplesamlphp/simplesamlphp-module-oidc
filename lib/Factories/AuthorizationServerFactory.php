@@ -22,6 +22,7 @@ use League\OAuth2\Server\Grant\RefreshTokenGrant;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Utils\Config;
 
 class AuthorizationServerFactory
@@ -72,6 +73,11 @@ class AuthorizationServerFactory
     private $idTokenResponseFactory;
 
     /**
+     * @var RequestRulesManager
+     */
+    protected $requestRulesManager;
+
+    /**
      * @param ClientRepository $clientRepository
      * @param AccessTokenRepository $accessTokenRepository
      * @param ScopeRepository $scopeRepository
@@ -80,6 +86,7 @@ class AuthorizationServerFactory
      * @param RefreshTokenGrant $refreshTokenGrant
      * @param \DateInterval $accessTokenDuration
      * @param IdTokenResponseFactory $idTokenResponseFactory
+     * @param RequestRulesManager $requestRulesManager
      * @param string|null $passPhrase
      */
     public function __construct(
@@ -91,6 +98,7 @@ class AuthorizationServerFactory
         RefreshTokenGrant $refreshTokenGrant,
         \DateInterval $accessTokenDuration,
         IdTokenResponseFactory $idTokenResponseFactory,
+        RequestRulesManager $requestRulesManager,
         string $passPhrase = null
     ) {
         $this->clientRepository = $clientRepository;
@@ -101,6 +109,7 @@ class AuthorizationServerFactory
         $this->refreshTokenGrant = $refreshTokenGrant;
         $this->accessTokenDuration = $accessTokenDuration;
         $this->idTokenResponseFactory = $idTokenResponseFactory;
+        $this->requestRulesManager = $requestRulesManager;
         $this->passPhrase = $passPhrase;
     }
 
@@ -116,7 +125,8 @@ class AuthorizationServerFactory
             $this->scopeRepository,
             new CryptKey($privateKeyPath, $this->passPhrase),
             $encryptionKey,
-            $idTokenResponse
+            $idTokenResponse,
+            $this->requestRulesManager
         );
 
         $authorizationServer->enableGrantType(
