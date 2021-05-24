@@ -116,7 +116,7 @@ $config = [
 //            'description',
 //        ],
 //        'picture' => [
-//            'jpegPhoto',
+//            // Empty. Previously 'jpegPhoto' however spec calls for a url to photo, not an actual photo.
 //        ],
 //        'website' => [
 //            // Empty
@@ -133,24 +133,25 @@ $config = [
 //        'locale' => [
 //            'preferredLanguage',
 //        ],
-//        'updated_at' => [
+//        'int:updated_at' => [
 //            // Empty
 //        ],
 //        'email' => [
 //            'mail',
 //        ],
-//        'email_verified' => [
+//        'bool:email_verified' => [
 //            // Empty
 //        ],
+//         // address is a json object. Set the 'formatted' sub claim to postalAddress
 //        'address' => [
-//            'postalAddress',
+//            'formatted' => ['postalAddress'],
 //        ],
 //        'phone_number' => [
 //            'mobile',
 //            'telephoneNumber',
 //            'homePhone',
 //        ],
-//        'phone_number_verified' => [
+//        'bool:phone_number_verified' => [
 //            // Empty
 //        ],
         /*

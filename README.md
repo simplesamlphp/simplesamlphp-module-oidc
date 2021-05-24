@@ -17,6 +17,8 @@ Installation can be as easy as executing:
     
 ## Configuration
 
+Once you install and configure the module checkout the [FAQ](FAQ.md)
+
 ### Configure the database
 
 Edit your `config/config.php` and check you configured at least the next parameters from the _database_ section:
@@ -270,8 +272,7 @@ that contains OIDC module. You may remove the ``--build`` argument if you want d
 previously running container.
 
 ```
-export GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-docker-compose -f docker/docker-compose.yml --project-directory . up --build
+GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD) docker-compose -f docker/docker-compose.yml --project-directory . up --build
 ```
 
 Visit the [OP](https://op.local.stack-dev.cirrusidentity.com/simplesaml/) and confirm a few clients already exist.
