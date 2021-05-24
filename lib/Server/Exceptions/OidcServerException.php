@@ -203,7 +203,7 @@ class OidcServerException extends OAuthServerException
      */
     public static function invalidRefreshToken($hint = null, Throwable $previous = null)
     {
-        return new self('The refresh token is invalid.', 8, 'invalid_request', 400, $hint, null, $previous);
+        return new self('The refresh token is invalid.', 8, 'invalid_grant', 400, $hint, null, $previous);
     }
 
     /**
