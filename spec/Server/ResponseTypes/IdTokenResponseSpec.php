@@ -8,6 +8,7 @@ use Lcobucci\Clock\SystemClock;
 use Lcobucci\JWT\Encoding\JoseEncoder;
 use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
+use Lcobucci\JWT\Token as TokenInterface;
 use Lcobucci\JWT\Token\Parser;
 use Lcobucci\JWT\Validation\Constraint\IdentifiedBy;
 use Lcobucci\JWT\Validation\Constraint\IssuedBy;
@@ -21,6 +22,7 @@ use OpenIDConnectServer\ClaimExtractor;
 use OpenIDConnectServer\Repositories\IdentityProviderInterface;
 use PhpSpec\Exception\Example\FailureException;
 use PhpSpec\ObjectBehavior;
+use SimpleSAML\Configuration;
 use SimpleSAML\Modules\OpenIDConnect\Entity\AccessTokenEntity;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ScopeEntity;
@@ -43,13 +45,17 @@ class IdTokenResponseSpec extends ObjectBehavior
         IdentityProviderInterface $identityProvider,
         ConfigurationService $configurationService,
         AccessTokenEntity $accessToken,
-        ClientEntity $clientEntity
+        ClientEntity $clientEntity,
+        Configuration $oidcConfig
     ): void {
         $this->certFolder = dirname(__DIR__, 3) . '/docker/ssp/';
         $claimExtractor = new ClaimExtractor();
-        $userEntity = UserEntity::fromData(self::SUBJECT, []);
+        $userEntity = UserEntity::fromData(self::SUBJECT, [
+            'email' => 'myEmail@example.com'
+        ]);
         $scopes = [
             ScopeEntity::fromData('openid'),
+            ScopeEntity::fromData('email'),
         ];
         $expiration = (new \DateTimeImmutable())->setTimestamp(time() + 3600);
         $accessToken->getExpiryDateTime()->willReturn($expiration);
@@ -61,6 +67,7 @@ class IdTokenResponseSpec extends ObjectBehavior
         $configurationService->getSigner()->willReturn(new Sha256());
         $configurationService->getSimpleSAMLSelfURLHost()->willReturn(self::ISSUER);
         $configurationService->getCertPath()->willReturn($this->certFolder . '/oidc_module.crt');
+        $configurationService->getOpenIDConnectConfiguration()->willReturn($oidcConfig);
 
         $clientEntity->getIdentifier()->willReturn(self::CLIENT_ID);
         $accessToken->getClient()->willReturn($clientEntity);
@@ -81,8 +88,22 @@ class IdTokenResponseSpec extends ObjectBehavior
         $this->shouldHaveType(IdTokenResponse::class);
     }
 
-    public function it_can_generate_response(AccessTokenEntity $accessToken)
+    public function it_can_generate_response(AccessTokenEntity $accessToken, Configuration $oidcConfig)
     {
+        $oidcConfig->getBoolean('alwaysAddClaimsToIdToken', true)->willReturn(true);
+        $response = new Response();
+        $this->setAccessToken($accessToken);
+        $response = $this->generateHttpResponse($response);
+
+        $response->getBody()->rewind();
+        $body = $response->getBody()->getContents();
+        echo "json body response " . $body->getWrappedObject();
+        $body->shouldHaveValidIdToken(['email' => 'myEmail@example.com']);
+    }
+
+    public function it_can_generate_response_with_no_token_claims(AccessTokenEntity $accessToken, Configuration $oidcConfig)
+    {
+        $oidcConfig->getBoolean('alwaysAddClaimsToIdToken', true)->willReturn(false);
         $response = new Response();
         $this->setAccessToken($accessToken);
         $response = $this->generateHttpResponse($response);
@@ -96,7 +117,7 @@ class IdTokenResponseSpec extends ObjectBehavior
     public function getMatchers(): array
     {
         return [
-            'haveValidIdToken' => function ($subject) {
+            'haveValidIdToken' => function ($subject, $expectedClaims = []) {
                 // Check response format
                 $result = json_decode($subject, true);
                 if (json_last_error() !== JSON_ERROR_NONE) {
@@ -112,6 +133,7 @@ class IdTokenResponseSpec extends ObjectBehavior
                 }
                 // Check ID token
                 $validator = new Validator();
+                /** @var TokenInterface\Plain $token */
                 $token = (new Parser(new JoseEncoder()))->parse($result['id_token']);
                 $validator->assert(
                     $token,
@@ -130,6 +152,24 @@ class IdTokenResponseSpec extends ObjectBehavior
                     throw new FailureException(
                         'Wrong key id. Expected ' . self::KEY_ID . ' was ' . $token->headers()->get('kid')
                     );
+                }
+                $expectedClaimsKeys = array_keys($expectedClaims);
+                $expectedClaimsKeys = array_merge(['iss', 'aud', 'jti', 'nbf', 'exp', 'sub', 'iat'], $expectedClaimsKeys);
+                $claims = array_keys($token->claims()->all());
+                if ($claims !== $expectedClaimsKeys) {
+                    throw new FailureException(
+                        'missing expected claim. Got ' . var_export($claims, true)
+                        . ' need ' . var_export($expectedClaimsKeys, true)
+                    );
+                }
+                foreach ($expectedClaims as $claim => $value) {
+                    $valFromToken = $token->claims()->get($claim);
+                    if ($value !== $valFromToken) {
+                        throw new FailureException(
+                            'Expected claim value ' . var_export($value, true)
+                            . ' got ' . var_export($valFromToken, true)
+                        );
+                    }
                 }
 
                 $dateWithNoMicroseconds = ['nbf', 'exp', 'iat'];

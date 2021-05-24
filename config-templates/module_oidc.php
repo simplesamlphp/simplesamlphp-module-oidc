@@ -44,6 +44,11 @@ $config = [
     // useridattr is the attribute-name that contains the userid as returned from idp
     'useridattr' => 'uid',
 
+    // The claims from the standard scopes should only be put in the ID token when no access token is issued
+    // For module backwards compatibility you can always include claims in the id token.
+    // See: https://openid.net/specs/openid-connect-core-1_0.html#rfc.section.5.4
+    'alwaysAddClaimsToIdToken' => true,
+
     // Settings regarding Authentication Processing Filters.
     // Note: OIDC authN state array will not contain all of the keys which are available during SAML authN,
     // like Service Provider metadata, etc.
