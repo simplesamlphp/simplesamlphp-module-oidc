@@ -44,6 +44,7 @@ class OidcOpenIdProviderMetadataService
         $this->metadata['subject_types_supported'] = ['public'];
         $this->metadata['id_token_signing_alg_values_supported'] = ['RS256'];
         $this->metadata['code_challenge_methods_supported'] = ['plain', 'S256'];
+        $this->metadata['token_endpoint_auth_methods_supported'] = ['client_secret_post', 'client_secret_basic'];
     }
 
     /**
