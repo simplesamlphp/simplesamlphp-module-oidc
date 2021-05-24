@@ -37,6 +37,7 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeMethodRule
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\PromptRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RedirectUriRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RequestParameterRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\ScopeRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\StateRule;
 
@@ -460,6 +461,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         string $state = null
     ): OAuth2AuthorizationRequest {
         $rulesToExecute = [
+            RequestParameterRule::class,
             PromptRule::class,
             ScopeRule::class,
         ];
