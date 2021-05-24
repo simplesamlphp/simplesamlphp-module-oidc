@@ -14,45 +14,46 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Factories;
 
-use League\OAuth2\Server\AuthorizationServer;
+use SimpleSAML\Modules\OpenIDConnect\Server\AuthorizationServer;
 use League\OAuth2\Server\CryptKey;
-use League\OAuth2\Server\Grant\AuthCodeGrant;
-use League\OAuth2\Server\Grant\ImplicitGrant;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\AuthCodeGrant;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\OAuth2ImplicitGrant;
 use League\OAuth2\Server\Grant\RefreshTokenGrant;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Utils\Config;
 
 class AuthorizationServerFactory
 {
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository
+     * @var ClientRepository
      */
     private $clientRepository;
 
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository
+     * @var AccessTokenRepository
      */
     private $accessTokenRepository;
 
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository
+     * @var ScopeRepository
      */
     private $scopeRepository;
 
     /**
-     * @var \League\OAuth2\Server\Grant\AuthCodeGrant
+     * @var AuthCodeGrant
      */
     private $authCodeGrant;
 
     /**
-     * @var \League\OAuth2\Server\Grant\ImplicitGrant
+     * @var OAuth2ImplicitGrant
      */
-    private $implicitGrant;
+    private $oAuth2ImplicitGrant;
 
     /**
-     * @var \League\OAuth2\Server\Grant\RefreshTokenGrant
+     * @var RefreshTokenGrant
      */
     private $refreshTokenGrant;
 
@@ -67,32 +68,48 @@ class AuthorizationServerFactory
     private $passPhrase;
 
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Factories\IdTokenResponseFactory
+     * @var IdTokenResponseFactory
      */
     private $idTokenResponseFactory;
 
     /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Factories\IdTokenResponseFactory $idTokenResponseFactory
+     * @var RequestRulesManager
+     */
+    protected $requestRulesManager;
+
+    /**
+     * @param ClientRepository $clientRepository
+     * @param AccessTokenRepository $accessTokenRepository
+     * @param ScopeRepository $scopeRepository
+     * @param AuthCodeGrant $authCodeGrant
+     * @param OAuth2ImplicitGrant $oAuth2ImplicitGrant
+     * @param RefreshTokenGrant $refreshTokenGrant
+     * @param \DateInterval $accessTokenDuration
+     * @param IdTokenResponseFactory $idTokenResponseFactory
+     * @param RequestRulesManager $requestRulesManager
+     * @param string|null $passPhrase
      */
     public function __construct(
         ClientRepository $clientRepository,
         AccessTokenRepository $accessTokenRepository,
         ScopeRepository $scopeRepository,
         AuthCodeGrant $authCodeGrant,
-        ImplicitGrant $implicitGrant,
+        OAuth2ImplicitGrant $oAuth2ImplicitGrant,
         RefreshTokenGrant $refreshTokenGrant,
         \DateInterval $accessTokenDuration,
         IdTokenResponseFactory $idTokenResponseFactory,
+        RequestRulesManager $requestRulesManager,
         string $passPhrase = null
     ) {
         $this->clientRepository = $clientRepository;
         $this->accessTokenRepository = $accessTokenRepository;
         $this->scopeRepository = $scopeRepository;
         $this->authCodeGrant = $authCodeGrant;
-        $this->implicitGrant = $implicitGrant;
+        $this->oAuth2ImplicitGrant = $oAuth2ImplicitGrant;
         $this->refreshTokenGrant = $refreshTokenGrant;
         $this->accessTokenDuration = $accessTokenDuration;
         $this->idTokenResponseFactory = $idTokenResponseFactory;
+        $this->requestRulesManager = $requestRulesManager;
         $this->passPhrase = $passPhrase;
     }
 
@@ -108,7 +125,8 @@ class AuthorizationServerFactory
             $this->scopeRepository,
             new CryptKey($privateKeyPath, $this->passPhrase),
             $encryptionKey,
-            $idTokenResponse
+            $idTokenResponse,
+            $this->requestRulesManager
         );
 
         $authorizationServer->enableGrantType(
@@ -117,7 +135,7 @@ class AuthorizationServerFactory
         );
 
         $authorizationServer->enableGrantType(
-            $this->implicitGrant,
+            $this->oAuth2ImplicitGrant,
             $this->accessTokenDuration
         );
 

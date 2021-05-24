@@ -14,22 +14,29 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Factories\Grant;
 
-use League\OAuth2\Server\Grant\ImplicitGrant;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\OAuth2ImplicitGrant;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
 
-class ImplicitGrantFactory
+class OAuth2ImplicitGrantFactory
 {
     /**
      * @var \DateInterval
      */
     private $accessTokenDuration;
 
-    public function __construct(\DateInterval $accessTokenDuration)
+    /**
+     * @var RequestRulesManager
+     */
+    protected $requestRulesManager;
+
+    public function __construct(\DateInterval $accessTokenDuration, RequestRulesManager $requestRulesManager)
     {
         $this->accessTokenDuration = $accessTokenDuration;
+        $this->requestRulesManager = $requestRulesManager;
     }
 
-    public function build(): ImplicitGrant
+    public function build(): OAuth2ImplicitGrant
     {
-        return new ImplicitGrant($this->accessTokenDuration);
+        return new OAuth2ImplicitGrant($this->accessTokenDuration, '#', $this->requestRulesManager);
     }
 }

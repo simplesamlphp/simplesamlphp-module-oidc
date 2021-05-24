@@ -14,7 +14,7 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Controller;
 
-use League\OAuth2\Server\AuthorizationServer;
+use SimpleSAML\Modules\OpenIDConnect\Server\AuthorizationServer;
 use SimpleSAML\Modules\OpenIDConnect\Services\AuthenticationService;
 use Laminas\Diactoros\Response;
 use Laminas\Diactoros\ServerRequest;

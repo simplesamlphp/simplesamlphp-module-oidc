@@ -14,7 +14,7 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Repositories;
 
-use League\OAuth2\Server\Entities\ClientEntityInterface;
+use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
@@ -38,7 +38,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
     {
         $client = $this->findById($clientIdentifier);
 
-        if (!$client instanceof ClientEntity) {
+        if (!$client instanceof ClientEntityInterface) {
             return null;
         }
 
@@ -69,8 +69,9 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
     /**
      * @param string $clientIdentifier
+     * @return ClientEntityInterface|null
      */
-    public function findById($clientIdentifier): ?ClientEntity
+    public function findById(string $clientIdentifier): ?ClientEntityInterface
     {
         $stmt = $this->database->read(
             "SELECT * FROM {$this->getTableName()} WHERE id = :id",
@@ -87,9 +88,9 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
     }
 
     /**
-     * @return \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity[]
+     * @return ClientEntityInterface[]
      */
-    public function findAll()
+    public function findAll(): array
     {
         $stmt = $this->database->read(
             "SELECT * FROM {$this->getTableName()} ORDER BY name ASC"
@@ -135,7 +136,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         ];
     }
 
-    public function add(ClientEntity $client): void
+    public function add(ClientEntityInterface $client): void
     {
         $stmt = sprintf(
             <<<EOS
@@ -171,7 +172,7 @@ EOS
         );
     }
 
-    public function delete(ClientEntity $client): void
+    public function delete(ClientEntityInterface $client): void
     {
         $this->database->write(
             "DELETE FROM {$this->getTableName()} WHERE id = :id",
@@ -181,7 +182,7 @@ EOS
         );
     }
 
-    public function update(ClientEntity $client): void
+    public function update(ClientEntityInterface $client): void
     {
         $stmt = sprintf(
             <<<EOF

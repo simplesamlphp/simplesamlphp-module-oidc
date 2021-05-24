@@ -16,7 +16,6 @@ namespace SimpleSAML\Modules\OpenIDConnect\Controller;
 
 use Laminas\Diactoros\Response\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;
-use SimpleSAML\Modules\OpenIDConnect\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
@@ -29,12 +28,15 @@ use SimpleSAML\Utils\Random;
 
 class ClientCreateController
 {
-    use GetClientFromRequestTrait;
-
     /**
      * @var ConfigurationService
      */
     private $configurationService;
+
+    /**
+     * @var ClientRepository
+     */
+    private $clientRepository;
 
     /**
      * @var \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory

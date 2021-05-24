@@ -58,7 +58,6 @@ class AuthenticationServiceSpec extends ObjectBehavior
      * @param AuthSimpleFactory $authSimpleFactory
      * @param Simple $simple
      * @param AuthProcService $authProcService
-     * @param ClientRepository $clientRepository
      * @param ConfigurationService $configurationService
      * @param OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService
      * @return void
@@ -80,13 +79,12 @@ class AuthenticationServiceSpec extends ObjectBehavior
         $clientRepository->findById(self::CLIENT_ENTITY['id'])->willReturn($clientEntity);
         $simple->getAttributes()->willReturn(self::AUTH_DATA['Attributes']);
         $simple->getAuthDataArray()->willReturn(self::AUTH_DATA);
-        $authSimpleFactory->build(self::AUTH_SOURCE)->willReturn($simple);
+        $authSimpleFactory->build($request)->willReturn($simple);
         $oidcOpenIdProviderMetadataService->getMetadata()->willReturn(self::OIDC_OP_METADATA);
         $configurationService->getAuthProcFilters()->willReturn([]);
         $authProcService->processState(Argument::type('array'))->willReturn(self::STATE);
 
         $this->beConstructedWith(
-            $configurationService,
             $userRepository,
             $authSimpleFactory,
             $authProcService,

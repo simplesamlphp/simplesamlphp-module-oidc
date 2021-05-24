@@ -14,7 +14,7 @@
 
 namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
 
-use League\OAuth2\Server\AuthorizationServer;
+use SimpleSAML\Modules\OpenIDConnect\Server\AuthorizationServer;
 use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
 use Psr\Http\Message\ResponseInterface;

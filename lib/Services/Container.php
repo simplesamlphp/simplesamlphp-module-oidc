@@ -14,10 +14,10 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
-use League\OAuth2\Server\AuthorizationServer;
-use League\OAuth2\Server\Grant\AuthCodeGrant;
-use League\OAuth2\Server\Grant\ImplicitGrant;
-use League\OAuth2\Server\Grant\RefreshTokenGrant;
+use SimpleSAML\Modules\OpenIDConnect\Repositories\CodeChallengeVerifiersRepository;
+use SimpleSAML\Modules\OpenIDConnect\Server\AuthorizationServer;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\AuthCodeGrant;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\OAuth2ImplicitGrant;
 use League\OAuth2\Server\ResourceServer;
 use Psr\Container\ContainerInterface;
 use Psr\Container\NotFoundExceptionInterface;
@@ -31,7 +31,7 @@ use SimpleSAML\Modules\OpenIDConnect\Factories\AuthSimpleFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\ClaimTranslatorExtractorFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\Grant\AuthCodeGrantFactory;
-use SimpleSAML\Modules\OpenIDConnect\Factories\Grant\ImplicitGrantFactory;
+use SimpleSAML\Modules\OpenIDConnect\Factories\Grant\OAuth2ImplicitGrantFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\Grant\RefreshTokenGrantFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\IdTokenResponseFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\ResourceServerFactory;
@@ -42,6 +42,16 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\RefreshTokenGrant;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\ClientIdRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeMethodRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\PromptRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RedirectUriRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RequestParameterRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\ScopeRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\StateRule;
 use SimpleSAML\Session;
 
 class Container implements ContainerInterface
@@ -84,7 +94,7 @@ class Container implements ContainerInterface
         $databaseLegacyOAuth2Import = new DatabaseLegacyOAuth2Import($clientRepository);
         $this->services[DatabaseLegacyOAuth2Import::class] = $databaseLegacyOAuth2Import;
 
-        $authSimpleFactory = new AuthSimpleFactory();
+        $authSimpleFactory = new AuthSimpleFactory($clientRepository, $configurationService);
         $this->services[AuthSimpleFactory::class] = $authSimpleFactory;
 
         $formFactory = new FormFactory($configurationService);
@@ -109,7 +119,6 @@ class Container implements ContainerInterface
         $this->services[MetaDataStorageHandler::class] = $metadataStorageHandler;
 
         $authenticationService = new AuthenticationService(
-            $configurationService,
             $userRepository,
             $authSimpleFactory,
             $authProcService,
@@ -118,6 +127,22 @@ class Container implements ContainerInterface
             $oidcModuleConfiguration->getString('useridattr', 'uid')
         );
         $this->services[AuthenticationService::class] = $authenticationService;
+
+        $codeChallengeVerifiersRepository = new CodeChallengeVerifiersRepository();
+        $this->services[CodeChallengeVerifiersRepository::class] = $codeChallengeVerifiersRepository;
+
+        $requestRules = [
+            new StateRule(),
+            new ClientIdRule($clientRepository),
+            new RedirectUriRule(),
+            new RequestParameterRule(),
+            new PromptRule($authSimpleFactory),
+            new ScopeRule($scopeRepository),
+            new CodeChallengeRule(),
+            new CodeChallengeMethodRule($codeChallengeVerifiersRepository),
+        ];
+        $requestRuleManager = new RequestRulesManager($requestRules);
+        $this->services[RequestRulesManager::class] = $requestRuleManager;
 
         $accessTokenDuration = new \DateInterval(
             $configurationService->getOpenIDConnectConfiguration()->getString('accessTokenDuration')
@@ -146,13 +171,13 @@ class Container implements ContainerInterface
             $authCodeRepository,
             $refreshTokenRepository,
             $refreshTokenDuration,
-            $authCodeDuration
+            $authCodeDuration,
+            $requestRuleManager
         );
-        // TODO mivanci convert to OidcAuthCodeGrant and collection of grants?
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 
-        $implicitGrantFactory = new ImplicitGrantFactory($accessTokenDuration);
-        $this->services[ImplicitGrant::class] = $implicitGrantFactory->build();
+        $oAuth2ImplicitGrantFactory = new OAuth2ImplicitGrantFactory($accessTokenDuration, $requestRuleManager);
+        $this->services[OAuth2ImplicitGrant::class] = $oAuth2ImplicitGrantFactory->build();
 
         $refreshTokenGrantFactory = new RefreshTokenGrantFactory(
             $refreshTokenRepository,
@@ -165,10 +190,11 @@ class Container implements ContainerInterface
             $accessTokenRepository,
             $scopeRepository,
             $this->services[AuthCodeGrant::class],
-            $this->services[ImplicitGrant::class],
+            $this->services[OAuth2ImplicitGrant::class],
             $this->services[RefreshTokenGrant::class],
             $accessTokenDuration,
             $idTokenResponseFactory,
+            $requestRuleManager,
             $passPhrase
         );
         $this->services[AuthorizationServer::class] = $authorizationServerFactory->build();
