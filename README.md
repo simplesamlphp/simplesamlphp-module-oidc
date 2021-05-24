@@ -17,6 +17,8 @@ Installation can be as easy as executing:
     
 ## Configuration
 
+Once you install and configure the module checkout the [FAQ](FAQ.md)
+
 ### Configure the database
 
 Edit your `config/config.php` and check you configured at least the next parameters from the _database_ section:
