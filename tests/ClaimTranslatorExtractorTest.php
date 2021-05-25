@@ -153,6 +153,5 @@ class ClaimTranslatorExtractorTest extends TestCase
         $userAttributes = Attributes::normalizeAttributesArray(['testClaim' => '7890F',]);
         $claimTranslator = new ClaimTranslatorExtractor([$claimSet], $translate);
         $claimTranslator->extract(['typeConversion'], $userAttributes);
-
     }
 }
