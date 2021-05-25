@@ -30,12 +30,14 @@ use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\AuthorizationValid
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\OidcCapableGrantTypeInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\PkceEnabledGrantTypeInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\RequestTypes\AuthorizationRequest;
+use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Arr;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Result;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\MaxAgeRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\PromptRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RedirectUriRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RequestParameterRule;
@@ -205,6 +207,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             'code_challenge'        => $authorizationRequest->getCodeChallenge(),
             'code_challenge_method' => $authorizationRequest->getCodeChallengeMethod(),
             'nonce'                 => $authorizationRequest->getNonce(),
+            'auth_time'             => $authorizationRequest->getAuthTime(),
         ];
 
         $jsonPayload = \json_encode($payload);
@@ -398,6 +401,14 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $responseType->setNonce($authCodePayload->nonce);
         }
 
+        if (
+            $responseType instanceof AuthTimeResponseTypeInterface &&
+            \property_exists($authCodePayload, 'auth_time') &&
+            ! empty($authCodePayload->auth_time)
+        ) {
+            $responseType->setAuthTime($authCodePayload->auth_time);
+        }
+
         // Issue and persist new refresh token if given
         $refreshToken = $this->issueRefreshToken($accessToken);
 
@@ -464,6 +475,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $rulesToExecute = [
             RequestParameterRule::class,
             PromptRule::class,
+            MaxAgeRule::class,
             ScopeRule::class,
         ];
 
@@ -516,6 +528,11 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $nonce = $request->getQueryParams()['nonce'] ?? null;
         if ($nonce !== null) {
             $authorizationRequest->setNonce($nonce);
+        }
+
+        $maxAge = $resultBag->get(MaxAgeRule::class);
+        if (null !== $maxAge) {
+            $authorizationRequest->setAuthTime((int) $maxAge->getValue());
         }
 
         return $authorizationRequest;

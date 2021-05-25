@@ -25,6 +25,7 @@ use League\OAuth2\Server\ResponseTypes\BearerTokenResponse;
 use OpenIDConnectServer\ClaimExtractor;
 use OpenIDConnectServer\Entities\ClaimSetInterface;
 use OpenIDConnectServer\Repositories\IdentityProviderInterface;
+use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use SimpleSAML\Modules\OpenIDConnect\Utils\FingerprintGenerator;
@@ -37,7 +38,7 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\FingerprintGenerator;
  *
  * @see https://github.com/steverhoades/oauth2-openid-connect-server/blob/master/src/IdTokenResponse.php
  */
-class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeInterface
+class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeInterface, AuthTimeResponseTypeInterface
 {
     /**
      * @var IdentityProviderInterface
@@ -58,6 +59,11 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
      * @var string|null
      */
     protected $nonce;
+
+    /**
+     * @var int|null
+     */
+    protected $authTime;
 
     public function __construct(
         IdentityProviderInterface $identityProvider,
@@ -97,6 +103,10 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
 
         if (null !== $this->getNonce()) {
             $builder->withClaim('nonce', $this->getNonce());
+        }
+
+        if (null !== $this->getAuthTime()) {
+            $builder->withClaim('auth_time', $this->getAuthTime());
         }
 
         // Need a claim factory here to reduce the number of claims by provided scope.
@@ -198,5 +208,21 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
     public function getNonce(): ?string
     {
         return $this->nonce;
+    }
+
+    /**
+     * @param int $authTime
+     */
+    public function setAuthTime(int $authTime): void
+    {
+        $this->authTime = $authTime;
+    }
+
+    /**
+     * @return int|null
+     */
+    public function getAuthTime(): ?int
+    {
+        return $this->authTime;
     }
 }

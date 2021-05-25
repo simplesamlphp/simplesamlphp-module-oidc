@@ -8,17 +8,25 @@ use SimpleSAML\Modules\OpenIDConnect\Factories\AuthSimpleFactory;
 use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultInterface;
+use SimpleSAML\Session;
 
 class PromptRule extends AbstractRule
 {
+    const PROMPT_REAUTHENTICATE = 'prompt_reauthenticate';
+
     /**
      * @var AuthSimpleFactory
      */
     private $authSimpleFactory;
+    /**
+     * @var Session
+     */
+    private $session;
 
-    public function __construct(AuthSimpleFactory $authSimpleFactory)
+    public function __construct(AuthSimpleFactory $authSimpleFactory, Session $session)
     {
         $this->authSimpleFactory = $authSimpleFactory;
+        $this->session = $session;
     }
 
     public function checkRule(
@@ -30,6 +38,8 @@ class PromptRule extends AbstractRule
 
         $queryParams = $request->getQueryParams();
         if (!array_key_exists('prompt', $queryParams)) {
+            $this->session->setData('oidc', self::PROMPT_REAUTHENTICATE, false);
+
             return null;
         }
 
@@ -37,7 +47,6 @@ class PromptRule extends AbstractRule
         if (count($prompt) > 1 && in_array('none', $prompt, true)) {
             throw OAuthServerException::invalidRequest('prompt', 'Invalid prompt parameter');
         }
-        // Use only validated redirect_uri.
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
 
@@ -51,9 +60,12 @@ class PromptRule extends AbstractRule
         }
 
         if (in_array('login', $prompt, true) && $authSimple->isAuthenticated()) {
-            unset($queryParams['prompt']);
-            $uri = $request->getUri()->withQuery(http_build_query($queryParams));
-            $authSimple->logout(['ReturnTo' => (string) $uri]);
+            if ($this->session->getData('oidc', self::PROMPT_REAUTHENTICATE) !== 'login') {
+                $authId = $authSimple->getAuthSource()->getAuthId();
+                $this->session->doLogout($authId);
+            }
+
+            $this->session->setData('oidc', self::PROMPT_REAUTHENTICATE, 'login');
         }
 
         return null;

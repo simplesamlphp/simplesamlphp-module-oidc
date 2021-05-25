@@ -46,6 +46,7 @@ use SimpleSAML\Modules\OpenIDConnect\Server\Grants\RefreshTokenGrant;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\MaxAgeRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\PromptRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RedirectUriRule;
@@ -103,7 +104,10 @@ class Container implements ContainerInterface
         $jsonWebKeySetService = new JsonWebKeySetService();
         $this->services[JsonWebKeySetService::class] = $jsonWebKeySetService;
 
-        $sessionMessagesService = new SessionMessagesService(Session::getSessionFromRequest());
+        $session = Session::getSessionFromRequest();
+        $this->services[Session::class] = $session;
+
+        $sessionMessagesService = new SessionMessagesService($session);
         $this->services[SessionMessagesService::class] = $sessionMessagesService;
 
         $templateFactory = new TemplateFactory($simpleSAMLConfiguration);
@@ -136,7 +140,8 @@ class Container implements ContainerInterface
             new ClientIdRule($clientRepository),
             new RedirectUriRule(),
             new RequestParameterRule(),
-            new PromptRule($authSimpleFactory),
+            new PromptRule($authSimpleFactory, $session),
+            new MaxAgeRule($authSimpleFactory, $session),
             new ScopeRule($scopeRepository),
             new CodeChallengeRule(),
             new CodeChallengeMethodRule($codeChallengeVerifiersRepository),
