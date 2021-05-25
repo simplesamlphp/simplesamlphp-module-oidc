@@ -140,7 +140,7 @@ class Container implements ContainerInterface
             new ClientIdRule($clientRepository),
             new RedirectUriRule(),
             new RequestParameterRule(),
-            new PromptRule($authSimpleFactory),
+            new PromptRule($authSimpleFactory, $session),
             new MaxAgeRule($authSimpleFactory, $session),
             new ScopeRule($scopeRepository),
             new CodeChallengeRule(),
