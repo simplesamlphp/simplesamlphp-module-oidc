@@ -44,9 +44,21 @@ certain test scenarios, while others require you to have session cookies to test
 should reauthenticate. The tests may also redirect you to https://localhost.emobix.co.uk:8443/  which will resolve to
 the conformance Java container. You'll need to accept any SSL connection warnings.
 
+## Run automated tests
+
 Eventually these test can have [the browser portion automated](https://gitlab.com/openid/conformance-suite/-/wikis/Design/BrowserControl)
 though the Conformance tests authors recommend getting them all to pass first.
 
+To run basic profile test, launch this command in console:
+
+```shell
+./scripts/run-test-plan.py \
+  "oidcc-basic-certification-test-plan[server_metadata=discovery][client_registration=static_client]" \
+  ../conformance-tests/conformance-basic-ci.json
+```
+
+As prerequisites, you need to run first the docker deploy image for conformance test described in [README.md](README.md)
+and the conformance test image.
 
 # Running Hosted Tests
 
