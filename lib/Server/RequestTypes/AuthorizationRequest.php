@@ -15,6 +15,11 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     protected $nonce;
 
     /**
+     * @var int|null
+     */
+    protected $authTime;
+
+    /**
      * @return string|null
      */
     public function getNonce(): ?string
@@ -28,5 +33,21 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     public function setNonce(string $nonce): void
     {
         $this->nonce = $nonce;
+    }
+
+    /**
+     * @return int|null
+     */
+    public function getAuthTime(): ?int
+    {
+        return $this->authTime;
+    }
+
+    /**
+     * @param int|null $authTime
+     */
+    public function setAuthTime(?int $authTime): void
+    {
+        $this->authTime = $authTime;
     }
 }
