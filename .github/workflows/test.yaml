@@ -241,7 +241,7 @@ jobs:
       - name: Start SSP docker
         run: |
           echo $PWD
-          ls docker
+          ls *
           GIT_BRANCH="master#$GITHUB_SHA" docker-compose -f docker/docker-compose.yml --project-directory . up --build
       - name: Load Cached Conformance Suite Build
         uses: actions/cache@v2
