@@ -251,7 +251,7 @@ jobs:
           while ! curl -skfail https://localhost.emobix.co.uk:8443/api/runner/available >/dev/null; do sleep 2; done
       - name: Start SSP docker
         run: |
-          GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD) docker-compose -f docker/docker-compose.yml -d --project-directory . up --build
+          GIT_BRANCH=$GITHUB_SHA docker-compose -f docker/docker-compose.yml -d --project-directory . up --build
       - name: Stop Conformance Suite
         working-directory: ./conformance-suite
         run: |
