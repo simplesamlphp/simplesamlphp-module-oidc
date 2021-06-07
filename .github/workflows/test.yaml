@@ -204,3 +204,57 @@ jobs:
       - name: Psalter
         continue-on-error: true
         run: php vendor/bin/psalter --issues=UnnecessaryVarAnnotation --dry-run
+
+  build-conformance-suite:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: release-v4.1.11
+    steps:
+      - name: Checkout
+        uses: actions/checkout@master
+      - name: Load Cached Conformance Suite Build
+        uses: actions/cache@v2
+        id: cache
+        with:
+          path: ./conformance-suite
+          key: suite-${{ hashFiles('**/test.yml') }}
+      - name: Conformance Suite Checkout
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        run: git clone --depth 1 --single-branch --branch $VERSION https://gitlab.com/openid/conformance-suite.git
+      - name: Conformance Suite Build
+        working-directory: ./conformance-suite
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        env:
+          MAVEN_CACHE: ./m2
+        run: |
+          sed -i -e 's/localhost/localhost.emobix.co.uk/g' src/main/resources/application.properties
+          sed -i -e 's/-B clean/-B -DskipTests=true/g' builder-compose.yml
+          docker-compose -f builder-compose.yml run builder
+
+  conformance-suite:
+    runs-on: ubuntu-latest
+    needs:
+      - build-conformance-suite
+    env:
+      SUITE_BASE_URL: https://localhost.emobix.co.uk:8443
+    steps:
+      - name: Load Cached Conformance Suite Build
+        uses: actions/cache@v2
+        id: cache
+        with:
+          path: ./conformance-suite
+          key: suite-${{ hashFiles('**/test.yml') }}
+      - name: Run Conformance Suite
+        working-directory: ./conformance-suite
+        run: |
+          docker-compose -f docker-compose-dev.yml up -d
+          while ! curl -skfail https://localhost.emobix.co.uk:8443/api/runner/available >/dev/null; do sleep 2; done
+      - name: Start SSP docker
+        run: |
+          GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD) docker-compose -f docker/docker-compose.yml -d --project-directory . up --build
+      - name: Stop Conformance Suite
+        working-directory: ./conformance-suite
+        run: |
+          killall -SIGINT node
+          docker-compose -f docker-compose-dev.yml down
+          sudo rm -rf mongo
