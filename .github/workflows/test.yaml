@@ -238,11 +238,12 @@ jobs:
     env:
       SUITE_BASE_URL: https://localhost.emobix.co.uk:8443
     steps:
+      - uses: actions/checkout@v2
       - name: Start SSP docker
         run: |
           echo $PWD
           ls
-          GIT_BRANCH="master#$GITHUB_SHA" docker-compose -f docker/docker-compose.yml --project-directory . up --build
+          GIT_BRANCH="master#$GITHUB_SHA" docker-compose -f docker/docker-compose.yml --project-directory . up -d --build
       - name: Load Cached Conformance Suite Build
         uses: actions/cache@v2
         id: cache
