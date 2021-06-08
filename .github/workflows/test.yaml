@@ -251,6 +251,7 @@ jobs:
           docker-compose -f docker-compose-dev.yml up -d
           while ! curl -skfail https://localhost.emobix.co.uk:8443/api/runner/available >/dev/null; do sleep 2; done
       - name: Start SSP docker
+        working-directory: ./main
         # Must run after conformance suite since they share a docker network.
         run: |
           GIT_BRANCH="master#$GITHUB_SHA" docker-compose -f docker/docker-compose.yml --project-directory . up -d --build
@@ -261,6 +262,9 @@ jobs:
       - name: Stop Conformance Suite
         working-directory: ./conformance-suite
         run: |
-          killall -SIGINT node
           docker-compose -f docker-compose-dev.yml down
           sudo rm -rf mongo
+      - name: Stop SSP
+        working-directory: ./main
+        run: |
+          docker-compose -f docker/docker-compose.yml down
