@@ -255,7 +255,8 @@ jobs:
         # Must run after conformance suite since they share a docker network.
         run: |
           GIT_BRANCH="master#$GITHUB_SHA" docker-compose -f docker/docker-compose.yml --project-directory . up -d --build
-          while ! curl -skfail https://op.local.stack-dev.cirrusidentity.com/.well-known/openid-configuration >/dev/null; do sleep 2; done
+          sleep 30
+        # while ! curl -skfail https://op.local.stack-dev.cirrusidentity.com/.well-known/openid-configuration >/dev/null; do sleep 2; done
       - name: Run conformance tests
         run: |
           ./conformance-suite/scripts/run-test-plan.py "oidcc-basic-certification-test-plan[server_metadata=discovery][client_registration=static_client]" ./main/conformance-tests/conformance-basic-ci.json
