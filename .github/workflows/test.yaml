@@ -210,8 +210,6 @@ jobs:
     env:
       VERSION: release-v4.1.11
     steps:
-      - name: Checkout
-        uses: actions/checkout@master
       - name: Load Cached Conformance Suite Build
         uses: actions/cache@v2
         id: cache
@@ -239,6 +237,8 @@ jobs:
       SUITE_BASE_URL: https://localhost.emobix.co.uk:8443
     steps:
       - uses: actions/checkout@v2
+        with:
+          path: main
       - name: Load Cached Conformance Suite Build
         uses: actions/cache@v2
         id: cache
@@ -257,7 +257,7 @@ jobs:
           while ! curl -skfail https://op.local.stack-dev.cirrusidentity.com/.well-known/openid-configuration >/dev/null; do sleep 2; done
       - name: Run conformance tests
         run: |
-          ./conformance-suite/scripts/run-test-plan.py "oidcc-basic-certification-test-plan[server_metadata=discovery][client_registration=static_client]" .conformance-tests/conformance-basic-ci.json
+          ./conformance-suite/scripts/run-test-plan.py "oidcc-basic-certification-test-plan[server_metadata=discovery][client_registration=static_client]" ./main/conformance-tests/conformance-basic-ci.json
       - name: Stop Conformance Suite
         working-directory: ./conformance-suite
         run: |
