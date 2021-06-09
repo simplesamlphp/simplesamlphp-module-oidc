@@ -1,0 +1,1104 @@
+{
+  "alias": "simplesamlphp-module-oidc",
+  "description": "oidc-provider OIDC",
+  "server": {
+    "discoveryUrl": "https://op.local.stack-dev.cirrusidentity.com/.well-known/openid-configuration"
+  },
+  "client": {
+    "client_id": "_55a99a1d298da921cb27d700d4604352e51171ebc4",
+    "client_secret": "_8967dd97d07cc59db7055e84ac00e79005157c1132"
+  },
+  "client_secret_post": {
+    "client_id": "_0afb7d18e54b2de8205a93e38ca119e62ee321d031",
+    "client_secret": "_944e73bbeec7850d32b68f1b5c780562c955967e4e"
+  },
+  "client2": {
+    "client_id": "_34efb61060172a11d62101bc804db789f8f9100b0e",
+    "client_secret": "_91a4607a1c10ba801268929b961b3f6c067ff82d21"
+  },
+  "browser": [
+    {
+      "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+      "tasks": [
+        {
+          "task": "Login",
+          "optional": true,
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+          "commands": [
+            [
+              "text",
+              "name",
+              "username",
+              "student",
+              "optional"
+            ],
+            [
+              "text",
+              "name",
+              "password",
+              "studentpass",
+              "optional"
+            ],
+            [
+              "click",
+              "id",
+              "submit_button"
+            ]
+          ]
+        },
+        {
+          "task": "Consent",
+          "optional": true,
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+          "commands": [
+            [
+              "click",
+              "id",
+              "submit_button"
+            ]
+          ]
+        },
+        {
+          "task": "Verify Complete",
+          "match": "*/test/a/simplesamlphp-module-oidc/callback*",
+          "commands": [
+            [
+              "wait",
+              "id",
+              "submission_complete",
+              10
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+      "tasks": [
+        {
+          "task": "Choose logout option",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+          "commands": [
+            [
+              "click",
+              "css",
+              "button[autofocus] "
+            ]
+          ]
+        },
+        {
+          "task": "process user choice, wait for redirect back",
+          "optional": true,
+          "match": "https://op.local.stack-dev.cirrusidentity.com/session/end/confirm",
+          "commands": [
+            [
+              "wait",
+              "contains",
+              "/test/a/simplesamlphp-module-oidc/post",
+              10
+            ]
+          ]
+        },
+        {
+          "task": "Verify Complete",
+          "match": "*/test/a/simplesamlphp-module-oidc/post*"
+        }
+      ]
+    }
+  ],
+  "override": {
+    "oidcc-prompt-login": {
+      "browser": [
+        {
+          "comment": "updates placeholder during the second authorization",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "tasks": [
+            {
+              "task": "Login",
+              "optional": true,
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+              "commands": [
+                [
+                  "wait",
+                  "xpath",
+                  "//*",
+                  10,
+                  "Enter your username and password",
+                  "update-image-placeholder-optional"
+                ],
+                [
+                  "text",
+                  "name",
+                  "username",
+                  "student",
+                  "optional"
+                ],
+                [
+                  "text",
+                  "name",
+                  "password",
+                  "studentpass",
+                  "optional"
+                ],
+                [
+                  "click",
+                  "id",
+                  "submit_button"
+                ]
+              ]
+            },
+            {
+              "task": "Consent",
+              "optional": true,
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+              "commands": [
+                [
+                  "click",
+                  "id",
+                  "submit_button"
+                ]
+              ]
+            },
+            {
+              "task": "Verify Complete",
+              "match": "*/test/a/simplesamlphp-module-oidc/callback*",
+              "commands": [
+                [
+                  "wait",
+                  "id",
+                  "submission_complete",
+                  10
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "oidcc-max-age-1": {
+      "browser": [
+        {
+          "comment": "updates placeholder during the second authorization",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "tasks": [
+            {
+              "task": "Login",
+              "optional": true,
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+              "commands": [
+                [
+                  "wait",
+                  "xpath",
+                  "//*",
+                  10,
+                  "Enter your username and password",
+                  "update-image-placeholder-optional"
+                ],
+                [
+                  "text",
+                  "name",
+                  "username",
+                  "student",
+                  "optional"
+                ],
+                [
+                  "text",
+                  "name",
+                  "password",
+                  "studentpass",
+                  "optional"
+                ],
+                [
+                  "click",
+                  "id",
+                  "submit_button"
+                ]
+              ]
+            },
+            {
+              "task": "Consent",
+              "optional": true,
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+              "commands": [
+                [
+                  "click",
+                  "id",
+                  "submit_button"
+                ]
+              ]
+            },
+            {
+              "task": "Verify Complete",
+              "match": "*/test/a/simplesamlphp-module-oidc/callback*",
+              "commands": [
+                [
+                  "wait",
+                  "id",
+                  "submission_complete",
+                  10
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "oidcc-ensure-registered-redirect-uri": {
+      "browser": [
+        {
+          "comment": "expect an immediate error page",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "tasks": [
+            {
+              "task": "Expect redirect uri mismatch error page",
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+              "commands": [
+                [
+                  "wait",
+                  "xpath",
+                  "//*",
+                  10,
+                  "Check the `redirect_uri` parameter",
+                  "update-image-placeholder"
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "oidcc-ensure-request-object-with-redirect-uri": {
+      "browser": [
+        {
+          "comment": "expect an immediate error page",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "tasks": [
+            {
+              "task": "Expect redirect uri mismatch error page",
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+              "commands": [
+                [
+                  "wait",
+                  "xpath",
+                  "//*",
+                  10,
+                  "Check the `redirect_uri` parameter",
+                  "update-image-placeholder"
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "oidcc-ensure-redirect-uri-in-authorization-request": {
+      "browser": [
+        {
+          "comment": "expect an immediate error page",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "tasks": [
+            {
+              "task": "Expect redirect uri mismatch error page",
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+              "commands": [
+                [
+                  "wait",
+                  "xpath",
+                  "//*",
+                  10,
+                  "oops! something went wrong",
+                  "update-image-placeholder"
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "oidcc-redirect-uri-query-added": {
+      "browser": [
+        {
+          "comment": "expect an immediate error page",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "tasks": [
+            {
+              "task": "Expect redirect uri mismatch error page",
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+              "commands": [
+                [
+                  "wait",
+                  "xpath",
+                  "//*",
+                  10,
+                  "oops! something went wrong",
+                  "update-image-placeholder"
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "oidcc-redirect-uri-query-mismatch": {
+      "browser": [
+        {
+          "comment": "expect an immediate error page",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "tasks": [
+            {
+              "task": "Expect redirect uri mismatch error page",
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+              "commands": [
+                [
+                  "wait",
+                  "xpath",
+                  "//*",
+                  10,
+                  "oops! something went wrong",
+                  "update-image-placeholder"
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "oidcc-registration-logo-uri": {
+      "browser": [
+        {
+          "comment": "expect a login page with logo",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "tasks": [
+            {
+              "task": "Expect a login page with logo",
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+              "commands": [
+                [
+                  "wait",
+                  "xpath",
+                  "//*",
+                  10,
+                  "Enter your username and password",
+                  "update-image-placeholder"
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "oidcc-registration-policy-uri": {
+      "browser": [
+        {
+          "comment": "expect a login page with policy document link",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "tasks": [
+            {
+              "task": "Expect a login page with policy document link",
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+              "commands": [
+                [
+                  "wait",
+                  "xpath",
+                  "//*",
+                  10,
+                  "Enter your username and password",
+                  "update-image-placeholder"
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "oidcc-registration-tos-uri": {
+      "browser": [
+        {
+          "comment": "expect a login page with TOS document link",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "tasks": [
+            {
+              "task": "Expect a login page with TOS document link",
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+              "commands": [
+                [
+                  "wait",
+                  "xpath",
+                  "//*",
+                  10,
+                  "Enter your username and password",
+                  "update-image-placeholder"
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "oidcc-rp-initiated-logout-bad-post-logout-redirect-uri": {
+      "browser": [
+        {
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "tasks": [
+            {
+              "task": "Login",
+              "optional": true,
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+              "commands": [
+                [
+                  "text",
+                  "name",
+                  "username",
+                  "student",
+                  "optional"
+                ],
+                [
+                  "text",
+                  "name",
+                  "password",
+                  "studentpass",
+                  "optional"
+                ],
+                [
+                  "click",
+                  "id",
+                  "submit_button"
+                ]
+              ]
+            },
+            {
+              "task": "Consent",
+              "optional": true,
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+              "commands": [
+                [
+                  "click",
+                  "id",
+                  "submit_button"
+                ]
+              ]
+            },
+            {
+              "task": "Verify Complete",
+              "match": "*/test/a/simplesamlphp-module-oidc/callback*",
+              "commands": [
+                [
+                  "wait",
+                  "id",
+                  "submission_complete",
+                  10
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "comment": "expect an immediate error page",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+          "tasks": [
+            {
+              "task": "Expect error page",
+              "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+              "commands": [
+                [
+                  "wait",
+                  "xpath",
+                  "//*",
+                  10,
+                  "post_logout_redirect_uri not registered",
+                  "update-image-placeholder"
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "oidcc-rp-initiated-logout-query-added-to-post-logout-redirect-uri": {
+      "browser": [
+        {
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "tasks": [
+            {
+              "task": "Login",
+              "optional": true,
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+              "commands": [
+                [
+                  "text",
+                  "name",
+                  "username",
+                  "student",
+                  "optional"
+                ],
+                [
+                  "text",
+                  "name",
+                  "password",
+                  "studentpass",
+                  "optional"
+                ],
+                [
+                  "click",
+                  "id",
+                  "submit_button"
+                ]
+              ]
+            },
+            {
+              "task": "Consent",
+              "optional": true,
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+              "commands": [
+                [
+                  "click",
+                  "id",
+                  "submit_button"
+                ]
+              ]
+            },
+            {
+              "task": "Verify Complete",
+              "match": "*/test/a/simplesamlphp-module-oidc/callback*",
+              "commands": [
+                [
+                  "wait",
+                  "id",
+                  "submission_complete",
+                  10
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "comment": "expect an immediate error page",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+          "tasks": [
+            {
+              "task": "Expect error page",
+              "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+              "commands": [
+                [
+                  "wait",
+                  "xpath",
+                  "//*",
+                  10,
+                  "post_logout_redirect_uri not registered",
+                  "update-image-placeholder"
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "oidcc-rp-initiated-logout-modified-id-token-hint": {
+      "browser": [
+        {
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "tasks": [
+            {
+              "task": "Login",
+              "optional": true,
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+              "commands": [
+                [
+                  "text",
+                  "name",
+                  "username",
+                  "student",
+                  "optional"
+                ],
+                [
+                  "text",
+                  "name",
+                  "password",
+                  "studentpass",
+                  "optional"
+                ],
+                [
+                  "click",
+                  "id",
+                  "submit_button"
+                ]
+              ]
+            },
+            {
+              "task": "Consent",
+              "optional": true,
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+              "commands": [
+                [
+                  "click",
+                  "id",
+                  "submit_button"
+                ]
+              ]
+            },
+            {
+              "task": "Verify Complete",
+              "match": "*/test/a/simplesamlphp-module-oidc/callback*",
+              "commands": [
+                [
+                  "wait",
+                  "id",
+                  "submission_complete",
+                  10
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "comment": "expect an immediate error page",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+          "tasks": [
+            {
+              "task": "Expect error page",
+              "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+              "commands": [
+                [
+                  "wait",
+                  "xpath",
+                  "//*",
+                  10,
+                  "could not validate id_token_hint",
+                  "update-image-placeholder"
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "oidcc-rp-initiated-logout-bad-id-token-hint": {
+      "browser": [
+        {
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "tasks": [
+            {
+              "task": "Login",
+              "optional": true,
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+              "commands": [
+                [
+                  "text",
+                  "name",
+                  "username",
+                  "student",
+                  "optional"
+                ],
+                [
+                  "text",
+                  "name",
+                  "password",
+                  "studentpass",
+                  "optional"
+                ],
+                [
+                  "click",
+                  "id",
+                  "submit_button"
+                ]
+              ]
+            },
+            {
+              "task": "Consent",
+              "optional": true,
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+              "commands": [
+                [
+                  "click",
+                  "id",
+                  "submit_button"
+                ]
+              ]
+            },
+            {
+              "task": "Verify Complete",
+              "match": "*/test/a/simplesamlphp-module-oidc/callback*",
+              "commands": [
+                [
+                  "wait",
+                  "id",
+                  "submission_complete",
+                  10
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "comment": "expect an immediate error page",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+          "tasks": [
+            {
+              "task": "Expect error page",
+              "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+              "commands": [
+                [
+                  "wait",
+                  "xpath",
+                  "//*",
+                  10,
+                  "unrecognized id_token_hint audience",
+                  "update-image-placeholder"
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "oidcc-rp-initiated-logout-no-id-token-hint": {
+      "browser": [
+        {
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "tasks": [
+            {
+              "task": "Login",
+              "optional": true,
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+              "commands": [
+                [
+                  "text",
+                  "name",
+                  "username",
+                  "student",
+                  "optional"
+                ],
+                [
+                  "text",
+                  "name",
+                  "password",
+                  "studentpass",
+                  "optional"
+                ],
+                [
+                  "click",
+                  "id",
+                  "submit_button"
+                ]
+              ]
+            },
+            {
+              "task": "Consent",
+              "optional": true,
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+              "commands": [
+                [
+                  "click",
+                  "id",
+                  "submit_button"
+                ]
+              ]
+            },
+            {
+              "task": "Verify Complete",
+              "match": "*/test/a/simplesamlphp-module-oidc/callback*",
+              "commands": [
+                [
+                  "wait",
+                  "id",
+                  "submission_complete",
+                  10
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "comment": "expect an immediate error page",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+          "tasks": [
+            {
+              "task": "Expect error page",
+              "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+              "commands": [
+                [
+                  "wait",
+                  "xpath",
+                  "//*",
+                  10,
+                  "post_logout_redirect_uri can only be used in combination with id_token_hint",
+                  "update-image-placeholder"
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "oidcc-rp-initiated-logout-no-params": {
+      "browser": [
+        {
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "tasks": [
+            {
+              "task": "Login",
+              "optional": true,
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+              "commands": [
+                [
+                  "text",
+                  "name",
+                  "username",
+                  "student",
+                  "optional"
+                ],
+                [
+                  "text",
+                  "name",
+                  "password",
+                  "studentpass",
+                  "optional"
+                ],
+                [
+                  "click",
+                  "id",
+                  "submit_button"
+                ]
+              ]
+            },
+            {
+              "task": "Consent",
+              "optional": true,
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+              "commands": [
+                [
+                  "click",
+                  "id",
+                  "submit_button"
+                ]
+              ]
+            },
+            {
+              "task": "Verify Complete",
+              "match": "*/test/a/simplesamlphp-module-oidc/callback*",
+              "commands": [
+                [
+                  "wait",
+                  "id",
+                  "submission_complete",
+                  10
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "comment": "wait for the logout success",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+          "tasks": [
+            {
+              "task": "Choose logout option",
+              "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+              "commands": [
+                [
+                  "click",
+                  "css",
+                  "button[autofocus] "
+                ]
+              ]
+            },
+            {
+              "task": "Expect success page",
+              "match": "https://op.local.stack-dev.cirrusidentity.com/session/end/success",
+              "commands": [
+                [
+                  "wait",
+                  "xpath",
+                  "//*",
+                  10,
+                  "Sign-out Success",
+                  "update-image-placeholder"
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "oidcc-rp-initiated-logout-no-post-logout-redirect-uri": {
+      "browser": [
+        {
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "tasks": [
+            {
+              "task": "Login",
+              "optional": true,
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+              "commands": [
+                [
+                  "text",
+                  "name",
+                  "username",
+                  "student",
+                  "optional"
+                ],
+                [
+                  "text",
+                  "name",
+                  "password",
+                  "studentpass",
+                  "optional"
+                ],
+                [
+                  "click",
+                  "id",
+                  "submit_button"
+                ]
+              ]
+            },
+            {
+              "task": "Consent",
+              "optional": true,
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+              "commands": [
+                [
+                  "click",
+                  "id",
+                  "submit_button"
+                ]
+              ]
+            },
+            {
+              "task": "Verify Complete",
+              "match": "*/test/a/simplesamlphp-module-oidc/callback*",
+              "commands": [
+                [
+                  "wait",
+                  "id",
+                  "submission_complete",
+                  10
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "comment": "wait for the logout success",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+          "tasks": [
+            {
+              "task": "Choose logout option",
+              "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+              "commands": [
+                [
+                  "click",
+                  "css",
+                  "button[autofocus] "
+                ]
+              ]
+            },
+            {
+              "task": "Expect success page",
+              "match": "https://op.local.stack-dev.cirrusidentity.com/session/end/success",
+              "commands": [
+                [
+                  "wait",
+                  "xpath",
+                  "//*",
+                  10,
+                  "Sign-out Success",
+                  "update-image-placeholder"
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "oidcc-rp-initiated-logout-only-state": {
+      "browser": [
+        {
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "tasks": [
+            {
+              "task": "Login",
+              "optional": true,
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+              "commands": [
+                [
+                  "text",
+                  "name",
+                  "username",
+                  "student",
+                  "optional"
+                ],
+                [
+                  "text",
+                  "name",
+                  "password",
+                  "studentpass",
+                  "optional"
+                ],
+                [
+                  "click",
+                  "id",
+                  "submit_button"
+                ]
+              ]
+            },
+            {
+              "task": "Consent",
+              "optional": true,
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+              "commands": [
+                [
+                  "click",
+                  "id",
+                  "submit_button"
+                ]
+              ]
+            },
+            {
+              "task": "Verify Complete",
+              "match": "*/test/a/simplesamlphp-module-oidc/callback*",
+              "commands": [
+                [
+                  "wait",
+                  "id",
+                  "submission_complete",
+                  10
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "comment": "wait for the logout success",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+          "tasks": [
+            {
+              "task": "Choose logout option",
+              "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+              "commands": [
+                [
+                  "click",
+                  "css",
+                  "button[autofocus] "
+                ]
+              ]
+            },
+            {
+              "task": "Expect success page",
+              "match": "https://op.local.stack-dev.cirrusidentity.com/session/end/success",
+              "commands": [
+                [
+                  "wait",
+                  "xpath",
+                  "//*",
+                  10,
+                  "Sign-out Success",
+                  "update-image-placeholder"
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

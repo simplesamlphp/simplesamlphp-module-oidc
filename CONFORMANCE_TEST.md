@@ -49,13 +49,24 @@ the conformance Java container. You'll need to accept any SSL connection warning
 Eventually these test can have [the browser portion automated](https://gitlab.com/openid/conformance-suite/-/wikis/Design/BrowserControl)
 though the Conformance tests authors recommend getting them all to pass first.
 
-To run basic profile test, launch this command in console:
+To run basic profile test, launch this command in console inside `simplesamlphp-module-oidc` directory:
 
 ```shell
-./scripts/run-test-plan.py \
+# Run run-test-plan.py script inside conformance-suite/scripts
+# Change the relative path to your conformance-suite installation
+
+# Basic profile
+conformance-suite/scripts/run-test-plan.py \
   "oidcc-basic-certification-test-plan[server_metadata=discovery][client_registration=static_client]" \
-  ../conformance-tests/conformance-basic-ci.json
+  ./conformance-tests/conformance-basic-ci.json
+
+# Implicit profile
+conformance-suite/scripts/run-test-plan.py \
+  "oidcc-basic-certification-test-plan[server_metadata=discovery][client_registration=static_client]" \
+  ./conformance-tests/conformance-implicit-ci.json
 ```
+
+
 
 As prerequisites, you need to run first the docker deploy image for conformance test described in [README.md](README.md)
 and the conformance test image.
