@@ -15,10 +15,12 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
 use SimpleSAML\Modules\OpenIDConnect\Factories\CryptKeyFactory;
+use SimpleSAML\Modules\OpenIDConnect\Factories\Grant\ImplicitGrantFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\IdTokenBuilderFactory;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\CodeChallengeVerifiersRepository;
 use SimpleSAML\Modules\OpenIDConnect\Server\AuthorizationServer;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\AuthCodeGrant;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\ImplicitGrant;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\OAuth2ImplicitGrant;
 use League\OAuth2\Server\ResourceServer;
 use Psr\Container\ContainerInterface;
@@ -208,6 +210,9 @@ class Container implements ContainerInterface
         $oAuth2ImplicitGrantFactory = new OAuth2ImplicitGrantFactory($accessTokenDuration, $requestRuleManager);
         $this->services[OAuth2ImplicitGrant::class] = $oAuth2ImplicitGrantFactory->build();
 
+        $implicitGrantFactory = new ImplicitGrantFactory($this->services[IdTokenBuilder::class], $accessTokenDuration, $requestRuleManager);
+        $this->services[ImplicitGrant::class] = $implicitGrantFactory->build();
+
         $refreshTokenGrantFactory = new RefreshTokenGrantFactory(
             $refreshTokenRepository,
             $refreshTokenDuration
@@ -220,6 +225,7 @@ class Container implements ContainerInterface
             $scopeRepository,
             $this->services[AuthCodeGrant::class],
             $this->services[OAuth2ImplicitGrant::class],
+            $this->services[ImplicitGrant::class],
             $this->services[RefreshTokenGrant::class],
             $accessTokenDuration,
             $this->services[IdTokenResponse::class],

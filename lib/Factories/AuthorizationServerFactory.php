@@ -17,6 +17,7 @@ namespace SimpleSAML\Modules\OpenIDConnect\Factories;
 use SimpleSAML\Modules\OpenIDConnect\Server\AuthorizationServer;
 use League\OAuth2\Server\CryptKey;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\AuthCodeGrant;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\ImplicitGrant;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\OAuth2ImplicitGrant;
 use League\OAuth2\Server\Grant\RefreshTokenGrant;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
@@ -77,6 +78,10 @@ class AuthorizationServerFactory
      */
     protected $requestRulesManager;
     /**
+     * @var ImplicitGrant
+     */
+    private $implicitGrant;
+    /**
      * @var CryptKey
      */
     private $privateKey;
@@ -87,6 +92,7 @@ class AuthorizationServerFactory
      * @param ScopeRepository $scopeRepository
      * @param AuthCodeGrant $authCodeGrant
      * @param OAuth2ImplicitGrant $oAuth2ImplicitGrant
+     * @param ImplicitGrant $implicitGrant
      * @param RefreshTokenGrant $refreshTokenGrant
      * @param \DateInterval $accessTokenDuration
      * @param IdTokenResponse $idTokenResponse
@@ -100,6 +106,7 @@ class AuthorizationServerFactory
         ScopeRepository $scopeRepository,
         AuthCodeGrant $authCodeGrant,
         OAuth2ImplicitGrant $oAuth2ImplicitGrant,
+        ImplicitGrant $implicitGrant,
         RefreshTokenGrant $refreshTokenGrant,
         \DateInterval $accessTokenDuration,
         IdTokenResponse $idTokenResponse,
@@ -112,6 +119,7 @@ class AuthorizationServerFactory
         $this->scopeRepository = $scopeRepository;
         $this->authCodeGrant = $authCodeGrant;
         $this->oAuth2ImplicitGrant = $oAuth2ImplicitGrant;
+        $this->implicitGrant = $implicitGrant;
         $this->refreshTokenGrant = $refreshTokenGrant;
         $this->accessTokenDuration = $accessTokenDuration;
         $this->idTokenResponse = $idTokenResponse;
@@ -139,6 +147,11 @@ class AuthorizationServerFactory
 
         $authorizationServer->enableGrantType(
             $this->oAuth2ImplicitGrant,
+            $this->accessTokenDuration
+        );
+
+        $authorizationServer->enableGrantType(
+            $this->implicitGrant,
             $this->accessTokenDuration
         );
 
