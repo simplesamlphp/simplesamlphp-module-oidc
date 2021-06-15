@@ -120,31 +120,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     }
 
     /**
-     * @param OAuth2AuthorizationRequest $oAuth2authorizationRequest
-     *
-     * @return AuthorizationRequest
-     */
-    public function fromOAuth2ToOidcAuthorizationRequest(
-        OAuth2AuthorizationRequest $oAuth2authorizationRequest
-    ): AuthorizationRequest {
-        $authorizationRequest = new AuthorizationRequest();
-        $authorizationRequest->setGrantTypeId($oAuth2authorizationRequest->getGrantTypeId());
-
-        $authorizationRequest->setClient($oAuth2authorizationRequest->getClient());
-        $authorizationRequest->setRedirectUri($oAuth2authorizationRequest->getRedirectUri());
-        $authorizationRequest->setScopes($oAuth2authorizationRequest->getScopes());
-        $authorizationRequest->setCodeChallenge($oAuth2authorizationRequest->getCodeChallenge());
-        $authorizationRequest->setCodeChallengeMethod($oAuth2authorizationRequest->getCodeChallengeMethod());
-
-        $state = $oAuth2authorizationRequest->getState();
-        if (null !== $state) {
-            $authorizationRequest->setState($state);
-        }
-
-        return $authorizationRequest;
-    }
-
-    /**
      * @inheritDoc
      */
     public function completeAuthorizationRequest(
@@ -522,7 +497,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             return $oAuth2AuthorizationRequest;
         }
 
-        $authorizationRequest = $this->fromOAuth2ToOidcAuthorizationRequest($oAuth2AuthorizationRequest);
+        $authorizationRequest = AuthorizationRequest::fromOAuth2AuthorizationRequest($oAuth2AuthorizationRequest);
 
         /** @var string|null $nonce */
         $nonce = $request->getQueryParams()['nonce'] ?? null;
