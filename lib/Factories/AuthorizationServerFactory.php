@@ -63,9 +63,9 @@ class AuthorizationServerFactory
     private $accessTokenDuration;
 
     /**
-     * @var string|null
+     * @var string
      */
-    private $passPhrase;
+    private $encryptionKey;
 
     /**
      * @var IdTokenResponseFactory
@@ -76,6 +76,10 @@ class AuthorizationServerFactory
      * @var RequestRulesManager
      */
     protected $requestRulesManager;
+    /**
+     * @var CryptKey
+     */
+    private $privateKey;
 
     /**
      * @param ClientRepository $clientRepository
@@ -87,7 +91,8 @@ class AuthorizationServerFactory
      * @param \DateInterval $accessTokenDuration
      * @param IdTokenResponseFactory $idTokenResponseFactory
      * @param RequestRulesManager $requestRulesManager
-     * @param string|null $passPhrase
+     * @param CryptKey $privateKey
+     * @param string $encryptionKey
      */
     public function __construct(
         ClientRepository $clientRepository,
@@ -99,7 +104,8 @@ class AuthorizationServerFactory
         \DateInterval $accessTokenDuration,
         IdTokenResponseFactory $idTokenResponseFactory,
         RequestRulesManager $requestRulesManager,
-        string $passPhrase = null
+        CryptKey $privateKey,
+        string $encryptionKey
     ) {
         $this->clientRepository = $clientRepository;
         $this->accessTokenRepository = $accessTokenRepository;
@@ -110,7 +116,8 @@ class AuthorizationServerFactory
         $this->accessTokenDuration = $accessTokenDuration;
         $this->idTokenResponseFactory = $idTokenResponseFactory;
         $this->requestRulesManager = $requestRulesManager;
-        $this->passPhrase = $passPhrase;
+        $this->privateKey = $privateKey;
+        $this->encryptionKey = $encryptionKey;
     }
 
     public function build(): AuthorizationServer
@@ -123,8 +130,8 @@ class AuthorizationServerFactory
             $this->clientRepository,
             $this->accessTokenRepository,
             $this->scopeRepository,
-            new CryptKey($privateKeyPath, $this->passPhrase),
-            $encryptionKey,
+            $this->privateKey,
+            $this->encryptionKey,
             $idTokenResponse,
             $this->requestRulesManager
         );

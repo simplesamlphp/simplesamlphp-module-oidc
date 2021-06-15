@@ -14,6 +14,7 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
+use SimpleSAML\Modules\OpenIDConnect\Factories\CryptKeyFactory;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\CodeChallengeVerifiersRepository;
 use SimpleSAML\Modules\OpenIDConnect\Server\AuthorizationServer;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\AuthCodeGrant;
@@ -54,6 +55,7 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RequestParameterRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\ScopeRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\StateRule;
 use SimpleSAML\Session;
+use SimpleSAML\Utils\Config;
 
 class Container implements ContainerInterface
 {
@@ -158,7 +160,19 @@ class Container implements ContainerInterface
         $refreshTokenDuration = new \DateInterval(
             $configurationService->getOpenIDConnectConfiguration()->getString('refreshTokenDuration')
         );
+
+        $publicKeyPath = Config::getCertPath('oidc_module.crt');
+        $privateKeyPath = Config::getCertPath('oidc_module.pem');
         $passPhrase = $configurationService->getOpenIDConnectConfiguration()->getString('pass_phrase', null);
+
+        $cryptKeyFactory = new CryptKeyFactory(
+            $publicKeyPath,
+            $privateKeyPath,
+            $passPhrase
+        );
+        $publicKey = $cryptKeyFactory->buildPublicKey();
+        $privateKey = $cryptKeyFactory->buildPrivateKey();
+        $encryptionKey = Config::getSecretSalt();
 
         $claimTranslatorExtractor = (new ClaimTranslatorExtractorFactory(
             $configurationService
@@ -200,12 +214,14 @@ class Container implements ContainerInterface
             $accessTokenDuration,
             $idTokenResponseFactory,
             $requestRuleManager,
-            $passPhrase
+            $privateKey,
+            $encryptionKey
         );
         $this->services[AuthorizationServer::class] = $authorizationServerFactory->build();
 
         $resourceServerFactory = new ResourceServerFactory(
-            $accessTokenRepository
+            $accessTokenRepository,
+            $publicKey
         );
         $this->services[ResourceServer::class] = $resourceServerFactory->build();
     }
