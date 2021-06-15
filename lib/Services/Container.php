@@ -14,6 +14,7 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
+use DateInterval;
 use SimpleSAML\Modules\OpenIDConnect\Factories\CryptKeyFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\Grant\ImplicitGrantFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\IdTokenBuilderFactory;
@@ -66,6 +67,9 @@ class Container implements ContainerInterface
     /** @var array */
     private $services = [];
 
+    /**
+     * @throws \Exception
+     */
     public function __construct()
     {
         $simpleSAMLConfiguration = Configuration::getInstance();
@@ -155,13 +159,13 @@ class Container implements ContainerInterface
         $requestRuleManager = new RequestRulesManager($requestRules);
         $this->services[RequestRulesManager::class] = $requestRuleManager;
 
-        $accessTokenDuration = new \DateInterval(
+        $accessTokenDuration = new DateInterval(
             $configurationService->getOpenIDConnectConfiguration()->getString('accessTokenDuration')
         );
-        $authCodeDuration = new \DateInterval(
+        $authCodeDuration = new DateInterval(
             $configurationService->getOpenIDConnectConfiguration()->getString('authCodeDuration')
         );
-        $refreshTokenDuration = new \DateInterval(
+        $refreshTokenDuration = new DateInterval(
             $configurationService->getOpenIDConnectConfiguration()->getString('refreshTokenDuration')
         );
 
@@ -243,11 +247,7 @@ class Container implements ContainerInterface
     }
 
     /**
-     * @param string $id
-     *
-     * @throws \SimpleSAML\Error\Exception
-     *
-     * @return object
+     * @inheritdoc
      */
     public function get($id)
     {
@@ -255,7 +255,7 @@ class Container implements ContainerInterface
             throw new class ($id) extends Exception implements NotFoundExceptionInterface {
                 public function __construct(string $id)
                 {
-                    parent::__construct("Service not found: {$id}.");
+                    parent::__construct("Service not found: $id.");
                 }
             };
         }
@@ -264,12 +264,10 @@ class Container implements ContainerInterface
     }
 
     /**
-     * @param string $id
-     *
-     * @return bool
+     * @inheritdoc
      */
     public function has($id)
     {
-        return \array_key_exists($id, $this->services);
+        return array_key_exists($id, $this->services);
     }
 }
