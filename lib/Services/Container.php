@@ -15,6 +15,7 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
 use SimpleSAML\Modules\OpenIDConnect\Factories\CryptKeyFactory;
+use SimpleSAML\Modules\OpenIDConnect\Factories\IdTokenBuilderFactory;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\CodeChallengeVerifiersRepository;
 use SimpleSAML\Modules\OpenIDConnect\Server\AuthorizationServer;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\AuthCodeGrant;
@@ -44,6 +45,7 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\RefreshTokenGrant;
+use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\IdTokenResponse;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeRule;
@@ -179,12 +181,20 @@ class Container implements ContainerInterface
         ))->build();
         $this->services[ClaimTranslatorExtractor::class] = $claimTranslatorExtractor;
 
-        $idTokenResponseFactory = new IdTokenResponseFactory(
+        $idTokenBuilderFactory = new IdTokenBuilderFactory(
             $userRepository,
             $configurationService,
-            $claimTranslatorExtractor
+            $claimTranslatorExtractor,
+            $privateKey
         );
-        $this->services[IdTokenResponseFactory::class] = $idTokenResponseFactory;
+        $this->services[IdTokenBuilder::class] = $idTokenBuilderFactory->build();
+
+        $idTokenResponseFactory = new IdTokenResponseFactory(
+            $this->services[IdTokenBuilder::class],
+            $privateKey,
+            $encryptionKey
+        );
+        $this->services[IdTokenResponse::class] = $idTokenResponseFactory->build();
 
         $authCodeGrantFactory = new AuthCodeGrantFactory(
             $authCodeRepository,
@@ -212,7 +222,7 @@ class Container implements ContainerInterface
             $this->services[OAuth2ImplicitGrant::class],
             $this->services[RefreshTokenGrant::class],
             $accessTokenDuration,
-            $idTokenResponseFactory,
+            $this->services[IdTokenResponse::class],
             $requestRuleManager,
             $privateKey,
             $encryptionKey

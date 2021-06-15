@@ -22,8 +22,8 @@ use League\OAuth2\Server\Grant\RefreshTokenGrant;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository;
+use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\IdTokenResponse;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
-use SimpleSAML\Utils\Config;
 
 class AuthorizationServerFactory
 {
@@ -68,9 +68,9 @@ class AuthorizationServerFactory
     private $encryptionKey;
 
     /**
-     * @var IdTokenResponseFactory
+     * @var IdTokenResponse
      */
-    private $idTokenResponseFactory;
+    private $idTokenResponse;
 
     /**
      * @var RequestRulesManager
@@ -89,7 +89,7 @@ class AuthorizationServerFactory
      * @param OAuth2ImplicitGrant $oAuth2ImplicitGrant
      * @param RefreshTokenGrant $refreshTokenGrant
      * @param \DateInterval $accessTokenDuration
-     * @param IdTokenResponseFactory $idTokenResponseFactory
+     * @param IdTokenResponse $idTokenResponse
      * @param RequestRulesManager $requestRulesManager
      * @param CryptKey $privateKey
      * @param string $encryptionKey
@@ -102,7 +102,7 @@ class AuthorizationServerFactory
         OAuth2ImplicitGrant $oAuth2ImplicitGrant,
         RefreshTokenGrant $refreshTokenGrant,
         \DateInterval $accessTokenDuration,
-        IdTokenResponseFactory $idTokenResponseFactory,
+        IdTokenResponse $idTokenResponse,
         RequestRulesManager $requestRulesManager,
         CryptKey $privateKey,
         string $encryptionKey
@@ -114,7 +114,7 @@ class AuthorizationServerFactory
         $this->oAuth2ImplicitGrant = $oAuth2ImplicitGrant;
         $this->refreshTokenGrant = $refreshTokenGrant;
         $this->accessTokenDuration = $accessTokenDuration;
-        $this->idTokenResponseFactory = $idTokenResponseFactory;
+        $this->idTokenResponse = $idTokenResponse;
         $this->requestRulesManager = $requestRulesManager;
         $this->privateKey = $privateKey;
         $this->encryptionKey = $encryptionKey;
@@ -122,17 +122,13 @@ class AuthorizationServerFactory
 
     public function build(): AuthorizationServer
     {
-        $privateKeyPath = Config::getCertPath('oidc_module.pem');
-        $encryptionKey = Config::getSecretSalt();
-        $idTokenResponse = $this->idTokenResponseFactory->build();
-
         $authorizationServer = new AuthorizationServer(
             $this->clientRepository,
             $this->accessTokenRepository,
             $this->scopeRepository,
             $this->privateKey,
             $this->encryptionKey,
-            $idTokenResponse,
+            $this->idTokenResponse,
             $this->requestRulesManager
         );
 
