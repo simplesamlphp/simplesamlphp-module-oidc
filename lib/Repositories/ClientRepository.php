@@ -103,7 +103,6 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
             }
         }
         return [$query, $params];
-
     }
 
     /**

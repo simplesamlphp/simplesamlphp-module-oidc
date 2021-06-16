@@ -169,7 +169,7 @@ class ClientEditControllerSpec extends ObjectBehavior
             true,
             false,
             'auth_source',
-             'owner'
+            'owner'
         )))->shouldBeCalled();
         $sessionMessagesService->addMessage('{oidc:client:updated}')->shouldBeCalled();
 

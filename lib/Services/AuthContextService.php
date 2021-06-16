@@ -1,6 +1,5 @@
 <?php
 
-
 namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
 use SimpleSAML\Auth\Simple;
@@ -34,13 +33,11 @@ class AuthContextService
 
     public function getAuthUserId(): string
     {
-
         $simple = $this->authenticate();
         $userIdAttr = $this->configurationService->getOpenIDConnectConfiguration()->getString('useridattr');
         //TODO: check userIdAttr is set
         //TODO: check if user entitled?
         return $simple->getAttributes()[$userIdAttr][0];
-
     }
 
     private function authenticate(): Simple
@@ -50,5 +47,4 @@ class AuthContextService
         $simple->requireAuth();
         return $simple;
     }
-
 }

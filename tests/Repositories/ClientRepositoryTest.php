@@ -254,7 +254,6 @@ class ClientRepositoryTest extends TestCase
         self::$repository->delete($notOwnedClient, $owner);
         $foundClient = self::$repository->findById($unownedClientId);
         $this->assertNotNull($foundClient);
-
     }
 
     public static function getClient(
