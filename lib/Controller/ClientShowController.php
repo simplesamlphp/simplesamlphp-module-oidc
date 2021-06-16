@@ -14,24 +14,26 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Controller;
 
-use SimpleSAML\Modules\OpenIDConnect\Controller\Traits\GetClientFromRequestTrait;
+use SimpleSAML\Modules\OpenIDConnect\Controller\Traits\AuthenticatedGetClientFromRequestTrait;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use Laminas\Diactoros\ServerRequest;
+use SimpleSAML\Modules\OpenIDConnect\Services\AuthContextService;
 
 class ClientShowController
 {
-    use GetClientFromRequestTrait;
+    use AuthenticatedGetClientFromRequestTrait;
 
     /**
      * @var TemplateFactory
      */
     private $templateFactory;
 
-    public function __construct(ClientRepository $clientRepository, TemplateFactory $templateFactory)
+    public function __construct(ClientRepository $clientRepository, TemplateFactory $templateFactory, AuthContextService $authContextService)
     {
         $this->clientRepository = $clientRepository;
         $this->templateFactory = $templateFactory;
+        $this->authContextService = $authContextService;
     }
 
     public function __invoke(ServerRequest $request): \SimpleSAML\XHTML\Template

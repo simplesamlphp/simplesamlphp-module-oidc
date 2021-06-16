@@ -21,6 +21,7 @@ use SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Form\ClientForm;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
+use SimpleSAML\Modules\OpenIDConnect\Services\AuthContextService;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 use SimpleSAML\Utils\HTTP;
@@ -53,18 +54,25 @@ class ClientCreateController
      */
     private $messages;
 
+    /**
+     * @var AuthContextService
+     */
+    private $authContextService;
+
     public function __construct(
         ConfigurationService $configurationService,
         ClientRepository $clientRepository,
         TemplateFactory $templateFactory,
         FormFactory $formFactory,
-        SessionMessagesService $messages
+        SessionMessagesService $messages,
+        AuthContextService $authContextService
     ) {
         $this->configurationService = $configurationService;
         $this->clientRepository = $clientRepository;
         $this->templateFactory = $templateFactory;
         $this->formFactory = $formFactory;
         $this->messages = $messages;
+        $this->authContextService = $authContextService;
     }
 
     /**
@@ -76,10 +84,14 @@ class ClientCreateController
         $formAction = $this->configurationService->getOpenIdConnectModuleURL('clients/new.php');
         $form->setAction($formAction);
 
+
         if ($form->isSuccess()) {
             $client = $form->getValues();
             $client['id'] = Random::generateID();
             $client['secret'] = Random::generateID();
+            if (!$this->authContextService->isSspAdmin()) {
+                $client['owner'] = $this->authContextService->getAuthUserId();
+            }
 
             $this->clientRepository->add(ClientEntity::fromData(
                 $client['id'],
@@ -90,7 +102,8 @@ class ClientCreateController
                 $client['scopes'],
                 $client['is_enabled'],
                 $client['is_confidential'],
-                $client['auth_source']
+                $client['auth_source'],
+                $client['owner'] ?? null
             ));
 
             $this->messages->addMessage('{oidc:client:added}');

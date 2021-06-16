@@ -23,6 +23,7 @@ use SimpleSAML\Error\NotFound;
 use SimpleSAML\Modules\OpenIDConnect\Controller\ClientResetSecretController;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
+use SimpleSAML\Modules\OpenIDConnect\Services\AuthContextService;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 use Laminas\Diactoros\Response\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;
@@ -36,15 +37,17 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         ClientRepository $clientRepository,
         SessionMessagesService $sessionMessagesService,
         ServerRequest $request,
-        UriInterface $uri
+        UriInterface $uri,
+        AuthContextService $authContextService
     ) {
         $_SERVER['REQUEST_URI'] = '/';
         Configuration::loadFromArray([], '', 'simplesaml');
+        $authContextService->isSspAdmin()->willReturn(true);
 
         $request->getUri()->willReturn($uri);
         $uri->getPath()->willReturn('/');
 
-        $this->beConstructedWith($clientRepository, $sessionMessagesService);
+        $this->beConstructedWith($clientRepository, $sessionMessagesService, $authContextService);
     }
 
     /**
@@ -74,7 +77,7 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         ClientRepository $clientRepository
     ) {
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
-        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn(null);
+        $clientRepository->findById('clientid', null)->shouldBeCalled()->willReturn(null);
 
         $this->shouldThrow(NotFound::class)->during('__invoke', [$request]);
     }
@@ -90,7 +93,7 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         ClientEntity $clientEntity
     ) {
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
-        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
+        $clientRepository->findById('clientid', null)->shouldBeCalled()->willReturn($clientEntity);
         $request->getParsedBody()->shouldBeCalled()->willReturn([]);
         $request->getMethod()->shouldBeCalled()->willReturn('post');
 
@@ -111,7 +114,7 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         $request->getParsedBody()->shouldBeCalled()->willReturn(['secret' => 'invalidsecret']);
         $request->getMethod()->shouldBeCalled()->willReturn('post');
 
-        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
+        $clientRepository->findById('clientid', null)->shouldBeCalled()->willReturn($clientEntity);
         $clientEntity->getSecret()->shouldBeCalled()->willReturn('validsecret');
 
         $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
@@ -132,7 +135,7 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         $request->getParsedBody()->shouldBeCalled()->willReturn(['secret' => 'validsecret']);
         $request->getMethod()->shouldBeCalled()->willReturn('post');
 
-        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
+        $clientRepository->findById('clientid', null)->shouldBeCalled()->willReturn($clientEntity);
         $clientEntity->getIdentifier()->shouldBeCalled()->willReturn('clientid');
         $clientEntity->getSecret()->shouldBeCalled()->willReturn('validsecret');
         $clientEntity->restoreSecret(Argument::any())->shouldBeCalled();
@@ -158,7 +161,7 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         $request->getParsedBody()->shouldBeCalled()->willReturn(['secret' => 'validsecret']);
         $request->getMethod()->shouldBeCalled()->willReturn('get');
 
-        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
+        $clientRepository->findById('clientid', null)->shouldBeCalled()->willReturn($clientEntity);
         $clientEntity->getIdentifier()->shouldBeCalled()->willReturn('clientid');
 
         $this->__invoke($request)->shouldBeAnInstanceOf(RedirectResponse::class);

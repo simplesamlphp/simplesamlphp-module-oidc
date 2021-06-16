@@ -12,7 +12,7 @@
  * file that was distributed with this source code.
  */
 
-use SimpleSAML\Modules\OpenIDConnect\Controller\ClientResetSecretController;
+use SimpleSAML\Modules\OpenIDConnect\Controller\ClientIndexController;
 use SimpleSAML\Modules\OpenIDConnect\Services\RoutingService;
 
-RoutingService::defaultAuthenticatedCall(ClientResetSecretController::class);
+RoutingService::call(ClientIndexController::class);

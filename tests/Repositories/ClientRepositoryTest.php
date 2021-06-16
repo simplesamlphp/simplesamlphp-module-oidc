@@ -213,10 +213,55 @@ class ClientRepositoryTest extends TestCase
         $this->assertNull($foundClient);
     }
 
+    public function testCrudWithOwner(): void
+    {
+        $owner = 'homer@example.com';
+        $ownedClientId = 'clientid';
+        $unownedClientId = 'otherClientId';
+        $ownedClient =  self::getClient($ownedClientId, true, false, $owner);
+        self::$repository->add($ownedClient);
+
+        $notOwnedClient =  self::getClient($unownedClientId, true, false, 'otherUser');
+        self::$repository->add($notOwnedClient);
+        // Owner can see their client but not others
+        $this->assertNotNull(self::$repository->findById($ownedClientId, $owner));
+        $this->assertNull(self::$repository->findById($unownedClientId, $owner));
+        $this->assertNotNull(self::$repository->findById($unownedClientId), 'Non owned should exist');
+
+        // Owner can search for their client but not others
+        $this->assertCount(1, self::$repository->findAll($owner));
+
+        // There are two clients with name 'Client' but the owner can only see theirs
+        $this->assertCount(2, self::$repository->findPaginated(1, 'Client')['items']);
+        $this->assertCount(1, self::$repository->findPaginated(1, 'Client', $owner)['items']);
+
+        // Owner can update their own client
+        $ownedClient =  self::getClient($ownedClientId, false, false, $owner);
+        self::$repository->update($ownedClient, $owner);
+        $this->assertFalse(self::$repository->findById($ownedClientId, $owner)->isEnabled());
+
+        // Owner can not update other clients
+        $notOwnedClient =  self::getClient($unownedClientId, false, false, 'otherUser');
+        self::$repository->update($notOwnedClient, $owner);
+        $this->assertTrue(self::$repository->findById($unownedClientId)->isEnabled());
+
+        // Owner can delete their own client
+        self::$repository->delete($ownedClient, $owner);
+        $foundClient = self::$repository->findById($ownedClientId);
+        $this->assertNull($foundClient);
+
+        // Owner cannot delete their own client
+        self::$repository->delete($notOwnedClient, $owner);
+        $foundClient = self::$repository->findById($unownedClientId);
+        $this->assertNotNull($foundClient);
+
+    }
+
     public static function getClient(
         string $id,
         bool $enabled = true,
-        bool $confidential = false
+        bool $confidential = false,
+        ?string $owner = null
     ): ClientEntityInterface {
         return ClientEntity::fromData(
             $id,
@@ -227,7 +272,8 @@ class ClientRepositoryTest extends TestCase
             ['openid'],
             $enabled,
             $confidential,
-            'admin'
+            'admin',
+            $owner
         );
     }
 }

@@ -15,9 +15,10 @@
 namespace SimpleSAML\Modules\OpenIDConnect\Controller;
 
 use SimpleSAML\Error\BadRequest;
-use SimpleSAML\Modules\OpenIDConnect\Controller\Traits\GetClientFromRequestTrait;
+use SimpleSAML\Modules\OpenIDConnect\Controller\Traits\AuthenticatedGetClientFromRequestTrait;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
+use SimpleSAML\Modules\OpenIDConnect\Services\AuthContextService;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 use SimpleSAML\Utils\HTTP;
 use Laminas\Diactoros\Response\RedirectResponse;
@@ -25,7 +26,7 @@ use Laminas\Diactoros\ServerRequest;
 
 class ClientDeleteController
 {
-    use GetClientFromRequestTrait;
+    use AuthenticatedGetClientFromRequestTrait;
 
     /**
      * @var \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory
@@ -40,11 +41,13 @@ class ClientDeleteController
     public function __construct(
         ClientRepository $clientRepository,
         TemplateFactory $templateFactory,
-        SessionMessagesService $messages
+        SessionMessagesService $messages,
+        AuthContextService $authContextService
     ) {
         $this->clientRepository = $clientRepository;
         $this->templateFactory = $templateFactory;
         $this->messages = $messages;
+        $this->authContextService = $authContextService;
     }
 
     /**

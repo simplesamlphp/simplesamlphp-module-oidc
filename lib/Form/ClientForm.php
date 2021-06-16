@@ -134,6 +134,10 @@ class ClientForm extends Form
             ->setAttribute('class', 'ui fluid dropdown')
             ->setItems($scopes)
             ->setRequired('Select one scope at least');
+
+        //TODO: should this be editable?? If so by who? just SSP admin or the owner?
+        $this->addText('owner', '{oidc:client:owner}')
+            ->setMaxLength(190);
     }
 
     protected function getScopes(): array

@@ -94,6 +94,11 @@ class DatabaseMigration
             $this->version20200901163000();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20200901163000')");
         }
+
+        if (!\in_array('20210615113500', $versions, true)) {
+            $this->version20210615113500();
+            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210615113500')");
+        }
     }
 
     private function versionsTableName(): string
@@ -214,6 +219,16 @@ EOT
         $this->database->write(<<< EOT
         ALTER TABLE ${clientTableName}
             ADD nonce TEXT NULL 
+EOT
+        );
+    }
+
+    private function version20210615113500(): void
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE ${clientTableName}
+            ADD owner VARCHAR(191) NULL 
 EOT
         );
     }

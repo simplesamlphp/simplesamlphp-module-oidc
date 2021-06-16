@@ -15,4 +15,4 @@
 use SimpleSAML\Modules\OpenIDConnect\Controller\ClientCreateController;
 use SimpleSAML\Modules\OpenIDConnect\Services\RoutingService;
 
-RoutingService::call(ClientCreateController::class);
+RoutingService::defaultAuthenticatedCall(ClientCreateController::class);

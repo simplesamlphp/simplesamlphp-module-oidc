@@ -15,4 +15,4 @@
 use SimpleSAML\Modules\OpenIDConnect\Controller\ClientDeleteController;
 use SimpleSAML\Modules\OpenIDConnect\Services\RoutingService;
 
-RoutingService::call(ClientDeleteController::class);
+RoutingService::defaultAuthenticatedCall(ClientDeleteController::class);

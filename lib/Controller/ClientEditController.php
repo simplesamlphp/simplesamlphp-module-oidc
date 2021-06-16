@@ -14,12 +14,13 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Controller;
 
-use SimpleSAML\Modules\OpenIDConnect\Controller\Traits\GetClientFromRequestTrait;
+use SimpleSAML\Modules\OpenIDConnect\Controller\Traits\AuthenticatedGetClientFromRequestTrait;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Form\ClientForm;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
+use SimpleSAML\Modules\OpenIDConnect\Services\AuthContextService;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 use SimpleSAML\Utils\HTTP;
@@ -28,7 +29,7 @@ use Laminas\Diactoros\ServerRequest;
 
 class ClientEditController
 {
-    use GetClientFromRequestTrait;
+    use AuthenticatedGetClientFromRequestTrait;
 
     /**
      * @var ConfigurationService
@@ -54,13 +55,15 @@ class ClientEditController
         ClientRepository $clientRepository,
         TemplateFactory $templateFactory,
         FormFactory $formFactory,
-        SessionMessagesService $messages
+        SessionMessagesService $messages,
+        AuthContextService $authContextService
     ) {
         $this->configurationService = $configurationService;
         $this->clientRepository = $clientRepository;
         $this->templateFactory = $templateFactory;
         $this->formFactory = $formFactory;
         $this->messages = $messages;
+        $this->authContextService = $authContextService;
     }
 
     /**
@@ -68,6 +71,7 @@ class ClientEditController
      */
     public function __invoke(ServerRequest $request)
     {
+
         $client = $this->getClientFromRequest($request);
 
         $form = $this->formFactory->build(ClientForm::class);
@@ -78,7 +82,6 @@ class ClientEditController
         ) ;
         $form->setAction($formAction);
         $form->setDefaults($client->toArray());
-
         if ($form->isSuccess()) {
             $data = $form->getValues();
 
@@ -91,7 +94,9 @@ class ClientEditController
                 $data['scopes'],
                 (bool) $data['is_enabled'],
                 (bool) $data['is_confidential'],
-                $data['auth_source']
+                $data['auth_source'],
+                //TODO: can this be edited, and if so by the owner or just the ssp admin?
+                $data['owner'] = $this->authContextService->isSspAdmin() ? $data['owner'] : $client->getOwner()
             ));
 
             $this->messages->addMessage('{oidc:client:updated}');

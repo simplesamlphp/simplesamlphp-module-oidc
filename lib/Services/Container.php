@@ -68,6 +68,9 @@ class Container implements ContainerInterface
         $configurationService = new ConfigurationService();
         $this->services[ConfigurationService::class] = $configurationService;
 
+        $authContextService = new AuthContextService($configurationService);
+        $this->services[AuthContextService::class] = $authContextService;
+
         $clientRepository = new ClientRepository($configurationService);
         $this->services[ClientRepository::class] = $clientRepository;
 

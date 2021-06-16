@@ -28,6 +28,7 @@ use SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Form\ClientForm;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
+use SimpleSAML\Modules\OpenIDConnect\Services\AuthContextService;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
 use SimpleSAML\XHTML\Template;
@@ -44,11 +45,12 @@ class ClientEditControllerSpec extends ObjectBehavior
         FormFactory $formFactory,
         SessionMessagesService $sessionMessagesService,
         ServerRequest $request,
-        UriInterface $uri
+        UriInterface $uri,
+        AuthContextService $authContextService
     ) {
         $_SERVER['REQUEST_URI'] = '/';
         Configuration::loadFromArray([], '', 'simplesaml');
-
+        $authContextService->isSspAdmin()->willReturn(true);
         $configurationService->getOpenIdConnectModuleURL()->willReturn("url");
 
         $request->getUri()->willReturn($uri);
@@ -59,7 +61,8 @@ class ClientEditControllerSpec extends ObjectBehavior
             $clientRepository,
             $templateFactory,
             $formFactory,
-            $sessionMessagesService
+            $sessionMessagesService,
+            $authContextService
         );
     }
 
@@ -96,7 +99,7 @@ class ClientEditControllerSpec extends ObjectBehavior
         $clientEntity->getIdentifier()->shouldBeCalled()->willReturn('clientid');
 
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
-        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
+        $clientRepository->findById('clientid', null)->shouldBeCalled()->willReturn($clientEntity);
         $clientEntity->toArray()->shouldBeCalled()->willReturn($data);
 
         $formFactory->build(ClientForm::class)->shouldBeCalled()->willReturn($clientForm);
@@ -131,10 +134,11 @@ class ClientEditControllerSpec extends ObjectBehavior
             'scopes' => ['openid'],
             'is_enabled' => true,
             'is_confidential' => false,
+            'owner' => 'owner'
         ];
 
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
-        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
+        $clientRepository->findById('clientid', null)->shouldBeCalled()->willReturn($clientEntity);
         $clientEntity->getIdentifier()->shouldBeCalled()->willReturn('clientid');
         $clientEntity->getSecret()->shouldBeCalled()->willReturn('validsecret');
         $clientEntity->toArray()->shouldBeCalled()->willReturn($data);
@@ -151,7 +155,9 @@ class ClientEditControllerSpec extends ObjectBehavior
             'scopes' => ['openid'],
             'is_enabled' => true,
             'is_confidential' => false,
-        ]);
+                                                                   'owner' => 'owner'
+
+                                                               ]);
 
         $clientRepository->update(Argument::exact(ClientEntity::fromData(
             'clientid',
@@ -162,7 +168,8 @@ class ClientEditControllerSpec extends ObjectBehavior
             ['openid'],
             true,
             false,
-            'auth_source'
+            'auth_source',
+             'owner'
         )))->shouldBeCalled();
         $sessionMessagesService->addMessage('{oidc:client:updated}')->shouldBeCalled();
 
@@ -188,7 +195,7 @@ class ClientEditControllerSpec extends ObjectBehavior
         ClientRepository $clientRepository
     ) {
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
-        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn(null);
+        $clientRepository->findById('clientid', null)->shouldBeCalled()->willReturn(null);
 
         $this->shouldThrow(NotFound::class)->during('__invoke', [$request]);
     }

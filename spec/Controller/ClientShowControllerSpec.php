@@ -23,6 +23,7 @@ use SimpleSAML\Modules\OpenIDConnect\Controller\ClientShowController;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
+use SimpleSAML\Modules\OpenIDConnect\Services\AuthContextService;
 use SimpleSAML\XHTML\Template;
 use Laminas\Diactoros\ServerRequest;
 
@@ -37,15 +38,17 @@ class ClientShowControllerSpec extends ObjectBehavior
         ClientRepository $clientRepository,
         TemplateFactory $templateFactory,
         ServerRequest $request,
-        UriInterface $uri
+        UriInterface $uri,
+        AuthContextService $authContextService
     ) {
         $_SERVER['REQUEST_URI'] = '/';
         Configuration::loadFromArray([], '', 'simplesaml');
+        $authContextService->isSspAdmin()->willReturn(true);
 
         $request->getUri()->willReturn($uri);
         $uri->getPath()->willReturn('/');
 
-        $this->beConstructedWith($clientRepository, $templateFactory);
+        $this->beConstructedWith($clientRepository, $templateFactory, $authContextService);
     }
 
     /**
@@ -69,7 +72,7 @@ class ClientShowControllerSpec extends ObjectBehavior
         ClientEntity $clientEntity
     ) {
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
-        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
+        $clientRepository->findById('clientid', null)->shouldBeCalled()->willReturn($clientEntity);
 
         $templateFactory->render('oidc:clients/show.twig', ['client' => $clientEntity])
             ->shouldBeCalled()->willReturn($template);
@@ -95,7 +98,7 @@ class ClientShowControllerSpec extends ObjectBehavior
         ClientRepository $clientRepository
     ) {
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
-        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn(null);
+        $clientRepository->findById('clientid', null)->shouldBeCalled()->willReturn(null);
 
         $this->shouldThrow(NotFound::class)->during('__invoke', [$request]);
     }
