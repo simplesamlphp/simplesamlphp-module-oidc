@@ -29,10 +29,10 @@ use SimpleSAML\Modules\OpenIDConnect\Entity\ScopeEntity;
 use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
 use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\IdTokenResponse;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
+use SimpleSAML\Modules\OpenIDConnect\Services\IdTokenBuilder;
 
 class IdTokenResponseSpec extends ObjectBehavior
 {
-
     public const TOKEN_ID = 'tokenId';
     public const ISSUER = 'someIssuer';
     public const CLIENT_ID = 'clientId';
@@ -47,9 +47,9 @@ class IdTokenResponseSpec extends ObjectBehavior
         AccessTokenEntity $accessToken,
         ClientEntity $clientEntity,
         Configuration $oidcConfig
-    ): void {
+    ): void
+    {
         $this->certFolder = dirname(__DIR__, 3) . '/docker/ssp/';
-        $claimExtractor = new ClaimExtractor();
         $userEntity = UserEntity::fromData(self::SUBJECT, [
             'email' => 'myEmail@example.com'
         ]);
@@ -58,26 +58,34 @@ class IdTokenResponseSpec extends ObjectBehavior
             ScopeEntity::fromData('email'),
         ];
         $expiration = (new \DateTimeImmutable())->setTimestamp(time() + 3600);
+
+        $clientEntity->getIdentifier()->willReturn(self::CLIENT_ID);
+
         $accessToken->getExpiryDateTime()->willReturn($expiration);
         $accessToken->__toString()->willReturn('AccessToken123');
         $accessToken->getIdentifier()->willReturn(self::TOKEN_ID);
         $accessToken->getScopes()->willReturn($scopes);
         $accessToken->getUserIdentifier()->willReturn(self::SUBJECT);
+        $accessToken->getClient()->willReturn($clientEntity);
+
         $identityProvider->getUserEntityByIdentifier(self::SUBJECT)->willReturn($userEntity);
+
         $configurationService->getSigner()->willReturn(new Sha256());
         $configurationService->getSimpleSAMLSelfURLHost()->willReturn(self::ISSUER);
         $configurationService->getCertPath()->willReturn($this->certFolder . '/oidc_module.crt');
         $configurationService->getOpenIDConnectConfiguration()->willReturn($oidcConfig);
 
-        $clientEntity->getIdentifier()->willReturn(self::CLIENT_ID);
-        $accessToken->getClient()->willReturn($clientEntity);
-        $this->beConstructedWith(
-            $identityProvider,
-            $claimExtractor,
-            $configurationService
+        $privateKey = new CryptKey($this->certFolder . '/oidc_module.pem', null, false);
+
+        $idTokenBuilder = new IdTokenBuilder(
+            $identityProvider->getWrappedObject(),
+            new ClaimExtractor(),
+            $configurationService->getWrappedObject(),
+            $privateKey
         );
-        $cryptKey = new CryptKey($this->certFolder . '/oidc_module.pem', '', false);
-        $this->setPrivateKey($cryptKey);
+
+        $this->beConstructedWith($idTokenBuilder);
+        $this->setPrivateKey($privateKey);
     }
 
     /**

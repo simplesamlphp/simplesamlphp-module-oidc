@@ -62,7 +62,7 @@ conformance-suite/scripts/run-test-plan.py \
 
 # Implicit profile
 conformance-suite/scripts/run-test-plan.py \
-  "oidcc-basic-certification-test-plan[server_metadata=discovery][client_registration=static_client]" \
+  "oidcc-implicit-certification-test-plan[server_metadata=discovery][client_registration=static_client]" \
   ./conformance-tests/conformance-implicit-ci.json
 ```
 

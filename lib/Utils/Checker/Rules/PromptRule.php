@@ -12,7 +12,7 @@ use SimpleSAML\Session;
 
 class PromptRule extends AbstractRule
 {
-    const PROMPT_REAUTHENTICATE = 'prompt_reauthenticate';
+    private const PROMPT_REAUTHENTICATE = 'prompt_reauthenticate';
 
     /**
      * @var AuthSimpleFactory

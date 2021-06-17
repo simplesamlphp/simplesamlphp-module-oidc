@@ -14,44 +14,43 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Factories;
 
-use SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
+use League\OAuth2\Server\CryptKey;
 use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\IdTokenResponse;
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
+use SimpleSAML\Modules\OpenIDConnect\Services\IdTokenBuilder;
 
 class IdTokenResponseFactory
 {
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository
+     * @var IdTokenBuilder
      */
-    private $userRepository;
-
+    private $idTokenBuilder;
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService
+     * @var CryptKey
      */
-    private $configurationService;
-
+    private $privateKey;
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor
+     * @var string
      */
-    private $claimTranslatorExtractor;
+    private $encryptionKey;
 
     public function __construct(
-        UserRepository $userRepository,
-        ConfigurationService $configurationService,
-        ClaimTranslatorExtractor $claimTranslatorExtractor
+        IdTokenBuilder $idTokenBuilder,
+        CryptKey $privateKey,
+        string $encryptionKey
     ) {
-        $this->userRepository = $userRepository;
-        $this->configurationService = $configurationService;
-        $this->claimTranslatorExtractor = $claimTranslatorExtractor;
+        $this->idTokenBuilder = $idTokenBuilder;
+        $this->privateKey = $privateKey;
+        $this->encryptionKey = $encryptionKey;
     }
 
     public function build(): IdTokenResponse
     {
-        return new IdTokenResponse(
-            $this->userRepository,
-            $this->claimTranslatorExtractor,
-            $this->configurationService
+        $idTokenResponse = new IdTokenResponse(
+            $this->idTokenBuilder
         );
+        $idTokenResponse->setPrivateKey($this->privateKey);
+        $idTokenResponse->setEncryptionKey($this->encryptionKey);
+
+        return $idTokenResponse;
     }
 }

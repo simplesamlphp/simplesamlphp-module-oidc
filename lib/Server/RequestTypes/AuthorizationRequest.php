@@ -2,10 +2,7 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Server\RequestTypes;
 
-use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
-use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Arr;
 
 class AuthorizationRequest extends OAuth2AuthorizationRequest
 {
@@ -18,6 +15,25 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
      * @var int|null
      */
     protected $authTime;
+
+    public static function fromOAuth2AuthorizationRequest(OAuth2AuthorizationRequest $oAuth2authorizationRequest): AuthorizationRequest
+    {
+        $authorizationRequest = new self();
+
+        $authorizationRequest->setGrantTypeId($oAuth2authorizationRequest->getGrantTypeId());
+        $authorizationRequest->setClient($oAuth2authorizationRequest->getClient());
+        $authorizationRequest->setRedirectUri($oAuth2authorizationRequest->getRedirectUri());
+        $authorizationRequest->setScopes($oAuth2authorizationRequest->getScopes());
+        $authorizationRequest->setCodeChallenge($oAuth2authorizationRequest->getCodeChallenge());
+        $authorizationRequest->setCodeChallengeMethod($oAuth2authorizationRequest->getCodeChallengeMethod());
+
+        $state = $oAuth2authorizationRequest->getState();
+        if (null !== $state) {
+            $authorizationRequest->setState($state);
+        }
+
+        return $authorizationRequest;
+    }
 
     /**
      * @return string|null

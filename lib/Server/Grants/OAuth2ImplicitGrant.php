@@ -17,6 +17,14 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\StateRule;
 class OAuth2ImplicitGrant extends ImplicitGrant implements AuthorizationValidatableWithClientAndRedirectUriInterface
 {
     /**
+     * @var DateInterval
+     */
+    protected $accessTokenTTL;
+    /**
+     * @var string
+     */
+    protected $queryDelimiter;
+    /**
      * @var RequestRulesManager
      */
     protected $requestRulesManager;
@@ -35,6 +43,8 @@ class OAuth2ImplicitGrant extends ImplicitGrant implements AuthorizationValidata
             throw new \LogicException('Can not validate request (no RequestRulesManager defined)');
         }
 
+        $this->accessTokenTTL = $accessTokenTTL;
+        $this->queryDelimiter = $queryDelimiter;
         $this->requestRulesManager = $requestRulesManager;
     }
 
