@@ -139,7 +139,7 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
         $clientEntity->getIdentifier()->shouldBeCalled()->willReturn('clientid');
         $clientEntity->getSecret()->shouldBeCalled()->willReturn('validsecret');
         $clientEntity->restoreSecret(Argument::any())->shouldBeCalled();
-        $clientRepository->update($clientEntity)->shouldBeCalled();
+        $clientRepository->update($clientEntity, null)->shouldBeCalled();
 
         $sessionMessagesService->addMessage('{oidc:client:secret_updated}')->shouldBeCalled();
 

@@ -54,7 +54,9 @@ class ClientEditControllerSpec extends ObjectBehavior
         $authContextService->isSspAdmin()->willReturn(true);
         $configurationService->getOpenIdConnectModuleURL()->willReturn("url");
 
+        $request->withQueryParams(Argument::any())->willReturn($request);
         $request->getUri()->willReturn($uri);
+        $request->getRequestTarget()->willReturn('/');
         $uri->getPath()->willReturn('/');
 
         $this->beConstructedWith(
