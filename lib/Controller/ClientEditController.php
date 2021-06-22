@@ -75,11 +75,7 @@ class ClientEditController
         $client = $this->getClientFromRequest($request);
 
         $form = $this->formFactory->build(ClientForm::class);
-        $formAction = sprintf(
-            "%s/clients/edit.php?client_id=%s",
-            $this->configurationService->getOpenIdConnectModuleURL(),
-            $client->getIdentifier()
-        ) ;
+        $formAction = $request->withQueryParams(['client_id' =>$client->getIdentifier()])->getRequestTarget();
         $form->setAction($formAction);
         $form->setDefaults($client->toArray());
         $authedUser = $this->authContextService->isSspAdmin() ? null : $this->authContextService->getAuthUserId();

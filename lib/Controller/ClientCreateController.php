@@ -81,8 +81,7 @@ class ClientCreateController
     public function __invoke(ServerRequest $request)
     {
         $form = $this->formFactory->build(ClientForm::class);
-        $formAction = $this->configurationService->getOpenIdConnectModuleURL('clients/new.php');
-        $form->setAction($formAction);
+        $form->setAction('./new.php');
 
 
         if ($form->isSuccess()) {
