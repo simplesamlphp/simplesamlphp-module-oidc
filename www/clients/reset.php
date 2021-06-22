@@ -13,6 +13,7 @@
  */
 
 use SimpleSAML\Modules\OpenIDConnect\Controller\ClientResetSecretController;
+use SimpleSAML\Modules\OpenIDConnect\Services\AuthContextService;
 use SimpleSAML\Modules\OpenIDConnect\Services\RoutingService;
 
-RoutingService::defaultAuthenticatedCall(ClientResetSecretController::class);
+RoutingService::callWithPermission(ClientResetSecretController::class, AuthContextService::PERM_CLIENT);

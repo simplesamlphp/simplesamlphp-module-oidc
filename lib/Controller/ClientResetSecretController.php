@@ -56,8 +56,8 @@ class ClientResetSecretController
             }
 
             $client->restoreSecret(Random::generateID());
-
-            $this->clientRepository->update($client);
+            $authedUser = $this->authContextService->isSspAdmin() ? null : $this->authContextService->getAuthUserId();
+            $this->clientRepository->update($client, $authedUser);
             $this->messages->addMessage('{oidc:client:secret_updated}');
         }
 

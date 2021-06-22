@@ -154,7 +154,7 @@ class ClientDeleteControllerSpec extends ObjectBehavior
 
         $clientRepository->findById('clientid', null)->shouldBeCalled()->willReturn($clientEntity);
         $clientEntity->getSecret()->shouldBeCalled()->willReturn('validsecret');
-        $clientRepository->delete($clientEntity)->shouldBeCalled();
+        $clientRepository->delete($clientEntity, null)->shouldBeCalled();
 
         $sessionMessagesService->addMessage('{oidc:client:removed}')->shouldBeCalled();
 
@@ -179,7 +179,7 @@ class ClientDeleteControllerSpec extends ObjectBehavior
 
         $clientRepository->findById('clientid', 'theOwner')->shouldBeCalled()->willReturn($clientEntity);
         $clientEntity->getSecret()->shouldBeCalled()->willReturn('validsecret');
-        $clientRepository->delete($clientEntity)->shouldBeCalled();
+        $clientRepository->delete($clientEntity, 'theOwner')->shouldBeCalled();
 
         $sessionMessagesService->addMessage('{oidc:client:removed}')->shouldBeCalled();
 

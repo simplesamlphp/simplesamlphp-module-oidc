@@ -58,7 +58,7 @@ class ClientDeleteController
         $client = $this->getClientFromRequest($request);
         $body = $request->getParsedBody();
         $clientSecret = $body['secret'] ?? null;
-
+        $authedUser = $this->authContextService->isSspAdmin() ? null : $this->authContextService->getAuthUserId();
         if ('POST' === mb_strtoupper($request->getMethod())) {
             if (!$clientSecret) {
                 throw new BadRequest('Client secret is missing.');
@@ -68,7 +68,7 @@ class ClientDeleteController
                 throw new BadRequest('Client secret is invalid.');
             }
 
-            $this->clientRepository->delete($client);
+            $this->clientRepository->delete($client, $authedUser);
             $this->messages->addMessage('{oidc:client:removed}');
 
             return new RedirectResponse(HTTP::addURLParameters('index.php', []));

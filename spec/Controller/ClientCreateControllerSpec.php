@@ -136,7 +136,7 @@ class ClientCreateControllerSpec extends ObjectBehavior
         AuthContextService $authContextService
     ) {
         $authContextService->isSspAdmin()->shouldBeCalled()->willReturn(false);
-        $authContextService->getAuthUserId()->willReturn('adminUsername');
+        $authContextService->getAuthUserId()->willReturn('ownerUsername');
         $formFactory->build(ClientForm::class)->shouldBeCalled()->willReturn($clientForm);
         $clientForm->setAction(Argument::any())->shouldBeCalled();
 
@@ -154,7 +154,7 @@ class ClientCreateControllerSpec extends ObjectBehavior
             ]
         );
 
-        $clientRepository->add(Argument::which('getOwner', 'adminUsername'))->shouldBeCalled();
+        $clientRepository->add(Argument::which('getOwner', 'ownerUsername'))->shouldBeCalled();
         $sessionMessagesService->addMessage('{oidc:client:added}')->shouldBeCalled();
 
         $this->__invoke($request)->shouldBeAnInstanceOf(RedirectResponse::class);

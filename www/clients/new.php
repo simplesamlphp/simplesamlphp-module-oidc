@@ -13,6 +13,7 @@
  */
 
 use SimpleSAML\Modules\OpenIDConnect\Controller\ClientCreateController;
+use SimpleSAML\Modules\OpenIDConnect\Services\AuthContextService;
 use SimpleSAML\Modules\OpenIDConnect\Services\RoutingService;
 
-RoutingService::defaultAuthenticatedCall(ClientCreateController::class);
+RoutingService::callWithPermission(ClientCreateController::class, AuthContextService::PERM_CLIENT);

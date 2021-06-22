@@ -46,11 +46,11 @@ trait AuthenticatedGetClientFromRequestTrait
         if (!$clientId) {
             throw new BadRequest('Client id is missing.');
         }
-        $owner = null;
+        $authedUser = null;
         if (!$this->authContextService->isSspAdmin()) {
-            $owner = $this->authContextService->getAuthUserId();
+            $authedUser = $this->authContextService->getAuthUserId();
         }
-        $client = $this->clientRepository->findById($clientId, $owner);
+        $client = $this->clientRepository->findById($clientId, $authedUser);
         if (!$client) {
             throw new NotFound('Client not found.');
         }

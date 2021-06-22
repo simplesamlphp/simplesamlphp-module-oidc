@@ -68,9 +68,6 @@ class Container implements ContainerInterface
         $configurationService = new ConfigurationService();
         $this->services[ConfigurationService::class] = $configurationService;
 
-        $authContextService = new AuthContextService($configurationService);
-        $this->services[AuthContextService::class] = $authContextService;
-
         $clientRepository = new ClientRepository($configurationService);
         $this->services[ClientRepository::class] = $clientRepository;
 
@@ -100,6 +97,9 @@ class Container implements ContainerInterface
 
         $authSimpleFactory = new AuthSimpleFactory($clientRepository, $configurationService);
         $this->services[AuthSimpleFactory::class] = $authSimpleFactory;
+
+        $authContextService = new AuthContextService($configurationService, $authSimpleFactory);
+        $this->services[AuthContextService::class] = $authContextService;
 
         $formFactory = new FormFactory($configurationService);
         $this->services[FormFactory::class] = $formFactory;

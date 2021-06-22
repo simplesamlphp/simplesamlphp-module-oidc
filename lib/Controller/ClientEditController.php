@@ -82,6 +82,7 @@ class ClientEditController
         ) ;
         $form->setAction($formAction);
         $form->setDefaults($client->toArray());
+        $authedUser = $this->authContextService->isSspAdmin() ? null : $this->authContextService->getAuthUserId();
         if ($form->isSuccess()) {
             $data = $form->getValues();
 
@@ -95,9 +96,8 @@ class ClientEditController
                 (bool) $data['is_enabled'],
                 (bool) $data['is_confidential'],
                 $data['auth_source'],
-                //TODO: can this be edited, and if so by the owner or just the ssp admin?
-                $data['owner'] = $this->authContextService->isSspAdmin() ? $data['owner'] : $client->getOwner()
-            ));
+                $client->getOwner()
+            ), $authedUser);
 
             $this->messages->addMessage('{oidc:client:updated}');
 

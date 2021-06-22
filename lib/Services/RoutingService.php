@@ -46,12 +46,12 @@ class RoutingService
         self::callController(new Container(), $controllerClassname);
     }
 
-    public static function defaultAuthenticatedCall(string $controllerClassname)
+    public static function callWithPermission(string $controllerClassname, string $permission)
     {
         $container = new Container();
         /** @var AuthContextService $authContext */
         $authContext = $container->get(AuthContextService::class);
-        $authContext->getAuthUserId();
+        $authContext->requirePermission($permission);
         self::callController($container, $controllerClassname);
     }
 

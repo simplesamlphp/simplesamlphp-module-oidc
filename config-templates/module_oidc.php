@@ -43,6 +43,12 @@ $config = [
 
     // useridattr is the attribute-name that contains the userid as returned from idp
     'useridattr' => 'uid',
+    'permissions' => [
+        // Attribute to inspect to determine user's permissions
+        'attribute' => 'eduPersonEntitlement',
+        // Which entitlements allow for registering, editing, delete a client. OIDC clients are owned by the creator
+        'client' => ['urn:example:oidc:manage:client'],
+    ],
 
     // The claims from the standard scopes should only be put in the ID token when no access token is issued
     // For module backwards compatibility you can always include claims in the id token.

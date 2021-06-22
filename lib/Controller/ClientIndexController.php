@@ -52,11 +52,8 @@ class ClientIndexController
 
         $page = array_key_exists('page', $queryParams) ? (int) $queryParams['page'] : 1;
         $query = array_key_exists('q', $queryParams) ? (string) $queryParams['q'] : '';
-        $owner = null;
-        if (!$this->authContextService->isSspAdmin()) {
-            $owner = $this->authContextService->getAuthUserId();
-        }
-        $pagination = $this->clientRepository->findPaginated($page, $query, $owner);
+        $authedUser = $this->authContextService->isSspAdmin() ? null : $this->authContextService->getAuthUserId();
+        $pagination = $this->clientRepository->findPaginated($page, $query, $authedUser);
 
         return $this->templateFactory->render('oidc:clients/index.twig', [
             'clients' => $pagination['items'],
