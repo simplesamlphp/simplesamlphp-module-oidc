@@ -32,13 +32,13 @@
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^2.10",
-        "friends-of-phpspec/phpspec-code-coverage": "^4.3",
+        "friends-of-phpspec/phpspec-code-coverage": "^6.1",
         "php-coveralls/php-coveralls": "^2.0",
-        "phpspec/phpspec": "^6.1",
-        "phpunit/php-code-coverage": "^7.0.7",
-        "phpunit/phpcov": "^6.0",
-        "phpunit/phpunit": "^8.5",
-        "simplesamlphp/simplesamlphp": "^1.18,<1.19",
+        "phpspec/phpspec": "^7.1.0",
+        "phpunit/php-code-coverage": "^9.0.0",
+        "phpunit/phpcov": "^8.2.0",
+        "phpunit/phpunit": "^9.0.0",
+        "simplesamlphp/simplesamlphp": "^1.19,<2",
         "simplesamlphp/simplesamlphp-test-framework": "^0.1.9"
     },
     "config": {
