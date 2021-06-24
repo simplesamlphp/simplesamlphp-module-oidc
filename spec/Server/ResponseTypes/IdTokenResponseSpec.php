@@ -83,7 +83,7 @@ class IdTokenResponseSpec extends ObjectBehavior
             $privateKey
         );
 
-        $this->beConstructedWith($idTokenBuilder);
+        $this->beConstructedWith($configurationService, $idTokenBuilder);
         $this->setPrivateKey($privateKey);
     }
 

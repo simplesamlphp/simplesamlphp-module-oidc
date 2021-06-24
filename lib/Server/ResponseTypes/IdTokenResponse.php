@@ -19,6 +19,7 @@ use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\ResponseTypes\BearerTokenResponse;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 
 /**
@@ -31,6 +32,11 @@ use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
  */
 class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeInterface, AuthTimeResponseTypeInterface
 {
+    /**
+     * @var ConfigurationService
+     */
+    private $configurationService;
+
     /**
      * @var IdTokenBuilder
      */
@@ -46,9 +52,12 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
      */
     protected $authTime;
 
-    public function __construct(IdTokenBuilder $idTokenBuilder)
-    {
+    public function __construct(
+        ConfigurationService $configurationService,
+        IdTokenBuilder $idTokenBuilder
+    ) {
         $this->idTokenBuilder = $idTokenBuilder;
+        $this->configurationService = $configurationService;
     }
 
     /**
@@ -60,7 +69,13 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
             return [];
         }
 
-        $token = $this->idTokenBuilder->build($accessToken, $this->getNonce(), $this->getAuthTime());
+        // Per https://openid.net/specs/openid-connect-core-1_0.html#rfc.section.5.4 certain claims
+        // should only be added in certain scenarios. Allow deployer to control this.
+        $addClaimsFromScopes = $this->configurationService
+            ->getOpenIDConnectConfiguration()
+            ->getBoolean('alwaysAddClaimsToIdToken', true);
+
+        $token = $this->idTokenBuilder->build($accessToken, $addClaimsFromScopes, $this->getNonce(), $this->getAuthTime());
 
         return [
             'id_token' => $token->toString(),

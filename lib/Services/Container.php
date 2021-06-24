@@ -198,6 +198,7 @@ class Container implements ContainerInterface
         $this->services[IdTokenBuilder::class] = $idTokenBuilderFactory->build();
 
         $idTokenResponseFactory = new IdTokenResponseFactory(
+            $this->services[ConfigurationService::class],
             $this->services[IdTokenBuilder::class],
             $privateKey,
             $encryptionKey
