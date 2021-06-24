@@ -16,6 +16,11 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
      */
     protected $authTime;
 
+    /**
+     * @var bool
+     */
+    protected $addClaimsToIdToken = false;
+
     public static function fromOAuth2AuthorizationRequest(OAuth2AuthorizationRequest $oAuth2authorizationRequest): AuthorizationRequest
     {
         $authorizationRequest = new self();
@@ -65,5 +70,21 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     public function setAuthTime(?int $authTime): void
     {
         $this->authTime = $authTime;
+    }
+
+    /**
+     * @return bool
+     */
+    public function getAddClaimsToIdToken(): bool
+    {
+        return $this->addClaimsToIdToken;
+    }
+
+    /**
+     * @param bool $addClaimsToIdToken
+     */
+    public function setAddClaimsToIdToken(bool $addClaimsToIdToken): void
+    {
+        $this->addClaimsToIdToken = $addClaimsToIdToken;
     }
 }

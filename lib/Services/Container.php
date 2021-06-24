@@ -49,6 +49,7 @@ use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeRule;
@@ -155,6 +156,7 @@ class Container implements ContainerInterface
             new ScopeRule($scopeRepository),
             new CodeChallengeRule(),
             new CodeChallengeMethodRule($codeChallengeVerifiersRepository),
+            new AddClaimsToIdTokenRule(),
         ];
         $requestRuleManager = new RequestRulesManager($requestRules);
         $this->services[RequestRulesManager::class] = $requestRuleManager;
