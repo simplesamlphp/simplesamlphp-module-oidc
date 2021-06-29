@@ -17,7 +17,6 @@ namespace SimpleSAML\Modules\OpenIDConnect\Factories;
 use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\ResourceServer;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
-use SimpleSAML\Utils\Config;
 
 class ResourceServerFactory
 {
@@ -25,19 +24,24 @@ class ResourceServerFactory
      * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository
      */
     private $accessTokenRepository;
+    /**
+     * @var CryptKey
+     */
+    private $publicKey;
 
-    public function __construct(AccessTokenRepository $accessTokenRepository)
-    {
+    public function __construct(
+        AccessTokenRepository $accessTokenRepository,
+        CryptKey $publicKey
+    ) {
         $this->accessTokenRepository = $accessTokenRepository;
+        $this->publicKey = $publicKey;
     }
 
     public function build(): ResourceServer
     {
-        $publicKeyPath = Config::getCertPath('oidc_module.crt');
-
         return new ResourceServer(
             $this->accessTokenRepository,
-            new CryptKey($publicKeyPath)
+            $this->publicKey
         );
     }
 }

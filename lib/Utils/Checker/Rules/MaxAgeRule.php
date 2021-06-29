@@ -12,7 +12,7 @@ use SimpleSAML\Session;
 
 class MaxAgeRule extends AbstractRule
 {
-    const MAX_AGE_REAUTHENTICATE = 'max_age_reauthenticate';
+    private const MAX_AGE_REAUTHENTICATE = 'max_age_reauthenticate';
 
     /**
      * @var AuthSimpleFactory

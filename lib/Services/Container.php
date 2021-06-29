@@ -14,9 +14,14 @@
 
 namespace SimpleSAML\Modules\OpenIDConnect\Services;
 
+use DateInterval;
+use SimpleSAML\Modules\OpenIDConnect\Factories\CryptKeyFactory;
+use SimpleSAML\Modules\OpenIDConnect\Factories\Grant\ImplicitGrantFactory;
+use SimpleSAML\Modules\OpenIDConnect\Factories\IdTokenBuilderFactory;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\CodeChallengeVerifiersRepository;
 use SimpleSAML\Modules\OpenIDConnect\Server\AuthorizationServer;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\AuthCodeGrant;
+use SimpleSAML\Modules\OpenIDConnect\Server\Grants\ImplicitGrant;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\OAuth2ImplicitGrant;
 use League\OAuth2\Server\ResourceServer;
 use Psr\Container\ContainerInterface;
@@ -43,6 +48,7 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\RefreshTokenGrant;
+use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\IdTokenResponse;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeRule;
@@ -54,12 +60,16 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RequestParameterRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\ScopeRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\StateRule;
 use SimpleSAML\Session;
+use SimpleSAML\Utils\Config;
 
 class Container implements ContainerInterface
 {
     /** @var array */
     private $services = [];
 
+    /**
+     * @throws \Exception
+     */
     public function __construct()
     {
         $simpleSAMLConfiguration = Configuration::getInstance();
@@ -152,28 +162,48 @@ class Container implements ContainerInterface
         $requestRuleManager = new RequestRulesManager($requestRules);
         $this->services[RequestRulesManager::class] = $requestRuleManager;
 
-        $accessTokenDuration = new \DateInterval(
+        $accessTokenDuration = new DateInterval(
             $configurationService->getOpenIDConnectConfiguration()->getString('accessTokenDuration')
         );
-        $authCodeDuration = new \DateInterval(
+        $authCodeDuration = new DateInterval(
             $configurationService->getOpenIDConnectConfiguration()->getString('authCodeDuration')
         );
-        $refreshTokenDuration = new \DateInterval(
+        $refreshTokenDuration = new DateInterval(
             $configurationService->getOpenIDConnectConfiguration()->getString('refreshTokenDuration')
         );
+
+        $publicKeyPath = Config::getCertPath('oidc_module.crt');
+        $privateKeyPath = Config::getCertPath('oidc_module.pem');
         $passPhrase = $configurationService->getOpenIDConnectConfiguration()->getString('pass_phrase', null);
+
+        $cryptKeyFactory = new CryptKeyFactory(
+            $publicKeyPath,
+            $privateKeyPath,
+            $passPhrase
+        );
+        $publicKey = $cryptKeyFactory->buildPublicKey();
+        $privateKey = $cryptKeyFactory->buildPrivateKey();
+        $encryptionKey = Config::getSecretSalt();
 
         $claimTranslatorExtractor = (new ClaimTranslatorExtractorFactory(
             $configurationService
         ))->build();
         $this->services[ClaimTranslatorExtractor::class] = $claimTranslatorExtractor;
 
-        $idTokenResponseFactory = new IdTokenResponseFactory(
+        $idTokenBuilderFactory = new IdTokenBuilderFactory(
             $userRepository,
             $configurationService,
-            $claimTranslatorExtractor
+            $claimTranslatorExtractor,
+            $privateKey
         );
-        $this->services[IdTokenResponseFactory::class] = $idTokenResponseFactory;
+        $this->services[IdTokenBuilder::class] = $idTokenBuilderFactory->build();
+
+        $idTokenResponseFactory = new IdTokenResponseFactory(
+            $this->services[IdTokenBuilder::class],
+            $privateKey,
+            $encryptionKey
+        );
+        $this->services[IdTokenResponse::class] = $idTokenResponseFactory->build();
 
         $authCodeGrantFactory = new AuthCodeGrantFactory(
             $authCodeRepository,
@@ -187,6 +217,9 @@ class Container implements ContainerInterface
         $oAuth2ImplicitGrantFactory = new OAuth2ImplicitGrantFactory($accessTokenDuration, $requestRuleManager);
         $this->services[OAuth2ImplicitGrant::class] = $oAuth2ImplicitGrantFactory->build();
 
+        $implicitGrantFactory = new ImplicitGrantFactory($this->services[IdTokenBuilder::class], $accessTokenDuration, $requestRuleManager);
+        $this->services[ImplicitGrant::class] = $implicitGrantFactory->build();
+
         $refreshTokenGrantFactory = new RefreshTokenGrantFactory(
             $refreshTokenRepository,
             $refreshTokenDuration
@@ -199,26 +232,25 @@ class Container implements ContainerInterface
             $scopeRepository,
             $this->services[AuthCodeGrant::class],
             $this->services[OAuth2ImplicitGrant::class],
+            $this->services[ImplicitGrant::class],
             $this->services[RefreshTokenGrant::class],
             $accessTokenDuration,
-            $idTokenResponseFactory,
+            $this->services[IdTokenResponse::class],
             $requestRuleManager,
-            $passPhrase
+            $privateKey,
+            $encryptionKey
         );
         $this->services[AuthorizationServer::class] = $authorizationServerFactory->build();
 
         $resourceServerFactory = new ResourceServerFactory(
-            $accessTokenRepository
+            $accessTokenRepository,
+            $publicKey
         );
         $this->services[ResourceServer::class] = $resourceServerFactory->build();
     }
 
     /**
-     * @param string $id
-     *
-     * @throws \SimpleSAML\Error\Exception
-     *
-     * @return object
+     * @inheritdoc
      */
     public function get($id)
     {
@@ -226,7 +258,7 @@ class Container implements ContainerInterface
             throw new class ($id) extends Exception implements NotFoundExceptionInterface {
                 public function __construct(string $id)
                 {
-                    parent::__construct("Service not found: {$id}.");
+                    parent::__construct("Service not found: $id.");
                 }
             };
         }
@@ -235,12 +267,10 @@ class Container implements ContainerInterface
     }
 
     /**
-     * @param string $id
-     *
-     * @return bool
+     * @inheritdoc
      */
     public function has($id)
     {
-        return \array_key_exists($id, $this->services);
+        return array_key_exists($id, $this->services);
     }
 }
