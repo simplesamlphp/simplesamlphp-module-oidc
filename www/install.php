@@ -12,7 +12,7 @@
  * file that was distributed with this source code.
  */
 
-use SimpleSAML\Modules\OpenIDConnect\Controller\OpenIdConnectInstallerController;
-use SimpleSAML\Modules\OpenIDConnect\Services\RoutingService;
+use SimpleSAML\Module\oidc\Controller\OpenIdConnectInstallerController;
+use SimpleSAML\Module\oidc\Services\RoutingService;
 
 RoutingService::call(OpenIdConnectInstallerController::class, false);

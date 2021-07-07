@@ -12,12 +12,12 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Form;
+namespace SimpleSAML\Module\oidc\Form;
 
 use Nette\Forms\Form;
 use SimpleSAML\Auth\Source;
-use SimpleSAML\Modules\OpenIDConnect\Form\Controls\CsrfProtection;
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Form\Controls\CsrfProtection;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
 
 class ClientForm extends Form
 {
@@ -27,7 +27,7 @@ class ClientForm extends Form
     public const REGEX_URI = '/^[^:]+:\/\/?[^\s\/$.?#].[^\s]*$/';
 
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService
+     * @var \SimpleSAML\Module\oidc\Services\ConfigurationService
      */
     private $configurationService;
 

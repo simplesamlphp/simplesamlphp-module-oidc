@@ -12,11 +12,11 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Repositories;
+namespace SimpleSAML\Module\oidc\Repositories;
 
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
 
 abstract class AbstractDatabaseRepository
 {
@@ -31,7 +31,7 @@ abstract class AbstractDatabaseRepository
     protected $database;
 
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService
+     * @var \SimpleSAML\Module\oidc\Services\ConfigurationService
      */
     protected $configurationService;
 

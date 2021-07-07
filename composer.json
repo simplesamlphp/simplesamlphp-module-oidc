@@ -49,12 +49,12 @@
     },
     "autoload": {
         "psr-4": {
-            "SimpleSAML\\Modules\\OpenIDConnect\\": "lib/"
+            "SimpleSAML\\Module\\oidc\\": "lib/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Tests\\SimpleSAML\\Modules\\OpenIDConnect\\": "tests/"
+            "SimpleSAML\\Test\\Module\\oidc\\": "tests/"
         }
     },
     "extra": {

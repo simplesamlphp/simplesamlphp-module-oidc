@@ -1,9 +1,9 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces;
+namespace SimpleSAML\Module\oidc\Utils\Checker\Interfaces;
 
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 interface RequestRuleInterface
 {

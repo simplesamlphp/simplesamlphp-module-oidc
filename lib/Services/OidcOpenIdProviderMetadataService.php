@@ -1,12 +1,12 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Services;
+namespace SimpleSAML\Module\oidc\Services;
 
 /**
  * OpenID Provider Metadata Service - provides information about OIDC authentication server.
  *
  * Class OidcOpenIdProviderMetadataService
- * @package SimpleSAML\Modules\OpenIDConnect\Services
+ * @package SimpleSAML\Module\oidc\Services
  */
 class OidcOpenIdProviderMetadataService
 {

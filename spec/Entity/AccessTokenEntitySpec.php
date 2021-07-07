@@ -12,12 +12,12 @@
  * file that was distributed with this source code.
  */
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Entity;
+namespace spec\SimpleSAML\Module\oidc\Entity;
 
 use League\OAuth2\Server\Entities\ClientEntityInterface;
 use PhpSpec\ObjectBehavior;
-use SimpleSAML\Modules\OpenIDConnect\Entity\AccessTokenEntity;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\MementoInterface;
+use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entity\Interfaces\MementoInterface;
 
 class AccessTokenEntitySpec extends ObjectBehavior
 {

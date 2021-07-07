@@ -12,7 +12,7 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Services;
+namespace SimpleSAML\Module\oidc\Services;
 
 use Laminas\Diactoros\Response;
 use Laminas\Diactoros\Response\JsonResponse;

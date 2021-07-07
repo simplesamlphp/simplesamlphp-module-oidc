@@ -1,5 +1,5 @@
 formatter.name: 'pretty'
 suites:
     OpenIDConnect:
-        namespace: SimpleSAML\Modules\OpenIDConnect
-        psr4_prefix: SimpleSAML\Modules\OpenIDConnect
+        namespace: SimpleSAML\Module\oidc
+        psr4_prefix: SimpleSAML\Module\oidc

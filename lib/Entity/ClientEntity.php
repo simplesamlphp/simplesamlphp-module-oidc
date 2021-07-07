@@ -12,9 +12,9 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Entity;
+namespace SimpleSAML\Module\oidc\Entity;
 
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use League\OAuth2\Server\Entities\Traits\ClientTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 

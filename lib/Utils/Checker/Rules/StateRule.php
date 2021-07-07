@@ -1,11 +1,11 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules;
+namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultBagInterface;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultInterface;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Result;
+use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
+use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
+use SimpleSAML\Module\oidc\Utils\Checker\Result;
 
 class StateRule extends AbstractRule
 {

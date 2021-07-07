@@ -12,30 +12,30 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Factories;
+namespace SimpleSAML\Module\oidc\Factories;
 
 use League\OAuth2\Server\CryptKey;
-use SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
-use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\IdTokenResponse;
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
-use SimpleSAML\Modules\OpenIDConnect\Services\IdTokenBuilder;
+use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use SimpleSAML\Utils\Config;
 
 class IdTokenBuilderFactory
 {
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository
+     * @var \SimpleSAML\Module\oidc\Repositories\UserRepository
      */
     private $userRepository;
 
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService
+     * @var \SimpleSAML\Module\oidc\Services\ConfigurationService
      */
     private $configurationService;
 
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor
+     * @var \SimpleSAML\Module\oidc\ClaimTranslatorExtractor
      */
     private $claimTranslatorExtractor;
     /**

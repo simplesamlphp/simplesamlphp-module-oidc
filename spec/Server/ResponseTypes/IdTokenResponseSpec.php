@@ -1,6 +1,6 @@
 <?php
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes;
+namespace spec\SimpleSAML\Module\oidc\Server\ResponseTypes;
 
 use DateTimeImmutable;
 use Laminas\Diactoros\Response;
@@ -23,13 +23,13 @@ use OpenIDConnectServer\Repositories\IdentityProviderInterface;
 use PhpSpec\Exception\Example\FailureException;
 use PhpSpec\ObjectBehavior;
 use SimpleSAML\Configuration;
-use SimpleSAML\Modules\OpenIDConnect\Entity\AccessTokenEntity;
-use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
-use SimpleSAML\Modules\OpenIDConnect\Entity\ScopeEntity;
-use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
-use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\IdTokenResponse;
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
-use SimpleSAML\Modules\OpenIDConnect\Services\IdTokenBuilder;
+use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entity\ClientEntity;
+use SimpleSAML\Module\oidc\Entity\ScopeEntity;
+use SimpleSAML\Module\oidc\Entity\UserEntity;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 
 class IdTokenResponseSpec extends ObjectBehavior
 {

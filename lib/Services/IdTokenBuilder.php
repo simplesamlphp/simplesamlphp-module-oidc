@@ -1,6 +1,6 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Services;
+namespace SimpleSAML\Module\oidc\Services;
 
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Encoding\ChainedFormatter;
@@ -12,7 +12,7 @@ use League\OAuth2\Server\Entities\UserEntityInterface;
 use OpenIDConnectServer\ClaimExtractor;
 use OpenIDConnectServer\Entities\ClaimSetInterface;
 use OpenIDConnectServer\Repositories\IdentityProviderInterface;
-use SimpleSAML\Modules\OpenIDConnect\Utils\FingerprintGenerator;
+use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
 
 class IdTokenBuilder
 {

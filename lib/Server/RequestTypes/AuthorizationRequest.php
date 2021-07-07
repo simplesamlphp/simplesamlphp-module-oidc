@@ -1,6 +1,6 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Server\RequestTypes;
+namespace SimpleSAML\Module\oidc\Server\RequestTypes;
 
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 

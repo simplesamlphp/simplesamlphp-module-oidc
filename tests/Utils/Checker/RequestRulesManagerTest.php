@@ -1,18 +1,18 @@
 <?php
 
-namespace Tests\SimpleSAML\Modules\OpenIDConnect\Utils\Checker;
+namespace SimpleSAML\Test\Module\oidc\Utils\Checker;
 
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\RequestRuleInterface;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultBagInterface;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultInterface;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\RequestRuleInterface;
+use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
+use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
+use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 
 /**
  * Class RequestRulesManagerTest
- * @covers \SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager
+ * @covers \SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager
  */
 class RequestRulesManagerTest extends TestCase
 {

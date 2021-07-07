@@ -1,10 +1,10 @@
 <?php
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Services;
+namespace spec\SimpleSAML\Module\oidc\Services;
 
 use PhpSpec\ObjectBehavior;
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
-use SimpleSAML\Modules\OpenIDConnect\Services\OidcOpenIdProviderMetadataService;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Services\OidcOpenIdProviderMetadataService;
 
 class OidcOpenIdProviderMetadataServiceSpec extends ObjectBehavior
 {

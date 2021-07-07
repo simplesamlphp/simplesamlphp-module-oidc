@@ -12,13 +12,13 @@
  * file that was distributed with this source code.
  */
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
+namespace spec\SimpleSAML\Module\oidc\Controller;
 
 use PhpSpec\ObjectBehavior;
-use SimpleSAML\Modules\OpenIDConnect\Controller\OpenIdConnectDiscoverConfigurationController;
+use SimpleSAML\Module\oidc\Controller\OpenIdConnectDiscoverConfigurationController;
 use Laminas\Diactoros\Response\JsonResponse;
 use Laminas\Diactoros\ServerRequest;
-use SimpleSAML\Modules\OpenIDConnect\Services\OidcOpenIdProviderMetadataService;
+use SimpleSAML\Module\oidc\Services\OidcOpenIdProviderMetadataService;
 
 class OpenIdConnectDiscoverConfigurationControllerSpec extends ObjectBehavior
 {

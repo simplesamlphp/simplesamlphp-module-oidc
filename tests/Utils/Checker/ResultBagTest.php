@@ -1,11 +1,11 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Utils\Checker;
+namespace SimpleSAML\Module\oidc\Utils\Checker;
 
 use PHPUnit\Framework\TestCase;
 
 /**
- * @covers \SimpleSAML\Modules\OpenIDConnect\Utils\Checker\ResultBag
+ * @covers \SimpleSAML\Module\oidc\Utils\Checker\ResultBag
  */
 class ResultBagTest extends TestCase
 {

@@ -12,20 +12,20 @@
  * file that was distributed with this source code.
  */
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
+namespace spec\SimpleSAML\Module\oidc\Controller;
 
 use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
 use Psr\Http\Message\UriInterface;
 use SimpleSAML\Configuration;
-use SimpleSAML\Modules\OpenIDConnect\Controller\ClientCreateController;
-use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
-use SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory;
-use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
-use SimpleSAML\Modules\OpenIDConnect\Form\ClientForm;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
-use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
+use SimpleSAML\Module\oidc\Controller\ClientCreateController;
+use SimpleSAML\Module\oidc\Entity\ClientEntity;
+use SimpleSAML\Module\oidc\Factories\FormFactory;
+use SimpleSAML\Module\oidc\Factories\TemplateFactory;
+use SimpleSAML\Module\oidc\Form\ClientForm;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\XHTML\Template;
 use Laminas\Diactoros\Response\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;

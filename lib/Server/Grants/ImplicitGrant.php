@@ -1,6 +1,6 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Server\Grants;
+namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use DateInterval;
 use League\OAuth2\Server\Entities\UserEntityInterface;
@@ -10,14 +10,14 @@ use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
-use SimpleSAML\Modules\OpenIDConnect\Server\RequestTypes\AuthorizationRequest;
-use SimpleSAML\Modules\OpenIDConnect\Services\IdTokenBuilder;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\MaxAgeRule;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\PromptRule;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RequestParameterRule;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\ScopeRule;
+use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
+use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
+use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\MaxAgeRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\PromptRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestParameterRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
 
 class ImplicitGrant extends OAuth2ImplicitGrant
 {

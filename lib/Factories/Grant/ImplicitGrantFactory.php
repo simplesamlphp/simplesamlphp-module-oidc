@@ -12,12 +12,12 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Factories\Grant;
+namespace SimpleSAML\Module\oidc\Factories\Grant;
 
 use DateInterval;
-use SimpleSAML\Modules\OpenIDConnect\Server\Grants\ImplicitGrant;
-use SimpleSAML\Modules\OpenIDConnect\Services\IdTokenBuilder;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant;
+use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
+use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 
 class ImplicitGrantFactory
 {

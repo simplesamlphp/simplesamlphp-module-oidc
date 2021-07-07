@@ -1,9 +1,9 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces;
+namespace SimpleSAML\Module\oidc\Server\Grants\Interfaces;
 
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 
 interface AuthorizationValidatableWithClientAndRedirectUriInterface
