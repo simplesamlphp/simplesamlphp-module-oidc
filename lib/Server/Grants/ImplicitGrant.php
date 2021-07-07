@@ -70,6 +70,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
     {
         $oAuth2AuthorizationRequest = parent::validateAuthorizationRequestWithClientAndRedirectUri($request, $client, $redirectUri, $state);
 
+        // TODO make sure that scope 'openid' is present
         $rulesToExecute = [
             RequestParameterRule::class,
             PromptRule::class,
@@ -82,6 +83,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
 
         $authorizationRequest = AuthorizationRequest::fromOAuth2AuthorizationRequest($oAuth2AuthorizationRequest);
 
+        // TODO make sure nonce is present (it is required in implicit flow)
         /** @var string|null $nonce */
         $nonce = $request->getQueryParams()['nonce'] ?? null;
         if ($nonce !== null) {
@@ -121,6 +123,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
                 $user->getIdentifier()
             );
 
+            // TODO Only release access token if response_type contains token (not when only id_token).
             $accessToken = $this->issueAccessToken(
                 $this->accessTokenTTL,
                 $authorizationRequest->getClient(),
@@ -136,6 +139,8 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             );
 
             $response = new RedirectResponse();
+
+            // TODO Only set token type in the same case as access_token
             $response->setRedirectUri(
                 $this->makeRedirectUri(
                     $redirectUrl,

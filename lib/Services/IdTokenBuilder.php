@@ -78,6 +78,8 @@ class IdTokenBuilder
             $builder->withClaim('auth_time', $authTime);
         }
 
+        // TODO at_hash is mandatory in implicit flow when response_type is 'id_token token' (when access token is released).
+
         // Need a claim factory here to reduce the number of claims by provided scope.
         $claims = $this->claimExtractor->extract($accessToken->getScopes(), $userEntity->getClaims());
 
