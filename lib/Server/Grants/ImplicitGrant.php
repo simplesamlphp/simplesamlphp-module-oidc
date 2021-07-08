@@ -50,7 +50,8 @@ class ImplicitGrant extends OAuth2ImplicitGrant
 
         $responseType = explode(" ", $queryParams['response_type']);
 
-        return in_array('id_token', $responseType, true);
+        return in_array('id_token', $responseType, true) &&
+            ! in_array('code', $responseType, true); // ...avoid triggering hybrid flow
     }
 
     /**
