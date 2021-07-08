@@ -18,6 +18,7 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestParameterRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
 
 class ImplicitGrant extends OAuth2ImplicitGrant
@@ -67,16 +68,21 @@ class ImplicitGrant extends OAuth2ImplicitGrant
         return parent::completeAuthorizationRequest($authorizationRequest);
     }
 
-    public function validateAuthorizationRequestWithClientAndRedirectUri(ServerRequestInterface $request, ClientEntityInterface $client, string $redirectUri, string $state = null): OAuth2AuthorizationRequest
-    {
-        $oAuth2AuthorizationRequest = parent::validateAuthorizationRequestWithClientAndRedirectUri($request, $client, $redirectUri, $state);
+    public function validateAuthorizationRequestWithClientAndRedirectUri(
+        ServerRequestInterface $request,
+        ClientEntityInterface $client,
+        string $redirectUri,
+        string $state = null
+    ): OAuth2AuthorizationRequest {
+        $oAuth2AuthorizationRequest =
+            parent::validateAuthorizationRequestWithClientAndRedirectUri($request, $client, $redirectUri, $state);
 
-        // TODO make sure that scope 'openid' is present
         $rulesToExecute = [
             RequestParameterRule::class,
             PromptRule::class,
             MaxAgeRule::class,
             ScopeRule::class,
+            RequiredOpenIdScopeRule::class,
             AddClaimsToIdTokenRule::class,
         ];
 
