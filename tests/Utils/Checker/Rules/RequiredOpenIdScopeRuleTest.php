@@ -7,7 +7,6 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ScopeEntity;
 use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Result;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\ResultBag;
 
@@ -16,8 +15,6 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\ResultBag;
  */
 class RequiredOpenIdScopeRuleTest extends TestCase
 {
-    protected $resultBagStub;
-
     protected $scopeEntities = [];
 
     protected $redirectUriResult;
@@ -28,7 +25,6 @@ class RequiredOpenIdScopeRuleTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->resultBagStub = $this->createStub(ResultBagInterface::class);
         $this->redirectUriResult = new Result(RedirectUriRule::class, 'https://some-uri.org');
         $this->stateResult = new Result(StateRule::class, '123');
         $this->requestStub = $this->createStub(ServerRequestInterface::class);
@@ -64,7 +60,10 @@ class RequiredOpenIdScopeRuleTest extends TestCase
         $resultBag->add($this->stateResult);
         $resultBag->add($this->scopeResult);
 
-        $this->assertTrue(($rule->checkRule($this->requestStub, $resultBag, []))->getValue());
+        $result = $rule->checkRule($this->requestStub, $resultBag, []) ??
+            new Result(RequiredOpenIdScopeRule::class, null);
+
+        $this->assertTrue($result->getValue());
     }
 
     public function testCheckRuleThrowsWhenOpenIdScopeIsNotPresent()
