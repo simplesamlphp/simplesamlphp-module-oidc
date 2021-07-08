@@ -18,6 +18,7 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestParameterRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredNonceRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
 
@@ -84,18 +85,15 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             ScopeRule::class,
             RequiredOpenIdScopeRule::class,
             AddClaimsToIdTokenRule::class,
+            RequiredNonceRule::class,
         ];
 
         $resultBag = $this->requestRulesManager->check($request, $rulesToExecute);
 
         $authorizationRequest = AuthorizationRequest::fromOAuth2AuthorizationRequest($oAuth2AuthorizationRequest);
 
-        // TODO make sure nonce is present (it is required in implicit flow)
-        /** @var string|null $nonce */
-        $nonce = $request->getQueryParams()['nonce'] ?? null;
-        if ($nonce !== null) {
-            $authorizationRequest->setNonce($nonce);
-        }
+        // nonce existence is validated using a rule, so we can get it from there.
+        $authorizationRequest->setNonce($resultBag->getOrFail(RequiredNonceRule::class)->getValue());
 
         $maxAge = $resultBag->get(MaxAgeRule::class);
         if (null !== $maxAge) {

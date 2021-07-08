@@ -30,7 +30,6 @@ use SimpleSAML\Configuration;
 use SimpleSAML\Database;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Metadata\MetaDataStorageHandler;
-<<<<<<< HEAD
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Factories\AuthorizationServerFactory;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
@@ -59,6 +58,7 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredNonceRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestParameterRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
@@ -160,6 +160,7 @@ class Container implements ContainerInterface
             new CodeChallengeRule(),
             new CodeChallengeMethodRule($codeChallengeVerifiersRepository),
             new AddClaimsToIdTokenRule(),
+            new RequiredNonceRule(),
         ];
         $requestRuleManager = new RequestRulesManager($requestRules);
         $this->services[RequestRulesManager::class] = $requestRuleManager;
