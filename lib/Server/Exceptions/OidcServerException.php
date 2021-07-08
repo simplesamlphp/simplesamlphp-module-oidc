@@ -29,6 +29,11 @@ class OidcServerException extends OAuthServerException
     protected $redirectUri;
 
     /**
+     * @var bool
+     */
+    protected $forceFragmentUsageInHttpResponses = false;
+
+    /**
      * Throw a new exception.
      *
      * @param string $message Error message
@@ -276,8 +281,9 @@ class OidcServerException extends OAuthServerException
      * Generate a HTTP response.
      *
      * @param ResponseInterface $response
-     * @param bool              $useFragment True if errors should be in the URI fragment instead of query string
-     * @param int               $jsonOptions options passed to json_encode
+     * @param bool $useFragment True if errors should be in the URI fragment instead of query string. Note
+     * that this can be overridden using method forceFragmentUsageInHttpResponses().
+     * @param int $jsonOptions options passed to json_encode
      *
      * @return ResponseInterface
      */
@@ -291,11 +297,13 @@ class OidcServerException extends OAuthServerException
         $payload = $this->getPayload();
 
         if ($this->redirectUri !== null) {
-            if ($useFragment === true) {
-                $this->redirectUri .= (\strstr($this->redirectUri, '#') === false) ? '#' : '&';
-            } else {
-                $this->redirectUri .= (\strstr($this->redirectUri, '?') === false) ? '?' : '&';
+            $paramSeparator = '?';
+
+            if ($this->forceFragmentUsageInHttpResponses || $useFragment) {
+                $paramSeparator = '#';
             }
+
+            $this->redirectUri .= (\strstr($this->redirectUri, $paramSeparator) === false) ? $paramSeparator : '&';
 
             return $response->withStatus(302)->withHeader('Location', $this->redirectUri . \http_build_query($payload));
         }
@@ -309,5 +317,15 @@ class OidcServerException extends OAuthServerException
         $response->getBody()->write($responseBody);
 
         return $response->withStatus($this->getHttpStatusCode());
+    }
+
+    /**
+     * Force usage of URI fragment to return parameters in error responses.
+     *
+     * @param bool $forceFragmentUsage True if fragment should be used, false otherwise
+     */
+    public function forceFragmentUsageInHttpResponses(bool $forceFragmentUsage): void
+    {
+        $this->forceFragmentUsageInHttpResponses = $forceFragmentUsage;
     }
 }
