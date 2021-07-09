@@ -15,7 +15,8 @@ class StateRule extends AbstractRule
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
-        array $data
+        array $data = [],
+        bool $useFragmentInHttpErrorResponses = false
     ): ?ResultInterface {
         /** @var string|null $state */
         $state = $request->getQueryParams()['state'] ?? null;

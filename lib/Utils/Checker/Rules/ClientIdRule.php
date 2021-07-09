@@ -28,7 +28,8 @@ class ClientIdRule extends AbstractRule
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
-        array $data
+        array $data = [],
+        bool $useFragmentInHttpErrorResponses = false
     ): ?ResultInterface {
         $clientId = $request->getQueryParams()['client_id'] ?? $request->getServerParams()['PHP_AUTH_USER'] ?? null;
 

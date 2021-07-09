@@ -44,17 +44,28 @@ class RequestRulesManager
     /**
      * @param ServerRequestInterface $request
      * @param array $ruleKeysToExecute
+     * @param bool $useFragmentInHttpErrorResponses Indicate that in case of HTTP error responses, params should be
+     * returned in URI fragment instead of query.
+     *
      * @return ResultBagInterface
      * @throws OidcServerException
      */
-    public function check(ServerRequestInterface $request, array $ruleKeysToExecute): ResultBagInterface
-    {
+    public function check(
+        ServerRequestInterface $request,
+        array $ruleKeysToExecute,
+        bool $useFragmentInHttpErrorResponses = false
+    ): ResultBagInterface {
         foreach ($ruleKeysToExecute as $ruleKey) {
             if (! isset($this->rules[$ruleKey])) {
                 throw new \LogicException(\sprintf('Rule for key %s not defined.', $ruleKey));
             }
 
-            $result = $this->rules[$ruleKey]->checkRule($request, $this->resultBag, $this->data);
+            $result = $this->rules[$ruleKey]->checkRule(
+                $request,
+                $this->resultBag,
+                $this->data,
+                $useFragmentInHttpErrorResponses
+            );
 
             if ($result !== null) {
                 $this->resultBag->add($result);

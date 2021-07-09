@@ -16,7 +16,8 @@ class AddClaimsToIdTokenRule extends AbstractRule
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
-        array $data
+        array $data = [],
+        bool $useFragmentInHttpErrorResponses = false
     ): ?ResultInterface {
         $queryParams = $request->getQueryParams();
         if (!isset($queryParams['response_type']) || !isset($queryParams['client_id'])) {

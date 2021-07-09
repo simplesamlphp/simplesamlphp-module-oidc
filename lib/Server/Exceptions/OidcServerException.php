@@ -31,7 +31,7 @@ class OidcServerException extends OAuthServerException
     /**
      * @var bool
      */
-    protected $forceFragmentUsageInHttpResponses = false;
+    protected $useFragmentInHttpResponses = false;
 
     /**
      * Throw a new exception.
@@ -82,16 +82,20 @@ class OidcServerException extends OAuthServerException
      *
      * @param string|null $redirectUri
      * @param string|null $state
+     * @param bool $useFragment Use URI fragment to return error parameters
      * @return self
      */
     public static function unsupportedResponseType(
         string $redirectUri = null,
-        string $state = null
+        string $state = null,
+        bool $useFragment = false
     ): OidcServerException {
         $errorMessage = 'The response type is not supported by the authorization server.';
         $hint = 'Check that all required parameters have been provided';
 
-        return new self($errorMessage, 2, 'unsupported_response_type', 400, $hint, $redirectUri, null, $state);
+        $e = new self($errorMessage, 2, 'unsupported_response_type', 400, $hint, $redirectUri, null, $state);
+        $e->useFragmentInHttpResponses($useFragment);
+        return $e;
     }
 
     /**
@@ -100,13 +104,19 @@ class OidcServerException extends OAuthServerException
      * @param string $scope The bad scope
      * @param string|null $redirectUri A HTTP URI to redirect the user back to
      * @param string|null $state
+     * @param bool $useFragment Use URI fragment to return error parameters
      * @return static
      */
-    public static function invalidScope($scope, $redirectUri = null, string $state = null): OidcServerException
-    {
+    public static function invalidScope(
+        $scope,
+        $redirectUri = null,
+        string $state = null,
+        bool $useFragment = false
+    ): OidcServerException {
         // OAuthServerException correctly implements this error, however, it misses state parameter.
         $e = parent::invalidScope($scope, $redirectUri);
         $e->setState($state);
+        $e->useFragmentInHttpResponses($useFragment);
 
         return $e;
     }
@@ -119,6 +129,7 @@ class OidcServerException extends OAuthServerException
      * @param Throwable|null $previous
      * @param string|null $redirectUri
      * @param string|null $state
+     * @param bool $useFragment Use URI fragment to return error parameters
      * @return static
      */
     public static function invalidRequest(
@@ -126,12 +137,14 @@ class OidcServerException extends OAuthServerException
         $hint = null,
         Throwable $previous = null,
         string $redirectUri = null,
-        string $state = null
+        string $state = null,
+        bool $useFragment = false
     ): OidcServerException {
         $e = parent::invalidRequest($parameter, $hint, $previous);
         // OAuthServerException misses the ability to set redirectUri for invalid requests, as well as state.
         $e->setRedirectUri($redirectUri);
         $e->setState($state);
+        $e->useFragmentInHttpResponses($useFragment);
 
         return $e;
     }
@@ -141,16 +154,19 @@ class OidcServerException extends OAuthServerException
      * @param string|null $redirectUri
      * @param Throwable|null $previous
      * @param string|null $state
+     * @param bool $useFragment Use URI fragment to return error parameters
      * @return static
      */
     public static function accessDenied(
         $hint = null,
         $redirectUri = null,
         Throwable $previous = null,
-        string $state = null
+        string $state = null,
+        bool $useFragment = false
     ): OidcServerException {
         $e = parent::accessDenied($hint, $redirectUri, $previous);
         $e->setState($state);
+        $e->useFragmentInHttpResponses($useFragment);
 
         return $e;
     }
@@ -162,39 +178,49 @@ class OidcServerException extends OAuthServerException
      * @param string|null $redirectUri
      * @param Throwable|null $previous
      * @param string|null $state
+     * @param bool $useFragment Use URI fragment to return error parameters
      *
      * @return self
      */
     public static function loginRequired(
-        $hint = null,
-        $redirectUri = null,
+        string $hint = null,
+        string $redirectUri = null,
         Throwable $previous = null,
-        $state = null
+        string $state = null,
+        bool $useFragment = false
     ): OidcServerException {
         $errorMessage = "End-User is not already authenticated.";
 
-        return new self($errorMessage, 6, 'login_required', 400, $hint, $redirectUri, $previous, $state);
+        $e = new self($errorMessage, 6, 'login_required', 400, $hint, $redirectUri, $previous, $state);
+        $e->useFragmentInHttpResponses($useFragment);
+
+        return $e;
     }
 
     /**
-     * Prompt none requires that user should be authenticated.
+     * Request object not supported.
      *
      * @param string|null $hint
      * @param string|null $redirectUri
      * @param Throwable|null $previous
      * @param string|null $state
+     * @param bool $useFragment Use URI fragment to return error parameters
      *
      * @return self
      */
     public static function requestNotSupported(
-        $hint = null,
-        $redirectUri = null,
+        string $hint = null,
+        string $redirectUri = null,
         Throwable $previous = null,
-        $state = null
+        string $state = null,
+        bool $useFragment = false
     ): OidcServerException {
         $errorMessage = "Request object not supported.";
 
-        return new self($errorMessage, 7, 'request_not_supported', 400, $hint, $redirectUri, $previous, $state);
+        $e = new self($errorMessage, 7, 'request_not_supported', 400, $hint, $redirectUri, $previous, $state);
+        $e->useFragmentInHttpResponses($useFragment);
+
+        return $e;
     }
 
     /**
@@ -282,7 +308,7 @@ class OidcServerException extends OAuthServerException
      *
      * @param ResponseInterface $response
      * @param bool $useFragment True if errors should be in the URI fragment instead of query string. Note
-     * that this can be overridden using method forceFragmentUsageInHttpResponses().
+     * that this can also be set using useFragmentInHttpResponses().
      * @param int $jsonOptions options passed to json_encode
      *
      * @return ResponseInterface
@@ -299,7 +325,7 @@ class OidcServerException extends OAuthServerException
         if ($this->redirectUri !== null) {
             $paramSeparator = '?';
 
-            if ($this->forceFragmentUsageInHttpResponses || $useFragment) {
+            if ($this->useFragmentInHttpResponses || $useFragment) {
                 $paramSeparator = '#';
             }
 
@@ -320,12 +346,12 @@ class OidcServerException extends OAuthServerException
     }
 
     /**
-     * Force usage of URI fragment to return parameters in error responses.
+     * Use URI fragment to return parameters in HTTP redirection error responses
      *
-     * @param bool $forceFragmentUsage True if fragment should be used, false otherwise
+     * @param bool $useFragment True if fragment should be used, false otherwise
      */
-    public function forceFragmentUsageInHttpResponses(bool $forceFragmentUsage): void
+    public function useFragmentInHttpResponses(bool $useFragment): void
     {
-        $this->forceFragmentUsageInHttpResponses = $forceFragmentUsage;
+        $this->useFragmentInHttpResponses = $useFragment;
     }
 }

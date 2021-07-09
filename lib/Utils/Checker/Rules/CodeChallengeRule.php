@@ -16,7 +16,8 @@ class CodeChallengeRule extends AbstractRule
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
-        array $data
+        array $data = [],
+        bool $useFragmentInHttpErrorResponses = false
     ): ?ResultInterface {
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
@@ -31,7 +32,8 @@ class CodeChallengeRule extends AbstractRule
                 'Code challenge must be provided for public clients',
                 null,
                 $redirectUri,
-                $state
+                $state,
+                $useFragmentInHttpErrorResponses
             );
         }
 
@@ -42,7 +44,9 @@ class CodeChallengeRule extends AbstractRule
                 'code_challenge',
                 'Code challenge must follow the specifications of RFC-7636.',
                 null,
-                $redirectUri
+                $redirectUri,
+                $state,
+                $useFragmentInHttpErrorResponses
             );
         }
 

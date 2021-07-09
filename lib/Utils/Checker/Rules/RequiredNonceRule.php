@@ -16,7 +16,8 @@ class RequiredNonceRule extends AbstractRule
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
-        array $data
+        array $data = [],
+        bool $useFragmentInHttpErrorResponses = false
     ): ?ResultInterface {
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
@@ -27,7 +28,14 @@ class RequiredNonceRule extends AbstractRule
         $nonce = $request->getQueryParams()['nonce'] ?? null;
 
         if ($nonce === null || $nonce === '') {
-            throw OidcServerException::invalidRequest('nonce', 'nonce is required', null, $redirectUri, $state);
+            throw OidcServerException::invalidRequest(
+                'nonce',
+                'nonce is required',
+                null,
+                $redirectUri,
+                $state,
+                $useFragmentInHttpErrorResponses
+            );
         }
 
         return new Result($this->getKey(), $nonce);

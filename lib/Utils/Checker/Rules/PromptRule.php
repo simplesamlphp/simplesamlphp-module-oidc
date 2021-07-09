@@ -32,7 +32,8 @@ class PromptRule extends AbstractRule
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
-        array $data
+        array $data = [],
+        bool $useFragmentInHttpErrorResponses = false
     ): ?ResultInterface {
         $authSimple = $this->authSimpleFactory->build($request);
 
@@ -55,7 +56,8 @@ class PromptRule extends AbstractRule
                 null,
                 $redirectUri,
                 null,
-                $queryParams['state'] ?? null
+                $queryParams['state'] ?? null,
+                $useFragmentInHttpErrorResponses
             );
         }
 

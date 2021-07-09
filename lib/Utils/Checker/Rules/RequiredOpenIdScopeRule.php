@@ -17,7 +17,8 @@ class RequiredOpenIdScopeRule extends AbstractRule
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
-        array $data
+        array $data = [],
+        bool $useFragmentInHttpErrorResponses = false
     ): ?ResultInterface {
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
@@ -31,7 +32,14 @@ class RequiredOpenIdScopeRule extends AbstractRule
         });
 
         if (! $isOpenIdScopePresent) {
-            throw OidcServerException::invalidRequest('scope', 'Scope openid is required', null, $redirectUri, $state);
+            throw OidcServerException::invalidRequest(
+                'scope',
+                'Scope openid is required',
+                null,
+                $redirectUri,
+                $state,
+                $useFragmentInHttpErrorResponses
+            );
         }
 
         return new Result($this->getKey(), $isOpenIdScopePresent);
