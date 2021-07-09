@@ -8,7 +8,7 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultBagInterface
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Result;
 
-class AddClaimsToIdTokenRule extends AbstractRule
+class ResponseTypeRule extends AbstractRule
 {
     /**
      * @inheritDoc
@@ -19,9 +19,14 @@ class AddClaimsToIdTokenRule extends AbstractRule
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false
     ): ?ResultInterface {
+        $queryParams = $request->getQueryParams();
 
-        $responseType = $currentResultBag->getOrFail(ResponseTypeRule::class)->getValue();
+        if (!isset($queryParams['response_type']) || !isset($queryParams['client_id'])) {
+            throw  OidcServerException::invalidRequest('Missing response_type');
+        }
 
-        return new Result($this->getKey(), $responseType === "id_token");
+        // TODO consider checking for supported response types, for example, from configuration...
+
+        return new Result($this->getKey(), $queryParams['response_type']);
     }
 }
