@@ -109,6 +109,10 @@ class ImplicitGrant extends OAuth2ImplicitGrant
         $addClaimsToIdToken = ($resultBag->getOrFail(AddClaimsToIdTokenRule::class))->getValue();
         $authorizationRequest->setAddClaimsToIdToken($addClaimsToIdToken);
 
+        /** @var string $responseType */
+        $responseType = ($resultBag->getOrFail(ResponseTypeRule::class))->getValue();
+        $authorizationRequest->setResponseType($responseType);
+
         return $authorizationRequest;
     }
 

@@ -21,8 +21,14 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
      */
     protected $addClaimsToIdToken = false;
 
-    public static function fromOAuth2AuthorizationRequest(OAuth2AuthorizationRequest $oAuth2authorizationRequest): AuthorizationRequest
-    {
+    /**
+     * @var string|null
+     */
+    protected $responseType;
+
+    public static function fromOAuth2AuthorizationRequest(
+        OAuth2AuthorizationRequest $oAuth2authorizationRequest
+    ): AuthorizationRequest {
         $authorizationRequest = new self();
 
         $authorizationRequest->setGrantTypeId($oAuth2authorizationRequest->getGrantTypeId());
@@ -86,5 +92,21 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     public function setAddClaimsToIdToken(bool $addClaimsToIdToken): void
     {
         $this->addClaimsToIdToken = $addClaimsToIdToken;
+    }
+
+    /**
+     * @param string $responseType
+     */
+    public function setResponseType(string $responseType): void
+    {
+        $this->responseType = $responseType;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function getResponseType(): ?string
+    {
+        return $this->responseType;
     }
 }
