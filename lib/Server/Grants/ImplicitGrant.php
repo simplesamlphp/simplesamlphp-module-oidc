@@ -29,7 +29,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
     /**
      * @var IdTokenBuilder
      */
-    private $idTokenBuilder;
+    protected $idTokenBuilder;
 
     public function __construct(
         IdTokenBuilder $idTokenBuilder,
@@ -63,12 +63,11 @@ class ImplicitGrant extends OAuth2ImplicitGrant
      */
     public function completeAuthorizationRequest(OAuth2AuthorizationRequest $authorizationRequest)
     {
-
         if ($authorizationRequest instanceof AuthorizationRequest) {
             return $this->completeOidcAuthorizationRequest($authorizationRequest);
         }
 
-        return parent::completeAuthorizationRequest($authorizationRequest);
+        throw new LogicException('Unexpected OAuth2AuthorizationRequest type.');
     }
 
     /**
@@ -94,7 +93,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             RequiredNonceRule::class,
         ];
 
-        $resultBag = $this->requestRulesManager->check($request, $rulesToExecute, $this->queryDelimiter === '#');
+        $resultBag = $this->requestRulesManager->check($request, $rulesToExecute, $this->shouldUseFragment());
 
         $authorizationRequest = AuthorizationRequest::fromOAuth2AuthorizationRequest($oAuth2AuthorizationRequest);
 
@@ -126,61 +125,57 @@ class ImplicitGrant extends OAuth2ImplicitGrant
 
         $redirectUrl = $this->getRedirectUrl($authorizationRequest);
 
-        // The user approved the client, redirect them back with an access token
-        if ($authorizationRequest->isAuthorizationApproved() === true) {
-            // Finalize the requested scopes
-            $finalizedScopes = $this->scopeRepository->finalizeScopes(
-                $authorizationRequest->getScopes(),
-                $this->getIdentifier(),
-                $authorizationRequest->getClient(),
-                $user->getIdentifier()
+        if ($authorizationRequest->isAuthorizationApproved() !== true) {
+            throw OidcServerException::accessDenied(
+                'The user denied the request',
+                $redirectUrl,
+                null,
+                $authorizationRequest->getState(),
+                $this->shouldUseFragment()
             );
-
-            // TODO Only release access token if response_type contains token (not when only id_token).
-            $accessToken = $this->issueAccessToken(
-                $this->accessTokenTTL,
-                $authorizationRequest->getClient(),
-                $user->getIdentifier(),
-                $finalizedScopes
-            );
-
-            $idToken = $this->idTokenBuilder->build(
-                $accessToken,
-                $authorizationRequest->getAddClaimsToIdToken(),
-                $authorizationRequest->getNonce(),
-                $authorizationRequest->getAuthTime()
-            );
-
-            $response = new RedirectResponse();
-
-            // TODO Only set token type in the same case as access_token
-            $response->setRedirectUri(
-                $this->makeRedirectUri(
-                    $redirectUrl,
-                    [
-                        'id_token'     => $idToken->toString(),
-                        'access_token' => (string) $accessToken,
-                        'token_type'   => 'Bearer',
-                        'expires_in'   => $accessToken->getExpiryDateTime()->getTimestamp() - \time(),
-                        'state'        => $authorizationRequest->getState(),
-                    ],
-                    $this->queryDelimiter
-                )
-            );
-
-            return $response;
         }
 
-        // The user denied the client, redirect them back with an error
-        throw OAuthServerException::accessDenied(
-            'The user denied the request',
+        // Finalize the requested scopes
+        $finalizedScopes = $this->scopeRepository->finalizeScopes(
+            $authorizationRequest->getScopes(),
+            $this->getIdentifier(),
+            $authorizationRequest->getClient(),
+            $user->getIdentifier()
+        );
+
+        // TODO Only release access token if response_type contains token (not when only id_token).
+        $accessToken = $this->issueAccessToken(
+            $this->accessTokenTTL,
+            $authorizationRequest->getClient(),
+            $user->getIdentifier(),
+            $finalizedScopes
+        );
+
+        $idToken = $this->idTokenBuilder->build(
+            $accessToken,
+            $authorizationRequest->getAddClaimsToIdToken(),
+            $authorizationRequest->getNonce(),
+            $authorizationRequest->getAuthTime()
+        );
+
+        $response = new RedirectResponse();
+
+        // TODO Only set token type in the same case as access_token
+        $response->setRedirectUri(
             $this->makeRedirectUri(
                 $redirectUrl,
                 [
-                    'state' => $authorizationRequest->getState(),
-                ]
+                    'id_token'     => $idToken->toString(),
+                    'access_token' => (string) $accessToken,
+                    'token_type'   => 'Bearer',
+                    'expires_in'   => $accessToken->getExpiryDateTime()->getTimestamp() - \time(),
+                    'state'        => $authorizationRequest->getState(),
+                ],
+                $this->queryDelimiter
             )
         );
+
+        return $response;
     }
 
     private function getRedirectUrl(AuthorizationRequest $authorizationRequest): string
@@ -196,5 +191,15 @@ class ImplicitGrant extends OAuth2ImplicitGrant
         }
 
         return (string) $redirectUris;
+    }
+
+    /**
+     * Check if fragment should be used for params transportation in HTTP responses
+     *
+     * @return bool
+     */
+    protected function shouldUseFragment(): bool
+    {
+        return $this->queryDelimiter === '#';
     }
 }
