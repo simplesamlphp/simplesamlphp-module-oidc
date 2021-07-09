@@ -87,7 +87,6 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             RequestParameterRule::class,
             PromptRule::class,
             MaxAgeRule::class,
-            ScopeRule::class,
             RequiredOpenIdScopeRule::class,
             AddClaimsToIdTokenRule::class,
             RequiredNonceRule::class,
