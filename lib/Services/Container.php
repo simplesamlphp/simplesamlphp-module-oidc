@@ -196,7 +196,6 @@ class Container implements ContainerInterface
         $this->services[ClaimTranslatorExtractor::class] = $claimTranslatorExtractor;
 
         $idTokenBuilderFactory = new IdTokenBuilderFactory(
-            $userRepository,
             $configurationService,
             $claimTranslatorExtractor,
             $privateKey
@@ -204,6 +203,7 @@ class Container implements ContainerInterface
         $this->services[IdTokenBuilder::class] = $idTokenBuilderFactory->build();
 
         $idTokenResponseFactory = new IdTokenResponseFactory(
+            $userRepository,
             $this->services[ConfigurationService::class],
             $this->services[IdTokenBuilder::class],
             $privateKey,
@@ -223,7 +223,11 @@ class Container implements ContainerInterface
         $oAuth2ImplicitGrantFactory = new OAuth2ImplicitGrantFactory($accessTokenDuration, $requestRuleManager);
         $this->services[OAuth2ImplicitGrant::class] = $oAuth2ImplicitGrantFactory->build();
 
-        $implicitGrantFactory = new ImplicitGrantFactory($this->services[IdTokenBuilder::class], $accessTokenDuration, $requestRuleManager);
+        $implicitGrantFactory = new ImplicitGrantFactory(
+            $this->services[IdTokenBuilder::class],
+            $accessTokenDuration,
+            $requestRuleManager
+        );
         $this->services[ImplicitGrant::class] = $implicitGrantFactory->build();
 
         $refreshTokenGrantFactory = new RefreshTokenGrantFactory(

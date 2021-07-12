@@ -28,7 +28,8 @@
         "psr/container": "^1.0",
         "simplesamlphp/composer-module-installer": "^1.0",
         "steverhoades/oauth2-openid-connect-server": "^2.0",
-        "web-token/jwt-framework": "^2.1"
+        "web-token/jwt-framework": "^2.1",
+        "spomky-labs/base64url": "^2.0"
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^2.10",

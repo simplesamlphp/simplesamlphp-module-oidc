@@ -77,13 +77,12 @@ class IdTokenResponseSpec extends ObjectBehavior
         $privateKey = new CryptKey($this->certFolder . '/oidc_module.pem', null, false);
 
         $idTokenBuilder = new IdTokenBuilder(
-            $identityProvider->getWrappedObject(),
             new ClaimExtractor(),
             $configurationService->getWrappedObject(),
             $privateKey
         );
 
-        $this->beConstructedWith($configurationService, $idTokenBuilder);
+        $this->beConstructedWith($identityProvider->getWrappedObject(), $configurationService, $idTokenBuilder);
         $this->setPrivateKey($privateKey);
     }
 
@@ -108,8 +107,10 @@ class IdTokenResponseSpec extends ObjectBehavior
         $body->shouldHaveValidIdToken(['email' => 'myEmail@example.com']);
     }
 
-    public function it_can_generate_response_with_no_token_claims(AccessTokenEntity $accessToken, Configuration $oidcConfig)
-    {
+    public function it_can_generate_response_with_no_token_claims(
+        AccessTokenEntity $accessToken,
+        Configuration $oidcConfig
+    ) {
         $oidcConfig->getBoolean('alwaysAddClaimsToIdToken', true)->willReturn(false);
         $response = new Response();
         $this->setAccessToken($accessToken);
@@ -161,7 +162,10 @@ class IdTokenResponseSpec extends ObjectBehavior
                     );
                 }
                 $expectedClaimsKeys = array_keys($expectedClaims);
-                $expectedClaimsKeys = array_merge(['iss', 'aud', 'jti', 'nbf', 'exp', 'sub', 'iat'], $expectedClaimsKeys);
+                $expectedClaimsKeys = array_merge(
+                    ['iss', 'aud', 'jti', 'nbf', 'exp', 'sub', 'iat', 'at_hash'],
+                    $expectedClaimsKeys
+                );
                 $claims = array_keys($token->claims()->all());
                 if ($claims !== $expectedClaimsKeys) {
                     throw new FailureException(

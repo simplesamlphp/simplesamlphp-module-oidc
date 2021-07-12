@@ -15,12 +15,17 @@
 namespace SimpleSAML\Module\oidc\Factories;
 
 use League\OAuth2\Server\CryptKey;
+use SimpleSAML\Module\oidcs\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 
 class IdTokenResponseFactory
 {
+    /**
+     * @var UserRepository
+     */
+    private $userRepository;
     /**
      * @var ConfigurationService
      */
@@ -39,11 +44,13 @@ class IdTokenResponseFactory
     private $encryptionKey;
 
     public function __construct(
+        UserRepository $userRepository,
         ConfigurationService $configurationService,
         IdTokenBuilder $idTokenBuilder,
         CryptKey $privateKey,
         string $encryptionKey
     ) {
+        $this->userRepository = $userRepository;
         $this->configurationService = $configurationService;
         $this->idTokenBuilder = $idTokenBuilder;
         $this->privateKey = $privateKey;
@@ -53,6 +60,7 @@ class IdTokenResponseFactory
     public function build(): IdTokenResponse
     {
         $idTokenResponse = new IdTokenResponse(
+            $this->userRepository,
             $this->configurationService,
             $this->idTokenBuilder
         );

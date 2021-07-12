@@ -16,7 +16,9 @@ namespace SimpleSAML\Module\oidc\Server\ResponseTypes;
 
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
+use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\ResponseTypes\BearerTokenResponse;
+use OpenIDConnectServer\Repositories\IdentityProviderInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
@@ -32,6 +34,10 @@ use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
  */
 class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeInterface, AuthTimeResponseTypeInterface
 {
+    /**
+     * @var IdentityProviderInterface
+     */
+    private $identityProvider;
     /**
      * @var ConfigurationService
      */
@@ -53,9 +59,11 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
     protected $authTime;
 
     public function __construct(
+        IdentityProviderInterface $identityProvider,
         ConfigurationService $configurationService,
         IdTokenBuilder $idTokenBuilder
     ) {
+        $this->identityProvider = $identityProvider;
         $this->idTokenBuilder = $idTokenBuilder;
         $this->configurationService = $configurationService;
     }
@@ -75,7 +83,18 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
             ->getOpenIDConnectConfiguration()
             ->getBoolean('alwaysAddClaimsToIdToken', true);
 
-        $token = $this->idTokenBuilder->build($accessToken, $addClaimsFromScopes, $this->getNonce(), $this->getAuthTime());
+        /** @var UserEntityInterface $userEntity */
+        $userEntity = $this->identityProvider->getUserEntityByIdentifier($accessToken->getUserIdentifier());
+
+        // TODO mivanci make released access token string immutable so we can generate at_hash properly
+        $token = $this->idTokenBuilder->build(
+            $userEntity,
+            $this->accessToken,
+            $addClaimsFromScopes,
+            true,
+            $this->getNonce(),
+            $this->getAuthTime()
+        );
 
         return [
             'id_token' => $token->toString(),

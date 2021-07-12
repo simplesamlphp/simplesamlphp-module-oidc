@@ -2,6 +2,7 @@
 
 namespace SimpleSAML\Module\oidc\Services;
 
+use Base64Url\Base64Url;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Encoding\ChainedFormatter;
 use Lcobucci\JWT\Signer\Key\InMemory;
@@ -11,15 +12,10 @@ use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use OpenIDConnectServer\ClaimExtractor;
 use OpenIDConnectServer\Entities\ClaimSetInterface;
-use OpenIDConnectServer\Repositories\IdentityProviderInterface;
 use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
 
 class IdTokenBuilder
 {
-    /**
-     * @var IdentityProviderInterface
-     */
-    private $identityProvider;
     /**
      * @var ClaimExtractor
      */
@@ -34,29 +30,24 @@ class IdTokenBuilder
     private $privateKey;
 
     public function __construct(
-        IdentityProviderInterface $identityProvider,
         ClaimExtractor $claimExtractor,
         ConfigurationService $configurationService,
         CryptKey $privateKey
     ) {
-        $this->identityProvider = $identityProvider;
         $this->claimExtractor = $claimExtractor;
         $this->configurationService = $configurationService;
         $this->privateKey = $privateKey;
     }
 
     public function build(
+        UserEntityInterface $userEntity,
         AccessTokenEntityInterface $accessToken,
         bool $addClaimsFromScopes,
+        bool $addAccessTokenHash,
         ?string $nonce,
         ?int $authTime
     ) {
-        /** @var UserEntityInterface $userEntity */
-        $userEntity = $this->identityProvider->getUserEntityByIdentifier($accessToken->getUserIdentifier());
-
-        if (false === is_a($userEntity, UserEntityInterface::class)) {
-            throw new \RuntimeException('UserEntity must implement UserEntityInterface');
-        } elseif (false === is_a($userEntity, ClaimSetInterface::class)) {
+        if (false === is_a($userEntity, ClaimSetInterface::class)) {
             throw new \RuntimeException('UserEntity must implement ClaimSetInterface');
         }
 
@@ -78,7 +69,12 @@ class IdTokenBuilder
             $builder->withClaim('auth_time', $authTime);
         }
 
-        // TODO at_hash is mandatory in implicit flow when response_type is 'id_token token' (when access token is released).
+        if ($addAccessTokenHash) {
+            $builder->withClaim(
+                'at_hash',
+                $this->generateAccessTokenHash($accessToken, $jwtConfig->signer()->algorithmId())
+            );
+        }
 
         // Need a claim factory here to reduce the number of claims by provided scope.
         $claims = $this->claimExtractor->extract($accessToken->getScopes(), $userEntity->getClaims());
@@ -136,5 +132,37 @@ class IdTokenBuilder
             ->expiresAt($accessToken->getExpiryDateTime())
             ->relatedTo($userEntity->getIdentifier())
             ->issuedAt(new \DateTimeImmutable('now'));
+    }
+
+    /**
+     * @param AccessTokenEntityInterface $accessToken
+     * @param string $jwsAlgorithm JWS Algorithm designation (like RS256, RS384...)
+     * @return string
+     */
+    protected function generateAccessTokenHash(AccessTokenEntityInterface $accessToken, string $jwsAlgorithm): string
+    {
+        $validBitLengths = [256, 384, 512];
+
+        $jwsAlgorithmBitLength = (int) substr($jwsAlgorithm, 2);
+
+        if (! in_array($jwsAlgorithmBitLength, $validBitLengths, true)) {
+            throw new \RuntimeException(sprintf('JWS algorithm not supported (%s)', $jwsAlgorithm));
+        }
+
+        $hashAlgorithm = 'sha' . $jwsAlgorithmBitLength;
+
+        $hashByteLength = (int) ($jwsAlgorithmBitLength / 2 / 8);
+
+        return Base64Url::encode(
+            substr(
+                hash(
+                    $hashAlgorithm,
+                    (string) $accessToken,
+                    true
+                ),
+                0,
+                $hashByteLength
+            )
+        );
     }
 }

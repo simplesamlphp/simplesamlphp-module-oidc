@@ -3,8 +3,8 @@
 namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use DateInterval;
+use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
-use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
@@ -143,7 +143,10 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             $user->getIdentifier()
         );
 
-        // TODO Only release access token if response_type contains token (not when only id_token).
+        $responseParams = [
+            'state' => $authorizationRequest->getState(),
+        ];
+
         $accessToken = $this->issueAccessToken(
             $this->accessTokenTTL,
             $authorizationRequest->getClient(),
@@ -151,26 +154,34 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             $finalizedScopes
         );
 
+        // TODO mivanci make released access token string immutable so we can generate at_hash properly
+
+        $addAccessTokenHashToIdToken = false;
+        if ($authorizationRequest->shouldReturnAccessTokenInAuthorizationResponse()) {
+            $addAccessTokenHashToIdToken = true;
+
+            $responseParams['access_token'] = (string) $accessToken;
+            $responseParams['token_type'] = 'Bearer';
+            $responseParams['expires_in'] = $accessToken->getExpiryDateTime()->getTimestamp() - \time();
+        }
+
         $idToken = $this->idTokenBuilder->build(
+            $user,
             $accessToken,
             $authorizationRequest->getAddClaimsToIdToken(),
+            $addAccessTokenHashToIdToken,
             $authorizationRequest->getNonce(),
             $authorizationRequest->getAuthTime()
         );
 
+        $responseParams['id_token'] = $idToken->toString();
+
         $response = new RedirectResponse();
 
-        // TODO Only set token type in the same case as access_token
         $response->setRedirectUri(
             $this->makeRedirectUri(
                 $redirectUrl,
-                [
-                    'id_token'     => $idToken->toString(),
-                    'access_token' => (string) $accessToken,
-                    'token_type'   => 'Bearer',
-                    'expires_in'   => $accessToken->getExpiryDateTime()->getTimestamp() - \time(),
-                    'state'        => $authorizationRequest->getState(),
-                ],
+                $responseParams,
                 $this->queryDelimiter
             )
         );

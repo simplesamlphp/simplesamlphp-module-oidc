@@ -109,4 +109,17 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     {
         return $this->responseType;
     }
+
+    /**
+     * Check if access token should be issued in authorization response (implicit flow, hybrid flow...).
+     * @return bool
+     */
+    public function shouldReturnAccessTokenInAuthorizationResponse(): bool
+    {
+        if ($this->responseType !== null) {
+            return in_array('token', explode(' ', $this->responseType), true);
+        }
+
+        return false;
+    }
 }
