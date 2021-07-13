@@ -12,6 +12,7 @@ use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use OpenIDConnectServer\ClaimExtractor;
 use OpenIDConnectServer\Entities\ClaimSetInterface;
+use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
 
 class IdTokenBuilder
@@ -149,6 +150,15 @@ class IdTokenBuilder
             throw new \RuntimeException(sprintf('JWS algorithm not supported (%s)', $jwsAlgorithm));
         }
 
+        if ($accessToken instanceof EntityStringRepresentationInterface === false) {
+            throw new \RuntimeException('AccessTokenEntity must implement ' .
+                                        EntityStringRepresentationInterface::class);
+        }
+
+        // Try to use toString() so that it uses the string representation if it was already casted to string,
+        // otherwise, use the casted version.
+        $accessTokenString = $accessToken->toString() ?? (string) $accessToken;
+
         $hashAlgorithm = 'sha' . $jwsAlgorithmBitLength;
 
         $hashByteLength = (int) ($jwsAlgorithmBitLength / 2 / 8);
@@ -157,7 +167,7 @@ class IdTokenBuilder
             substr(
                 hash(
                     $hashAlgorithm,
-                    (string) $accessToken,
+                    $accessTokenString,
                     true
                 ),
                 0,

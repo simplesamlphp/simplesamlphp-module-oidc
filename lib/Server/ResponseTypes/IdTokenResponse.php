@@ -86,7 +86,6 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
         /** @var UserEntityInterface $userEntity */
         $userEntity = $this->identityProvider->getUserEntityByIdentifier($accessToken->getUserIdentifier());
 
-        // TODO mivanci make released access token string immutable so we can generate at_hash properly
         $token = $this->idTokenBuilder->build(
             $userEntity,
             $this->accessToken,

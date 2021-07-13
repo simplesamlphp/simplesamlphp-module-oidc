@@ -62,6 +62,7 @@ class IdTokenResponseSpec extends ObjectBehavior
 
         $accessToken->getExpiryDateTime()->willReturn($expiration);
         $accessToken->__toString()->willReturn('AccessToken123');
+        $accessToken->toString()->willReturn('AccessToken123');
         $accessToken->getIdentifier()->willReturn(self::TOKEN_ID);
         $accessToken->getScopes()->willReturn($scopes);
         $accessToken->getUserIdentifier()->willReturn(self::SUBJECT);
