@@ -14,7 +14,7 @@ use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use League\OAuth2\Server\Grant\AuthCodeGrant as OAuth2AuthCodeGrant;
-use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface;
+use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface as OAuth2AuthCodeRepositoryInterface;
 use League\OAuth2\Server\RequestEvent;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use League\OAuth2\Server\ResponseTypes\RedirectResponse;
@@ -22,11 +22,12 @@ use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\AccessTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entity\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\OidcAuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
-use SimpleSAML\Module\oidc\Repositories\Interfaces\OidcAuthCodeRepositoryInterface;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithClientAndRedirectUriInterface;
@@ -37,7 +38,6 @@ use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeI
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Module\oidc\Utils\Arr;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
-use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\MaxAgeRule;
@@ -63,7 +63,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     protected $codeChallengeVerifiers = [];
 
     /**
-     * @var OidcAuthCodeRepositoryInterface
+     * @var AuthCodeRepositoryInterface
      */
     protected $authCodeRepository;
 
@@ -88,7 +88,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     protected $requireCodeChallengeForPublicClients = true;
 
     public function __construct(
-        AuthCodeRepositoryInterface $authCodeRepository,
+        OAuth2AuthCodeRepositoryInterface $authCodeRepository,
         AccessTokenRepositoryInterface $accessTokenRepository,
         RefreshTokenRepositoryInterface $refreshTokenRepository,
         DateInterval $authCodeTTL,
@@ -232,7 +232,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      * @param string $redirectUri
      * @param array $scopes
      * @param string|null $nonce
-     * @return OidcAuthCodeEntityInterface
+     * @return AuthCodeEntityInterface
      * @throws OAuthServerException
      * @throws UniqueTokenIdentifierConstraintViolationException
      */
@@ -243,7 +243,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         string $redirectUri,
         array $scopes = [],
         string $nonce = null
-    ): OidcAuthCodeEntityInterface {
+    ): AuthCodeEntityInterface {
         $maxGenerationAttempts = self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
 
         $authCode = $this->authCodeRepository->getNewAuthCode();
