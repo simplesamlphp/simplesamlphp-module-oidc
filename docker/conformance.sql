@@ -30,6 +30,7 @@ CREATE TABLE oidc_access_token (
             user_id VARCHAR(191) NOT NULL,                          
             client_id VARCHAR(191) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
+            auth_code_id varchar(191) DEFAULT NULL,
             CONSTRAINT FK_43C1650EA76ED395 FOREIGN KEY (user_id) 
                 REFERENCES oidc_user (id) ON DELETE CASCADE,                                 
             CONSTRAINT FK_43C1650E19EB6921 FOREIGN KEY (client_id) 
@@ -40,6 +41,7 @@ CREATE TABLE oidc_refresh_token (
             expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             access_token_id VARCHAR(191) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
+            auth_code_id varchar(191) DEFAULT NULL,
             CONSTRAINT FK_636B86402CCB2688 FOREIGN KEY (access_token_id)
                 REFERENCES oidc_access_token (id) ON DELETE CASCADE
         );

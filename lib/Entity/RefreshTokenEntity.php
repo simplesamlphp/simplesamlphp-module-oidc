@@ -14,20 +14,25 @@
 
 namespace SimpleSAML\Module\oidc\Entity;
 
-use League\OAuth2\Server\Entities\RefreshTokenEntityInterface;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\RefreshTokenTrait;
-use SimpleSAML\Module\oidc\Entity\Interfaces\MementoInterface;
+use SimpleSAML\Module\oidc\Entity\Interfaces\RefreshTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entity\Traits\AssociateWithAuthCodeTrait;
 use SimpleSAML\Module\oidc\Entity\Traits\RevokeTokenTrait;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
-class RefreshTokenEntity implements RefreshTokenEntityInterface, MementoInterface
+class RefreshTokenEntity implements RefreshTokenEntityInterface
 {
     use RefreshTokenTrait;
     use EntityTrait;
     use RevokeTokenTrait;
+    use AssociateWithAuthCodeTrait;
 
-    public static function fromState(array $state): self
+    public function __construct()
+    {
+    }
+
+    public static function fromState(array $state): RefreshTokenEntityInterface
     {
         $refreshToken = new self();
 
@@ -37,6 +42,7 @@ class RefreshTokenEntity implements RefreshTokenEntityInterface, MementoInterfac
         );
         $refreshToken->accessToken = $state['access_token'];
         $refreshToken->isRevoked = (bool) $state['is_revoked'];
+        $refreshToken->authCodeId = $state['auth_code_id'];
 
         return $refreshToken;
     }
@@ -48,6 +54,7 @@ class RefreshTokenEntity implements RefreshTokenEntityInterface, MementoInterfac
             'expires_at' => $this->getExpiryDateTime()->format('Y-m-d H:i:s'),
             'access_token_id' => $this->getAccessToken()->getIdentifier(),
             'is_revoked' => (int) $this->isRevoked(),
+            'auth_code_id' => $this->getAuthCodeId(),
         ];
     }
 }

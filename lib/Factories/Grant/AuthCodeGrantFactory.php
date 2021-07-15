@@ -14,9 +14,10 @@
 
 namespace SimpleSAML\Module\oidc\Factories\Grant;
 
-use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
+use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
+use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 
 class AuthCodeGrantFactory
@@ -25,6 +26,11 @@ class AuthCodeGrantFactory
      * @var \SimpleSAML\Module\oidc\Repositories\AuthCodeRepository
      */
     private $authCodeRepository;
+
+    /**
+     * @var AccessTokenRepository
+     */
+    private $accessTokenRepository;
 
     /**
      * @var \SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository
@@ -47,12 +53,14 @@ class AuthCodeGrantFactory
 
     public function __construct(
         AuthCodeRepository $authCodeRepository,
+        AccessTokenRepository $accessTokenRepository,
         RefreshTokenRepository $refreshTokenRepository,
         \DateInterval $refreshTokenDuration,
         \DateInterval $authCodeDuration,
         RequestRulesManager $requestRulesManager
     ) {
         $this->authCodeRepository = $authCodeRepository;
+        $this->accessTokenRepository = $accessTokenRepository;
         $this->refreshTokenRepository = $refreshTokenRepository;
         $this->refreshTokenDuration = $refreshTokenDuration;
         $this->authCodeDuration = $authCodeDuration;
@@ -63,6 +71,7 @@ class AuthCodeGrantFactory
     {
         $authCodeGrant = new AuthCodeGrant(
             $this->authCodeRepository,
+            $this->accessTokenRepository,
             $this->refreshTokenRepository,
             $this->authCodeDuration,
             $this->requestRulesManager
