@@ -50,6 +50,7 @@ class RoutingService
         $serverRequest = ServerRequestFactory::fromGlobals();
         $response = $controller($serverRequest);
 
+        # TODO sspv2 return Symfony\Component\HttpFoundation\Response (Template instance) in SSP v2
         if ($response instanceof Template) {
             $response->data['messages'] = $container->get(SessionMessagesService::class)->getMessages();
 
