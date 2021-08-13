@@ -34,16 +34,23 @@ class IdTokenBuilder
      */
     private $privateKey;
 
+    /**
+     * @var RequestedClaimsEncoderService
+     */
+    private $requestedClaimsEncoderService;
+
     public function __construct(
         IdentityProviderInterface $identityProvider,
         ClaimTranslatorExtractor $claimExtractor,
         ConfigurationService $configurationService,
-        CryptKey $privateKey
+        CryptKey $privateKey,
+        RequestedClaimsEncoderService $requestedClaimsEncoderService
     ) {
         $this->identityProvider = $identityProvider;
         $this->claimExtractor = $claimExtractor;
         $this->configurationService = $configurationService;
         $this->privateKey = $privateKey;
+        $this->requestedClaimsEncoderService = $requestedClaimsEncoderService;
     }
 
     public function build(AccessTokenEntityInterface $accessToken, ?string $nonce, ?int $authTime)
@@ -77,8 +84,7 @@ class IdTokenBuilder
 
         // Need a claim factory here to reduce the number of claims by provided scope.
         $claims = $this->claimExtractor->extract($accessToken->getScopes(), $userEntity->getClaims());
-        //TODO: decide how claims should be persisted
-        $requestedClaims =  (new RequestedClaimsEncoderService())->decodeScopesToRequestedClaims($accessToken->getScopes());
+        $requestedClaims =  $this->requestedClaimsEncoderService->decodeScopesToRequestedClaims($accessToken->getScopes());
         $additionalClaims = $this->claimExtractor->extractAdditionalIdTokenClaims($requestedClaims, $userEntity->getClaims());
         $claims = array_merge($additionalClaims, $claims);
 

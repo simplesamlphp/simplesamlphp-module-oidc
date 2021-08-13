@@ -56,6 +56,7 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\MaxAgeRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\PromptRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RedirectUriRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RequestedClaimsRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RequestParameterRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\ScopeRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\StateRule;
@@ -145,6 +146,11 @@ class Container implements ContainerInterface
         $codeChallengeVerifiersRepository = new CodeChallengeVerifiersRepository();
         $this->services[CodeChallengeVerifiersRepository::class] = $codeChallengeVerifiersRepository;
 
+        $claimTranslatorExtractor = (new ClaimTranslatorExtractorFactory(
+            $configurationService
+        ))->build();
+        $this->services[ClaimTranslatorExtractor::class] = $claimTranslatorExtractor;
+
         $requestRules = [
             new StateRule(),
             new ClientIdRule($clientRepository),
@@ -155,6 +161,7 @@ class Container implements ContainerInterface
             new ScopeRule($scopeRepository),
             new CodeChallengeRule(),
             new CodeChallengeMethodRule($codeChallengeVerifiersRepository),
+            new RequestedClaimsRule($clientRepository, $claimTranslatorExtractor)
         ];
         $requestRuleManager = new RequestRulesManager($requestRules);
         $this->services[RequestRulesManager::class] = $requestRuleManager;
@@ -182,16 +189,14 @@ class Container implements ContainerInterface
         $privateKey = $cryptKeyFactory->buildPrivateKey();
         $encryptionKey = Config::getSecretSalt();
 
-        $claimTranslatorExtractor = (new ClaimTranslatorExtractorFactory(
-            $configurationService
-        ))->build();
-        $this->services[ClaimTranslatorExtractor::class] = $claimTranslatorExtractor;
-
+        $requestedClaimsEncoderService = new RequestedClaimsEncoderService();
+        $this->services[RequestedClaimsEncoderService::class] = $requestedClaimsEncoderService;
         $idTokenBuilderFactory = new IdTokenBuilderFactory(
             $userRepository,
             $configurationService,
             $claimTranslatorExtractor,
-            $privateKey
+            $privateKey,
+            $requestedClaimsEncoderService
         );
         $this->services[IdTokenBuilder::class] = $idTokenBuilderFactory->build();
 
@@ -207,7 +212,8 @@ class Container implements ContainerInterface
             $refreshTokenRepository,
             $refreshTokenDuration,
             $authCodeDuration,
-            $requestRuleManager
+            $requestRuleManager,
+            $requestedClaimsEncoderService
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 

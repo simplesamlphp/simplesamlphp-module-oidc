@@ -47,16 +47,23 @@ class OpenIdConnectUserInfoController
      */
     private $claimTranslatorExtractor;
 
+    /**
+     * @var RequestedClaimsEncoderService
+     */
+    private $requestedClaimsEncoderService;
+
     public function __construct(
         ResourceServer $resourceServer,
         AccessTokenRepository $accessTokenRepository,
         UserRepository $userRepository,
-        ClaimTranslatorExtractor $claimTranslatorExtractor
+        ClaimTranslatorExtractor $claimTranslatorExtractor,
+        RequestedClaimsEncoderService $requestedClaimsEncoderService
     ) {
         $this->resourceServer = $resourceServer;
         $this->accessTokenRepository = $accessTokenRepository;
         $this->userRepository = $userRepository;
         $this->claimTranslatorExtractor = $claimTranslatorExtractor;
+        $this->requestedClaimsEncoderService = $requestedClaimsEncoderService;
     }
 
     public function __invoke(ServerRequest $request): JsonResponse
@@ -69,8 +76,7 @@ class OpenIdConnectUserInfoController
         $user = $this->getUser($tokenId);
 
         $claims = $this->claimTranslatorExtractor->extract($scopes, $user->getClaims());
-        //TODO: decide how claims should be persisted
-        $requestedClaims =  (new RequestedClaimsEncoderService())->decodeScopesToRequestedClaims($scopes);
+        $requestedClaims =  $this->requestedClaimsEncoderService->decodeScopesToRequestedClaims($scopes);
         $additionalClaims = $this->claimTranslatorExtractor->extractAdditionalUserInfoClaims($requestedClaims, $user->getClaims());
         $claims = array_merge($additionalClaims, $claims);
 

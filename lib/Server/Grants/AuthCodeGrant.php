@@ -44,6 +44,7 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\MaxAgeRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\PromptRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RedirectUriRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RequestedClaimsRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RequestParameterRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\ScopeRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\StateRule;
@@ -78,11 +79,17 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      */
     protected $requireCodeChallengeForPublicClients = true;
 
+    /**
+     * @var RequestedClaimsEncoderService
+     */
+    private $requestedClaimsEncoderService;
+
     public function __construct(
         AuthCodeRepositoryInterface $authCodeRepository,
         RefreshTokenRepositoryInterface $refreshTokenRepository,
         DateInterval $authCodeTTL,
-        RequestRulesManager $requestRulesManager
+        RequestRulesManager $requestRulesManager,
+        RequestedClaimsEncoderService $requestedClaimsEncoderService
     ) {
         parent::__construct($authCodeRepository, $refreshTokenRepository, $authCodeTTL);
 
@@ -96,6 +103,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         $plainVerifier = new PlainVerifier();
         $this->codeChallengeVerifiers[$plainVerifier->getMethod()] = $plainVerifier;
+        $this->requestedClaimsEncoderService = $requestedClaimsEncoderService;
     }
 
     /**
@@ -220,7 +228,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      * @param string $redirectUri
      * @param array $scopes
      * @param string|null $nonce
-     * @param \stdClass|null claims Claims requested during authorization.
+     * @param array|null claims Claims requested during authorization.
      * @return OidcAuthCodeEntityInterface
      * @throws OAuthServerException
      * @throws UniqueTokenIdentifierConstraintViolationException
@@ -232,7 +240,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         string $redirectUri,
         array $scopes = [],
         string $nonce = null,
-        \stdClass $claims = null
+        ?array $claims = null
     ): OidcAuthCodeEntityInterface {
         $maxGenerationAttempts = self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
 
@@ -373,12 +381,16 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                 }
             }
         }
-        //TODO: how should requested claims be persisted? If they are stored as separate attributes
-        // of a token then it is hard to re-used the oauth2-server code since it doesn't let us extend
-        // attributes of access and refresh tokens.
-        // short term: fake storage by storing as a special scope
+        /**
+         * There isn't a great way to tie into oauth2-server's token generation without just copying
+         * and pasting code. As a workaround we convert the claims to a scope so it can persist for
+         * access and refresh tokens.
+         */
         if (property_exists($authCodePayload, 'claims')) {
-            $scopes[] =  (new RequestedClaimsEncoderService())->encodeRequestedClaimsAsScope($authCodePayload->claims);
+            $claimsScope = $this->requestedClaimsEncoderService->encodeRequestedClaimsAsScope($authCodePayload->claims);
+            if ($claimsScope) {
+                $scopes[] = $claimsScope;
+            }
         }
 
         // Issue and persist new access token
@@ -472,6 +484,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             PromptRule::class,
             MaxAgeRule::class,
             ScopeRule::class,
+            RequestedClaimsRule::class
         ];
 
         // Since we have already validated redirect_uri and we have state, make it available for other checkers.
@@ -530,24 +543,11 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $authorizationRequest->setAuthTime((int) $maxAge->getValue());
         }
 
-
-        //TODO: move to rule
-        // Per https://openid.net/specs/openid-connect-core-1_0.html#IndividualClaimsRequests: Note that even if the
-        // Claims are not available because the End-User did not authorize their release or they are not present, the
-        // Authorization Server MUST NOT generate an error when Claims are not returned, whether they are Essential or
-        // Voluntary, unless otherwise specified in the description of the specific claim.
-        $claimsParam = $request->getQueryParams()['claims'] ?? null;
-        $claims = json_decode($claimsParam);
-        $claimExtractor = new ClaimExtractor();
-        //TODO: should this 
-        if ($claims != null) {
-           //TODO: filter claims based on authorized scopes
-            $authorizedClaims = [];
-            foreach ($client->getScopes() as $scope) {
-                array_merge($authorizedClaims, $claimExtractor->getClaimSet($scope));
-            }
-            $authorizationRequest->setClaims($claims);
+        $requestClaims = $resultBag->get(RequestedClaimsRule::class);
+        if (null !== $requestClaims) {
+            $authorizationRequest->setClaims($requestClaims->getValue());
         }
+
         return $authorizationRequest;
     }
 

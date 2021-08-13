@@ -20,6 +20,7 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
 use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\IdTokenResponse;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use SimpleSAML\Modules\OpenIDConnect\Services\IdTokenBuilder;
+use SimpleSAML\Modules\OpenIDConnect\Services\RequestedClaimsEncoderService;
 use SimpleSAML\Utils\Config;
 
 class IdTokenBuilderFactory
@@ -43,17 +44,23 @@ class IdTokenBuilderFactory
      */
     private $privateKey;
 
+    /**
+     * @var RequestedClaimsEncoderService
+     */
+    private $requestedClaimsEncoderService;
 
     public function __construct(
         UserRepository $userRepository,
         ConfigurationService $configurationService,
         ClaimTranslatorExtractor $claimTranslatorExtractor,
-        CryptKey $privateKey
+        CryptKey $privateKey,
+        RequestedClaimsEncoderService $requestedClaimsEncoderService
     ) {
         $this->userRepository = $userRepository;
         $this->configurationService = $configurationService;
         $this->claimTranslatorExtractor = $claimTranslatorExtractor;
         $this->privateKey = $privateKey;
+        $this->requestedClaimsEncoderService = $requestedClaimsEncoderService;
     }
 
     public function build(): IdTokenBuilder
@@ -62,7 +69,8 @@ class IdTokenBuilderFactory
             $this->userRepository,
             $this->claimTranslatorExtractor,
             $this->configurationService,
-            $this->privateKey
+            $this->privateKey,
+            $this->requestedClaimsEncoderService
         );
     }
 }

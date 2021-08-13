@@ -9,7 +9,7 @@ use SimpleSAML\Modules\OpenIDConnect\Entity\ScopeEntity;
 /**
  * OIDC allows clients to request specific claims, and not just scopes. The oauth2 server library
  * does not seem to have an easy way to tie into authz and refresh token generation, making it difficult to
- * associated these claims with tokens. A short term workaround is to encode them as scope
+ * associated these claims with tokens. A workaround is to encode them as scope
  * Class RequestedClaimsEncoderService
  * @package SimpleSAML\Modules\OpenIDConnect\Services
  */

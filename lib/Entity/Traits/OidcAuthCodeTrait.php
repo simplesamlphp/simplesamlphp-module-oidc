@@ -14,7 +14,7 @@ trait OidcAuthCodeTrait
     protected $nonce;
 
     /**
-     * @var null|\stdClass
+     * @var null|array
      */
     protected $claims;
 
@@ -35,17 +35,17 @@ trait OidcAuthCodeTrait
     }
 
     /**
-     * @return \stdClass|null
+     * @return array|null
      */
-    public function getClaims(): ?\stdClass
+    public function getClaims(): ?array
     {
         return $this->claims;
     }
 
     /**
-     * @param \stdClass|null $claims
+     * @param array|null $claims
      */
-    public function setClaims(?\stdClass $claims): void
+    public function setClaims(?array $claims): void
     {
         $this->claims = $claims;
     }

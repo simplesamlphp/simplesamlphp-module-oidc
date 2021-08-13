@@ -84,7 +84,8 @@ class IdTokenResponseSpec extends ObjectBehavior
             $identityProvider->getWrappedObject(),
             new ClaimTranslatorExtractor(),
             $configurationService->getWrappedObject(),
-            $privateKey
+            $privateKey,
+            new RequestedClaimsEncoderService()
         );
 
         $this->beConstructedWith($idTokenBuilder);

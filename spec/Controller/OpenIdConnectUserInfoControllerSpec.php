@@ -25,6 +25,7 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
 use Laminas\Diactoros\Response\JsonResponse;
 use Laminas\Diactoros\ServerRequest;
+use SimpleSAML\Modules\OpenIDConnect\Services\RequestedClaimsEncoderService;
 
 class OpenIdConnectUserInfoControllerSpec extends ObjectBehavior
 {
@@ -38,7 +39,8 @@ class OpenIdConnectUserInfoControllerSpec extends ObjectBehavior
         ClaimTranslatorExtractor $claimTranslatorExtractor
     ) {
         $claimTranslatorExtractor->extractAdditionalUserInfoClaims(null, ['mail' => ['userid@localhost.localdomain']])->willReturn([]);
-        $this->beConstructedWith($resourceServer, $accessTokenRepository, $userRepository, $claimTranslatorExtractor);
+        $requestedClaimsEncoderService = new RequestedClaimsEncoderService();
+        $this->beConstructedWith($resourceServer, $accessTokenRepository, $userRepository, $claimTranslatorExtractor, $requestedClaimsEncoderService);
     }
 
     /**

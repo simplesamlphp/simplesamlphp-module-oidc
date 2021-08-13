@@ -17,14 +17,14 @@ interface OidcAuthCodeEntityInterface extends AuthCodeEntityInterface
     public function setNonce(string $nonce): void;
 
     /**
-     * @return \stdClass|null
+     * @return array|null
      */
-    public function getClaims(): ?\stdClass;
+    public function getClaims(): ?array;
 
 
     /**
-     * @param \stdClass|null $claims
+     * @param array|null $claims
      */
-    public function setClaims(?\stdClass $claims): void;
+    public function setClaims(?array $claims): void;
 
 }
