@@ -154,4 +154,18 @@ class ClaimTranslatorExtractorTest extends TestCase
         $claimTranslator = new ClaimTranslatorExtractor([$claimSet], $translate);
         $claimTranslator->extract(['typeConversion'], $userAttributes);
     }
+
+    public function testExtractRequestClaims(): void
+    {
+        $claimTranslator = new ClaimTranslatorExtractor();
+        $requestClaims = [
+          "userinfo" => [
+              "name" => ['essential' => true]
+          ]
+        ];
+
+        $claims = $claimTranslator->extractAdditionalUserInfoClaims($requestClaims, ['cn' => ['bob']]);
+        $this->assertEquals(['name' => 'bob'], $claims);
+
+    }
 }

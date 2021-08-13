@@ -23,6 +23,7 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
 use Laminas\Diactoros\Response\JsonResponse;
 use Laminas\Diactoros\ServerRequest;
+use SimpleSAML\Modules\OpenIDConnect\Services\RequestedClaimsEncoderService;
 
 class OpenIdConnectUserInfoController
 {
@@ -68,6 +69,10 @@ class OpenIdConnectUserInfoController
         $user = $this->getUser($tokenId);
 
         $claims = $this->claimTranslatorExtractor->extract($scopes, $user->getClaims());
+        //TODO: decide how claims should be persisted
+        $requestedClaims =  (new RequestedClaimsEncoderService())->decodeScopesToRequestedClaims($scopes);
+        $additionalClaims = $this->claimTranslatorExtractor->extractAdditionalUserInfoClaims($requestedClaims, $user->getClaims());
+        $claims = array_merge($additionalClaims, $claims);
 
         return new JsonResponse($claims);
     }

@@ -15,4 +15,16 @@ interface OidcAuthCodeEntityInterface extends AuthCodeEntityInterface
      * @param string $nonce
      */
     public function setNonce(string $nonce): void;
+
+    /**
+     * @return \stdClass|null
+     */
+    public function getClaims(): ?\stdClass;
+
+
+    /**
+     * @param \stdClass|null $claims
+     */
+    public function setClaims(?\stdClass $claims): void;
+
 }

@@ -21,9 +21,12 @@ use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2Authorizatio
 use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
+use OpenIDConnectServer\ClaimExtractor;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\OidcAuthCodeEntityInterface;
+use SimpleSAML\Modules\OpenIDConnect\Entity\ScopeEntity;
+use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use SimpleSAML\Modules\OpenIDConnect\Repositories\Interfaces\OidcAuthCodeRepositoryInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\AuthorizationValidatableWithClientAndRedirectUriInterface;
@@ -32,6 +35,7 @@ use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\PkceEnabledGrantTy
 use SimpleSAML\Modules\OpenIDConnect\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
+use SimpleSAML\Modules\OpenIDConnect\Services\RequestedClaimsEncoderService;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Arr;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Result;
@@ -43,6 +47,7 @@ use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RedirectUriRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RequestParameterRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\ScopeRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\StateRule;
+use spec\SimpleSAML\Modules\OpenIDConnect\Entity\ScopeEntitySpec;
 
 class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     PkceEnabledGrantTypeInterface,
@@ -169,7 +174,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $user->getIdentifier(),
             $finalRedirectUri,
             $authorizationRequest->getScopes(),
-            $authorizationRequest->getNonce()
+            $authorizationRequest->getNonce(),
+            $authorizationRequest->getClaims()
         );
 
         $payload = [
@@ -183,6 +189,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             'code_challenge_method' => $authorizationRequest->getCodeChallengeMethod(),
             'nonce'                 => $authorizationRequest->getNonce(),
             'auth_time'             => $authorizationRequest->getAuthTime(),
+            'claims'                => $authorizationRequest->getClaims(),
         ];
 
         $jsonPayload = \json_encode($payload);
@@ -213,6 +220,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      * @param string $redirectUri
      * @param array $scopes
      * @param string|null $nonce
+     * @param \stdClass|null claims Claims requested during authorization.
      * @return OidcAuthCodeEntityInterface
      * @throws OAuthServerException
      * @throws UniqueTokenIdentifierConstraintViolationException
@@ -223,7 +231,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         string $userIdentifier,
         string $redirectUri,
         array $scopes = [],
-        string $nonce = null
+        string $nonce = null,
+        \stdClass $claims = null
     ): OidcAuthCodeEntityInterface {
         $maxGenerationAttempts = self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
 
@@ -234,6 +243,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $authCode->setRedirectUri($redirectUri);
         if (null !== $nonce) {
             $authCode->setNonce($nonce);
+        }
+        if (null !== $claims) {
+            $authCode->setClaims($claims);
         }
 
         foreach ($scopes as $scope) {
@@ -361,9 +373,17 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                 }
             }
         }
+        //TODO: how should requested claims be persisted? If they are stored as separate attributes
+        // of a token then it is hard to re-used the oauth2-server code since it doesn't let us extend
+        // attributes of access and refresh tokens.
+        // short term: fake storage by storing as a special scope
+        if (property_exists($authCodePayload, 'claims')) {
+            $scopes[] =  (new RequestedClaimsEncoderService())->encodeRequestedClaimsAsScope($authCodePayload->claims);
+        }
 
         // Issue and persist new access token
         $accessToken = $this->issueAccessToken($accessTokenTTL, $client, $authCodePayload->user_id, $scopes);
+
         $this->getEmitter()->emit(new RequestEvent(RequestEvent::ACCESS_TOKEN_ISSUED, $request));
         $responseType->setAccessToken($accessToken);
 
@@ -510,6 +530,25 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $authorizationRequest->setAuthTime((int) $maxAge->getValue());
         }
 
+
+        //TODO: move to rule
+        // Per https://openid.net/specs/openid-connect-core-1_0.html#IndividualClaimsRequests: Note that even if the
+        // Claims are not available because the End-User did not authorize their release or they are not present, the
+        // Authorization Server MUST NOT generate an error when Claims are not returned, whether they are Essential or
+        // Voluntary, unless otherwise specified in the description of the specific claim.
+        $claimsParam = $request->getQueryParams()['claims'] ?? null;
+        $claims = json_decode($claimsParam);
+        $claimExtractor = new ClaimExtractor();
+        //TODO: should this 
+        if ($claims != null) {
+           //TODO: filter claims based on authorized scopes
+            $authorizedClaims = [];
+            foreach ($client->getScopes() as $scope) {
+                array_merge($authorizedClaims, $claimExtractor->getClaimSet($scope));
+            }
+            $authorizationRequest->setClaims($claims);
+        }
         return $authorizationRequest;
     }
+
 }

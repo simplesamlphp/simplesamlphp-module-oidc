@@ -23,6 +23,7 @@ use OpenIDConnectServer\Repositories\IdentityProviderInterface;
 use PhpSpec\Exception\Example\FailureException;
 use PhpSpec\ObjectBehavior;
 use SimpleSAML\Configuration;
+use SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor;
 use SimpleSAML\Modules\OpenIDConnect\Entity\AccessTokenEntity;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
 use SimpleSAML\Modules\OpenIDConnect\Entity\ScopeEntity;
@@ -30,6 +31,7 @@ use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
 use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\IdTokenResponse;
 use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
 use SimpleSAML\Modules\OpenIDConnect\Services\IdTokenBuilder;
+use SimpleSAML\Modules\OpenIDConnect\Services\RequestedClaimsEncoderService;
 
 class IdTokenResponseSpec extends ObjectBehavior
 {
@@ -51,7 +53,8 @@ class IdTokenResponseSpec extends ObjectBehavior
     {
         $this->certFolder = dirname(__DIR__, 3) . '/docker/ssp/';
         $userEntity = UserEntity::fromData(self::SUBJECT, [
-            'email' => 'myEmail@example.com'
+            'cn'  => ['Homer Simpson'],
+            'mail' => ['myEmail@example.com']
         ]);
         $scopes = [
             ScopeEntity::fromData('openid'),
@@ -79,7 +82,7 @@ class IdTokenResponseSpec extends ObjectBehavior
 
         $idTokenBuilder = new IdTokenBuilder(
             $identityProvider->getWrappedObject(),
-            new ClaimExtractor(),
+            new ClaimTranslatorExtractor(),
             $configurationService->getWrappedObject(),
             $privateKey
         );
@@ -120,6 +123,43 @@ class IdTokenResponseSpec extends ObjectBehavior
         $body = $response->getBody()->getContents();
         echo "json body response " . $body->getWrappedObject();
         $body->shouldHaveValidIdToken();
+    }
+
+    public function it_can_generate_response_with_individual_requested_claims(AccessTokenEntity $accessToken, Configuration $oidcConfig)
+    {
+        $oidcConfig->getBoolean('alwaysAddClaimsToIdToken', true)->willReturn(false);
+        $claimsEncoder = new RequestedClaimsEncoderService();
+        // ID token should only look at id_token for hints
+        $encodedClaim = $claimsEncoder->encodeRequestedClaimsAsScope(
+            [
+                "id_token" => [
+                    "name" => [
+                        "essential" => true,
+                    ]
+                ],
+                "userinfo" => [
+                    "email" => [
+                        "essential" => true,
+                    ]
+                ]
+            ]
+        );
+        $scopes = [
+            ScopeEntity::fromData('openid'),
+            // Internal work around to allow individual claims to be persisted in authz and refresh tokens
+            $encodedClaim,
+        ];
+        $accessToken->getScopes()->willReturn($scopes);
+
+        $response = new Response();
+        $this->setAccessToken($accessToken);
+        $response = $this->generateHttpResponse($response);
+
+        $response->getBody()->rewind();
+        $body = $response->getBody()->getContents();
+        echo "json body response " . $body->getWrappedObject();
+        $body->shouldHaveValidIdToken(['name' => 'Homer Simpson']);
+
     }
 
     public function getMatchers(): array

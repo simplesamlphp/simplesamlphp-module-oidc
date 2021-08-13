@@ -37,6 +37,7 @@ class OpenIdConnectUserInfoControllerSpec extends ObjectBehavior
         UserRepository $userRepository,
         ClaimTranslatorExtractor $claimTranslatorExtractor
     ) {
+        $claimTranslatorExtractor->extractAdditionalUserInfoClaims(null, ['mail' => ['userid@localhost.localdomain']])->willReturn([]);
         $this->beConstructedWith($resourceServer, $accessTokenRepository, $userRepository, $claimTranslatorExtractor);
     }
 

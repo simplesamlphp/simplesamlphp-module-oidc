@@ -16,6 +16,13 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
      */
     protected $authTime;
 
+    /**
+     * The JSON object sent as `claims` request parameter.
+     * @link https://openid.net/specs/openid-connect-core-1_0.html#ClaimsParameter
+     * @var array|null
+     */
+    protected $claims;
+
     public static function fromOAuth2AuthorizationRequest(OAuth2AuthorizationRequest $oAuth2authorizationRequest): AuthorizationRequest
     {
         $authorizationRequest = new self();
@@ -66,4 +73,22 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     {
         $this->authTime = $authTime;
     }
+
+    /**
+     * @return array|null
+     */
+    public function getClaims(): ?array
+    {
+        return $this->claims;
+    }
+
+    /**
+     * @param array|null $claims
+     */
+    public function setClaims(?array $claims): void
+    {
+        $this->claims = $claims;
+    }
+
+
 }

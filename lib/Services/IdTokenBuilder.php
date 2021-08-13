@@ -12,6 +12,7 @@ use League\OAuth2\Server\Entities\UserEntityInterface;
 use OpenIDConnectServer\ClaimExtractor;
 use OpenIDConnectServer\Entities\ClaimSetInterface;
 use OpenIDConnectServer\Repositories\IdentityProviderInterface;
+use SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor;
 use SimpleSAML\Modules\OpenIDConnect\Utils\FingerprintGenerator;
 
 class IdTokenBuilder
@@ -35,7 +36,7 @@ class IdTokenBuilder
 
     public function __construct(
         IdentityProviderInterface $identityProvider,
-        ClaimExtractor $claimExtractor,
+        ClaimTranslatorExtractor $claimExtractor,
         ConfigurationService $configurationService,
         CryptKey $privateKey
     ) {
@@ -76,6 +77,11 @@ class IdTokenBuilder
 
         // Need a claim factory here to reduce the number of claims by provided scope.
         $claims = $this->claimExtractor->extract($accessToken->getScopes(), $userEntity->getClaims());
+        //TODO: decide how claims should be persisted
+        $requestedClaims =  (new RequestedClaimsEncoderService())->decodeScopesToRequestedClaims($accessToken->getScopes());
+        $additionalClaims = $this->claimExtractor->extractAdditionalIdTokenClaims($requestedClaims, $userEntity->getClaims());
+        $claims = array_merge($additionalClaims, $claims);
+
 
         // Per https://openid.net/specs/openid-connect-core-1_0.html#rfc.section.5.4 certain claims
         // should only be added in certain scenarios. Allow deployer to control this.
@@ -107,7 +113,7 @@ class IdTokenBuilder
                     $builder->relatedTo($claimValue);
                     break;
                 default:
-                    if ($addClaimsFromScopesToIdToken) {
+                    if ($addClaimsFromScopesToIdToken || array_key_exists($claimName, $additionalClaims)) {
                         $builder->withClaim($claimName, $claimValue);
                     }
             }

@@ -14,6 +14,11 @@ trait OidcAuthCodeTrait
     protected $nonce;
 
     /**
+     * @var null|\stdClass
+     */
+    protected $claims;
+
+    /**
      * @inheritDoc
      */
     public function getNonce(): ?string
@@ -27,5 +32,21 @@ trait OidcAuthCodeTrait
     public function setNonce($nonce): void
     {
         $this->nonce = $nonce;
+    }
+
+    /**
+     * @return \stdClass|null
+     */
+    public function getClaims(): ?\stdClass
+    {
+        return $this->claims;
+    }
+
+    /**
+     * @param \stdClass|null $claims
+     */
+    public function setClaims(?\stdClass $claims): void
+    {
+        $this->claims = $claims;
     }
 }
