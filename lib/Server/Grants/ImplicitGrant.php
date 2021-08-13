@@ -13,9 +13,11 @@ use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Modules\OpenIDConnect\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Modules\OpenIDConnect\Services\IdTokenBuilder;
+use SimpleSAML\Modules\OpenIDConnect\Services\RequestedClaimsEncoderService;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\MaxAgeRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\PromptRule;
+use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RequestedClaimsRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RequestParameterRule;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\ScopeRule;
 
@@ -26,14 +28,20 @@ class ImplicitGrant extends OAuth2ImplicitGrant
      */
     private $idTokenBuilder;
 
+    /**
+     * @var RequestedClaimsEncoderService
+     */
+    private $requestedClaimsEncoderService;
+
     public function __construct(
         IdTokenBuilder $idTokenBuilder,
         DateInterval $accessTokenTTL,
         $queryDelimiter = '#',
-        RequestRulesManager $requestRulesManager = null
+        RequestRulesManager $requestRulesManager = null,
+        RequestedClaimsEncoderService $requestedClaimsEncoderService
     ) {
         parent::__construct($accessTokenTTL, $queryDelimiter, $requestRulesManager);
-
+        $this->requestedClaimsEncoderService = $requestedClaimsEncoderService;
         $this->idTokenBuilder = $idTokenBuilder;
     }
 
@@ -74,6 +82,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             PromptRule::class,
             MaxAgeRule::class,
             ScopeRule::class,
+            RequestedClaimsRule::class
         ];
 
         $resultBag = $this->requestRulesManager->check($request, $rulesToExecute);
@@ -89,6 +98,11 @@ class ImplicitGrant extends OAuth2ImplicitGrant
         $maxAge = $resultBag->get(MaxAgeRule::class);
         if (null !== $maxAge) {
             $authorizationRequest->setAuthTime((int) $maxAge->getValue());
+        }
+
+        $requestClaims = $resultBag->get(RequestedClaimsRule::class);
+        if (null !== $requestClaims) {
+            $authorizationRequest->setClaims($requestClaims->getValue());
         }
 
         return $authorizationRequest;
@@ -113,6 +127,18 @@ class ImplicitGrant extends OAuth2ImplicitGrant
                 $authorizationRequest->getClient(),
                 $user->getIdentifier()
             );
+
+            /**
+             * There isn't a great way to tie into oauth2-server's token generation without just copying
+             * and pasting code. As a workaround we convert the claims to a scope so it can persist for
+             * access and refresh tokens.
+             */
+            $claimsScope = $this->requestedClaimsEncoderService->encodeRequestedClaimsAsScope(
+                $authorizationRequest->getClaims()
+            );
+            if ($claimsScope) {
+                $finalizedScopes[] = $claimsScope;
+            }
 
             $accessToken = $this->issueAccessToken(
                 $this->accessTokenTTL,

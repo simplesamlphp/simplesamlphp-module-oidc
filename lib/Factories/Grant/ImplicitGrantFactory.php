@@ -17,6 +17,7 @@ namespace SimpleSAML\Modules\OpenIDConnect\Factories\Grant;
 use DateInterval;
 use SimpleSAML\Modules\OpenIDConnect\Server\Grants\ImplicitGrant;
 use SimpleSAML\Modules\OpenIDConnect\Services\IdTokenBuilder;
+use SimpleSAML\Modules\OpenIDConnect\Services\RequestedClaimsEncoderService;
 use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
 
 class ImplicitGrantFactory
@@ -36,11 +37,21 @@ class ImplicitGrantFactory
      */
     protected $requestRulesManager;
 
-    public function __construct(IdTokenBuilder $idTokenBuilder, DateInterval $accessTokenDuration, RequestRulesManager $requestRulesManager)
-    {
+    /**
+     * @var RequestedClaimsEncoderService
+     */
+    private $requestedClaimsEncoderService;
+
+    public function __construct(
+        IdTokenBuilder $idTokenBuilder,
+        DateInterval $accessTokenDuration,
+        RequestRulesManager $requestRulesManager,
+        RequestedClaimsEncoderService $requestedClaimsEncoderService
+    ) {
         $this->idTokenBuilder = $idTokenBuilder;
         $this->accessTokenDuration = $accessTokenDuration;
         $this->requestRulesManager = $requestRulesManager;
+        $this->requestedClaimsEncoderService = $requestedClaimsEncoderService;
     }
 
     public function build(): ImplicitGrant
@@ -49,7 +60,8 @@ class ImplicitGrantFactory
             $this->idTokenBuilder,
             $this->accessTokenDuration,
             '#',
-            $this->requestRulesManager
+            $this->requestRulesManager,
+            $this->requestedClaimsEncoderService
         );
     }
 }
