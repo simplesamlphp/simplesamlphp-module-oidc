@@ -46,18 +46,27 @@ class RequestedClaimsRule extends AbstractRule
         if ($client instanceof ClientEntityInterface === false) {
             throw OidcServerException::invalidClient($request);
         }
-            $authorizedClaims = [];
-            foreach ($client->getScopes() as $scope) {
-                $claimSet = $this->claimExtractor->getClaimSet($scope);
-                if ($claimSet) {
-                    array_merge($authorizedClaims, $claimSet->getClaims());
-                }
+        $authorizedClaims = [];
+        foreach ($client->getScopes() as $scope) {
+            $claimSet = $this->claimExtractor->getClaimSet($scope);
+            if ($claimSet) {
+                $authorizedClaims = array_merge($authorizedClaims, $claimSet->getClaims());
             }
-
-            //TODO: filter id_token and user_info claims
-           // iterate claims and unset things
-
+        }
+        // Remove requested claims that we aren't authorized for.
+        $this->filterUnauthorizedClaims($claims['userinfo'], $authorizedClaims);
+        $this->filterUnauthorizedClaims($claims['id_token'], $authorizedClaims);
+        
         return new Result($this->getKey(), $claims);
+    }
 
+    private function filterUnauthorizedClaims(array &$requested, array $authorized) {
+        $requested = array_filter(
+            $requested,
+            function ($key) use ($authorized) {
+                return in_array($key, $authorized);
+            },
+            ARRAY_FILTER_USE_KEY
+        );
     }
 }

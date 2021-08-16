@@ -205,13 +205,13 @@ class ClaimTranslatorExtractor extends ClaimExtractor
     public function extractAdditionalIdTokenClaims(?array $claimsRequest, array $claims): array
     {
         $idTokenClaims = $claimsRequest['id_token'] ?? [];
-        return $this->extractAdditonalClaims($idTokenClaims, $claims);
+        return $this->extractAdditionalClaims($idTokenClaims, $claims);
     }
 
     public function extractAdditionalUserInfoClaims(?array $claimsRequest, array $claims): array
     {
         $userInfoClaims = $claimsRequest['userinfo'] ?? [];
-        return $this->extractAdditonalClaims($userInfoClaims, $claims);
+        return $this->extractAdditionalClaims($userInfoClaims, $claims);
     }
 
     /**
@@ -221,7 +221,7 @@ class ClaimTranslatorExtractor extends ClaimExtractor
      * @param array $claims
      * @return array
      */
-    private function extractAdditonalClaims(array $requestedClaims, array $claims): array
+    private function extractAdditionalClaims(array $requestedClaims, array $claims): array
     {
         if (empty($requestedClaims)) {
             return [];

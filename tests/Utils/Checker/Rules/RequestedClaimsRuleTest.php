@@ -60,8 +60,12 @@ class RequestedClaimsRuleTest extends TestCase
                 "should be ignored"
             ]
         ];
+        $requestedClaims = $expectedClaims;
+        // Add some claims the client is not authorized for
+        $requestedClaims['userinfo']['someClaim'] = null;
+        $requestedClaims['id_token']['secret_password'] = null;
         $this->request->method('getQueryParams')->willReturn([
-            'claims' => json_encode($expectedClaims),
+            'claims' => json_encode($requestedClaims),
             'client_id' => 'abc'
                                                              ]);
 
