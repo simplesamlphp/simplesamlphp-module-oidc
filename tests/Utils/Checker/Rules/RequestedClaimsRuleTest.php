@@ -74,4 +74,24 @@ class RequestedClaimsRuleTest extends TestCase
         $result = $rule->checkRule($this->request, $resultBag, []);
         $this->assertEquals($expectedClaims, $result->getValue());
     }
+
+
+    public function testOnlyWithNonStandardClaimRequest(): void
+    {
+        $expectedClaims = [
+            "additional_stuff" => [
+                "should be ignored"
+            ]
+        ];
+        $requestedClaims = $expectedClaims;
+        $this->request->method('getQueryParams')->willReturn([
+                                                                 'claims' => json_encode($requestedClaims),
+                                                                 'client_id' => 'abc'
+                                                             ]);
+
+        $rule = new RequestedClaimsRule($this->clientRepository, new ClaimTranslatorExtractor());
+        $resultBag = new ResultBag();
+        $result = $rule->checkRule($this->request, $resultBag, []);
+        $this->assertEquals($expectedClaims, $result->getValue());
+    }
 }
