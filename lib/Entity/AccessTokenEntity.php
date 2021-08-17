@@ -23,7 +23,7 @@ use League\OAuth2\Server\Entities\Traits\TokenEntityTrait;
 use SimpleSAML\Module\oidc\Entity\Interfaces\MementoInterface;
 use SimpleSAML\Module\oidc\Entity\Traits\RevokeTokenTrait;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\EntityStringRepresentationInterface;
+use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
 
 class AccessTokenEntity implements
     AccessTokenEntityInterface,

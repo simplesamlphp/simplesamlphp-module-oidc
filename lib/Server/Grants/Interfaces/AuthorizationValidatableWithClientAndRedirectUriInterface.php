@@ -2,9 +2,9 @@
 
 namespace SimpleSAML\Module\oidc\Server\Grants\Interfaces;
 
+use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
-use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 
 interface AuthorizationValidatableWithClientAndRedirectUriInterface
 {
