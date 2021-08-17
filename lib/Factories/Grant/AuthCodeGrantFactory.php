@@ -12,22 +12,22 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Factories\Grant;
+namespace SimpleSAML\Module\oidc\Factories\Grant;
 
-use SimpleSAML\Modules\OpenIDConnect\Server\Grants\AuthCodeGrant;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\AuthCodeRepository;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
+use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
+use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
+use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 
 class AuthCodeGrantFactory
 {
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\AuthCodeRepository
+     * @var \SimpleSAML\Module\oidc\Repositories\AuthCodeRepository
      */
     private $authCodeRepository;
 
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository
+     * @var \SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository
      */
     private $refreshTokenRepository;
 

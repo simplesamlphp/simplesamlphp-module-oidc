@@ -12,10 +12,10 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Controller;
+namespace SimpleSAML\Module\oidc\Controller;
 
-use SimpleSAML\Modules\OpenIDConnect\Server\AuthorizationServer;
-use SimpleSAML\Modules\OpenIDConnect\Services\AuthenticationService;
+use SimpleSAML\Module\oidc\Server\AuthorizationServer;
+use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use Laminas\Diactoros\Response;
 use Laminas\Diactoros\ServerRequest;
 

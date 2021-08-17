@@ -12,14 +12,14 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Entity;
+namespace SimpleSAML\Module\oidc\Entity;
 
 use League\OAuth2\Server\Entities\RefreshTokenEntityInterface;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\RefreshTokenTrait;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\MementoInterface;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Traits\RevokeTokenTrait;
-use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
+use SimpleSAML\Module\oidc\Entity\Interfaces\MementoInterface;
+use SimpleSAML\Module\oidc\Entity\Traits\RevokeTokenTrait;
+use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 class RefreshTokenEntity implements RefreshTokenEntityInterface, MementoInterface
 {

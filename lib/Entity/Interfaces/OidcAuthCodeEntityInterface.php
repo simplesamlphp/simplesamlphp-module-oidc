@@ -1,6 +1,6 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces;
+namespace SimpleSAML\Module\oidc\Entity\Interfaces;
 
 use League\OAuth2\Server\Entities\AuthCodeEntityInterface;
 

@@ -12,14 +12,14 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes;
+namespace SimpleSAML\Module\oidc\Server\ResponseTypes;
 
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\ResponseTypes\BearerTokenResponse;
-use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
-use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
-use SimpleSAML\Modules\OpenIDConnect\Services\IdTokenBuilder;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
+use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 
 /**
  * Class IdTokenResponse.

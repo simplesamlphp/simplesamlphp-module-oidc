@@ -12,7 +12,7 @@
  * file that was distributed with this source code.
  */
 
-use SimpleSAML\Modules\OpenIDConnect\Controller\OAuth2AccessTokenController;
-use SimpleSAML\Modules\OpenIDConnect\Services\RoutingService;
+use SimpleSAML\Module\oidc\Controller\OAuth2AccessTokenController;
+use SimpleSAML\Module\oidc\Services\RoutingService;
 
 RoutingService::call(OAuth2AccessTokenController::class, false, true);

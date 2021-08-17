@@ -1,6 +1,6 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Server\Grants;
+namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use DateTimeImmutable;
 use DateInterval;
@@ -22,27 +22,27 @@ use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\OidcAuthCodeEntityInterface;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\Interfaces\OidcAuthCodeRepositoryInterface;
-use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
-use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\AuthorizationValidatableWithClientAndRedirectUriInterface;
-use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\OidcCapableGrantTypeInterface;
-use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\PkceEnabledGrantTypeInterface;
-use SimpleSAML\Modules\OpenIDConnect\Server\RequestTypes\AuthorizationRequest;
-use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
-use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Arr;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Result;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeMethodRule;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\CodeChallengeRule;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\MaxAgeRule;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\PromptRule;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RedirectUriRule;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RequestParameterRule;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\ScopeRule;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\StateRule;
+use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entity\Interfaces\OidcAuthCodeEntityInterface;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\OidcAuthCodeRepositoryInterface;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithClientAndRedirectUriInterface;
+use SimpleSAML\Module\oidc\Server\Grants\Interfaces\OidcCapableGrantTypeInterface;
+use SimpleSAML\Module\oidc\Server\Grants\Interfaces\PkceEnabledGrantTypeInterface;
+use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
+use SimpleSAML\Module\oidc\Utils\Arr;
+use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Module\oidc\Utils\Checker\Result;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeMethodRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\MaxAgeRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\PromptRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestParameterRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
 
 class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     PkceEnabledGrantTypeInterface,

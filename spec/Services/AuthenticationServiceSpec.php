@@ -12,22 +12,22 @@
  * file that was distributed with this source code.
  */
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Services;
+namespace spec\SimpleSAML\Module\oidc\Services;
 
 use Laminas\Diactoros\ServerRequest;
 use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Error\Exception;
-use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
-use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
-use SimpleSAML\Modules\OpenIDConnect\Factories\AuthSimpleFactory;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
-use SimpleSAML\Modules\OpenIDConnect\Services\AuthenticationService;
-use SimpleSAML\Modules\OpenIDConnect\Services\AuthProcService;
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
-use SimpleSAML\Modules\OpenIDConnect\Services\OidcOpenIdProviderMetadataService;
+use SimpleSAML\Module\oidc\Entity\ClientEntity;
+use SimpleSAML\Module\oidc\Entity\UserEntity;
+use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Services\AuthenticationService;
+use SimpleSAML\Module\oidc\Services\AuthProcService;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Services\OidcOpenIdProviderMetadataService;
 
 class AuthenticationServiceSpec extends ObjectBehavior
 {

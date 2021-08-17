@@ -12,7 +12,7 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Services;
+namespace SimpleSAML\Module\oidc\Services;
 
 use Lcobucci\JWT\Signer;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
@@ -20,7 +20,7 @@ use PhpParser\Node\Scalar\String_;
 use SimpleSAML\Configuration;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module;
-use SimpleSAML\Modules\OpenIDConnect\Utils\FingerprintGenerator;
+use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
 use SimpleSAML\Utils\Config;
 use SimpleSAML\Utils\HTTP;
 

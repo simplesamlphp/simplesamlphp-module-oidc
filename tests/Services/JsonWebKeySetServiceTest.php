@@ -12,14 +12,14 @@
  * file that was distributed with this source code.
  */
 
-namespace Tests\SimpleSAML\Modules\OpenIDConnect\Services;
+namespace SimpleSAML\Test\Module\oidc\Services;
 
 use Jose\Component\Core\JWKSet;
 use Jose\Component\KeyManagement\JWKFactory;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
-use SimpleSAML\Modules\OpenIDConnect\Services\JsonWebKeySetService;
-use SimpleSAML\Modules\OpenIDConnect\Utils\FingerprintGenerator;
+use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
+use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
 
 class JsonWebKeySetServiceTest extends TestCase
 {

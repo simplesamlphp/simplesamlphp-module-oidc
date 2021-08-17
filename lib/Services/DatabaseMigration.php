@@ -12,14 +12,14 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Services;
+namespace SimpleSAML\Module\oidc\Services;
 
 use SimpleSAML\Database;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\AuthCodeRepository;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\UserRepository;
 
 class DatabaseMigration
 {

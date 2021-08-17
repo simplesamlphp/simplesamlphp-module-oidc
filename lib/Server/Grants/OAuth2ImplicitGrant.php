@@ -1,18 +1,18 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Server\Grants;
+namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use DateInterval;
 use League\OAuth2\Server\Grant\ImplicitGrant;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
-use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\AuthorizationValidatableWithClientAndRedirectUriInterface;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Result;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RedirectUriRule;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\ScopeRule;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\StateRule;
+use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithClientAndRedirectUriInterface;
+use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Module\oidc\Utils\Checker\Result;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
 
 class OAuth2ImplicitGrant extends ImplicitGrant implements AuthorizationValidatableWithClientAndRedirectUriInterface
 {

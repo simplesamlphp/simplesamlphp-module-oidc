@@ -1,12 +1,12 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Utils;
+namespace SimpleSAML\Module\oidc\Utils;
 
 /**
  * Helper for arrays.
  *
  * Class Arr
- * @package SimpleSAML\Modules\OpenIDConnect\Utils
+ * @package SimpleSAML\Module\oidc\Utils
  */
 class Arr
 {

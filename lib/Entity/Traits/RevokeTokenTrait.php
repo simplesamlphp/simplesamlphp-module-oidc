@@ -12,7 +12,7 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Entity\Traits;
+namespace SimpleSAML\Module\oidc\Entity\Traits;
 
 trait RevokeTokenTrait
 {

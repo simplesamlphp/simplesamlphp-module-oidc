@@ -12,13 +12,13 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Controller\Traits;
+namespace SimpleSAML\Module\oidc\Controller\Traits;
 
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Error\NotFound;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 
 trait GetClientFromRequestTrait
 {

@@ -12,10 +12,10 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Services;
+namespace SimpleSAML\Module\oidc\Services;
 
-use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Entity\ClientEntity;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 
 /**
  * Class DatabaseLegacyOAuth2Import.
@@ -23,7 +23,7 @@ use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 class DatabaseLegacyOAuth2Import
 {
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository
+     * @var \SimpleSAML\Module\oidc\Repositories\ClientRepository
      */
     private $clientRepository;
 

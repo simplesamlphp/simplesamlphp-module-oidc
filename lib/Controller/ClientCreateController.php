@@ -12,17 +12,17 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Controller;
+namespace SimpleSAML\Module\oidc\Controller;
 
 use Laminas\Diactoros\Response\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;
-use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
-use SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory;
-use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
-use SimpleSAML\Modules\OpenIDConnect\Form\ClientForm;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
-use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
+use SimpleSAML\Module\oidc\Entity\ClientEntity;
+use SimpleSAML\Module\oidc\Factories\FormFactory;
+use SimpleSAML\Module\oidc\Factories\TemplateFactory;
+use SimpleSAML\Module\oidc\Form\ClientForm;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\Utils\HTTP;
 use SimpleSAML\Utils\Random;
 
@@ -39,17 +39,17 @@ class ClientCreateController
     private $clientRepository;
 
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory
+     * @var \SimpleSAML\Module\oidc\Factories\TemplateFactory
      */
     private $templateFactory;
 
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory
+     * @var \SimpleSAML\Module\oidc\Factories\FormFactory
      */
     private $formFactory;
 
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService
+     * @var \SimpleSAML\Module\oidc\Services\SessionMessagesService
      */
     private $messages;
 

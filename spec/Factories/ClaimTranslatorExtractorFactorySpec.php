@@ -1,10 +1,10 @@
 <?php
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Factories;
+namespace spec\SimpleSAML\Module\oidc\Factories;
 
 use PhpSpec\ObjectBehavior;
 use SimpleSAML\Configuration;
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
 
 class ClaimTranslatorExtractorFactorySpec extends ObjectBehavior
 {

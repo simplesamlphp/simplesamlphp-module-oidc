@@ -12,15 +12,15 @@
  * file that was distributed with this source code.
  */
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
+namespace spec\SimpleSAML\Module\oidc\Controller;
 
 use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
 use Psr\Http\Message\UriInterface;
 use SimpleSAML\Configuration;
-use SimpleSAML\Modules\OpenIDConnect\Controller\ClientIndexController;
-use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Controller\ClientIndexController;
+use SimpleSAML\Module\oidc\Factories\TemplateFactory;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\XHTML\Template;
 use Laminas\Diactoros\ServerRequest;
 

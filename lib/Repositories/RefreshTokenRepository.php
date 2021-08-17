@@ -12,13 +12,13 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Repositories;
+namespace SimpleSAML\Module\oidc\Repositories;
 
 use League\OAuth2\Server\Entities\RefreshTokenEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
-use SimpleSAML\Modules\OpenIDConnect\Entity\RefreshTokenEntity;
-use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
+use SimpleSAML\Module\oidc\Entity\RefreshTokenEntity;
+use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 class RefreshTokenRepository extends AbstractDatabaseRepository implements RefreshTokenRepositoryInterface
 {

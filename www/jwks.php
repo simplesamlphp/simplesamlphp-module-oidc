@@ -12,7 +12,7 @@
  * file that was distributed with this source code.
  */
 
-use SimpleSAML\Modules\OpenIDConnect\Controller\OpenIdConnectJwksController;
-use SimpleSAML\Modules\OpenIDConnect\Services\RoutingService;
+use SimpleSAML\Module\oidc\Controller\OpenIdConnectJwksController;
+use SimpleSAML\Module\oidc\Services\RoutingService;
 
 RoutingService::call(OpenIdConnectJwksController::class, false, true);

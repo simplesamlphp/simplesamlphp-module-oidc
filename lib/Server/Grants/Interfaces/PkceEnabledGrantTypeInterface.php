@@ -1,6 +1,6 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces;
+namespace SimpleSAML\Module\oidc\Server\Grants\Interfaces;
 
 interface PkceEnabledGrantTypeInterface
 {

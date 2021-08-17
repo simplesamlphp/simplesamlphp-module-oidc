@@ -12,9 +12,9 @@
  * file that was distributed with this source code.
  */
 
-use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\AuthCodeRepository;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
+use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 
 /**
  * @param array &$croninfo
@@ -36,7 +36,7 @@ function oidc_hook_cron(&$croninfo)
         return;
     }
 
-    $container = new \SimpleSAML\Modules\OpenIDConnect\Services\Container();
+    $container = new \SimpleSAML\Module\oidc\Services\Container();
 
     try {
         $accessTokenRepository = $container->get(AccessTokenRepository::class);

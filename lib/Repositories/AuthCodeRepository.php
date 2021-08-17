@@ -12,14 +12,14 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Repositories;
+namespace SimpleSAML\Module\oidc\Repositories;
 
 use League\OAuth2\Server\Entities\AuthCodeEntityInterface;
 use SimpleSAML\Error\Assertion;
-use SimpleSAML\Modules\OpenIDConnect\Entity\AuthCodeEntity;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\OidcAuthCodeEntityInterface;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\Interfaces\OidcAuthCodeRepositoryInterface;
-use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
+use SimpleSAML\Module\oidc\Entity\AuthCodeEntity;
+use SimpleSAML\Module\oidc\Entity\Interfaces\OidcAuthCodeEntityInterface;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\OidcAuthCodeRepositoryInterface;
+use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 class AuthCodeRepository extends AbstractDatabaseRepository implements OidcAuthCodeRepositoryInterface
 {
