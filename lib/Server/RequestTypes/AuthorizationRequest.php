@@ -16,8 +16,19 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
      */
     protected $authTime;
 
-    public static function fromOAuth2AuthorizationRequest(OAuth2AuthorizationRequest $oAuth2authorizationRequest): AuthorizationRequest
-    {
+    /**
+     * @var bool
+     */
+    protected $addClaimsToIdToken = false;
+
+    /**
+     * @var string|null
+     */
+    protected $responseType;
+
+    public static function fromOAuth2AuthorizationRequest(
+        OAuth2AuthorizationRequest $oAuth2authorizationRequest
+    ): AuthorizationRequest {
         $authorizationRequest = new self();
 
         $authorizationRequest->setGrantTypeId($oAuth2authorizationRequest->getGrantTypeId());
@@ -65,5 +76,50 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     public function setAuthTime(?int $authTime): void
     {
         $this->authTime = $authTime;
+    }
+
+    /**
+     * @return bool
+     */
+    public function getAddClaimsToIdToken(): bool
+    {
+        return $this->addClaimsToIdToken;
+    }
+
+    /**
+     * @param bool $addClaimsToIdToken
+     */
+    public function setAddClaimsToIdToken(bool $addClaimsToIdToken): void
+    {
+        $this->addClaimsToIdToken = $addClaimsToIdToken;
+    }
+
+    /**
+     * @param string $responseType
+     */
+    public function setResponseType(string $responseType): void
+    {
+        $this->responseType = $responseType;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function getResponseType(): ?string
+    {
+        return $this->responseType;
+    }
+
+    /**
+     * Check if access token should be issued in authorization response (implicit flow, hybrid flow...).
+     * @return bool
+     */
+    public function shouldReturnAccessTokenInAuthorizationResponse(): bool
+    {
+        if ($this->responseType !== null) {
+            return in_array('token', explode(' ', $this->responseType), true);
+        }
+
+        return false;
     }
 }

@@ -24,10 +24,6 @@ use SimpleSAML\Utils\Config;
 
 class IdTokenBuilderFactory
 {
-    /**
-     * @var \SimpleSAML\Module\oidc\Repositories\UserRepository
-     */
-    private $userRepository;
 
     /**
      * @var \SimpleSAML\Module\oidc\Services\ConfigurationService
@@ -45,12 +41,10 @@ class IdTokenBuilderFactory
 
 
     public function __construct(
-        UserRepository $userRepository,
         ConfigurationService $configurationService,
         ClaimTranslatorExtractor $claimTranslatorExtractor,
         CryptKey $privateKey
     ) {
-        $this->userRepository = $userRepository;
         $this->configurationService = $configurationService;
         $this->claimTranslatorExtractor = $claimTranslatorExtractor;
         $this->privateKey = $privateKey;
@@ -59,7 +53,6 @@ class IdTokenBuilderFactory
     public function build(): IdTokenBuilder
     {
         return new IdTokenBuilder(
-            $this->userRepository,
             $this->claimTranslatorExtractor,
             $this->configurationService,
             $this->privateKey

@@ -3,11 +3,12 @@
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
 
-class StateRule extends AbstractRule
+class AddClaimsToIdTokenRule extends AbstractRule
 {
     /**
      * @inheritDoc
@@ -18,9 +19,9 @@ class StateRule extends AbstractRule
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false
     ): ?ResultInterface {
-        /** @var string|null $state */
-        $state = $request->getQueryParams()['state'] ?? null;
 
-        return new Result($this->getKey(), $state);
+        $responseType = $currentResultBag->getOrFail(ResponseTypeRule::class)->getValue();
+
+        return new Result($this->getKey(), $responseType === "id_token");
     }
 }

@@ -23,13 +23,23 @@ use League\OAuth2\Server\Entities\Traits\TokenEntityTrait;
 use SimpleSAML\Module\oidc\Entity\Interfaces\MementoInterface;
 use SimpleSAML\Module\oidc\Entity\Traits\RevokeTokenTrait;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
+use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
 
-class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
+class AccessTokenEntity implements
+    AccessTokenEntityInterface,
+    MementoInterface,
+    EntityStringRepresentationInterface
 {
     use AccessTokenTrait;
     use TokenEntityTrait;
     use EntityTrait;
     use RevokeTokenTrait;
+
+    /**
+     * String representation of access token issued to the client.
+     * @var string $stringRepresentation
+     */
+    protected $stringRepresentation;
 
     /**
      * Constructor.
@@ -96,5 +106,23 @@ class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
             'client_id' => $this->getClient()->getIdentifier(),
             'is_revoked' => (int) $this->isRevoked(),
         ];
+    }
+
+    /**
+     * Generate string representation, save it in a field, and return it.
+     * @return string
+     */
+    public function __toString()
+    {
+        return $this->stringRepresentation = $this->convertToJWT()->toString();
+    }
+
+    /**
+     * Get string representation of access token at the moment of casting it to string.
+     * @return string|null String representation or null if it was not casted to string yet.
+     */
+    public function toString(): ?string
+    {
+        return $this->stringRepresentation;
     }
 }

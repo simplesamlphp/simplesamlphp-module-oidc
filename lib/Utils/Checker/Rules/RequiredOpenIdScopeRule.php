@@ -2,13 +2,14 @@
 
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
+use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
 
-class CodeChallengeRule extends AbstractRule
+class RequiredOpenIdScopeRule extends AbstractRule
 {
     /**
      * @inheritDoc
@@ -23,13 +24,17 @@ class CodeChallengeRule extends AbstractRule
         $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
+        /** @var ScopeEntityInterface[] $validScopes */
+        $validScopes = $currentResultBag->getOrFail(ScopeRule::class)->getValue();
 
-        $codeChallenge = $request->getQueryParams()['code_challenge'] ?? null;
+        $isOpenIdScopePresent = (bool) array_filter($validScopes, function ($scopeEntity) {
+            return $scopeEntity->getIdentifier() === 'openid';
+        });
 
-        if ($codeChallenge === null) {
+        if (! $isOpenIdScopePresent) {
             throw OidcServerException::invalidRequest(
-                'code_challenge',
-                'Code challenge must be provided for public clients',
+                'scope',
+                'Scope openid is required',
                 null,
                 $redirectUri,
                 $state,
@@ -37,19 +42,6 @@ class CodeChallengeRule extends AbstractRule
             );
         }
 
-        // Validate code_challenge according to RFC-7636
-        // @see: https://tools.ietf.org/html/rfc7636#section-4.2
-        if (\preg_match('/^[A-Za-z0-9-._~]{43,128}$/', $codeChallenge) !== 1) {
-            throw OidcServerException::invalidRequest(
-                'code_challenge',
-                'Code challenge must follow the specifications of RFC-7636.',
-                null,
-                $redirectUri,
-                $state,
-                $useFragmentInHttpErrorResponses
-            );
-        }
-
-        return new Result($this->getKey(), $codeChallenge);
+        return new Result($this->getKey(), $isOpenIdScopePresent);
     }
 }

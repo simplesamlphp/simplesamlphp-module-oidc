@@ -3,11 +3,12 @@
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
 
-class StateRule extends AbstractRule
+class ResponseTypeRule extends AbstractRule
 {
     /**
      * @inheritDoc
@@ -18,9 +19,14 @@ class StateRule extends AbstractRule
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false
     ): ?ResultInterface {
-        /** @var string|null $state */
-        $state = $request->getQueryParams()['state'] ?? null;
+        $queryParams = $request->getQueryParams();
 
-        return new Result($this->getKey(), $state);
+        if (!isset($queryParams['response_type']) || !isset($queryParams['client_id'])) {
+            throw  OidcServerException::invalidRequest('Missing response_type');
+        }
+
+        // TODO consider checking for supported response types, for example, from configuration...
+
+        return new Result($this->getKey(), $queryParams['response_type']);
     }
 }
