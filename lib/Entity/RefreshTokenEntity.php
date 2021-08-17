@@ -28,10 +28,6 @@ class RefreshTokenEntity implements RefreshTokenEntityInterface
     use RevokeTokenTrait;
     use AssociateWithAuthCodeTrait;
 
-    public function __construct()
-    {
-    }
-
     public static function fromState(array $state): RefreshTokenEntityInterface
     {
         $refreshToken = new self();
