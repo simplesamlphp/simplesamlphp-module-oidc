@@ -94,6 +94,11 @@ class DatabaseMigration
             $this->version20200901163000();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20200901163000')");
         }
+
+        if (!\in_array('20210714113000', $versions, true)) {
+            $this->version20210714113000();
+            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210714113000')");
+        }
     }
 
     private function versionsTableName(): string
@@ -214,6 +219,26 @@ EOT
         $this->database->write(<<< EOT
         ALTER TABLE ${clientTableName}
             ADD nonce TEXT NULL 
+EOT
+        );
+    }
+
+    /**
+     * Add auth_code_id column to access token and refresh token tables
+     */
+    protected function version20210714113000()
+    {
+        $tableName = $this->database->applyPrefix(AccessTokenRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE ${tableName}
+            ADD auth_code_id VARCHAR(191) NULL 
+EOT
+        );
+
+        $tableName = $this->database->applyPrefix(RefreshTokenRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE ${tableName}
+            ADD auth_code_id VARCHAR(191) NULL 
 EOT
         );
     }

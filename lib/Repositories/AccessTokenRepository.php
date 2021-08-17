@@ -14,15 +14,19 @@
 
 namespace SimpleSAML\Module\oidc\Repositories;
 
-use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
+use League\OAuth2\Server\Entities\AccessTokenEntityInterface as OAuth2AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
-use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
 use SimpleSAML\Error\Assertion;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entity\Interfaces\AccessTokenEntityInterface;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
+use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 class AccessTokenRepository extends AbstractDatabaseRepository implements AccessTokenRepositoryInterface
 {
+    use RevokeTokenByAuthCodeIdTrait;
+
     public const TABLE_NAME = 'oidc_access_token';
 
     /**
@@ -36,23 +40,27 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
     /**
      * {@inheritdoc}
      */
-    public function getNewToken(OAuth2ClientEntityInterface $clientEntity, array $scopes, $userIdentifier = null)
-    {
-        return AccessTokenEntity::fromData($clientEntity, $scopes, $userIdentifier);
+    public function getNewToken(
+        OAuth2ClientEntityInterface $clientEntity,
+        array $scopes,
+        $userIdentifier = null,
+        string $authCodeId = null
+    ): AccessTokenEntityInterface {
+        return AccessTokenEntity::fromData($clientEntity, $scopes, $userIdentifier, $authCodeId);
     }
 
     /**
      * {@inheritdoc}
      */
-    public function persistNewAccessToken(AccessTokenEntityInterface $accessTokenEntity)
+    public function persistNewAccessToken(OAuth2AccessTokenEntityInterface $accessTokenEntity)
     {
         if (!$accessTokenEntity instanceof AccessTokenEntity) {
             throw new Assertion('Invalid AccessTokenEntity');
         }
 
         $stmt = sprintf(
-            "INSERT INTO %s (id, scopes, expires_at, user_id, client_id, is_revoked) "
-                . "VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked)",
+            "INSERT INTO %s (id, scopes, expires_at, user_id, client_id, is_revoked, auth_code_id) "
+                . "VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked, :auth_code_id)",
             $this->getTableName()
         );
 
@@ -139,7 +147,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
     {
         $stmt = sprintf(
             "UPDATE %s SET scopes = :scopes, expires_at = :expires_at, user_id = :user_id, "
-                . "client_id = :client_id, is_revoked = :is_revoked WHERE id = :id",
+                . "client_id = :client_id, is_revoked = :is_revoked, auth_code_id = :auth_code_id WHERE id = :id",
             $this->getTableName()
         );
 

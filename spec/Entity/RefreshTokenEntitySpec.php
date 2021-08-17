@@ -34,6 +34,7 @@ class RefreshTokenEntitySpec extends ObjectBehavior
                 'expires_at' => '1970-01-01 00:00:00',
                 'access_token' => $accessTokenEntity,
                 'is_revoked' => false,
+                'auth_code_id' => '123',
             ],
         ]);
     }
@@ -89,6 +90,14 @@ class RefreshTokenEntitySpec extends ObjectBehavior
     /**
      * @return void
      */
+    public function it_has_auth_code_id()
+    {
+        $this->getAuthCodeId()->shouldBeEqualTo('123');
+    }
+
+    /**
+     * @return void
+     */
     public function it_can_return_state()
     {
         $this->getState()->shouldBeLike([
@@ -96,6 +105,7 @@ class RefreshTokenEntitySpec extends ObjectBehavior
             'expires_at' => '1970-01-01 00:00:00',
             'access_token_id' => 'access_token_id',
             'is_revoked' => false,
+            'auth_code_id' => '123',
         ]);
     }
 }

@@ -36,6 +36,7 @@ class AccessTokenEntitySpec extends ObjectBehavior
                 'user_id' => 'user_id',
                 'client' => $clientEntity,
                 'is_revoked' => false,
+                'auth_code_id' => '123',
             ],
         ]);
     }
@@ -107,6 +108,14 @@ class AccessTokenEntitySpec extends ObjectBehavior
     /**
      * @return void
      */
+    public function it_has_auth_code_id()
+    {
+        $this->getAuthCodeId()->shouldBeEqualTo('123');
+    }
+
+    /**
+     * @return void
+     */
     public function it_can_return_state()
     {
         $this->getState()->shouldBeLike([
@@ -116,6 +125,7 @@ class AccessTokenEntitySpec extends ObjectBehavior
             'user_id' => 'user_id',
             'client_id' => 'client_id',
             'is_revoked' => false,
+            'auth_code_id' => '123',
         ]);
     }
 }

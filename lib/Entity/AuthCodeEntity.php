@@ -21,8 +21,10 @@ use SimpleSAML\Module\oidc\Entity\Interfaces\MementoInterface;
 use SimpleSAML\Module\oidc\Entity\Traits\OidcAuthCodeTrait;
 use SimpleSAML\Module\oidc\Entity\Traits\RevokeTokenTrait;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
+use SimpleSAML\Module\oidc\Entity\Interfaces\AuthCodeEntityInterface;
 
-class AuthCodeEntity implements OidcAuthCodeEntityInterface, MementoInterface
+
+class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
 {
     use EntityTrait;
     use TokenEntityTrait;

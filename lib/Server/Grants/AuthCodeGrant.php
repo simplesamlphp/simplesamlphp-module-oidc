@@ -7,23 +7,27 @@ use DateTimeImmutable;
 use League\OAuth2\Server\CodeChallengeVerifiers\CodeChallengeVerifierInterface;
 use League\OAuth2\Server\CodeChallengeVerifiers\PlainVerifier;
 use League\OAuth2\Server\CodeChallengeVerifiers\S256Verifier;
+use League\OAuth2\Server\Entities\AccessTokenEntityInterface as OAuth2AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use League\OAuth2\Server\Grant\AuthCodeGrant as OAuth2AuthCodeGrant;
-use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface;
-use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
+use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface as OAuth2AuthCodeRepositoryInterface;
 use League\OAuth2\Server\RequestEvent;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Entity\Interfaces\AccessTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entity\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
-use SimpleSAML\Module\oidc\Entity\Interfaces\OidcAuthCodeEntityInterface;
-use SimpleSAML\Module\oidc\Repositories\Interfaces\OidcAuthCodeRepositoryInterface;
+use SimpleSAML\Module\oidc\Entity\Interfaces\RefreshTokenEntityInterface;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithClientAndRedirectUriInterface;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\OidcCapableGrantTypeInterface;
@@ -59,9 +63,20 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     protected $codeChallengeVerifiers = [];
 
     /**
-     * @var OidcAuthCodeRepositoryInterface
+     * @var AuthCodeRepositoryInterface
      */
     protected $authCodeRepository;
+
+    /**
+     * @var AccessTokenRepositoryInterface
+     */
+    protected $accessTokenRepository;
+
+    /**
+     * @var RefreshTokenRepositoryInterface
+     */
+    protected $refreshTokenRepository;
+
     /**
      * @var RequestRulesManager
      */
@@ -73,12 +88,17 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     protected $requireCodeChallengeForPublicClients = true;
 
     public function __construct(
-        AuthCodeRepositoryInterface $authCodeRepository,
+        OAuth2AuthCodeRepositoryInterface $authCodeRepository,
+        AccessTokenRepositoryInterface $accessTokenRepository,
         RefreshTokenRepositoryInterface $refreshTokenRepository,
         DateInterval $authCodeTTL,
         RequestRulesManager $requestRulesManager
     ) {
         parent::__construct($authCodeRepository, $refreshTokenRepository, $authCodeTTL);
+
+        $this->setAuthCodeRepository($authCodeRepository);
+        $this->setAccessTokenRepository($accessTokenRepository);
+        $this->setRefreshTokenRepository($refreshTokenRepository);
 
         $this->authCodeTTL = $authCodeTTL;
         $this->requestRulesManager = $requestRulesManager;
@@ -212,7 +232,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      * @param string $redirectUri
      * @param array $scopes
      * @param string|null $nonce
-     * @return OidcAuthCodeEntityInterface
+     * @return AuthCodeEntityInterface
      * @throws OAuthServerException
      * @throws UniqueTokenIdentifierConstraintViolationException
      */
@@ -223,7 +243,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         string $redirectUri,
         array $scopes = [],
         string $nonce = null
-    ): OidcAuthCodeEntityInterface {
+    ): AuthCodeEntityInterface {
         $maxGenerationAttempts = self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
 
         $authCode = $this->authCodeRepository->getNewAuthCode();
@@ -362,7 +382,13 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         }
 
         // Issue and persist new access token
-        $accessToken = $this->issueAccessToken($accessTokenTTL, $client, $authCodePayload->user_id, $scopes);
+        $accessToken = $this->issueAccessToken(
+            $accessTokenTTL,
+            $client,
+            $authCodePayload->user_id,
+            $scopes,
+            $authCodePayload->auth_code_id
+        );
         $this->getEmitter()->emit(new RequestEvent(RequestEvent::ACCESS_TOKEN_ISSUED, $request));
         $responseType->setAccessToken($accessToken);
 
@@ -384,7 +410,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         }
 
         // Issue and persist new refresh token if given
-        $refreshToken = $this->issueRefreshToken($accessToken);
+        $refreshToken = $this->issueRefreshToken($accessToken, $authCodePayload->auth_code_id);
 
         if ($refreshToken !== null) {
             $this->getEmitter()->emit(new RequestEvent(RequestEvent::REFRESH_TOKEN_ISSUED, $request));
@@ -419,6 +445,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         }
 
         if ($this->authCodeRepository->isAuthCodeRevoked($authCodePayload->auth_code_id) === true) {
+            // Code is reused, all related tokens must be revoked, per https://tools.ietf.org/html/rfc6749#section-4.1.2
+            $this->accessTokenRepository->revokeByAuthCodeId($authCodePayload->auth_code_id);
+            $this->refreshTokenRepository->revokeByAuthCodeId($authCodePayload->auth_code_id);
             throw OAuthServerException::invalidGrant('Authorization code has been revoked');
         }
 
@@ -510,5 +539,83 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         }
 
         return $authorizationRequest;
+    }
+
+    /**
+     * Issue an access token.
+     *
+     * @param DateInterval $accessTokenTTL
+     * @param OAuth2ClientEntityInterface $client
+     * @param string|null $userIdentifier
+     * @param ScopeEntityInterface[] $scopes
+     * @param string|null $authCodeId
+     * @return AccessTokenEntityInterface
+     * @throws OAuthServerException
+     * @throws UniqueTokenIdentifierConstraintViolationException
+     */
+    protected function issueAccessToken(
+        DateInterval $accessTokenTTL,
+        OAuth2ClientEntityInterface $client,
+        $userIdentifier = null,
+        array $scopes = [],
+        string $authCodeId = null
+    ): AccessTokenEntityInterface {
+        $maxGenerationAttempts = self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
+
+        $accessToken = $this->accessTokenRepository->getNewToken($client, $scopes, $userIdentifier, $authCodeId);
+        $accessToken->setExpiryDateTime((new DateTimeImmutable())->add($accessTokenTTL));
+        $accessToken->setPrivateKey($this->privateKey);
+
+        while ($maxGenerationAttempts-- > 0) {
+            $accessToken->setIdentifier($this->generateUniqueIdentifier());
+            try {
+                $this->accessTokenRepository->persistNewAccessToken($accessToken);
+                break;
+            } catch (UniqueTokenIdentifierConstraintViolationException $e) {
+                if ($maxGenerationAttempts === 0) {
+                    throw $e;
+                }
+            }
+        }
+
+        return $accessToken;
+    }
+
+    /**
+     * @param OAuth2AccessTokenEntityInterface $accessToken
+     * @param string|null $authCodeId
+     * @return RefreshTokenEntityInterface|null
+     * @throws OAuthServerException
+     * @throws UniqueTokenIdentifierConstraintViolationException
+     */
+    protected function issueRefreshToken(
+        OAuth2AccessTokenEntityInterface $accessToken,
+        string $authCodeId = null
+    ): ?RefreshTokenEntityInterface {
+        $refreshToken = $this->refreshTokenRepository->getNewRefreshToken();
+
+        if ($refreshToken === null) {
+            return null;
+        }
+
+        $refreshToken->setExpiryDateTime((new DateTimeImmutable())->add($this->refreshTokenTTL));
+        $refreshToken->setAccessToken($accessToken);
+        $refreshToken->setAuthCodeId($authCodeId);
+
+        $maxGenerationAttempts = self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
+
+        while ($maxGenerationAttempts-- > 0) {
+            $refreshToken->setIdentifier($this->generateUniqueIdentifier());
+            try {
+                $this->refreshTokenRepository->persistNewRefreshToken($refreshToken);
+                break;
+            } catch (UniqueTokenIdentifierConstraintViolationException $e) {
+                if ($maxGenerationAttempts === 0) {
+                    throw $e;
+                }
+            }
+        }
+
+        return $refreshToken;
     }
 }

@@ -14,26 +14,26 @@
 
 namespace SimpleSAML\Module\oidc\Entity;
 
-use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Entities\Traits\AccessTokenTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\TokenEntityTrait;
-use SimpleSAML\Module\oidc\Entity\Interfaces\MementoInterface;
+use SimpleSAML\Module\oidc\Entity\Interfaces\AccessTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
+use SimpleSAML\Module\oidc\Entity\Traits\AssociateWithAuthCodeTrait;
 use SimpleSAML\Module\oidc\Entity\Traits\RevokeTokenTrait;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
-use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
 
 class AccessTokenEntity implements
     AccessTokenEntityInterface,
-    MementoInterface,
     EntityStringRepresentationInterface
 {
     use AccessTokenTrait;
     use TokenEntityTrait;
     use EntityTrait;
     use RevokeTokenTrait;
+    use AssociateWithAuthCodeTrait;
 
     /**
      * String representation of access token issued to the client.
@@ -56,12 +56,14 @@ class AccessTokenEntity implements
     public static function fromData(
         OAuth2ClientEntityInterface $clientEntity,
         array $scopes,
-        string $userIdentifier = null
+        string $userIdentifier = null,
+        string $authCodeId = null
     ): self {
         $accessToken = new self();
 
         $accessToken->setClient($clientEntity);
         $accessToken->setUserIdentifier($userIdentifier);
+        $accessToken->setAuthCodeId($authCodeId);
         foreach ($scopes as $scope) {
             $accessToken->addScope($scope);
         }
@@ -89,6 +91,7 @@ class AccessTokenEntity implements
         $accessToken->userIdentifier = $state['user_id'];
         $accessToken->client = $state['client'];
         $accessToken->isRevoked = (bool) $state['is_revoked'];
+        $accessToken->authCodeId = $state['auth_code_id'];
 
         return $accessToken;
     }
@@ -105,6 +108,7 @@ class AccessTokenEntity implements
             'user_id' => $this->getUserIdentifier(),
             'client_id' => $this->getClient()->getIdentifier(),
             'is_revoked' => (int) $this->isRevoked(),
+            'auth_code_id' => $this->getAuthCodeId(),
         ];
     }
 

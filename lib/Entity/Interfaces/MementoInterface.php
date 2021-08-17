@@ -21,5 +21,8 @@ interface MementoInterface
      */
     public static function fromState(array $state);
 
+    /**
+     * @return array
+     */
     public function getState(): array;
 }

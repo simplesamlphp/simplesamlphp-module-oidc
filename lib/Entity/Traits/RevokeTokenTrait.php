@@ -31,7 +31,7 @@ trait RevokeTokenTrait
      *
      * @return void
      */
-    public function revoke()
+    public function revoke(): void
     {
         $this->isRevoked = true;
     }
