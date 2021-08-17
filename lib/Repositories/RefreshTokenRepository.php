@@ -16,9 +16,9 @@ namespace SimpleSAML\Module\oidc\Repositories;
 
 use League\OAuth2\Server\Entities\RefreshTokenEntityInterface as OAuth2RefreshTokenEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
-use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entity\RefreshTokenEntity;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 

@@ -24,7 +24,6 @@ use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
-use SimpleSAML\Module\oidc\Entity\Interfaces\OidcAuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
@@ -38,6 +37,7 @@ use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeI
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Module\oidc\Utils\Arr;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\MaxAgeRule;
