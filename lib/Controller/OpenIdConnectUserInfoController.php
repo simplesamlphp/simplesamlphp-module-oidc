@@ -12,18 +12,18 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Controller;
+namespace SimpleSAML\Module\oidc\Controller;
 
 use League\OAuth2\Server\ResourceServer;
 use SimpleSAML\Error\UserNotFound;
-use SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor;
-use SimpleSAML\Modules\OpenIDConnect\Entity\AccessTokenEntity;
-use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entity\UserEntity;
+use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use Laminas\Diactoros\Response\JsonResponse;
 use Laminas\Diactoros\ServerRequest;
-use SimpleSAML\Modules\OpenIDConnect\Services\RequestedClaimsEncoderService;
+use SimpleSAML\Module\oidc\Services\RequestedClaimsEncoderService;
 
 class OpenIdConnectUserInfoController
 {

@@ -1,6 +1,6 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Server;
+namespace SimpleSAML\Module\oidc\Server;
 
 use League\OAuth2\Server\AuthorizationServer as OAuth2AuthorizationServer;
 use SimpleSAML\Error\BadRequest;
@@ -10,12 +10,12 @@ use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
-use SimpleSAML\Modules\OpenIDConnect\Server\Grants\Interfaces\AuthorizationValidatableWithClientAndRedirectUriInterface;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\ClientIdRule;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RedirectUriRule;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\StateRule;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithClientAndRedirectUriInterface;
+use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
 
 class AuthorizationServer extends OAuth2AuthorizationServer
 {

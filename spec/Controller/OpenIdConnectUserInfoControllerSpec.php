@@ -12,20 +12,20 @@
  * file that was distributed with this source code.
  */
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
+namespace spec\SimpleSAML\Module\oidc\Controller;
 
 use League\OAuth2\Server\ResourceServer;
 use PhpSpec\ObjectBehavior;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor;
-use SimpleSAML\Modules\OpenIDConnect\Controller\OpenIdConnectUserInfoController;
-use SimpleSAML\Modules\OpenIDConnect\Entity\AccessTokenEntity;
-use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Controller\OpenIdConnectUserInfoController;
+use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entity\UserEntity;
+use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use Laminas\Diactoros\Response\JsonResponse;
 use Laminas\Diactoros\ServerRequest;
-use SimpleSAML\Modules\OpenIDConnect\Services\RequestedClaimsEncoderService;
+use SimpleSAML\Module\oidc\Services\RequestedClaimsEncoderService;
 
 class OpenIdConnectUserInfoControllerSpec extends ObjectBehavior
 {

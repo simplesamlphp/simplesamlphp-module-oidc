@@ -12,11 +12,11 @@
  * file that was distributed with this source code.
  */
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Services;
+namespace spec\SimpleSAML\Module\oidc\Services;
 
 use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
-use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
+use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\Session;
 
 class SessionMessagesServiceSpec extends ObjectBehavior

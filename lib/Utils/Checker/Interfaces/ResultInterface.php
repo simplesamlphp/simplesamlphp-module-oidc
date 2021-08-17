@@ -1,6 +1,6 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces;
+namespace SimpleSAML\Module\oidc\Utils\Checker\Interfaces;
 
 interface ResultInterface
 {

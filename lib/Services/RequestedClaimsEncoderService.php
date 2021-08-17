@@ -1,17 +1,17 @@
 <?php
 
 
-namespace SimpleSAML\Modules\OpenIDConnect\Services;
+namespace SimpleSAML\Module\oidc\Services;
 
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
-use SimpleSAML\Modules\OpenIDConnect\Entity\ScopeEntity;
+use SimpleSAML\Module\oidc\Entity\ScopeEntity;
 
 /**
  * OIDC allows clients to request specific claims, and not just scopes. The oauth2 server library
  * does not seem to have an easy way to tie into authz and refresh token generation, making it difficult to
  * associated these claims with tokens. A workaround is to encode them as scope
  * Class RequestedClaimsEncoderService
- * @package SimpleSAML\Modules\OpenIDConnect\Services
+ * @package SimpleSAML\Module\oidc\Services
  */
 class RequestedClaimsEncoderService
 {

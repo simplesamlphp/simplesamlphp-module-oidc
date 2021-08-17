@@ -12,23 +12,30 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Factories\Grant;
+namespace SimpleSAML\Module\oidc\Factories\Grant;
 
-use SimpleSAML\Modules\OpenIDConnect\Server\Grants\AuthCodeGrant;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\AuthCodeRepository;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
-use SimpleSAML\Modules\OpenIDConnect\Services\RequestedClaimsEncoderService;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
+use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
+use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
+use SimpleSAML\Module\oidc\Services\RequestedClaimsEncoderService;
+use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
+
 
 class AuthCodeGrantFactory
 {
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\AuthCodeRepository
+     * @var \SimpleSAML\Module\oidc\Repositories\AuthCodeRepository
      */
     private $authCodeRepository;
 
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository
+     * @var AccessTokenRepository
+     */
+    private $accessTokenRepository;
+
+    /**
+     * @var \SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository
      */
     private $refreshTokenRepository;
 
@@ -54,6 +61,7 @@ class AuthCodeGrantFactory
 
     public function __construct(
         AuthCodeRepository $authCodeRepository,
+        AccessTokenRepository $accessTokenRepository,
         RefreshTokenRepository $refreshTokenRepository,
         \DateInterval $refreshTokenDuration,
         \DateInterval $authCodeDuration,
@@ -61,6 +69,7 @@ class AuthCodeGrantFactory
         RequestedClaimsEncoderService $requestedClaimsEncoderService
     ) {
         $this->authCodeRepository = $authCodeRepository;
+        $this->accessTokenRepository = $accessTokenRepository;
         $this->refreshTokenRepository = $refreshTokenRepository;
         $this->refreshTokenDuration = $refreshTokenDuration;
         $this->authCodeDuration = $authCodeDuration;
@@ -72,6 +81,7 @@ class AuthCodeGrantFactory
     {
         $authCodeGrant = new AuthCodeGrant(
             $this->authCodeRepository,
+            $this->accessTokenRepository,
             $this->refreshTokenRepository,
             $this->authCodeDuration,
             $this->requestRulesManager,

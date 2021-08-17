@@ -1,6 +1,6 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Repositories;
+namespace SimpleSAML\Module\oidc\Repositories;
 
 use League\OAuth2\Server\CodeChallengeVerifiers\CodeChallengeVerifierInterface;
 use League\OAuth2\Server\CodeChallengeVerifiers\PlainVerifier;

@@ -12,24 +12,34 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Entity;
+namespace SimpleSAML\Module\oidc\Entity;
 
-use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Entities\Traits\AccessTokenTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\TokenEntityTrait;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\MementoInterface;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Traits\RevokeTokenTrait;
-use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
+use SimpleSAML\Module\oidc\Entity\Interfaces\AccessTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
+use SimpleSAML\Module\oidc\Entity\Traits\AssociateWithAuthCodeTrait;
+use SimpleSAML\Module\oidc\Entity\Traits\RevokeTokenTrait;
+use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
-class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
+class AccessTokenEntity implements
+    AccessTokenEntityInterface,
+    EntityStringRepresentationInterface
 {
     use AccessTokenTrait;
     use TokenEntityTrait;
     use EntityTrait;
     use RevokeTokenTrait;
+    use AssociateWithAuthCodeTrait;
+
+    /**
+     * String representation of access token issued to the client.
+     * @var string $stringRepresentation
+     */
+    protected $stringRepresentation;
 
     /**
      * Constructor.
@@ -46,12 +56,14 @@ class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
     public static function fromData(
         OAuth2ClientEntityInterface $clientEntity,
         array $scopes,
-        string $userIdentifier = null
+        string $userIdentifier = null,
+        string $authCodeId = null
     ): self {
         $accessToken = new self();
 
         $accessToken->setClient($clientEntity);
         $accessToken->setUserIdentifier($userIdentifier);
+        $accessToken->setAuthCodeId($authCodeId);
         foreach ($scopes as $scope) {
             $accessToken->addScope($scope);
         }
@@ -79,6 +91,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
         $accessToken->userIdentifier = $state['user_id'];
         $accessToken->client = $state['client'];
         $accessToken->isRevoked = (bool) $state['is_revoked'];
+        $accessToken->authCodeId = $state['auth_code_id'];
 
         return $accessToken;
     }
@@ -95,6 +108,25 @@ class AccessTokenEntity implements AccessTokenEntityInterface, MementoInterface
             'user_id' => $this->getUserIdentifier(),
             'client_id' => $this->getClient()->getIdentifier(),
             'is_revoked' => (int) $this->isRevoked(),
+            'auth_code_id' => $this->getAuthCodeId(),
         ];
+    }
+
+    /**
+     * Generate string representation, save it in a field, and return it.
+     * @return string
+     */
+    public function __toString()
+    {
+        return $this->stringRepresentation = $this->convertToJWT()->toString();
+    }
+
+    /**
+     * Get string representation of access token at the moment of casting it to string.
+     * @return string|null String representation or null if it was not casted to string yet.
+     */
+    public function toString(): ?string
+    {
+        return $this->stringRepresentation;
     }
 }

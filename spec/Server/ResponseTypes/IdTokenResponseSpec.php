@@ -1,6 +1,6 @@
 <?php
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes;
+namespace spec\SimpleSAML\Module\oidc\Server\ResponseTypes;
 
 use DateTimeImmutable;
 use Laminas\Diactoros\Response;
@@ -23,15 +23,15 @@ use OpenIDConnectServer\Repositories\IdentityProviderInterface;
 use PhpSpec\Exception\Example\FailureException;
 use PhpSpec\ObjectBehavior;
 use SimpleSAML\Configuration;
-use SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor;
-use SimpleSAML\Modules\OpenIDConnect\Entity\AccessTokenEntity;
-use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
-use SimpleSAML\Modules\OpenIDConnect\Entity\ScopeEntity;
-use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
-use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\IdTokenResponse;
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
-use SimpleSAML\Modules\OpenIDConnect\Services\IdTokenBuilder;
-use SimpleSAML\Modules\OpenIDConnect\Services\RequestedClaimsEncoderService;
+use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Services\RequestedClaimsEncoderService;
+use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entity\ClientEntity;
+use SimpleSAML\Module\oidc\Entity\ScopeEntity;
+use SimpleSAML\Module\oidc\Entity\UserEntity;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 
 class IdTokenResponseSpec extends ObjectBehavior
 {
@@ -49,8 +49,7 @@ class IdTokenResponseSpec extends ObjectBehavior
         AccessTokenEntity $accessToken,
         ClientEntity $clientEntity,
         Configuration $oidcConfig
-    ): void
-    {
+    ): void {
         $this->certFolder = dirname(__DIR__, 3) . '/docker/ssp/';
         $userEntity = UserEntity::fromData(self::SUBJECT, [
             'cn'  => ['Homer Simpson'],
@@ -66,6 +65,7 @@ class IdTokenResponseSpec extends ObjectBehavior
 
         $accessToken->getExpiryDateTime()->willReturn($expiration);
         $accessToken->__toString()->willReturn('AccessToken123');
+        $accessToken->toString()->willReturn('AccessToken123');
         $accessToken->getIdentifier()->willReturn(self::TOKEN_ID);
         $accessToken->getScopes()->willReturn($scopes);
         $accessToken->getUserIdentifier()->willReturn(self::SUBJECT);
@@ -81,14 +81,13 @@ class IdTokenResponseSpec extends ObjectBehavior
         $privateKey = new CryptKey($this->certFolder . '/oidc_module.pem', null, false);
 
         $idTokenBuilder = new IdTokenBuilder(
-            $identityProvider->getWrappedObject(),
             new ClaimTranslatorExtractor(),
             $configurationService->getWrappedObject(),
             $privateKey,
             new RequestedClaimsEncoderService()
         );
 
-        $this->beConstructedWith($idTokenBuilder);
+        $this->beConstructedWith($identityProvider->getWrappedObject(), $configurationService, $idTokenBuilder);
         $this->setPrivateKey($privateKey);
     }
 
@@ -113,8 +112,10 @@ class IdTokenResponseSpec extends ObjectBehavior
         $body->shouldHaveValidIdToken(['email' => 'myEmail@example.com']);
     }
 
-    public function it_can_generate_response_with_no_token_claims(AccessTokenEntity $accessToken, Configuration $oidcConfig)
-    {
+    public function it_can_generate_response_with_no_token_claims(
+        AccessTokenEntity $accessToken,
+        Configuration $oidcConfig
+    ) {
         $oidcConfig->getBoolean('alwaysAddClaimsToIdToken', true)->willReturn(false);
         $response = new Response();
         $this->setAccessToken($accessToken);
@@ -203,7 +204,10 @@ class IdTokenResponseSpec extends ObjectBehavior
                     );
                 }
                 $expectedClaimsKeys = array_keys($expectedClaims);
-                $expectedClaimsKeys = array_merge(['iss', 'aud', 'jti', 'nbf', 'exp', 'sub', 'iat'], $expectedClaimsKeys);
+                $expectedClaimsKeys = array_merge(
+                    ['iss', 'aud', 'jti', 'nbf', 'exp', 'sub', 'iat', 'at_hash'],
+                    $expectedClaimsKeys
+                );
                 $claims = array_keys($token->claims()->all());
                 if ($claims !== $expectedClaimsKeys) {
                     throw new FailureException(

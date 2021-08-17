@@ -1,17 +1,17 @@
 <?php
 
 
-namespace Tests\SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules;
+namespace Tests\SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\ResultBag;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RedirectUriRule;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RequestedClaimsRule;
+use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Utils\Checker\ResultBag;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
 
 class RequestedClaimsRuleTest extends TestCase
 {

@@ -1,10 +1,10 @@
 <?php
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Services;
+namespace spec\SimpleSAML\Module\oidc\Services;
 
 use PhpSpec\ObjectBehavior;
-use SimpleSAML\Modules\OpenIDConnect\Services\AuthProcService;
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Services\AuthProcService;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
 
 class AuthProcServiceSpec extends ObjectBehavior
 {

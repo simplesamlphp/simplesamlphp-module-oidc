@@ -1,7 +1,8 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Services;
+namespace SimpleSAML\Module\oidc\Services;
 
+use Base64Url\Base64Url;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Encoding\ChainedFormatter;
 use Lcobucci\JWT\Signer\Key\InMemory;
@@ -12,15 +13,12 @@ use League\OAuth2\Server\Entities\UserEntityInterface;
 use OpenIDConnectServer\ClaimExtractor;
 use OpenIDConnectServer\Entities\ClaimSetInterface;
 use OpenIDConnectServer\Repositories\IdentityProviderInterface;
-use SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor;
-use SimpleSAML\Modules\OpenIDConnect\Utils\FingerprintGenerator;
+use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
+use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
 
 class IdTokenBuilder
 {
-    /**
-     * @var IdentityProviderInterface
-     */
-    private $identityProvider;
     /**
      * @var ClaimExtractor
      */
@@ -40,27 +38,26 @@ class IdTokenBuilder
     private $requestedClaimsEncoderService;
 
     public function __construct(
-        IdentityProviderInterface $identityProvider,
         ClaimTranslatorExtractor $claimExtractor,
         ConfigurationService $configurationService,
         CryptKey $privateKey,
         RequestedClaimsEncoderService $requestedClaimsEncoderService
     ) {
-        $this->identityProvider = $identityProvider;
         $this->claimExtractor = $claimExtractor;
         $this->configurationService = $configurationService;
         $this->privateKey = $privateKey;
         $this->requestedClaimsEncoderService = $requestedClaimsEncoderService;
     }
 
-    public function build(AccessTokenEntityInterface $accessToken, ?string $nonce, ?int $authTime)
-    {
-        /** @var UserEntityInterface $userEntity */
-        $userEntity = $this->identityProvider->getUserEntityByIdentifier($accessToken->getUserIdentifier());
-
-        if (false === is_a($userEntity, UserEntityInterface::class)) {
-            throw new \RuntimeException('UserEntity must implement UserEntityInterface');
-        } elseif (false === is_a($userEntity, ClaimSetInterface::class)) {
+    public function build(
+        UserEntityInterface $userEntity,
+        AccessTokenEntityInterface $accessToken,
+        bool $addClaimsFromScopes,
+        bool $addAccessTokenHash,
+        ?string $nonce,
+        ?int $authTime
+    ) {
+        if (false === is_a($userEntity, ClaimSetInterface::class)) {
             throw new \RuntimeException('UserEntity must implement ClaimSetInterface');
         }
 
@@ -82,18 +79,19 @@ class IdTokenBuilder
             $builder->withClaim('auth_time', $authTime);
         }
 
+        if ($addAccessTokenHash) {
+            $builder->withClaim(
+                'at_hash',
+                $this->generateAccessTokenHash($accessToken, $jwtConfig->signer()->algorithmId())
+            );
+        }
+
         // Need a claim factory here to reduce the number of claims by provided scope.
         $claims = $this->claimExtractor->extract($accessToken->getScopes(), $userEntity->getClaims());
         $requestedClaims =  $this->requestedClaimsEncoderService->decodeScopesToRequestedClaims($accessToken->getScopes());
         $additionalClaims = $this->claimExtractor->extractAdditionalIdTokenClaims($requestedClaims, $userEntity->getClaims());
         $claims = array_merge($additionalClaims, $claims);
 
-
-        // Per https://openid.net/specs/openid-connect-core-1_0.html#rfc.section.5.4 certain claims
-        // should only be added in certain scenarios. Allow deployer to control this.
-        $addClaimsFromScopesToIdToken = $this->configurationService
-            ->getOpenIDConnectConfiguration()
-            ->getBoolean('alwaysAddClaimsToIdToken', true);
 
         foreach ($claims as $claimName => $claimValue) {
             switch ($claimName) {
@@ -119,7 +117,7 @@ class IdTokenBuilder
                     $builder->relatedTo($claimValue);
                     break;
                 default:
-                    if ($addClaimsFromScopesToIdToken || array_key_exists($claimName, $additionalClaims)) {
+                    if ($addClaimsFromScopes || array_key_exists($claimName, $additionalClaims)) {
                         $builder->withClaim($claimName, $claimValue);
                     }
             }
@@ -148,5 +146,46 @@ class IdTokenBuilder
             ->expiresAt($accessToken->getExpiryDateTime())
             ->relatedTo($userEntity->getIdentifier())
             ->issuedAt(new \DateTimeImmutable('now'));
+    }
+
+    /**
+     * @param AccessTokenEntityInterface $accessToken
+     * @param string $jwsAlgorithm JWS Algorithm designation (like RS256, RS384...)
+     * @return string
+     */
+    protected function generateAccessTokenHash(AccessTokenEntityInterface $accessToken, string $jwsAlgorithm): string
+    {
+        $validBitLengths = [256, 384, 512];
+
+        $jwsAlgorithmBitLength = (int) substr($jwsAlgorithm, 2);
+
+        if (! in_array($jwsAlgorithmBitLength, $validBitLengths, true)) {
+            throw new \RuntimeException(sprintf('JWS algorithm not supported (%s)', $jwsAlgorithm));
+        }
+
+        if ($accessToken instanceof EntityStringRepresentationInterface === false) {
+            throw new \RuntimeException('AccessTokenEntity must implement ' .
+                                        EntityStringRepresentationInterface::class);
+        }
+
+        // Try to use toString() so that it uses the string representation if it was already casted to string,
+        // otherwise, use the casted version.
+        $accessTokenString = $accessToken->toString() ?? (string) $accessToken;
+
+        $hashAlgorithm = 'sha' . $jwsAlgorithmBitLength;
+
+        $hashByteLength = (int) ($jwsAlgorithmBitLength / 2 / 8);
+
+        return Base64Url::encode(
+            substr(
+                hash(
+                    $hashAlgorithm,
+                    $accessTokenString,
+                    true
+                ),
+                0,
+                $hashByteLength
+            )
+        );
     }
 }

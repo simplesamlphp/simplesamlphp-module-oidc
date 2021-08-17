@@ -1,10 +1,10 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces;
+namespace SimpleSAML\Module\oidc\Entity\Interfaces;
 
-use League\OAuth2\Server\Entities\AuthCodeEntityInterface;
+use League\OAuth2\Server\Entities\AuthCodeEntityInterface as OAuth2AuthCodeEntityInterface;
 
-interface OidcAuthCodeEntityInterface extends AuthCodeEntityInterface
+interface AuthCodeEntityInterface extends OAuth2AuthCodeEntityInterface
 {
     /**
      * @return string|null
@@ -26,5 +26,4 @@ interface OidcAuthCodeEntityInterface extends AuthCodeEntityInterface
      * @param array|null $claims
      */
     public function setClaims(?array $claims): void;
-
 }

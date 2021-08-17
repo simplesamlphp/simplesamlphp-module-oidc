@@ -1,9 +1,9 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Repositories\Interfaces;
+namespace SimpleSAML\Module\oidc\Repositories\Interfaces;
 
 use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\OidcAuthCodeEntityInterface;
+use SimpleSAML\Module\oidc\Entity\Interfaces\OidcAuthCodeEntityInterface;
 
 interface OidcAuthCodeRepositoryInterface extends AuthCodeRepositoryInterface
 {

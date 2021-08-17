@@ -1,12 +1,12 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Services;
+namespace SimpleSAML\Module\oidc\Services;
 
 /**
  * OpenID Provider Metadata Service - provides information about OIDC authentication server.
  *
  * Class OidcOpenIdProviderMetadataService
- * @package SimpleSAML\Modules\OpenIDConnect\Services
+ * @package SimpleSAML\Module\oidc\Services
  */
 class OidcOpenIdProviderMetadataService
 {
@@ -40,7 +40,7 @@ class OidcOpenIdProviderMetadataService
         $this->metadata['userinfo_endpoint'] = $this->configurationService->getOpenIdConnectModuleURL('userinfo.php');
         $this->metadata['jwks_uri'] = $this->configurationService->getOpenIdConnectModuleURL('jwks.php');
         $this->metadata['scopes_supported'] = array_keys($this->configurationService->getOpenIDScopes());
-        $this->metadata['response_types_supported'] = ['code', 'token'];
+        $this->metadata['response_types_supported'] = ['code', 'token', 'id_token', 'id_token token'];
         $this->metadata['subject_types_supported'] = ['public'];
         $this->metadata['id_token_signing_alg_values_supported'] = ['RS256'];
         $this->metadata['code_challenge_methods_supported'] = ['plain', 'S256'];

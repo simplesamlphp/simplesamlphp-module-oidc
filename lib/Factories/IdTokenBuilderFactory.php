@@ -12,31 +12,27 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Factories;
+namespace SimpleSAML\Module\oidc\Factories;
 
 use League\OAuth2\Server\CryptKey;
-use SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
-use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\IdTokenResponse;
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
-use SimpleSAML\Modules\OpenIDConnect\Services\IdTokenBuilder;
-use SimpleSAML\Modules\OpenIDConnect\Services\RequestedClaimsEncoderService;
+use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
+use SimpleSAML\Module\oidc\Services\RequestedClaimsEncoderService;
 use SimpleSAML\Utils\Config;
 
 class IdTokenBuilderFactory
 {
-    /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository
-     */
-    private $userRepository;
 
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService
+     * @var \SimpleSAML\Module\oidc\Services\ConfigurationService
      */
     private $configurationService;
 
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor
+     * @var \SimpleSAML\Module\oidc\ClaimTranslatorExtractor
      */
     private $claimTranslatorExtractor;
     /**
@@ -50,13 +46,11 @@ class IdTokenBuilderFactory
     private $requestedClaimsEncoderService;
 
     public function __construct(
-        UserRepository $userRepository,
         ConfigurationService $configurationService,
         ClaimTranslatorExtractor $claimTranslatorExtractor,
         CryptKey $privateKey,
         RequestedClaimsEncoderService $requestedClaimsEncoderService
     ) {
-        $this->userRepository = $userRepository;
         $this->configurationService = $configurationService;
         $this->claimTranslatorExtractor = $claimTranslatorExtractor;
         $this->privateKey = $privateKey;
@@ -66,7 +60,6 @@ class IdTokenBuilderFactory
     public function build(): IdTokenBuilder
     {
         return new IdTokenBuilder(
-            $this->userRepository,
             $this->claimTranslatorExtractor,
             $this->configurationService,
             $this->privateKey,

@@ -12,16 +12,16 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Factories;
+namespace SimpleSAML\Module\oidc\Factories;
 
 use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\ResourceServer;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 
 class ResourceServerFactory
 {
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository
+     * @var \SimpleSAML\Module\oidc\Repositories\AccessTokenRepository
      */
     private $accessTokenRepository;
     /**
