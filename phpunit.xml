@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-
-<phpunit backupGlobals="false"
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         backupGlobals="false"
          backupStaticAttributes="false"
          colors="true"
          convertErrorsToExceptions="true"
@@ -8,24 +8,26 @@
          convertWarningsToExceptions="true"
          processIsolation="false"
          stopOnFailure="false"
-         bootstrap="./tests/bootstrap.php">
-    <testsuites>
-        <testsuite name="Test Suite">
-            <directory>./tests</directory>
-        </testsuite>
-    </testsuites>
-    <filter>
-        <whitelist processUncoveredFilesFromWhitelist="true">
-            <directory>./lib</directory>
-        </whitelist>
-    </filter>
-    <logging>
-        <log type="coverage-clover" target="build/logs/clover.xml"/>
-        <log type="coverage-html" target="build/coverage/html" />
-        <log type="junit" target="build/logs/junit.xml"/>
-    </logging>
-    <php>
-        <env name="SIMPLESAMLPHP_CONFIG_DIR" value="tests/config" />
-    </php>
+         bootstrap="./tests/bootstrap.php"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.3/phpunit.xsd">
+  <coverage processUncoveredFiles="true">
+    <include>
+      <directory>./lib</directory>
+    </include>
+    <report>
+      <clover outputFile="build/logs/clover.xml"/>
+      <html outputDirectory="build/coverage/html"/>
+    </report>
+  </coverage>
+  <testsuites>
+    <testsuite name="Test Suite">
+      <directory>./tests</directory>
+    </testsuite>
+  </testsuites>
+  <logging>
+    <junit outputFile="build/logs/junit.xml"/>
+  </logging>
+  <php>
+    <env name="SIMPLESAMLPHP_CONFIG_DIR" value="tests/config"/>
+  </php>
 </phpunit>
-

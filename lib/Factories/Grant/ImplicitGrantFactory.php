@@ -36,8 +36,11 @@ class ImplicitGrantFactory
      */
     protected $requestRulesManager;
 
-    public function __construct(IdTokenBuilder $idTokenBuilder, DateInterval $accessTokenDuration, RequestRulesManager $requestRulesManager)
-    {
+    public function __construct(
+        IdTokenBuilder $idTokenBuilder,
+        DateInterval $accessTokenDuration,
+        RequestRulesManager $requestRulesManager
+    ) {
         $this->idTokenBuilder = $idTokenBuilder;
         $this->accessTokenDuration = $accessTokenDuration;
         $this->requestRulesManager = $requestRulesManager;

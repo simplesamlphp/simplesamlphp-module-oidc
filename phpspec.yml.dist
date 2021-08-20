@@ -1,4 +1,4 @@
-formatter.name: 'pretty'
+formatter.name: 'dot'
 suites:
     OpenIDConnect:
         namespace: SimpleSAML\Module\oidc

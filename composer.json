@@ -71,7 +71,7 @@
             "vendor/bin/check-syntax-yaml.sh",
             "vendor/bin/psalm",
             "vendor/bin/psalter --issues=UnnecessaryVarAnnotation --dry-run",
-            "vendor/bin/phpcs"
+            "vendor/bin/phpcs -p"
         ],
         "tests": [
             "vendor/bin/phpunit --no-coverage",

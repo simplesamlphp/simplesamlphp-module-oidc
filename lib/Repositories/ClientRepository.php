@@ -121,7 +121,10 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         $offset = $this->calculateOffset($page, $limit);
 
         $stmt = $this->database->read(
-            "SELECT * FROM {$this->getTableName()} WHERE name LIKE :name ORDER BY name ASC LIMIT {$limit} OFFSET {$offset}",
+            "SELECT * FROM {$this->getTableName()} " .
+            "WHERE name LIKE :name " .
+            "ORDER BY name ASC " .
+            "LIMIT {$limit} OFFSET {$offset}",
             ['name' => '%' . $query . '%']
         );
 
