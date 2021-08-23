@@ -54,9 +54,6 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
         $authCode->isRevoked = (bool) $state['is_revoked'];
         $authCode->redirectUri = $state['redirect_uri'];
         $authCode->nonce = $state['nonce'];
-//        if (array_key_exists('claims', $state)) {
-//            $authCode->claims = json_decode($state['claims']);
-//        }
 
 
         return $authCode;
@@ -73,7 +70,6 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
             'is_revoked' => (int) $this->isRevoked(),
             'redirect_uri' => $this->getRedirectUri(),
             'nonce' => $this->getNonce(),
-//            'claims' => json_encode($this->getClaims()),
         ];
     }
 }

@@ -191,8 +191,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $user->getIdentifier(),
             $finalRedirectUri,
             $authorizationRequest->getScopes(),
-            $authorizationRequest->getNonce(),
-            $authorizationRequest->getClaims()
+            $authorizationRequest->getNonce()
         );
 
         $payload = [
@@ -237,7 +236,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      * @param string $redirectUri
      * @param array $scopes
      * @param string|null $nonce
-     * @param array|null claims Claims requested during authorization.
      * @return AuthCodeEntityInterface
      * @throws OAuthServerException
      * @throws UniqueTokenIdentifierConstraintViolationException
@@ -248,8 +246,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         string $userIdentifier,
         string $redirectUri,
         array $scopes = [],
-        string $nonce = null,
-        ?array $claims = null
+        string $nonce = null
     ): AuthCodeEntityInterface {
 
         $maxGenerationAttempts = self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
@@ -261,9 +258,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $authCode->setRedirectUri($redirectUri);
         if (null !== $nonce) {
             $authCode->setNonce($nonce);
-        }
-        if (null !== $claims) {
-            $authCode->setClaims($claims);
         }
 
         foreach ($scopes as $scope) {

@@ -16,14 +16,4 @@ interface AuthCodeEntityInterface extends OAuth2AuthCodeEntityInterface
      */
     public function setNonce(string $nonce): void;
 
-    /**
-     * @return array|null
-     */
-    public function getClaims(): ?array;
-
-
-    /**
-     * @param array|null $claims
-     */
-    public function setClaims(?array $claims): void;
 }

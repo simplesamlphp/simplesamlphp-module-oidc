@@ -28,9 +28,6 @@ class RefreshTokenEntity implements RefreshTokenEntityInterface
     use RevokeTokenTrait;
     use AssociateWithAuthCodeTrait;
 
-
-    //TODO: override setAccessToken method to also set requested claims
-
     public static function fromState(array $state): RefreshTokenEntityInterface
     {
         $refreshToken = new self();
