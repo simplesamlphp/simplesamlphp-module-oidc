@@ -116,7 +116,7 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
 
         $claims = $token->claims();
 
-        if (is_null($jti = $claims->get('jti'))) {
+        if (is_null($jti = $claims->get('jti')) || empty($jti)) {
             throw OidcServerException::accessDenied('Access token malformed (jti missing)');
         }
 
