@@ -39,6 +39,7 @@ use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant;
 use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
 
@@ -199,13 +200,10 @@ class Container implements ContainerInterface
         $privateKey = $cryptKeyFactory->buildPrivateKey();
         $encryptionKey = Config::getSecretSalt();
 
-        $requestedClaimsEncoderService = new RequestedClaimsEncoderService();
-        $this->services[RequestedClaimsEncoderService::class] = $requestedClaimsEncoderService;
         $idTokenBuilderFactory = new IdTokenBuilderFactory(
             $configurationService,
             $claimTranslatorExtractor,
-            $privateKey,
-            $requestedClaimsEncoderService
+            $privateKey
         );
         $this->services[IdTokenBuilder::class] = $idTokenBuilderFactory->build();
 
@@ -224,8 +222,7 @@ class Container implements ContainerInterface
             $refreshTokenRepository,
             $refreshTokenDuration,
             $authCodeDuration,
-            $requestRuleManager,
-            $requestedClaimsEncoderService
+            $requestRuleManager
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 
@@ -237,9 +234,9 @@ class Container implements ContainerInterface
             $this->services[IdTokenBuilder::class],
             $accessTokenDuration,
             $requestRuleManager,
-            $requestedClaimsEncoderService
+            $accessTokenRepository
         );
-        $this->services[OAuth2ImplicitGrant::class] = $implicitGrantFactory->build();
+        $this->services[ImplicitGrant::class] = $implicitGrantFactory->build();
 
         $refreshTokenGrantFactory = new RefreshTokenGrantFactory(
             $refreshTokenRepository,

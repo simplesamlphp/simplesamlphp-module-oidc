@@ -13,7 +13,9 @@ use League\OAuth2\Server\Entities\UserEntityInterface;
 use OpenIDConnectServer\ClaimExtractor;
 use OpenIDConnectServer\Entities\ClaimSetInterface;
 use OpenIDConnectServer\Repositories\IdentityProviderInterface;
+use SimpleSAML\Logger;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
 
@@ -32,26 +34,19 @@ class IdTokenBuilder
      */
     private $privateKey;
 
-    /**
-     * @var RequestedClaimsEncoderService
-     */
-    private $requestedClaimsEncoderService;
-
     public function __construct(
         ClaimTranslatorExtractor $claimExtractor,
         ConfigurationService $configurationService,
-        CryptKey $privateKey,
-        RequestedClaimsEncoderService $requestedClaimsEncoderService
+        CryptKey $privateKey
     ) {
         $this->claimExtractor = $claimExtractor;
         $this->configurationService = $configurationService;
         $this->privateKey = $privateKey;
-        $this->requestedClaimsEncoderService = $requestedClaimsEncoderService;
     }
 
     public function build(
         UserEntityInterface $userEntity,
-        AccessTokenEntityInterface $accessToken,
+        AccessTokenEntity $accessToken,
         bool $addClaimsFromScopes,
         bool $addAccessTokenHash,
         ?string $nonce,
@@ -88,8 +83,12 @@ class IdTokenBuilder
 
         // Need a claim factory here to reduce the number of claims by provided scope.
         $claims = $this->claimExtractor->extract($accessToken->getScopes(), $userEntity->getClaims());
-        $requestedClaims =  $this->requestedClaimsEncoderService->decodeScopesToRequestedClaims($accessToken->getScopes());
+        $requestedClaims =  $accessToken->getRequestedClaims();
+        Logger::info("extra claims for id token" . var_export($requestedClaims, true));
+        Logger::info("user claims for id token" . var_export($userEntity->getClaims(), true));
         $additionalClaims = $this->claimExtractor->extractAdditionalIdTokenClaims($requestedClaims, $userEntity->getClaims());
+        Logger::info("additional claims for id token" . var_export($additionalClaims, true));
+
         $claims = array_merge($additionalClaims, $claims);
 
 
@@ -117,6 +116,7 @@ class IdTokenBuilder
                     $builder->relatedTo($claimValue);
                     break;
                 default:
+                    Logger::info("checking $claimName" . var_export($requestedClaims, true));
                     if ($addClaimsFromScopes || array_key_exists($claimName, $additionalClaims)) {
                         $builder->withClaim($claimName, $claimValue);
                     }

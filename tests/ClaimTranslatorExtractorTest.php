@@ -155,7 +155,7 @@ class ClaimTranslatorExtractorTest extends TestCase
         $claimTranslator->extract(['typeConversion'], $userAttributes);
     }
 
-    public function testExtractRequestClaims(): void
+    public function testExtractRequestClaimsUserInfo(): void
     {
         $claimTranslator = new ClaimTranslatorExtractor();
         $requestClaims = [
@@ -165,6 +165,20 @@ class ClaimTranslatorExtractorTest extends TestCase
         ];
 
         $claims = $claimTranslator->extractAdditionalUserInfoClaims($requestClaims, ['cn' => ['bob']]);
+        $this->assertEquals(['name' => 'bob'], $claims);
+
+    }
+
+    public function testExtractRequestClaimsIdToken(): void
+    {
+        $claimTranslator = new ClaimTranslatorExtractor();
+        $requestClaims = [
+            "id_token" => [
+                "name" => ['essential' => true]
+            ]
+        ];
+
+        $claims = $claimTranslator->extractAdditionalIdTokenClaims($requestClaims, ['displayName' => ['bob']]);
         $this->assertEquals(['name' => 'bob'], $claims);
 
     }

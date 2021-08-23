@@ -40,21 +40,14 @@ class IdTokenBuilderFactory
      */
     private $privateKey;
 
-    /**
-     * @var RequestedClaimsEncoderService
-     */
-    private $requestedClaimsEncoderService;
-
     public function __construct(
         ConfigurationService $configurationService,
         ClaimTranslatorExtractor $claimTranslatorExtractor,
-        CryptKey $privateKey,
-        RequestedClaimsEncoderService $requestedClaimsEncoderService
+        CryptKey $privateKey
     ) {
         $this->configurationService = $configurationService;
         $this->claimTranslatorExtractor = $claimTranslatorExtractor;
         $this->privateKey = $privateKey;
-        $this->requestedClaimsEncoderService = $requestedClaimsEncoderService;
     }
 
     public function build(): IdTokenBuilder
@@ -62,8 +55,7 @@ class IdTokenBuilderFactory
         return new IdTokenBuilder(
             $this->claimTranslatorExtractor,
             $this->configurationService,
-            $this->privateKey,
-            $this->requestedClaimsEncoderService
+            $this->privateKey
         );
     }
 }

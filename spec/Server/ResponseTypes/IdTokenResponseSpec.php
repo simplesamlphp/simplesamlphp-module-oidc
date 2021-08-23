@@ -70,6 +70,7 @@ class IdTokenResponseSpec extends ObjectBehavior
         $accessToken->getScopes()->willReturn($scopes);
         $accessToken->getUserIdentifier()->willReturn(self::SUBJECT);
         $accessToken->getClient()->willReturn($clientEntity);
+        $accessToken->getRequestedClaims()->willReturn([]);
 
         $identityProvider->getUserEntityByIdentifier(self::SUBJECT)->willReturn($userEntity);
 
@@ -83,8 +84,7 @@ class IdTokenResponseSpec extends ObjectBehavior
         $idTokenBuilder = new IdTokenBuilder(
             new ClaimTranslatorExtractor(),
             $configurationService->getWrappedObject(),
-            $privateKey,
-            new RequestedClaimsEncoderService()
+            $privateKey
         );
 
         $this->beConstructedWith($identityProvider->getWrappedObject(), $configurationService, $idTokenBuilder);
@@ -130,9 +130,8 @@ class IdTokenResponseSpec extends ObjectBehavior
     public function it_can_generate_response_with_individual_requested_claims(AccessTokenEntity $accessToken, Configuration $oidcConfig)
     {
         $oidcConfig->getBoolean('alwaysAddClaimsToIdToken', true)->willReturn(false);
-        $claimsEncoder = new RequestedClaimsEncoderService();
         // ID token should only look at id_token for hints
-        $encodedClaim = $claimsEncoder->encodeRequestedClaimsAsScope(
+        $accessToken->getRequestedClaims()->willReturn(
             [
                 "id_token" => [
                     "name" => [
@@ -148,8 +147,6 @@ class IdTokenResponseSpec extends ObjectBehavior
         );
         $scopes = [
             ScopeEntity::fromData('openid'),
-            // Internal work around to allow individual claims to be persisted in authz and refresh tokens
-            $encodedClaim,
         ];
         $accessToken->getScopes()->willReturn($scopes);
 

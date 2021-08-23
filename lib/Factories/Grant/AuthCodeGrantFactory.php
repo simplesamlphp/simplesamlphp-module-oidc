@@ -17,7 +17,6 @@ namespace SimpleSAML\Module\oidc\Factories\Grant;
 use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
-use SimpleSAML\Module\oidc\Services\RequestedClaimsEncoderService;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 
@@ -53,20 +52,13 @@ class AuthCodeGrantFactory
      */
     private $requestRulesManager;
 
-    /**
-     * @var RequestedClaimsEncoderService
-     */
-    private $requestedClaimsEncoderService;
-
-
     public function __construct(
         AuthCodeRepository $authCodeRepository,
         AccessTokenRepository $accessTokenRepository,
         RefreshTokenRepository $refreshTokenRepository,
         \DateInterval $refreshTokenDuration,
         \DateInterval $authCodeDuration,
-        RequestRulesManager $requestRulesManager,
-        RequestedClaimsEncoderService $requestedClaimsEncoderService
+        RequestRulesManager $requestRulesManager
     ) {
         $this->authCodeRepository = $authCodeRepository;
         $this->accessTokenRepository = $accessTokenRepository;
@@ -74,7 +66,6 @@ class AuthCodeGrantFactory
         $this->refreshTokenDuration = $refreshTokenDuration;
         $this->authCodeDuration = $authCodeDuration;
         $this->requestRulesManager = $requestRulesManager;
-        $this->requestedClaimsEncoderService = $requestedClaimsEncoderService;
     }
 
     public function build(): AuthCodeGrant
@@ -84,8 +75,7 @@ class AuthCodeGrantFactory
             $this->accessTokenRepository,
             $this->refreshTokenRepository,
             $this->authCodeDuration,
-            $this->requestRulesManager,
-            $this->requestedClaimsEncoderService
+            $this->requestRulesManager
         );
         $authCodeGrant->setRefreshTokenTTL($this->refreshTokenDuration);
 

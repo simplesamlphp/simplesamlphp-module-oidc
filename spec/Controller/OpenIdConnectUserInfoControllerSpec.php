@@ -25,7 +25,6 @@ use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use Laminas\Diactoros\Response\JsonResponse;
 use Laminas\Diactoros\ServerRequest;
-use SimpleSAML\Module\oidc\Services\RequestedClaimsEncoderService;
 
 class OpenIdConnectUserInfoControllerSpec extends ObjectBehavior
 {
@@ -38,9 +37,7 @@ class OpenIdConnectUserInfoControllerSpec extends ObjectBehavior
         UserRepository $userRepository,
         ClaimTranslatorExtractor $claimTranslatorExtractor
     ) {
-        $claimTranslatorExtractor->extractAdditionalUserInfoClaims(null, ['mail' => ['userid@localhost.localdomain']])->willReturn([]);
-        $requestedClaimsEncoderService = new RequestedClaimsEncoderService();
-        $this->beConstructedWith($resourceServer, $accessTokenRepository, $userRepository, $claimTranslatorExtractor, $requestedClaimsEncoderService);
+        $this->beConstructedWith($resourceServer, $accessTokenRepository, $userRepository, $claimTranslatorExtractor);
     }
 
     /**
@@ -70,11 +67,15 @@ class OpenIdConnectUserInfoControllerSpec extends ObjectBehavior
 
         $accessTokenRepository->findById('tokenid')->shouldBeCalled()->willReturn($accessTokenEntity);
         $accessTokenEntity->getUserIdentifier()->shouldBeCalled()->willReturn('userid');
+        $accessTokenEntity->getRequestedClaims()->shouldBeCalled()->willReturn([]);
         $userRepository->getUserEntityByIdentifier('userid')->shouldBeCalled()->willReturn($userEntity);
         $userEntity->getClaims()->shouldBeCalled()->willReturn(['mail' => ['userid@localhost.localdomain']]);
         $claimTranslatorExtractor
             ->extract(['openid', 'email'], ['mail' => ['userid@localhost.localdomain']])
             ->shouldBeCalled()->willReturn(['email' => 'userid@localhost.localdomain']);
+        $claimTranslatorExtractor->extractAdditionalUserInfoClaims([], ['mail' => ['userid@localhost.localdomain']])
+            ->shouldBeCalledOnce()->willReturn([]);
+
 
         $this->__invoke($request)->shouldHavePayload(['email' => 'userid@localhost.localdomain']);
     }

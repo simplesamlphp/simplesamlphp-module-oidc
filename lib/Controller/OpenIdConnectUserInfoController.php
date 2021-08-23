@@ -16,6 +16,7 @@ namespace SimpleSAML\Module\oidc\Controller;
 
 use League\OAuth2\Server\ResourceServer;
 use SimpleSAML\Error\UserNotFound;
+use SimpleSAML\Logger;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
@@ -47,23 +48,16 @@ class OpenIdConnectUserInfoController
      */
     private $claimTranslatorExtractor;
 
-    /**
-     * @var RequestedClaimsEncoderService
-     */
-    private $requestedClaimsEncoderService;
-
     public function __construct(
         ResourceServer $resourceServer,
         AccessTokenRepository $accessTokenRepository,
         UserRepository $userRepository,
-        ClaimTranslatorExtractor $claimTranslatorExtractor,
-        RequestedClaimsEncoderService $requestedClaimsEncoderService
+        ClaimTranslatorExtractor $claimTranslatorExtractor
     ) {
         $this->resourceServer = $resourceServer;
         $this->accessTokenRepository = $accessTokenRepository;
         $this->userRepository = $userRepository;
         $this->claimTranslatorExtractor = $claimTranslatorExtractor;
-        $this->requestedClaimsEncoderService = $requestedClaimsEncoderService;
     }
 
     public function __invoke(ServerRequest $request): JsonResponse
@@ -73,10 +67,15 @@ class OpenIdConnectUserInfoController
         $tokenId = $authorization->getAttribute('oauth_access_token_id');
         $scopes = $authorization->getAttribute('oauth_scopes');
 
-        $user = $this->getUser($tokenId);
+        $accessToken = $this->accessTokenRepository->findById($tokenId);
+        if (!$accessToken instanceof AccessTokenEntity) {
+            throw new UserNotFound('Access token not found');
+        }
+        $user = $this->getUser($accessToken);
 
         $claims = $this->claimTranslatorExtractor->extract($scopes, $user->getClaims());
-        $requestedClaims =  $this->requestedClaimsEncoderService->decodeScopesToRequestedClaims($scopes);
+        $requestedClaims =  $accessToken->getRequestedClaims();
+        Logger::info("extra claims for user info" . var_export($requestedClaims, true));
         $additionalClaims = $this->claimTranslatorExtractor->extractAdditionalUserInfoClaims($requestedClaims, $user->getClaims());
         $claims = array_merge($additionalClaims, $claims);
 
@@ -84,19 +83,14 @@ class OpenIdConnectUserInfoController
     }
 
     /**
-     * @param $tokenId
+     * @param AccessTokenEntity $accessToken
      *
      * @throws UserNotFound
      *
      * @return UserEntity
      */
-    private function getUser(string $tokenId)
+    private function getUser(AccessTokenEntity $accessToken)
     {
-        $accessToken = $this->accessTokenRepository->findById($tokenId);
-        if (!$accessToken instanceof AccessTokenEntity) {
-            throw new UserNotFound('Access token not found');
-        }
-
         $userIdentifier = (string) $accessToken->getUserIdentifier();
         $user = $this->userRepository->getUserEntityByIdentifier($userIdentifier);
         if (!$user instanceof UserEntity) {

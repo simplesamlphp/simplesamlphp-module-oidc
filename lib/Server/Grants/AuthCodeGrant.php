@@ -33,10 +33,10 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithClientAndRedirectUriInterface;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\OidcCapableGrantTypeInterface;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\PkceEnabledGrantTypeInterface;
+use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
-use SimpleSAML\Module\oidc\Services\RequestedClaimsEncoderService;
 use SimpleSAML\Module\oidc\Utils\Arr;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
@@ -55,6 +55,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     OidcCapableGrantTypeInterface,
     AuthorizationValidatableWithClientAndRedirectUriInterface
 {
+    use IssueAccessTokenTrait;
+
     /**
      * @var DateInterval
      */
@@ -90,18 +92,12 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      */
     protected $requireCodeChallengeForPublicClients = true;
 
-    /**
-     * @var RequestedClaimsEncoderService
-     */
-    private $requestedClaimsEncoderService;
-
     public function __construct(
         OAuth2AuthCodeRepositoryInterface $authCodeRepository,
         AccessTokenRepositoryInterface $accessTokenRepository,
         RefreshTokenRepositoryInterface $refreshTokenRepository,
         DateInterval $authCodeTTL,
-        RequestRulesManager $requestRulesManager,
-        RequestedClaimsEncoderService $requestedClaimsEncoderService
+        RequestRulesManager $requestRulesManager
     ) {
         parent::__construct($authCodeRepository, $refreshTokenRepository, $authCodeTTL);
 
@@ -119,7 +115,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         $plainVerifier = new PlainVerifier();
         $this->codeChallengeVerifiers[$plainVerifier->getMethod()] = $plainVerifier;
-        $this->requestedClaimsEncoderService = $requestedClaimsEncoderService;
     }
 
     /**
@@ -398,17 +393,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                 }
             }
         }
-        /**
-         * There isn't a great way to tie into oauth2-server's token generation without just copying
-         * and pasting code. As a workaround we convert the claims to a scope so it can persist for
-         * access and refresh tokens.
-         */
-        if (property_exists($authCodePayload, 'claims')) {
-            $claimsScope = $this->requestedClaimsEncoderService->encodeRequestedClaimsAsScope($authCodePayload->claims);
-            if ($claimsScope) {
-                $scopes[] = $claimsScope;
-            }
-        }
+
+        $claims = property_exists($authCodePayload, 'claims') ? json_decode(json_encode($authCodePayload->claims), true) : null;
 
         // Issue and persist new access token
         $accessToken = $this->issueAccessToken(
@@ -416,7 +402,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $client,
             $authCodePayload->user_id,
             $scopes,
-            $authCodePayload->auth_code_id
+            $authCodePayload->auth_code_id,
+            $claims
         );
         $this->getEmitter()->emit(new RequestEvent(RequestEvent::ACCESS_TOKEN_ISSUED, $request));
         $responseType->setAccessToken($accessToken);
@@ -574,47 +561,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         }
 
         return $authorizationRequest;
-    }
-
-
-    /**
-     * Issue an access token.
-     *
-     * @param DateInterval $accessTokenTTL
-     * @param OAuth2ClientEntityInterface $client
-     * @param string|null $userIdentifier
-     * @param ScopeEntityInterface[] $scopes
-     * @param string|null $authCodeId
-     * @return AccessTokenEntityInterface
-     * @throws OAuthServerException
-     * @throws UniqueTokenIdentifierConstraintViolationException
-     */
-    protected function issueAccessToken(
-        DateInterval $accessTokenTTL,
-        OAuth2ClientEntityInterface $client,
-        $userIdentifier = null,
-        array $scopes = [],
-        string $authCodeId = null
-    ): AccessTokenEntityInterface {
-        $maxGenerationAttempts = self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
-
-        $accessToken = $this->accessTokenRepository->getNewToken($client, $scopes, $userIdentifier, $authCodeId);
-        $accessToken->setExpiryDateTime((new DateTimeImmutable())->add($accessTokenTTL));
-        $accessToken->setPrivateKey($this->privateKey);
-
-        while ($maxGenerationAttempts-- > 0) {
-            $accessToken->setIdentifier($this->generateUniqueIdentifier());
-            try {
-                $this->accessTokenRepository->persistNewAccessToken($accessToken);
-                break;
-            } catch (UniqueTokenIdentifierConstraintViolationException $e) {
-                if ($maxGenerationAttempts === 0) {
-                    throw $e;
-                }
-            }
-        }
-
-        return $accessToken;
     }
 
     /**

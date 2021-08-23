@@ -3,6 +3,7 @@
 namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use DateInterval;
+use League\OAuth2\Server\Entities\Traits\AccessTokenTrait;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use League\OAuth2\Server\ResponseTypes\RedirectResponse;
@@ -12,7 +13,9 @@ use Psr\Http\Message\ServerRequestInterface;
 
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use SimpleSAML\Module\oidc\Services\RequestedClaimsEncoderService;
@@ -28,25 +31,21 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
 
 class ImplicitGrant extends OAuth2ImplicitGrant
 {
+    use IssueAccessTokenTrait;
     /**
      * @var IdTokenBuilder
      */
     protected $idTokenBuilder;
 
-    /**
-     * @var RequestedClaimsEncoderService
-     */
-    private $requestedClaimsEncoderService;
-
     public function __construct(
         IdTokenBuilder $idTokenBuilder,
         DateInterval $accessTokenTTL,
+        AccessTokenRepositoryInterface $accessTokenRepository,
         $queryDelimiter = '#',
-        RequestRulesManager $requestRulesManager = null,
-        RequestedClaimsEncoderService $requestedClaimsEncoderService
+        RequestRulesManager $requestRulesManager = null
     ) {
         parent::__construct($accessTokenTTL, $queryDelimiter, $requestRulesManager);
-        $this->requestedClaimsEncoderService = $requestedClaimsEncoderService;
+        $this->accessTokenRepository = $accessTokenRepository;
         $this->idTokenBuilder = $idTokenBuilder;
     }
 
@@ -160,23 +159,13 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             'state' => $authorizationRequest->getState(),
         ];
 
-         /**
-             * There isn't a great way to tie into oauth2-server's token generation without just copying
-             * and pasting code. As a workaround we convert the claims to a scope so it can persist for
-             * access and refresh tokens.
-             */
-            $claimsScope = $this->requestedClaimsEncoderService->encodeRequestedClaimsAsScope(
-                $authorizationRequest->getClaims()
-            );
-            if ($claimsScope) {
-                $finalizedScopes[] = $claimsScope;
-            }
-
         $accessToken = $this->issueAccessToken(
             $this->accessTokenTTL,
             $authorizationRequest->getClient(),
             $user->getIdentifier(),
-            $finalizedScopes
+            $finalizedScopes,
+            null,
+            $authorizationRequest->getClaims()
         );
 
         if ($accessToken instanceof EntityStringRepresentationInterface === false) {
