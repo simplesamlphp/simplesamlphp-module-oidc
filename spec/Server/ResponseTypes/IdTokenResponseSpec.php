@@ -30,7 +30,6 @@ use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
-use SimpleSAML\Module\oidc\Services\RequestedClaimsEncoderService;
 
 class IdTokenResponseSpec extends ObjectBehavior
 {

@@ -14,7 +14,6 @@
 
 namespace SimpleSAML\Module\oidc;
 
-use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use OpenIDConnectServer\ClaimExtractor;
 use OpenIDConnectServer\Entities\ClaimSetEntity;
 
