@@ -18,13 +18,11 @@ use Lcobucci\JWT\Validation\Constraint\SignedWith;
 use Lcobucci\JWT\Validation\Constraint\StrictValidAt;
 use Lcobucci\JWT\Validation\Validator;
 use League\OAuth2\Server\CryptKey;
-use OpenIDConnectServer\ClaimExtractor;
 use OpenIDConnectServer\Repositories\IdentityProviderInterface;
 use PhpSpec\Exception\Example\FailureException;
 use PhpSpec\ObjectBehavior;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
-use SimpleSAML\Module\oidc\Services\RequestedClaimsEncoderService;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Entity\ScopeEntity;
@@ -32,6 +30,7 @@ use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
+use SimpleSAML\Module\oidc\Services\RequestedClaimsEncoderService;
 
 class IdTokenResponseSpec extends ObjectBehavior
 {

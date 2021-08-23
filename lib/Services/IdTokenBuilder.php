@@ -12,8 +12,6 @@ use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use OpenIDConnectServer\ClaimExtractor;
 use OpenIDConnectServer\Entities\ClaimSetInterface;
-use OpenIDConnectServer\Repositories\IdentityProviderInterface;
-use SimpleSAML\Logger;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;

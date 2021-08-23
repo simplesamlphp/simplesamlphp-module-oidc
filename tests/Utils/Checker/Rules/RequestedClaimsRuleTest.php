@@ -8,7 +8,6 @@ use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\ResultBag;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
 
 class RequestedClaimsRuleTest extends TestCase

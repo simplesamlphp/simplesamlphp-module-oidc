@@ -3,7 +3,6 @@
 namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use DateInterval;
-use League\OAuth2\Server\Entities\Traits\AccessTokenTrait;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use League\OAuth2\Server\ResponseTypes\RedirectResponse;
@@ -22,11 +21,11 @@ use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\PromptRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestParameterRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredNonceRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ResponseTypeRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
 
 class ImplicitGrant extends OAuth2ImplicitGrant
 {

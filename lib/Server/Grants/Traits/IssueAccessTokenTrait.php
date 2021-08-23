@@ -5,17 +5,14 @@ namespace SimpleSAML\Module\oidc\Server\Grants\Traits;
 use DateInterval;
 use DateTimeImmutable;
 use League\OAuth2\Server\CryptKey;
-use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
-use SimpleSAML\Module\oidc\Entity\Interfaces\AccessTokenEntityInterface;
-use League\OAuth2\Server\Entities\AccessTokenEntityInterface as OAuth2AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use League\OAuth2\Server\Grant\AbstractGrant;
-use SimpleSAML\Module\oidc\Entity\Interfaces\RefreshTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entity\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
-use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
 
 /**
  * Trait IssueAccessTokenTrait

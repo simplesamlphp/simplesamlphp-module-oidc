@@ -14,16 +14,15 @@
 
 namespace SimpleSAML\Module\oidc\Controller;
 
+use Laminas\Diactoros\Response\JsonResponse;
+use Laminas\Diactoros\ServerRequest;
 use League\OAuth2\Server\ResourceServer;
 use SimpleSAML\Error\UserNotFound;
-use SimpleSAML\Logger;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
-use Laminas\Diactoros\Response\JsonResponse;
-use Laminas\Diactoros\ServerRequest;
 use SimpleSAML\Module\oidc\Services\RequestedClaimsEncoderService;
 
 class OpenIdConnectUserInfoController

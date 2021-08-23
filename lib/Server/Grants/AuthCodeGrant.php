@@ -20,9 +20,7 @@ use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2Authorizatio
 use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
-use OpenIDConnectServer\ClaimExtractor;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Entity\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\RefreshTokenEntityInterface;

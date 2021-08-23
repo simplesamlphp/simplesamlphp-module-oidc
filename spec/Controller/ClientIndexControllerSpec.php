@@ -14,15 +14,14 @@
 
 namespace spec\SimpleSAML\Module\oidc\Controller;
 
+use Laminas\Diactoros\ServerRequest;
 use PhpSpec\ObjectBehavior;
-use Prophecy\Argument;
 use Psr\Http\Message\UriInterface;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Controller\ClientIndexController;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\XHTML\Template;
-use Laminas\Diactoros\ServerRequest;
 
 class ClientIndexControllerSpec extends ObjectBehavior
 {

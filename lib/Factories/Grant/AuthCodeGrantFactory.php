@@ -14,11 +14,11 @@
 
 namespace SimpleSAML\Module\oidc\Factories\Grant;
 
-use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
+use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
+use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
-use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 
 class AuthCodeGrantFactory
 {
