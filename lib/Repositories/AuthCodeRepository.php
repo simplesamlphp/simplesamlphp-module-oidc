@@ -52,8 +52,6 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
         $stmt = sprintf(
             "INSERT INTO %s (id, scopes, expires_at, user_id, client_id, is_revoked, redirect_uri, nonce) "
                 . "VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked, :redirect_uri, :nonce)",
-//            "INSERT INTO %s (id, scopes, expires_at, user_id, client_id, is_revoked, redirect_uri, nonce, claims) "
-//                . "VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked, :redirect_uri, :nonce, :claims)",
             $this->getTableName()
         );
 
