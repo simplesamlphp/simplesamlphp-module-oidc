@@ -23,7 +23,6 @@ use SimpleSAML\Module\oidc\Entity\Interfaces\OidcAuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\OidcAuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
-
 class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeRepositoryInterface
 {
     public const TABLE_NAME = 'oidc_auth_code';

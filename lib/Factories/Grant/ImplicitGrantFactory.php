@@ -15,7 +15,7 @@
 namespace SimpleSAML\Module\oidc\Factories\Grant;
 
 use DateInterval;
-use SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant;
+use SimpleSAML\Module\oidc\Server\Grants\OAuth2ImplicitGrant as ImplicitGrant;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use SimpleSAML\Module\oidc\Services\RequestedClaimsEncoderService;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
@@ -57,7 +57,6 @@ class ImplicitGrantFactory
     public function build(): ImplicitGrant
     {
         return new ImplicitGrant(
-            $this->idTokenBuilder,
             $this->accessTokenDuration,
             '#',
             $this->requestRulesManager,

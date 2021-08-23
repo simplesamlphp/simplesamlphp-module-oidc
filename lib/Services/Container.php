@@ -41,12 +41,15 @@ use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
+
+use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
+use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\PromptRule;
-use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestParameterRule;
@@ -58,9 +61,7 @@ use SimpleSAML\Module\oidc\Factories\IdTokenBuilderFactory;
 use SimpleSAML\Module\oidc\Repositories\CodeChallengeVerifiersRepository;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
-use SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant;
 use SimpleSAML\Module\oidc\Server\Grants\OAuth2ImplicitGrant;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredNonceRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ResponseTypeRule;
@@ -238,7 +239,7 @@ class Container implements ContainerInterface
             $requestRuleManager,
             $requestedClaimsEncoderService
         );
-        $this->services[ImplicitGrant::class] = $implicitGrantFactory->build();
+        $this->services[OAuth2ImplicitGrant::class] = $implicitGrantFactory->build();
 
         $refreshTokenGrantFactory = new RefreshTokenGrantFactory(
             $refreshTokenRepository,
@@ -262,9 +263,13 @@ class Container implements ContainerInterface
         );
         $this->services[AuthorizationServer::class] = $authorizationServerFactory->build();
 
+        $bearerTokenValidator = new BearerTokenValidator($accessTokenRepository);
+        $this->services[BearerTokenValidator::class] = $bearerTokenValidator;
+
         $resourceServerFactory = new ResourceServerFactory(
             $accessTokenRepository,
-            $publicKey
+            $publicKey,
+            $bearerTokenValidator
         );
         $this->services[ResourceServer::class] = $resourceServerFactory->build();
     }
