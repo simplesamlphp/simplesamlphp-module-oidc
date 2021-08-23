@@ -394,7 +394,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             }
         }
 
-        $claims = property_exists($authCodePayload, 'claims') ? json_decode(json_encode($authCodePayload->claims), true) : null;
+        $claims = property_exists($authCodePayload, 'claims') ?
+            json_decode(json_encode($authCodePayload->claims), true)
+            : null;
 
         // Issue and persist new access token
         $accessToken = $this->issueAccessToken(

@@ -53,7 +53,7 @@ class ImplicitGrantFactory
         $this->accessTokenDuration = $accessTokenDuration;
         $this->requestRulesManager = $requestRulesManager;
         $this->accessTokenDuration = $accessTokenDuration;
-        $this->accessTokenRepository =$accessTokenRepository;
+        $this->accessTokenRepository = $accessTokenRepository;
     }
 
     public function build(): ImplicitGrant

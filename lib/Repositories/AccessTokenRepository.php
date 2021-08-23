@@ -61,7 +61,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
 
         $stmt = sprintf(
             "INSERT INTO %s (id, scopes, expires_at, user_id, client_id, is_revoked, auth_code_id, requested_claims) "
-                . "VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked, :auth_code_id, :requested_claims)",
+            . "VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked, :auth_code_id, :requested_claims)",
             $this->getTableName()
         );
 

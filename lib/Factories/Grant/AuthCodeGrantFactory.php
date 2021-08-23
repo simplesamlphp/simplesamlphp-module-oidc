@@ -20,7 +20,6 @@ use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 
-
 class AuthCodeGrantFactory
 {
     /**

@@ -42,7 +42,6 @@ use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant;
 use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
-
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule;
@@ -66,7 +65,6 @@ use SimpleSAML\Module\oidc\Server\Grants\OAuth2ImplicitGrant;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredNonceRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ResponseTypeRule;
-
 use SimpleSAML\Session;
 use SimpleSAML\Utils\Config;
 

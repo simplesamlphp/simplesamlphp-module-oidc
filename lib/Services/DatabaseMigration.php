@@ -275,5 +275,4 @@ EOT
 
         return mb_strtoupper(mb_substr("{$prefix}_{$hash}", 0, $maxSize));
     }
-
 }

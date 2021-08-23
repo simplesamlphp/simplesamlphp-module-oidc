@@ -1,8 +1,6 @@
 <?php
 
-
 namespace SimpleSAML\Module\oidc\Server\Grants\Traits;
-
 
 use DateInterval;
 use DateTimeImmutable;
@@ -61,7 +59,13 @@ trait IssueAccessTokenTrait
     ): AccessTokenEntityInterface {
         $maxGenerationAttempts = AbstractGrant::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
 
-        $accessToken = $this->accessTokenRepository->getNewToken($client, $scopes, $userIdentifier, $authCodeId, $requstedClaims);
+        $accessToken = $this->accessTokenRepository->getNewToken(
+            $client,
+            $scopes,
+            $userIdentifier,
+            $authCodeId,
+            $requstedClaims
+        );
         $accessToken->setExpiryDateTime((new DateTimeImmutable())->add($accessTokenTTL));
         $accessToken->setPrivateKey($this->privateKey);
 

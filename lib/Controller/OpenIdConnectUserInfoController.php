@@ -75,8 +75,10 @@ class OpenIdConnectUserInfoController
 
         $claims = $this->claimTranslatorExtractor->extract($scopes, $user->getClaims());
         $requestedClaims =  $accessToken->getRequestedClaims();
-        Logger::info("extra claims for user info" . var_export($requestedClaims, true));
-        $additionalClaims = $this->claimTranslatorExtractor->extractAdditionalUserInfoClaims($requestedClaims, $user->getClaims());
+        $additionalClaims = $this->claimTranslatorExtractor->extractAdditionalUserInfoClaims(
+            $requestedClaims,
+            $user->getClaims()
+        );
         $claims = array_merge($additionalClaims, $claims);
 
         return new JsonResponse($claims);

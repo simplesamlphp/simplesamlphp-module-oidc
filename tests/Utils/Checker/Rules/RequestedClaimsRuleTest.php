@@ -1,8 +1,6 @@
 <?php
 
-
 namespace Tests\SimpleSAML\Module\oidc\Utils\Checker\Rules;
-
 
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use PHPUnit\Framework\TestCase;
@@ -44,10 +42,10 @@ class RequestedClaimsRuleTest extends TestCase
     public function testWithClaims(): void
     {
         $expectedClaims = [
-            'userinfo'=> [
+            'userinfo' => [
                 "name" => null,
                 "email" => [
-                    "essential"=> true,
+                    "essential" => true,
                     "extras_stuff_not_in_spec" => "should be ignored"
                 ]
             ],

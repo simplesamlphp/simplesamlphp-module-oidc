@@ -1,8 +1,6 @@
 <?php
 
-
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
-
 
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use OpenIDConnectServer\ClaimExtractor;
@@ -56,12 +54,13 @@ class RequestedClaimsRule extends AbstractRule
         }
         // Remove requested claims that we aren't authorized for.
         $this->filterUnauthorizedClaims($claims, 'userinfo', $authorizedClaims);
-        $this->filterUnauthorizedClaims($claims,'id_token', $authorizedClaims);
-        
+        $this->filterUnauthorizedClaims($claims, 'id_token', $authorizedClaims);
+
         return new Result($this->getKey(), $claims);
     }
 
-    private function filterUnauthorizedClaims(array &$requestClaims, string $key, array $authorized) {
+    private function filterUnauthorizedClaims(array &$requestClaims, string $key, array $authorized)
+    {
         if (!array_key_exists($key, $requestClaims)) {
             return;
         }

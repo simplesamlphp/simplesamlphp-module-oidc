@@ -127,8 +127,10 @@ class IdTokenResponseSpec extends ObjectBehavior
         $body->shouldHaveValidIdToken();
     }
 
-    public function it_can_generate_response_with_individual_requested_claims(AccessTokenEntity $accessToken, Configuration $oidcConfig)
-    {
+    public function it_can_generate_response_with_individual_requested_claims(
+        AccessTokenEntity $accessToken,
+        Configuration $oidcConfig
+    ) {
         $oidcConfig->getBoolean('alwaysAddClaimsToIdToken', true)->willReturn(false);
         // ID token should only look at id_token for hints
         $accessToken->getRequestedClaims()->willReturn(
@@ -158,7 +160,6 @@ class IdTokenResponseSpec extends ObjectBehavior
         $body = $response->getBody()->getContents();
         echo "json body response " . $body->getWrappedObject();
         $body->shouldHaveValidIdToken(['name' => 'Homer Simpson']);
-
     }
 
     public function getMatchers(): array

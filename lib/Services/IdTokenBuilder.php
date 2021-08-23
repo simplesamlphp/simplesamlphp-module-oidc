@@ -84,11 +84,10 @@ class IdTokenBuilder
         // Need a claim factory here to reduce the number of claims by provided scope.
         $claims = $this->claimExtractor->extract($accessToken->getScopes(), $userEntity->getClaims());
         $requestedClaims =  $accessToken->getRequestedClaims();
-        Logger::info("extra claims for id token" . var_export($requestedClaims, true));
-        Logger::info("user claims for id token" . var_export($userEntity->getClaims(), true));
-        $additionalClaims = $this->claimExtractor->extractAdditionalIdTokenClaims($requestedClaims, $userEntity->getClaims());
-        Logger::info("additional claims for id token" . var_export($additionalClaims, true));
-
+        $additionalClaims = $this->claimExtractor->extractAdditionalIdTokenClaims(
+            $requestedClaims,
+            $userEntity->getClaims()
+        );
         $claims = array_merge($additionalClaims, $claims);
 
 
@@ -116,7 +115,6 @@ class IdTokenBuilder
                     $builder->relatedTo($claimValue);
                     break;
                 default:
-                    Logger::info("checking $claimName" . var_export($requestedClaims, true));
                     if ($addClaimsFromScopes || array_key_exists($claimName, $additionalClaims)) {
                         $builder->withClaim($claimName, $claimValue);
                     }

@@ -166,7 +166,6 @@ class ClaimTranslatorExtractorTest extends TestCase
 
         $claims = $claimTranslator->extractAdditionalUserInfoClaims($requestClaims, ['cn' => ['bob']]);
         $this->assertEquals(['name' => 'bob'], $claims);
-
     }
 
     public function testExtractRequestClaimsIdToken(): void
@@ -180,6 +179,5 @@ class ClaimTranslatorExtractorTest extends TestCase
 
         $claims = $claimTranslator->extractAdditionalIdTokenClaims($requestClaims, ['displayName' => ['bob']]);
         $this->assertEquals(['name' => 'bob'], $claims);
-
     }
 }
