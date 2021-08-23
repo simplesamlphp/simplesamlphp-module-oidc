@@ -49,6 +49,7 @@ use SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant;
 use SimpleSAML\Module\oidc\Server\Grants\OAuth2ImplicitGrant;
 use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
+use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
@@ -253,9 +254,13 @@ class Container implements ContainerInterface
         );
         $this->services[AuthorizationServer::class] = $authorizationServerFactory->build();
 
+        $bearerTokenValidator = new BearerTokenValidator($accessTokenRepository);
+        $this->services[BearerTokenValidator::class] = $bearerTokenValidator;
+
         $resourceServerFactory = new ResourceServerFactory(
             $accessTokenRepository,
-            $publicKey
+            $publicKey,
+            $bearerTokenValidator
         );
         $this->services[ResourceServer::class] = $resourceServerFactory->build();
     }

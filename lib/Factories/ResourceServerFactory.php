@@ -14,6 +14,7 @@
 
 namespace SimpleSAML\Module\oidc\Factories;
 
+use League\OAuth2\Server\AuthorizationValidators\AuthorizationValidatorInterface;
 use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\ResourceServer;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
@@ -21,27 +22,36 @@ use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 class ResourceServerFactory
 {
     /**
-     * @var \SimpleSAML\Module\oidc\Repositories\AccessTokenRepository
+     * @var AccessTokenRepository
      */
     private $accessTokenRepository;
+
     /**
      * @var CryptKey
      */
     private $publicKey;
 
+    /**
+     * @var AuthorizationValidatorInterface
+     */
+    private $authorizationValidator;
+
     public function __construct(
         AccessTokenRepository $accessTokenRepository,
-        CryptKey $publicKey
+        CryptKey $publicKey,
+        AuthorizationValidatorInterface $authorizationValidator
     ) {
         $this->accessTokenRepository = $accessTokenRepository;
         $this->publicKey = $publicKey;
+        $this->authorizationValidator = $authorizationValidator;
     }
 
     public function build(): ResourceServer
     {
         return new ResourceServer(
             $this->accessTokenRepository,
-            $this->publicKey
+            $this->publicKey,
+            $this->authorizationValidator
         );
     }
 }
