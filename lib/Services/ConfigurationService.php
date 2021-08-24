@@ -122,6 +122,12 @@ class ConfigurationService
                 }
             }
         );
+
+        foreach ($this->getAcrValuesSupported() as $acr) {
+            if (! is_string($acr)) {
+                throw new ConfigurationError('Config option acrValuesSupported should contain strings only.');
+            }
+        }
     }
 
     public function getSigner(): Signer
@@ -157,5 +163,16 @@ class ConfigurationService
     public function getAuthProcFilters(): array
     {
         return $this->getOpenIDConnectConfiguration()->getArray('authproc.oidc', []);
+    }
+
+    /**
+     * Get supported Authentication Context Class References.
+     *
+     * @return array
+     * @throws \Exception
+     */
+    public function getAcrValuesSupported(): array
+    {
+        return array_values($this->getOpenIDConnectConfiguration()->getArray('acrValuesSupported', []));
     }
 }

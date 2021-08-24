@@ -161,4 +161,17 @@ $config = [
 //            'schacPersonalUniqueId',
 //        ],
     ],
+
+    // Optional list of the Authentication Context Class References that this OP supports. Must be array of strings.
+    // If populated, this list will be available in OP discovery document (OP Metadata) as 'acr_values_supported'.
+    // @see https://datatracker.ietf.org/doc/html/rfc6711
+    // @see https://www.iana.org/assignments/loa-profiles/loa-profiles.xhtml
+    // @see https://openid.net/specs/openid-connect-core-1_0.html#IDToken (acr claim)
+    // @see https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest (acr_values parameter)
+    'acrValuesSupported' => [
+        //'0',
+        //'1',
+        //'urn:mace:incommon:iap:silver',
+        //'urn:mace:incommon:iap:bronze',
+    ],
 ];
