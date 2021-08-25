@@ -123,9 +123,44 @@ class ConfigurationService
             }
         );
 
-        foreach ($this->getAcrValuesSupported() as $acr) {
-            if (! is_string($acr)) {
+        $acrValuesSupported = $this->getAcrValuesSupported();
+        foreach ($acrValuesSupported as $acrValueSupported) {
+            if (! is_string($acrValueSupported)) {
                 throw new ConfigurationError('Config option acrValuesSupported should contain strings only.');
+            }
+        }
+
+        $authSourcesToAcrValuesMap = $this->getAuthSourcesToAcrValuesMap();
+        foreach ($authSourcesToAcrValuesMap as $authSource => $acrValues) {
+            if (! is_string($authSource)) {
+                throw new ConfigurationError('Config option authSourcesToAcrValuesMap should have string keys ' .
+                                             'indicating auth sources.');
+            }
+
+            if (! is_array($acrValues)) {
+                throw new ConfigurationError('Config option authSourcesToAcrValuesMap should have array ' .
+                                             'values containing supported ACRs for each auth source key.');
+            }
+
+            foreach ($acrValues as $acrValue) {
+                if (! is_string($acrValue)) {
+                    throw new ConfigurationError('Config option authSourcesToAcrValuesMap should have array ' .
+                                                 'values with strings only.');
+                }
+
+                if (! in_array($acrValue, $acrValuesSupported)) {
+                    throw new ConfigurationError('Config option authSourcesToAcrValuesMap should have ' .
+                                                 'supported ACR values only.');
+                }
+            }
+        }
+
+        $forcedAcrValueForCookieAuthentication = $this->getForcedAcrValueForCookieAuthentication();
+
+        if (! is_null($forcedAcrValueForCookieAuthentication)) {
+            if (! in_array($forcedAcrValueForCookieAuthentication, $acrValuesSupported)) {
+                throw new ConfigurationError('Config option forcedAcrValueForCookieAuthentication should have' .
+                                             ' null value or string value indicating particular supported ACR.');
             }
         }
     }
@@ -166,7 +201,7 @@ class ConfigurationService
     }
 
     /**
-     * Get supported Authentication Context Class References.
+     * Get supported Authentication Context Class References (ACRs).
      *
      * @return array
      * @throws \Exception
@@ -174,5 +209,32 @@ class ConfigurationService
     public function getAcrValuesSupported(): array
     {
         return array_values($this->getOpenIDConnectConfiguration()->getArray('acrValuesSupported', []));
+    }
+
+    /**
+     * Get a map of auth sources and their supported ACRs
+     *
+     * @return array
+     * @throws \Exception
+     */
+    public function getAuthSourcesToAcrValuesMap(): array
+    {
+        return $this->getOpenIDConnectConfiguration()->getArray('authSourcesToAcrValuesMap', []);
+    }
+
+    /**
+     * @return null|string
+     * @throws \Exception
+     */
+    public function getForcedAcrValueForCookieAuthentication(): ?string
+    {
+        $value = $this->getOpenIDConnectConfiguration()
+            ->getValue('forcedAcrValueForCookieAuthentication', null);
+
+        if (is_null($value)) {
+            return null;
+        }
+
+        return (string) $value;
     }
 }

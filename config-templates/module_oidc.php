@@ -162,16 +162,53 @@ $config = [
 //        ],
     ],
 
-    // Optional list of the Authentication Context Class References that this OP supports. Must be array of strings.
+    // Optional list of the Authentication Context Class References that this OP supports.
     // If populated, this list will be available in OP discovery document (OP Metadata) as 'acr_values_supported'.
     // @see https://datatracker.ietf.org/doc/html/rfc6711
     // @see https://www.iana.org/assignments/loa-profiles/loa-profiles.xhtml
     // @see https://openid.net/specs/openid-connect-core-1_0.html#IDToken (acr claim)
     // @see https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest (acr_values parameter)
+    // Syntax: string[] (array of strings)
     'acrValuesSupported' => [
-        //'0',
-        //'1',
-        //'urn:mace:incommon:iap:silver',
-        //'urn:mace:incommon:iap:bronze',
+//        'https://refeds.org/assurance/profile/espresso',
+//        'https://refeds.org/assurance/profile/cappuccino',
+//        'https://refeds.org/profile/mfa',
+//        'https://refeds.org/profile/sfa',
+//        'urn:mace:incommon:iap:silver',
+//        'urn:mace:incommon:iap:bronze',
+//        '4',
+//        '3',
+//        '2',
+//        '1',
+//        '0',
+//        '...',
     ],
+
+    // If this OP supports ACRs, indicate which usable auth source supports which ACRs.
+    // Order of ACRs is important, more important ones being first.
+    // Syntax: array<string,string[]> (array with auth source as key and value being array of ACR values as strings)
+    'authSourcesToAcrValuesMap' => [
+//        'example-userpass' => ['1', '0'],
+//        'default-sp' => ['http://id.incommon.org/assurance/bronze', '2', '1', '0'],
+//        'strongly-assured-authsource' => [
+//            'https://refeds.org/assurance/profile/espresso',
+//            'https://refeds.org/profile/mfa',
+//            'https://refeds.org/assurance/profile/cappuccino',
+//            'https://refeds.org/profile/sfa',
+//            '3',
+//            '2',
+//            '1',
+//            '0',
+//        ],
+    ],
+
+    // If this OP supports ACRs, indicate if authentication using cookie should be forced to specific ACR value.
+    // If this option is set to null, no specific ACR will be forced for cookie authentication and the resulting ACR
+    // will be one of the ACRs supported on used auth source during authentication, that is, session creation.
+    // If this option is set to specific ACR, with ACR value being one of the ACR value this OP supports, it will be
+    // set to that ACR for cookie authentication.
+    // For example, OIDC Core Spec notes that authentication using a long-lived browser cookie is one example where
+    // the use of "level 0" is appropriate:
+//     'forcedAcrValueForCookieAuthentication' => '0',
+    'forcedAcrValueForCookieAuthentication' => null,
 ];
