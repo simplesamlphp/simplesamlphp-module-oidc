@@ -61,6 +61,7 @@ class OpenIdConnectUserInfoControllerSpec extends ObjectBehavior
         UserEntity $userEntity,
         ClaimTranslatorExtractor $claimTranslatorExtractor
     ) {
+        $request->getMethod()->shouldBeCalled()->willReturn('GET');
         $resourceServer->validateAuthenticatedRequest($request)->shouldBeCalled()->willReturn($authorization);
         $authorization->getAttribute('oauth_access_token_id')->shouldBeCalled()->willReturn('tokenid');
         $authorization->getAttribute('oauth_scopes')->shouldBeCalled()->willReturn(['openid', 'email']);
