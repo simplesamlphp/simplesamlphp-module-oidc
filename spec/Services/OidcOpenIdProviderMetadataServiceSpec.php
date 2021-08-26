@@ -49,6 +49,7 @@ class OidcOpenIdProviderMetadataServiceSpec extends ObjectBehavior
             'token_endpoint_auth_methods_supported' => ['client_secret_post', 'client_secret_basic'],
             'request_parameter_supported' => false,
             'grant_types_supported' => ['authorization_code', 'refresh_token'],
+            'claims_parameter_supported' => true,
         ]);
     }
 }
