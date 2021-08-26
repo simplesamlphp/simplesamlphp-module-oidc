@@ -9,6 +9,7 @@ use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
@@ -168,6 +169,9 @@ class ImplicitGrant extends OAuth2ImplicitGrant
 
         if ($accessToken instanceof EntityStringRepresentationInterface === false) {
             throw new \RuntimeException('AccessToken must implement ' . EntityStringRepresentationInterface::class);
+        }
+        if ($accessToken instanceof AccessTokenEntity === false) {
+            throw new \RuntimeException('AccessToken must be ' . AccessTokenEntity::class);
         }
 
         $addAccessTokenHashToIdToken = false;

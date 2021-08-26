@@ -28,5 +28,4 @@ trait OidcAuthCodeTrait
     {
         $this->nonce = $nonce;
     }
-
 }

@@ -69,6 +69,7 @@ class RequestedClaimsRuleTest extends TestCase
         $rule = new RequestedClaimsRule($this->clientRepository, new ClaimTranslatorExtractor());
         $resultBag = new ResultBag();
         $result = $rule->checkRule($this->request, $resultBag, []);
+        $this->assertNotNull($result);
         $this->assertEquals($expectedClaims, $result->getValue());
     }
 
@@ -89,6 +90,7 @@ class RequestedClaimsRuleTest extends TestCase
         $rule = new RequestedClaimsRule($this->clientRepository, new ClaimTranslatorExtractor());
         $resultBag = new ResultBag();
         $result = $rule->checkRule($this->request, $resultBag, []);
+        $this->assertNotNull($result);
         $this->assertEquals($expectedClaims, $result->getValue());
     }
 }

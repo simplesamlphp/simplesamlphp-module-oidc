@@ -42,7 +42,7 @@ trait IssueAccessTokenTrait
      * @param ScopeEntityInterface[] $scopes
      * @param string|null $authCodeId
      * @param array|null $requestedClaims Any requested claims
-     * @return AccessTokenEntity
+     * @return AccessTokenEntityInterface
      * @throws OAuthServerException
      * @throws UniqueTokenIdentifierConstraintViolationException
      */

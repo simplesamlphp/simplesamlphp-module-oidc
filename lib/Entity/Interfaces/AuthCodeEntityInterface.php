@@ -15,5 +15,4 @@ interface AuthCodeEntityInterface extends OAuth2AuthCodeEntityInterface
      * @param string $nonce
      */
     public function setNonce(string $nonce): void;
-
 }

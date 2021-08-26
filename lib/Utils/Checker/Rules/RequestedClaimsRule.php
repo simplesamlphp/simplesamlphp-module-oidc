@@ -31,6 +31,9 @@ class RequestedClaimsRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false
     ): ?ResultInterface {
         $claimsParam = $request->getQueryParams()['claims'] ?? null;
+        if ($claimsParam === null) {
+            return null;
+        }
         $claims = json_decode($claimsParam, true);
         if (is_null($claims)) {
             return null;

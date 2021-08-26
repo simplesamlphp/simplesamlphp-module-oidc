@@ -20,7 +20,7 @@ use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
 class IdTokenBuilder
 {
     /**
-     * @var ClaimExtractor
+     * @var ClaimTranslatorExtractor
      */
     private $claimExtractor;
     /**
