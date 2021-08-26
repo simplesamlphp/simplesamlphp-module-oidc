@@ -18,7 +18,9 @@ use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
@@ -99,6 +101,8 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             RequiredNonceRule::class,
             RequestedClaimsRule::class
         ];
+
+        $this->requestRulesManager->predefineResult(new Result(ClientIdRule::class, $client));
 
         $resultBag = $this->requestRulesManager->check($request, $rulesToExecute, $this->shouldUseFragment());
 

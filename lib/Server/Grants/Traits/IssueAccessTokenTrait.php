@@ -49,10 +49,10 @@ trait IssueAccessTokenTrait
     protected function issueAccessToken(
         DateInterval $accessTokenTTL,
         ClientEntityInterface $client,
-        $userIdentifier,
+        $userIdentifier = null,
         array $scopes = [],
         string $authCodeId = null,
-        array $requstedClaims = null
+        array $requestedClaims = null
     ): AccessTokenEntityInterface {
         $maxGenerationAttempts = AbstractGrant::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
 
@@ -61,7 +61,7 @@ trait IssueAccessTokenTrait
             $scopes,
             $userIdentifier,
             $authCodeId,
-            $requstedClaims
+            $requestedClaims
         );
         $accessToken->setExpiryDateTime((new DateTimeImmutable())->add($accessTokenTTL));
         $accessToken->setPrivateKey($this->privateKey);

@@ -38,6 +38,7 @@ use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInte
 use SimpleSAML\Module\oidc\Utils\Arr;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\MaxAgeRule;
@@ -496,6 +497,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         // Since we have already validated redirect_uri and we have state, make it available for other checkers.
         $this->requestRulesManager->predefineResult(new Result(RedirectUriRule::class, $redirectUri));
         $this->requestRulesManager->predefineResult(new Result(StateRule::class, $state));
+        $this->requestRulesManager->predefineResult(new Result(ClientIdRule::class, $client));
 
         // Some rules have to have certain things available in order to work properly...
         $this->requestRulesManager->setData('default_scope', $this->defaultScope);

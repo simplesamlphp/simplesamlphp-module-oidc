@@ -13,13 +13,10 @@ use SimpleSAML\Module\oidc\Utils\Checker\Result;
 
 class RequestedClaimsRule extends AbstractRule
 {
-    private $clientRepository;
-
     private $claimExtractor;
 
-    public function __construct(ClientRepositoryInterface $clientRepository, ClaimExtractor $claimExtractor)
+    public function __construct(ClaimExtractor $claimExtractor)
     {
-        $this->clientRepository = $clientRepository;
         $this->claimExtractor = $claimExtractor;
     }
 
@@ -38,16 +35,9 @@ class RequestedClaimsRule extends AbstractRule
         if (is_null($claims)) {
             return null;
         }
-        $clientId = $request->getQueryParams()['client_id'] ?? $request->getServerParams()['PHP_AUTH_USER'] ?? null;
+        /** @var ClientEntityInterface $client */
+        $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
 
-        if ($clientId === null) {
-            throw OidcServerException::invalidRequest('client_id');
-        }
-
-        $client = $this->clientRepository->getClientEntity($clientId);
-        if ($client instanceof ClientEntityInterface === false) {
-            throw OidcServerException::invalidClient($request);
-        }
         $authorizedClaims = [];
         foreach ($client->getScopes() as $scope) {
             $claimSet = $this->claimExtractor->getClaimSet($scope);

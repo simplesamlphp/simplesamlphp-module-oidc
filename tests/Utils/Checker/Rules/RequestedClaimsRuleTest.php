@@ -7,7 +7,9 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\Checker\ResultBag;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
 
 class RequestedClaimsRuleTest extends TestCase
@@ -17,7 +19,6 @@ class RequestedClaimsRuleTest extends TestCase
     protected $clientStub;
     protected $request;
     protected $redirectUri = 'https://some-redirect-uri.org';
-    protected $clientRepository;
 
 
     protected function setUp(): void
@@ -25,16 +26,14 @@ class RequestedClaimsRuleTest extends TestCase
         $this->resultBag = new ResultBag();
         $this->clientStub = $this->createStub(ClientEntityInterface::class);
         $this->request = $this->createStub(ServerRequestInterface::class);
-        $this->clientRepository = $this->createStub(ClientRepositoryInterface::class);
-        $this->clientRepository->method('getClientEntity')->willReturn($this->clientStub);
         $this->clientStub->method('getScopes')->willReturn(['openid', 'profile', 'email']);
+        $this->resultBag->add(new Result(ClientIdRule::class, $this->clientStub));
     }
 
     public function testNoRequestedClaims(): void
     {
-        $rule = new RequestedClaimsRule($this->clientRepository, new ClaimTranslatorExtractor());
-        $resultBag = new ResultBag();
-        $result = $rule->checkRule($this->request, $resultBag, []);
+        $rule = new RequestedClaimsRule(new ClaimTranslatorExtractor());
+        $result = $rule->checkRule($this->request, $this->resultBag, []);
         $this->assertNull($result);
     }
 
@@ -66,9 +65,8 @@ class RequestedClaimsRuleTest extends TestCase
             'client_id' => 'abc'
                                                              ]);
 
-        $rule = new RequestedClaimsRule($this->clientRepository, new ClaimTranslatorExtractor());
-        $resultBag = new ResultBag();
-        $result = $rule->checkRule($this->request, $resultBag, []);
+        $rule = new RequestedClaimsRule(new ClaimTranslatorExtractor());
+        $result = $rule->checkRule($this->request, $this->resultBag, []);
         $this->assertNotNull($result);
         $this->assertEquals($expectedClaims, $result->getValue());
     }
@@ -87,9 +85,8 @@ class RequestedClaimsRuleTest extends TestCase
                                                                  'client_id' => 'abc'
                                                              ]);
 
-        $rule = new RequestedClaimsRule($this->clientRepository, new ClaimTranslatorExtractor());
-        $resultBag = new ResultBag();
-        $result = $rule->checkRule($this->request, $resultBag, []);
+        $rule = new RequestedClaimsRule(new ClaimTranslatorExtractor());
+        $result = $rule->checkRule($this->request, $this->resultBag, []);
         $this->assertNotNull($result);
         $this->assertEquals($expectedClaims, $result->getValue());
     }

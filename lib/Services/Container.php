@@ -167,7 +167,7 @@ class Container implements ContainerInterface
             new RequiredOpenIdScopeRule(),
             new CodeChallengeRule(),
             new CodeChallengeMethodRule($codeChallengeVerifiersRepository),
-            new RequestedClaimsRule($clientRepository, $claimTranslatorExtractor),
+            new RequestedClaimsRule($claimTranslatorExtractor),
             new AddClaimsToIdTokenRule(),
             new RequiredNonceRule(),
             new ResponseTypeRule(),

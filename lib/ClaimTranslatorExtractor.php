@@ -227,13 +227,12 @@ class ClaimTranslatorExtractor extends ClaimExtractor
         }
         $translatedClaims = $this->translateSamlAttributesToClaims($this->translationTable, $claims);
 
-        $data = array_filter(
+        return array_filter(
             $translatedClaims,
             function ($key) use ($requestedClaims) {
                 return array_key_exists($key, $requestedClaims);
             },
             ARRAY_FILTER_USE_KEY
         );
-        return $data;
     }
 }
