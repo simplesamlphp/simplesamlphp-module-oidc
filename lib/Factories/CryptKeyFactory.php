@@ -1,6 +1,6 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Factories;
+namespace SimpleSAML\Module\oidc\Factories;
 
 use League\OAuth2\Server\CryptKey;
 

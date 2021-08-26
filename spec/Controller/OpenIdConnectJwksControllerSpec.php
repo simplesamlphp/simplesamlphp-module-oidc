@@ -12,11 +12,11 @@
  * file that was distributed with this source code.
  */
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
+namespace spec\SimpleSAML\Module\oidc\Controller;
 
 use PhpSpec\ObjectBehavior;
-use SimpleSAML\Modules\OpenIDConnect\Controller\OpenIdConnectJwksController;
-use SimpleSAML\Modules\OpenIDConnect\Services\JsonWebKeySetService;
+use SimpleSAML\Module\oidc\Controller\OpenIdConnectJwksController;
+use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
 use Laminas\Diactoros\Response\JsonResponse;
 use Laminas\Diactoros\ServerRequest;
 

@@ -12,13 +12,13 @@
  * file that was distributed with this source code.
  */
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
+namespace spec\SimpleSAML\Module\oidc\Controller;
 
-use SimpleSAML\Modules\OpenIDConnect\Server\AuthorizationServer;
+use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
 use Psr\Http\Message\ResponseInterface;
-use SimpleSAML\Modules\OpenIDConnect\Controller\OAuth2AccessTokenController;
+use SimpleSAML\Module\oidc\Controller\OAuth2AccessTokenController;
 use Laminas\Diactoros\Response;
 use Laminas\Diactoros\ServerRequest;
 

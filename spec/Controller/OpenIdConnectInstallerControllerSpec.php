@@ -12,14 +12,14 @@
  * file that was distributed with this source code.
  */
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
+namespace spec\SimpleSAML\Module\oidc\Controller;
 
 use PhpSpec\ObjectBehavior;
-use SimpleSAML\Modules\OpenIDConnect\Controller\OpenIdConnectInstallerController;
-use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
-use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseLegacyOAuth2Import;
-use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration;
-use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
+use SimpleSAML\Module\oidc\Controller\OpenIdConnectInstallerController;
+use SimpleSAML\Module\oidc\Factories\TemplateFactory;
+use SimpleSAML\Module\oidc\Services\DatabaseLegacyOAuth2Import;
+use SimpleSAML\Module\oidc\Services\DatabaseMigration;
+use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\XHTML\Template;
 use Laminas\Diactoros\Response\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;
@@ -84,7 +84,7 @@ class OpenIdConnectInstallerControllerSpec extends ObjectBehavior
     }
 
     /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService $messages
+     * @param \SimpleSAML\Module\oidc\Services\SessionMessagesService $messages
      *
      * @return void
      */

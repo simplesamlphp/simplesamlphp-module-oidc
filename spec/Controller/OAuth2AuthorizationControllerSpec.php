@@ -12,18 +12,18 @@
  * file that was distributed with this source code.
  */
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
+namespace spec\SimpleSAML\Module\oidc\Controller;
 
-use SimpleSAML\Modules\OpenIDConnect\Server\AuthorizationServer;
+use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest;
 use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
 use Psr\Http\Message\ResponseInterface;
-use SimpleSAML\Modules\OpenIDConnect\Controller\OAuth2AuthorizationController;
-use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
-use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
-use SimpleSAML\Modules\OpenIDConnect\Services\AuthenticationService;
+use SimpleSAML\Module\oidc\Controller\OAuth2AuthorizationController;
+use SimpleSAML\Module\oidc\Entity\ClientEntity;
+use SimpleSAML\Module\oidc\Entity\UserEntity;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use Laminas\Diactoros\Response;
 use Laminas\Diactoros\ServerRequest;
 

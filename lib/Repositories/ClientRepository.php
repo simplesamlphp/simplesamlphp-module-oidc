@@ -12,12 +12,12 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Repositories;
+namespace SimpleSAML\Module\oidc\Repositories;
 
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
-use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
+use SimpleSAML\Module\oidc\Entity\ClientEntity;
 
 class ClientRepository extends AbstractDatabaseRepository implements ClientRepositoryInterface
 {
@@ -121,7 +121,10 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         $offset = $this->calculateOffset($page, $limit);
 
         $stmt = $this->database->read(
-            "SELECT * FROM {$this->getTableName()} WHERE name LIKE :name ORDER BY name ASC LIMIT {$limit} OFFSET {$offset}",
+            "SELECT * FROM {$this->getTableName()} " .
+            "WHERE name LIKE :name " .
+            "ORDER BY name ASC " .
+            "LIMIT {$limit} OFFSET {$offset}",
             ['name' => '%' . $query . '%']
         );
 

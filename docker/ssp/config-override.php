@@ -6,5 +6,6 @@ $config = [
         'database.username' => 'user',
         'database.password' => 'password',
         'language.i18n.backend' => 'gettext/gettext',
-        'logging.level' => 7
+        'logging.level' => 7,
+        'usenewui' => false,
     ] + $config;

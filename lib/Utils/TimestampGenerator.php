@@ -12,7 +12,7 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Utils;
+namespace SimpleSAML\Module\oidc\Utils;
 
 class TimestampGenerator
 {

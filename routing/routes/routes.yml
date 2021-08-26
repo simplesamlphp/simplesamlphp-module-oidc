@@ -1,0 +1,6 @@
+# TODO sspv2 move to routes in SSP v2
+#oidc-clients:
+#    path: /clients
+#    controller: SimpleSAML\Module\oidc\Services\RoutingService::call
+#    defaults:
+#        controllerClassname: SimpleSAML\Module\oidc\Controller\ClientIndexController

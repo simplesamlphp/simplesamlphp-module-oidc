@@ -1,6 +1,6 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces;
+namespace SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces;
 
 interface NonceResponseTypeInterface
 {

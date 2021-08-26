@@ -12,13 +12,13 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Controller;
+namespace SimpleSAML\Module\oidc\Controller;
 
 use SimpleSAML\Module;
-use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
-use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseLegacyOAuth2Import;
-use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration;
-use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
+use SimpleSAML\Module\oidc\Factories\TemplateFactory;
+use SimpleSAML\Module\oidc\Services\DatabaseLegacyOAuth2Import;
+use SimpleSAML\Module\oidc\Services\DatabaseMigration;
+use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\Utils\HTTP;
 use Laminas\Diactoros\Response\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;
@@ -63,7 +63,7 @@ class OpenIdConnectInstallerController
     public function __invoke(ServerRequest $request)
     {
         if ($this->databaseMigration->isUpdated()) {
-            return new RedirectResponse(HTTP::addURLParameters('clients/', []));
+            return new RedirectResponse(HTTP::addURLParameters('clients/index.php', []));
         }
 
         $oauth2Enabled = \in_array('oauth2', Module::getModules(), true);
@@ -78,7 +78,7 @@ class OpenIdConnectInstallerController
                 $this->messages->addMessage('{oidc:import:finished}');
             }
 
-            return new RedirectResponse(HTTP::addURLParameters('clients/', []));
+            return new RedirectResponse(HTTP::addURLParameters('clients/index.php', []));
         }
 
         return $this->templateFactory->render('oidc:install.twig', [

@@ -1,13 +1,13 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules;
+namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
-use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultBagInterface;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultInterface;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Result;
+use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
+use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
+use SimpleSAML\Module\oidc\Utils\Checker\Result;
 
 class RedirectUriRule extends AbstractRule
 {
@@ -17,7 +17,8 @@ class RedirectUriRule extends AbstractRule
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
-        array $data
+        array $data = [],
+        bool $useFragmentInHttpErrorResponses = false
     ): ?ResultInterface {
         $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
         if (! $client instanceof ClientEntityInterface) {

@@ -12,16 +12,16 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Factories;
+namespace SimpleSAML\Module\oidc\Factories;
 
 use OpenIDConnectServer\Entities\ClaimSetEntity;
-use SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor;
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
 
 class ClaimTranslatorExtractorFactory
 {
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService
+     * @var \SimpleSAML\Module\oidc\Services\ConfigurationService
      */
     private $configurationService;
 

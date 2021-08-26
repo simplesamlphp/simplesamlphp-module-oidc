@@ -12,14 +12,14 @@
  * file that was distributed with this source code.
  */
 
-namespace Tests\SimpleSAML\Modules\OpenIDConnect\Repositories;
+namespace SimpleSAML\Test\Module\oidc\Repositories;
 
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
-use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
-use SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration;
+use SimpleSAML\Module\oidc\Entity\UserEntity;
+use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 
 class UserRepositoryTest extends TestCase
 {

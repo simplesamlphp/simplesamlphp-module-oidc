@@ -1,16 +1,20 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules;
+namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultBagInterface;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultInterface;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
+use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 
 class RequestParameterRule extends AbstractRule
 {
-    public function checkRule(ServerRequestInterface $request, ResultBagInterface $currentResultBag, array $data): ?ResultInterface
-    {
+    public function checkRule(
+        ServerRequestInterface $request,
+        ResultBagInterface $currentResultBag,
+        array $data = [],
+        bool $useFragmentInHttpErrorResponses = false
+    ): ?ResultInterface {
         $queryParams = $request->getQueryParams();
         if (!array_key_exists('request', $queryParams)) {
             return null;
@@ -24,7 +28,8 @@ class RequestParameterRule extends AbstractRule
             'request object not supported',
             $redirectUri,
             null,
-            $state ? $state->getValue() : null
+            $state ? $state->getValue() : null,
+            $useFragmentInHttpErrorResponses
         );
     }
 }

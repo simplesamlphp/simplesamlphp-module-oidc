@@ -1,8 +1,8 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Utils\Checker;
+namespace SimpleSAML\Module\oidc\Utils\Checker;
 
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultInterface;
+use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 
 class Result implements ResultInterface
 {

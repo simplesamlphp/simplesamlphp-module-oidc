@@ -12,10 +12,10 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Factories\Grant;
+namespace SimpleSAML\Module\oidc\Factories\Grant;
 
-use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
-use SimpleSAML\Modules\OpenIDConnect\Server\Grants\RefreshTokenGrant;
+use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
+use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
 
 class RefreshTokenGrantFactory
 {

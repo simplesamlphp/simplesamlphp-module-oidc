@@ -12,14 +12,17 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes;
+namespace SimpleSAML\Module\oidc\Server\ResponseTypes;
 
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
+use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\ResponseTypes\BearerTokenResponse;
-use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
-use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
-use SimpleSAML\Modules\OpenIDConnect\Services\IdTokenBuilder;
+use OpenIDConnectServer\Repositories\IdentityProviderInterface;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 
 /**
  * Class IdTokenResponse.
@@ -31,6 +34,15 @@ use SimpleSAML\Modules\OpenIDConnect\Services\IdTokenBuilder;
  */
 class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeInterface, AuthTimeResponseTypeInterface
 {
+    /**
+     * @var IdentityProviderInterface
+     */
+    private $identityProvider;
+    /**
+     * @var ConfigurationService
+     */
+    private $configurationService;
+
     /**
      * @var IdTokenBuilder
      */
@@ -46,9 +58,14 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
      */
     protected $authTime;
 
-    public function __construct(IdTokenBuilder $idTokenBuilder)
-    {
+    public function __construct(
+        IdentityProviderInterface $identityProvider,
+        ConfigurationService $configurationService,
+        IdTokenBuilder $idTokenBuilder
+    ) {
+        $this->identityProvider = $identityProvider;
         $this->idTokenBuilder = $idTokenBuilder;
+        $this->configurationService = $configurationService;
     }
 
     /**
@@ -60,7 +77,23 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
             return [];
         }
 
-        $token = $this->idTokenBuilder->build($accessToken, $this->getNonce(), $this->getAuthTime());
+        // Per https://openid.net/specs/openid-connect-core-1_0.html#rfc.section.5.4 certain claims
+        // should only be added in certain scenarios. Allow deployer to control this.
+        $addClaimsFromScopes = $this->configurationService
+            ->getOpenIDConnectConfiguration()
+            ->getBoolean('alwaysAddClaimsToIdToken', true);
+
+        /** @var UserEntityInterface $userEntity */
+        $userEntity = $this->identityProvider->getUserEntityByIdentifier($accessToken->getUserIdentifier());
+
+        $token = $this->idTokenBuilder->build(
+            $userEntity,
+            $this->accessToken,
+            $addClaimsFromScopes,
+            true,
+            $this->getNonce(),
+            $this->getAuthTime()
+        );
 
         return [
             'id_token' => $token->toString(),

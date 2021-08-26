@@ -12,12 +12,12 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Repositories;
+namespace SimpleSAML\Module\oidc\Repositories;
 
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Repositories\UserRepositoryInterface;
 use OpenIDConnectServer\Repositories\IdentityProviderInterface;
-use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
+use SimpleSAML\Module\oidc\Entity\UserEntity;
 
 class UserRepository extends AbstractDatabaseRepository implements UserRepositoryInterface, IdentityProviderInterface
 {
@@ -31,7 +31,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
     /**
      * @param string $identifier
      *
-     * @return \SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity|null
+     * @return \SimpleSAML\Module\oidc\Entity\UserEntity|null
      */
     public function getUserEntityByIdentifier($identifier)
     {
@@ -74,7 +74,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
     }
 
     /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity $userEntity
+     * @param \SimpleSAML\Module\oidc\Entity\UserEntity $userEntity
      */
     public function delete(UserEntity $user): void
     {
@@ -87,7 +87,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
     }
 
     /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity $userEntity
+     * @param \SimpleSAML\Module\oidc\Entity\UserEntity $userEntity
      */
     public function update(UserEntity $user): void
     {

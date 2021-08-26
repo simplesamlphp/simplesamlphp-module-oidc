@@ -1,10 +1,10 @@
 <?php
 
-namespace Tests\SimpleSAML\Modules\OpenIDConnect;
+namespace SimpleSAML\Test\Module\oidc;
 
 use OpenIDConnectServer\Entities\ClaimSetEntity;
 use PHPUnit\Framework\TestCase;
-use SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Utils\Attributes;
 
 class ClaimTranslatorExtractorTest extends TestCase

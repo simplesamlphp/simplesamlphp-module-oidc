@@ -12,11 +12,11 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Controller;
+namespace SimpleSAML\Module\oidc\Controller;
 
-use SimpleSAML\Modules\OpenIDConnect\Controller\Traits\GetClientFromRequestTrait;
-use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
+use SimpleSAML\Module\oidc\Factories\TemplateFactory;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use Laminas\Diactoros\ServerRequest;
 
 class ClientShowController

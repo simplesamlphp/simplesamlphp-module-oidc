@@ -12,7 +12,7 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Entity\Traits;
+namespace SimpleSAML\Module\oidc\Entity\Traits;
 
 trait RevokeTokenTrait
 {
@@ -31,7 +31,7 @@ trait RevokeTokenTrait
      *
      * @return void
      */
-    public function revoke()
+    public function revoke(): void
     {
         $this->isRevoked = true;
     }

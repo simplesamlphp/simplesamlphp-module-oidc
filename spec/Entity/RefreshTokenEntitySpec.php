@@ -12,12 +12,12 @@
  * file that was distributed with this source code.
  */
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Entity;
+namespace spec\SimpleSAML\Module\oidc\Entity;
 
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use PhpSpec\ObjectBehavior;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\MementoInterface;
-use SimpleSAML\Modules\OpenIDConnect\Entity\RefreshTokenEntity;
+use SimpleSAML\Module\oidc\Entity\Interfaces\MementoInterface;
+use SimpleSAML\Module\oidc\Entity\RefreshTokenEntity;
 
 class RefreshTokenEntitySpec extends ObjectBehavior
 {
@@ -34,6 +34,7 @@ class RefreshTokenEntitySpec extends ObjectBehavior
                 'expires_at' => '1970-01-01 00:00:00',
                 'access_token' => $accessTokenEntity,
                 'is_revoked' => false,
+                'auth_code_id' => '123',
             ],
         ]);
     }
@@ -89,6 +90,14 @@ class RefreshTokenEntitySpec extends ObjectBehavior
     /**
      * @return void
      */
+    public function it_has_auth_code_id()
+    {
+        $this->getAuthCodeId()->shouldBeEqualTo('123');
+    }
+
+    /**
+     * @return void
+     */
     public function it_can_return_state()
     {
         $this->getState()->shouldBeLike([
@@ -96,6 +105,7 @@ class RefreshTokenEntitySpec extends ObjectBehavior
             'expires_at' => '1970-01-01 00:00:00',
             'access_token_id' => 'access_token_id',
             'is_revoked' => false,
+            'auth_code_id' => '123',
         ]);
     }
 }

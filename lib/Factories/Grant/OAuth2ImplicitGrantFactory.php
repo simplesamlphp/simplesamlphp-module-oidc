@@ -12,10 +12,10 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Factories\Grant;
+namespace SimpleSAML\Module\oidc\Factories\Grant;
 
-use SimpleSAML\Modules\OpenIDConnect\Server\Grants\OAuth2ImplicitGrant;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Module\oidc\Server\Grants\OAuth2ImplicitGrant;
+use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 
 class OAuth2ImplicitGrantFactory
 {

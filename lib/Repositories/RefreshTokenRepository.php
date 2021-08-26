@@ -12,16 +12,20 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Repositories;
+namespace SimpleSAML\Module\oidc\Repositories;
 
-use League\OAuth2\Server\Entities\RefreshTokenEntityInterface;
+use League\OAuth2\Server\Entities\RefreshTokenEntityInterface as OAuth2RefreshTokenEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
-use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
-use SimpleSAML\Modules\OpenIDConnect\Entity\RefreshTokenEntity;
-use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
+use SimpleSAML\Module\oidc\Entity\Interfaces\RefreshTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entity\RefreshTokenEntity;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
+use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
+use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 class RefreshTokenRepository extends AbstractDatabaseRepository implements RefreshTokenRepositoryInterface
 {
+    use RevokeTokenByAuthCodeIdTrait;
+
     public const TABLE_NAME = 'oidc_refresh_token';
 
     /**
@@ -35,23 +39,24 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
     /**
      * {@inheritdoc}
      */
-    public function getNewRefreshToken(): RefreshTokenEntity
+    public function getNewRefreshToken(): RefreshTokenEntityInterface
     {
         return new RefreshTokenEntity();
     }
 
     /**
      * {@inheritdoc}
+     * @throws OAuthServerException
      */
-    public function persistNewRefreshToken(RefreshTokenEntityInterface $refreshTokenEntity): void
+    public function persistNewRefreshToken(OAuth2RefreshTokenEntityInterface $refreshTokenEntity): void
     {
         if (!$refreshTokenEntity instanceof RefreshTokenEntity) {
             throw OAuthServerException::invalidRefreshToken();
         }
 
         $stmt = sprintf(
-            "INSERT INTO %s (id, expires_at, access_token_id, is_revoked) "
-                . "VALUES (:id, :expires_at, :access_token_id, :is_revoked)",
+            "INSERT INTO %s (id, expires_at, access_token_id, is_revoked, auth_code_id) "
+                . "VALUES (:id, :expires_at, :access_token_id, :is_revoked, :auth_code_id)",
             $this->getTableName()
         );
 
@@ -64,7 +69,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
     /**
      * Find Refresh Token by id.
      */
-    public function findById(string $tokenId): ?RefreshTokenEntity
+    public function findById(string $tokenId): ?RefreshTokenEntityInterface
     {
         $stmt = $this->database->read(
             "SELECT * FROM {$this->getTableName()} WHERE id = :id",
@@ -126,11 +131,11 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         );
     }
 
-    private function update(RefreshTokenEntity $refreshTokenEntity): void
+    private function update(RefreshTokenEntityInterface $refreshTokenEntity): void
     {
         $stmt = sprintf(
-            "UPDATE %s SET expires_at = :expires_at, access_token_id = :access_token_id, is_revoked = :is_revoked "
-                . "WHERE id = :id",
+            "UPDATE %s SET expires_at = :expires_at, access_token_id = :access_token_id, is_revoked = :is_revoked, "
+                . "auth_code_id = :auth_code_id WHERE id = :id",
             $this->getTableName()
         );
 

@@ -1,13 +1,13 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules;
+namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Modules\OpenIDConnect\Factories\AuthSimpleFactory;
-use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultBagInterface;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultInterface;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Result;
+use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
+use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
+use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Session;
 
 class MaxAgeRule extends AbstractRule
@@ -29,8 +29,12 @@ class MaxAgeRule extends AbstractRule
         $this->session = $session;
     }
 
-    public function checkRule(ServerRequestInterface $request, ResultBagInterface $currentResultBag, array $data): ?ResultInterface
-    {
+    public function checkRule(
+        ServerRequestInterface $request,
+        ResultBagInterface $currentResultBag,
+        array $data = [],
+        bool $useFragmentInHttpErrorResponses = false
+    ): ?ResultInterface {
         $queryParams = $request->getQueryParams();
         $authSimple = $this->authSimpleFactory->build($request);
 
@@ -49,7 +53,8 @@ class MaxAgeRule extends AbstractRule
                 'max_age must be a valid integer',
                 null,
                 $redirectUri,
-                $queryParams['state'] ?? null
+                $queryParams['state'] ?? null,
+                $useFragmentInHttpErrorResponses
             );
         }
 

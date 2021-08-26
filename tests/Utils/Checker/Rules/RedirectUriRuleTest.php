@@ -1,17 +1,17 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules;
+namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
-use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultInterface;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Result;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\ResultBag;
+use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
+use SimpleSAML\Module\oidc\Utils\Checker\Result;
+use SimpleSAML\Module\oidc\Utils\Checker\ResultBag;
 
 /**
- * @covers \SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RedirectUriRule
+ * @covers \SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule
  */
 class RedirectUriRuleTest extends TestCase
 {
