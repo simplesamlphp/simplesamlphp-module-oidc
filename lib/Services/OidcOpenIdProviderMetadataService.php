@@ -47,6 +47,7 @@ class OidcOpenIdProviderMetadataService
         $this->metadata['token_endpoint_auth_methods_supported'] = ['client_secret_post', 'client_secret_basic'];
         $this->metadata['request_parameter_supported'] = false;
         $this->metadata['grant_types_supported'] = ['authorization_code', 'refresh_token'];
+        $this->metadata['claims_parameter_supported'] = true;
     }
 
     /**
