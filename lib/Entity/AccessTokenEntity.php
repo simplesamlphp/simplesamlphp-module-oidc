@@ -42,6 +42,12 @@ class AccessTokenEntity implements
     protected $stringRepresentation;
 
     /**
+     * Claims that were individual requested
+     * @var array $requestedClaims
+     */
+    protected $requestedClaims;
+
+    /**
      * Constructor.
      */
     private function __construct()
@@ -57,7 +63,8 @@ class AccessTokenEntity implements
         OAuth2ClientEntityInterface $clientEntity,
         array $scopes,
         string $userIdentifier = null,
-        string $authCodeId = null
+        string $authCodeId = null,
+        array $requestedClaims = null
     ): self {
         $accessToken = new self();
 
@@ -67,6 +74,7 @@ class AccessTokenEntity implements
         foreach ($scopes as $scope) {
             $accessToken->addScope($scope);
         }
+        $accessToken->setRequestedClaims($requestedClaims ?? []);
 
         return $accessToken;
     }
@@ -92,9 +100,27 @@ class AccessTokenEntity implements
         $accessToken->client = $state['client'];
         $accessToken->isRevoked = (bool) $state['is_revoked'];
         $accessToken->authCodeId = $state['auth_code_id'];
-
+        $accessToken->requestedClaims = json_decode($state['requested_claims'] ?? '[]', true);
         return $accessToken;
     }
+
+    /**
+     * @return array
+     */
+    public function getRequestedClaims(): array
+    {
+        return $this->requestedClaims;
+    }
+
+    /**
+     * @param array $requestedClaims
+     */
+    public function setRequestedClaims(array $requestedClaims): void
+    {
+        $this->requestedClaims = $requestedClaims;
+    }
+
+
 
     /**
      * {@inheritdoc}
@@ -109,6 +135,7 @@ class AccessTokenEntity implements
             'client_id' => $this->getClient()->getIdentifier(),
             'is_revoked' => (int) $this->isRevoked(),
             'auth_code_id' => $this->getAuthCodeId(),
+            'requested_claims' => json_encode($this->requestedClaims)
         ];
     }
 

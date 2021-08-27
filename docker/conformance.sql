@@ -6,6 +6,7 @@ INSERT INTO oidc_migration_versions VALUES('20180425203400');
 INSERT INTO oidc_migration_versions VALUES('20200517071100');
 INSERT INTO oidc_migration_versions VALUES('20200901163000');
 INSERT INTO oidc_migration_versions VALUES('20210714113000');
+INSERT INTO oidc_migration_versions VALUES('20210823141300');
 CREATE TABLE oidc_user (
             id VARCHAR(191) PRIMARY KEY NOT NULL,
             claims TEXT,
@@ -31,7 +32,7 @@ CREATE TABLE oidc_access_token (
             user_id VARCHAR(191) NOT NULL,                          
             client_id VARCHAR(191) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
-            auth_code_id varchar(191) DEFAULT NULL,
+            auth_code_id varchar(191) DEFAULT NULL, requested_claims TEXT NULL,
             CONSTRAINT FK_43C1650EA76ED395 FOREIGN KEY (user_id) 
                 REFERENCES oidc_user (id) ON DELETE CASCADE,                                 
             CONSTRAINT FK_43C1650E19EB6921 FOREIGN KEY (client_id) 

@@ -12,13 +12,15 @@ use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use OpenIDConnectServer\ClaimExtractor;
 use OpenIDConnectServer\Entities\ClaimSetInterface;
+use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
 
 class IdTokenBuilder
 {
     /**
-     * @var ClaimExtractor
+     * @var ClaimTranslatorExtractor
      */
     private $claimExtractor;
     /**
@@ -31,7 +33,7 @@ class IdTokenBuilder
     private $privateKey;
 
     public function __construct(
-        ClaimExtractor $claimExtractor,
+        ClaimTranslatorExtractor $claimExtractor,
         ConfigurationService $configurationService,
         CryptKey $privateKey
     ) {
@@ -42,7 +44,7 @@ class IdTokenBuilder
 
     public function build(
         UserEntityInterface $userEntity,
-        AccessTokenEntityInterface $accessToken,
+        AccessTokenEntity $accessToken,
         bool $addClaimsFromScopes,
         bool $addAccessTokenHash,
         ?string $nonce,
@@ -79,6 +81,13 @@ class IdTokenBuilder
 
         // Need a claim factory here to reduce the number of claims by provided scope.
         $claims = $this->claimExtractor->extract($accessToken->getScopes(), $userEntity->getClaims());
+        $requestedClaims =  $accessToken->getRequestedClaims();
+        $additionalClaims = $this->claimExtractor->extractAdditionalIdTokenClaims(
+            $requestedClaims,
+            $userEntity->getClaims()
+        );
+        $claims = array_merge($additionalClaims, $claims);
+
 
         foreach ($claims as $claimName => $claimValue) {
             switch ($claimName) {
@@ -104,7 +113,7 @@ class IdTokenBuilder
                     $builder->relatedTo($claimValue);
                     break;
                 default:
-                    if ($addClaimsFromScopes) {
+                    if ($addClaimsFromScopes || array_key_exists($claimName, $additionalClaims)) {
                         $builder->withClaim($claimName, $claimValue);
                     }
             }

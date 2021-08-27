@@ -14,6 +14,8 @@
 
 namespace spec\SimpleSAML\Module\oidc\Controller;
 
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequest;
 use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
 use Psr\Http\Message\UriInterface;
@@ -27,8 +29,6 @@ use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\XHTML\Template;
-use Laminas\Diactoros\Response\RedirectResponse;
-use Laminas\Diactoros\ServerRequest;
 
 class ClientCreateControllerSpec extends ObjectBehavior
 {

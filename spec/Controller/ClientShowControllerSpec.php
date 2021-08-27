@@ -14,6 +14,7 @@
 
 namespace spec\SimpleSAML\Module\oidc\Controller;
 
+use Laminas\Diactoros\ServerRequest;
 use PhpSpec\ObjectBehavior;
 use Psr\Http\Message\UriInterface;
 use SimpleSAML\Configuration;
@@ -24,7 +25,6 @@ use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\XHTML\Template;
-use Laminas\Diactoros\ServerRequest;
 
 class ClientShowControllerSpec extends ObjectBehavior
 {

@@ -21,7 +21,6 @@ use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Entity\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\RefreshTokenEntityInterface;
@@ -32,17 +31,20 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithClientAndRedirectUriInterface;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\OidcCapableGrantTypeInterface;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\PkceEnabledGrantTypeInterface;
+use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Module\oidc\Utils\Arr;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestParameterRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
@@ -52,6 +54,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     OidcCapableGrantTypeInterface,
     AuthorizationValidatableWithClientAndRedirectUriInterface
 {
+    use IssueAccessTokenTrait;
+
     /**
      * @var DateInterval
      */
@@ -202,6 +206,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             'code_challenge_method' => $authorizationRequest->getCodeChallengeMethod(),
             'nonce'                 => $authorizationRequest->getNonce(),
             'auth_time'             => $authorizationRequest->getAuthTime(),
+            'claims'                => $authorizationRequest->getClaims(),
         ];
 
         $jsonPayload = \json_encode($payload);
@@ -244,6 +249,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         array $scopes = [],
         string $nonce = null
     ): AuthCodeEntityInterface {
+
         $maxGenerationAttempts = self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
 
         $authCode = $this->authCodeRepository->getNewAuthCode();
@@ -381,13 +387,18 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             }
         }
 
+        $claims = property_exists($authCodePayload, 'claims') ?
+            json_decode(json_encode($authCodePayload->claims), true)
+            : null;
+
         // Issue and persist new access token
         $accessToken = $this->issueAccessToken(
             $accessTokenTTL,
             $client,
             $authCodePayload->user_id,
             $scopes,
-            $authCodePayload->auth_code_id
+            $authCodePayload->auth_code_id,
+            $claims
         );
         $this->getEmitter()->emit(new RequestEvent(RequestEvent::ACCESS_TOKEN_ISSUED, $request));
         $responseType->setAccessToken($accessToken);
@@ -480,11 +491,13 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             PromptRule::class,
             MaxAgeRule::class,
             ScopeRule::class,
+            RequestedClaimsRule::class
         ];
 
         // Since we have already validated redirect_uri and we have state, make it available for other checkers.
         $this->requestRulesManager->predefineResult(new Result(RedirectUriRule::class, $redirectUri));
         $this->requestRulesManager->predefineResult(new Result(StateRule::class, $state));
+        $this->requestRulesManager->predefineResult(new Result(ClientIdRule::class, $client));
 
         // Some rules have to have certain things available in order to work properly...
         $this->requestRulesManager->setData('default_scope', $this->defaultScope);
@@ -538,47 +551,12 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $authorizationRequest->setAuthTime((int) $maxAge->getValue());
         }
 
-        return $authorizationRequest;
-    }
-
-    /**
-     * Issue an access token.
-     *
-     * @param DateInterval $accessTokenTTL
-     * @param OAuth2ClientEntityInterface $client
-     * @param string|null $userIdentifier
-     * @param ScopeEntityInterface[] $scopes
-     * @param string|null $authCodeId
-     * @return AccessTokenEntityInterface
-     * @throws OAuthServerException
-     * @throws UniqueTokenIdentifierConstraintViolationException
-     */
-    protected function issueAccessToken(
-        DateInterval $accessTokenTTL,
-        OAuth2ClientEntityInterface $client,
-        $userIdentifier = null,
-        array $scopes = [],
-        string $authCodeId = null
-    ): AccessTokenEntityInterface {
-        $maxGenerationAttempts = self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
-
-        $accessToken = $this->accessTokenRepository->getNewToken($client, $scopes, $userIdentifier, $authCodeId);
-        $accessToken->setExpiryDateTime((new DateTimeImmutable())->add($accessTokenTTL));
-        $accessToken->setPrivateKey($this->privateKey);
-
-        while ($maxGenerationAttempts-- > 0) {
-            $accessToken->setIdentifier($this->generateUniqueIdentifier());
-            try {
-                $this->accessTokenRepository->persistNewAccessToken($accessToken);
-                break;
-            } catch (UniqueTokenIdentifierConstraintViolationException $e) {
-                if ($maxGenerationAttempts === 0) {
-                    throw $e;
-                }
-            }
+        $requestClaims = $resultBag->get(RequestedClaimsRule::class);
+        if (null !== $requestClaims) {
+            $authorizationRequest->setClaims($requestClaims->getValue());
         }
 
-        return $accessToken;
+        return $authorizationRequest;
     }
 
     /**

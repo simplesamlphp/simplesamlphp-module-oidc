@@ -14,13 +14,13 @@
 
 namespace spec\SimpleSAML\Module\oidc\Controller;
 
-use SimpleSAML\Module\oidc\Server\AuthorizationServer;
+use Laminas\Diactoros\Response;
+use Laminas\Diactoros\ServerRequest;
 use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
 use Psr\Http\Message\ResponseInterface;
 use SimpleSAML\Module\oidc\Controller\OAuth2AccessTokenController;
-use Laminas\Diactoros\Response;
-use Laminas\Diactoros\ServerRequest;
+use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 
 class OAuth2AccessTokenControllerSpec extends ObjectBehavior
 {

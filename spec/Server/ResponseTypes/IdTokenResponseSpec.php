@@ -18,11 +18,11 @@ use Lcobucci\JWT\Validation\Constraint\SignedWith;
 use Lcobucci\JWT\Validation\Constraint\StrictValidAt;
 use Lcobucci\JWT\Validation\Validator;
 use League\OAuth2\Server\CryptKey;
-use OpenIDConnectServer\ClaimExtractor;
 use OpenIDConnectServer\Repositories\IdentityProviderInterface;
 use PhpSpec\Exception\Example\FailureException;
 use PhpSpec\ObjectBehavior;
 use SimpleSAML\Configuration;
+use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Entity\ScopeEntity;
@@ -50,7 +50,8 @@ class IdTokenResponseSpec extends ObjectBehavior
     ): void {
         $this->certFolder = dirname(__DIR__, 3) . '/docker/ssp/';
         $userEntity = UserEntity::fromData(self::SUBJECT, [
-            'email' => 'myEmail@example.com'
+            'cn'  => ['Homer Simpson'],
+            'mail' => ['myEmail@example.com']
         ]);
         $scopes = [
             ScopeEntity::fromData('openid'),
@@ -67,6 +68,7 @@ class IdTokenResponseSpec extends ObjectBehavior
         $accessToken->getScopes()->willReturn($scopes);
         $accessToken->getUserIdentifier()->willReturn(self::SUBJECT);
         $accessToken->getClient()->willReturn($clientEntity);
+        $accessToken->getRequestedClaims()->willReturn([]);
 
         $identityProvider->getUserEntityByIdentifier(self::SUBJECT)->willReturn($userEntity);
 
@@ -78,7 +80,7 @@ class IdTokenResponseSpec extends ObjectBehavior
         $privateKey = new CryptKey($this->certFolder . '/oidc_module.pem', null, false);
 
         $idTokenBuilder = new IdTokenBuilder(
-            new ClaimExtractor(),
+            new ClaimTranslatorExtractor(),
             $configurationService->getWrappedObject(),
             $privateKey
         );
@@ -121,6 +123,41 @@ class IdTokenResponseSpec extends ObjectBehavior
         $body = $response->getBody()->getContents();
         echo "json body response " . $body->getWrappedObject();
         $body->shouldHaveValidIdToken();
+    }
+
+    public function it_can_generate_response_with_individual_requested_claims(
+        AccessTokenEntity $accessToken,
+        Configuration $oidcConfig
+    ) {
+        $oidcConfig->getBoolean('alwaysAddClaimsToIdToken', true)->willReturn(false);
+        // ID token should only look at id_token for hints
+        $accessToken->getRequestedClaims()->willReturn(
+            [
+                "id_token" => [
+                    "name" => [
+                        "essential" => true,
+                    ]
+                ],
+                "userinfo" => [
+                    "email" => [
+                        "essential" => true,
+                    ]
+                ]
+            ]
+        );
+        $scopes = [
+            ScopeEntity::fromData('openid'),
+        ];
+        $accessToken->getScopes()->willReturn($scopes);
+
+        $response = new Response();
+        $this->setAccessToken($accessToken);
+        $response = $this->generateHttpResponse($response);
+
+        $response->getBody()->rewind();
+        $body = $response->getBody()->getContents();
+        echo "json body response " . $body->getWrappedObject();
+        $body->shouldHaveValidIdToken(['name' => 'Homer Simpson']);
     }
 
     public function getMatchers(): array

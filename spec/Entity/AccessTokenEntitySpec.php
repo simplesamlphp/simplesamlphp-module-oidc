@@ -37,6 +37,7 @@ class AccessTokenEntitySpec extends ObjectBehavior
                 'client' => $clientEntity,
                 'is_revoked' => false,
                 'auth_code_id' => '123',
+                'requested_claims' => '{"key": "value"}'
             ],
         ]);
     }
@@ -113,6 +114,11 @@ class AccessTokenEntitySpec extends ObjectBehavior
         $this->getAuthCodeId()->shouldBeEqualTo('123');
     }
 
+    public function it_has_requested_claims()
+    {
+        $this->getRequestedClaims()->shouldBeEqualTo(['key' => 'value']);
+    }
+
     /**
      * @return void
      */
@@ -126,6 +132,7 @@ class AccessTokenEntitySpec extends ObjectBehavior
             'client_id' => 'client_id',
             'is_revoked' => false,
             'auth_code_id' => '123',
+            'requested_claims' => '{"key":"value"}',
         ]);
     }
 }

@@ -9,15 +9,21 @@ use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\PromptRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestParameterRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredNonceRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredOpenIdScopeRule;
@@ -25,6 +31,8 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\ResponseTypeRule;
 
 class ImplicitGrant extends OAuth2ImplicitGrant
 {
+    use IssueAccessTokenTrait;
+
     /**
      * @var IdTokenBuilder
      */
@@ -33,11 +41,12 @@ class ImplicitGrant extends OAuth2ImplicitGrant
     public function __construct(
         IdTokenBuilder $idTokenBuilder,
         DateInterval $accessTokenTTL,
+        AccessTokenRepositoryInterface $accessTokenRepository,
         $queryDelimiter = '#',
         RequestRulesManager $requestRulesManager = null
     ) {
         parent::__construct($accessTokenTTL, $queryDelimiter, $requestRulesManager);
-
+        $this->accessTokenRepository = $accessTokenRepository;
         $this->idTokenBuilder = $idTokenBuilder;
     }
 
@@ -90,7 +99,10 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             ResponseTypeRule::class,
             AddClaimsToIdTokenRule::class,
             RequiredNonceRule::class,
+            RequestedClaimsRule::class
         ];
+
+        $this->requestRulesManager->predefineResult(new Result(ClientIdRule::class, $client));
 
         $resultBag = $this->requestRulesManager->check($request, $rulesToExecute, $this->shouldUseFragment());
 
@@ -104,6 +116,10 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             $authorizationRequest->setAuthTime((int) $maxAge->getValue());
         }
 
+        $requestClaims = $resultBag->get(RequestedClaimsRule::class);
+        if (null !== $requestClaims) {
+            $authorizationRequest->setClaims($requestClaims->getValue());
+        }
         $addClaimsToIdToken = ($resultBag->getOrFail(AddClaimsToIdTokenRule::class))->getValue();
         $authorizationRequest->setAddClaimsToIdToken($addClaimsToIdToken);
 
@@ -150,11 +166,16 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             $this->accessTokenTTL,
             $authorizationRequest->getClient(),
             $user->getIdentifier(),
-            $finalizedScopes
+            $finalizedScopes,
+            null,
+            $authorizationRequest->getClaims()
         );
 
         if ($accessToken instanceof EntityStringRepresentationInterface === false) {
             throw new \RuntimeException('AccessToken must implement ' . EntityStringRepresentationInterface::class);
+        }
+        if ($accessToken instanceof AccessTokenEntity === false) {
+            throw new \RuntimeException('AccessToken must be ' . AccessTokenEntity::class);
         }
 
         $addAccessTokenHashToIdToken = false;

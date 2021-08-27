@@ -14,10 +14,10 @@
 
 namespace spec\SimpleSAML\Module\oidc\Controller;
 
-use PhpSpec\ObjectBehavior;
-use SimpleSAML\Module\oidc\Controller\OpenIdConnectDiscoverConfigurationController;
 use Laminas\Diactoros\Response\JsonResponse;
 use Laminas\Diactoros\ServerRequest;
+use PhpSpec\ObjectBehavior;
+use SimpleSAML\Module\oidc\Controller\OpenIdConnectDiscoverConfigurationController;
 use SimpleSAML\Module\oidc\Services\OidcOpenIdProviderMetadataService;
 
 class OpenIdConnectDiscoverConfigurationControllerSpec extends ObjectBehavior
