@@ -14,11 +14,11 @@
 
 namespace spec\SimpleSAML\Module\oidc\Controller;
 
+use Laminas\Diactoros\Response\JsonResponse;
+use Laminas\Diactoros\ServerRequest;
 use PhpSpec\ObjectBehavior;
 use SimpleSAML\Module\oidc\Controller\OpenIdConnectJwksController;
 use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
-use Laminas\Diactoros\Response\JsonResponse;
-use Laminas\Diactoros\ServerRequest;
 
 class OpenIdConnectJwksControllerSpec extends ObjectBehavior
 {

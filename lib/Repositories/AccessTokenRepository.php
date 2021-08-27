@@ -44,9 +44,10 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         OAuth2ClientEntityInterface $clientEntity,
         array $scopes,
         $userIdentifier = null,
-        string $authCodeId = null
+        string $authCodeId = null,
+        array $requestedClaims = null
     ): AccessTokenEntityInterface {
-        return AccessTokenEntity::fromData($clientEntity, $scopes, $userIdentifier, $authCodeId);
+        return AccessTokenEntity::fromData($clientEntity, $scopes, $userIdentifier, $authCodeId, $requestedClaims);
     }
 
     /**
@@ -59,8 +60,8 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         }
 
         $stmt = sprintf(
-            "INSERT INTO %s (id, scopes, expires_at, user_id, client_id, is_revoked, auth_code_id) "
-                . "VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked, :auth_code_id)",
+            "INSERT INTO %s (id, scopes, expires_at, user_id, client_id, is_revoked, auth_code_id, requested_claims) "
+            . "VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked, :auth_code_id, :requested_claims)",
             $this->getTableName()
         );
 
@@ -147,7 +148,8 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
     {
         $stmt = sprintf(
             "UPDATE %s SET scopes = :scopes, expires_at = :expires_at, user_id = :user_id, "
-                . "client_id = :client_id, is_revoked = :is_revoked, auth_code_id = :auth_code_id WHERE id = :id",
+                . "client_id = :client_id, is_revoked = :is_revoked, auth_code_id = :auth_code_id, "
+                . "requested_claims = :requested_claims WHERE id = :id",
             $this->getTableName()
         );
 

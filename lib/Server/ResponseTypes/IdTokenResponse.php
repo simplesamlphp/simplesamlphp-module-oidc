@@ -19,6 +19,8 @@ use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\ResponseTypes\BearerTokenResponse;
 use OpenIDConnectServer\Repositories\IdentityProviderInterface;
+use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
@@ -77,6 +79,9 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
             return [];
         }
 
+        if ($accessToken instanceof AccessTokenEntity === false) {
+            throw new \RuntimeException('AccessToken must be ' . AccessTokenEntity::class);
+        }
         // Per https://openid.net/specs/openid-connect-core-1_0.html#rfc.section.5.4 certain claims
         // should only be added in certain scenarios. Allow deployer to control this.
         $addClaimsFromScopes = $this->configurationService
@@ -88,7 +93,7 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
 
         $token = $this->idTokenBuilder->build(
             $userEntity,
-            $this->accessToken,
+            $accessToken,
             $addClaimsFromScopes,
             true,
             $this->getNonce(),

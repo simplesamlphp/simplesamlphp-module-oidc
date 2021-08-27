@@ -58,6 +58,7 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestParameterRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredNonceRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredOpenIdScopeRule;
@@ -150,6 +151,11 @@ class Container implements ContainerInterface
         $codeChallengeVerifiersRepository = new CodeChallengeVerifiersRepository();
         $this->services[CodeChallengeVerifiersRepository::class] = $codeChallengeVerifiersRepository;
 
+        $claimTranslatorExtractor = (new ClaimTranslatorExtractorFactory(
+            $configurationService
+        ))->build();
+        $this->services[ClaimTranslatorExtractor::class] = $claimTranslatorExtractor;
+
         $requestRules = [
             new StateRule(),
             new ClientIdRule($clientRepository),
@@ -161,6 +167,7 @@ class Container implements ContainerInterface
             new RequiredOpenIdScopeRule(),
             new CodeChallengeRule(),
             new CodeChallengeMethodRule($codeChallengeVerifiersRepository),
+            new RequestedClaimsRule($claimTranslatorExtractor),
             new AddClaimsToIdTokenRule(),
             new RequiredNonceRule(),
             new ResponseTypeRule(),
@@ -190,11 +197,6 @@ class Container implements ContainerInterface
         $publicKey = $cryptKeyFactory->buildPublicKey();
         $privateKey = $cryptKeyFactory->buildPrivateKey();
         $encryptionKey = Config::getSecretSalt();
-
-        $claimTranslatorExtractor = (new ClaimTranslatorExtractorFactory(
-            $configurationService
-        ))->build();
-        $this->services[ClaimTranslatorExtractor::class] = $claimTranslatorExtractor;
 
         $idTokenBuilderFactory = new IdTokenBuilderFactory(
             $configurationService,
@@ -228,7 +230,8 @@ class Container implements ContainerInterface
         $implicitGrantFactory = new ImplicitGrantFactory(
             $this->services[IdTokenBuilder::class],
             $accessTokenDuration,
-            $requestRuleManager
+            $requestRuleManager,
+            $accessTokenRepository
         );
         $this->services[ImplicitGrant::class] = $implicitGrantFactory->build();
 

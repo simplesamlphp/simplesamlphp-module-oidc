@@ -14,18 +14,16 @@
 
 namespace spec\SimpleSAML\Module\oidc\Controller;
 
-use SimpleSAML\Module\oidc\Server\AuthorizationServer;
+use Laminas\Diactoros\Response;
+use Laminas\Diactoros\ServerRequest;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest;
 use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
 use Psr\Http\Message\ResponseInterface;
 use SimpleSAML\Module\oidc\Controller\OAuth2AuthorizationController;
-use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
-use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
-use Laminas\Diactoros\Response;
-use Laminas\Diactoros\ServerRequest;
 
 class OAuth2AuthorizationControllerSpec extends ObjectBehavior
 {

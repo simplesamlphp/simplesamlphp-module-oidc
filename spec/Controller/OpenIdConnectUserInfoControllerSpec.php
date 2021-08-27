@@ -14,6 +14,8 @@
 
 namespace spec\SimpleSAML\Module\oidc\Controller;
 
+use Laminas\Diactoros\Response\JsonResponse;
+use Laminas\Diactoros\ServerRequest;
 use League\OAuth2\Server\ResourceServer;
 use PhpSpec\ObjectBehavior;
 use Psr\Http\Message\ServerRequestInterface;
@@ -23,8 +25,6 @@ use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
-use Laminas\Diactoros\Response\JsonResponse;
-use Laminas\Diactoros\ServerRequest;
 
 class OpenIdConnectUserInfoControllerSpec extends ObjectBehavior
 {
@@ -67,11 +67,15 @@ class OpenIdConnectUserInfoControllerSpec extends ObjectBehavior
 
         $accessTokenRepository->findById('tokenid')->shouldBeCalled()->willReturn($accessTokenEntity);
         $accessTokenEntity->getUserIdentifier()->shouldBeCalled()->willReturn('userid');
+        $accessTokenEntity->getRequestedClaims()->shouldBeCalled()->willReturn([]);
         $userRepository->getUserEntityByIdentifier('userid')->shouldBeCalled()->willReturn($userEntity);
         $userEntity->getClaims()->shouldBeCalled()->willReturn(['mail' => ['userid@localhost.localdomain']]);
         $claimTranslatorExtractor
             ->extract(['openid', 'email'], ['mail' => ['userid@localhost.localdomain']])
             ->shouldBeCalled()->willReturn(['email' => 'userid@localhost.localdomain']);
+        $claimTranslatorExtractor->extractAdditionalUserInfoClaims([], ['mail' => ['userid@localhost.localdomain']])
+            ->shouldBeCalledOnce()->willReturn([]);
+
 
         $this->__invoke($request)->shouldHavePayload(['email' => 'userid@localhost.localdomain']);
     }

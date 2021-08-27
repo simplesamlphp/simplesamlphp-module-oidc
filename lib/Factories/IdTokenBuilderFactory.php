@@ -16,11 +16,8 @@ namespace SimpleSAML\Module\oidc\Factories;
 
 use League\OAuth2\Server\CryptKey;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
-use SimpleSAML\Module\oidc\Repositories\UserRepository;
-use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
-use SimpleSAML\Utils\Config;
 
 class IdTokenBuilderFactory
 {
@@ -38,7 +35,6 @@ class IdTokenBuilderFactory
      * @var CryptKey
      */
     private $privateKey;
-
 
     public function __construct(
         ConfigurationService $configurationService,

@@ -99,6 +99,11 @@ class DatabaseMigration
             $this->version20210714113000();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210714113000')");
         }
+
+        if (!\in_array('20210823141300', $versions, true)) {
+            $this->version20210823141300();
+            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210823141300')");
+        }
     }
 
     private function versionsTableName(): string
@@ -239,6 +244,19 @@ EOT
         $this->database->write(<<< EOT
         ALTER TABLE ${tableName}
             ADD auth_code_id VARCHAR(191) NULL 
+EOT
+        );
+    }
+
+    /**
+     * Add requested claims to authorization token
+     */
+    protected function version20210823141300()
+    {
+        $tableName = $this->database->applyPrefix(AccessTokenRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE ${tableName}
+            ADD requested_claims TEXT NULL 
 EOT
         );
     }

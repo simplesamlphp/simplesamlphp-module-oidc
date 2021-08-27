@@ -55,6 +55,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
         $authCode->redirectUri = $state['redirect_uri'];
         $authCode->nonce = $state['nonce'];
 
+
         return $authCode;
     }
 

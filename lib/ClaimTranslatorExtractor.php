@@ -200,4 +200,39 @@ class ClaimTranslatorExtractor extends ClaimExtractor
 
         return parent::extract($scopes, $translatedClaims);
     }
+
+    public function extractAdditionalIdTokenClaims(?array $claimsRequest, array $claims): array
+    {
+        $idTokenClaims = $claimsRequest['id_token'] ?? [];
+        return $this->extractAdditionalClaims($idTokenClaims, $claims);
+    }
+
+    public function extractAdditionalUserInfoClaims(?array $claimsRequest, array $claims): array
+    {
+        $userInfoClaims = $claimsRequest['userinfo'] ?? [];
+        return $this->extractAdditionalClaims($userInfoClaims, $claims);
+    }
+
+    /**
+     * Add any individually requested claims
+     * @link https://openid.net/specs/openid-connect-core-1_0.html#IndividualClaimsRequests
+     * @param array $requestedClaims keys are requested claims, value is array of additional info on the request
+     * @param array $claims
+     * @return array
+     */
+    private function extractAdditionalClaims(array $requestedClaims, array $claims): array
+    {
+        if (empty($requestedClaims)) {
+            return [];
+        }
+        $translatedClaims = $this->translateSamlAttributesToClaims($this->translationTable, $claims);
+
+        return array_filter(
+            $translatedClaims,
+            function ($key) use ($requestedClaims) {
+                return array_key_exists($key, $requestedClaims);
+            },
+            ARRAY_FILTER_USE_KEY
+        );
+    }
 }

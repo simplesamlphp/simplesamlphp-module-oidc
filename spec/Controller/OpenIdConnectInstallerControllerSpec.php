@@ -14,6 +14,8 @@
 
 namespace spec\SimpleSAML\Module\oidc\Controller;
 
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequest;
 use PhpSpec\ObjectBehavior;
 use SimpleSAML\Module\oidc\Controller\OpenIdConnectInstallerController;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
@@ -21,8 +23,6 @@ use SimpleSAML\Module\oidc\Services\DatabaseLegacyOAuth2Import;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\XHTML\Template;
-use Laminas\Diactoros\Response\RedirectResponse;
-use Laminas\Diactoros\ServerRequest;
 
 class OpenIdConnectInstallerControllerSpec extends ObjectBehavior
 {

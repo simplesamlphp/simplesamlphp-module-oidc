@@ -14,6 +14,8 @@
 
 namespace SimpleSAML\Module\oidc\Controller;
 
+use Laminas\Diactoros\Response\JsonResponse;
+use Laminas\Diactoros\ServerRequest;
 use League\OAuth2\Server\ResourceServer;
 use SimpleSAML\Error\UserNotFound;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
@@ -21,8 +23,6 @@ use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
-use Laminas\Diactoros\Response\JsonResponse;
-use Laminas\Diactoros\ServerRequest;
 
 class OpenIdConnectUserInfoController
 {
@@ -65,27 +65,32 @@ class OpenIdConnectUserInfoController
         $tokenId = $authorization->getAttribute('oauth_access_token_id');
         $scopes = $authorization->getAttribute('oauth_scopes');
 
-        $user = $this->getUser($tokenId);
+        $accessToken = $this->accessTokenRepository->findById($tokenId);
+        if (!$accessToken instanceof AccessTokenEntity) {
+            throw new UserNotFound('Access token not found');
+        }
+        $user = $this->getUser($accessToken);
 
         $claims = $this->claimTranslatorExtractor->extract($scopes, $user->getClaims());
+        $requestedClaims =  $accessToken->getRequestedClaims();
+        $additionalClaims = $this->claimTranslatorExtractor->extractAdditionalUserInfoClaims(
+            $requestedClaims,
+            $user->getClaims()
+        );
+        $claims = array_merge($additionalClaims, $claims);
 
         return new JsonResponse($claims);
     }
 
     /**
-     * @param $tokenId
+     * @param AccessTokenEntity $accessToken
      *
      * @throws UserNotFound
      *
      * @return UserEntity
      */
-    private function getUser(string $tokenId)
+    private function getUser(AccessTokenEntity $accessToken)
     {
-        $accessToken = $this->accessTokenRepository->findById($tokenId);
-        if (!$accessToken instanceof AccessTokenEntity) {
-            throw new UserNotFound('Access token not found');
-        }
-
         $userIdentifier = (string) $accessToken->getUserIdentifier();
         $user = $this->userRepository->getUserEntityByIdentifier($userIdentifier);
         if (!$user instanceof UserEntity) {

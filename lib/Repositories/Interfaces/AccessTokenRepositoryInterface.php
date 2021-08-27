@@ -22,12 +22,14 @@ interface AccessTokenRepositoryInterface extends OAuth2AccessTokenRepositoryInte
      * @param OAuth2ScopeEntityInterface[] $scopes
      * @param mixed $userIdentifier
      * @param string|null $authCodeId
+     * @param array|null $requestedClaims Any requested claims
      * @return AccessTokenEntityInterface
      */
     public function getNewToken(
         OAuth2ClientEntityInterface $clientEntity,
         array $scopes,
         $userIdentifier = null,
-        string $authCodeId = null
+        string $authCodeId = null,
+        array $requestedClaims = null
     ): AccessTokenEntityInterface;
 }
