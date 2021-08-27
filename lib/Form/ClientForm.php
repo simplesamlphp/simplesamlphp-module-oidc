@@ -25,6 +25,7 @@ class ClientForm extends Form
      * RFC3986. AppendixB. Parsing a URI Reference with a Regular Expression.
      */
     public const REGEX_URI = '/^[^:]+:\/\/?[^\s\/$.?#].[^\s]*$/';
+    public const REGEX_ALLOWED_ORIGIN_URL = '/http(s?)\:\/\/[^\s\/$.?#]+\.[^\s\/$.?#]+(\.[^\s\/$.?#]+)?$/i';
 
     /**
      * @var \SimpleSAML\Module\oidc\Services\ConfigurationService
@@ -54,6 +55,34 @@ class ClientForm extends Form
         }
     }
 
+    public function validateAllowedOrigin(Form $form): void
+    {
+        $values = $form->getValues();
+        $redirect_uris = $values['redirect_uri'];
+        foreach ($redirect_uris as $redirect_uri) {
+            if (!preg_match(self::REGEX_URI, $redirect_uri)) {
+                $this->addError('Invalid URI: ' . $redirect_uri);
+            }
+        }
+        $this->validateByMatchingRegex(
+            $form->getValues()['allowed_origin'] ?? [],
+            self::REGEX_ALLOWED_ORIGIN_URL,
+            'Invalid allowed origin: '
+        );
+    }
+
+    protected function validateByMatchingRegex(
+        array $values,
+        string $regex,
+        string $messagePrefix = 'Invalid value: '
+    ): void {
+        foreach ($values as $value) {
+            if (!preg_match($regex, $value)) {
+                $this->addError($messagePrefix . $value);
+            }
+        }
+    }
+
     /**
      * @param bool $asArray
      *
@@ -77,6 +106,22 @@ class ClientForm extends Form
             }
         );
         $values['redirect_uri'] = $redirect_uris;
+
+        // Sanitize Allowed Origins
+        $allowedOrigins = preg_split("/[\t\r\n]+/", $values['allowed_origin']);
+        $allowedOrigins = array_filter(
+            $allowedOrigins,
+            /**
+             * @param string $allowedOrigin
+             *
+             * @return bool
+             */
+            function ($allowedOrigin) {
+                return !empty(trim($allowedOrigin));
+            }
+        );
+        $values['allowed_origin'] = $allowedOrigins;
+
         // openid scope is mandatory
         $values['scopes'] = array_unique(
             array_merge(
@@ -98,6 +143,7 @@ class ClientForm extends Form
     {
         $values['redirect_uri'] = implode("\n", $values['redirect_uri']);
         $values['scopes'] = array_intersect($values['scopes'], array_keys($this->getScopes()));
+        $values['allowed_origin'] = implode("\n", $values['allowed_origin']);
 
         return parent::setDefaults($values, $erase);
     }
@@ -107,6 +153,7 @@ class ClientForm extends Form
         $this->getElementPrototype()->addAttributes(['class' => 'ui form']);
 
         $this->onValidate[] = [$this, 'validateRedirectUri'];
+        $this->onValidate[] = [$this, 'validateAllowedOrigin'];
 
         $this->setMethod('POST');
         $this->addComponent(new CsrfProtection('{oidc:client:csrf_error}'), Form::PROTECTOR_ID);
@@ -134,6 +181,13 @@ class ClientForm extends Form
             ->setAttribute('class', 'ui fluid dropdown')
             ->setItems($scopes)
             ->setRequired('Select one scope at least');
+
+        $allowedOrigins = $this->addTextArea('allowed_origin', '{oidc:client:allowed_origin}', null, 5);
+        if ($this->getValues()['is_confidential']) {
+            $allowedOrigins->setDisabled();
+        }
+//        die(var_dump($this->getValues()['is_confidential']));
+//        $this->get
     }
 
     protected function getScopes(): array

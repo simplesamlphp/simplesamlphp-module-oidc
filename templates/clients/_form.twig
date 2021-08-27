@@ -64,6 +64,13 @@
             {{ form['scopes'].control | raw }}
         </div>
 
+        <div class="field">
+            <label for="frm-allowed_origin">{% trans '{oidc:client:allowed_origin}' %}</label>
+
+            {{ form['allowed_origin'].control | raw }}
+            <small class="helper">{% trans '{oidc:client:allowed_origin_help}' %}</small>
+        </div>
+
         <div class="ui divider"></div>
 
         <div class="ui buttons">
@@ -87,11 +94,22 @@
             }, true)
         };
 
-        $('.ui.form')
-            .checkbox();
+        $.fn.form.settings.rules.allowedOrigin = function(value) {
+            var urls = value.trim().split("\n");
 
-        $('.ui.form')
-            .form({
+            if (urls.length && urls[0] !== '') {
+                return urls.reduce(function(current, url) {
+                    return current && null !== url.match(/http(s?)\:\/\/[^\s\/$.?#]+\.[^\s\/$.?#]+(\.[^\s\/$.?#]+)?$/i);
+                }, true)
+            }
+
+            return true;
+        };
+
+        var formEl = $('.ui.form');
+        formEl.checkbox();
+
+        formEl.form({
                 fields: {
                     name: {
                         identifier: 'name',
@@ -122,10 +140,18 @@
                     scopes: {
                         identifier: 'scopes[]',
                         rules: [
-
                             {
                                 type: 'minCount[1]',
                                 prompt: '{% trans "{oidc:client:scopes_not_empty}" %}'
+                            }
+                        ]
+                    },
+                    allowed_origin: {
+                        identifier: 'allowed_origin',
+                        rules: [
+                            {
+                                type: 'allowedOrigin',
+                                prompt: '{% trans "{oidc:client:allowed_origin_not_valid}" %}'
                             }
                         ]
                     }

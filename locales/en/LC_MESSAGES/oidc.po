@@ -132,3 +132,12 @@ msgstr "State"
 
 msgid "{oidc:client:csrf_error}"
 msgstr "Your session has expired. Please return to the home page and try again."
+
+msgid "{oidc:client:allowed_origin}"
+msgstr "Allowed Origins"
+
+msgid "{oidc:client:allowed_origin_help}"
+msgstr "If the client is public and running in browser, enter URLs as allowed origins for CORS requests (with http(s))"
+
+msgid "{oidc:client:allowed_origin_not_valid}"
+msgstr "Some of the entered allowed origins are not valid."
