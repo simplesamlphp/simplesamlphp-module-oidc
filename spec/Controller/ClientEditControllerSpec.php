@@ -27,6 +27,7 @@ use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Form\ClientForm;
+use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
@@ -40,6 +41,7 @@ class ClientEditControllerSpec extends ObjectBehavior
     public function let(
         ConfigurationService $configurationService,
         ClientRepository $clientRepository,
+        AllowedOriginRepository $allowedOriginRepository,
         TemplateFactory $templateFactory,
         FormFactory $formFactory,
         SessionMessagesService $sessionMessagesService,
@@ -57,6 +59,7 @@ class ClientEditControllerSpec extends ObjectBehavior
         $this->beConstructedWith(
             $configurationService,
             $clientRepository,
+            $allowedOriginRepository,
             $templateFactory,
             $formFactory,
             $sessionMessagesService
@@ -81,6 +84,7 @@ class ClientEditControllerSpec extends ObjectBehavior
         FormFactory $formFactory,
         ClientForm $clientForm,
         ClientRepository $clientRepository,
+        AllowedOriginRepository $allowedOriginRepository,
         ClientEntity $clientEntity
     ) {
         $data = [
@@ -92,11 +96,13 @@ class ClientEditControllerSpec extends ObjectBehavior
             'redirect_uri' => ['http://localhost/redirect'],
             'scopes' => ['openid'],
             'is_enabled' => true,
+            'allowed_origin' => [],
         ];
         $clientEntity->getIdentifier()->shouldBeCalled()->willReturn('clientid');
 
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
+        $allowedOriginRepository->get('clientid')->shouldBeCalled()->willReturn([]);
         $clientEntity->toArray()->shouldBeCalled()->willReturn($data);
 
         $formFactory->build(ClientForm::class)->shouldBeCalled()->willReturn($clientForm);
@@ -118,6 +124,7 @@ class ClientEditControllerSpec extends ObjectBehavior
         FormFactory $formFactory,
         ClientForm $clientForm,
         ClientRepository $clientRepository,
+        AllowedOriginRepository $allowedOriginRepository,
         ClientEntity $clientEntity,
         SessionMessagesService $sessionMessagesService
     ) {
@@ -131,10 +138,12 @@ class ClientEditControllerSpec extends ObjectBehavior
             'scopes' => ['openid'],
             'is_enabled' => true,
             'is_confidential' => false,
+            'allowed_origin' => [],
         ];
 
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
+        $allowedOriginRepository->get('clientid')->shouldBeCalled()->willReturn([]);
         $clientEntity->getIdentifier()->shouldBeCalled()->willReturn('clientid');
         $clientEntity->getSecret()->shouldBeCalled()->willReturn('validsecret');
         $clientEntity->toArray()->shouldBeCalled()->willReturn($data);
@@ -151,6 +160,7 @@ class ClientEditControllerSpec extends ObjectBehavior
             'scopes' => ['openid'],
             'is_enabled' => true,
             'is_confidential' => false,
+            'allowed_origin' => [],
         ]);
 
         $clientRepository->update(Argument::exact(ClientEntity::fromData(
@@ -164,6 +174,9 @@ class ClientEditControllerSpec extends ObjectBehavior
             false,
             'auth_source'
         )))->shouldBeCalled();
+
+        $allowedOriginRepository->set('clientid', [])->shouldBeCalled();
+
         $sessionMessagesService->addMessage('{oidc:client:updated}')->shouldBeCalled();
 
         $this->__invoke($request)->shouldBeAnInstanceOf(RedirectResponse::class);

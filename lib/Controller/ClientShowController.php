@@ -16,6 +16,7 @@ namespace SimpleSAML\Module\oidc\Controller;
 
 use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
+use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use Laminas\Diactoros\ServerRequest;
 
@@ -28,18 +29,29 @@ class ClientShowController
      */
     private $templateFactory;
 
-    public function __construct(ClientRepository $clientRepository, TemplateFactory $templateFactory)
-    {
+    /**
+     * @var AllowedOriginRepository
+     */
+    private $allowedOriginRepository;
+
+    public function __construct(
+        ClientRepository $clientRepository,
+        AllowedOriginRepository $allowedOriginRepository,
+        TemplateFactory $templateFactory
+    ) {
         $this->clientRepository = $clientRepository;
+        $this->allowedOriginRepository = $allowedOriginRepository;
         $this->templateFactory = $templateFactory;
     }
 
     public function __invoke(ServerRequest $request): \SimpleSAML\XHTML\Template
     {
         $client = $this->getClientFromRequest($request);
+        $allowedOrigins = $this->allowedOriginRepository->get($client->getIdentifier());
 
         return $this->templateFactory->render('oidc:clients/show.twig', [
             'client' => $client,
+            'allowedOrigins' => $allowedOrigins
         ]);
     }
 }

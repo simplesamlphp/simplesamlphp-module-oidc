@@ -25,7 +25,7 @@ class ClientForm extends Form
      * RFC3986. AppendixB. Parsing a URI Reference with a Regular Expression.
      */
     public const REGEX_URI = '/^[^:]+:\/\/?[^\s\/$.?#].[^\s]*$/';
-    public const REGEX_ALLOWED_ORIGIN_URL = '/http(s?)\:\/\/[^\s\/$.?#]+\.[^\s\/$.?#]+(\.[^\s\/$.?#]+)?$/i';
+    public const REGEX_ALLOWED_ORIGIN_URL = '/http(s?)\:\/\/[^\s\/$.?#]+\.[^\s\/$.?#]+(\.[^\s\/$.?#]+)*$/i';
 
     /**
      * @var \SimpleSAML\Module\oidc\Services\ConfigurationService
@@ -46,24 +46,15 @@ class ClientForm extends Form
 
     public function validateRedirectUri(Form $form): void
     {
-        $values = $form->getValues();
-        $redirect_uris = $values['redirect_uri'];
-        foreach ($redirect_uris as $redirect_uri) {
-            if (!preg_match(self::REGEX_URI, $redirect_uri)) {
-                $this->addError('Invalid URI: ' . $redirect_uri);
-            }
-        }
+        $this->validateByMatchingRegex(
+            $form->getValues()['redirect_uri'],
+            self::REGEX_URI,
+            'Invalid URI: '
+        );
     }
 
     public function validateAllowedOrigin(Form $form): void
     {
-        $values = $form->getValues();
-        $redirect_uris = $values['redirect_uri'];
-        foreach ($redirect_uris as $redirect_uri) {
-            if (!preg_match(self::REGEX_URI, $redirect_uri)) {
-                $this->addError('Invalid URI: ' . $redirect_uri);
-            }
-        }
         $this->validateByMatchingRegex(
             $form->getValues()['allowed_origin'] ?? [],
             self::REGEX_ALLOWED_ORIGIN_URL,
@@ -92,35 +83,13 @@ class ClientForm extends Form
     {
         $values = parent::getValues(true);
 
-        // Sanitize Redirect URIs
-        $redirect_uris = preg_split("/[\t\r\n]+/", $values['redirect_uri']);
-        $redirect_uris = array_filter(
-            $redirect_uris,
-            /**
-             * @param string $redirect_uri
-             *
-             * @return bool
-             */
-            function ($redirect_uri) {
-                return !empty(trim($redirect_uri));
-            }
-        );
-        $values['redirect_uri'] = $redirect_uris;
-
-        // Sanitize Allowed Origins
-        $allowedOrigins = preg_split("/[\t\r\n]+/", $values['allowed_origin']);
-        $allowedOrigins = array_filter(
-            $allowedOrigins,
-            /**
-             * @param string $allowedOrigin
-             *
-             * @return bool
-             */
-            function ($allowedOrigin) {
-                return !empty(trim($allowedOrigin));
-            }
-        );
-        $values['allowed_origin'] = $allowedOrigins;
+        // Sanitize redirect_uri and allowed_origin
+        $values['redirect_uri'] = $this->convertTextToArrayWithLinesAsValues($values['redirect_uri']);
+        if (! $values['is_confidential'] && isset($values['allowed_origin'])) {
+            $values['allowed_origin'] = $this->convertTextToArrayWithLinesAsValues($values['allowed_origin']);
+        } else {
+            $values['allowed_origin'] = [];
+        }
 
         // openid scope is mandatory
         $values['scopes'] = array_unique(
@@ -142,8 +111,15 @@ class ClientForm extends Form
     public function setDefaults($values, $erase = false)
     {
         $values['redirect_uri'] = implode("\n", $values['redirect_uri']);
+
+        // Allowed origins are only available for public clients (not for confidential clients).
+        if (! $values['is_confidential'] && isset($values['allowed_origin'])) {
+            $values['allowed_origin'] = implode("\n", $values['allowed_origin']);
+        } else {
+            $values['allowed_origin'] = '';
+        }
+
         $values['scopes'] = array_intersect($values['scopes'], array_keys($this->getScopes()));
-        $values['allowed_origin'] = implode("\n", $values['allowed_origin']);
 
         return parent::setDefaults($values, $erase);
     }
@@ -183,11 +159,6 @@ class ClientForm extends Form
             ->setRequired('Select one scope at least');
 
         $allowedOrigins = $this->addTextArea('allowed_origin', '{oidc:client:allowed_origin}', null, 5);
-        if ($this->getValues()['is_confidential']) {
-            $allowedOrigins->setDisabled();
-        }
-//        die(var_dump($this->getValues()['is_confidential']));
-//        $this->get
     }
 
     protected function getScopes(): array
@@ -197,5 +168,24 @@ class ClientForm extends Form
         }, $this->configurationService->getOpenIDScopes());
 
         return $items;
+    }
+
+    /**
+     * @param string $text
+     * @return string[]
+     */
+    protected function convertTextToArrayWithLinesAsValues(string $text): array
+    {
+        return array_filter(
+            preg_split("/[\t\r\n]+/", $text),
+            /**
+             * @param string $line
+             *
+             * @return bool
+             */
+            function (string $line) {
+                return !empty(trim($line));
+            }
+        );
     }
 }

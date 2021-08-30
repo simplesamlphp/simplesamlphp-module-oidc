@@ -41,6 +41,7 @@
                 <input name="is_confidential" id="frm-is_confidential" {% if form['is_confidential'].filled %}checked=""{% endif %} type="checkbox">
 
                 <label for="frm-is_confidential">{% trans '{oidc:client:is_confidential}' %}</label>
+                <small class="helper">{% trans '{oidc:client:is_confidential_help}' %}</small>
             </div>
         </div>
 
@@ -88,6 +89,15 @@
 {% block postload %}
     {{ parent() }}
     <script>
+        $(document).ready(function () {
+            toggleAllowedOrigins();
+             $('#frm-is_confidential').change(toggleAllowedOrigins);
+        });
+
+        function toggleAllowedOrigins() {
+            $('#frm-allowed_origin').prop('disabled', $('#frm-is_confidential').prop('checked'));
+        }
+
         $.fn.form.settings.rules.redirectUri = function(value) {
             return value.trim().split("\n").reduce(function(current, url) {
                 return current && null !== url.match(/^[^:]+:\/\/?[^\s\/$.?#].[^\s]*$/);
@@ -99,7 +109,7 @@
 
             if (urls.length && urls[0] !== '') {
                 return urls.reduce(function(current, url) {
-                    return current && null !== url.match(/http(s?)\:\/\/[^\s\/$.?#]+\.[^\s\/$.?#]+(\.[^\s\/$.?#]+)?$/i);
+                    return current && null !== url.match(/http(s?)\:\/\/[^\s\/$.?#]+\.[^\s\/$.?#]+(\.[^\s\/$.?#]+)*$/i);
                 }, true)
             }
 
@@ -156,6 +166,8 @@
                         ]
                     }
                 }
-            })
+            });
+
+
     </script>
 {% endblock %}

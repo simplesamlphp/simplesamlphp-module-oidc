@@ -25,6 +25,7 @@ use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Form\ClientForm;
+use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
@@ -40,6 +41,7 @@ class ClientCreateControllerSpec extends ObjectBehavior
     public function let(
         ConfigurationService $configurationService,
         ClientRepository $clientRepository,
+        AllowedOriginRepository $allowedOriginRepository,
         TemplateFactory $templateFactory,
         FormFactory $formFactory,
         SessionMessagesService $sessionMessagesService,
@@ -57,6 +59,7 @@ class ClientCreateControllerSpec extends ObjectBehavior
         $this->beConstructedWith(
             $configurationService,
             $clientRepository,
+            $allowedOriginRepository,
             $templateFactory,
             $formFactory,
             $sessionMessagesService
@@ -99,6 +102,7 @@ class ClientCreateControllerSpec extends ObjectBehavior
         FormFactory $formFactory,
         ClientForm $clientForm,
         ClientRepository $clientRepository,
+        AllowedOriginRepository $allowedOriginRepository,
         SessionMessagesService $sessionMessagesService
     ) {
         $formFactory->build(ClientForm::class)->shouldBeCalled()->willReturn($clientForm);
@@ -113,9 +117,13 @@ class ClientCreateControllerSpec extends ObjectBehavior
             'scopes' => ['openid'],
             'is_enabled' => true,
             'is_confidential' => false,
+            'allowed_origin' => []
         ]);
 
         $clientRepository->add(Argument::type(ClientEntity::class))->shouldBeCalled();
+
+        $allowedOriginRepository->set(Argument::type('string'), [])->shouldBeCalled();
+
         $sessionMessagesService->addMessage('{oidc:client:added}')->shouldBeCalled();
 
         $this->__invoke($request)->shouldBeAnInstanceOf(RedirectResponse::class);

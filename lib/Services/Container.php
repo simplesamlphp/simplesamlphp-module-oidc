@@ -37,6 +37,7 @@ use SimpleSAML\Module\oidc\Factories\IdTokenResponseFactory;
 use SimpleSAML\Module\oidc\Factories\ResourceServerFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\CodeChallengeVerifiersRepository;
@@ -101,6 +102,9 @@ class Container implements ContainerInterface
 
         $scopeRepository = new ScopeRepository($configurationService);
         $this->services[ScopeRepository::class] = $scopeRepository;
+
+        $allowedOriginRepository = new AllowedOriginRepository($configurationService);
+        $this->services[AllowedOriginRepository::class] = $allowedOriginRepository;
 
         $database = Database::getInstance();
         $this->services[Database::class] = $database;
