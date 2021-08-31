@@ -24,6 +24,7 @@ use SimpleSAML\Module\oidc\Controller\OpenIdConnectUserInfoController;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 
 class OpenIdConnectUserInfoControllerSpec extends ObjectBehavior
@@ -35,9 +36,16 @@ class OpenIdConnectUserInfoControllerSpec extends ObjectBehavior
         ResourceServer $resourceServer,
         AccessTokenRepository $accessTokenRepository,
         UserRepository $userRepository,
+        AllowedOriginRepository $allowedOriginRepository,
         ClaimTranslatorExtractor $claimTranslatorExtractor
     ) {
-        $this->beConstructedWith($resourceServer, $accessTokenRepository, $userRepository, $claimTranslatorExtractor);
+        $this->beConstructedWith(
+            $resourceServer,
+            $accessTokenRepository,
+            $userRepository,
+            $allowedOriginRepository,
+            $claimTranslatorExtractor
+        );
     }
 
     /**

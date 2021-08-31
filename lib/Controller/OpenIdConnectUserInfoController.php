@@ -23,8 +23,11 @@ use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+
+use function PHPUnit\Framework\throwException;
 
 class OpenIdConnectUserInfoController
 {
@@ -44,6 +47,11 @@ class OpenIdConnectUserInfoController
     private $userRepository;
 
     /**
+     * @var AllowedOriginRepository
+     */
+    private $allowedOriginRepository;
+
+    /**
      * @var ClaimTranslatorExtractor
      */
     private $claimTranslatorExtractor;
@@ -52,11 +60,13 @@ class OpenIdConnectUserInfoController
         ResourceServer $resourceServer,
         AccessTokenRepository $accessTokenRepository,
         UserRepository $userRepository,
+        AllowedOriginRepository $allowedOriginRepository,
         ClaimTranslatorExtractor $claimTranslatorExtractor
     ) {
         $this->resourceServer = $resourceServer;
         $this->accessTokenRepository = $accessTokenRepository;
         $this->userRepository = $userRepository;
+        $this->allowedOriginRepository = $allowedOriginRepository;
         $this->claimTranslatorExtractor = $claimTranslatorExtractor;
     }
 
@@ -119,15 +129,15 @@ class OpenIdConnectUserInfoController
         $origin = $request->getHeaderLine('Origin');
 
         if (empty($origin)) {
-            throw OidcServerException::requestNotSupported('no Origin header present');
+            throw OidcServerException::requestNotSupported('CORS error: no Origin header present');
         }
 
-        // TODO mivanci
-        // * validate origin against registered origins on clients
-        // * replace '*' with specific origin for Access-Control-Allow-Origin
+        if (! $this->allowedOriginRepository->has($origin)) {
+            throw OidcServerException::accessDenied(sprintf('CORS error: origin %s is not allowed', $origin));
+        }
 
         $headers = [
-            'Access-Control-Allow-Origin' => '*',
+            'Access-Control-Allow-Origin' => $origin,
             'Access-Control-Allow-Methods' => 'GET, POST, OPTIONS',
             'Access-Control-Allow-Headers' => 'Authorization',
             'Access-Control-Allow-Credentials' => 'true',

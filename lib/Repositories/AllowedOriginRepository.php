@@ -61,4 +61,14 @@ class AllowedOriginRepository extends AbstractDatabaseRepository
 
         return $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
     }
+
+    public function has(string $origin): bool
+    {
+        $stmt = $this->database->read(
+            "SELECT origin FROM {$this->getTableName()} WHERE origin = :origin LIMIT 1",
+            ['origin' => $origin]
+        );
+
+        return (bool) count($stmt->fetchAll(PDO::FETCH_COLUMN, 0));
+    }
 }
