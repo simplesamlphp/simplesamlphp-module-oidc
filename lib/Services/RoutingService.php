@@ -106,6 +106,7 @@ class RoutingService
     {
         set_exception_handler(function (\Throwable $t) {
             if ($t instanceof Error) {
+                // Showing SSP Error will also use SSP logger to log it.
                 return $t->show();
             } elseif ($t instanceof OAuthServerException) {
                 $response = $t->generateHttpResponse(new Response());
@@ -117,6 +118,9 @@ class RoutingService
                 ];
                 $response = new JsonResponse($error, 500);
             }
+
+            // Log exception using SSP Exception logging feature.
+            (Exception::fromException($t))->logError();
 
             $emitter = new SapiEmitter();
             $emitter->emit($response);
