@@ -15,6 +15,7 @@
 namespace spec\SimpleSAML\Module\oidc\Controller;
 
 use Laminas\Diactoros\Response\JsonResponse;
+use Laminas\Diactoros\Response;
 use Laminas\Diactoros\ServerRequest;
 use League\OAuth2\Server\ResourceServer;
 use PhpSpec\ObjectBehavior;
@@ -26,6 +27,7 @@ use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 class OpenIdConnectUserInfoControllerSpec extends ObjectBehavior
 {
@@ -89,12 +91,48 @@ class OpenIdConnectUserInfoControllerSpec extends ObjectBehavior
         $this->__invoke($request)->shouldHavePayload(['email' => 'userid@localhost.localdomain']);
     }
 
+    public function it_handles_cors_request(
+        ServerRequest $request,
+        AllowedOriginRepository $allowedOriginRepository
+    ) {
+        $origin = 'https://example.org';
+        $request->getMethod()->shouldBeCalled()->willReturn('OPTIONS');
+        $request->getHeaderLine('Origin')->shouldBeCalled()->willReturn($origin);
+
+        $allowedOriginRepository->has($origin)->shouldBeCalled()->willReturn(true);
+
+        $this->__invoke($request)->shouldHaveHeaders([
+            ['name' => 'Access-Control-Allow-Origin', 'value' => $origin],
+            ['name' => 'Access-Control-Allow-Methods', 'value' => 'GET, POST, OPTIONS'],
+            ['name' => 'Access-Control-Allow-Headers', 'value' => 'Authorization'],
+            ['name' => 'Access-Control-Allow-Credentials', 'value' => 'true'],
+        ]);
+    }
+
+    public function it_throws_if_cors_origin_not_allowed(
+        ServerRequest $request,
+        AllowedOriginRepository $allowedOriginRepository
+    ) {
+        $origin = 'https://example.org';
+        $request->getMethod()->shouldBeCalled()->willReturn('OPTIONS');
+        $request->getHeaderLine('Origin')->shouldBeCalled()->willReturn($origin);
+
+        $allowedOriginRepository->has($origin)->shouldBeCalled()->willReturn(false);
+
+        $this->shouldThrow(OidcServerException::class)->during('__invoke', [$request]);
+    }
+
     public function getMatchers(): array
     {
         return [
             'havePayload' => function (JsonResponse $subject, $payload) {
                 return $payload === $subject->getPayload();
             },
+            'haveHeaders' => function (Response $response, $headers) {
+                return array_reduce($headers, function ($carry, $header) use ($response) {
+                    return $carry && $response->getHeaderLine($header['name']) === $header['value'];
+                }, true);
+            }
         ];
     }
 }
