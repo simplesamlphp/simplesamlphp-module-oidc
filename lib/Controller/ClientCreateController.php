@@ -20,6 +20,7 @@ use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Form\ClientForm;
+use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
@@ -53,15 +54,22 @@ class ClientCreateController
      */
     private $messages;
 
+    /**
+     * @var AllowedOriginRepository
+     */
+    private $allowedOriginRepository;
+
     public function __construct(
         ConfigurationService $configurationService,
         ClientRepository $clientRepository,
+        AllowedOriginRepository $allowedOriginRepository,
         TemplateFactory $templateFactory,
         FormFactory $formFactory,
         SessionMessagesService $messages
     ) {
         $this->configurationService = $configurationService;
         $this->clientRepository = $clientRepository;
+        $this->allowedOriginRepository = $allowedOriginRepository;
         $this->templateFactory = $templateFactory;
         $this->formFactory = $formFactory;
         $this->messages = $messages;
@@ -72,6 +80,7 @@ class ClientCreateController
      */
     public function __invoke(ServerRequest $request)
     {
+        /** @var ClientForm $form */
         $form = $this->formFactory->build(ClientForm::class);
         $formAction = $this->configurationService->getOpenIdConnectModuleURL('clients/new.php');
         $form->setAction($formAction);
@@ -92,6 +101,9 @@ class ClientCreateController
                 $client['is_confidential'],
                 $client['auth_source']
             ));
+
+            // Also persist allowed origins for this client.
+            $this->allowedOriginRepository->set($client['id'], $client['allowed_origin']);
 
             $this->messages->addMessage('{oidc:client:added}');
 

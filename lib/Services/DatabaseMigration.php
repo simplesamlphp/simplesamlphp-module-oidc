@@ -16,6 +16,7 @@ namespace SimpleSAML\Module\oidc\Services;
 
 use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
@@ -103,6 +104,11 @@ class DatabaseMigration
         if (!\in_array('20210823141300', $versions, true)) {
             $this->version20210823141300();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210823141300')");
+        }
+
+        if (!\in_array('20210827111300', $versions, true)) {
+            $this->version20210827111300();
+            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210827111300')");
         }
     }
 
@@ -257,6 +263,27 @@ EOT
         $this->database->write(<<< EOT
         ALTER TABLE ${tableName}
             ADD requested_claims TEXT NULL 
+EOT
+        );
+    }
+
+    /**
+     * Add table for allowed origins.
+     */
+    protected function version20210827111300(): void
+    {
+        $allowedOriginTableName = $this->database->applyPrefix(AllowedOriginRepository::TABLE_NAME);
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $fkAllowedOriginClient = $this->generateIdentifierName([$allowedOriginTableName, 'client_id'], 'fk');
+
+        $this->database->write(<<< EOT
+        CREATE TABLE ${allowedOriginTableName} (
+            client_id VARCHAR(191) NOT NULL,
+            origin VARCHAR(191) NOT NULL,
+            CONSTRAINT PK_ALLOWED_ORIGIN PRIMARY KEY (client_id, origin),
+            CONSTRAINT {$fkAllowedOriginClient} FOREIGN KEY (client_id)
+                REFERENCES ${clientTableName} (id) ON DELETE CASCADE
+        )
 EOT
         );
     }

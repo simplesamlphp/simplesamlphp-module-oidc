@@ -14,11 +14,13 @@
 
 namespace SimpleSAML\Module\oidc\Controller;
 
+use Nette\Forms\Controls\BaseControl;
 use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Form\ClientForm;
+use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
@@ -49,15 +51,22 @@ class ClientEditController
      */
     private $messages;
 
+    /**
+     * @var AllowedOriginRepository
+     */
+    protected $allowedOriginRepository;
+
     public function __construct(
         ConfigurationService $configurationService,
         ClientRepository $clientRepository,
+        AllowedOriginRepository $allowedOriginRepository,
         TemplateFactory $templateFactory,
         FormFactory $formFactory,
         SessionMessagesService $messages
     ) {
         $this->configurationService = $configurationService;
         $this->clientRepository = $clientRepository;
+        $this->allowedOriginRepository = $allowedOriginRepository;
         $this->templateFactory = $templateFactory;
         $this->formFactory = $formFactory;
         $this->messages = $messages;
@@ -69,7 +78,9 @@ class ClientEditController
     public function __invoke(ServerRequest $request)
     {
         $client = $this->getClientFromRequest($request);
+        $clientAllowedOrigins = $this->allowedOriginRepository->get($client->getIdentifier());
 
+        /** @var ClientForm $form  */
         $form = $this->formFactory->build(ClientForm::class);
         $formAction = sprintf(
             "%s/clients/edit.php?client_id=%s",
@@ -77,7 +88,10 @@ class ClientEditController
             $client->getIdentifier()
         ) ;
         $form->setAction($formAction);
-        $form->setDefaults($client->toArray());
+
+        $clientData = $client->toArray();
+        $clientData['allowed_origin'] = $clientAllowedOrigins;
+        $form->setDefaults($clientData);
 
         if ($form->isSuccess()) {
             $data = $form->getValues();
@@ -93,6 +107,9 @@ class ClientEditController
                 (bool) $data['is_confidential'],
                 $data['auth_source']
             ));
+
+            // Also persist allowed origins for this client.
+            $this->allowedOriginRepository->set($client->getIdentifier(), $data['allowed_origin']);
 
             $this->messages->addMessage('{oidc:client:updated}');
 

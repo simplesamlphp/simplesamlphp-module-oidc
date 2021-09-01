@@ -17,7 +17,7 @@ msgid "{oidc:client:description}"
 msgstr "Description"
 
 msgid "{oidc:client:identifier}"
-msgstr "Client id."
+msgstr "Client ID"
 
 msgid "{oidc:client:secret}"
 msgstr "Client secret"
@@ -26,7 +26,7 @@ msgid "{oidc:client:auth_source}"
 msgstr "Auth. source"
 
 msgid "{oidc:client:redirect_uri}"
-msgstr "Redirect URI"
+msgstr "Redirect URIs"
 
 msgid "{oidc:client:scopes}"
 msgstr "Scopes"
@@ -125,10 +125,22 @@ msgid "{oidc:title}"
 msgstr "OpenID Connect Client Registry"
 
 msgid "{oidc:client:is_confidential}"
-msgstr "Secure client"
+msgstr "Confidential client"
+
+msgid "{oidc:client:is_confidential_help}"
+msgstr "Choose if client is confidential or public"
 
 msgid "{oidc:client:state}"
 msgstr "State"
 
 msgid "{oidc:client:csrf_error}"
 msgstr "Your session has expired. Please return to the home page and try again."
+
+msgid "{oidc:client:allowed_origin}"
+msgstr "Allowed origins for public clients"
+
+msgid "{oidc:client:allowed_origin_help}"
+msgstr "URLs as allowed origins for CORS requests, for public clients running in browser (e.g. http(s)://example.org)"
+
+msgid "{oidc:client:allowed_origin_not_valid}"
+msgstr "Some of the entered allowed origins are not valid."

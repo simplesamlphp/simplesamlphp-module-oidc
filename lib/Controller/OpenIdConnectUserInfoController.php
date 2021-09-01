@@ -16,13 +16,18 @@ namespace SimpleSAML\Module\oidc\Controller;
 
 use Laminas\Diactoros\Response\JsonResponse;
 use Laminas\Diactoros\ServerRequest;
+use Laminas\Diactoros\Response;
 use League\OAuth2\Server\ResourceServer;
 use SimpleSAML\Error\UserNotFound;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+
+use function PHPUnit\Framework\throwException;
 
 class OpenIdConnectUserInfoController
 {
@@ -42,6 +47,11 @@ class OpenIdConnectUserInfoController
     private $userRepository;
 
     /**
+     * @var AllowedOriginRepository
+     */
+    private $allowedOriginRepository;
+
+    /**
      * @var ClaimTranslatorExtractor
      */
     private $claimTranslatorExtractor;
@@ -50,16 +60,23 @@ class OpenIdConnectUserInfoController
         ResourceServer $resourceServer,
         AccessTokenRepository $accessTokenRepository,
         UserRepository $userRepository,
+        AllowedOriginRepository $allowedOriginRepository,
         ClaimTranslatorExtractor $claimTranslatorExtractor
     ) {
         $this->resourceServer = $resourceServer;
         $this->accessTokenRepository = $accessTokenRepository;
         $this->userRepository = $userRepository;
+        $this->allowedOriginRepository = $allowedOriginRepository;
         $this->claimTranslatorExtractor = $claimTranslatorExtractor;
     }
 
-    public function __invoke(ServerRequest $request): JsonResponse
+    public function __invoke(ServerRequest $request): Response
     {
+        // Check if this is actually a CORS preflight request...
+        if (strtoupper($request->getMethod()) === 'OPTIONS') {
+            return $this->handleCors($request);
+        }
+
         $authorization = $this->resourceServer->validateAuthenticatedRequest($request);
 
         $tokenId = $authorization->getAttribute('oauth_access_token_id');
@@ -98,5 +115,34 @@ class OpenIdConnectUserInfoController
         }
 
         return $user;
+    }
+
+    /**
+     * Handle CORS 'preflight' requests by checking if 'origin' is registered as allowed to make HTTP CORS requests,
+     * typically initiated in browser by JavaScript clients.
+     * @param ServerRequest $request
+     * @return Response
+     * @throws OidcServerException
+     */
+    protected function handleCors(ServerRequest $request): Response
+    {
+        $origin = $request->getHeaderLine('Origin');
+
+        if (empty($origin)) {
+            throw OidcServerException::requestNotSupported('CORS error: no Origin header present');
+        }
+
+        if (! $this->allowedOriginRepository->has($origin)) {
+            throw OidcServerException::accessDenied(sprintf('CORS error: origin %s is not allowed', $origin));
+        }
+
+        $headers = [
+            'Access-Control-Allow-Origin' => $origin,
+            'Access-Control-Allow-Methods' => 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers' => 'Authorization',
+            'Access-Control-Allow-Credentials' => 'true',
+        ];
+
+        return new Response('php://memory', 204, $headers);
     }
 }

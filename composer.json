@@ -20,6 +20,7 @@
         "php": ">=7.2.0",
         "ext-json": "*",
         "ext-openssl": "*",
+        "ext-pdo": "*",
         "laminas/laminas-diactoros": "^2.2.1",
         "laminas/laminas-httphandlerrunner": "^1.1.0",
         "lcobucci/jwt": "^4.1",
