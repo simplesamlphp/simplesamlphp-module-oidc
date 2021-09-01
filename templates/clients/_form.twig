@@ -100,6 +100,7 @@
 
         $.fn.form.settings.rules.redirectUri = function(value) {
             return value.trim().split("\n").reduce(function(current, url) {
+                // Important if updating regex: also used in PHP validation in lib/Form/ClientForm.php
                 return current && null !== url.match(/^[^:]+:\/\/?[^\s\/$.?#].[^\s]*$/);
             }, true)
         };
@@ -109,7 +110,8 @@
 
             if (urls.length && urls[0] !== '') {
                 return urls.reduce(function(current, url) {
-                    return current && null !== url.match(/http(s?)\:\/\/[^\s\/$.?#]+\.[^\s\/$.?#]+(\.[^\s\/$.?#]+)*$/i);
+                    // Important if updating regex: also used in PHP validation in lib/Form/ClientForm.php
+                    return current && null !== url.match(/^http(s?):\/\/[^\s\/!$&'()+,;=.?#@*:]+\.[^\s\/!$&'()+,;=.?#@*]+\.?(\.[^\s\/!$&'()+,;=?#@*:]+)*(:\d{1,5})?$/i);
                 }, true)
             }
 

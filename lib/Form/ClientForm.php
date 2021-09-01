@@ -23,9 +23,18 @@ class ClientForm extends Form
 {
     /**
      * RFC3986. AppendixB. Parsing a URI Reference with a Regular Expression.
+     * Important if updating regex: also used in JavaScript validation in templates/clients/_form.twig
      */
     public const REGEX_URI = '/^[^:]+:\/\/?[^\s\/$.?#].[^\s]*$/';
-    public const REGEX_ALLOWED_ORIGIN_URL = '/http(s?)\:\/\/[^\s\/$.?#]+\.[^\s\/$.?#]+(\.[^\s\/$.?#]+)*$/i';
+
+    /**
+     * Must have http:// or https:// scheme, and at least one 'domain.top-level-domain' pair, or more subdomains.
+     * Top-level-domain may end with '.'.
+     * No reserved chars allowed, meaning no userinfo, path, query or fragment components. May end with port number.
+     * Important if updating regex: also used in JavaScript validation in templates/clients/_form.twig
+     */
+    public const REGEX_ALLOWED_ORIGIN_URL =
+        "/^http(s?):\/\/[^\s\/!$&'()+,;=.?#@*:]+\.[^\s\/!$&'()+,;=.?#@*]+\.?(\.[^\s\/!$&'()+,;=?#@*:]+)*(:\d{1,5})?$/i";
 
     /**
      * @var \SimpleSAML\Module\oidc\Services\ConfigurationService
@@ -158,7 +167,7 @@ class ClientForm extends Form
             ->setItems($scopes)
             ->setRequired('Select one scope at least');
 
-        $allowedOrigins = $this->addTextArea('allowed_origin', '{oidc:client:allowed_origin}', null, 5);
+        $this->addTextArea('allowed_origin', '{oidc:client:allowed_origin}', null, 5);
     }
 
     protected function getScopes(): array
