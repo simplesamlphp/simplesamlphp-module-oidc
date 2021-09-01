@@ -28,7 +28,7 @@ use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterfac
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithClientAndRedirectUriInterface;
+use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithCheckerResultBagInterface;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\OidcCapableGrantTypeInterface;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\PkceEnabledGrantTypeInterface;
 use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
@@ -36,8 +36,8 @@ use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Module\oidc\Utils\Arr;
+use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
-use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeRule;
@@ -52,7 +52,7 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
 class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     PkceEnabledGrantTypeInterface,
     OidcCapableGrantTypeInterface,
-    AuthorizationValidatableWithClientAndRedirectUriInterface
+    AuthorizationValidatableWithCheckerResultBagInterface
 {
     use IssueAccessTokenTrait;
 
@@ -480,11 +480,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     /**
      * @inheritDoc
      */
-    public function validateAuthorizationRequestWithClientAndRedirectUri(
+    public function validateAuthorizationRequestWithCheckerResultBag(
         ServerRequestInterface $request,
-        ClientEntityInterface $client,
-        string $redirectUri,
-        string $state = null
+        ResultBagInterface $resultBag
     ): OAuth2AuthorizationRequest {
         $rulesToExecute = [
             RequestParameterRule::class,
@@ -495,9 +493,14 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         ];
 
         // Since we have already validated redirect_uri and we have state, make it available for other checkers.
-        $this->requestRulesManager->predefineResult(new Result(RedirectUriRule::class, $redirectUri));
-        $this->requestRulesManager->predefineResult(new Result(StateRule::class, $state));
-        $this->requestRulesManager->predefineResult(new Result(ClientIdRule::class, $client));
+        $this->requestRulesManager->predefineResultBag($resultBag);
+
+        /** @var string $redirectUri */
+        $redirectUri = $resultBag->getOrFail(RedirectUriRule::class)->getValue();
+        /** @var string|null $state */
+        $state = $resultBag->getOrFail(StateRule::class)->getValue();
+        /** @var ClientEntityInterface $client */
+        $client = $resultBag->getOrFail(ClientIdRule::class)->getValue();
 
         // Some rules have to have certain things available in order to work properly...
         $this->requestRulesManager->setData('default_scope', $this->defaultScope);

@@ -7,14 +7,15 @@ use League\OAuth2\Server\Grant\ImplicitGrant;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
-use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithClientAndRedirectUriInterface;
+use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithCheckerResultBagInterface;
+use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
-use SimpleSAML\Module\oidc\Utils\Checker\Result;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
 
-class OAuth2ImplicitGrant extends ImplicitGrant implements AuthorizationValidatableWithClientAndRedirectUriInterface
+class OAuth2ImplicitGrant extends ImplicitGrant implements AuthorizationValidatableWithCheckerResultBagInterface
 {
     /**
      * @var DateInterval
@@ -48,19 +49,23 @@ class OAuth2ImplicitGrant extends ImplicitGrant implements AuthorizationValidata
         $this->requestRulesManager = $requestRulesManager;
     }
 
-    public function validateAuthorizationRequestWithClientAndRedirectUri(
+    public function validateAuthorizationRequestWithCheckerResultBag(
         ServerRequestInterface $request,
-        ClientEntityInterface $client,
-        string $redirectUri,
-        string $state = null
+        ResultBagInterface $resultBag
     ): OAuth2AuthorizationRequest {
         $rulesToExecute = [
             ScopeRule::class,
         ];
 
         // Since we have already validated redirect_uri and we have state, make it available for other checkers.
-        $this->requestRulesManager->predefineResult(new Result(RedirectUriRule::class, $redirectUri));
-        $this->requestRulesManager->predefineResult(new Result(StateRule::class, $state));
+        $this->requestRulesManager->predefineResultBag($resultBag);
+
+        /** @var string $redirectUri */
+        $redirectUri = $resultBag->getOrFail(RedirectUriRule::class)->getValue();
+        /** @var string|null $state */
+        $state = $resultBag->getOrFail(StateRule::class)->getValue();
+        /** @var ClientEntityInterface $client */
+        $client = $resultBag->getOrFail(ClientIdRule::class)->getValue();
 
         // Some rules have to have certain things available in order to work properly...
         $this->requestRulesManager->setData('default_scope', $this->defaultScope);

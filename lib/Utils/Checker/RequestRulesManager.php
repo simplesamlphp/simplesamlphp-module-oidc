@@ -85,6 +85,15 @@ class RequestRulesManager
     }
 
     /**
+     * Predefine existing ResultBag so that it can be used by other checkers during check.
+     * @param ResultBagInterface $resultBag
+     */
+    public function predefineResultBag(ResultBagInterface $resultBag): void
+    {
+        $this->resultBag = $resultBag;
+    }
+
+    /**
      * Set data which will be available in each check, using key value pair
      * @param string $key
      * @param mixed $value

@@ -17,6 +17,7 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
+use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule;
@@ -82,14 +83,12 @@ class ImplicitGrant extends OAuth2ImplicitGrant
      * @throws \Throwable
      * @throws OidcServerException
      */
-    public function validateAuthorizationRequestWithClientAndRedirectUri(
+    public function validateAuthorizationRequestWithCheckerResultBag(
         ServerRequestInterface $request,
-        ClientEntityInterface $client,
-        string $redirectUri,
-        string $state = null
+        ResultBagInterface $resultBag
     ): OAuth2AuthorizationRequest {
         $oAuth2AuthorizationRequest =
-            parent::validateAuthorizationRequestWithClientAndRedirectUri($request, $client, $redirectUri, $state);
+            parent::validateAuthorizationRequestWithCheckerResultBag($request, $resultBag);
 
         $rulesToExecute = [
             RequestParameterRule::class,
@@ -102,7 +101,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             RequestedClaimsRule::class
         ];
 
-        $this->requestRulesManager->predefineResult(new Result(ClientIdRule::class, $client));
+        $this->requestRulesManager->predefineResultBag($resultBag);
 
         $resultBag = $this->requestRulesManager->check($request, $rulesToExecute, $this->shouldUseFragment());
 
