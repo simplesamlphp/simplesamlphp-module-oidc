@@ -12,13 +12,15 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Controller;
+namespace SimpleSAML\Module\oidc\Controller;
 
-use SimpleSAML\Modules\OpenIDConnect\Controller\Traits\AuthenticatedGetClientFromRequestTrait;
-use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
+
 use Laminas\Diactoros\ServerRequest;
-use SimpleSAML\Modules\OpenIDConnect\Services\AuthContextService;
+use SimpleSAML\Module\oidc\Controller\Traits\AuthenticatedGetClientFromRequestTrait;
+use SimpleSAML\Module\oidc\Factories\TemplateFactory;
+use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Services\AuthContextService;
 
 class ClientShowController
 {
@@ -29,9 +31,19 @@ class ClientShowController
      */
     private $templateFactory;
 
-    public function __construct(ClientRepository $clientRepository, TemplateFactory $templateFactory, AuthContextService $authContextService)
-    {
+    /**
+     * @var AllowedOriginRepository
+     */
+    private $allowedOriginRepository;
+
+    public function __construct(
+        ClientRepository $clientRepository,
+        AllowedOriginRepository $allowedOriginRepository,
+        TemplateFactory $templateFactory,
+        AuthContextService $authContextService
+    ) {
         $this->clientRepository = $clientRepository;
+        $this->allowedOriginRepository = $allowedOriginRepository;
         $this->templateFactory = $templateFactory;
         $this->authContextService = $authContextService;
     }
@@ -39,9 +51,11 @@ class ClientShowController
     public function __invoke(ServerRequest $request): \SimpleSAML\XHTML\Template
     {
         $client = $this->getClientFromRequest($request);
+        $allowedOrigins = $this->allowedOriginRepository->get($client->getIdentifier());
 
         return $this->templateFactory->render('oidc:clients/show.twig', [
             'client' => $client,
+            'allowedOrigins' => $allowedOrigins
         ]);
     }
 }

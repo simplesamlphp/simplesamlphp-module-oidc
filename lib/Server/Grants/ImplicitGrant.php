@@ -1,39 +1,52 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Server\Grants;
+namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use DateInterval;
 use League\OAuth2\Server\Entities\UserEntityInterface;
-use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
-use SimpleSAML\Modules\OpenIDConnect\Server\RequestTypes\AuthorizationRequest;
-use SimpleSAML\Modules\OpenIDConnect\Services\IdTokenBuilder;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\MaxAgeRule;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\PromptRule;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\RequestParameterRule;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\ScopeRule;
+use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
+use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
+use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
+use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Module\oidc\Utils\Checker\Result;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\MaxAgeRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\PromptRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestParameterRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredNonceRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredOpenIdScopeRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\ResponseTypeRule;
 
 class ImplicitGrant extends OAuth2ImplicitGrant
 {
+    use IssueAccessTokenTrait;
+
     /**
      * @var IdTokenBuilder
      */
-    private $idTokenBuilder;
+    protected $idTokenBuilder;
 
     public function __construct(
         IdTokenBuilder $idTokenBuilder,
         DateInterval $accessTokenTTL,
+        AccessTokenRepositoryInterface $accessTokenRepository,
         $queryDelimiter = '#',
         RequestRulesManager $requestRulesManager = null
     ) {
         parent::__construct($accessTokenTTL, $queryDelimiter, $requestRulesManager);
-
+        $this->accessTokenRepository = $accessTokenRepository;
         $this->idTokenBuilder = $idTokenBuilder;
     }
 
@@ -49,7 +62,8 @@ class ImplicitGrant extends OAuth2ImplicitGrant
 
         $responseType = explode(" ", $queryParams['response_type']);
 
-        return in_array('id_token', $responseType, true);
+        return in_array('id_token', $responseType, true) &&
+            ! in_array('code', $responseType, true); // ...avoid triggering hybrid flow
     }
 
     /**
@@ -57,39 +71,61 @@ class ImplicitGrant extends OAuth2ImplicitGrant
      */
     public function completeAuthorizationRequest(OAuth2AuthorizationRequest $authorizationRequest)
     {
-
         if ($authorizationRequest instanceof AuthorizationRequest) {
             return $this->completeOidcAuthorizationRequest($authorizationRequest);
         }
 
-        return parent::completeAuthorizationRequest($authorizationRequest);
+        throw new LogicException('Unexpected OAuth2AuthorizationRequest type.');
     }
 
-    public function validateAuthorizationRequestWithClientAndRedirectUri(ServerRequestInterface $request, ClientEntityInterface $client, string $redirectUri, string $state = null): OAuth2AuthorizationRequest
-    {
-        $oAuth2AuthorizationRequest = parent::validateAuthorizationRequestWithClientAndRedirectUri($request, $client, $redirectUri, $state);
+    /**
+     * @throws \Throwable
+     * @throws OidcServerException
+     */
+    public function validateAuthorizationRequestWithClientAndRedirectUri(
+        ServerRequestInterface $request,
+        ClientEntityInterface $client,
+        string $redirectUri,
+        string $state = null
+    ): OAuth2AuthorizationRequest {
+        $oAuth2AuthorizationRequest =
+            parent::validateAuthorizationRequestWithClientAndRedirectUri($request, $client, $redirectUri, $state);
 
         $rulesToExecute = [
             RequestParameterRule::class,
             PromptRule::class,
             MaxAgeRule::class,
-            ScopeRule::class,
+            RequiredOpenIdScopeRule::class,
+            ResponseTypeRule::class,
+            AddClaimsToIdTokenRule::class,
+            RequiredNonceRule::class,
+            RequestedClaimsRule::class
         ];
 
-        $resultBag = $this->requestRulesManager->check($request, $rulesToExecute);
+        $this->requestRulesManager->predefineResult(new Result(ClientIdRule::class, $client));
+
+        $resultBag = $this->requestRulesManager->check($request, $rulesToExecute, $this->shouldUseFragment());
 
         $authorizationRequest = AuthorizationRequest::fromOAuth2AuthorizationRequest($oAuth2AuthorizationRequest);
 
-        /** @var string|null $nonce */
-        $nonce = $request->getQueryParams()['nonce'] ?? null;
-        if ($nonce !== null) {
-            $authorizationRequest->setNonce($nonce);
-        }
+        // nonce existence is validated using a rule, so we can get it from there.
+        $authorizationRequest->setNonce($resultBag->getOrFail(RequiredNonceRule::class)->getValue());
 
         $maxAge = $resultBag->get(MaxAgeRule::class);
         if (null !== $maxAge) {
             $authorizationRequest->setAuthTime((int) $maxAge->getValue());
         }
+
+        $requestClaims = $resultBag->get(RequestedClaimsRule::class);
+        if (null !== $requestClaims) {
+            $authorizationRequest->setClaims($requestClaims->getValue());
+        }
+        $addClaimsToIdToken = ($resultBag->getOrFail(AddClaimsToIdTokenRule::class))->getValue();
+        $authorizationRequest->setAddClaimsToIdToken($addClaimsToIdToken);
+
+        /** @var string $responseType */
+        $responseType = ($resultBag->getOrFail(ResponseTypeRule::class))->getValue();
+        $authorizationRequest->setResponseType($responseType);
 
         return $authorizationRequest;
     }
@@ -104,57 +140,75 @@ class ImplicitGrant extends OAuth2ImplicitGrant
 
         $redirectUrl = $this->getRedirectUrl($authorizationRequest);
 
-        // The user approved the client, redirect them back with an access token
-        if ($authorizationRequest->isAuthorizationApproved() === true) {
-            // Finalize the requested scopes
-            $finalizedScopes = $this->scopeRepository->finalizeScopes(
-                $authorizationRequest->getScopes(),
-                $this->getIdentifier(),
-                $authorizationRequest->getClient(),
-                $user->getIdentifier()
+        if ($authorizationRequest->isAuthorizationApproved() !== true) {
+            throw OidcServerException::accessDenied(
+                'The user denied the request',
+                $redirectUrl,
+                null,
+                $authorizationRequest->getState(),
+                $this->shouldUseFragment()
             );
-
-            $accessToken = $this->issueAccessToken(
-                $this->accessTokenTTL,
-                $authorizationRequest->getClient(),
-                $user->getIdentifier(),
-                $finalizedScopes
-            );
-
-            $idToken = $this->idTokenBuilder->build(
-                $accessToken,
-                $authorizationRequest->getNonce(),
-                $authorizationRequest->getAuthTime()
-            );
-
-            $response = new RedirectResponse();
-            $response->setRedirectUri(
-                $this->makeRedirectUri(
-                    $redirectUrl,
-                    [
-                        'id_token'     => $idToken->toString(),
-                        'access_token' => (string) $accessToken,
-                        'token_type'   => 'Bearer',
-                        'expires_in'   => $accessToken->getExpiryDateTime()->getTimestamp() - \time(),
-                        'state'        => $authorizationRequest->getState(),
-                    ],
-                    $this->queryDelimiter
-                )
-            );
-
-            return $response;
         }
 
-        // The user denied the client, redirect them back with an error
-        throw OAuthServerException::accessDenied(
-            'The user denied the request',
+        // Finalize the requested scopes
+        $finalizedScopes = $this->scopeRepository->finalizeScopes(
+            $authorizationRequest->getScopes(),
+            $this->getIdentifier(),
+            $authorizationRequest->getClient(),
+            $user->getIdentifier()
+        );
+
+        $responseParams = [
+            'state' => $authorizationRequest->getState(),
+        ];
+
+        $accessToken = $this->issueAccessToken(
+            $this->accessTokenTTL,
+            $authorizationRequest->getClient(),
+            $user->getIdentifier(),
+            $finalizedScopes,
+            null,
+            $authorizationRequest->getClaims()
+        );
+
+        if ($accessToken instanceof EntityStringRepresentationInterface === false) {
+            throw new \RuntimeException('AccessToken must implement ' . EntityStringRepresentationInterface::class);
+        }
+        if ($accessToken instanceof AccessTokenEntity === false) {
+            throw new \RuntimeException('AccessToken must be ' . AccessTokenEntity::class);
+        }
+
+        $addAccessTokenHashToIdToken = false;
+        if ($authorizationRequest->shouldReturnAccessTokenInAuthorizationResponse()) {
+            $addAccessTokenHashToIdToken = true;
+
+            $responseParams['access_token'] = $accessToken->toString() ?? (string) $accessToken;
+            $responseParams['token_type'] = 'Bearer';
+            $responseParams['expires_in'] = $accessToken->getExpiryDateTime()->getTimestamp() - \time();
+        }
+
+        $idToken = $this->idTokenBuilder->build(
+            $user,
+            $accessToken,
+            $authorizationRequest->getAddClaimsToIdToken(),
+            $addAccessTokenHashToIdToken,
+            $authorizationRequest->getNonce(),
+            $authorizationRequest->getAuthTime()
+        );
+
+        $responseParams['id_token'] = $idToken->toString();
+
+        $response = new RedirectResponse();
+
+        $response->setRedirectUri(
             $this->makeRedirectUri(
                 $redirectUrl,
-                [
-                    'state' => $authorizationRequest->getState(),
-                ]
+                $responseParams,
+                $this->queryDelimiter
             )
         );
+
+        return $response;
     }
 
     private function getRedirectUrl(AuthorizationRequest $authorizationRequest): string
@@ -170,5 +224,15 @@ class ImplicitGrant extends OAuth2ImplicitGrant
         }
 
         return (string) $redirectUris;
+    }
+
+    /**
+     * Check if fragment should be used for params transportation in HTTP responses
+     *
+     * @return bool
+     */
+    protected function shouldUseFragment(): bool
+    {
+        return $this->queryDelimiter === '#';
     }
 }

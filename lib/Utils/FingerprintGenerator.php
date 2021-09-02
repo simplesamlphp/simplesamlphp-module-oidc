@@ -1,6 +1,6 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Utils;
+namespace SimpleSAML\Module\oidc\Utils;
 
 class FingerprintGenerator
 {

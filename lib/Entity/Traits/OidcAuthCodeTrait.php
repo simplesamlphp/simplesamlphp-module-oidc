@@ -1,6 +1,6 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Entity\Traits;
+namespace SimpleSAML\Module\oidc\Entity\Traits;
 
 use League\OAuth2\Server\Entities\Traits\AuthCodeTrait;
 

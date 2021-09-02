@@ -12,19 +12,19 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Factories;
+namespace SimpleSAML\Module\oidc\Factories;
 
-use SimpleSAML\Modules\OpenIDConnect\Server\AuthorizationServer;
+use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use League\OAuth2\Server\CryptKey;
-use SimpleSAML\Modules\OpenIDConnect\Server\Grants\AuthCodeGrant;
-use SimpleSAML\Modules\OpenIDConnect\Server\Grants\ImplicitGrant;
-use SimpleSAML\Modules\OpenIDConnect\Server\Grants\OAuth2ImplicitGrant;
+use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
+use SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant;
+use SimpleSAML\Module\oidc\Server\Grants\OAuth2ImplicitGrant;
 use League\OAuth2\Server\Grant\RefreshTokenGrant;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository;
-use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\IdTokenResponse;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
+use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 
 class AuthorizationServerFactory
 {

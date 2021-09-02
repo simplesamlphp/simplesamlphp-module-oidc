@@ -1,16 +1,15 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Services;
+namespace SimpleSAML\Module\oidc\Services;
 
 use SimpleSAML\Auth\Simple;
-use SimpleSAML\Logger;
-use SimpleSAML\Modules\OpenIDConnect\Factories\AuthSimpleFactory;
+use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Utils\Attributes;
 use SimpleSAML\Utils\Auth;
 
 /**
  * Provide contextual authentication information for administration interface.
- * @package SimpleSAML\Modules\OpenIDConnect\Services
+ * @package SimpleSAML\Module\oidc\Services
  */
 class AuthContextService
 {

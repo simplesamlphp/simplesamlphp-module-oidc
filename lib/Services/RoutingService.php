@@ -12,7 +12,7 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Services;
+namespace SimpleSAML\Module\oidc\Services;
 
 use Laminas\Diactoros\Response;
 use Laminas\Diactoros\Response\JsonResponse;
@@ -62,6 +62,7 @@ class RoutingService
         $serverRequest = ServerRequestFactory::fromGlobals();
         $response = $controller($serverRequest);
 
+        # TODO sspv2 return Symfony\Component\HttpFoundation\Response (Template instance) in SSP v2
         if ($response instanceof Template) {
             $response->data['messages'] = $container->get(SessionMessagesService::class)->getMessages();
 
@@ -117,6 +118,7 @@ class RoutingService
     {
         set_exception_handler(function (\Throwable $t) {
             if ($t instanceof Error) {
+                // Showing SSP Error will also use SSP logger to log it.
                 return $t->show();
             } elseif ($t instanceof OAuthServerException) {
                 $response = $t->generateHttpResponse(new Response());
@@ -128,6 +130,9 @@ class RoutingService
                 ];
                 $response = new JsonResponse($error, 500);
             }
+
+            // Log exception using SSP Exception logging feature.
+            (Exception::fromException($t))->logError();
 
             $emitter = new SapiEmitter();
             $emitter->emit($response);

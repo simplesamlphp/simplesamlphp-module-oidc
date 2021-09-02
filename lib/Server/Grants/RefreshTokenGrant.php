@@ -1,12 +1,12 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Server\Grants;
+namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use Exception;
 use League\OAuth2\Server\Grant\RefreshTokenGrant as OAuth2RefreshTokenGrant;
 use League\OAuth2\Server\RequestEvent;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 class RefreshTokenGrant extends OAuth2RefreshTokenGrant
 {

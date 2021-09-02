@@ -12,21 +12,21 @@
  * file that was distributed with this source code.
  */
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
+namespace spec\SimpleSAML\Module\oidc\Controller;
 
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequest;
 use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
 use Psr\Http\Message\UriInterface;
 use SimpleSAML\Configuration;
 use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Error\NotFound;
-use SimpleSAML\Modules\OpenIDConnect\Controller\ClientResetSecretController;
-use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
-use SimpleSAML\Modules\OpenIDConnect\Services\AuthContextService;
-use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
-use Laminas\Diactoros\Response\RedirectResponse;
-use Laminas\Diactoros\ServerRequest;
+use SimpleSAML\Module\oidc\Controller\ClientResetSecretController;
+use SimpleSAML\Module\oidc\Entity\ClientEntity;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Services\AuthContextService;
+use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 
 class ClientResetSecretControllerSpec extends ObjectBehavior
 {
@@ -83,7 +83,7 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
     }
 
     /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
+     * @param \SimpleSAML\Module\oidc\Entity\ClientEntity
      *
      * @return void
      */
@@ -101,7 +101,7 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
     }
 
     /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
+     * @param \SimpleSAML\Module\oidc\Entity\ClientEntity
      *
      * @return void
      */
@@ -121,7 +121,7 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
     }
 
     /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
+     * @param \SimpleSAML\Module\oidc\Entity\ClientEntity
      *
      * @return void
      */
@@ -147,7 +147,7 @@ class ClientResetSecretControllerSpec extends ObjectBehavior
     }
 
     /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
+     * @param \SimpleSAML\Module\oidc\Entity\ClientEntity
      *
      * @return void
      */

@@ -12,12 +12,12 @@
  * file that was distributed with this source code.
  */
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Entity;
+namespace spec\SimpleSAML\Module\oidc\Entity;
 
 use League\OAuth2\Server\Entities\ClientEntityInterface;
 use PhpSpec\ObjectBehavior;
-use SimpleSAML\Modules\OpenIDConnect\Entity\AccessTokenEntity;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\MementoInterface;
+use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entity\Interfaces\MementoInterface;
 
 class AccessTokenEntitySpec extends ObjectBehavior
 {
@@ -36,6 +36,8 @@ class AccessTokenEntitySpec extends ObjectBehavior
                 'user_id' => 'user_id',
                 'client' => $clientEntity,
                 'is_revoked' => false,
+                'auth_code_id' => '123',
+                'requested_claims' => '{"key": "value"}'
             ],
         ]);
     }
@@ -107,6 +109,19 @@ class AccessTokenEntitySpec extends ObjectBehavior
     /**
      * @return void
      */
+    public function it_has_auth_code_id()
+    {
+        $this->getAuthCodeId()->shouldBeEqualTo('123');
+    }
+
+    public function it_has_requested_claims()
+    {
+        $this->getRequestedClaims()->shouldBeEqualTo(['key' => 'value']);
+    }
+
+    /**
+     * @return void
+     */
     public function it_can_return_state()
     {
         $this->getState()->shouldBeLike([
@@ -116,6 +131,8 @@ class AccessTokenEntitySpec extends ObjectBehavior
             'user_id' => 'user_id',
             'client_id' => 'client_id',
             'is_revoked' => false,
+            'auth_code_id' => '123',
+            'requested_claims' => '{"key":"value"}',
         ]);
     }
 }

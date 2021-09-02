@@ -1,6 +1,6 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Services;
+namespace SimpleSAML\Module\oidc\Services;
 
 use SimpleSAML\Auth\ProcessingFilter;
 use SimpleSAML\Module;

@@ -12,12 +12,12 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Entity;
+namespace SimpleSAML\Module\oidc\Entity;
 
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use OpenIDConnectServer\Entities\ClaimSetInterface;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\MementoInterface;
-use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
+use SimpleSAML\Module\oidc\Entity\Interfaces\MementoInterface;
+use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInterface
 {

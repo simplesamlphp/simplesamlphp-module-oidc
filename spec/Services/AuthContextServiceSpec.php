@@ -1,21 +1,13 @@
 <?php
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Services;
+namespace spec\SimpleSAML\Module\oidc\Services;
 
-use Basho\Riak\Exception;
-use Laminas\Diactoros\ServerRequest;
 use PhpSpec\ObjectBehavior;
-use Prophecy\Argument;
 use RuntimeException;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Configuration;
-use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
-use SimpleSAML\Modules\OpenIDConnect\Factories\AuthSimpleFactory;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
-use SimpleSAML\Modules\OpenIDConnect\Services\AuthProcService;
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
-use SimpleSAML\Modules\OpenIDConnect\Services\OidcOpenIdProviderMetadataService;
+use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
 
 class AuthContextServiceSpec extends ObjectBehavior
 {

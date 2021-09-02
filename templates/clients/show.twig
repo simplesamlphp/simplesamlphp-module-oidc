@@ -75,6 +75,16 @@
         <tr>
             <td class="collapsing">{% trans '{oidc:client:owner}' %}</td>
             <td>{{ client.owner }}</td>
+
+            <td class="collapsing">{% trans '{oidc:client:allowed_origin}' %}</td>
+            <td>
+                <ul class="list">
+                    {% for allowedOrigin in allowedOrigins %}
+                        <li>{{ allowedOrigin }}</li>
+                    {% endfor %}
+                </ul>
+            </td>
+
         </tr>
         </tbody>
         <tfoot>

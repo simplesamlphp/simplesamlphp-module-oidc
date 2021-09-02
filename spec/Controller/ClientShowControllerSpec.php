@@ -12,20 +12,21 @@
  * file that was distributed with this source code.
  */
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
+namespace spec\SimpleSAML\Module\oidc\Controller;
 
+use Laminas\Diactoros\ServerRequest;
 use PhpSpec\ObjectBehavior;
 use Psr\Http\Message\UriInterface;
 use SimpleSAML\Configuration;
 use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Error\NotFound;
-use SimpleSAML\Modules\OpenIDConnect\Controller\ClientShowController;
-use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
-use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
-use SimpleSAML\Modules\OpenIDConnect\Services\AuthContextService;
+use SimpleSAML\Module\oidc\Controller\ClientShowController;
+use SimpleSAML\Module\oidc\Entity\ClientEntity;
+use SimpleSAML\Module\oidc\Factories\TemplateFactory;
+use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\XHTML\Template;
-use Laminas\Diactoros\ServerRequest;
 
 class ClientShowControllerSpec extends ObjectBehavior
 {
@@ -36,6 +37,7 @@ class ClientShowControllerSpec extends ObjectBehavior
      */
     public function let(
         ClientRepository $clientRepository,
+        AllowedOriginRepository $allowedOriginRepository,
         TemplateFactory $templateFactory,
         ServerRequest $request,
         UriInterface $uri,
@@ -48,7 +50,8 @@ class ClientShowControllerSpec extends ObjectBehavior
         $request->getUri()->willReturn($uri);
         $uri->getPath()->willReturn('/');
 
-        $this->beConstructedWith($clientRepository, $templateFactory, $authContextService);
+
+        $this->beConstructedWith($clientRepository, $allowedOriginRepository, $templateFactory, $authContextService);
     }
 
     /**
@@ -60,7 +63,7 @@ class ClientShowControllerSpec extends ObjectBehavior
     }
 
     /**
-     * @param \SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity
+     * @param \SimpleSAML\Module\oidc\Entity\ClientEntity
      *
      * @return void
      */
@@ -69,13 +72,20 @@ class ClientShowControllerSpec extends ObjectBehavior
         Template $template,
         TemplateFactory $templateFactory,
         ClientRepository $clientRepository,
+        AllowedOriginRepository $allowedOriginRepository,
         ClientEntity $clientEntity
     ) {
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
-        $clientRepository->findById('clientid', null)->shouldBeCalled()->willReturn($clientEntity);
 
-        $templateFactory->render('oidc:clients/show.twig', ['client' => $clientEntity])
-            ->shouldBeCalled()->willReturn($template);
+        $clientEntity->getIdentifier()->shouldBeCalled()->willReturn('clientid');
+        $clientRepository->findById('clientid', null)->shouldBeCalled()->willReturn($clientEntity);
+        $allowedOriginRepository->get('clientid')->shouldBeCalled()->willReturn([]);
+
+        $templateFactory->render('oidc:clients/show.twig', [
+            'client' => $clientEntity,
+            'allowedOrigins' => []
+         ])->shouldBeCalled()
+         ->willReturn($template);
         $this->__invoke($request)->shouldBe($template);
     }
 

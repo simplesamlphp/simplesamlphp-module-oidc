@@ -12,16 +12,18 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Repositories;
+namespace SimpleSAML\Module\oidc\Repositories;
 
-use League\OAuth2\Server\Entities\AuthCodeEntityInterface;
+use League\OAuth2\Server\Entities\AuthCodeEntityInterface as OAuth2AuthCodeEntityInterface;
 use SimpleSAML\Error\Assertion;
-use SimpleSAML\Modules\OpenIDConnect\Entity\AuthCodeEntity;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\OidcAuthCodeEntityInterface;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\Interfaces\OidcAuthCodeRepositoryInterface;
-use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
+use SimpleSAML\Module\oidc\Entity\AuthCodeEntity;
+use SimpleSAML\Module\oidc\Entity\Interfaces\AuthCodeEntityInterface;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
+use SimpleSAML\Module\oidc\Entity\Interfaces\OidcAuthCodeEntityInterface;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\OidcAuthCodeRepositoryInterface;
+use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
-class AuthCodeRepository extends AbstractDatabaseRepository implements OidcAuthCodeRepositoryInterface
+class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeRepositoryInterface
 {
     public const TABLE_NAME = 'oidc_auth_code';
 
@@ -31,9 +33,9 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements OidcAuthC
     }
 
     /**
-     * @return OidcAuthCodeEntityInterface
+     * @return AuthCodeEntityInterface
      */
-    public function getNewAuthCode(): OidcAuthCodeEntityInterface
+    public function getNewAuthCode(): AuthCodeEntityInterface
     {
         return new AuthCodeEntity();
     }
@@ -41,7 +43,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements OidcAuthC
     /**
      * {@inheritdoc}
      */
-    public function persistNewAuthCode(AuthCodeEntityInterface $authCodeEntity)
+    public function persistNewAuthCode(OAuth2AuthCodeEntityInterface $authCodeEntity)
     {
         if (!$authCodeEntity instanceof AuthCodeEntity) {
             throw new Assertion('Invalid AuthCodeEntity');
@@ -100,7 +102,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements OidcAuthC
     /**
      * {@inheritdoc}
      */
-    public function isAuthCodeRevoked($tokenId)
+    public function isAuthCodeRevoked($tokenId): bool
     {
         $authCode = $this->findById($tokenId);
 

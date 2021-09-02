@@ -1,10 +1,10 @@
 <?php
 
-namespace Tests\SimpleSAML\Modules\OpenIDConnect;
+namespace SimpleSAML\Test\Module\oidc;
 
 use OpenIDConnectServer\Entities\ClaimSetEntity;
 use PHPUnit\Framework\TestCase;
-use SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Utils\Attributes;
 
 class ClaimTranslatorExtractorTest extends TestCase
@@ -153,5 +153,31 @@ class ClaimTranslatorExtractorTest extends TestCase
         $userAttributes = Attributes::normalizeAttributesArray(['testClaim' => '7890F',]);
         $claimTranslator = new ClaimTranslatorExtractor([$claimSet], $translate);
         $claimTranslator->extract(['typeConversion'], $userAttributes);
+    }
+
+    public function testExtractRequestClaimsUserInfo(): void
+    {
+        $claimTranslator = new ClaimTranslatorExtractor();
+        $requestClaims = [
+          "userinfo" => [
+              "name" => ['essential' => true]
+          ]
+        ];
+
+        $claims = $claimTranslator->extractAdditionalUserInfoClaims($requestClaims, ['cn' => ['bob']]);
+        $this->assertEquals(['name' => 'bob'], $claims);
+    }
+
+    public function testExtractRequestClaimsIdToken(): void
+    {
+        $claimTranslator = new ClaimTranslatorExtractor();
+        $requestClaims = [
+            "id_token" => [
+                "name" => ['essential' => true]
+            ]
+        ];
+
+        $claims = $claimTranslator->extractAdditionalIdTokenClaims($requestClaims, ['displayName' => ['bob']]);
+        $this->assertEquals(['name' => 'bob'], $claims);
     }
 }

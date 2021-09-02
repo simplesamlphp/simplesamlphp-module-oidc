@@ -12,7 +12,7 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces;
+namespace SimpleSAML\Module\oidc\Entity\Interfaces;
 
 interface MementoInterface
 {
@@ -21,5 +21,8 @@ interface MementoInterface
      */
     public static function fromState(array $state);
 
+    /**
+     * @return array
+     */
     public function getState(): array;
 }

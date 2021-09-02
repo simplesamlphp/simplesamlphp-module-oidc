@@ -12,14 +12,14 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Controller;
+namespace SimpleSAML\Module\oidc\Controller;
 
 use SimpleSAML\Error\BadRequest;
-use SimpleSAML\Modules\OpenIDConnect\Controller\Traits\AuthenticatedGetClientFromRequestTrait;
-use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
-use SimpleSAML\Modules\OpenIDConnect\Services\AuthContextService;
-use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
+use SimpleSAML\Module\oidc\Controller\Traits\AuthenticatedGetClientFromRequestTrait;
+use SimpleSAML\Module\oidc\Factories\TemplateFactory;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Services\SessionMessagesService;
+use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\Utils\HTTP;
 use Laminas\Diactoros\Response\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;
@@ -29,12 +29,12 @@ class ClientDeleteController
     use AuthenticatedGetClientFromRequestTrait;
 
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory
+     * @var \SimpleSAML\Module\oidc\Factories\TemplateFactory
      */
     private $templateFactory;
 
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService
+     * @var \SimpleSAML\Module\oidc\Services\SessionMessagesService
      */
     private $messages;
 

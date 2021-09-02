@@ -12,8 +12,8 @@
  * file that was distributed with this source code.
  */
 
-use SimpleSAML\Modules\OpenIDConnect\Controller\ClientResetSecretController;
-use SimpleSAML\Modules\OpenIDConnect\Services\AuthContextService;
-use SimpleSAML\Modules\OpenIDConnect\Services\RoutingService;
+use SimpleSAML\Module\oidc\Controller\ClientResetSecretController;
+use SimpleSAML\Module\oidc\Services\AuthContextService;
+use SimpleSAML\Module\oidc\Services\RoutingService;
 
 RoutingService::callWithPermission(ClientResetSecretController::class, AuthContextService::PERM_CLIENT);

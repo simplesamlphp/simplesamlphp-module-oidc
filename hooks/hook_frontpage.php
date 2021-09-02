@@ -22,7 +22,7 @@ function oidc_hook_frontpage(&$links)
     assert('is_array($links)');
     assert('array_key_exists("links", $links)');
 
-    $isUpdated = (new \SimpleSAML\Modules\OpenIDConnect\Services\DatabaseMigration())->isUpdated();
+    $isUpdated = (new \SimpleSAML\Module\oidc\Services\DatabaseMigration())->isUpdated();
 
     if (!$isUpdated) {
         $links['federation']['oidcregistry'] = [

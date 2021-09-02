@@ -12,14 +12,15 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Services;
+namespace SimpleSAML\Module\oidc\Services;
 
 use SimpleSAML\Database;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\AuthCodeRepository;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\RefreshTokenRepository;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
+use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\UserRepository;
 
 class DatabaseMigration
 {
@@ -95,10 +96,26 @@ class DatabaseMigration
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20200901163000')");
         }
 
-        if (!\in_array('20210615113500', $versions, true)) {
-            $this->version20210615113500();
-            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210615113500')");
+        if (!\in_array('20210714113000', $versions, true)) {
+            $this->version20210714113000();
+            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210714113000')");
         }
+
+        if (!\in_array('20210823141300', $versions, true)) {
+            $this->version20210823141300();
+            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210823141300')");
+        }
+
+        if (!\in_array('20210827111300', $versions, true)) {
+            $this->version20210827111300();
+            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210827111300')");
+        }
+
+        if (!\in_array('20210902113500', $versions, true)) {
+            $this->version20210902113500();
+            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210902113500')");
+        }
+
     }
 
     private function versionsTableName(): string
@@ -223,12 +240,66 @@ EOT
         );
     }
 
-    private function version20210615113500(): void
+    private function version20210902113500(): void
     {
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
         $this->database->write(<<< EOT
         ALTER TABLE ${clientTableName}
             ADD owner VARCHAR(191) NULL 
+EOT
+        );
+    }
+
+    /**
+     * Add auth_code_id column to access token and refresh token tables
+     */
+    protected function version20210714113000()
+    {
+        $tableName = $this->database->applyPrefix(AccessTokenRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE ${tableName}
+            ADD auth_code_id VARCHAR(191) NULL 
+EOT
+        );
+
+        $tableName = $this->database->applyPrefix(RefreshTokenRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE ${tableName}
+            ADD auth_code_id VARCHAR(191) NULL 
+EOT
+        );
+    }
+
+    /**
+     * Add requested claims to authorization token
+     */
+    protected function version20210823141300()
+    {
+        $tableName = $this->database->applyPrefix(AccessTokenRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE ${tableName}
+            ADD requested_claims TEXT NULL 
+EOT
+        );
+    }
+
+    /**
+     * Add table for allowed origins.
+     */
+    protected function version20210827111300(): void
+    {
+        $allowedOriginTableName = $this->database->applyPrefix(AllowedOriginRepository::TABLE_NAME);
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $fkAllowedOriginClient = $this->generateIdentifierName([$allowedOriginTableName, 'client_id'], 'fk');
+
+        $this->database->write(<<< EOT
+        CREATE TABLE ${allowedOriginTableName} (
+            client_id VARCHAR(191) NOT NULL,
+            origin VARCHAR(191) NOT NULL,
+            CONSTRAINT PK_ALLOWED_ORIGIN PRIMARY KEY (client_id, origin),
+            CONSTRAINT {$fkAllowedOriginClient} FOREIGN KEY (client_id)
+                REFERENCES ${clientTableName} (id) ON DELETE CASCADE
+        )
 EOT
         );
     }
