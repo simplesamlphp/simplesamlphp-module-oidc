@@ -4,7 +4,7 @@
 
 {% block pre_breadcrump %}
     <span class="divider">/</span>
-    <a class="section" href="./">{% trans 'OpenID Connect Client Registry' %}</a>
+    <a class="section" href="./index.php">{% trans 'OpenID Connect Client Registry' %}</a>
 {% endblock %}
 
 {% block content %}
@@ -94,7 +94,7 @@
             <th></th>
             <th>
                 <div class="ui buttons">
-                    <a href="./" class="ui small primary labeled icon button">
+                    <a href="./index.php" class="ui small primary labeled icon button">
                         <i class="arrow left icon"></i> {% trans '{oidc:return}' %}
                     </a>
                     <a href="./edit.php?client_id={{ client.identifier }}" class="ui small labeled icon button">
