@@ -49,7 +49,7 @@ class ClientEntity implements ClientEntityInterface
     private $isEnabled;
 
     /**
-     * @var string
+     * @var string|null
      */
     private $owner;
 

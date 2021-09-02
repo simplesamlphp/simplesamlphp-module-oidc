@@ -29,12 +29,10 @@ class AuthContextServiceSpec extends ObjectBehavior
         $authSimpleFactory->getDefaultAuthSource()->willReturn($simple);
         $permssions = Configuration::loadFromArray(
             [
-
                 // Attribute to inspect to determine user's permissions
                 'attribute' => 'someEntitlement',
-                // Which entitlements allow for registering, editing, delete a client. OIDC clients are owned by the creator
+                // Entitlements allow for registering, editing, delete a client. OIDC clients are owned by the creator
                 'client' => ['val2'],
-
             ]
         );
         $oidcConfiguration->getConfigItem('permissions', [])->willReturn($permssions);
@@ -62,7 +60,8 @@ class AuthContextServiceSpec extends ObjectBehavior
 
     public function it_is_not_authorized_for_permission()
     {
-        $this->shouldThrow(new RuntimeException('No permission defined for no-match'))->duringRequirePermission('no-match');
+        $this->shouldThrow(new RuntimeException('No permission defined for no-match'))
+            ->duringRequirePermission('no-match');
     }
 
     public function it_has_wrong_entitlements(Simple $simple)
@@ -71,7 +70,8 @@ class AuthContextServiceSpec extends ObjectBehavior
             'idAttribute' => ['myUsername'],
             'someEntitlement' =>  ['otherEntitlement']
                                                  ]);
-        $this->shouldThrow(new RuntimeException('Missing entitlement for client'))->duringRequirePermission('client');
+        $this->shouldThrow(new RuntimeException('Missing entitlement for client'))
+            ->duringRequirePermission('client');
     }
 
     public function it_has_no_entitlment_attribute(Simple $simple)
@@ -79,7 +79,8 @@ class AuthContextServiceSpec extends ObjectBehavior
         $simple->getAttributes()->willReturn([
                                                  'idAttribute' => ['myUsername'],
                                              ]);
-        $this->shouldThrow(new RuntimeException('Missing entitlement for client'))->duringRequirePermission('client');
+        $this->shouldThrow(new RuntimeException('Missing entitlement for client'))
+            ->duringRequirePermission('client');
     }
 
     public function it_has_no_enable_permissions(Configuration $oidcConfiguration)

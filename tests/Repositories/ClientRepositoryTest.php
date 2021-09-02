@@ -238,12 +238,16 @@ class ClientRepositoryTest extends TestCase
         // Owner can update their own client
         $ownedClient =  self::getClient($ownedClientId, false, false, $owner);
         self::$repository->update($ownedClient, $owner);
-        $this->assertFalse(self::$repository->findById($ownedClientId, $owner)->isEnabled());
+        $foundClient = self::$repository->findById($ownedClientId, $owner);
+        $this->assertNotNull($foundClient);
+        $this->assertFalse($foundClient->isEnabled());
 
         // Owner can not update other clients
         $notOwnedClient =  self::getClient($unownedClientId, false, false, 'otherUser');
         self::$repository->update($notOwnedClient, $owner);
-        $this->assertTrue(self::$repository->findById($unownedClientId)->isEnabled());
+        $foundClient = self::$repository->findById($unownedClientId);
+        $this->assertNotNull($foundClient);
+        $this->assertTrue($foundClient->isEnabled());
 
         // Owner can delete their own client
         self::$repository->delete($ownedClient, $owner);

@@ -115,7 +115,6 @@ class DatabaseMigration
             $this->version20210902113500();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210902113500')");
         }
-
     }
 
     private function versionsTableName(): string

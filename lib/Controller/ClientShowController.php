@@ -14,7 +14,6 @@
 
 namespace SimpleSAML\Module\oidc\Controller;
 
-
 use Laminas\Diactoros\ServerRequest;
 use SimpleSAML\Module\oidc\Controller\Traits\AuthenticatedGetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;

@@ -87,7 +87,7 @@ class ClientEditController
 
         /** @var ClientForm $form  */
         $form = $this->formFactory->build(ClientForm::class);
-        $formAction = $request->withQueryParams(['client_id' =>$client->getIdentifier()])->getRequestTarget();
+        $formAction = $request->withQueryParams(['client_id' => $client->getIdentifier()])->getRequestTarget();
         $form->setAction($formAction);
 
         $clientData = $client->toArray();
