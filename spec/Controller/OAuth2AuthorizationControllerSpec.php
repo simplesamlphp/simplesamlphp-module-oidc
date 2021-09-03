@@ -24,19 +24,22 @@ use SimpleSAML\Module\oidc\Controller\OAuth2AuthorizationController;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
 
 class OAuth2AuthorizationControllerSpec extends ObjectBehavior
 {
     /**
      * @param AuthenticationService $authenticationService
      * @param AuthorizationServer $authorizationServer
+     * @param ConfigurationService $configurationService
      * @return void
      */
     public function let(
         AuthenticationService $authenticationService,
-        AuthorizationServer $authorizationServer
+        AuthorizationServer $authorizationServer,
+        ConfigurationService $configurationService
     ): void {
-        $this->beConstructedWith($authenticationService, $authorizationServer);
+        $this->beConstructedWith($authenticationService, $authorizationServer, $configurationService);
     }
 
     /**
@@ -54,6 +57,7 @@ class OAuth2AuthorizationControllerSpec extends ObjectBehavior
      * @param AuthorizationRequest $authorizationRequest
      * @param ServerRequest $request
      * @param ResponseInterface $response
+     * @param ConfigurationService $configurationService
      * @return void
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */

@@ -39,14 +39,22 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     protected $isCookieBasedAuthn;
 
     /**
+     * ID of the AuthSource used during authn.
      * @var string|null
      */
     protected $authSourceId;
 
     /**
+     * ACR values requested during authorization request.
      * @var array|null
      */
-    protected $acrValues;
+    protected $requestedAcrValues;
+
+    /**
+     * ACR used during authn.
+     * @var string|null
+     */
+    protected $acr;
 
     public static function fromOAuth2AuthorizationRequest(
         OAuth2AuthorizationRequest $oAuth2authorizationRequest
@@ -182,13 +190,23 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
         return $this->authSourceId;
     }
 
-    public function getAcrValues(): ?array
+    public function getRequestedAcrValues(): ?array
     {
-        return $this->acrValues;
+        return $this->requestedAcrValues;
     }
 
-    public function setAcrValues(?array $acrValues): void
+    public function setRequestedAcrValues(?array $requestedAcrValues): void
     {
-        $this->acrValues = $acrValues;
+        $this->requestedAcrValues = $requestedAcrValues;
+    }
+
+    public function getAcr(): ?string
+    {
+        return $this->acr;
+    }
+
+    public function setAcr(?string $acr): void
+    {
+        $this->acr = $acr;
     }
 }

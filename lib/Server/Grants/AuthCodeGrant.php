@@ -563,7 +563,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         /** @var array|null $acrValues */
         $acrValues = $resultBag->getOrFail(AcrValuesRule::class)->getValue();
-        $authorizationRequest->setAcrValues($acrValues);
+        $authorizationRequest->setRequestedAcrValues($acrValues);
 
         return $authorizationRequest;
     }
