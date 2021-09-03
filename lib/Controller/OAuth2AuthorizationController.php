@@ -15,6 +15,7 @@
 namespace SimpleSAML\Module\oidc\Controller;
 
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
+use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use Laminas\Diactoros\Response;
 use Laminas\Diactoros\ServerRequest;
@@ -51,6 +52,17 @@ class OAuth2AuthorizationController
 
         $authorizationRequest->setUser($user);
         $authorizationRequest->setAuthorizationApproved(true);
+
+        // TODO mivanci acr-values
+        // * check for acr_values request parameter and make it available in authZ request
+        // * consider saving acr_values parameter for authZ request in DB
+        // * check if required acr value is essential or voluntary, and depending on authN performed return appropriate
+        // acr claim in ID token, or error out if required ACR is not possible
+
+        if ($authorizationRequest instanceof AuthorizationRequest) {
+            $authorizationRequest->setIsCookieBasedAuthn($this->authenticationService->isCookieBasedAuthn());
+            $authorizationRequest->setAuthSourceId($this->authenticationService->getAuthSourceId());
+        }
 
         return $this->authorizationServer->completeAuthorizationRequest($authorizationRequest, new Response());
     }

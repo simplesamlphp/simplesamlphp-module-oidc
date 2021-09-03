@@ -80,13 +80,6 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         $state = $resultBag->getOrFail(StateRule::class)->getValue();
         $redirectUri = $resultBag->getOrFail(RedirectUriRule::class)->getValue();
 
-        // TODO mivanci acr-values
-        // * check for acr_values request parameter and make it available in authZ request
-        // * consider saving acr_values parameter for authZ request in DB
-        // * check if required acr value is essential or voluntary, and depending on authN performed return appropriate
-        // acr claim in ID token, or error out if required ACR is not possible
-        // * indicate if authentication was performed based on cookie (user had active session) or auth source was used
-
         foreach ($this->enabledGrantTypes as $grantType) {
             if ($grantType->canRespondToAuthorizationRequest($request)) {
                 if (! $grantType instanceof AuthorizationValidatableWithCheckerResultBagInterface) {

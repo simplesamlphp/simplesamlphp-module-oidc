@@ -59,9 +59,6 @@ class AuthSimpleFactory
     private function resolveAuthSource(ClientEntityInterface $client): string
     {
         $defaultAuthSource = $this->configurationService->getOpenIDConnectConfiguration()->getString('auth');
-
-        // TODO handle https://openid.net/specs/openid-connect-core-1_0.html#rfc.section.5.5.1.1
-        // If auth source can't provide essential acr, auth must fail
         return $client->getAuthSource() ?? $defaultAuthSource;
     }
 }

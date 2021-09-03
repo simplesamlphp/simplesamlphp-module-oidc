@@ -38,6 +38,7 @@ use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInte
 use SimpleSAML\Module\oidc\Utils\Arr;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\AcrValuesRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeRule;
@@ -489,7 +490,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             PromptRule::class,
             MaxAgeRule::class,
             ScopeRule::class,
-            RequestedClaimsRule::class
+            RequestedClaimsRule::class,
+            AcrValuesRule::class,
         ];
 
         // Since we have already validated redirect_uri and we have state, make it available for other checkers.
@@ -558,6 +560,10 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         if (null !== $requestClaims) {
             $authorizationRequest->setClaims($requestClaims->getValue());
         }
+
+        /** @var array|null $acrValues */
+        $acrValues = $resultBag->getOrFail(AcrValuesRule::class)->getValue();
+        $authorizationRequest->setAcrValues($acrValues);
 
         return $authorizationRequest;
     }
