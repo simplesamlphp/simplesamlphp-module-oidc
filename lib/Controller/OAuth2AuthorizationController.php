@@ -65,12 +65,6 @@ class OAuth2AuthorizationController
         $authorizationRequest->setUser($user);
         $authorizationRequest->setAuthorizationApproved(true);
 
-        // TODO mivanci acr-values
-        // * check for acr_values request parameter and make it available in authZ request
-        // * consider saving acr_values parameter for authZ request in DB
-        // * check if required acr value is essential or voluntary, and depending on authN performed return appropriate
-        // acr claim in ID token, or error out if required ACR is not possible
-
         if ($authorizationRequest instanceof AuthorizationRequest) {
             $authorizationRequest->setIsCookieBasedAuthn($this->authenticationService->isCookieBasedAuthn());
             $authorizationRequest->setAuthSourceId($this->authenticationService->getAuthSourceId());
@@ -98,11 +92,12 @@ class OAuth2AuthorizationController
      */
     protected function validateAcr(AuthorizationRequest &$authorizationRequest): void
     {
-        // If no ACRs requested, don't do anything.
+        // If no ACRs requested, don't set ACR claim.
         if (($requestedAcrValues = $authorizationRequest->getRequestedAcrValues()) === null) {
             return;
         }
 
+        // In order to check available ACRs, we have to know auth source and if authn was based on cookie.
         if (($authSourceId = $authorizationRequest->getAuthSourceId()) === null) {
             throw OidcServerException::serverError('authSourceId not set on authz request');
         }
@@ -117,25 +112,29 @@ class OAuth2AuthorizationController
             $availableAuthSourceAcrs = [$forcedAcrForCookieAuthentication];
         }
 
-        $isAcrEssential = $requestedAcrValues['essential'] ?? false;
+        $isRequestedAcrEssential = $requestedAcrValues['essential'] ?? false;
 
-        $matchedAcrs = array_intersect($availableAuthSourceAcrs, $requestedAcrValues);
+        $matchedAcrs = array_intersect($availableAuthSourceAcrs, $requestedAcrValues['values']);
 
+        // If we have matched ACRs, use the best (first) one (order is important).
         if (!empty($matchedAcrs)) {
             $authorizationRequest->setAcr(current($matchedAcrs));
             return;
         }
 
-        if ($isAcrEssential) {
+        // Since we don't have matched ACRs, and the client marked the requested claim as essential, error out.
+        if ($isRequestedAcrEssential) {
             throw OidcServerException::accessDenied('could not satisfy requested ACR');
         }
 
         // If the ACR is not essential, we should return current session ACR (if we have one available)...
         if (! empty($availableAuthSourceAcrs)) {
             $authorizationRequest->setAcr(current($availableAuthSourceAcrs));
+            return;
         }
 
-        // ...according to spec we have to return acr claim, and we don't have one available...
+        // ...according to spec we have to return acr claim, and we don't have one available (none configured)...
+        // TODO log this state when logger service or helper is implemented
         $authorizationRequest->setAcr('N/A');
     }
 }

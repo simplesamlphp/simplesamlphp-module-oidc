@@ -20,6 +20,7 @@ use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\AcrValuesRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\MaxAgeRule;
@@ -98,7 +99,8 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             ResponseTypeRule::class,
             AddClaimsToIdTokenRule::class,
             RequiredNonceRule::class,
-            RequestedClaimsRule::class
+            RequestedClaimsRule::class,
+            AcrValuesRule::class
         ];
 
         $this->requestRulesManager->predefineResultBag($resultBag);
@@ -125,6 +127,10 @@ class ImplicitGrant extends OAuth2ImplicitGrant
         /** @var string $responseType */
         $responseType = ($resultBag->getOrFail(ResponseTypeRule::class))->getValue();
         $authorizationRequest->setResponseType($responseType);
+
+        /** @var array|null $acrValues */
+        $acrValues = $resultBag->getOrFail(AcrValuesRule::class)->getValue();
+        $authorizationRequest->setRequestedAcrValues($acrValues);
 
         return $authorizationRequest;
     }
@@ -192,7 +198,8 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             $authorizationRequest->getAddClaimsToIdToken(),
             $addAccessTokenHashToIdToken,
             $authorizationRequest->getNonce(),
-            $authorizationRequest->getAuthTime()
+            $authorizationRequest->getAuthTime(),
+            $authorizationRequest->getAcr()
         );
 
         $responseParams['id_token'] = $idToken->toString();

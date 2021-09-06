@@ -33,6 +33,7 @@ use SimpleSAML\Module\oidc\Server\Grants\Interfaces\OidcCapableGrantTypeInterfac
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\PkceEnabledGrantTypeInterface;
 use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AcrResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Module\oidc\Utils\Arr;
@@ -208,6 +209,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             'nonce'                 => $authorizationRequest->getNonce(),
             'auth_time'             => $authorizationRequest->getAuthTime(),
             'claims'                => $authorizationRequest->getClaims(),
+            'acr'                   => $authorizationRequest->getAcr(),
         ];
 
         $jsonPayload = \json_encode($payload);
@@ -419,6 +421,14 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             ! empty($authCodePayload->auth_time)
         ) {
             $responseType->setAuthTime($authCodePayload->auth_time);
+        }
+
+        if (
+            $responseType instanceof AcrResponseTypeInterface &&
+            \property_exists($authCodePayload, 'acr') &&
+            $authCodePayload->acr !== null
+        ) {
+            $responseType->setAcr($authCodePayload->acr);
         }
 
         // Issue and persist new refresh token if given
