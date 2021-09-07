@@ -43,6 +43,15 @@ $config = [
 
     // useridattr is the attribute-name that contains the userid as returned from idp
     'useridattr' => 'uid',
+
+    /**
+     * Permissions let the module expose functionality to specific users.
+     * In the below configuration, a user's eduPersonEntitlement attribute is examined. If the user
+     * tries to do something that requires the 'client' permission (such as registering their own client)
+     * then they will need one of the eduPersonEntitlements from the `client` permission array.
+     *
+     * A permission can be disable by commenting it out.
+     */
     'permissions' => [
         // Attribute to inspect to determine user's permissions
         'attribute' => 'eduPersonEntitlement',

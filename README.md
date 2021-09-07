@@ -199,6 +199,14 @@ The module lets you create, read, update and delete all the RP you want. To see 
 You can allow users to register their own clients.
 This is controlled through the `permissions` setting in `module_oidc.php`
 
+Permissions let the module expose functionality to specific users. In the
+below configuration, a user's eduPersonEntitlement attribute is examined.
+If the user tries to do something that requires the `client` permission
+(such as registering their own client) then they will need one of the
+eduPersonEntitlements from the `client` permission array.
+
+A permission can be disable by commenting it out.
+
 ```bash
     'permissions' => [
         // Attribute to inspect to determine user's permissions
