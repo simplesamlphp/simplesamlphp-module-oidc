@@ -11,7 +11,7 @@ RUN sqlite3 /var/simplesamlphp/data/mydb.sq3  < /tmp/conformance.sql \
 ARG OIDC_VERSION=version-not-set1
 
 ENV STAGINGCOMPOSERREPOS=oidc \
-    COMPOSER_REQUIRE="rediris-es/simplesamlphp-module-oidc:$OIDC_VERSION"
+    COMPOSER_REQUIRE="simplesamlphp/simplesamlphp-module-oidc:$OIDC_VERSION"
 ADD . /var/simplesamlphp/staging-modules/oidc
 
 RUN /opt/simplesaml/staging-install.sh
