@@ -115,6 +115,11 @@ class DatabaseMigration
             $this->version20210902113500();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210902113500')");
         }
+
+        if (!\in_array('20210908143500', $versions, true)) {
+            $this->version20210908143500();
+            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210908143500')");
+        }
     }
 
     private function versionsTableName(): string
@@ -299,6 +304,19 @@ EOT
             CONSTRAINT {$fkAllowedOriginClient} FOREIGN KEY (client_id)
                 REFERENCES ${clientTableName} (id) ON DELETE CASCADE
         )
+EOT
+        );
+    }
+
+    /**
+     * Add post_logout_redirect_uri to client.
+     */
+    protected function version20210908143500(): void
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE ${clientTableName}
+            ADD post_logout_redirect_uri TEXT NULL 
 EOT
         );
     }
