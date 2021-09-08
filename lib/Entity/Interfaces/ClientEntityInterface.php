@@ -16,7 +16,8 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
         array $scopes,
         bool $isEnabled,
         bool $isConfidential = false,
-        ?string $authSource = null
+        ?string $authSource = null,
+        ?string $owner = null
     ): self;
 
     public function toArray(): array;
@@ -32,4 +33,6 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
     public function getScopes(): array;
 
     public function isEnabled(): bool;
+
+    public function getOwner(): ?string;
 }

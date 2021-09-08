@@ -13,6 +13,7 @@
  */
 
 use SimpleSAML\Module\oidc\Controller\ClientCreateController;
+use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\Module\oidc\Services\RoutingService;
 
-RoutingService::call(ClientCreateController::class);
+RoutingService::callWithPermission(ClientCreateController::class, AuthContextService::PERM_CLIENT);

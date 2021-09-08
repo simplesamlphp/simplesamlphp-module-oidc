@@ -15,9 +15,11 @@
 namespace SimpleSAML\Module\oidc\Controller;
 
 use SimpleSAML\Error\BadRequest;
+use SimpleSAML\Module\oidc\Controller\Traits\AuthenticatedGetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
+use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\Utils\HTTP;
 use SimpleSAML\Utils\Random;
 use Laminas\Diactoros\Response\RedirectResponse;
@@ -25,17 +27,21 @@ use Laminas\Diactoros\ServerRequest;
 
 class ClientResetSecretController
 {
-    use GetClientFromRequestTrait;
+    use AuthenticatedGetClientFromRequestTrait;
 
     /**
      * @var SessionMessagesService
      */
     private $messages;
 
-    public function __construct(ClientRepository $clientRepository, SessionMessagesService $messages)
-    {
+    public function __construct(
+        ClientRepository $clientRepository,
+        SessionMessagesService $messages,
+        AuthContextService $authContextService
+    ) {
         $this->clientRepository = $clientRepository;
         $this->messages = $messages;
+        $this->authContextService = $authContextService;
     }
 
     public function __invoke(ServerRequest $request): RedirectResponse
@@ -54,8 +60,8 @@ class ClientResetSecretController
             }
 
             $client->restoreSecret(Random::generateID());
-
-            $this->clientRepository->update($client);
+            $authedUser = $this->authContextService->isSspAdmin() ? null : $this->authContextService->getAuthUserId();
+            $this->clientRepository->update($client, $authedUser);
             $this->messages->addMessage('{oidc:client:secret_updated}');
         }
 

@@ -15,6 +15,7 @@
 namespace SimpleSAML\Module\oidc\Controller;
 
 use Nette\Forms\Controls\BaseControl;
+use SimpleSAML\Module\oidc\Controller\Traits\AuthenticatedGetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
@@ -24,13 +25,14 @@ use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
+use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\Utils\HTTP;
 use Laminas\Diactoros\Response\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;
 
 class ClientEditController
 {
-    use GetClientFromRequestTrait;
+    use AuthenticatedGetClientFromRequestTrait;
 
     /**
      * @var ConfigurationService
@@ -62,7 +64,8 @@ class ClientEditController
         AllowedOriginRepository $allowedOriginRepository,
         TemplateFactory $templateFactory,
         FormFactory $formFactory,
-        SessionMessagesService $messages
+        SessionMessagesService $messages,
+        AuthContextService $authContextService
     ) {
         $this->configurationService = $configurationService;
         $this->clientRepository = $clientRepository;
@@ -70,6 +73,7 @@ class ClientEditController
         $this->templateFactory = $templateFactory;
         $this->formFactory = $formFactory;
         $this->messages = $messages;
+        $this->authContextService = $authContextService;
     }
 
     /**
@@ -77,21 +81,19 @@ class ClientEditController
      */
     public function __invoke(ServerRequest $request)
     {
+
         $client = $this->getClientFromRequest($request);
         $clientAllowedOrigins = $this->allowedOriginRepository->get($client->getIdentifier());
 
         /** @var ClientForm $form  */
         $form = $this->formFactory->build(ClientForm::class);
-        $formAction = sprintf(
-            "%s/clients/edit.php?client_id=%s",
-            $this->configurationService->getOpenIdConnectModuleURL(),
-            $client->getIdentifier()
-        ) ;
+        $formAction = $request->withQueryParams(['client_id' => $client->getIdentifier()])->getRequestTarget();
         $form->setAction($formAction);
 
         $clientData = $client->toArray();
         $clientData['allowed_origin'] = $clientAllowedOrigins;
         $form->setDefaults($clientData);
+        $authedUser = $this->authContextService->isSspAdmin() ? null : $this->authContextService->getAuthUserId();
 
         if ($form->isSuccess()) {
             $data = $form->getValues();
@@ -105,8 +107,9 @@ class ClientEditController
                 $data['scopes'],
                 (bool) $data['is_enabled'],
                 (bool) $data['is_confidential'],
-                $data['auth_source']
-            ));
+                $data['auth_source'],
+                $client->getOwner()
+            ), $authedUser);
 
             // Also persist allowed origins for this client.
             $this->allowedOriginRepository->set($client->getIdentifier(), $data['allowed_origin']);

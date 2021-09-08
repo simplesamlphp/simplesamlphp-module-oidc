@@ -14,10 +14,10 @@
 
 namespace SimpleSAML\Module\oidc\Repositories;
 
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;
+use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 
 class ClientRepository extends AbstractDatabaseRepository implements ClientRepositoryInterface
 {
@@ -69,16 +69,19 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
     /**
      * @param string $clientIdentifier
+     * @param ?string $owner restrict lookup to this owner
      * @return ClientEntityInterface|null
      */
-    public function findById(string $clientIdentifier): ?ClientEntityInterface
+    public function findById(string $clientIdentifier, ?string $owner = null): ?ClientEntityInterface
     {
-        $stmt = $this->database->read(
+        list($query, $params) = $this->addOwnerWhereClause(
             "SELECT * FROM {$this->getTableName()} WHERE id = :id",
             [
                 'id' => $clientIdentifier,
-            ]
+            ],
+            $owner
         );
+        $stmt = $this->database->read($query, $params);
 
         if (!$rows = $stmt->fetchAll()) {
             return null;
@@ -87,13 +90,32 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         return ClientEntity::fromState(current($rows));
     }
 
+    private function addOwnerWhereClause(string $query, array $params, ?string $owner = null)
+    {
+        if (isset($owner)) {
+            $params['ownerFilter'] = $owner;
+            if (stripos($query, ' where ') > 0) {
+                $query .= ' AND owner = :ownerFilter';
+            } else {
+                $query .= ' WHERE owner = :ownerFilter';
+            }
+        }
+        return [$query, $params];
+    }
+
     /**
      * @return ClientEntityInterface[]
      */
-    public function findAll(): array
+    public function findAll(?string $owner = null): array
     {
+        list($query, $params) = $this->addOwnerWhereClause(
+            "SELECT * FROM {$this->getTableName()}",
+            [],
+            $owner
+        );
         $stmt = $this->database->read(
-            "SELECT * FROM {$this->getTableName()} ORDER BY name ASC"
+            "$query ORDER BY name ASC",
+            $params
         );
 
         $clients = [];
@@ -111,21 +133,22 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
      *
      * @return array{numPages: int, currentPage: int, items: ClientEntityInterface[]}
      */
-    public function findPaginated(int $page = 1, string $query = ''): array
+    public function findPaginated(int $page = 1, string $query = '', ?string $owner = null): array
     {
         $query = mb_substr($query, 0, 2000);
-        $total = $this->count($query);
+        $total = $this->count($query, $owner);
         $limit = $this->getItemsPerPage();
         $numPages = $this->calculateNumOfPages($total, $limit);
         $page = $this->calculateCurrentPage($page, $numPages);
         $offset = $this->calculateOffset($page, $limit);
-
+        list($sqlQuery, $params) = $this->addOwnerWhereClause(
+            "SELECT * FROM {$this->getTableName()} WHERE name LIKE :name",
+            ['name' => '%' . $query . '%'],
+            $owner
+        );
         $stmt = $this->database->read(
-            "SELECT * FROM {$this->getTableName()} " .
-            "WHERE name LIKE :name " .
-            "ORDER BY name ASC " .
-            "LIMIT {$limit} OFFSET {$offset}",
-            ['name' => '%' . $query . '%']
+            $sqlQuery . " ORDER BY name ASC LIMIT {$limit} OFFSET {$offset}",
+            $params
         );
 
         $clients = array_map(function ($state) {
@@ -152,7 +175,8 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
                 redirect_uri,
                 scopes,
                 is_enabled,
-                 is_confidential
+                is_confidential,
+                owner
             )
             VALUES (
                 :id,
@@ -163,7 +187,8 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
                 :redirect_uri,
                 :scopes,
                 :is_enabled,
-                :is_confidential
+                :is_confidential,
+                :owner
             )
 EOS
             ,
@@ -175,17 +200,19 @@ EOS
         );
     }
 
-    public function delete(ClientEntityInterface $client): void
+    public function delete(ClientEntityInterface $client, ?string $owner = null): void
     {
-        $this->database->write(
+        list($sqlQuery, $params) = $this->addOwnerWhereClause(
             "DELETE FROM {$this->getTableName()} WHERE id = :id",
             [
                 'id' => $client->getIdentifier(),
-            ]
+            ],
+            $owner
         );
+        $this->database->write($sqlQuery, $params);
     }
 
-    public function update(ClientEntityInterface $client): void
+    public function update(ClientEntityInterface $client, ?string $owner = null): void
     {
         $stmt = sprintf(
             <<<EOF
@@ -197,24 +224,34 @@ EOS
                 redirect_uri = :redirect_uri,
                 scopes = :scopes,
                 is_enabled = :is_enabled,
-                is_confidential = :is_confidential
+                is_confidential = :is_confidential,
+                owner = :owner
             WHERE id = :id
 EOF
             ,
             $this->getTableName()
         );
-
-        $this->database->write(
+        list($sqlQuery, $params) = $this->addOwnerWhereClause(
             $stmt,
-            $client->getState()
+            $client->getState(),
+            $owner
+        );
+        $this->database->write(
+            $sqlQuery,
+            $params
         );
     }
 
-    private function count(string $query): int
+    private function count(string $query, ?string $owner): int
     {
-        $stmt = $this->database->read(
+        list($sqlQuery, $params) = $this->addOwnerWhereClause(
             "SELECT COUNT(id) FROM {$this->getTableName()} WHERE name LIKE :name",
-            ['name' => '%' . $query . '%']
+            ['name' => '%' . $query . '%'],
+            $owner
+        );
+        $stmt = $this->database->read(
+            $sqlQuery,
+            $params
         );
         $stmt->execute();
 

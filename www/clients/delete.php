@@ -13,6 +13,7 @@
  */
 
 use SimpleSAML\Module\oidc\Controller\ClientDeleteController;
+use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\Module\oidc\Services\RoutingService;
 
-RoutingService::call(ClientDeleteController::class);
+RoutingService::callWithPermission(ClientDeleteController::class, AuthContextService::PERM_CLIENT);

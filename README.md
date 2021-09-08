@@ -194,6 +194,30 @@ Once the database schema has been created, you can open the _Federation_ tab fro
 
 The module lets you create, read, update and delete all the RP you want. To see the client id and the client secret press the show button.
 
+### Client self registration
+
+You can allow users to register their own clients.
+This is controlled through the `permissions` setting in `module_oidc.php`
+
+Permissions let the module expose functionality to specific users. In the
+below configuration, a user's eduPersonEntitlement attribute is examined.
+If the user tries to do something that requires the `client` permission
+(such as registering their own client) then they will need one of the
+eduPersonEntitlements from the `client` permission array.
+
+A permission can be disable by commenting it out.
+
+```bash
+    'permissions' => [
+        // Attribute to inspect to determine user's permissions
+        'attribute' => 'eduPersonEntitlement',
+        // Which entitlements allow for registering, editing, delete a client. OIDC clients are owned by the creator
+        'client' => ['urn:example:oidc:manage:client'],
+    ],
+```
+
+Users can visit the `https://example.com/simplesaml/module.php/oidc/clients/` to create and view their clients.
+
 ### Create client options
 
 * Enabled: You can enable or disable a client. Disabled by default.

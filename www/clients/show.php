@@ -13,6 +13,7 @@
  */
 
 use SimpleSAML\Module\oidc\Controller\ClientShowController;
+use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\Module\oidc\Services\RoutingService;
 
-RoutingService::call(ClientShowController::class);
+RoutingService::callWithPermission(ClientShowController::class, AuthContextService::PERM_CLIENT);
