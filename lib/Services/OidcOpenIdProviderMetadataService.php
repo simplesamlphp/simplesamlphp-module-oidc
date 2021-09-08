@@ -48,6 +48,7 @@ class OidcOpenIdProviderMetadataService
         $this->metadata['request_parameter_supported'] = false;
         $this->metadata['grant_types_supported'] = ['authorization_code', 'refresh_token'];
         $this->metadata['claims_parameter_supported'] = true;
+        $this->metadata['end_session_endpoint'] = $this->configurationService->getOpenIdConnectModuleURL('logout.php');
     }
 
     /**

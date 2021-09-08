@@ -24,6 +24,8 @@ class OidcOpenIdProviderMetadataServiceSpec extends ObjectBehavior
             ->willReturn('http://localhost/userinfo.php');
         $configurationService->getOpenIdConnectModuleURL('jwks.php')
             ->willReturn('http://localhost/jwks.php');
+        $configurationService->getOpenIdConnectModuleURL('logout.php')
+            ->willReturn('http://localhost/logout.php');
 
         $this->beConstructedWith($configurationService);
     }
@@ -50,6 +52,7 @@ class OidcOpenIdProviderMetadataServiceSpec extends ObjectBehavior
             'request_parameter_supported' => false,
             'grant_types_supported' => ['authorization_code', 'refresh_token'],
             'claims_parameter_supported' => true,
+            'end_session_endpoint' => 'http://localhost/logout.php',
         ]);
     }
 }
