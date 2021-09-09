@@ -23,7 +23,6 @@ class ClientForm extends Form
 {
     /**
      * RFC3986. AppendixB. Parsing a URI Reference with a Regular Expression.
-     * Important if updating regex: also used in JavaScript validation in templates/clients/_form.twig
      */
     public const REGEX_URI = '/^[^:]+:\/\/?[^\s\/$.?#].[^\s]*$/';
 
@@ -31,7 +30,6 @@ class ClientForm extends Form
      * Must have http:// or https:// scheme, and at least one 'domain.top-level-domain' pair, or more subdomains.
      * Top-level-domain may end with '.'.
      * No reserved chars allowed, meaning no userinfo, path, query or fragment components. May end with port number.
-     * Important if updating regex: also used in JavaScript validation in templates/clients/_form.twig
      */
     public const REGEX_ALLOWED_ORIGIN_URL =
         "/^http(s?):\/\/[^\s\/!$&'()+,;=.?#@*:]+\.[^\s\/!$&'()+,;=.?#@*]+\.?(\.[^\s\/!$&'()+,;=?#@*:]+)*(:\d{1,5})?$/i";
@@ -71,6 +69,15 @@ class ClientForm extends Form
         );
     }
 
+    public function validatePostLogoutRedirectUri(Form $form): void
+    {
+        $this->validateByMatchingRegex(
+            $form->getValues()['post_logout_redirect_uri'] ?? [],
+            self::REGEX_URI,
+            'Invalid post-logout redirect URI: '
+        );
+    }
+
     protected function validateByMatchingRegex(
         array $values,
         string $regex,
@@ -99,6 +106,8 @@ class ClientForm extends Form
         } else {
             $values['allowed_origin'] = [];
         }
+        $values['post_logout_redirect_uri'] =
+            $this->convertTextToArrayWithLinesAsValues($values['post_logout_redirect_uri']);
 
         // openid scope is mandatory
         $values['scopes'] = array_unique(
@@ -128,6 +137,8 @@ class ClientForm extends Form
             $values['allowed_origin'] = '';
         }
 
+        $values['post_logout_redirect_uri'] = implode("\n", $values['post_logout_redirect_uri']);
+
         $values['scopes'] = array_intersect($values['scopes'], array_keys($this->getScopes()));
 
         return parent::setDefaults($values, $erase);
@@ -139,6 +150,7 @@ class ClientForm extends Form
 
         $this->onValidate[] = [$this, 'validateRedirectUri'];
         $this->onValidate[] = [$this, 'validateAllowedOrigin'];
+        $this->onValidate[] = [$this, 'validatePostLogoutRedirectUri'];
 
         $this->setMethod('POST');
         $this->addComponent(new CsrfProtection('{oidc:client:csrf_error}'), Form::PROTECTOR_ID);
@@ -169,6 +181,7 @@ class ClientForm extends Form
 
         $this->addText('owner', '{oidc:client:owner}')
             ->setMaxLength(190);
+        $this->addTextArea('post_logout_redirect_uri', '{oidc:client:post_logout_redirect_uri}', null, 5);
         $this->addTextArea('allowed_origin', '{oidc:client:allowed_origin}', null, 5);
     }
 

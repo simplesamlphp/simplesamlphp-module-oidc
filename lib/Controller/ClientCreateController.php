@@ -111,7 +111,8 @@ class ClientCreateController
                 $client['is_enabled'],
                 $client['is_confidential'],
                 $client['auth_source'],
-                $client['owner'] ?? null
+                $client['owner'] ?? null,
+                $client['post_logout_redirect_uri']
             ));
 
             // Also persist allowed origins for this client.
@@ -124,6 +125,8 @@ class ClientCreateController
 
         return $this->templateFactory->render('oidc:clients/new.twig', [
             'form' => $form,
+            'regexUri' => ClientForm::REGEX_URI,
+            'regexAllowedOriginUrl' => ClientForm::REGEX_ALLOWED_ORIGIN_URL,
         ]);
     }
 }

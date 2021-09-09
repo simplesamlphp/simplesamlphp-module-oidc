@@ -39,7 +39,8 @@ class ClientEntitySpec extends ObjectBehavior
                 'scopes' => json_encode([]),
                 'is_enabled' => true,
                 'is_confidential' => false,
-                'owner' => 'user@test.com'
+                'owner' => 'user@test.com',
+                'post_logout_redirect_uri' => json_encode([]),
             ],
         ]);
     }
@@ -136,6 +137,14 @@ class ClientEntitySpec extends ObjectBehavior
     /**
      * @return void
      */
+    public function it_can_return_post_logout_redirect_uri()
+    {
+        $this->getPostLogoutRedirectUri()->shouldBeEqualTo([]);
+    }
+
+    /**
+     * @return void
+     */
     public function it_can_return_state()
     {
         $this->getState()->shouldBeLike([
@@ -149,6 +158,7 @@ class ClientEntitySpec extends ObjectBehavior
             'is_enabled' => true,
             'is_confidential' => false,
             'owner' => 'user@test.com',
+            'post_logout_redirect_uri' => json_encode([]),
         ]);
     }
 
@@ -167,7 +177,8 @@ class ClientEntitySpec extends ObjectBehavior
             'scopes' => [],
             'is_enabled' => true,
             'is_confidential' => false,
-            'owner' => 'user@test.com'
+            'owner' => 'user@test.com',
+            'post_logout_redirect_uri' => [],
         ]);
     }
 }

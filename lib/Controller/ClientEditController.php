@@ -108,7 +108,8 @@ class ClientEditController
                 (bool) $data['is_enabled'],
                 (bool) $data['is_confidential'],
                 $data['auth_source'],
-                $client->getOwner()
+                $client->getOwner(),
+                $data['post_logout_redirect_uri'],
             ), $authedUser);
 
             // Also persist allowed origins for this client.
@@ -121,6 +122,8 @@ class ClientEditController
 
         return $this->templateFactory->render('oidc:clients/edit.twig', [
             'form' => $form,
+            'regexUri' => ClientForm::REGEX_URI,
+            'regexAllowedOriginUrl' => ClientForm::REGEX_ALLOWED_ORIGIN_URL,
         ]);
     }
 }

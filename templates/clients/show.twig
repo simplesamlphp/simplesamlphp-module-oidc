@@ -73,6 +73,16 @@
             </td>
         </tr>
         <tr>
+            <td class="collapsing">{% trans '{oidc:client:post_logout_redirect_uri}' %}</td>
+            <td>
+                <ul class="list">
+                    {% for uri in client.postLogoutRedirectUri %}
+                        <li>{{ uri }}</li>
+                    {% endfor %}
+                </ul>
+            </td>
+        </tr>
+        <tr>
             <td class="collapsing">{% trans '{oidc:client:owner}' %}</td>
             <td>{{ client.owner }}</td>
         </tr>

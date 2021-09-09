@@ -39,8 +39,9 @@ class LogoutController
         //              [] check issuer, aud, (sub?)...
         //              [] check that sid is current or recently existed
         //          [] post_logout_redirect_uri - optional
-        //              [] must be https for public clients, optionally http for confidential
-        //              [-] enable registration in client management UI
+        //              [wnd] must be https for public clients, optionally http for confidential
+        //                  - left the same as redirect_uri
+        //              [x] enable registration in client management UI
         //              [] only allow registered redirect, must be supplied together with id_token_hint
         //              [] redirect to RP after logout
         //          [] state - optional

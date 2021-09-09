@@ -102,6 +102,7 @@ class ClientEditControllerSpec extends ObjectBehavior
             'scopes' => ['openid'],
             'is_enabled' => true,
             'allowed_origin' => [],
+            'post_logout_redirect_uri' => [],
         ];
         $clientEntity->getIdentifier()->shouldBeCalled()->willReturn('clientid');
 
@@ -116,7 +117,11 @@ class ClientEditControllerSpec extends ObjectBehavior
 
         $clientForm->isSuccess()->shouldBeCalled()->willReturn(false);
 
-        $templateFactory->render('oidc:clients/edit.twig', ['form' => $clientForm])
+        $templateFactory->render('oidc:clients/edit.twig', [
+            'form' => $clientForm,
+            'regexUri' => ClientForm::REGEX_URI,
+            'regexAllowedOriginUrl' => ClientForm::REGEX_ALLOWED_ORIGIN_URL,
+        ])
             ->shouldBeCalled()->willReturn($template);
         $this->__invoke($request)->shouldBe($template);
     }
@@ -145,6 +150,7 @@ class ClientEditControllerSpec extends ObjectBehavior
             'is_confidential' => false,
             'owner' => 'existingOwner',
             'allowed_origin' => [],
+            'post_logout_redirect_uri' => [],
         ];
 
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
@@ -169,6 +175,7 @@ class ClientEditControllerSpec extends ObjectBehavior
             'is_confidential' => false,
             'owner' => 'existingOwner',
             'allowed_origin' => [],
+            'post_logout_redirect_uri' => [],
         ]);
 
         $clientRepository->update(Argument::exact(ClientEntity::fromData(
@@ -181,7 +188,8 @@ class ClientEditControllerSpec extends ObjectBehavior
             true,
             false,
             'auth_source',
-            'existingOwner'
+            'existingOwner',
+            []
         )), null)->shouldBeCalled();
 
         $allowedOriginRepository->set('clientid', [])->shouldBeCalled();
@@ -217,6 +225,7 @@ class ClientEditControllerSpec extends ObjectBehavior
             'is_confidential' => false,
             'owner' => 'existingOwner',
             'allowed_origin' => [],
+            'post_logout_redirect_uri' => [],
         ];
 
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
@@ -240,6 +249,7 @@ class ClientEditControllerSpec extends ObjectBehavior
                                                                    'is_confidential' => false,
                                                                    'owner' => 'existingOwner',
                                                                    'allowed_origin' => [],
+                                                                   'post_logout_redirect_uri' => [],
                                                                ]);
 
         $clientRepository->update(Argument::exact(ClientEntity::fromData(
@@ -252,7 +262,8 @@ class ClientEditControllerSpec extends ObjectBehavior
             true,
             false,
             'auth_source',
-            'existingOwner'
+            'existingOwner',
+            []
         )), 'authedUserId')->shouldBeCalled();
 
         $allowedOriginRepository->get('clientid')->shouldBeCalled()->willReturn([]);

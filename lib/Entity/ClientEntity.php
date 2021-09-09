@@ -54,6 +54,11 @@ class ClientEntity implements ClientEntityInterface
     private $owner;
 
     /**
+     * @var string[]|null
+     */
+    private $postLogoutRedirectUri;
+
+    /**
      * Constructor.
      */
     private function __construct()
@@ -71,7 +76,8 @@ class ClientEntity implements ClientEntityInterface
         bool $isEnabled,
         bool $isConfidential = false,
         ?string $authSource = null,
-        ?string $owner = null
+        ?string $owner = null,
+        array $postLogoutRedirectUri = []
     ): ClientEntityInterface {
         $client = new self();
 
@@ -85,6 +91,7 @@ class ClientEntity implements ClientEntityInterface
         $client->isEnabled = $isEnabled;
         $client->isConfidential = $isConfidential;
         $client->owner = $owner;
+        $client->postLogoutRedirectUri = $postLogoutRedirectUri;
 
         return $client;
     }
@@ -106,6 +113,9 @@ class ClientEntity implements ClientEntityInterface
         $client->isEnabled = (bool) $state['is_enabled'];
         $client->isConfidential = (bool) ($state['is_confidential'] ?? false);
         $client->owner = $state['owner'] ?? null;
+        $client->postLogoutRedirectUri = $state['post_logout_redirect_uri'] !== null ?
+            json_decode($state['post_logout_redirect_uri'], true) :
+            [];
 
         return $client;
     }
@@ -126,6 +136,7 @@ class ClientEntity implements ClientEntityInterface
             'is_enabled' => (int) $this->isEnabled(),
             'is_confidential' => (int) $this->isConfidential(),
             'owner' => $this->getOwner(),
+            'post_logout_redirect_uri' => json_encode($this->getPostLogoutRedirectUri()),
 
         ];
     }
@@ -143,6 +154,7 @@ class ClientEntity implements ClientEntityInterface
             'is_enabled' => $this->isEnabled,
             'is_confidential' => $this->isConfidential,
             'owner' => $this->owner,
+            'post_logout_redirect_uri' => $this->postLogoutRedirectUri,
         ];
     }
 
@@ -181,5 +193,21 @@ class ClientEntity implements ClientEntityInterface
     public function getOwner(): ?string
     {
         return $this->owner;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getPostLogoutRedirectUri(): array
+    {
+        return $this->postLogoutRedirectUri ?? [];
+    }
+
+    /**
+     * @param string[] $postLogoutRedirectUri
+     */
+    public function setPostLogoutRedirectUri(array $postLogoutRedirectUri): void
+    {
+        $this->postLogoutRedirectUri = $postLogoutRedirectUri;
     }
 }
