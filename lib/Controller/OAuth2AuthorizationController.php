@@ -22,8 +22,6 @@ use Laminas\Diactoros\Response;
 use Laminas\Diactoros\ServerRequest;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 
-use function PHPUnit\Framework\throwException;
-
 class OAuth2AuthorizationController
 {
     /**
