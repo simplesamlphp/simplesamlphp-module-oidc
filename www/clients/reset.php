@@ -13,6 +13,7 @@
  */
 
 use SimpleSAML\Module\oidc\Controller\ClientResetSecretController;
+use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\Module\oidc\Services\RoutingService;
 
-RoutingService::call(ClientResetSecretController::class);
+RoutingService::callWithPermission(ClientResetSecretController::class, AuthContextService::PERM_CLIENT);

@@ -13,7 +13,7 @@ This module adds support for the OpenID Connect protocol through a SimpleSAMLphp
 
 Installation can be as easy as executing:
 
-    composer require rediris-es/simplesamlphp-module-oidc
+    composer require simplesamlphp/simplesamlphp-module-oidc
     
 ## Configuration
 
@@ -194,6 +194,30 @@ Once the database schema has been created, you can open the _Federation_ tab fro
 
 The module lets you create, read, update and delete all the RP you want. To see the client id and the client secret press the show button.
 
+### Client self registration
+
+You can allow users to register their own clients.
+This is controlled through the `permissions` setting in `module_oidc.php`
+
+Permissions let the module expose functionality to specific users. In the
+below configuration, a user's eduPersonEntitlement attribute is examined.
+If the user tries to do something that requires the `client` permission
+(such as registering their own client) then they will need one of the
+eduPersonEntitlements from the `client` permission array.
+
+A permission can be disable by commenting it out.
+
+```bash
+    'permissions' => [
+        // Attribute to inspect to determine user's permissions
+        'attribute' => 'eduPersonEntitlement',
+        // Which entitlements allow for registering, editing, delete a client. OIDC clients are owned by the creator
+        'client' => ['urn:example:oidc:manage:client'],
+    ],
+```
+
+Users can visit the `https://example.com/simplesaml/module.php/oidc/clients/` to create and view their clients.
+
 ### Create client options
 
 * Enabled: You can enable or disable a client. Disabled by default.
@@ -213,7 +237,7 @@ GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 docker run --name ssp-oidc-dev \
    --mount type=bind,source="$(pwd)",target=/var/simplesamlphp/staging-modules/oidc,readonly \
   -e STAGINGCOMPOSERREPOS=oidc \
-  -e COMPOSER_REQUIRE="rediris-es/simplesamlphp-module-oidc:dev-$GIT_BRANCH" \
+  -e COMPOSER_REQUIRE="simplesamlphp/simplesamlphp-module-oidc:dev-$GIT_BRANCH" \
   -e SSP_ADMIN_PASSWORD=secret1 \
   --mount type=bind,source="$(pwd)/docker/ssp/module_oidc.php",target=/var/simplesamlphp/config/module_oidc.php,readonly \
   --mount type=bind,source="$(pwd)/docker/ssp/authsources.php",target=/var/simplesamlphp/config/authsources.php,readonly \
@@ -238,13 +262,13 @@ Build an image that contains a pre-configured sqlite database.
 GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 # Replace invalid tag characters when doing build
 IMAGE_TAG=$(tr '/' '_' <<< $GIT_BRANCH)
-docker build -t "rediris-es/simplesamlphp-oidc:dev-$IMAGE_TAG" \
+docker build -t "simplesamlphp/simplesamlphp-oidc:dev-$IMAGE_TAG" \
   --build-arg OIDC_VERSION=dev-${GIT_BRANCH} \
   -f docker/Dockerfile .
 
 docker run --name ssp-oidc-dev-image \
   -e SSP_ADMIN_PASSWORD=secret1 \
-  -p 443:443 rediris-es/simplesamlphp-oidc:dev-$IMAGE_TAG
+  -p 443:443 simplesamlphp/simplesamlphp-oidc:dev-$IMAGE_TAG
 
 ```
 
@@ -252,7 +276,7 @@ Publish the image somewhere you can retrieve it.
 Temporarily, this will occasionally get published into the cirrusid Docker namespace.
 
 ```
-docker tag "rediris-es/simplesamlphp-oidc:dev-$IMAGE_TAG" "cirrusid/simplesamlphp-oidc:dev-$IMAGE_TAG"
+docker tag "simplesamlphp/simplesamlphp-oidc:dev-$IMAGE_TAG" "cirrusid/simplesamlphp-oidc:dev-$IMAGE_TAG"
 docker push "cirrusid/simplesamlphp-oidc:dev-$IMAGE_TAG"
 ```
 

@@ -1,5 +1,5 @@
 {
-    "name": "rediris-es/simplesamlphp-module-oidc",
+    "name": "simplesamlphp/simplesamlphp-module-oidc",
     "description": "A SimpleSAMLphp module adding support for the OpenID Connect protocol",
     "type": "simplesamlphp-module",
     "keywords": [ "oauth2", "openid", "connect", "oidc", "openid connect" ],

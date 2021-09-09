@@ -167,6 +167,8 @@ class ClientForm extends Form
             ->setItems($scopes)
             ->setRequired('Select one scope at least');
 
+        $this->addText('owner', '{oidc:client:owner}')
+            ->setMaxLength(190);
         $this->addTextArea('allowed_origin', '{oidc:client:allowed_origin}', null, 5);
     }
 

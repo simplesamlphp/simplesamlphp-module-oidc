@@ -21,6 +21,7 @@ use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Controller\ClientIndexController;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\XHTML\Template;
 
 class ClientIndexControllerSpec extends ObjectBehavior
@@ -32,16 +33,17 @@ class ClientIndexControllerSpec extends ObjectBehavior
         ClientRepository $clientRepository,
         TemplateFactory $templateFactory,
         ServerRequest $request,
-        UriInterface $uri
+        UriInterface $uri,
+        AuthContextService $authContextService
     ) {
         $_SERVER['REQUEST_URI'] = '/';
         Configuration::loadFromArray([], '', 'simplesaml');
-
+        $authContextService->isSspAdmin()->willReturn(true);
         $request->getUri()->willReturn($uri);
         $request->getQueryParams()->willReturn(['page' => 1]);
         $uri->getPath()->willReturn('/');
 
-        $this->beConstructedWith($clientRepository, $templateFactory);
+        $this->beConstructedWith($clientRepository, $templateFactory, $authContextService);
     }
 
     /**
@@ -61,7 +63,7 @@ class ClientIndexControllerSpec extends ObjectBehavior
         TemplateFactory $templateFactory,
         ClientRepository $clientRepository
     ) {
-        $clientRepository->findPaginated(1, '')->shouldBeCalled()->willReturn([
+        $clientRepository->findPaginated(1, '', null)->shouldBeCalled()->willReturn([
             'items' => [],
             'numPages' => 1,
             'currentPage' => 1

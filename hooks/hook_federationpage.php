@@ -22,7 +22,7 @@ use SimpleSAML\Locale\Translate;
  */
 function oidc_hook_federationpage(Template &$template)
 {
-    $href = \SimpleSAML\Module::getModuleURL('oidc/clients/index.php');
+    $href = \SimpleSAML\Module::getModuleURL('oidc/admin-clients/index.php');
     $text = Translate::noop('OpenID Connect Registry');
 
     if (! (new \SimpleSAML\Module\oidc\Services\DatabaseMigration())->isUpdated()) {

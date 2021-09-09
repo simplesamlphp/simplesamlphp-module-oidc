@@ -39,6 +39,7 @@ class ClientEntitySpec extends ObjectBehavior
                 'scopes' => json_encode([]),
                 'is_enabled' => true,
                 'is_confidential' => false,
+                'owner' => 'user@test.com'
             ],
         ]);
     }
@@ -147,6 +148,7 @@ class ClientEntitySpec extends ObjectBehavior
             'scopes' => json_encode([]),
             'is_enabled' => true,
             'is_confidential' => false,
+            'owner' => 'user@test.com',
         ]);
     }
 
@@ -165,6 +167,7 @@ class ClientEntitySpec extends ObjectBehavior
             'scopes' => [],
             'is_enabled' => true,
             'is_confidential' => false,
+            'owner' => 'user@test.com'
         ]);
     }
 }

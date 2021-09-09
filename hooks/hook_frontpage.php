@@ -43,7 +43,7 @@ function oidc_hook_frontpage(&$links)
     }
 
     $links['federation']['oidcregistry'] = [
-        'href' => \SimpleSAML\Module::getModuleURL('oidc/clients/'),
+        'href' => \SimpleSAML\Module::getModuleURL('oidc/admin-clients/'),
         'text' => [
             'en' => 'OpenID Connect Client Registry',
             'es' => 'Registro de clientes OpenID Connect',

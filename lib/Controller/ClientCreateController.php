@@ -22,6 +22,7 @@ use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Form\ClientForm;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\Utils\HTTP;
@@ -55,6 +56,11 @@ class ClientCreateController
     private $messages;
 
     /**
+     * @var AuthContextService
+     */
+    private $authContextService;
+
+    /*
      * @var AllowedOriginRepository
      */
     private $allowedOriginRepository;
@@ -65,7 +71,8 @@ class ClientCreateController
         AllowedOriginRepository $allowedOriginRepository,
         TemplateFactory $templateFactory,
         FormFactory $formFactory,
-        SessionMessagesService $messages
+        SessionMessagesService $messages,
+        AuthContextService $authContextService
     ) {
         $this->configurationService = $configurationService;
         $this->clientRepository = $clientRepository;
@@ -73,6 +80,7 @@ class ClientCreateController
         $this->templateFactory = $templateFactory;
         $this->formFactory = $formFactory;
         $this->messages = $messages;
+        $this->authContextService = $authContextService;
     }
 
     /**
@@ -82,13 +90,16 @@ class ClientCreateController
     {
         /** @var ClientForm $form */
         $form = $this->formFactory->build(ClientForm::class);
-        $formAction = $this->configurationService->getOpenIdConnectModuleURL('clients/new.php');
-        $form->setAction($formAction);
+        $form->setAction('./new.php');
+
 
         if ($form->isSuccess()) {
             $client = $form->getValues();
             $client['id'] = Random::generateID();
             $client['secret'] = Random::generateID();
+            if (!$this->authContextService->isSspAdmin()) {
+                $client['owner'] = $this->authContextService->getAuthUserId();
+            }
 
             $this->clientRepository->add(ClientEntity::fromData(
                 $client['id'],
@@ -99,7 +110,8 @@ class ClientCreateController
                 $client['scopes'],
                 $client['is_enabled'],
                 $client['is_confidential'],
-                $client['auth_source']
+                $client['auth_source'],
+                $client['owner'] ?? null
             ));
 
             // Also persist allowed origins for this client.

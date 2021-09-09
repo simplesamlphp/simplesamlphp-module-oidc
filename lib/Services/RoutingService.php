@@ -43,8 +43,20 @@ class RoutingService
         if ($jsonResponse) {
             self::enableJsonExceptionResponse();
         }
+        self::callController(new Container(), $controllerClassname);
+    }
 
+    public static function callWithPermission(string $controllerClassname, string $permission)
+    {
         $container = new Container();
+        /** @var AuthContextService $authContext */
+        $authContext = $container->get(AuthContextService::class);
+        $authContext->requirePermission($permission);
+        self::callController($container, $controllerClassname);
+    }
+
+    private static function callController($container, string $controllerClassname): void
+    {
         /** @var callable $controller */
         $controller = self::getController($controllerClassname, $container);
         $serverRequest = ServerRequestFactory::fromGlobals();

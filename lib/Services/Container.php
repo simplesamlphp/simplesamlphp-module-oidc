@@ -119,6 +119,9 @@ class Container implements ContainerInterface
         $authSimpleFactory = new AuthSimpleFactory($clientRepository, $configurationService);
         $this->services[AuthSimpleFactory::class] = $authSimpleFactory;
 
+        $authContextService = new AuthContextService($configurationService, $authSimpleFactory);
+        $this->services[AuthContextService::class] = $authContextService;
+
         $formFactory = new FormFactory($configurationService);
         $this->services[FormFactory::class] = $formFactory;
 

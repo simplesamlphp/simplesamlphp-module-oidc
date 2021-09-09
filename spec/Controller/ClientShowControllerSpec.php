@@ -25,6 +25,7 @@ use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\XHTML\Template;
 
 class ClientShowControllerSpec extends ObjectBehavior
@@ -39,15 +40,18 @@ class ClientShowControllerSpec extends ObjectBehavior
         AllowedOriginRepository $allowedOriginRepository,
         TemplateFactory $templateFactory,
         ServerRequest $request,
-        UriInterface $uri
+        UriInterface $uri,
+        AuthContextService $authContextService
     ) {
         $_SERVER['REQUEST_URI'] = '/';
         Configuration::loadFromArray([], '', 'simplesaml');
+        $authContextService->isSspAdmin()->willReturn(true);
 
         $request->getUri()->willReturn($uri);
         $uri->getPath()->willReturn('/');
 
-        $this->beConstructedWith($clientRepository, $allowedOriginRepository, $templateFactory);
+
+        $this->beConstructedWith($clientRepository, $allowedOriginRepository, $templateFactory, $authContextService);
     }
 
     /**
@@ -72,8 +76,9 @@ class ClientShowControllerSpec extends ObjectBehavior
         ClientEntity $clientEntity
     ) {
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
+
         $clientEntity->getIdentifier()->shouldBeCalled()->willReturn('clientid');
-        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
+        $clientRepository->findById('clientid', null)->shouldBeCalled()->willReturn($clientEntity);
         $allowedOriginRepository->get('clientid')->shouldBeCalled()->willReturn([]);
 
         $templateFactory->render('oidc:clients/show.twig', [
@@ -103,7 +108,7 @@ class ClientShowControllerSpec extends ObjectBehavior
         ClientRepository $clientRepository
     ) {
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
-        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn(null);
+        $clientRepository->findById('clientid', null)->shouldBeCalled()->willReturn(null);
 
         $this->shouldThrow(NotFound::class)->during('__invoke', [$request]);
     }

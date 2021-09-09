@@ -14,15 +14,16 @@
 
 namespace SimpleSAML\Module\oidc\Controller;
 
-use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
+use Laminas\Diactoros\ServerRequest;
+use SimpleSAML\Module\oidc\Controller\Traits\AuthenticatedGetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
-use Laminas\Diactoros\ServerRequest;
+use SimpleSAML\Module\oidc\Services\AuthContextService;
 
 class ClientShowController
 {
-    use GetClientFromRequestTrait;
+    use AuthenticatedGetClientFromRequestTrait;
 
     /**
      * @var TemplateFactory
@@ -37,11 +38,13 @@ class ClientShowController
     public function __construct(
         ClientRepository $clientRepository,
         AllowedOriginRepository $allowedOriginRepository,
-        TemplateFactory $templateFactory
+        TemplateFactory $templateFactory,
+        AuthContextService $authContextService
     ) {
         $this->clientRepository = $clientRepository;
         $this->allowedOriginRepository = $allowedOriginRepository;
         $this->templateFactory = $templateFactory;
+        $this->authContextService = $authContextService;
     }
 
     public function __invoke(ServerRequest $request): \SimpleSAML\XHTML\Template
