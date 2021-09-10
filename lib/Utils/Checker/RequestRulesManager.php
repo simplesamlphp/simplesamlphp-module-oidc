@@ -46,14 +46,15 @@ class RequestRulesManager
      * @param array $ruleKeysToExecute
      * @param bool $useFragmentInHttpErrorResponses Indicate that in case of HTTP error responses, params should be
      * returned in URI fragment instead of query.
-     *
+     * @param array $allowedServerRequestMethods Indicate allowed HTTP methods used for request
      * @return ResultBagInterface
      * @throws OidcServerException
      */
     public function check(
         ServerRequestInterface $request,
         array $ruleKeysToExecute,
-        bool $useFragmentInHttpErrorResponses = false
+        bool $useFragmentInHttpErrorResponses = false,
+        array $allowedServerRequestMethods = ['GET']
     ): ResultBagInterface {
         foreach ($ruleKeysToExecute as $ruleKey) {
             if (! isset($this->rules[$ruleKey])) {
@@ -64,7 +65,8 @@ class RequestRulesManager
                 $request,
                 $this->resultBag,
                 $this->data,
-                $useFragmentInHttpErrorResponses
+                $useFragmentInHttpErrorResponses,
+                $allowedServerRequestMethods
             );
 
             if ($result !== null) {

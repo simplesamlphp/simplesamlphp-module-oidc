@@ -3,11 +3,12 @@
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
 
-class StateRule extends AbstractRule
+class UiLocalesRule extends AbstractRule
 {
     /**
      * @inheritDoc
@@ -19,12 +20,10 @@ class StateRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = ['GET']
     ): ?ResultInterface {
-        $state = $this->getParamFromRequestBasedOnAllowedMethods(
-            'state',
+        return new Result($this->getKey(), $this->getParamFromRequestBasedOnAllowedMethods(
+            'ui_locales',
             $request,
             $allowedServerRequestMethods
-        );
-
-        return new Result($this->getKey(), $state);
+        ));
     }
 }

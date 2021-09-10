@@ -7,6 +7,7 @@ use SimpleSAML\Auth\State;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use Laminas\Diactoros\Response;
 use Laminas\Diactoros\ServerRequest;
+use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Session;
 
 class LogoutController
@@ -14,11 +15,19 @@ class LogoutController
     /**
      * @var AuthorizationServer
      */
-    private $authorizationServer;
+    protected $authorizationServer;
 
-    public function __construct(AuthorizationServer $authorizationServer)
-    {
+    /**
+     * @var AuthenticationService
+     */
+    protected $authenticationService;
+
+    public function __construct(
+        AuthorizationServer $authorizationServer,
+        AuthenticationService $authenticationService
+    ) {
         $this->authorizationServer = $authorizationServer;
+        $this->authenticationService = $authenticationService;
     }
 
     public function __invoke(ServerRequest $request): ResponseInterface
@@ -46,8 +55,8 @@ class LogoutController
         //              [] redirect to RP after logout
         //          [] state - optional
         //              [] return with redirect to redirect_uri
-        //          [] ui_locales - optional
-        //          [] preferred language for user UI, for example to ask user to allow logout - probably won't handle
+        //          [wnd] ui_locales - optional
+        //              [wnd] preferred language for user UI, for example to ask user to allow logout
 
         // [] implement Back-Channel Logout: https://openid.net/specs/openid-connect-backchannel-1_0.html
         //      []
@@ -57,5 +66,9 @@ class LogoutController
         //      https://openid.net/specs/openid-connect-frontchannel-1_0.html#ThirdPartyContent)
 //        return $this->authorizationServer->respondToLogoutRequest($request, new Response());
         return new Response(); // ...to satisfy return type, adjust when logout handler is implemented.
+    }
+
+    protected function validateLogoutRequest(ServerRequest $request): void
+    {
     }
 }

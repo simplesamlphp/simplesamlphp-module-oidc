@@ -12,10 +12,14 @@ use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithClientAndRedirectUriInterface;
+use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\IdTokenHintRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\PostLogoutRedirectUriRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\UiLocalesRule;
 
 class AuthorizationServer extends OAuth2AuthorizationServer
 {
@@ -98,5 +102,33 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         }
 
         throw OidcServerException::unsupportedResponseType($redirectUri, $state);
+    }
+
+    public function validateLogoutRequest(ServerRequestInterface $request): LogoutRequest
+    {
+        $rulesToExecute = [
+            IdTokenHintRule::class,
+            PostLogoutRedirectUriRule::class,
+            StateRule::class,
+            UiLocalesRule::class,
+        ];
+
+        try {
+            $resultBag = $this->requestRulesManager->check($request, $rulesToExecute, false, ['GET', 'POST']);
+        } catch (OidcServerException $exception) {
+            $reason = \sprintf("%s %s", $exception->getMessage(), $exception->getHint() ?? '');
+            throw new BadRequest($reason);
+        }
+
+        /** @var string|null $idTokenHint */
+        $idTokenHint = $resultBag->getOrFail(IdTokenHintRule::class)->getValue();
+        /** @var string|null $postLogoutRedirectUri */
+        $postLogoutRedirectUri = $resultBag->getOrFail(PostLogoutRedirectUriRule::class)->getValue();
+        /** @var string|null $state */
+        $state = $resultBag->getOrFail(StateRule::class)->getValue();
+        /** @var string|null $uiLocales */
+        $uiLocales = $resultBag->getOrFail(UiLocalesRule::class)->getValue();
+
+        return new LogoutRequest($idTokenHint, $postLogoutRedirectUri, $state, $uiLocales);
     }
 }

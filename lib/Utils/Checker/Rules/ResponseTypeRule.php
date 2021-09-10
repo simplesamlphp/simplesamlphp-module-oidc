@@ -17,7 +17,8 @@ class ResponseTypeRule extends AbstractRule
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
         array $data = [],
-        bool $useFragmentInHttpErrorResponses = false
+        bool $useFragmentInHttpErrorResponses = false,
+        array $allowedServerRequestMethods = ['GET']
     ): ?ResultInterface {
         $queryParams = $request->getQueryParams();
 

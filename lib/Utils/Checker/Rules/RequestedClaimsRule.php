@@ -25,7 +25,8 @@ class RequestedClaimsRule extends AbstractRule
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
         array $data = [],
-        bool $useFragmentInHttpErrorResponses = false
+        bool $useFragmentInHttpErrorResponses = false,
+        array $allowedServerRequestMethods = ['GET']
     ): ?ResultInterface {
         $claimsParam = $request->getQueryParams()['claims'] ?? null;
         if ($claimsParam === null) {

@@ -17,4 +17,33 @@ abstract class AbstractRule implements RequestRuleInterface
     {
         return static::class;
     }
+
+    protected function getParamFromRequestBasedOnAllowedMethods(
+        string $paramKey,
+        ServerRequestInterface $request,
+        array $allowedServerRequestMethods = ['GET']
+    ): ?string {
+        // Make sure the case is compatible...
+        $allowedServerRequestMethods = array_map('strtoupper', $allowedServerRequestMethods);
+        $requestMethod = strtoupper($request->getMethod());
+
+        if (! in_array($requestMethod, $allowedServerRequestMethods)) {
+            // TODO Log method not allowed
+            return null;
+        }
+
+        switch ($requestMethod) {
+            case 'GET':
+                return $request->getQueryParams()[$paramKey] ?? null;
+            case 'POST':
+                if (is_array($parsedBody = $request->getParsedBody())) {
+                    return $parsedBody[$paramKey] ?? null;
+                }
+                break;
+            default:
+                // TODO Log method not supported
+        }
+
+        return null;
+    }
 }

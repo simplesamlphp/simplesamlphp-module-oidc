@@ -18,7 +18,8 @@ class RedirectUriRule extends AbstractRule
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
         array $data = [],
-        bool $useFragmentInHttpErrorResponses = false
+        bool $useFragmentInHttpErrorResponses = false,
+        array $allowedServerRequestMethods = ['GET']
     ): ?ResultInterface {
         $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
         if (! $client instanceof ClientEntityInterface) {

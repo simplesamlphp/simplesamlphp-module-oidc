@@ -66,6 +66,9 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ResponseTypeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\IdTokenHintRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\PostLogoutRedirectUriRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\UiLocalesRule;
 use SimpleSAML\Session;
 use SimpleSAML\Utils\Config;
 
@@ -178,6 +181,9 @@ class Container implements ContainerInterface
             new AddClaimsToIdTokenRule(),
             new RequiredNonceRule(),
             new ResponseTypeRule(),
+            new IdTokenHintRule(),
+            new PostLogoutRedirectUriRule(),
+            new UiLocalesRule(),
         ];
         $requestRuleManager = new RequestRulesManager($requestRules);
         $this->services[RequestRulesManager::class] = $requestRuleManager;

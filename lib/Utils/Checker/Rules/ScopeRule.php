@@ -29,7 +29,8 @@ class ScopeRule extends AbstractRule
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
         array $data = [],
-        bool $useFragmentInHttpErrorResponses = false
+        bool $useFragmentInHttpErrorResponses = false,
+        array $allowedServerRequestMethods = ['GET']
     ): ?ResultInterface {
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();

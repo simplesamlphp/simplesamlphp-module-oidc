@@ -25,6 +25,7 @@ class StateRuleTest extends TestCase
         $value = '123';
 
         $request = $this->createStub(ServerRequestInterface::class);
+        $request->method('getMethod')->willReturn('GET');
         $request->method('getQueryParams')->willReturn([$key => $value]);
 
         $resultBag = new ResultBag();
