@@ -166,6 +166,16 @@ class Container implements ContainerInterface
         ))->build();
         $this->services[ClaimTranslatorExtractor::class] = $claimTranslatorExtractor;
 
+        $publicKeyPath = Config::getCertPath('oidc_module.crt');
+        $privateKeyPath = Config::getCertPath('oidc_module.pem');
+        $passPhrase = $configurationService->getOpenIDConnectConfiguration()->getString('pass_phrase', null);
+
+        $cryptKeyFactory = new CryptKeyFactory(
+            $publicKeyPath,
+            $privateKeyPath,
+            $passPhrase
+        );
+
         $requestRules = [
             new StateRule(),
             new ClientIdRule($clientRepository),
@@ -181,7 +191,7 @@ class Container implements ContainerInterface
             new AddClaimsToIdTokenRule(),
             new RequiredNonceRule(),
             new ResponseTypeRule(),
-            new IdTokenHintRule(),
+            new IdTokenHintRule($configurationService, $cryptKeyFactory, $clientRepository),
             new PostLogoutRedirectUriRule(),
             new UiLocalesRule(),
         ];
@@ -196,16 +206,6 @@ class Container implements ContainerInterface
         );
         $refreshTokenDuration = new DateInterval(
             $configurationService->getOpenIDConnectConfiguration()->getString('refreshTokenDuration')
-        );
-
-        $publicKeyPath = Config::getCertPath('oidc_module.crt');
-        $privateKeyPath = Config::getCertPath('oidc_module.pem');
-        $passPhrase = $configurationService->getOpenIDConnectConfiguration()->getString('pass_phrase', null);
-
-        $cryptKeyFactory = new CryptKeyFactory(
-            $publicKeyPath,
-            $privateKeyPath,
-            $passPhrase
         );
         $publicKey = $cryptKeyFactory->buildPublicKey();
         $privateKey = $cryptKeyFactory->buildPrivateKey();

@@ -2,6 +2,8 @@
 
 namespace SimpleSAML\Module\oidc\Server\RequestTypes;
 
+use Lcobucci\JWT\UnencryptedToken;
+
 class LogoutRequest
 {
     /**
@@ -9,7 +11,7 @@ class LogoutRequest
      * current authenticated session with the Client. This is used as an indication of the identity of the
      * End-User that the RP is requesting be logged out by the OP.
      */
-    protected ?string $idTokenHint;
+    protected ?UnencryptedToken $idTokenHint;
 
     /**
      * URL to which the RP is requesting that the End-User's User Agent be redirected after a logout has been performed.
@@ -32,7 +34,7 @@ class LogoutRequest
     protected ?string $uiLocales;
 
     public function __construct(
-        ?string $idTokenHint = null,
+        ?UnencryptedToken $idTokenHint = null,
         ?string $postLogoutRedirectUri = null,
         ?string $state = null,
         ?string $uiLocales = null
@@ -43,12 +45,12 @@ class LogoutRequest
         $this->uiLocales = $uiLocales;
     }
 
-    public function getIdTokenHint(): ?string
+    public function getIdTokenHint(): ?UnencryptedToken
     {
         return $this->idTokenHint;
     }
 
-    public function setIdTokenHint(?string $idTokenHint): LogoutRequest
+    public function setIdTokenHint(?UnencryptedToken $idTokenHint): LogoutRequest
     {
         $this->idTokenHint = $idTokenHint;
         return $this;

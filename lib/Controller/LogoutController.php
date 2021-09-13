@@ -64,11 +64,9 @@ class LogoutController
         // [] consider implementing  Front-Channel Logout: https://openid.net/specs/openid-connect-frontchannel-1_0.html
         //      (FCL has challenges with User Agents Blocking Access to Third-Party Content:
         //      https://openid.net/specs/openid-connect-frontchannel-1_0.html#ThirdPartyContent)
-//        return $this->authorizationServer->respondToLogoutRequest($request, new Response());
-        return new Response(); // ...to satisfy return type, adjust when logout handler is implemented.
-    }
 
-    protected function validateLogoutRequest(ServerRequest $request): void
-    {
+
+        $logoutRequest = $this->authorizationServer->validateLogoutRequest($request);
+        return new Response(); // ...to satisfy return type, adjust when logout handler is implemented.
     }
 }

@@ -2,6 +2,7 @@
 
 namespace SimpleSAML\Module\oidc\Server;
 
+use Lcobucci\JWT\UnencryptedToken;
 use League\OAuth2\Server\AuthorizationServer as OAuth2AuthorizationServer;
 use SimpleSAML\Error\BadRequest;
 use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
@@ -120,7 +121,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
             throw new BadRequest($reason);
         }
 
-        /** @var string|null $idTokenHint */
+        /** @var UnencryptedToken|null $idTokenHint */
         $idTokenHint = $resultBag->getOrFail(IdTokenHintRule::class)->getValue();
         /** @var string|null $postLogoutRedirectUri */
         $postLogoutRedirectUri = $resultBag->getOrFail(PostLogoutRedirectUriRule::class)->getValue();
