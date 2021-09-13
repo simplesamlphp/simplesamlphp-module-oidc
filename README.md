@@ -296,7 +296,11 @@ that contains OIDC module. You may remove the ``--build`` argument if you want d
 previously running container.
 
 ```
-GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD) docker-compose -f docker/docker-compose.yml --project-directory . up --build
+# Use the current branch/git checkout. Composer installs local checkout
+OIDC_VERSION=@dev docker-compose -f docker/docker-compose.yml --project-directory . up --build
+
+# Set OIDC_VERSION to a version that composer can install to use a different version of the module.
+OIDC_VERSION=dev-master docker-compose -f docker/docker-compose.yml --project-directory . up --build
 ```
 
 Visit the [OP](https://op.local.stack-dev.cirrusidentity.com/simplesaml/) and confirm a few clients already exist.

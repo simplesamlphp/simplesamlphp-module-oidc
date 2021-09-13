@@ -16,7 +16,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile
       args:
-        OIDC_VERSION: "@dev"
+        OIDC_VERSION: "${OIDC_VERSION}"
     environment:
       - STAGINGCOMPOSERREPOS=oidc
       - SSP_ADMIN_PASSWORD=secret1
