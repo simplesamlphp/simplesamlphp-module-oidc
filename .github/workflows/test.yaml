@@ -266,7 +266,8 @@ jobs:
           docker-compose -f docker/docker-compose.yml down
       - name: Stop Conformance Suite
         working-directory: ./conformance-suite
+        # cleaning up errors out on removing the network, so add "|| true" to prevent that from breaking the build
         run: |
-          docker-compose -f docker-compose-dev.yml down
+          docker-compose -f docker-compose-dev.yml down || true
           sudo rm -rf mongo
 
