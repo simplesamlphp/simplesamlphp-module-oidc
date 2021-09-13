@@ -12,7 +12,7 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Form\Controls;
+namespace SimpleSAML\Module\oidc\Form\Controls;
 
 use Nette\Forms\Controls\CsrfProtection as BaseCsrfProtection;
 use Nette\Utils\Random;
@@ -21,7 +21,7 @@ use SimpleSAML\SessionHandler;
 
 class CsrfProtection extends BaseCsrfProtection
 {
-    public const PROTECTION = 'SimpleSAML\Modules\OpenIDConnect\Form\Controls\CsrfProtection::validateCsrf';
+    public const PROTECTION = 'SimpleSAML\Module\oidc\Form\Controls\CsrfProtection::validateCsrf';
 
     public function __construct($errorMessage)
     {

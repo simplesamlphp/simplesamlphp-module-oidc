@@ -12,23 +12,27 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Controller;
+namespace SimpleSAML\Module\oidc\Controller;
 
-use SimpleSAML\Modules\OpenIDConnect\Controller\Traits\GetClientFromRequestTrait;
-use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
-use SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory;
-use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
-use SimpleSAML\Modules\OpenIDConnect\Form\ClientForm;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
-use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
+use Nette\Forms\Controls\BaseControl;
+use SimpleSAML\Module\oidc\Controller\Traits\AuthenticatedGetClientFromRequestTrait;
+use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
+use SimpleSAML\Module\oidc\Entity\ClientEntity;
+use SimpleSAML\Module\oidc\Factories\FormFactory;
+use SimpleSAML\Module\oidc\Factories\TemplateFactory;
+use SimpleSAML\Module\oidc\Form\ClientForm;
+use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Services\SessionMessagesService;
+use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\Utils\HTTP;
 use Laminas\Diactoros\Response\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;
 
 class ClientEditController
 {
-    use GetClientFromRequestTrait;
+    use AuthenticatedGetClientFromRequestTrait;
 
     /**
      * @var ConfigurationService
@@ -49,18 +53,27 @@ class ClientEditController
      */
     private $messages;
 
+    /**
+     * @var AllowedOriginRepository
+     */
+    protected $allowedOriginRepository;
+
     public function __construct(
         ConfigurationService $configurationService,
         ClientRepository $clientRepository,
+        AllowedOriginRepository $allowedOriginRepository,
         TemplateFactory $templateFactory,
         FormFactory $formFactory,
-        SessionMessagesService $messages
+        SessionMessagesService $messages,
+        AuthContextService $authContextService
     ) {
         $this->configurationService = $configurationService;
         $this->clientRepository = $clientRepository;
+        $this->allowedOriginRepository = $allowedOriginRepository;
         $this->templateFactory = $templateFactory;
         $this->formFactory = $formFactory;
         $this->messages = $messages;
+        $this->authContextService = $authContextService;
     }
 
     /**
@@ -68,16 +81,19 @@ class ClientEditController
      */
     public function __invoke(ServerRequest $request)
     {
-        $client = $this->getClientFromRequest($request);
 
+        $client = $this->getClientFromRequest($request);
+        $clientAllowedOrigins = $this->allowedOriginRepository->get($client->getIdentifier());
+
+        /** @var ClientForm $form  */
         $form = $this->formFactory->build(ClientForm::class);
-        $formAction = sprintf(
-            "%s/clients/edit.php?client_id=%s",
-            $this->configurationService->getOpenIdConnectModuleURL(),
-            $client->getIdentifier()
-        ) ;
+        $formAction = $request->withQueryParams(['client_id' => $client->getIdentifier()])->getRequestTarget();
         $form->setAction($formAction);
-        $form->setDefaults($client->toArray());
+
+        $clientData = $client->toArray();
+        $clientData['allowed_origin'] = $clientAllowedOrigins;
+        $form->setDefaults($clientData);
+        $authedUser = $this->authContextService->isSspAdmin() ? null : $this->authContextService->getAuthUserId();
 
         if ($form->isSuccess()) {
             $data = $form->getValues();
@@ -91,8 +107,12 @@ class ClientEditController
                 $data['scopes'],
                 (bool) $data['is_enabled'],
                 (bool) $data['is_confidential'],
-                $data['auth_source']
-            ));
+                $data['auth_source'],
+                $client->getOwner()
+            ), $authedUser);
+
+            // Also persist allowed origins for this client.
+            $this->allowedOriginRepository->set($client->getIdentifier(), $data['allowed_origin']);
 
             $this->messages->addMessage('{oidc:client:updated}');
 

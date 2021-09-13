@@ -12,18 +12,19 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Factories;
+namespace SimpleSAML\Module\oidc\Factories;
 
-use SimpleSAML\Modules\OpenIDConnect\Server\AuthorizationServer;
+use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use League\OAuth2\Server\CryptKey;
-use SimpleSAML\Modules\OpenIDConnect\Server\Grants\AuthCodeGrant;
-use SimpleSAML\Modules\OpenIDConnect\Server\Grants\OAuth2ImplicitGrant;
+use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
+use SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant;
+use SimpleSAML\Module\oidc\Server\Grants\OAuth2ImplicitGrant;
 use League\OAuth2\Server\Grant\RefreshTokenGrant;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\AccessTokenRepository;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\ScopeRepository;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\RequestRulesManager;
-use SimpleSAML\Utils\Config;
+use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
+use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 
 class AuthorizationServerFactory
 {
@@ -63,19 +64,27 @@ class AuthorizationServerFactory
     private $accessTokenDuration;
 
     /**
-     * @var string|null
+     * @var string
      */
-    private $passPhrase;
+    private $encryptionKey;
 
     /**
-     * @var IdTokenResponseFactory
+     * @var IdTokenResponse
      */
-    private $idTokenResponseFactory;
+    private $idTokenResponse;
 
     /**
      * @var RequestRulesManager
      */
     protected $requestRulesManager;
+    /**
+     * @var ImplicitGrant
+     */
+    private $implicitGrant;
+    /**
+     * @var CryptKey
+     */
+    private $privateKey;
 
     /**
      * @param ClientRepository $clientRepository
@@ -83,11 +92,13 @@ class AuthorizationServerFactory
      * @param ScopeRepository $scopeRepository
      * @param AuthCodeGrant $authCodeGrant
      * @param OAuth2ImplicitGrant $oAuth2ImplicitGrant
+     * @param ImplicitGrant $implicitGrant
      * @param RefreshTokenGrant $refreshTokenGrant
      * @param \DateInterval $accessTokenDuration
-     * @param IdTokenResponseFactory $idTokenResponseFactory
+     * @param IdTokenResponse $idTokenResponse
      * @param RequestRulesManager $requestRulesManager
-     * @param string|null $passPhrase
+     * @param CryptKey $privateKey
+     * @param string $encryptionKey
      */
     public function __construct(
         ClientRepository $clientRepository,
@@ -95,37 +106,37 @@ class AuthorizationServerFactory
         ScopeRepository $scopeRepository,
         AuthCodeGrant $authCodeGrant,
         OAuth2ImplicitGrant $oAuth2ImplicitGrant,
+        ImplicitGrant $implicitGrant,
         RefreshTokenGrant $refreshTokenGrant,
         \DateInterval $accessTokenDuration,
-        IdTokenResponseFactory $idTokenResponseFactory,
+        IdTokenResponse $idTokenResponse,
         RequestRulesManager $requestRulesManager,
-        string $passPhrase = null
+        CryptKey $privateKey,
+        string $encryptionKey
     ) {
         $this->clientRepository = $clientRepository;
         $this->accessTokenRepository = $accessTokenRepository;
         $this->scopeRepository = $scopeRepository;
         $this->authCodeGrant = $authCodeGrant;
         $this->oAuth2ImplicitGrant = $oAuth2ImplicitGrant;
+        $this->implicitGrant = $implicitGrant;
         $this->refreshTokenGrant = $refreshTokenGrant;
         $this->accessTokenDuration = $accessTokenDuration;
-        $this->idTokenResponseFactory = $idTokenResponseFactory;
+        $this->idTokenResponse = $idTokenResponse;
         $this->requestRulesManager = $requestRulesManager;
-        $this->passPhrase = $passPhrase;
+        $this->privateKey = $privateKey;
+        $this->encryptionKey = $encryptionKey;
     }
 
     public function build(): AuthorizationServer
     {
-        $privateKeyPath = Config::getCertPath('oidc_module.pem');
-        $encryptionKey = Config::getSecretSalt();
-        $idTokenResponse = $this->idTokenResponseFactory->build();
-
         $authorizationServer = new AuthorizationServer(
             $this->clientRepository,
             $this->accessTokenRepository,
             $this->scopeRepository,
-            new CryptKey($privateKeyPath, $this->passPhrase),
-            $encryptionKey,
-            $idTokenResponse,
+            $this->privateKey,
+            $this->encryptionKey,
+            $this->idTokenResponse,
             $this->requestRulesManager
         );
 
@@ -136,6 +147,11 @@ class AuthorizationServerFactory
 
         $authorizationServer->enableGrantType(
             $this->oAuth2ImplicitGrant,
+            $this->accessTokenDuration
+        );
+
+        $authorizationServer->enableGrantType(
+            $this->implicitGrant,
             $this->accessTokenDuration
         );
 

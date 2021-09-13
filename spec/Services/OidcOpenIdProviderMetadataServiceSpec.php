@@ -1,10 +1,10 @@
 <?php
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Services;
+namespace spec\SimpleSAML\Module\oidc\Services;
 
 use PhpSpec\ObjectBehavior;
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
-use SimpleSAML\Modules\OpenIDConnect\Services\OidcOpenIdProviderMetadataService;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Services\OidcOpenIdProviderMetadataService;
 
 class OidcOpenIdProviderMetadataServiceSpec extends ObjectBehavior
 {
@@ -42,13 +42,14 @@ class OidcOpenIdProviderMetadataServiceSpec extends ObjectBehavior
             'userinfo_endpoint' => 'http://localhost/userinfo.php',
             'jwks_uri' => 'http://localhost/jwks.php',
             'scopes_supported' => ['openid'],
-            'response_types_supported' => ['code', 'token'],
+            'response_types_supported' => ['code', 'token', 'id_token', 'id_token token'],
             'subject_types_supported' => ['public'],
             'id_token_signing_alg_values_supported' => ['RS256'],
             'code_challenge_methods_supported' => ['plain', 'S256'],
             'token_endpoint_auth_methods_supported' => ['client_secret_post', 'client_secret_basic'],
             'request_parameter_supported' => false,
             'grant_types_supported' => ['authorization_code', 'refresh_token'],
+            'claims_parameter_supported' => true,
         ]);
     }
 }

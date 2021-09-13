@@ -41,6 +41,7 @@
                 <input name="is_confidential" id="frm-is_confidential" {% if form['is_confidential'].filled %}checked=""{% endif %} type="checkbox">
 
                 <label for="frm-is_confidential">{% trans '{oidc:client:is_confidential}' %}</label>
+                <small class="helper">{% trans '{oidc:client:is_confidential_help}' %}</small>
             </div>
         </div>
 
@@ -64,11 +65,18 @@
             {{ form['scopes'].control | raw }}
         </div>
 
+        <div class="field">
+            <label for="frm-allowed_origin">{% trans '{oidc:client:allowed_origin}' %}</label>
+
+            {{ form['allowed_origin'].control | raw }}
+            <small class="helper">{% trans '{oidc:client:allowed_origin_help}' %}</small>
+        </div>
+
         <div class="ui divider"></div>
 
         <div class="ui buttons">
             {% block action %}{% endblock %}
-            <a class="ui secondary icon labeled button" href="{{ moduleURL('oidc/clients/') }}">
+            <a class="ui secondary icon labeled button" href="./index.php">
                 <i class="left arrow icon"></i>
                 {% trans '{oidc:return}' %}
             </a>
@@ -81,17 +89,39 @@
 {% block postload %}
     {{ parent() }}
     <script>
+        $(document).ready(function () {
+            toggleAllowedOrigins();
+             $('#frm-is_confidential').change(toggleAllowedOrigins);
+        });
+
+        function toggleAllowedOrigins() {
+            $('#frm-allowed_origin').prop('disabled', $('#frm-is_confidential').prop('checked'));
+        }
+
         $.fn.form.settings.rules.redirectUri = function(value) {
             return value.trim().split("\n").reduce(function(current, url) {
+                // Important if updating regex: also used in PHP validation in lib/Form/ClientForm.php
                 return current && null !== url.match(/^[^:]+:\/\/?[^\s\/$.?#].[^\s]*$/);
             }, true)
         };
 
-        $('.ui.form')
-            .checkbox();
+        $.fn.form.settings.rules.allowedOrigin = function(value) {
+            var urls = value.trim().split("\n");
 
-        $('.ui.form')
-            .form({
+            if (urls.length && urls[0] !== '') {
+                return urls.reduce(function(current, url) {
+                    // Important if updating regex: also used in PHP validation in lib/Form/ClientForm.php
+                    return current && null !== url.match(/^http(s?):\/\/[^\s\/!$&'()+,;=.?#@*:]+\.[^\s\/!$&'()+,;=.?#@*]+\.?(\.[^\s\/!$&'()+,;=?#@*:]+)*(:\d{1,5})?$/i);
+                }, true)
+            }
+
+            return true;
+        };
+
+        var formEl = $('.ui.form');
+        formEl.checkbox();
+
+        formEl.form({
                 fields: {
                     name: {
                         identifier: 'name',
@@ -122,14 +152,24 @@
                     scopes: {
                         identifier: 'scopes[]',
                         rules: [
-
                             {
                                 type: 'minCount[1]',
                                 prompt: '{% trans "{oidc:client:scopes_not_empty}" %}'
                             }
                         ]
+                    },
+                    allowed_origin: {
+                        identifier: 'allowed_origin',
+                        rules: [
+                            {
+                                type: 'allowedOrigin',
+                                prompt: '{% trans "{oidc:client:allowed_origin_not_valid}" %}'
+                            }
+                        ]
                     }
                 }
-            })
+            });
+
+
     </script>
 {% endblock %}

@@ -4,7 +4,7 @@
 
 {% block pre_breadcrump %}
     <span class="divider">/</span>
-    <a class="section" href="{{ moduleURL('oidc/clients/') }}">{% trans 'OpenID Connect Client Registry' %}</a>
+    <a class="section" href="./index.php">{% trans 'OpenID Connect Client Registry' %}</a>
 {% endblock %}
 
 {% block content %}
@@ -34,7 +34,7 @@
             <button type="submit"  class="ui small primary labeled icon button">
                 <i class="trash icon"></i> {% trans '{oidc:delete}' %}
             </button>
-            <a href="{{ moduleURL('oidc/clients/') }}" class="ui small secondary labeled icon button">
+            <a href="./index.php" class="ui small secondary labeled icon button">
                 <i class="arrow left icon"></i> {% trans '{oidc:return}' %}
             </a>
         </div>

@@ -12,21 +12,22 @@
  * file that was distributed with this source code.
  */
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
+namespace spec\SimpleSAML\Module\oidc\Controller;
 
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequest;
 use PhpSpec\ObjectBehavior;
 use Psr\Http\Message\UriInterface;
 use SimpleSAML\Configuration;
 use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Error\NotFound;
-use SimpleSAML\Modules\OpenIDConnect\Controller\ClientDeleteController;
-use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
-use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
-use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
+use SimpleSAML\Module\oidc\Controller\ClientDeleteController;
+use SimpleSAML\Module\oidc\Entity\ClientEntity;
+use SimpleSAML\Module\oidc\Factories\TemplateFactory;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Services\AuthContextService;
+use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\XHTML\Template;
-use Laminas\Diactoros\Response\RedirectResponse;
-use Laminas\Diactoros\ServerRequest;
 
 class ClientDeleteControllerSpec extends ObjectBehavior
 {
@@ -38,15 +39,17 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         TemplateFactory $templateFactory,
         SessionMessagesService $sessionMessagesService,
         ServerRequest $request,
-        UriInterface $uri
+        UriInterface $uri,
+        AuthContextService $authContextService
     ) {
         $_SERVER['REQUEST_URI'] = '/';
         Configuration::loadFromArray([], '', 'simplesaml');
+        $authContextService->isSspAdmin()->willReturn(true);
 
         $request->getUri()->willReturn($uri);
         $uri->getPath()->willReturn('/');
 
-        $this->beConstructedWith($clientRepository, $templateFactory, $sessionMessagesService);
+        $this->beConstructedWith($clientRepository, $templateFactory, $sessionMessagesService, $authContextService);
     }
 
     /**
@@ -70,7 +73,7 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
         $request->getParsedBody()->shouldBeCalled()->willReturn([]);
         $request->getMethod()->shouldBeCalled()->willReturn('get');
-        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
+        $clientRepository->findById('clientid', null)->shouldBeCalled()->willReturn($clientEntity);
 
         $templateFactory->render('oidc:clients/delete.twig', ['client' => $clientEntity])
             ->shouldBeCalled()
@@ -97,7 +100,7 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         ClientRepository $clientRepository
     ) {
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
-        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn(null);
+        $clientRepository->findById('clientid', null)->shouldBeCalled()->willReturn(null);
 
         $this->shouldThrow(NotFound::class)->during('__invoke', [$request]);
     }
@@ -111,7 +114,7 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         ClientEntity $clientEntity
     ) {
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
-        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
+        $clientRepository->findById('clientid', null)->shouldBeCalled()->willReturn($clientEntity);
         $request->getParsedBody()->shouldBeCalled()->willReturn([]);
         $request->getMethod()->shouldBeCalled()->willReturn('post');
 
@@ -130,7 +133,7 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         $request->getParsedBody()->shouldBeCalled()->willReturn(['secret' => 'invalidsecret']);
         $request->getMethod()->shouldBeCalled()->willReturn('post');
 
-        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
+        $clientRepository->findById('clientid', null)->shouldBeCalled()->willReturn($clientEntity);
         $clientEntity->getSecret()->shouldBeCalled()->willReturn('validsecret');
 
         $this->shouldThrow(BadRequest::class)->during('__invoke', [$request]);
@@ -149,9 +152,34 @@ class ClientDeleteControllerSpec extends ObjectBehavior
         $request->getParsedBody()->shouldBeCalled()->willReturn(['secret' => 'validsecret']);
         $request->getMethod()->shouldBeCalled()->willReturn('post');
 
-        $clientRepository->findById('clientid')->shouldBeCalled()->willReturn($clientEntity);
+        $clientRepository->findById('clientid', null)->shouldBeCalled()->willReturn($clientEntity);
         $clientEntity->getSecret()->shouldBeCalled()->willReturn('validsecret');
-        $clientRepository->delete($clientEntity)->shouldBeCalled();
+        $clientRepository->delete($clientEntity, null)->shouldBeCalled();
+
+        $sessionMessagesService->addMessage('{oidc:client:removed}')->shouldBeCalled();
+
+        $this->__invoke($request)->shouldBeAnInstanceOf(RedirectResponse::class);
+    }
+
+    /**
+     * @return void
+     */
+    public function it_deletes_client_with_owner(
+        ServerRequest $request,
+        ClientRepository $clientRepository,
+        ClientEntity $clientEntity,
+        SessionMessagesService $sessionMessagesService,
+        AuthContextService $authContextService
+    ) {
+        $authContextService->isSspAdmin()->shouldBeCalled()->willReturn(false);
+        $authContextService->getAuthUserId()->willReturn('theOwner');
+        $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
+        $request->getParsedBody()->shouldBeCalled()->willReturn(['secret' => 'validsecret']);
+        $request->getMethod()->shouldBeCalled()->willReturn('post');
+
+        $clientRepository->findById('clientid', 'theOwner')->shouldBeCalled()->willReturn($clientEntity);
+        $clientEntity->getSecret()->shouldBeCalled()->willReturn('validsecret');
+        $clientRepository->delete($clientEntity, 'theOwner')->shouldBeCalled();
 
         $sessionMessagesService->addMessage('{oidc:client:removed}')->shouldBeCalled();
 

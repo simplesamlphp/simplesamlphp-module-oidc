@@ -10,11 +10,11 @@
     <div class="ui secondary menu">
         <div class="right menu">
             <div class="item">
-                <form action="{{ moduleURL('oidc/clients/') }}" method="get">
+                <form method="get">
                     <div class="ui right action left icon input">
                         <i class="search link icon"></i>
                         <input name="q" placeholder="{% trans '{oidc:search}' %}" type="text" value="{{ query }}">
-                        <div class="ui button" onclick="location.href = '{{ moduleURL('oidc/clients/') }}'">Reset</div>
+                        <div class="ui button" onclick="location.href = './index.php'">Reset</div>
                     </div>
                 </form>
             </div>
@@ -29,7 +29,7 @@
                      {% trans '{oidc:client_list}' %}
                 </span>
 
-                <a href="{{ moduleURL('oidc/clients/new.php') }}" class="ui primary labeled icon button right floated">
+                <a href="./new.php" class="ui primary labeled icon button right floated">
                     <i class="add icon"></i>{% trans '{oidc:add_client}' %}
                 </a>
             </th>
@@ -50,9 +50,9 @@
                 </td>
                 <td class="collapsing">
                     <div class="ui mini buttons">
-                        <a class="ui icon button" href="{{ moduleURL('oidc/clients/show.php?client_id=' ~ client.identifier) }}"><i class="eye icon"></i></a>
-                        <a class="ui icon button" href="{{ moduleURL('oidc/clients/edit.php?client_id=' ~ client.identifier) }}"><i class="edit icon"></i></a>
-                        <a class="ui icon button" href="{{ moduleURL('oidc/clients/delete.php?client_id=' ~ client.identifier) }}"><i class="trash icon"></i></a>
+                        <a class="ui icon button" href="./show.php?client_id={{ client.identifier }}"><i class="eye icon"></i></a>
+                        <a class="ui icon button" href="./edit.php?client_id={{ client.identifier }}"><i class="edit icon"></i></a>
+                        <a class="ui icon button" href="./delete.php?client_id={{ client.identifier }}"><i class="trash icon"></i></a>
                     </div>
                 </td>
             </tr>
@@ -70,13 +70,13 @@
         <tr>
             <th colspan="2">
                 <div class="ui right floated pagination menu">
-                    <a class="icon item {{ currentPage == 1 ? 'disabled' }}" href="{{ moduleURL('oidc/clients/', {page: currentPage - 1, q: query}) }}">
+                    <a class="icon item {{ currentPage == 1 ? 'disabled' }}" href="./index.php?{{ {page: currentPage - 1, q: query} | url_encode }}">
                         <i class="left chevron icon"></i>
                     </a>
                     {% for i in range(1, numPages) %}
-                        <a class="item {{ currentPage == i ? 'active disabled' }}" href="{{ moduleURL('oidc/clients/', {page: i, q: query}) }}">{{ i }}</a>
+                        <a class="item {{ currentPage == i ? 'active disabled' }}" href="./index.php?{{ {page: i, q: query} | url_encode }}">{{ i }}</a>
                     {% endfor %}
-                    <a class="icon item {{ currentPage == numPages ? 'disabled' }}" href="{{ moduleURL('oidc/clients/', {page: currentPage + 1, q: query}) }}">
+                    <a class="icon item {{ currentPage == numPages ? 'disabled' }}" href="./index.php?{{ {page: currentPage + 1, q: query} | url_encode }}">
                         <i class="right chevron icon"></i>
                     </a>
                 </div>

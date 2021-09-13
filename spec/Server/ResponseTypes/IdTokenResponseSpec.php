@@ -1,6 +1,6 @@
 <?php
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes;
+namespace spec\SimpleSAML\Module\oidc\Server\ResponseTypes;
 
 use DateTimeImmutable;
 use Laminas\Diactoros\Response;
@@ -18,21 +18,21 @@ use Lcobucci\JWT\Validation\Constraint\SignedWith;
 use Lcobucci\JWT\Validation\Constraint\StrictValidAt;
 use Lcobucci\JWT\Validation\Validator;
 use League\OAuth2\Server\CryptKey;
-use OpenIDConnectServer\ClaimExtractor;
 use OpenIDConnectServer\Repositories\IdentityProviderInterface;
 use PhpSpec\Exception\Example\FailureException;
 use PhpSpec\ObjectBehavior;
 use SimpleSAML\Configuration;
-use SimpleSAML\Modules\OpenIDConnect\Entity\AccessTokenEntity;
-use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
-use SimpleSAML\Modules\OpenIDConnect\Entity\ScopeEntity;
-use SimpleSAML\Modules\OpenIDConnect\Entity\UserEntity;
-use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\IdTokenResponse;
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entity\ClientEntity;
+use SimpleSAML\Module\oidc\Entity\ScopeEntity;
+use SimpleSAML\Module\oidc\Entity\UserEntity;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 
 class IdTokenResponseSpec extends ObjectBehavior
 {
-
     public const TOKEN_ID = 'tokenId';
     public const ISSUER = 'someIssuer';
     public const CLIENT_ID = 'clientId';
@@ -49,35 +49,44 @@ class IdTokenResponseSpec extends ObjectBehavior
         Configuration $oidcConfig
     ): void {
         $this->certFolder = dirname(__DIR__, 3) . '/docker/ssp/';
-        $claimExtractor = new ClaimExtractor();
         $userEntity = UserEntity::fromData(self::SUBJECT, [
-            'email' => 'myEmail@example.com'
+            'cn'  => ['Homer Simpson'],
+            'mail' => ['myEmail@example.com']
         ]);
         $scopes = [
             ScopeEntity::fromData('openid'),
             ScopeEntity::fromData('email'),
         ];
         $expiration = (new \DateTimeImmutable())->setTimestamp(time() + 3600);
+
+        $clientEntity->getIdentifier()->willReturn(self::CLIENT_ID);
+
         $accessToken->getExpiryDateTime()->willReturn($expiration);
         $accessToken->__toString()->willReturn('AccessToken123');
+        $accessToken->toString()->willReturn('AccessToken123');
         $accessToken->getIdentifier()->willReturn(self::TOKEN_ID);
         $accessToken->getScopes()->willReturn($scopes);
         $accessToken->getUserIdentifier()->willReturn(self::SUBJECT);
+        $accessToken->getClient()->willReturn($clientEntity);
+        $accessToken->getRequestedClaims()->willReturn([]);
+
         $identityProvider->getUserEntityByIdentifier(self::SUBJECT)->willReturn($userEntity);
+
         $configurationService->getSigner()->willReturn(new Sha256());
         $configurationService->getSimpleSAMLSelfURLHost()->willReturn(self::ISSUER);
         $configurationService->getCertPath()->willReturn($this->certFolder . '/oidc_module.crt');
         $configurationService->getOpenIDConnectConfiguration()->willReturn($oidcConfig);
 
-        $clientEntity->getIdentifier()->willReturn(self::CLIENT_ID);
-        $accessToken->getClient()->willReturn($clientEntity);
-        $this->beConstructedWith(
-            $identityProvider,
-            $claimExtractor,
-            $configurationService
+        $privateKey = new CryptKey($this->certFolder . '/oidc_module.pem', null, false);
+
+        $idTokenBuilder = new IdTokenBuilder(
+            new ClaimTranslatorExtractor(),
+            $configurationService->getWrappedObject(),
+            $privateKey
         );
-        $cryptKey = new CryptKey($this->certFolder . '/oidc_module.pem', '', false);
-        $this->setPrivateKey($cryptKey);
+
+        $this->beConstructedWith($identityProvider->getWrappedObject(), $configurationService, $idTokenBuilder);
+        $this->setPrivateKey($privateKey);
     }
 
     /**
@@ -101,8 +110,10 @@ class IdTokenResponseSpec extends ObjectBehavior
         $body->shouldHaveValidIdToken(['email' => 'myEmail@example.com']);
     }
 
-    public function it_can_generate_response_with_no_token_claims(AccessTokenEntity $accessToken, Configuration $oidcConfig)
-    {
+    public function it_can_generate_response_with_no_token_claims(
+        AccessTokenEntity $accessToken,
+        Configuration $oidcConfig
+    ) {
         $oidcConfig->getBoolean('alwaysAddClaimsToIdToken', true)->willReturn(false);
         $response = new Response();
         $this->setAccessToken($accessToken);
@@ -112,6 +123,41 @@ class IdTokenResponseSpec extends ObjectBehavior
         $body = $response->getBody()->getContents();
         echo "json body response " . $body->getWrappedObject();
         $body->shouldHaveValidIdToken();
+    }
+
+    public function it_can_generate_response_with_individual_requested_claims(
+        AccessTokenEntity $accessToken,
+        Configuration $oidcConfig
+    ) {
+        $oidcConfig->getBoolean('alwaysAddClaimsToIdToken', true)->willReturn(false);
+        // ID token should only look at id_token for hints
+        $accessToken->getRequestedClaims()->willReturn(
+            [
+                "id_token" => [
+                    "name" => [
+                        "essential" => true,
+                    ]
+                ],
+                "userinfo" => [
+                    "email" => [
+                        "essential" => true,
+                    ]
+                ]
+            ]
+        );
+        $scopes = [
+            ScopeEntity::fromData('openid'),
+        ];
+        $accessToken->getScopes()->willReturn($scopes);
+
+        $response = new Response();
+        $this->setAccessToken($accessToken);
+        $response = $this->generateHttpResponse($response);
+
+        $response->getBody()->rewind();
+        $body = $response->getBody()->getContents();
+        echo "json body response " . $body->getWrappedObject();
+        $body->shouldHaveValidIdToken(['name' => 'Homer Simpson']);
     }
 
     public function getMatchers(): array
@@ -154,7 +200,10 @@ class IdTokenResponseSpec extends ObjectBehavior
                     );
                 }
                 $expectedClaimsKeys = array_keys($expectedClaims);
-                $expectedClaimsKeys = array_merge(['iss', 'aud', 'jti', 'nbf', 'exp', 'sub', 'iat'], $expectedClaimsKeys);
+                $expectedClaimsKeys = array_merge(
+                    ['iss', 'aud', 'jti', 'nbf', 'exp', 'sub', 'iat', 'at_hash'],
+                    $expectedClaimsKeys
+                );
                 $claims = array_keys($token->claims()->all());
                 if ($claims !== $expectedClaimsKeys) {
                     throw new FailureException(

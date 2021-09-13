@@ -1,18 +1,18 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules;
+namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Modules\OpenIDConnect\Factories\AuthSimpleFactory;
-use SimpleSAML\Modules\OpenIDConnect\Server\Exceptions\OidcServerException;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultBagInterface;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultInterface;
+use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
+use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Session;
 
 class PromptRule extends AbstractRule
 {
-    const PROMPT_REAUTHENTICATE = 'prompt_reauthenticate';
+    private const PROMPT_REAUTHENTICATE = 'prompt_reauthenticate';
 
     /**
      * @var AuthSimpleFactory
@@ -32,7 +32,8 @@ class PromptRule extends AbstractRule
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
-        array $data
+        array $data = [],
+        bool $useFragmentInHttpErrorResponses = false
     ): ?ResultInterface {
         $authSimple = $this->authSimpleFactory->build($request);
 
@@ -55,7 +56,8 @@ class PromptRule extends AbstractRule
                 null,
                 $redirectUri,
                 null,
-                $queryParams['state'] ?? null
+                $queryParams['state'] ?? null,
+                $useFragmentInHttpErrorResponses
             );
         }
 

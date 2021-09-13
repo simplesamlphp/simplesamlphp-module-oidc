@@ -1,15 +1,15 @@
 <?php
 
-namespace SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules;
+namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Interfaces\ResultInterface;
-use SimpleSAML\Modules\OpenIDConnect\Utils\Checker\ResultBag;
+use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
+use SimpleSAML\Module\oidc\Utils\Checker\ResultBag;
 
 /**
- * @covers \SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\AbstractRule
- * @covers \SimpleSAML\Modules\OpenIDConnect\Utils\Checker\Rules\StateRule
+ * @covers \SimpleSAML\Module\oidc\Utils\Checker\Rules\AbstractRule
+ * @covers \SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule
  */
 class StateRuleTest extends TestCase
 {

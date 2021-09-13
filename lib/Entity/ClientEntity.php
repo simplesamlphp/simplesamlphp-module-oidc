@@ -12,9 +12,9 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Entity;
+namespace SimpleSAML\Module\oidc\Entity;
 
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use League\OAuth2\Server\Entities\Traits\ClientTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 
@@ -49,6 +49,11 @@ class ClientEntity implements ClientEntityInterface
     private $isEnabled;
 
     /**
+     * @var string|null
+     */
+    private $owner;
+
+    /**
      * Constructor.
      */
     private function __construct()
@@ -65,7 +70,8 @@ class ClientEntity implements ClientEntityInterface
         array $scopes,
         bool $isEnabled,
         bool $isConfidential = false,
-        ?string $authSource = null
+        ?string $authSource = null,
+        ?string $owner = null
     ): ClientEntityInterface {
         $client = new self();
 
@@ -78,6 +84,7 @@ class ClientEntity implements ClientEntityInterface
         $client->scopes = $scopes;
         $client->isEnabled = $isEnabled;
         $client->isConfidential = $isConfidential;
+        $client->owner = $owner;
 
         return $client;
     }
@@ -98,6 +105,7 @@ class ClientEntity implements ClientEntityInterface
         $client->scopes = json_decode($state['scopes'], true);
         $client->isEnabled = (bool) $state['is_enabled'];
         $client->isConfidential = (bool) ($state['is_confidential'] ?? false);
+        $client->owner = $state['owner'] ?? null;
 
         return $client;
     }
@@ -117,6 +125,8 @@ class ClientEntity implements ClientEntityInterface
             'scopes' => json_encode($this->getScopes()),
             'is_enabled' => (int) $this->isEnabled(),
             'is_confidential' => (int) $this->isConfidential(),
+            'owner' => $this->getOwner(),
+
         ];
     }
 
@@ -132,6 +142,7 @@ class ClientEntity implements ClientEntityInterface
             'scopes' => $this->scopes,
             'is_enabled' => $this->isEnabled,
             'is_confidential' => $this->isConfidential,
+            'owner' => $this->owner,
         ];
     }
 
@@ -165,5 +176,10 @@ class ClientEntity implements ClientEntityInterface
     public function isEnabled(): bool
     {
         return $this->isEnabled;
+    }
+
+    public function getOwner(): ?string
+    {
+        return $this->owner;
     }
 }

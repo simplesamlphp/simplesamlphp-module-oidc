@@ -12,10 +12,10 @@
  * file that was distributed with this source code.
  */
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Entity;
+namespace spec\SimpleSAML\Module\oidc\Entity;
 
 use PhpSpec\ObjectBehavior;
-use SimpleSAML\Modules\OpenIDConnect\Entity\ScopeEntity;
+use SimpleSAML\Module\oidc\Entity\ScopeEntity;
 
 class ScopeEntitySpec extends ObjectBehavior
 {

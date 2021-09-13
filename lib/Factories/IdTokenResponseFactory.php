@@ -12,46 +12,61 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Factories;
+namespace SimpleSAML\Module\oidc\Factories;
 
-use SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository;
-use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\IdTokenResponse;
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
+use League\OAuth2\Server\CryptKey;
+use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 
 class IdTokenResponseFactory
 {
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Repositories\UserRepository
+     * @var UserRepository
      */
     private $userRepository;
-
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService
+     * @var ConfigurationService
      */
     private $configurationService;
-
     /**
-     * @var \SimpleSAML\Modules\OpenIDConnect\ClaimTranslatorExtractor
+     * @var IdTokenBuilder
      */
-    private $claimTranslatorExtractor;
+    private $idTokenBuilder;
+    /**
+     * @var CryptKey
+     */
+    private $privateKey;
+    /**
+     * @var string
+     */
+    private $encryptionKey;
 
     public function __construct(
         UserRepository $userRepository,
         ConfigurationService $configurationService,
-        ClaimTranslatorExtractor $claimTranslatorExtractor
+        IdTokenBuilder $idTokenBuilder,
+        CryptKey $privateKey,
+        string $encryptionKey
     ) {
         $this->userRepository = $userRepository;
         $this->configurationService = $configurationService;
-        $this->claimTranslatorExtractor = $claimTranslatorExtractor;
+        $this->idTokenBuilder = $idTokenBuilder;
+        $this->privateKey = $privateKey;
+        $this->encryptionKey = $encryptionKey;
     }
 
     public function build(): IdTokenResponse
     {
-        return new IdTokenResponse(
+        $idTokenResponse = new IdTokenResponse(
             $this->userRepository,
-            $this->claimTranslatorExtractor,
-            $this->configurationService
+            $this->configurationService,
+            $this->idTokenBuilder
         );
+        $idTokenResponse->setPrivateKey($this->privateKey);
+        $idTokenResponse->setEncryptionKey($this->encryptionKey);
+
+        return $idTokenResponse;
     }
 }

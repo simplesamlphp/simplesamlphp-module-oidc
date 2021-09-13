@@ -12,17 +12,18 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Entity;
+namespace SimpleSAML\Module\oidc\Entity;
 
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\TokenEntityTrait;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\OidcAuthCodeEntityInterface;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Interfaces\MementoInterface;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Traits\OidcAuthCodeTrait;
-use SimpleSAML\Modules\OpenIDConnect\Entity\Traits\RevokeTokenTrait;
-use SimpleSAML\Modules\OpenIDConnect\Utils\TimestampGenerator;
+use SimpleSAML\Module\oidc\Entity\Interfaces\OidcAuthCodeEntityInterface;
+use SimpleSAML\Module\oidc\Entity\Interfaces\MementoInterface;
+use SimpleSAML\Module\oidc\Entity\Traits\OidcAuthCodeTrait;
+use SimpleSAML\Module\oidc\Entity\Traits\RevokeTokenTrait;
+use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
+use SimpleSAML\Module\oidc\Entity\Interfaces\AuthCodeEntityInterface;
 
-class AuthCodeEntity implements OidcAuthCodeEntityInterface, MementoInterface
+class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
 {
     use EntityTrait;
     use TokenEntityTrait;
@@ -35,7 +36,7 @@ class AuthCodeEntity implements OidcAuthCodeEntityInterface, MementoInterface
 
         $scopes = array_map(
             /**
-             * @return \SimpleSAML\Modules\OpenIDConnect\Entity\ScopeEntity
+             * @return \SimpleSAML\Module\oidc\Entity\ScopeEntity
              */
             function (string $scope) {
                 return ScopeEntity::fromData($scope);
@@ -53,6 +54,7 @@ class AuthCodeEntity implements OidcAuthCodeEntityInterface, MementoInterface
         $authCode->isRevoked = (bool) $state['is_revoked'];
         $authCode->redirectUri = $state['redirect_uri'];
         $authCode->nonce = $state['nonce'];
+
 
         return $authCode;
     }

@@ -12,23 +12,25 @@
  * file that was distributed with this source code.
  */
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
+namespace spec\SimpleSAML\Module\oidc\Controller;
 
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequest;
 use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
 use Psr\Http\Message\UriInterface;
 use SimpleSAML\Configuration;
-use SimpleSAML\Modules\OpenIDConnect\Controller\ClientCreateController;
-use SimpleSAML\Modules\OpenIDConnect\Entity\ClientEntity;
-use SimpleSAML\Modules\OpenIDConnect\Factories\FormFactory;
-use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
-use SimpleSAML\Modules\OpenIDConnect\Form\ClientForm;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
-use SimpleSAML\Modules\OpenIDConnect\Services\SessionMessagesService;
+use SimpleSAML\Module\oidc\Controller\ClientCreateController;
+use SimpleSAML\Module\oidc\Entity\ClientEntity;
+use SimpleSAML\Module\oidc\Factories\FormFactory;
+use SimpleSAML\Module\oidc\Factories\TemplateFactory;
+use SimpleSAML\Module\oidc\Form\ClientForm;
+use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Services\AuthContextService;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\XHTML\Template;
-use Laminas\Diactoros\Response\RedirectResponse;
-use Laminas\Diactoros\ServerRequest;
 
 class ClientCreateControllerSpec extends ObjectBehavior
 {
@@ -40,26 +42,30 @@ class ClientCreateControllerSpec extends ObjectBehavior
     public function let(
         ConfigurationService $configurationService,
         ClientRepository $clientRepository,
+        AllowedOriginRepository $allowedOriginRepository,
         TemplateFactory $templateFactory,
         FormFactory $formFactory,
         SessionMessagesService $sessionMessagesService,
         ServerRequest $request,
-        UriInterface $uri
+        UriInterface $uri,
+        AuthContextService $authContextService
     ) {
         $_SERVER['REQUEST_URI'] = '/';
         Configuration::loadFromArray([], '', 'simplesaml');
 
         $configurationService->getOpenIdConnectModuleURL(Argument::any())->willReturn("url");
-
+        $authContextService->isSspAdmin()->willReturn(true);
         $request->getUri()->willReturn($uri);
         $uri->getPath()->willReturn('/');
 
         $this->beConstructedWith(
             $configurationService,
             $clientRepository,
+            $allowedOriginRepository,
             $templateFactory,
             $formFactory,
-            $sessionMessagesService
+            $sessionMessagesService,
+            $authContextService
         );
     }
 
@@ -99,6 +105,7 @@ class ClientCreateControllerSpec extends ObjectBehavior
         FormFactory $formFactory,
         ClientForm $clientForm,
         ClientRepository $clientRepository,
+        AllowedOriginRepository $allowedOriginRepository,
         SessionMessagesService $sessionMessagesService
     ) {
         $formFactory->build(ClientForm::class)->shouldBeCalled()->willReturn($clientForm);
@@ -113,9 +120,50 @@ class ClientCreateControllerSpec extends ObjectBehavior
             'scopes' => ['openid'],
             'is_enabled' => true,
             'is_confidential' => false,
+            'allowed_origin' => []
         ]);
 
         $clientRepository->add(Argument::type(ClientEntity::class))->shouldBeCalled();
+
+        $allowedOriginRepository->set(Argument::type('string'), [])->shouldBeCalled();
+
+        $sessionMessagesService->addMessage('{oidc:client:added}')->shouldBeCalled();
+
+        $this->__invoke($request)->shouldBeAnInstanceOf(RedirectResponse::class);
+    }
+
+    /**
+     * @return void
+     */
+    public function it_owner_set_in_new_client(
+        ServerRequest $request,
+        FormFactory $formFactory,
+        ClientForm $clientForm,
+        ClientRepository $clientRepository,
+        SessionMessagesService $sessionMessagesService,
+        AuthContextService $authContextService
+    ) {
+        $authContextService->isSspAdmin()->shouldBeCalled()->willReturn(false);
+        $authContextService->getAuthUserId()->willReturn('ownerUsername');
+        $formFactory->build(ClientForm::class)->shouldBeCalled()->willReturn($clientForm);
+        $clientForm->setAction(Argument::any())->shouldBeCalled();
+
+        $clientForm->isSuccess()->shouldBeCalled()->willReturn(true);
+        $clientForm->getValues()->shouldBeCalled()->willReturn(
+            [
+                'name' => 'name',
+                'description' => 'description',
+                'auth_source' => 'auth_source',
+                'redirect_uri' => ['http://localhost/redirect'],
+                'scopes' => ['openid'],
+                'is_enabled' => true,
+                'is_confidential' => false,
+                'owner' => 'wrongOwner',
+                'allowed_origin' => [],
+            ]
+        );
+
+        $clientRepository->add(Argument::which('getOwner', 'ownerUsername'))->shouldBeCalled();
         $sessionMessagesService->addMessage('{oidc:client:added}')->shouldBeCalled();
 
         $this->__invoke($request)->shouldBeAnInstanceOf(RedirectResponse::class);

@@ -12,23 +12,19 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes;
+namespace SimpleSAML\Module\oidc\Server\ResponseTypes;
 
-use Lcobucci\JWT\Configuration;
-use Lcobucci\JWT\Encoding\ChainedFormatter;
-use Lcobucci\JWT\Signer\Key\InMemory;
-use Lcobucci\JWT\Token\RegisteredClaims;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\ResponseTypes\BearerTokenResponse;
-use OpenIDConnectServer\ClaimExtractor;
-use OpenIDConnectServer\Entities\ClaimSetInterface;
 use OpenIDConnectServer\Repositories\IdentityProviderInterface;
-use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
-use SimpleSAML\Modules\OpenIDConnect\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
-use SimpleSAML\Modules\OpenIDConnect\Services\ConfigurationService;
-use SimpleSAML\Modules\OpenIDConnect\Utils\FingerprintGenerator;
+use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 
 /**
  * Class IdTokenResponse.
@@ -43,17 +39,16 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
     /**
      * @var IdentityProviderInterface
      */
-    protected $identityProvider;
-
-    /**
-     * @var ClaimExtractor
-     */
-    protected $claimExtractor;
-
+    private $identityProvider;
     /**
      * @var ConfigurationService
      */
     private $configurationService;
+
+    /**
+     * @var IdTokenBuilder
+     */
+    protected $idTokenBuilder;
 
     /**
      * @var string|null
@@ -67,11 +62,11 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
 
     public function __construct(
         IdentityProviderInterface $identityProvider,
-        ClaimExtractor $claimExtractor,
-        ConfigurationService $configurationService
+        ConfigurationService $configurationService,
+        IdTokenBuilder $idTokenBuilder
     ) {
         $this->identityProvider = $identityProvider;
-        $this->claimExtractor = $claimExtractor;
+        $this->idTokenBuilder = $idTokenBuilder;
         $this->configurationService = $configurationService;
     }
 
@@ -84,94 +79,30 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
             return [];
         }
 
+        if ($accessToken instanceof AccessTokenEntity === false) {
+            throw new \RuntimeException('AccessToken must be ' . AccessTokenEntity::class);
+        }
+        // Per https://openid.net/specs/openid-connect-core-1_0.html#rfc.section.5.4 certain claims
+        // should only be added in certain scenarios. Allow deployer to control this.
+        $addClaimsFromScopes = $this->configurationService
+            ->getOpenIDConnectConfiguration()
+            ->getBoolean('alwaysAddClaimsToIdToken', true);
+
         /** @var UserEntityInterface $userEntity */
         $userEntity = $this->identityProvider->getUserEntityByIdentifier($accessToken->getUserIdentifier());
 
-        if (false === is_a($userEntity, UserEntityInterface::class)) {
-            throw new \RuntimeException('UserEntity must implement UserEntityInterface');
-        } elseif (false === is_a($userEntity, ClaimSetInterface::class)) {
-            throw new \RuntimeException('UserEntity must implement ClaimSetInterface');
-        }
-        $jwtConfig = Configuration::forAsymmetricSigner(
-            $this->configurationService->getSigner(),
-            InMemory::plainText($this->privateKey->getKeyPath(), $this->privateKey->getPassPhrase() ?? ''),
-            // The public key is not needed for signing
-            InMemory::empty()
+        $token = $this->idTokenBuilder->build(
+            $userEntity,
+            $accessToken,
+            $addClaimsFromScopes,
+            true,
+            $this->getNonce(),
+            $this->getAuthTime()
         );
-        // Add required id_token claims
-        $builder = $this->getBuilder($jwtConfig, $accessToken, $userEntity);
-
-        if (null !== $this->getNonce()) {
-            $builder->withClaim('nonce', $this->getNonce());
-        }
-
-        if (null !== $this->getAuthTime()) {
-            $builder->withClaim('auth_time', $this->getAuthTime());
-        }
-
-        // Need a claim factory here to reduce the number of claims by provided scope.
-        $claims = $this->claimExtractor->extract($accessToken->getScopes(), $userEntity->getClaims());
-
-        // Per https://openid.net/specs/openid-connect-core-1_0.html#rfc.section.5.4 certain claims
-        // should only be added in certain scenarios. Allow deployer to control this.
-        $addClaimsFromScopesToIdToken = $this->configurationService->getOpenIDConnectConfiguration()
-            ->getBoolean('alwaysAddClaimsToIdToken', true);
-        foreach ($claims as $claimName => $claimValue) {
-            switch ($claimName) {
-                case RegisteredClaims::AUDIENCE:
-                    $builder->permittedFor($claimValue);
-                    break;
-                case RegisteredClaims::EXPIRATION_TIME:
-                    $builder->expiresAt(new \DateTimeImmutable('@' . $claimValue));
-                    break;
-                case RegisteredClaims::ID:
-                    $builder->identifiedBy($claimValue);
-                    break;
-                case RegisteredClaims::ISSUED_AT:
-                    $builder->issuedAt(new \DateTimeImmutable('@' . $claimValue));
-                    break;
-                case RegisteredClaims::ISSUER:
-                    $builder->issuedBy($claimValue);
-                    break;
-                case RegisteredClaims::NOT_BEFORE:
-                    $builder->canOnlyBeUsedAfter(new \DateTimeImmutable('@' . $claimValue));
-                    break;
-                case RegisteredClaims::SUBJECT:
-                    $builder->relatedTo($claimValue);
-                    break;
-                default:
-                    if ($addClaimsFromScopesToIdToken) {
-                        $builder->withClaim($claimName, $claimValue);
-                    }
-            }
-        }
-
-        $kid = FingerprintGenerator::forFile($this->configurationService->getCertPath());
-        $token = $builder->withHeader('kid', $kid)
-            ->getToken(
-                $jwtConfig->signer(),
-                $jwtConfig->signingKey()
-            );
 
         return [
-            'id_token' =>  $token->toString(),
+            'id_token' => $token->toString(),
         ];
-    }
-
-    protected function getBuilder(
-        Configuration $jwtConfig,
-        AccessTokenEntityInterface $accessToken,
-        UserEntityInterface $userEntity
-    ) {
-        // Ignore microseconds when handling dates.
-        return $jwtConfig->builder(ChainedFormatter::withUnixTimestampDates())
-            ->issuedBy($this->configurationService->getSimpleSAMLSelfURLHost())
-            ->permittedFor($accessToken->getClient()->getIdentifier())
-            ->identifiedBy($accessToken->getIdentifier())
-            ->canOnlyBeUsedAfter(new \DateTimeImmutable('now'))
-            ->expiresAt($accessToken->getExpiryDateTime())
-            ->relatedTo($userEntity->getIdentifier())
-            ->issuedAt(new \DateTimeImmutable('now'));
     }
 
     /**
@@ -182,16 +113,13 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
     private function isOpenIDRequest($scopes)
     {
         // Verify scope and make sure openid exists.
-        $valid = false;
-
         foreach ($scopes as $scope) {
             if ('openid' === $scope->getIdentifier()) {
-                $valid = true;
-                break;
+                return true;
             }
         }
 
-        return $valid;
+        return false;
     }
 
     /**

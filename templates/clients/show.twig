@@ -4,7 +4,7 @@
 
 {% block pre_breadcrump %}
     <span class="divider">/</span>
-    <a class="section" href="{{ moduleURL('oidc/clients/') }}">{% trans 'OpenID Connect Client Registry' %}</a>
+    <a class="section" href="./index.php">{% trans 'OpenID Connect Client Registry' %}</a>
 {% endblock %}
 
 {% block content %}
@@ -72,16 +72,32 @@
                 </ul>
             </td>
         </tr>
+        <tr>
+            <td class="collapsing">{% trans '{oidc:client:owner}' %}</td>
+            <td>{{ client.owner }}</td>
+        </tr>
+        <tr>
+
+            <td class="collapsing">{% trans '{oidc:client:allowed_origin}' %}</td>
+            <td>
+                <ul class="list">
+                    {% for allowedOrigin in allowedOrigins %}
+                        <li>{{ allowedOrigin }}</li>
+                    {% endfor %}
+                </ul>
+            </td>
+
+        </tr>
         </tbody>
         <tfoot>
         <tr class="full-width">
             <th></th>
             <th>
                 <div class="ui buttons">
-                    <a href="{{ moduleURL('oidc/clients/') }}" class="ui small primary labeled icon button">
+                    <a href="./index.php" class="ui small primary labeled icon button">
                         <i class="arrow left icon"></i> {% trans '{oidc:return}' %}
                     </a>
-                    <a href="{{ moduleURL('oidc/clients/edit.php?client_id=' ~ client.identifier) }}" class="ui small labeled icon button">
+                    <a href="./edit.php?client_id={{ client.identifier }}" class="ui small labeled icon button">
                         <i class="edit icon"></i> {% trans '{oidc:edit}' %}
                     </a>
                     <div class="ui small teal labeled icon button">
@@ -90,7 +106,7 @@
                     <div class="ui flowing popup top left transition hidden">
                         <h4 class="ui header">{% trans '{oidc:client:reset_secret}' %}</h4>
                         <p>{% trans '{oidc:client:reset_secret_warning}' %}</p>
-                        <form method="post" action="{{ moduleURL('oidc/clients/reset.php?client_id=' ~ client.identifier) }}">
+                        <form method="post" action="./reset.php?client_id={{ client.identifier }}">
                             <input type="hidden" name="secret" value="{{ client.secret }}">
                             <input type="submit" class="ui button" value="{% trans '{oidc:confirm}' %}">
                         </form>

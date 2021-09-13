@@ -1,5 +1,5 @@
 {
-    "name": "rediris-es/simplesamlphp-module-oidc",
+    "name": "simplesamlphp/simplesamlphp-module-oidc",
     "description": "A SimpleSAMLphp module adding support for the OpenID Connect protocol",
     "type": "simplesamlphp-module",
     "keywords": [ "oauth2", "openid", "connect", "oidc", "openid connect" ],
@@ -17,9 +17,10 @@
         }
     ],
     "require": {
-        "php": ">=7.2.0",
+        "php": ">=7.4",
         "ext-json": "*",
         "ext-openssl": "*",
+        "ext-pdo": "*",
         "laminas/laminas-diactoros": "^2.2.1",
         "laminas/laminas-httphandlerrunner": "^1.1.0",
         "lcobucci/jwt": "^4.1",
@@ -28,17 +29,18 @@
         "psr/container": "^1.0",
         "simplesamlphp/composer-module-installer": "^1.0",
         "steverhoades/oauth2-openid-connect-server": "^2.0",
-        "web-token/jwt-framework": "^2.1"
+        "web-token/jwt-framework": "^2.1",
+        "spomky-labs/base64url": "^2.0"
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^2.10",
-        "friends-of-phpspec/phpspec-code-coverage": "^4.3",
+        "friends-of-phpspec/phpspec-code-coverage": "^6.1",
         "php-coveralls/php-coveralls": "^2.0",
-        "phpspec/phpspec": "^6.1",
-        "phpunit/php-code-coverage": "^7.0.7",
-        "phpunit/phpcov": "^6.0",
-        "phpunit/phpunit": "^8.5",
-        "simplesamlphp/simplesamlphp": "^1.18,<1.19",
+        "phpspec/phpspec": "^7.1.0",
+        "phpunit/php-code-coverage": "^9.0.0",
+        "phpunit/phpcov": "^8.2.0",
+        "phpunit/phpunit": "^9.0.0",
+        "simplesamlphp/simplesamlphp": "^1.19,<2",
         "simplesamlphp/simplesamlphp-test-framework": "^0.1.9"
     },
     "config": {
@@ -49,12 +51,12 @@
     },
     "autoload": {
         "psr-4": {
-            "SimpleSAML\\Modules\\OpenIDConnect\\": "lib/"
+            "SimpleSAML\\Module\\oidc\\": "lib/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Tests\\SimpleSAML\\Modules\\OpenIDConnect\\": "tests/"
+            "SimpleSAML\\Test\\Module\\oidc\\": "tests/"
         }
     },
     "extra": {
@@ -70,7 +72,7 @@
             "vendor/bin/check-syntax-yaml.sh",
             "vendor/bin/psalm",
             "vendor/bin/psalter --issues=UnnecessaryVarAnnotation --dry-run",
-            "vendor/bin/phpcs"
+            "vendor/bin/phpcs -p"
         ],
         "tests": [
             "vendor/bin/phpunit --no-coverage",

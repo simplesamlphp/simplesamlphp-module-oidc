@@ -12,7 +12,8 @@
  * file that was distributed with this source code.
  */
 
-use SimpleSAML\Modules\OpenIDConnect\Controller\ClientDeleteController;
-use SimpleSAML\Modules\OpenIDConnect\Services\RoutingService;
+use SimpleSAML\Module\oidc\Controller\ClientDeleteController;
+use SimpleSAML\Module\oidc\Services\AuthContextService;
+use SimpleSAML\Module\oidc\Services\RoutingService;
 
-RoutingService::call(ClientDeleteController::class);
+RoutingService::callWithPermission(ClientDeleteController::class, AuthContextService::PERM_CLIENT);

@@ -19,7 +19,7 @@ services:
         OIDC_VERSION: dev-${GIT_BRANCH}
     environment:
       - STAGINGCOMPOSERREPOS=oidc
-      - COMPOSER_REQUIRE=rediris-es/simplesamlphp-module-oidc:dev-$GIT_BRANCH
+      - COMPOSER_REQUIRE=simplesamlphp/simplesamlphp-module-oidc:dev-${GIT_BRANCH}
       - SSP_ADMIN_PASSWORD=secret1
       - VIRTUAL_HOST=op.local.stack-dev.cirrusidentity.com
       - VIRTUAL_PORT=443

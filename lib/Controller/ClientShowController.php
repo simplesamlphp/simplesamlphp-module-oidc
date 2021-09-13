@@ -12,34 +12,49 @@
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Modules\OpenIDConnect\Controller;
+namespace SimpleSAML\Module\oidc\Controller;
 
-use SimpleSAML\Modules\OpenIDConnect\Controller\Traits\GetClientFromRequestTrait;
-use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
 use Laminas\Diactoros\ServerRequest;
+use SimpleSAML\Module\oidc\Controller\Traits\AuthenticatedGetClientFromRequestTrait;
+use SimpleSAML\Module\oidc\Factories\TemplateFactory;
+use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Services\AuthContextService;
 
 class ClientShowController
 {
-    use GetClientFromRequestTrait;
+    use AuthenticatedGetClientFromRequestTrait;
 
     /**
      * @var TemplateFactory
      */
     private $templateFactory;
 
-    public function __construct(ClientRepository $clientRepository, TemplateFactory $templateFactory)
-    {
+    /**
+     * @var AllowedOriginRepository
+     */
+    private $allowedOriginRepository;
+
+    public function __construct(
+        ClientRepository $clientRepository,
+        AllowedOriginRepository $allowedOriginRepository,
+        TemplateFactory $templateFactory,
+        AuthContextService $authContextService
+    ) {
         $this->clientRepository = $clientRepository;
+        $this->allowedOriginRepository = $allowedOriginRepository;
         $this->templateFactory = $templateFactory;
+        $this->authContextService = $authContextService;
     }
 
     public function __invoke(ServerRequest $request): \SimpleSAML\XHTML\Template
     {
         $client = $this->getClientFromRequest($request);
+        $allowedOrigins = $this->allowedOriginRepository->get($client->getIdentifier());
 
         return $this->templateFactory->render('oidc:clients/show.twig', [
             'client' => $client,
+            'allowedOrigins' => $allowedOrigins
         ]);
     }
 }

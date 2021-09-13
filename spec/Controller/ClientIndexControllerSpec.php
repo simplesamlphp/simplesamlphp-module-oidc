@@ -12,17 +12,17 @@
  * file that was distributed with this source code.
  */
 
-namespace spec\SimpleSAML\Modules\OpenIDConnect\Controller;
+namespace spec\SimpleSAML\Module\oidc\Controller;
 
+use Laminas\Diactoros\ServerRequest;
 use PhpSpec\ObjectBehavior;
-use Prophecy\Argument;
 use Psr\Http\Message\UriInterface;
 use SimpleSAML\Configuration;
-use SimpleSAML\Modules\OpenIDConnect\Controller\ClientIndexController;
-use SimpleSAML\Modules\OpenIDConnect\Factories\TemplateFactory;
-use SimpleSAML\Modules\OpenIDConnect\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Controller\ClientIndexController;
+use SimpleSAML\Module\oidc\Factories\TemplateFactory;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\XHTML\Template;
-use Laminas\Diactoros\ServerRequest;
 
 class ClientIndexControllerSpec extends ObjectBehavior
 {
@@ -33,16 +33,17 @@ class ClientIndexControllerSpec extends ObjectBehavior
         ClientRepository $clientRepository,
         TemplateFactory $templateFactory,
         ServerRequest $request,
-        UriInterface $uri
+        UriInterface $uri,
+        AuthContextService $authContextService
     ) {
         $_SERVER['REQUEST_URI'] = '/';
         Configuration::loadFromArray([], '', 'simplesaml');
-
+        $authContextService->isSspAdmin()->willReturn(true);
         $request->getUri()->willReturn($uri);
         $request->getQueryParams()->willReturn(['page' => 1]);
         $uri->getPath()->willReturn('/');
 
-        $this->beConstructedWith($clientRepository, $templateFactory);
+        $this->beConstructedWith($clientRepository, $templateFactory, $authContextService);
     }
 
     /**
@@ -62,7 +63,7 @@ class ClientIndexControllerSpec extends ObjectBehavior
         TemplateFactory $templateFactory,
         ClientRepository $clientRepository
     ) {
-        $clientRepository->findPaginated(1, '')->shouldBeCalled()->willReturn([
+        $clientRepository->findPaginated(1, '', null)->shouldBeCalled()->willReturn([
             'items' => [],
             'numPages' => 1,
             'currentPage' => 1

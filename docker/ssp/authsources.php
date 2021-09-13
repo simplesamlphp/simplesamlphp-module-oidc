@@ -40,6 +40,12 @@ $config = array(
         'employee:employeepass' => [
             'uid' => ['employee'],
             'eduPersonAffiliation' => ['member', 'employee'],
+            'eduPersonEntitlement' => ['urn:example:oidc:manage:client']
+        ],
+        'member:memberpass' => [
+            'uid' => ['member'],
+            'eduPersonAffiliation' => ['member'],
+            'eduPersonEntitlement' => ['urn:example:oidc:manage:client']
         ],
         'minimal:minimalpass' => [
             'uid' => ['minimal'],
