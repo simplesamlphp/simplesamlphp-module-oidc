@@ -260,12 +260,13 @@ jobs:
       - name: Run conformance tests
         run: |
           ./conformance-suite/scripts/run-test-plan.py  --expected-failures-file ./main/conformance-tests/basic-warnings.json --expected-skips-file ./main/conformance-tests/basic-skips.json "oidcc-basic-certification-test-plan[server_metadata=discovery][client_registration=static_client]" ./main/conformance-tests/conformance-basic-ci.json
+      - name: Stop SSP
+        working-directory: ./main
+        run: |
+          docker-compose -f docker/docker-compose.yml down
       - name: Stop Conformance Suite
         working-directory: ./conformance-suite
         run: |
           docker-compose -f docker-compose-dev.yml down
           sudo rm -rf mongo
-      - name: Stop SSP
-        working-directory: ./main
-        run: |
-          docker-compose -f docker/docker-compose.yml down
+
