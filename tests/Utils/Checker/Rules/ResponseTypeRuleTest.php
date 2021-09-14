@@ -1,13 +1,17 @@
 <?php
 
-namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
+namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\Checker\ResultBag;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\ResponseTypeRule;
 
+/**
+ * @covers \SimpleSAML\Module\oidc\Utils\Checker\Rules\ResponseTypeRule
+ */
 class ResponseTypeRuleTest extends TestCase
 {
     protected $requestStub;

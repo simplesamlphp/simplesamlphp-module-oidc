@@ -1,6 +1,6 @@
 <?php
 
-namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
+namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -9,6 +9,9 @@ use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\Checker\ResultBag;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeRule

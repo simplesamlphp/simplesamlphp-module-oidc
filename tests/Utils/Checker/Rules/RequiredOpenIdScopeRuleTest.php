@@ -1,6 +1,6 @@
 <?php
 
-namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
+namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
 use LogicException;
 use PHPUnit\Framework\TestCase;
@@ -9,6 +9,10 @@ use SimpleSAML\Module\oidc\Entity\ScopeEntity;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\Checker\ResultBag;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredOpenIdScopeRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredOpenIdScopeRule

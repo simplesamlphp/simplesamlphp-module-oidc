@@ -1,8 +1,7 @@
 <?php
 
-namespace Tests\SimpleSAML\Module\oidc\Utils\Checker\Rules;
+namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
-use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
@@ -12,6 +11,9 @@ use SimpleSAML\Module\oidc\Utils\Checker\ResultBag;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
 
+/**
+ * @covers \SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule
+ */
 class RequestedClaimsRuleTest extends TestCase
 {
 

@@ -35,4 +35,14 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
     public function isEnabled(): bool;
 
     public function getOwner(): ?string;
+
+    /**
+     * @return string[]
+     */
+    public function getPostLogoutRedirectUri(): array;
+
+    /**
+     * @param string[] $postLogoutRedirectUri
+     */
+    public function setPostLogoutRedirectUri(array $postLogoutRedirectUri): void;
 }

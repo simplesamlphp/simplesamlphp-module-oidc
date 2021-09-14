@@ -191,8 +191,8 @@ class Container implements ContainerInterface
             new AddClaimsToIdTokenRule(),
             new RequiredNonceRule(),
             new ResponseTypeRule(),
-            new IdTokenHintRule($configurationService, $cryptKeyFactory, $clientRepository),
-            new PostLogoutRedirectUriRule(),
+            new IdTokenHintRule($configurationService, $cryptKeyFactory),
+            new PostLogoutRedirectUriRule($clientRepository),
             new UiLocalesRule(),
         ];
         $requestRuleManager = new RequestRulesManager($requestRules);

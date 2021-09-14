@@ -108,9 +108,9 @@ class AuthorizationServer extends OAuth2AuthorizationServer
     public function validateLogoutRequest(ServerRequestInterface $request): LogoutRequest
     {
         $rulesToExecute = [
+            StateRule::class,
             IdTokenHintRule::class,
             PostLogoutRedirectUriRule::class,
-            StateRule::class,
             UiLocalesRule::class,
         ];
 

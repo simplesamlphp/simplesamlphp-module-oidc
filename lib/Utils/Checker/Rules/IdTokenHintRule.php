@@ -21,16 +21,13 @@ class IdTokenHintRule extends AbstractRule
 {
     protected ConfigurationService $configurationService;
     protected CryptKeyFactory $cryptKeyFactory;
-    protected ClientRepository $clientRepository;
 
     public function __construct(
         ConfigurationService $configurationService,
-        CryptKeyFactory $cryptKeyFactory,
-        ClientRepository $clientRepository
+        CryptKeyFactory $cryptKeyFactory
     ) {
         $this->configurationService = $configurationService;
         $this->cryptKeyFactory = $cryptKeyFactory;
-        $this->clientRepository = $clientRepository;
     }
 
     /**
@@ -43,6 +40,9 @@ class IdTokenHintRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = ['GET']
     ): ?ResultInterface {
+        /** @var string|null $state */
+        $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
+
         $idTokenHintParam = $this->getParamFromRequestBasedOnAllowedMethods(
             'id_token_hint',
             $request,
@@ -68,29 +68,16 @@ class IdTokenHintRule extends AbstractRule
             $jwtConfig->validator()->assert(
                 $idTokenHint,
                 new IssuedBy($this->configurationService->getSimpleSAMLSelfURLHost()),
-                // Checking the signature in a key roll-over scenarios will always fail with current setup,
-                // (clients can send 'older' id token signed with 'previous key'), so leaving this out for now...
-                //                new SignedWith(
-                //                    $this->configurationService->getSigner(),
-                //                    InMemory::plainText($publicKey->getKeyContents())
-                //                )
+                // Note: although logout spec does not mention it, validating signature seems like an important check
+                // to make. However, checking the signature in a key roll-over scenario will fail for ID tokens
+                // signed with previous key...
+                new SignedWith(
+                    $this->configurationService->getSigner(),
+                    InMemory::plainText($publicKey->getKeyContents())
+                )
             );
         } catch (\Throwable $exception) {
-            throw OidcServerException::invalidRequest('id_token_hint', $exception->getMessage());
-        }
-
-        $claims = $idTokenHint->claims()->all();
-
-        // Check if client is valid
-        if (! isset($claims['aud'])) {
-            throw OidcServerException::invalidRequest('id_token_hint', 'aud claim not present');
-        }
-        $auds = is_array($claims['aud']) ? $claims['aud'] : [$claims['aud']];
-
-        foreach ($auds as $aud) {
-            if ($this->clientRepository->findById($aud) === null) {
-                throw OidcServerException::invalidRequest('id_token_hint', 'aud claim not valid');
-            }
+            throw OidcServerException::invalidRequest('id_token_hint', $exception->getMessage(), null, null, $state);
         }
 
         return new Result($this->getKey(), $idTokenHint);

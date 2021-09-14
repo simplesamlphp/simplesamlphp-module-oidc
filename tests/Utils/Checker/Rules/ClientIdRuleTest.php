@@ -1,6 +1,6 @@
 <?php
 
-namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
+namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use PHPUnit\Framework\TestCase;
@@ -9,6 +9,7 @@ use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule

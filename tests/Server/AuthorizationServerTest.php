@@ -7,8 +7,8 @@ use PHPUnit\Framework\TestCase;
 
 class AuthorizationServerTest extends TestCase
 {
-
     public function testValidateLogoutRequest()
     {
+        $this->markTestIncomplete();
     }
 }

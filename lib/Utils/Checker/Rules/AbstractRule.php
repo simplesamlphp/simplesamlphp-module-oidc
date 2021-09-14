@@ -39,7 +39,7 @@ abstract class AbstractRule implements RequestRuleInterface
                 if (is_array($parsedBody = $request->getParsedBody())) {
                     return $parsedBody[$paramKey] ?? null;
                 }
-                break;
+                // break; // ... falls through to default
             default:
                 // TODO Log method not supported
         }

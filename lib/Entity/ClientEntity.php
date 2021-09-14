@@ -195,17 +195,11 @@ class ClientEntity implements ClientEntityInterface
         return $this->owner;
     }
 
-    /**
-     * @return string[]
-     */
     public function getPostLogoutRedirectUri(): array
     {
         return $this->postLogoutRedirectUri ?? [];
     }
 
-    /**
-     * @param string[] $postLogoutRedirectUri
-     */
     public function setPostLogoutRedirectUri(array $postLogoutRedirectUri): void
     {
         $this->postLogoutRedirectUri = $postLogoutRedirectUri;
