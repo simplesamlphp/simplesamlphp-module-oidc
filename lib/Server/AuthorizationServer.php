@@ -11,7 +11,7 @@ use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2Authorizatio
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithClientAndRedirectUriInterface;
+use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithCheckerResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
@@ -78,22 +78,16 @@ class AuthorizationServer extends OAuth2AuthorizationServer
 
         // state and redirectUri is used here so we can return HTTP redirect error in case of invalid response_type.
         $state = $resultBag->getOrFail(StateRule::class)->getValue();
-        $client = $resultBag->getOrFail(ClientIdRule::class)->getValue();
         $redirectUri = $resultBag->getOrFail(RedirectUriRule::class)->getValue();
 
         foreach ($this->enabledGrantTypes as $grantType) {
             if ($grantType->canRespondToAuthorizationRequest($request)) {
-                if (! $grantType instanceof AuthorizationValidatableWithClientAndRedirectUriInterface) {
-                    throw OidcServerException::serverError('Grant type must be validatable with already validated ' .
-                                                           'client and redirect_uri');
+                if (! $grantType instanceof AuthorizationValidatableWithCheckerResultBagInterface) {
+                    throw OidcServerException::serverError('grant type must be validatable with already validated ' .
+                                                           'result bag');
                 }
 
-                return $grantType->validateAuthorizationRequestWithClientAndRedirectUri(
-                    $request,
-                    $client,
-                    $redirectUri,
-                    $state
-                );
+                return $grantType->validateAuthorizationRequestWithCheckerResultBag($request, $resultBag);
             }
         }
 

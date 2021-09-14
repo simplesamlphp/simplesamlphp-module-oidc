@@ -25,6 +25,8 @@ class OidcOpenIdProviderMetadataServiceSpec extends ObjectBehavior
         $configurationService->getOpenIdConnectModuleURL('jwks.php')
             ->willReturn('http://localhost/jwks.php');
 
+        $configurationService->getAcrValuesSupported()->willReturn([]);
+
         $this->beConstructedWith($configurationService);
     }
 

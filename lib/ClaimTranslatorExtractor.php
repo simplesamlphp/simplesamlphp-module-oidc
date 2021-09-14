@@ -14,6 +14,7 @@
 
 namespace SimpleSAML\Module\oidc;
 
+use Lcobucci\JWT\Token\RegisteredClaims;
 use OpenIDConnectServer\ClaimExtractor;
 use OpenIDConnectServer\Entities\ClaimSetEntity;
 
@@ -87,6 +88,28 @@ class ClaimTranslatorExtractor extends ClaimExtractor
         'bool:phone_number_verified' => [
             // Empty
         ],
+    ];
+
+    /**
+     * From JSON Web Token Claims registry: https://www.iana.org/assignments/jwt/jwt.xhtml
+     */
+    public const REGISTERED_CLAIMS = [
+        // ...RegisteredClaims::ALL, // TODO consider refactoring to spread operator when upgrading to PHP 7.4
+        RegisteredClaims::ISSUER,
+        RegisteredClaims::SUBJECT,
+        RegisteredClaims::AUDIENCE,
+        RegisteredClaims::EXPIRATION_TIME,
+        RegisteredClaims::NOT_BEFORE,
+        RegisteredClaims::ISSUED_AT,
+        RegisteredClaims::ID,
+        'azp',
+        'nonce',
+        'auth_time',
+        'at_hash',
+        'c_hash',
+        'acr',
+        'amr',
+        'sub_jwk',
     ];
 
     /**
