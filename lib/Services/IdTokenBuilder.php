@@ -49,7 +49,8 @@ class IdTokenBuilder
         bool $addAccessTokenHash,
         ?string $nonce,
         ?int $authTime,
-        ?string $acr
+        ?string $acr,
+        ?string $sessionId
     ) {
         if (false === is_a($userEntity, ClaimSetInterface::class)) {
             throw new \RuntimeException('UserEntity must implement ClaimSetInterface');
@@ -82,6 +83,10 @@ class IdTokenBuilder
 
         if (null !== $acr) {
             $builder->withClaim('acr', $acr);
+        }
+
+        if (null !== $sessionId) {
+            $builder->withClaim('sid', $sessionId);
         }
 
         // Need a claim factory here to reduce the number of claims by provided scope.

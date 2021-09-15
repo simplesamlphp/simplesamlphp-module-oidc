@@ -66,6 +66,7 @@ class OAuth2AuthorizationController
         if ($authorizationRequest instanceof AuthorizationRequest) {
             $authorizationRequest->setIsCookieBasedAuthn($this->authenticationService->isCookieBasedAuthn());
             $authorizationRequest->setAuthSourceId($this->authenticationService->getAuthSourceId());
+            $authorizationRequest->setSessionId($this->authenticationService->getSessionId());
 
             $this->validatePostAuthnAuthorizationRequest($authorizationRequest);
         }

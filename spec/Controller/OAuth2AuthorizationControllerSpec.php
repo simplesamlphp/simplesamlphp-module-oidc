@@ -100,7 +100,7 @@ class OAuth2AuthorizationControllerSpec extends ObjectBehavior
      * @return void
      * @throws OAuthServerException
      */
-    public function it_populates_acr_in_authorization_request(
+    public function it_populates_authn_related_props_in_authorization_request(
         UserEntity $userEntity,
         AuthenticationService $authenticationService,
         AuthorizationServer $authorizationServer,
@@ -111,18 +111,21 @@ class OAuth2AuthorizationControllerSpec extends ObjectBehavior
     ) {
         $authSourceId = 'some-auth-source';
         $acrValues = ['values' => ['1', '0']];
+        $sessionId = 'session123';
 
         $authorizationServer->validateAuthorizationRequest($request)
             ->shouldBeCalled()
             ->willReturn($authorizationRequest);
         $authenticationService->isCookieBasedAuthn()->willReturn(false);
         $authenticationService->getAuthSourceId()->willReturn($authSourceId);
+        $authenticationService->getSessionId()->willReturn($sessionId);
         $authenticationService->getAuthenticateUser($request)
             ->shouldBeCalled()
             ->willReturn($userEntity);
 
         $authorizationRequest->setIsCookieBasedAuthn(false);
         $authorizationRequest->setAuthSourceId($authSourceId);
+        $authorizationRequest->setSessionId($sessionId);
         $authorizationRequest->setUser($userEntity)
             ->shouldBeCalled();
         $authorizationRequest->setAuthorizationApproved(true)

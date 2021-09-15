@@ -24,6 +24,7 @@ use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AcrResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\SessionIdResponseTypeInterface;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 
@@ -38,7 +39,8 @@ use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 class IdTokenResponse extends BearerTokenResponse implements
     NonceResponseTypeInterface,
     AuthTimeResponseTypeInterface,
-    AcrResponseTypeInterface
+    AcrResponseTypeInterface,
+    SessionIdResponseTypeInterface
 {
     /**
      * @var IdentityProviderInterface
@@ -68,6 +70,11 @@ class IdTokenResponse extends BearerTokenResponse implements
      * @var string|null
      */
     protected $acr;
+
+    /**
+     * @var string|null
+     */
+    protected $sessionId;
 
     public function __construct(
         IdentityProviderInterface $identityProvider,
@@ -107,7 +114,8 @@ class IdTokenResponse extends BearerTokenResponse implements
             true,
             $this->getNonce(),
             $this->getAuthTime(),
-            $this->getAcr()
+            $this->getAcr(),
+            $this->getSessionId()
         );
 
         return [
@@ -172,5 +180,15 @@ class IdTokenResponse extends BearerTokenResponse implements
     public function getAcr(): ?string
     {
         return $this->acr;
+    }
+
+    public function getSessionId(): ?string
+    {
+        return $this->sessionId;
+    }
+
+    public function setSessionId(?string $sessionId): void
+    {
+        $this->sessionId = $sessionId;
     }
 }

@@ -36,7 +36,7 @@ class LogoutController
         //          See: \SimpleSAML\Session::registerLogoutHandler, modules/memcookie/www/auth.php:87
         //          $session = \SimpleSAML\Session::getSessionFromRequest();
         //          $session->registerLogoutHandler($sourceId, 'class', 'method');
-        //      [] implement 'sid' claim in ID Token during authn.
+        //      [x] implement 'sid' claim in ID Token during authn.
         //      [] note sid support in discovery
         //      [] store OP -> RP associations, probably using Session
         //      [x] add end_session_endpoint to discovery

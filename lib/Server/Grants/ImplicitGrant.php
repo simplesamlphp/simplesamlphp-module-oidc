@@ -10,7 +10,6 @@ use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -19,10 +18,8 @@ use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
-use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\AcrValuesRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
@@ -199,7 +196,8 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             $addAccessTokenHashToIdToken,
             $authorizationRequest->getNonce(),
             $authorizationRequest->getAuthTime(),
-            $authorizationRequest->getAcr()
+            $authorizationRequest->getAcr(),
+            $authorizationRequest->getSessionId()
         );
 
         $responseParams['id_token'] = $idToken->toString();

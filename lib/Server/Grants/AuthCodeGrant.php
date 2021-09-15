@@ -36,6 +36,7 @@ use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AcrResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\SessionIdResponseTypeInterface;
 use SimpleSAML\Module\oidc\Utils\Arr;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
@@ -210,6 +211,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             'auth_time'             => $authorizationRequest->getAuthTime(),
             'claims'                => $authorizationRequest->getClaims(),
             'acr'                   => $authorizationRequest->getAcr(),
+            'session_id'            => $authorizationRequest->getSessionId(),
         ];
 
         $jsonPayload = \json_encode($payload);
@@ -429,6 +431,14 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $authCodePayload->acr !== null
         ) {
             $responseType->setAcr($authCodePayload->acr);
+        }
+
+        if (
+            $responseType instanceof SessionIdResponseTypeInterface &&
+            \property_exists($authCodePayload, 'session_id') &&
+            $authCodePayload->session_id !== null
+        ) {
+            $responseType->setSessionId($authCodePayload->session_id);
         }
 
         // Issue and persist new refresh token if given

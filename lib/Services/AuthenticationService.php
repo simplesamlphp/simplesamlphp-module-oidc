@@ -172,4 +172,9 @@ class AuthenticationService
     {
         return $this->authSourceId;
     }
+
+    public function getSessionId(): ?string
+    {
+        return $this->session->getSessionId();
+    }
 }

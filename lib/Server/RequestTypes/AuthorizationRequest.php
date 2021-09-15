@@ -56,6 +56,12 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
      */
     protected $acr;
 
+    /**
+     * Current Session ID
+     * @var string|null
+     */
+    protected $sessionId;
+
     public static function fromOAuth2AuthorizationRequest(
         OAuth2AuthorizationRequest $oAuth2authorizationRequest
     ): AuthorizationRequest {
@@ -208,5 +214,21 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     public function setAcr(?string $acr): void
     {
         $this->acr = $acr;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function getSessionId(): ?string
+    {
+        return $this->sessionId;
+    }
+
+    /**
+     * @param string|null $sessionId
+     */
+    public function setSessionId(?string $sessionId): void
+    {
+        $this->sessionId = $sessionId;
     }
 }
