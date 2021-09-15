@@ -57,7 +57,20 @@ class LogoutController
         //              [wnd] preferred language for user UI, for example to ask user to allow logout
 
         // [] implement Back-Channel Logout: https://openid.net/specs/openid-connect-backchannel-1_0.html
-        //      []
+        //      [] create Logout Token builder
+        //          [] implement claims as per https://openid.net/specs/openid-connect-backchannel-1_0.html#LogoutToken
+        //      [] indicate BCL using backchannel_logout_supported property in discovery
+        //      [] indicate sid support in Logout Token using backchannel_logout_session_supported property in discovery
+        //      [] enable clients to register backchannel_logout_uri (https but http allowed if confidential)
+        //          MAY contain port, path, and query parameter components, but no fragment.
+        //      [wnd] enable clients to register backchannel_logout_session_required property
+        //          - wnd since we will support sid
+        //      [] send logout requests with logout token, in parallel, to every associated RP
+        //          [] use POST method, with logout_token as body parameter
+        //          [] check if RP responded with 200 OK, consider logging if other
+        //                 https://openid.net/specs/openid-connect-backchannel-1_0.html#BCResponse
+        //      [] Refresh tokens issued without the offline_access property to a session being logged out SHOULD
+        //           be revoked. Refresh tokens issued with the offline_access property normally SHOULD NOT be revoked.
 
         // [] consider implementing Front-Channel Logout: https://openid.net/specs/openid-connect-frontchannel-1_0.html
         //      (FCL has challenges with User Agents Blocking Access to Third-Party Content:
