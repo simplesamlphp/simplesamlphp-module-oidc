@@ -63,6 +63,8 @@ class AuthenticationService
 
     public const SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN = 'is-cookie-based-authn';
 
+    public const SESSION_DATA_ID_RP_ASSOCIATIONS = 'rp-associations';
+
     /**
      * ID of authsource used during authn.
      * @var string|null
@@ -106,11 +108,18 @@ class AuthenticationService
         ) ?? false;
 
         if ($authSimple->isAuthenticated()) {
-            $this->session->setData(self::SESSION_DATA_TYPE, self::SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN, true);
+            $this->session->setData(
+                self::SESSION_DATA_TYPE,
+                self::SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN,
+                true,
+                Session::DATA_TIMEOUT_SESSION_END
+            );
         } else {
             $this->session->setData(self::SESSION_DATA_TYPE, self::SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN, false);
             $authSimple->login();
         }
+
+        $this->markRpAssociation($oidcClient);
 
         $state = $this->prepareStateArray($authSimple, $oidcClient, $request);
         $state = $this->authProcService->processState($state);
@@ -176,5 +185,26 @@ class AuthenticationService
     public function getSessionId(): ?string
     {
         return $this->session->getSessionId();
+    }
+
+    protected function markRpAssociation(ClientEntityInterface $oidcClient): void
+    {
+        $associations = $this->getRpAssociations();
+
+        if (! in_array($oidcClient->getIdentifier(), $associations)) {
+            $associations[] = $oidcClient->getIdentifier();
+        }
+
+        $this->session->setData(
+            self::SESSION_DATA_TYPE,
+            self::SESSION_DATA_ID_RP_ASSOCIATIONS,
+            $associations,
+            Session::DATA_TIMEOUT_SESSION_END
+        );
+    }
+
+    public function getRpAssociations(): array
+    {
+        return $this->session->getData(self::SESSION_DATA_TYPE, self::SESSION_DATA_ID_RP_ASSOCIATIONS) ?? [];
     }
 }

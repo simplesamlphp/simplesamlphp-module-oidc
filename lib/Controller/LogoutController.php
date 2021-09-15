@@ -32,13 +32,12 @@ class LogoutController
     {
         // TODO mivanci logout
         // [] RP-Initiated Logout: https://openid.net/specs/openid-connect-rpinitiated-1_0.html
-        //      [] register logout handler during authn. Wait for acr_values branch merge, it introduces authsourceid
+        //      [] register logout handler during authn.
         //          See: \SimpleSAML\Session::registerLogoutHandler, modules/memcookie/www/auth.php:87
         //          $session = \SimpleSAML\Session::getSessionFromRequest();
         //          $session->registerLogoutHandler($sourceId, 'class', 'method');
         //      [x] implement 'sid' claim in ID Token during authn.
-        //      [] note sid support in discovery
-        //      [] store OP -> RP associations, probably using Session
+        //      [x] store OP -> RP associations, probably using Session
         //      [x] add end_session_endpoint to discovery
         //      [] RP logout request, must support GET and POST:
         //          [] id_token_hint - optional, recommended
@@ -47,7 +46,7 @@ class LogoutController
         //              [] check that sid is current or recently existed
         //          [] post_logout_redirect_uri - optional
         //              [wnd] must be https for public clients, optionally http for confidential
-        //                  - left the same as redirect_uri
+        //                  - left the same validation regex as redirect_uri
         //              [x] enable registration in client management UI
         //              [x] only allow registered redirect, must be supplied together with id_token_hint
         //              [] redirect to RP after logout

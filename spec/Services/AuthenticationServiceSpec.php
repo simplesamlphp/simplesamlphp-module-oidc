@@ -117,11 +117,13 @@ class AuthenticationServiceSpec extends ObjectBehavior
         ServerRequest $request,
         Simple $simple,
         UserRepository $userRepository,
-        Source $source
+        Source $source,
+        ClientEntity $clientEntity
     ): void {
         $simple->isAuthenticated()->shouldBeCalled()->willReturn(false);
         $simple->login()->shouldBeCalled();
         $simple->getAuthSource()->shouldBeCalled()->willReturn($source);
+        $clientEntity->getIdentifier()->shouldBeCalled();
 
         $userRepository->getUserEntityByIdentifier(self::USERNAME)->shouldBeCalled()->willReturn(null);
         $userRepository->add(Argument::type(UserEntity::class))->shouldBeCalled();
@@ -143,11 +145,13 @@ class AuthenticationServiceSpec extends ObjectBehavior
         Simple $simple,
         UserRepository $userRepository,
         UserEntity $userEntity,
-        Source $source
+        Source $source,
+        ClientEntity $clientEntity
     ): void {
         $simple->isAuthenticated()->shouldBeCalled()->willReturn(false);
         $simple->login()->shouldBeCalled();
         $simple->getAuthSource()->shouldBeCalled()->willReturn($source);
+        $clientEntity->getIdentifier()->shouldBeCalled();
 
         $userRepository->getUserEntityByIdentifier(self::USERNAME)->shouldBeCalled()->willReturn($userEntity);
         $userEntity->setClaims(self::USER_ENTITY_ATTRIBUTES)->shouldBeCalled();
@@ -159,11 +163,13 @@ class AuthenticationServiceSpec extends ObjectBehavior
         ServerRequest $request,
         AuthProcService $authProcService,
         Simple $simple,
-        Source $source
+        Source $source,
+        ClientEntity $clientEntity
     ): void {
         $simple->isAuthenticated()->shouldBeCalled()->willReturn(false);
         $simple->login()->shouldBeCalled();
         $simple->getAuthSource()->shouldBeCalled()->willReturn($source);
+        $clientEntity->getIdentifier()->shouldBeCalled();
 
         $invalidState = self::STATE;
         unset($invalidState['Attributes'][self::USER_ID_ATTR]);
