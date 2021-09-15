@@ -69,7 +69,7 @@ class AuthSimpleFactory
         return $client->getAuthSource() ?? $this->getDefaultAuthSourceName();
     }
 
-    private function getDefaultAuthSourceName(): string
+    public function getDefaultAuthSourceName(): string
     {
         return $this->configurationService->getOpenIDConnectConfiguration()->getString('auth');
     }

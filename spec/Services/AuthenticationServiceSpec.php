@@ -123,7 +123,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
         $simple->isAuthenticated()->shouldBeCalled()->willReturn(false);
         $simple->login()->shouldBeCalled();
         $simple->getAuthSource()->shouldBeCalled()->willReturn($source);
-        $clientEntity->getIdentifier()->shouldBeCalled();
+        $clientEntity->getIdentifier()->shouldBeCalled()->willReturn('client123');
 
         $userRepository->getUserEntityByIdentifier(self::USERNAME)->shouldBeCalled()->willReturn(null);
         $userRepository->add(Argument::type(UserEntity::class))->shouldBeCalled();
@@ -151,7 +151,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
         $simple->isAuthenticated()->shouldBeCalled()->willReturn(false);
         $simple->login()->shouldBeCalled();
         $simple->getAuthSource()->shouldBeCalled()->willReturn($source);
-        $clientEntity->getIdentifier()->shouldBeCalled();
+        $clientEntity->getIdentifier()->shouldBeCalled()->willReturn('client123');
 
         $userRepository->getUserEntityByIdentifier(self::USERNAME)->shouldBeCalled()->willReturn($userEntity);
         $userEntity->setClaims(self::USER_ENTITY_ATTRIBUTES)->shouldBeCalled();
@@ -169,7 +169,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
         $simple->isAuthenticated()->shouldBeCalled()->willReturn(false);
         $simple->login()->shouldBeCalled();
         $simple->getAuthSource()->shouldBeCalled()->willReturn($source);
-        $clientEntity->getIdentifier()->shouldBeCalled();
+        $clientEntity->getIdentifier()->shouldBeCalled()->willReturn('client123');
 
         $invalidState = self::STATE;
         unset($invalidState['Attributes'][self::USER_ID_ATTR]);

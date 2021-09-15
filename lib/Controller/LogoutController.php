@@ -7,6 +7,7 @@ use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use Laminas\Diactoros\Response;
 use Laminas\Diactoros\ServerRequest;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
+use SimpleSAML\Session;
 
 class LogoutController
 {
@@ -77,6 +78,45 @@ class LogoutController
 
 
         $logoutRequest = $this->authorizationServer->validateLogoutRequest($request);
-        return new Response(); // ...to satisfy return type, adjust when logout handler is implemented.
+
+        // Check if RP is requesting logout for session that previously existed (not this current session).
+        $sidClaim = null;
+        $idTokenHint = $logoutRequest->getIdTokenHint();
+        if ($idTokenHint !== null) {
+            $sidClaim = $idTokenHint->claims()->get('sid');
+        }
+
+        if (
+            $sidClaim !== null &&
+            ($previousSession = Session::getSession($sidClaim)) !== null
+        ) {
+            $previousRpAssociations = $previousSession->getData(
+                $this->authenticationService::SESSION_DATA_TYPE,
+                $this->authenticationService::SESSION_DATA_ID_RP_ASSOCIATIONS
+            ) ?? [];
+
+            foreach ($previousRpAssociations as $clientId) {
+                $this->authenticationService->markRpAssociation($clientId);
+            }
+        }
+
+        $this->authenticationService->logout();
+
+        $postLogoutRedirectUri = $logoutRequest->getPostLogoutRedirectUri();
+        if ($postLogoutRedirectUri !== null) {
+            return new Response\RedirectResponse($postLogoutRedirectUri);
+        }
+
+        return new Response();
+    }
+
+    /**
+     * Logout handler function registered using Session::registerLogoutHandler() during authn.
+     */
+    public static function logoutHandler(): void
+    {
+        $session = Session::getSessionFromRequest();
+
+        // TODO send BCL requests to associated RPs
     }
 }

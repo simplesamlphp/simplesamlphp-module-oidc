@@ -17,6 +17,7 @@ namespace SimpleSAML\Module\oidc\Services;
 use Laminas\Diactoros\ServerRequest;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Error\Exception;
+use SimpleSAML\Module\oidc\Controller\LogoutController;
 use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
@@ -119,7 +120,13 @@ class AuthenticationService
             $authSimple->login();
         }
 
-        $this->markRpAssociation($oidcClient);
+        $this->markRpAssociation($oidcClient->getIdentifier());
+
+        $this->session->registerLogoutHandler(
+            $this->authSourceId,
+            LogoutController::class,
+            'logoutHandler'
+        );
 
         $state = $this->prepareStateArray($authSimple, $oidcClient, $request);
         $state = $this->authProcService->processState($state);
@@ -187,12 +194,12 @@ class AuthenticationService
         return $this->session->getSessionId();
     }
 
-    protected function markRpAssociation(ClientEntityInterface $oidcClient): void
+    public function markRpAssociation(string $clientId): void
     {
         $associations = $this->getRpAssociations();
 
-        if (! in_array($oidcClient->getIdentifier(), $associations)) {
-            $associations[] = $oidcClient->getIdentifier();
+        if (! in_array($clientId, $associations)) {
+            $associations[] = $clientId;
         }
 
         $this->session->setData(
@@ -206,5 +213,10 @@ class AuthenticationService
     public function getRpAssociations(): array
     {
         return $this->session->getData(self::SESSION_DATA_TYPE, self::SESSION_DATA_ID_RP_ASSOCIATIONS) ?? [];
+    }
+
+    public function logout(): void
+    {
+        // TODO
     }
 }
