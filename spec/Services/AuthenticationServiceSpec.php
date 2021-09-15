@@ -18,6 +18,7 @@ use Laminas\Diactoros\ServerRequest;
 use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
 use SimpleSAML\Auth\Simple;
+use SimpleSAML\Auth\Source;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
@@ -28,6 +29,7 @@ use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\AuthProcService;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\OidcOpenIdProviderMetadataService;
+use SimpleSAML\Session;
 
 class AuthenticationServiceSpec extends ObjectBehavior
 {
@@ -71,7 +73,8 @@ class AuthenticationServiceSpec extends ObjectBehavior
         AuthProcService $authProcService,
         ClientRepository $clientRepository,
         ConfigurationService $configurationService,
-        OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService
+        OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService,
+        Session $session
     ): void {
         $request->getQueryParams()->willReturn(self::AUTHZ_REQUEST_PARAMS);
         $clientEntity->getAuthSource()->willReturn(self::AUTH_SOURCE);
@@ -90,6 +93,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
             $authProcService,
             $clientRepository,
             $oidcOpenIdProviderMetadataService,
+            $session,
             self::USER_ID_ATTR
         );
     }
@@ -112,9 +116,12 @@ class AuthenticationServiceSpec extends ObjectBehavior
     public function it_creates_new_user(
         ServerRequest $request,
         Simple $simple,
-        UserRepository $userRepository
+        UserRepository $userRepository,
+        Source $source
     ): void {
-        $simple->requireAuth()->shouldBeCalled();
+        $simple->isAuthenticated()->shouldBeCalled()->willReturn(false);
+        $simple->login()->shouldBeCalled();
+        $simple->getAuthSource()->shouldBeCalled()->willReturn($source);
 
         $userRepository->getUserEntityByIdentifier(self::USERNAME)->shouldBeCalled()->willReturn(null);
         $userRepository->add(Argument::type(UserEntity::class))->shouldBeCalled();
@@ -135,9 +142,12 @@ class AuthenticationServiceSpec extends ObjectBehavior
         ServerRequest $request,
         Simple $simple,
         UserRepository $userRepository,
-        UserEntity $userEntity
+        UserEntity $userEntity,
+        Source $source
     ): void {
-        $simple->requireAuth()->shouldBeCalled();
+        $simple->isAuthenticated()->shouldBeCalled()->willReturn(false);
+        $simple->login()->shouldBeCalled();
+        $simple->getAuthSource()->shouldBeCalled()->willReturn($source);
 
         $userRepository->getUserEntityByIdentifier(self::USERNAME)->shouldBeCalled()->willReturn($userEntity);
         $userEntity->setClaims(self::USER_ENTITY_ATTRIBUTES)->shouldBeCalled();
@@ -148,9 +158,12 @@ class AuthenticationServiceSpec extends ObjectBehavior
     public function it_throws_exception_if_claims_not_exists(
         ServerRequest $request,
         AuthProcService $authProcService,
-        Simple $simple
+        Simple $simple,
+        Source $source
     ): void {
-        $simple->requireAuth()->shouldBeCalled();
+        $simple->isAuthenticated()->shouldBeCalled()->willReturn(false);
+        $simple->login()->shouldBeCalled();
+        $simple->getAuthSource()->shouldBeCalled()->willReturn($source);
 
         $invalidState = self::STATE;
         unset($invalidState['Attributes'][self::USER_ID_ATTR]);

@@ -23,6 +23,7 @@ use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Session;
 
 class AuthenticationService
 {
@@ -49,12 +50,32 @@ class AuthenticationService
      */
     private $oidcOpenIdProviderMetadataService;
 
+    /**
+     * @var bool
+     */
+    private $isCookieBasedAuthn = false;
+    /**
+     * @var Session
+     */
+    private $session;
+
+    public const SESSION_DATA_TYPE = 'oidc-authn';
+
+    public const SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN = 'is-cookie-based-authn';
+
+    /**
+     * ID of authsource used during authn.
+     * @var string|null
+     */
+    private $authSourceId;
+
     public function __construct(
         UserRepository $userRepository,
         AuthSimpleFactory $authSimpleFactory,
         AuthProcService $authProcService,
         ClientRepository $clientRepository,
         OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService,
+        Session $session,
         string $userIdAttr
     ) {
         $this->userRepository = $userRepository;
@@ -62,6 +83,7 @@ class AuthenticationService
         $this->authProcService = $authProcService;
         $this->clientRepository = $clientRepository;
         $this->oidcOpenIdProviderMetadataService = $oidcOpenIdProviderMetadataService;
+        $this->session = $session;
         $this->userIdAttr = $userIdAttr;
     }
 
@@ -75,7 +97,20 @@ class AuthenticationService
         $oidcClient = $this->getClientFromRequest($request);
         $authSimple = $this->authSimpleFactory->build($request);
 
-        $authSimple->requireAuth();
+        $this->authSourceId = $authSimple->getAuthSource()->getAuthId();
+
+        // Distinguish if the user already had active session or the actual authn was performed.
+        $this->isCookieBasedAuthn = $this->session->getData(
+            self::SESSION_DATA_TYPE,
+            self::SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN
+        ) ?? false;
+
+        if ($authSimple->isAuthenticated()) {
+            $this->session->setData(self::SESSION_DATA_TYPE, self::SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN, true);
+        } else {
+            $this->session->setData(self::SESSION_DATA_TYPE, self::SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN, false);
+            $authSimple->login();
+        }
 
         $state = $this->prepareStateArray($authSimple, $oidcClient, $request);
         $state = $this->authProcService->processState($state);
@@ -126,5 +161,15 @@ class AuthenticationService
         $state['Destination'] = ['entityid' => $state['Oidc']['RelyingPartyMetadata']['id']];
 
         return $state;
+    }
+
+    public function isCookieBasedAuthn(): ?bool
+    {
+        return $this->isCookieBasedAuthn;
+    }
+
+    public function getAuthSourceId(): ?string
+    {
+        return $this->authSourceId;
     }
 }

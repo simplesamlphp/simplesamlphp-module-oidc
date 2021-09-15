@@ -27,6 +27,8 @@ class OidcOpenIdProviderMetadataServiceSpec extends ObjectBehavior
         $configurationService->getOpenIdConnectModuleURL('logout.php')
             ->willReturn('http://localhost/logout.php');
 
+        $configurationService->getAcrValuesSupported()->willReturn([]);
+
         $this->beConstructedWith($configurationService);
     }
 

@@ -21,6 +21,7 @@ use League\OAuth2\Server\ResponseTypes\BearerTokenResponse;
 use OpenIDConnectServer\Repositories\IdentityProviderInterface;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AcrResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
@@ -34,7 +35,10 @@ use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
  *
  * @see https://github.com/steverhoades/oauth2-openid-connect-server/blob/master/src/IdTokenResponse.php
  */
-class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeInterface, AuthTimeResponseTypeInterface
+class IdTokenResponse extends BearerTokenResponse implements
+    NonceResponseTypeInterface,
+    AuthTimeResponseTypeInterface,
+    AcrResponseTypeInterface
 {
     /**
      * @var IdentityProviderInterface
@@ -59,6 +63,11 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
      * @var int|null
      */
     protected $authTime;
+
+    /**
+     * @var string|null
+     */
+    protected $acr;
 
     public function __construct(
         IdentityProviderInterface $identityProvider,
@@ -97,7 +106,8 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
             $addClaimsFromScopes,
             true,
             $this->getNonce(),
-            $this->getAuthTime()
+            $this->getAuthTime(),
+            $this->getAcr()
         );
 
         return [
@@ -152,5 +162,15 @@ class IdTokenResponse extends BearerTokenResponse implements NonceResponseTypeIn
     public function getAuthTime(): ?int
     {
         return $this->authTime;
+    }
+
+    public function setAcr(?string $acr): void
+    {
+        $this->acr = $acr;
+    }
+
+    public function getAcr(): ?string
+    {
+        return $this->acr;
     }
 }

@@ -5,6 +5,7 @@ namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use OpenIDConnectServer\ClaimExtractor;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
@@ -46,6 +47,8 @@ class RequestedClaimsRule extends AbstractRule
                 $authorizedClaims = array_merge($authorizedClaims, $claimSet->getClaims());
             }
         }
+        $authorizedClaims = array_merge($authorizedClaims, ClaimTranslatorExtractor::REGISTERED_CLAIMS);
+
         // Remove requested claims that we aren't authorized for.
         $this->filterUnauthorizedClaims($claims, 'userinfo', $authorizedClaims);
         $this->filterUnauthorizedClaims($claims, 'id_token', $authorizedClaims);

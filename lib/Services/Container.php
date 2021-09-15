@@ -52,6 +52,7 @@ use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\AcrValuesRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeMethodRule;
@@ -154,6 +155,7 @@ class Container implements ContainerInterface
             $authProcService,
             $clientRepository,
             $oidcOpenIdProviderMetadataService,
+            $session,
             $oidcModuleConfiguration->getString('useridattr', 'uid')
         );
         $this->services[AuthenticationService::class] = $authenticationService;
@@ -194,6 +196,7 @@ class Container implements ContainerInterface
             new IdTokenHintRule($configurationService, $cryptKeyFactory),
             new PostLogoutRedirectUriRule($clientRepository),
             new UiLocalesRule(),
+            new AcrValuesRule(),
         ];
         $requestRuleManager = new RequestRulesManager($requestRules);
         $this->services[RequestRulesManager::class] = $requestRuleManager;
