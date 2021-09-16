@@ -65,6 +65,8 @@ conformance-suite/scripts/run-test-plan.py \
 
 # Implicit profile
 conformance-suite/scripts/run-test-plan.py \
+  --expected-failures-file ${OIDC_MODULE_FOLDER}/conformance-tests/implicit-warnings.json \
+  --expected-skips-file ${OIDC_MODULE_FOLDER}/conformance-tests/implicit-skips.json \
   "oidcc-implicit-certification-test-plan[server_metadata=discovery][client_registration=static_client]" \
   ${OIDC_MODULE_FOLDER}/conformance-tests/conformance-implicit-ci.json
 ```
