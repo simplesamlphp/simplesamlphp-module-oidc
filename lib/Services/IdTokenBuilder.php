@@ -48,7 +48,8 @@ class IdTokenBuilder
         bool $addClaimsFromScopes,
         bool $addAccessTokenHash,
         ?string $nonce,
-        ?int $authTime
+        ?int $authTime,
+        ?string $acr
     ) {
         if (false === is_a($userEntity, ClaimSetInterface::class)) {
             throw new \RuntimeException('UserEntity must implement ClaimSetInterface');
@@ -77,6 +78,10 @@ class IdTokenBuilder
                 'at_hash',
                 $this->generateAccessTokenHash($accessToken, $jwtConfig->signer()->algorithmId())
             );
+        }
+
+        if (null !== $acr) {
+            $builder->withClaim('acr', $acr);
         }
 
         // Need a claim factory here to reduce the number of claims by provided scope.

@@ -33,6 +33,29 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
      */
     protected $responseType;
 
+    /**
+     * @var bool|null
+     */
+    protected $isCookieBasedAuthn;
+
+    /**
+     * ID of the AuthSource used during authn.
+     * @var string|null
+     */
+    protected $authSourceId;
+
+    /**
+     * ACR values requested during authorization request.
+     * @var array|null
+     */
+    protected $requestedAcrValues;
+
+    /**
+     * ACR used during authn.
+     * @var string|null
+     */
+    protected $acr;
+
     public static function fromOAuth2AuthorizationRequest(
         OAuth2AuthorizationRequest $oAuth2authorizationRequest
     ): AuthorizationRequest {
@@ -145,5 +168,45 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
         }
 
         return false;
+    }
+
+    public function setIsCookieBasedAuthn(?bool $isCookieBasedAuthn): void
+    {
+        $this->isCookieBasedAuthn = $isCookieBasedAuthn;
+    }
+
+    public function getIsCookieBasedAuthn(): ?bool
+    {
+        return $this->isCookieBasedAuthn;
+    }
+
+    public function setAuthSourceId(?string $authSourceId): void
+    {
+        $this->authSourceId = $authSourceId;
+    }
+
+    public function getAuthSourceId(): ?string
+    {
+        return $this->authSourceId;
+    }
+
+    public function getRequestedAcrValues(): ?array
+    {
+        return $this->requestedAcrValues;
+    }
+
+    public function setRequestedAcrValues(?array $requestedAcrValues): void
+    {
+        $this->requestedAcrValues = $requestedAcrValues;
+    }
+
+    public function getAcr(): ?string
+    {
+        return $this->acr;
+    }
+
+    public function setAcr(?string $acr): void
+    {
+        $this->acr = $acr;
     }
 }

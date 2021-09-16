@@ -17,8 +17,10 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
+use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\AcrValuesRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\MaxAgeRule;
@@ -82,14 +84,12 @@ class ImplicitGrant extends OAuth2ImplicitGrant
      * @throws \Throwable
      * @throws OidcServerException
      */
-    public function validateAuthorizationRequestWithClientAndRedirectUri(
+    public function validateAuthorizationRequestWithCheckerResultBag(
         ServerRequestInterface $request,
-        ClientEntityInterface $client,
-        string $redirectUri,
-        string $state = null
+        ResultBagInterface $resultBag
     ): OAuth2AuthorizationRequest {
         $oAuth2AuthorizationRequest =
-            parent::validateAuthorizationRequestWithClientAndRedirectUri($request, $client, $redirectUri, $state);
+            parent::validateAuthorizationRequestWithCheckerResultBag($request, $resultBag);
 
         $rulesToExecute = [
             RequestParameterRule::class,
@@ -99,10 +99,11 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             ResponseTypeRule::class,
             AddClaimsToIdTokenRule::class,
             RequiredNonceRule::class,
-            RequestedClaimsRule::class
+            RequestedClaimsRule::class,
+            AcrValuesRule::class
         ];
 
-        $this->requestRulesManager->predefineResult(new Result(ClientIdRule::class, $client));
+        $this->requestRulesManager->predefineResultBag($resultBag);
 
         $resultBag = $this->requestRulesManager->check($request, $rulesToExecute, $this->shouldUseFragment());
 
@@ -126,6 +127,10 @@ class ImplicitGrant extends OAuth2ImplicitGrant
         /** @var string $responseType */
         $responseType = ($resultBag->getOrFail(ResponseTypeRule::class))->getValue();
         $authorizationRequest->setResponseType($responseType);
+
+        /** @var array|null $acrValues */
+        $acrValues = $resultBag->getOrFail(AcrValuesRule::class)->getValue();
+        $authorizationRequest->setRequestedAcrValues($acrValues);
 
         return $authorizationRequest;
     }
@@ -193,7 +198,8 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             $authorizationRequest->getAddClaimsToIdToken(),
             $addAccessTokenHashToIdToken,
             $authorizationRequest->getNonce(),
-            $authorizationRequest->getAuthTime()
+            $authorizationRequest->getAuthTime(),
+            $authorizationRequest->getAcr()
         );
 
         $responseParams['id_token'] = $idToken->toString();
