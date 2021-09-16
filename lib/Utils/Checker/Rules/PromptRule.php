@@ -4,6 +4,7 @@ namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
@@ -36,7 +37,10 @@ class PromptRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = ['GET']
     ): ?ResultInterface {
-        $authSimple = $this->authSimpleFactory->build($request);
+        /** @var ClientEntityInterface $client */
+        $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
+
+        $authSimple = $this->authSimpleFactory->build($client);
 
         $queryParams = $request->getQueryParams();
         if (!array_key_exists('prompt', $queryParams)) {

@@ -3,7 +3,9 @@
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
@@ -23,8 +25,10 @@ class MaxAgeRule extends AbstractRule
      */
     private $session;
 
-    public function __construct(AuthSimpleFactory $authSimpleFactory, Session $session)
-    {
+    public function __construct(
+        AuthSimpleFactory $authSimpleFactory,
+        Session $session
+    ) {
         $this->authSimpleFactory = $authSimpleFactory;
         $this->session = $session;
     }
@@ -37,7 +41,11 @@ class MaxAgeRule extends AbstractRule
         array $allowedServerRequestMethods = ['GET']
     ): ?ResultInterface {
         $queryParams = $request->getQueryParams();
-        $authSimple = $this->authSimpleFactory->build($request);
+
+        /** @var ClientEntityInterface $client */
+        $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
+
+        $authSimple = $this->authSimpleFactory->build($client);
 
         if (!array_key_exists('max_age', $queryParams) || !$authSimple->isAuthenticated()) {
             $this->session->setData('oidc', self::MAX_AGE_REAUTHENTICATE, false);

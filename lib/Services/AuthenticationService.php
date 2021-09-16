@@ -24,7 +24,6 @@ use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
-use SimpleSAML\Session;
 
 class AuthenticationService
 {
@@ -52,19 +51,9 @@ class AuthenticationService
     private $oidcOpenIdProviderMetadataService;
 
     /**
-     * @var bool
+     * @var SessionService
      */
-    private $isCookieBasedAuthn = false;
-    /**
-     * @var Session
-     */
-    private $session;
-
-    public const SESSION_DATA_TYPE = 'oidc-authn';
-
-    public const SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN = 'is-cookie-based-authn';
-
-    public const SESSION_DATA_ID_RP_ASSOCIATIONS = 'rp-associations';
+    private $sessionService;
 
     /**
      * ID of authsource used during authn.
@@ -78,7 +67,7 @@ class AuthenticationService
         AuthProcService $authProcService,
         ClientRepository $clientRepository,
         OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService,
-        Session $session,
+        SessionService $sessionService,
         string $userIdAttr
     ) {
         $this->userRepository = $userRepository;
@@ -86,7 +75,7 @@ class AuthenticationService
         $this->authProcService = $authProcService;
         $this->clientRepository = $clientRepository;
         $this->oidcOpenIdProviderMetadataService = $oidcOpenIdProviderMetadataService;
-        $this->session = $session;
+        $this->sessionService = $sessionService;
         $this->userIdAttr = $userIdAttr;
     }
 
@@ -98,35 +87,29 @@ class AuthenticationService
     public function getAuthenticateUser(ServerRequest $request): UserEntity
     {
         $oidcClient = $this->getClientFromRequest($request);
-        $authSimple = $this->authSimpleFactory->build($request);
+        $authSimple = $this->authSimpleFactory->build($oidcClient);
 
         $this->authSourceId = $authSimple->getAuthSource()->getAuthId();
 
-        // Distinguish if the user already had active session or the actual authn was performed.
-        $this->isCookieBasedAuthn = $this->session->getData(
-            self::SESSION_DATA_TYPE,
-            self::SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN
-        ) ?? false;
-
         if ($authSimple->isAuthenticated()) {
-            $this->session->setData(
-                self::SESSION_DATA_TYPE,
-                self::SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN,
-                true,
-                Session::DATA_TIMEOUT_SESSION_END
-            );
+            if ($this->sessionService->getIsAuthnPerformedInPreviousRequest()) {
+                $this->sessionService->setIsAuthnPerformedInPreviousRequest(false);
+            } else {
+                $this->sessionService->setIsCookieBasedAuthn(true);
+            }
         } else {
-            $this->session->setData(self::SESSION_DATA_TYPE, self::SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN, false);
+            $this->sessionService->setIsCookieBasedAuthn(false);
+            $this->sessionService->setIsAuthnPerformedInPreviousRequest(true);
             $authSimple->login();
+
+            $this->sessionService->getSession()->registerLogoutHandler(
+                $this->authSourceId,
+                LogoutController::class,
+                'logoutHandler'
+            );
         }
 
-        $this->markRpAssociation($oidcClient->getIdentifier());
-
-        $this->session->registerLogoutHandler(
-            $this->authSourceId,
-            LogoutController::class,
-            'logoutHandler'
-        );
+        $this->sessionService->addRpAssociation($oidcClient->getIdentifier());
 
         $state = $this->prepareStateArray($authSimple, $oidcClient, $request);
         $state = $this->authProcService->processState($state);
@@ -179,9 +162,9 @@ class AuthenticationService
         return $state;
     }
 
-    public function isCookieBasedAuthn(): ?bool
+    public function isCookieBasedAuthn(): bool
     {
-        return $this->isCookieBasedAuthn;
+        return (bool) $this->sessionService->getIsCookieBasedAuthn();
     }
 
     public function getAuthSourceId(): ?string
@@ -191,32 +174,6 @@ class AuthenticationService
 
     public function getSessionId(): ?string
     {
-        return $this->session->getSessionId();
-    }
-
-    public function markRpAssociation(string $clientId): void
-    {
-        $associations = $this->getRpAssociations();
-
-        if (! in_array($clientId, $associations)) {
-            $associations[] = $clientId;
-        }
-
-        $this->session->setData(
-            self::SESSION_DATA_TYPE,
-            self::SESSION_DATA_ID_RP_ASSOCIATIONS,
-            $associations,
-            Session::DATA_TIMEOUT_SESSION_END
-        );
-    }
-
-    public function getRpAssociations(): array
-    {
-        return $this->session->getData(self::SESSION_DATA_TYPE, self::SESSION_DATA_ID_RP_ASSOCIATIONS) ?? [];
-    }
-
-    public function logout(): void
-    {
-        // TODO
+        return $this->sessionService->getSession()->getSessionId();
     }
 }

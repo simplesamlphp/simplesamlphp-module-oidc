@@ -29,6 +29,7 @@ use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\AuthProcService;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\OidcOpenIdProviderMetadataService;
+use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Session;
 
 class AuthenticationServiceSpec extends ObjectBehavior
@@ -74,15 +75,15 @@ class AuthenticationServiceSpec extends ObjectBehavior
         ClientRepository $clientRepository,
         ConfigurationService $configurationService,
         OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService,
-        Session $session
+        SessionService $sessionService
     ): void {
         $request->getQueryParams()->willReturn(self::AUTHZ_REQUEST_PARAMS);
-        $clientEntity->getAuthSource()->willReturn(self::AUTH_SOURCE);
+        $clientEntity->getAuthSourceId()->willReturn(self::AUTH_SOURCE);
         $clientEntity->toArray()->willReturn(self::CLIENT_ENTITY);
         $clientRepository->findById(self::CLIENT_ENTITY['id'])->willReturn($clientEntity);
         $simple->getAttributes()->willReturn(self::AUTH_DATA['Attributes']);
         $simple->getAuthDataArray()->willReturn(self::AUTH_DATA);
-        $authSimpleFactory->build($request)->willReturn($simple);
+        $authSimpleFactory->build($clientEntity)->willReturn($simple);
         $oidcOpenIdProviderMetadataService->getMetadata()->willReturn(self::OIDC_OP_METADATA);
         $configurationService->getAuthProcFilters()->willReturn([]);
         $authProcService->processState(Argument::type('array'))->willReturn(self::STATE);
@@ -93,7 +94,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
             $authProcService,
             $clientRepository,
             $oidcOpenIdProviderMetadataService,
-            $session,
+            $sessionService,
             self::USER_ID_ATTR
         );
     }
@@ -118,12 +119,19 @@ class AuthenticationServiceSpec extends ObjectBehavior
         Simple $simple,
         UserRepository $userRepository,
         Source $source,
-        ClientEntity $clientEntity
+        ClientEntity $clientEntity,
+        SessionService $sessionService,
+        Session $session
     ): void {
+        $clientId = 'client123';
         $simple->isAuthenticated()->shouldBeCalled()->willReturn(false);
         $simple->login()->shouldBeCalled();
         $simple->getAuthSource()->shouldBeCalled()->willReturn($source);
-        $clientEntity->getIdentifier()->shouldBeCalled()->willReturn('client123');
+        $clientEntity->getIdentifier()->shouldBeCalled()->willReturn($clientId);
+        $sessionService->setIsCookieBasedAuthn(false)->shouldBeCalled();
+        $sessionService->setIsAuthnPerformedInPreviousRequest(true)->shouldBeCalled();
+        $sessionService->addRpAssociation($clientId);
+        $sessionService->getSession()->shouldBeCalled()->willReturn($session);
 
         $userRepository->getUserEntityByIdentifier(self::USERNAME)->shouldBeCalled()->willReturn(null);
         $userRepository->add(Argument::type(UserEntity::class))->shouldBeCalled();
@@ -146,12 +154,19 @@ class AuthenticationServiceSpec extends ObjectBehavior
         UserRepository $userRepository,
         UserEntity $userEntity,
         Source $source,
-        ClientEntity $clientEntity
+        ClientEntity $clientEntity,
+        SessionService $sessionService,
+        Session $session
     ): void {
+        $clientId = 'client123';
         $simple->isAuthenticated()->shouldBeCalled()->willReturn(false);
         $simple->login()->shouldBeCalled();
         $simple->getAuthSource()->shouldBeCalled()->willReturn($source);
-        $clientEntity->getIdentifier()->shouldBeCalled()->willReturn('client123');
+        $clientEntity->getIdentifier()->shouldBeCalled()->willReturn($clientId);
+        $sessionService->setIsCookieBasedAuthn(false)->shouldBeCalled();
+        $sessionService->setIsAuthnPerformedInPreviousRequest(true)->shouldBeCalled();
+        $sessionService->addRpAssociation($clientId);
+        $sessionService->getSession()->shouldBeCalled()->willReturn($session);
 
         $userRepository->getUserEntityByIdentifier(self::USERNAME)->shouldBeCalled()->willReturn($userEntity);
         $userEntity->setClaims(self::USER_ENTITY_ATTRIBUTES)->shouldBeCalled();
@@ -164,12 +179,19 @@ class AuthenticationServiceSpec extends ObjectBehavior
         AuthProcService $authProcService,
         Simple $simple,
         Source $source,
-        ClientEntity $clientEntity
+        ClientEntity $clientEntity,
+        SessionService $sessionService,
+        Session $session
     ): void {
+        $clientId = 'client123';
         $simple->isAuthenticated()->shouldBeCalled()->willReturn(false);
         $simple->login()->shouldBeCalled();
         $simple->getAuthSource()->shouldBeCalled()->willReturn($source);
-        $clientEntity->getIdentifier()->shouldBeCalled()->willReturn('client123');
+        $clientEntity->getIdentifier()->shouldBeCalled()->willReturn($clientId);
+        $sessionService->setIsCookieBasedAuthn(false)->shouldBeCalled();
+        $sessionService->setIsAuthnPerformedInPreviousRequest(true)->shouldBeCalled();
+        $sessionService->addRpAssociation($clientId);
+        $sessionService->getSession()->shouldBeCalled()->willReturn($session);
 
         $invalidState = self::STATE;
         unset($invalidState['Attributes'][self::USER_ID_ATTR]);

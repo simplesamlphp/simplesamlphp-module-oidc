@@ -130,7 +130,7 @@ class ClientEntity implements ClientEntityInterface
             'secret' => $this->getSecret(),
             'name' => $this->getName(),
             'description' => $this->getDescription(),
-            'auth_source' => $this->getAuthSource(),
+            'auth_source' => $this->getAuthSourceId(),
             'redirect_uri' => json_encode($this->getRedirectUri()),
             'scopes' => json_encode($this->getScopes()),
             'is_enabled' => (int) $this->isEnabled(),
@@ -175,7 +175,7 @@ class ClientEntity implements ClientEntityInterface
         return $this->description;
     }
 
-    public function getAuthSource(): ?string
+    public function getAuthSourceId(): ?string
     {
         return $this->authSource;
     }

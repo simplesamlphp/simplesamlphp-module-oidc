@@ -7,6 +7,7 @@ use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use Laminas\Diactoros\Response;
 use Laminas\Diactoros\ServerRequest;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
+use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Session;
 
 class LogoutController
@@ -21,12 +22,19 @@ class LogoutController
      */
     protected $authenticationService;
 
+    /**
+     * @var SessionService
+     */
+    protected $sessionService;
+
     public function __construct(
         AuthorizationServer $authorizationServer,
-        AuthenticationService $authenticationService
+        AuthenticationService $authenticationService,
+        SessionService $sessionService
     ) {
         $this->authorizationServer = $authorizationServer;
         $this->authenticationService = $authenticationService;
+        $this->sessionService = $sessionService;
     }
 
     public function __invoke(ServerRequest $request): ResponseInterface
@@ -80,27 +88,38 @@ class LogoutController
         $logoutRequest = $this->authorizationServer->validateLogoutRequest($request);
 
         // Check if RP is requesting logout for session that previously existed (not this current session).
+        // Claim 'sid' from 'id_token_hint' logout parameter indicates for
+        // which session should logout be performed. This is the session ID used when ID token was issued during authn.
         $sidClaim = null;
         $idTokenHint = $logoutRequest->getIdTokenHint();
         if ($idTokenHint !== null) {
             $sidClaim = $idTokenHint->claims()->get('sid');
         }
 
+        // If the requested sid is different from the current session ID, try to find the requested session.
+        // If found, add all RP associations from that session to the current session. This is because in the
+        // logoutHandler() function, only current session will be available.
         if (
             $sidClaim !== null &&
-            ($previousSession = Session::getSession($sidClaim)) !== null
+            $this->sessionService->getSession()->getSessionId() !== $sidClaim
         ) {
-            $previousRpAssociations = $previousSession->getData(
-                $this->authenticationService::SESSION_DATA_TYPE,
-                $this->authenticationService::SESSION_DATA_ID_RP_ASSOCIATIONS
-            ) ?? [];
-
-            foreach ($previousRpAssociations as $clientId) {
-                $this->authenticationService->markRpAssociation($clientId);
+            try {
+                if (($sidSession = Session::getSession($sidClaim)) !== null) {
+                    foreach (SessionService::getRpAssociationsForSession($sidSession) as $clientId) {
+                        $this->sessionService->addRpAssociation($clientId);
+                    }
+                    SessionService::clearRpAssociationsForSession($sidSession);
+                }
+            } catch (\Throwable $exception) {
+                // TODO Log that requested session was not found
             }
         }
 
-        $this->authenticationService->logout();
+        // Call logout for each active auth source. Besides ending session, this will also trigger logoutHandler()
+        // function.
+        foreach ($this->sessionService->getSession()->getAuthorities() as $authSourceId) {
+            $this->sessionService->getSession()->doLogout($authSourceId);
+        }
 
         $postLogoutRedirectUri = $logoutRequest->getPostLogoutRedirectUri();
         if ($postLogoutRedirectUri !== null) {
@@ -118,5 +137,7 @@ class LogoutController
         $session = Session::getSessionFromRequest();
 
         // TODO send BCL requests to associated RPs
+
+        SessionService::clearRpAssociationsForSession($session);
     }
 }

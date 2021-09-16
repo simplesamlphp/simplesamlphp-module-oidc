@@ -99,7 +99,7 @@ class ClientEntitySpec extends ObjectBehavior
      */
     public function it_has_an_auth_source()
     {
-        $this->getAuthSource()->shouldBeLike('auth_source');
+        $this->getAuthSourceId()->shouldBeLike('auth_source');
     }
 
     /**

@@ -41,12 +41,11 @@ class AuthSimpleFactory
     /**
      * @codeCoverageIgnore
      */
-    public function build(ServerRequestInterface $request): Simple
+    public function build(ClientEntityInterface $clientEntity): Simple
     {
-        $client = $this->getClientFromRequest($request);
-        $authSource = $this->resolveAuthSource($client);
+        $authSourceId = $this->resolveAuthSourceId($clientEntity);
 
-        return new Simple($authSource);
+        return new Simple($authSourceId);
     }
 
     /**
@@ -54,7 +53,7 @@ class AuthSimpleFactory
      */
     public function getDefaultAuthSource(): Simple
     {
-        return new Simple($this->getDefaultAuthSourceName());
+        return new Simple($this->getDefaultAuthSourceId());
     }
 
     /**
@@ -64,12 +63,12 @@ class AuthSimpleFactory
      * @return string
      * @throws \Exception
      */
-    private function resolveAuthSource(ClientEntityInterface $client): string
+    public function resolveAuthSourceId(ClientEntityInterface $client): string
     {
-        return $client->getAuthSource() ?? $this->getDefaultAuthSourceName();
+        return $client->getAuthSourceId() ?? $this->getDefaultAuthSourceId();
     }
 
-    public function getDefaultAuthSourceName(): string
+    public function getDefaultAuthSourceId(): string
     {
         return $this->configurationService->getOpenIDConnectConfiguration()->getString('auth');
     }

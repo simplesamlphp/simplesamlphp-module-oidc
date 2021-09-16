@@ -134,6 +134,9 @@ class Container implements ContainerInterface
         $session = Session::getSessionFromRequest();
         $this->services[Session::class] = $session;
 
+        $sessionService = new SessionService($session);
+        $this->services[SessionService::class] = $sessionService;
+
         $sessionMessagesService = new SessionMessagesService($session);
         $this->services[SessionMessagesService::class] = $sessionMessagesService;
 
@@ -155,7 +158,7 @@ class Container implements ContainerInterface
             $authProcService,
             $clientRepository,
             $oidcOpenIdProviderMetadataService,
-            $session,
+            $sessionService,
             $oidcModuleConfiguration->getString('useridattr', 'uid')
         );
         $this->services[AuthenticationService::class] = $authenticationService;

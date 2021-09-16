@@ -28,7 +28,7 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
 
     public function getDescription(): string;
 
-    public function getAuthSource(): ?string;
+    public function getAuthSourceId(): ?string;
 
     public function getScopes(): array;
 
