@@ -125,22 +125,27 @@ $config = [
 //        'locale' => [
 //            'preferredLanguage',
 //        ],
-        'int:updated_at' => [
+        'updated_at' => [
+            'type' => 'int',
             'updated_at'
         ],
 //        'email' => [
 //            'mail',
 //        ],
-        'bool:email_verified' => [
-            'email_verified'
+        'email_verified' => [
+            'type' => 'bool',
+            'attributes' => ['email_verified']
         ],
         'address' => [
-            'formatted' => ['postalAddress'],
-            'street_address' => ['street_address'],
-            'locality' => ['locality'],
-            'region' => ['region'],
-            'postal_code' => ['postal_code'],
-            'country' => ['country'],
+            'type' => 'json',
+            'claims' => [
+                'formatted' => ['postalAddress'],
+                'street_address' => ['street_address'],
+                'locality' => ['locality'],
+                'region' => ['region'],
+                'postal_code' => ['postal_code'],
+                'country' => ['country'],
+            ]
         ],
 
 //        'phone_number' => [
@@ -148,7 +153,8 @@ $config = [
 //            'telephoneNumber',
 //            'homePhone',
 //        ],
-        'bool:phone_number_verified' => [
+        'phone_number_verified' => [
+            'type' => 'bool',
             'phone_number_verified'
         ],
         /*

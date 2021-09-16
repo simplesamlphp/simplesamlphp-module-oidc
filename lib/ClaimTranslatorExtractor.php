@@ -17,6 +17,7 @@ namespace SimpleSAML\Module\oidc;
 use Lcobucci\JWT\Token\RegisteredClaims;
 use OpenIDConnectServer\ClaimExtractor;
 use OpenIDConnectServer\Entities\ClaimSetEntity;
+use SimpleSAML\Logger;
 
 class ClaimTranslatorExtractor extends ClaimExtractor
 {
@@ -68,24 +69,28 @@ class ClaimTranslatorExtractor extends ClaimExtractor
         'locale' => [
             'preferredLanguage',
         ],
-        'int:updated_at' => [
-            // Empty
+        'updated_at' => [
+            'type' => 'int'
         ],
         'email' => [
             'mail',
         ],
-        'bool:email_verified' => [
-            // Empty
+        'email_verified' => [
+            'type' => 'bool'
         ],
         'address' => [
-            'formatted' => ['postalAddress'],
+            'type' => 'json',
+            'claims' => [
+                'formatted' => ['postalAddress'],
+            ]
         ],
         'phone_number' => [
             'mobile',
             'telephoneNumber',
             'homePhone',
         ],
-        'bool:phone_number_verified' => [
+        'phone_number_verified' => [
+            'type' => 'bool'
             // Empty
         ],
     ];
@@ -152,20 +157,22 @@ class ClaimTranslatorExtractor extends ClaimExtractor
     {
         $claims = [];
         foreach ($translationTable as $claim => $mappingConfig) {
-            list($type, $claim) = $this->getTypeAndClaimName($claim);
-            foreach ($mappingConfig as $key => $samlMatch) {
-                if (is_int($key)) {
-                    if (\array_key_exists($samlMatch, $samlAttributes)) {
-                        $values = in_array($claim, $this->allowedMultiValueClaims) ?
-                            $samlAttributes[$samlMatch] :
-                            current($samlAttributes[$samlMatch]);
-                        $claims[$claim] = $this->convertType($type, $values);
-                        break;
-                    }
-                } else {
-                    // These saml attributes translate to json object
-                    $subClaims = $this->translateSamlAttributesToClaims($mappingConfig, $samlAttributes);
-                    $claims[$claim] = $subClaims;
+            $type = $mappingConfig['type'] ?? 'string';
+            unset($mappingConfig['type']);
+            if ($type === 'json') {
+                $subClaims = $this->translateSamlAttributesToClaims($mappingConfig['claims'], $samlAttributes);
+                $claims[$claim] = $subClaims;
+                continue;
+            }
+            // Look for attributes in the attribute key, if not set then assume to legacy style configuration
+            $attributes = $mappingConfig['attributes'] ?? $mappingConfig;
+
+            foreach ($attributes as $samlMatch) {
+                if (\array_key_exists($samlMatch, $samlAttributes)) {
+                    $values = in_array($claim, $this->allowedMultiValueClaims) ?
+                        $samlAttributes[$samlMatch] :
+                        current($samlAttributes[$samlMatch]);
+                    $claims[$claim] = $this->convertType($type, $values);
                     break;
                 }
             }
@@ -193,28 +200,6 @@ class ClaimTranslatorExtractor extends ClaimExtractor
                 return filter_var($attributes, FILTER_VALIDATE_BOOLEAN);
         }
         return $attributes;
-    }
-
-    /**
-     * Look at any optional 'type' prefix on the claim and return the type
-     * and the claim name without the prefix
-     * @param string $claim A claim name, with an optional type prefix.
-     * @return string[] An array [0 => type, 1 => claim name]
-     */
-    public static function getTypeAndClaimName(string $claim): array
-    {
-        // check for type conversion prefix
-        $parts = explode(':', $claim, 2);
-        if (sizeof($parts) !== 2) {
-            return ['string', $claim];
-        }
-        $validTypes = ['int', 'string', 'bool'];
-        $type = $parts[0];
-        if (in_array($type, $validTypes)) {
-            return [$type, $parts[1]];
-        }
-        // not a valid type. Claim may contain colons( e.g. oid style claims)
-        return ['string', $claim];
     }
 
     public function extract(array $scopes, array $claims): array
