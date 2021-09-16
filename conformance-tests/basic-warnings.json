@@ -1,14 +1,2 @@
 [
-  {
-    "test-name": "oidcc-ensure-request-with-acr-values-succeeds",
-    "variant": {
-      "server_metadata": "discovery",
-      "client_registration": "static_client"
-    },
-    "configuration-filename": "*",
-    "current-block": "Verify authorization endpoint response",
-    "condition": "ValidateIdTokenACRClaimAgainstAcrValuesRequest",
-    "expected-result": "warning",
-    "comment": "Not implemented yet"
-  }
 ]
