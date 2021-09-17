@@ -25,6 +25,7 @@ use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\AuthProcService;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
@@ -128,9 +129,11 @@ class AuthenticationServiceSpec extends ObjectBehavior
         $simple->login()->shouldBeCalled();
         $simple->getAuthSource()->shouldBeCalled()->willReturn($source);
         $clientEntity->getIdentifier()->shouldBeCalled()->willReturn($clientId);
+        $clientEntity->getBackchannelLogoutUri()->shouldBeCalled()->willReturn(null);
         $sessionService->setIsCookieBasedAuthn(false)->shouldBeCalled();
         $sessionService->setIsAuthnPerformedInPreviousRequest(true)->shouldBeCalled();
-        $sessionService->addRpAssociation($clientId);
+        $relyingPartyAssociation = new RelyingPartyAssociation($clientId, self::USERNAME, null);
+        $sessionService->addRelyingPartyAssociation($relyingPartyAssociation);
         $sessionService->getSession()->shouldBeCalled()->willReturn($session);
 
         $userRepository->getUserEntityByIdentifier(self::USERNAME)->shouldBeCalled()->willReturn(null);
@@ -159,13 +162,17 @@ class AuthenticationServiceSpec extends ObjectBehavior
         Session $session
     ): void {
         $clientId = 'client123';
+        $userId = 'user123';
         $simple->isAuthenticated()->shouldBeCalled()->willReturn(false);
         $simple->login()->shouldBeCalled();
         $simple->getAuthSource()->shouldBeCalled()->willReturn($source);
         $clientEntity->getIdentifier()->shouldBeCalled()->willReturn($clientId);
+        $clientEntity->getBackchannelLogoutUri()->shouldBeCalled()->willReturn(null);
+        $userEntity->getIdentifier()->shouldBeCalled()->willReturn($userId);
         $sessionService->setIsCookieBasedAuthn(false)->shouldBeCalled();
         $sessionService->setIsAuthnPerformedInPreviousRequest(true)->shouldBeCalled();
-        $sessionService->addRpAssociation($clientId);
+        $relyingPartyAssociation = new RelyingPartyAssociation($clientId, $userId, null);
+        $sessionService->addRelyingPartyAssociation($relyingPartyAssociation);
         $sessionService->getSession()->shouldBeCalled()->willReturn($session);
 
         $userRepository->getUserEntityByIdentifier(self::USERNAME)->shouldBeCalled()->willReturn($userEntity);
@@ -183,14 +190,11 @@ class AuthenticationServiceSpec extends ObjectBehavior
         SessionService $sessionService,
         Session $session
     ): void {
-        $clientId = 'client123';
         $simple->isAuthenticated()->shouldBeCalled()->willReturn(false);
         $simple->login()->shouldBeCalled();
         $simple->getAuthSource()->shouldBeCalled()->willReturn($source);
-        $clientEntity->getIdentifier()->shouldBeCalled()->willReturn($clientId);
         $sessionService->setIsCookieBasedAuthn(false)->shouldBeCalled();
         $sessionService->setIsAuthnPerformedInPreviousRequest(true)->shouldBeCalled();
-        $sessionService->addRpAssociation($clientId);
         $sessionService->getSession()->shouldBeCalled()->willReturn($session);
 
         $invalidState = self::STATE;

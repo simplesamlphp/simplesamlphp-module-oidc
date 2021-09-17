@@ -41,6 +41,7 @@ class ClientEntitySpec extends ObjectBehavior
                 'is_confidential' => false,
                 'owner' => 'user@test.com',
                 'post_logout_redirect_uri' => json_encode([]),
+                'backchannel_logout_uri' => null,
             ],
         ]);
     }
@@ -159,6 +160,7 @@ class ClientEntitySpec extends ObjectBehavior
             'is_confidential' => false,
             'owner' => 'user@test.com',
             'post_logout_redirect_uri' => json_encode([]),
+            'backchannel_logout_uri' => null,
         ]);
     }
 
@@ -179,6 +181,7 @@ class ClientEntitySpec extends ObjectBehavior
             'is_confidential' => false,
             'owner' => 'user@test.com',
             'post_logout_redirect_uri' => [],
+            'backchannel_logout_uri' => null,
         ]);
     }
 }

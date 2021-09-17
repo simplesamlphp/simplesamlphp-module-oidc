@@ -2,6 +2,7 @@
 
 namespace SimpleSAML\Module\oidc\Services;
 
+use SimpleSAML\Module\oidc\Server\Associations\Interfaces\RelyingPartyAssociationInterface;
 use SimpleSAML\Session;
 
 class SessionService
@@ -44,12 +45,12 @@ class SessionService
         );
     }
 
-    public function addRpAssociation(string $clientId): void
+    public function addRelyingPartyAssociation(RelyingPartyAssociationInterface $association): void
     {
-        $associations = $this->getRpAssociations();
+        $associations = $this->getRelyingPartyAssociations();
 
-        if (! in_array($clientId, $associations)) {
-            $associations[] = $clientId;
+        if (! array_key_exists($association->getClientId(), $associations)) {
+            $associations[$association->getClientId()] = $association;
         }
 
         $this->session->setData(
@@ -60,22 +61,22 @@ class SessionService
         );
     }
 
-    public function getRpAssociations(): array
+    public function getRelyingPartyAssociations(): array
     {
-        return self::getRpAssociationsForSession($this->session);
+        return self::getRelyingPartyAssociationsForSession($this->session);
     }
 
-    public static function getRpAssociationsForSession(Session $session): array
+    public static function getRelyingPartyAssociationsForSession(Session $session): array
     {
         return $session->getData(self::SESSION_DATA_TYPE, self::SESSION_DATA_ID_RP_ASSOCIATIONS) ?? [];
     }
 
-    public function clearRpAssociations(): void
+    public function clearRelyingPartyAssociations(): void
     {
-        self::clearRpAssociationsForSession($this->session);
+        self::clearRelyingPartyAssociationsForSession($this->session);
     }
 
-    public static function clearRpAssociationsForSession(Session $session): void
+    public static function clearRelyingPartyAssociationsForSession(Session $session): void
     {
         $session->setData(
             self::SESSION_DATA_TYPE,

@@ -50,7 +50,7 @@
         </tr>
         <tr>
             <td class="collapsing">{% trans '{oidc:client:auth_source}' %}</td>
-            <td>{{ client.authSource }}</td>
+            <td>{{ client.authSourceId }}</td>
         </tr>
         <tr>
             <td class="collapsing">{% trans '{oidc:client:redirect_uri}' %}</td>
@@ -71,6 +71,10 @@
                     {% endfor %}
                 </ul>
             </td>
+        </tr>
+        <tr>
+            <td class="collapsing">{% trans '{oidc:client:backchannel_logout_uri}' %}</td>
+            <td>{{ client.backchannelLogoutUri }}</td>
         </tr>
         <tr>
             <td class="collapsing">{% trans '{oidc:client:post_logout_redirect_uri}' %}</td>

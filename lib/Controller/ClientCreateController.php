@@ -112,7 +112,8 @@ class ClientCreateController
                 $client['is_confidential'],
                 $client['auth_source'],
                 $client['owner'] ?? null,
-                $client['post_logout_redirect_uri']
+                $client['post_logout_redirect_uri'],
+                $client['backchannel_logout_uri']
             ));
 
             // Also persist allowed origins for this client.
@@ -127,6 +128,7 @@ class ClientCreateController
             'form' => $form,
             'regexUri' => ClientForm::REGEX_URI,
             'regexAllowedOriginUrl' => ClientForm::REGEX_ALLOWED_ORIGIN_URL,
+            'regexHttpUri' => ClientForm::REGEX_HTTP_URI,
         ]);
     }
 }

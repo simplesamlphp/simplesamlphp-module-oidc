@@ -24,6 +24,7 @@ use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation;
 
 class AuthenticationService
 {
@@ -109,8 +110,6 @@ class AuthenticationService
             );
         }
 
-        $this->sessionService->addRpAssociation($oidcClient->getIdentifier());
-
         $state = $this->prepareStateArray($authSimple, $oidcClient, $request);
         $state = $this->authProcService->processState($state);
         $claims = $state['Attributes'];
@@ -130,6 +129,15 @@ class AuthenticationService
             $user->setClaims($claims);
             $this->userRepository->update($user);
         }
+
+        $this->sessionService->addRelyingPartyAssociation(
+            new RelyingPartyAssociation(
+                $oidcClient->getIdentifier(),
+                $user->getIdentifier(),
+                $this->getSessionId(),
+                $oidcClient->getBackchannelLogoutUri()
+            )
+        );
 
         return $user;
     }

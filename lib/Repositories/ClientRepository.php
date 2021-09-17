@@ -177,7 +177,8 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
                 is_enabled,
                 is_confidential,
                 owner,
-                post_logout_redirect_uri
+                post_logout_redirect_uri,
+                backchannel_logout_uri
             )
             VALUES (
                 :id,
@@ -190,7 +191,8 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
                 :is_enabled,
                 :is_confidential,
                 :owner,
-                :post_logout_redirect_uri
+                :post_logout_redirect_uri,
+                :backchannel_logout_uri
             )
 EOS
             ,
@@ -228,7 +230,8 @@ EOS
                 is_enabled = :is_enabled,
                 is_confidential = :is_confidential,
                 owner = :owner,
-                post_logout_redirect_uri = :post_logout_redirect_uri
+                post_logout_redirect_uri = :post_logout_redirect_uri,
+                backchannel_logout_uri = :backchannel_logout_uri
             WHERE id = :id
 EOF
             ,

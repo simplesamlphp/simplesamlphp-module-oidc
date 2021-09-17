@@ -95,6 +95,7 @@ class ClientCreateControllerSpec extends ObjectBehavior
             'form' => $clientForm,
             'regexUri' => ClientForm::REGEX_URI,
             'regexAllowedOriginUrl' => ClientForm::REGEX_ALLOWED_ORIGIN_URL,
+            'regexHttpUri' => ClientForm::REGEX_HTTP_URI,
         ])
             ->shouldBeCalled()
             ->willReturn($template);
@@ -126,6 +127,7 @@ class ClientCreateControllerSpec extends ObjectBehavior
             'is_confidential' => false,
             'allowed_origin' => [],
             'post_logout_redirect_uri' => [],
+            'backchannel_logout_uri' => null,
         ]);
 
         $clientRepository->add(Argument::type(ClientEntity::class))->shouldBeCalled();
@@ -166,6 +168,7 @@ class ClientCreateControllerSpec extends ObjectBehavior
                 'owner' => 'wrongOwner',
                 'allowed_origin' => [],
                 'post_logout_redirect_uri' => [],
+                'backchannel_logout_uri' => null,
             ]
         );
 

@@ -103,6 +103,7 @@ class ClientEditControllerSpec extends ObjectBehavior
             'is_enabled' => true,
             'allowed_origin' => [],
             'post_logout_redirect_uri' => [],
+            'backchannel_logout_uri' => null,
         ];
         $clientEntity->getIdentifier()->shouldBeCalled()->willReturn('clientid');
 
@@ -121,6 +122,7 @@ class ClientEditControllerSpec extends ObjectBehavior
             'form' => $clientForm,
             'regexUri' => ClientForm::REGEX_URI,
             'regexAllowedOriginUrl' => ClientForm::REGEX_ALLOWED_ORIGIN_URL,
+            'regexHttpUri' => ClientForm::REGEX_HTTP_URI,
         ])
             ->shouldBeCalled()->willReturn($template);
         $this->__invoke($request)->shouldBe($template);
@@ -151,6 +153,7 @@ class ClientEditControllerSpec extends ObjectBehavior
             'owner' => 'existingOwner',
             'allowed_origin' => [],
             'post_logout_redirect_uri' => [],
+            'backchannel_logout_uri' => null,
         ];
 
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
@@ -176,6 +179,7 @@ class ClientEditControllerSpec extends ObjectBehavior
             'owner' => 'existingOwner',
             'allowed_origin' => [],
             'post_logout_redirect_uri' => [],
+            'backchannel_logout_uri' => null,
         ]);
 
         $clientRepository->update(Argument::exact(ClientEntity::fromData(
@@ -226,6 +230,7 @@ class ClientEditControllerSpec extends ObjectBehavior
             'owner' => 'existingOwner',
             'allowed_origin' => [],
             'post_logout_redirect_uri' => [],
+            'backchannel_logout_uri' => null,
         ];
 
         $request->getQueryParams()->shouldBeCalled()->willReturn(['client_id' => 'clientid']);
@@ -250,6 +255,7 @@ class ClientEditControllerSpec extends ObjectBehavior
                                                                    'owner' => 'existingOwner',
                                                                    'allowed_origin' => [],
                                                                    'post_logout_redirect_uri' => [],
+                                                                   'backchannel_logout_uri' => null,
                                                                ]);
 
         $clientRepository->update(Argument::exact(ClientEntity::fromData(
@@ -263,7 +269,8 @@ class ClientEditControllerSpec extends ObjectBehavior
             false,
             'auth_source',
             'existingOwner',
-            []
+            [],
+            null
         )), 'authedUserId')->shouldBeCalled();
 
         $allowedOriginRepository->get('clientid')->shouldBeCalled()->willReturn([]);

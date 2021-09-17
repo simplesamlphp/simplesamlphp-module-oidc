@@ -110,6 +110,7 @@ class ClientEditController
                 $data['auth_source'],
                 $client->getOwner(),
                 $data['post_logout_redirect_uri'],
+                $data['backchannel_logout_uri']
             ), $authedUser);
 
             // Also persist allowed origins for this client.
@@ -124,6 +125,7 @@ class ClientEditController
             'form' => $form,
             'regexUri' => ClientForm::REGEX_URI,
             'regexAllowedOriginUrl' => ClientForm::REGEX_ALLOWED_ORIGIN_URL,
+            'regexHttpUri' => ClientForm::REGEX_HTTP_URI
         ]);
     }
 }

@@ -120,6 +120,11 @@ class DatabaseMigration
             $this->version20210908143500();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210908143500')");
         }
+
+        if (!\in_array('20210916153400', $versions, true)) {
+            $this->version20210916153400();
+            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210916153400')");
+        }
     }
 
     private function versionsTableName(): string
@@ -317,6 +322,19 @@ EOT
         $this->database->write(<<< EOT
         ALTER TABLE ${clientTableName}
             ADD post_logout_redirect_uri TEXT NULL 
+EOT
+        );
+    }
+
+    /**
+     * Add backchannel_logout_uri to client
+     */
+    protected function version20210916153400()
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE ${clientTableName}
+            ADD backchannel_logout_uri TEXT NULL 
 EOT
         );
     }

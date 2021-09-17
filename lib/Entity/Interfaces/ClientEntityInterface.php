@@ -45,4 +45,14 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
      * @param string[] $postLogoutRedirectUri
      */
     public function setPostLogoutRedirectUri(array $postLogoutRedirectUri): void;
+
+    /**
+     * @return string|null
+     */
+    public function getBackchannelLogoutUri(): ?string;
+
+    /**
+     * @param string|null $backchannelLogoutUri
+     */
+    public function setBackchannelLogoutUri(?string $backchannelLogoutUri): void;
 }

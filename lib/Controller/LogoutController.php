@@ -87,6 +87,8 @@ class LogoutController
 
         $logoutRequest = $this->authorizationServer->validateLogoutRequest($request);
 
+        $sessionToLogout = $this->sessionService->getSession();
+
         // Check if RP is requesting logout for session that previously existed (not this current session).
         // Claim 'sid' from 'id_token_hint' logout parameter indicates for
         // which session should logout be performed. This is the session ID used when ID token was issued during authn.
@@ -97,30 +99,28 @@ class LogoutController
         }
 
         // If the requested sid is different from the current session ID, try to find the requested session.
-        // If found, add all RP associations from that session to the current session. This is because in the
-        // logoutHandler() function, only current session will be available.
+        // If found, use it as a session to logout from.
         if (
             $sidClaim !== null &&
             $this->sessionService->getSession()->getSessionId() !== $sidClaim
         ) {
             try {
                 if (($sidSession = Session::getSession($sidClaim)) !== null) {
-                    foreach (SessionService::getRpAssociationsForSession($sidSession) as $clientId) {
-                        $this->sessionService->addRpAssociation($clientId);
-                    }
-                    SessionService::clearRpAssociationsForSession($sidSession);
+                    $sessionToLogout = $sidSession;
                 }
             } catch (\Throwable $exception) {
                 // TODO Log that requested session was not found
             }
         }
 
+        // TODO Create a session logout ticket in the store, so that it can be fetched in logoutHandler().
+
         // Call logout for each active auth source. Besides ending session, this will also trigger logoutHandler()
         // function.
-        foreach ($this->sessionService->getSession()->getAuthorities() as $authSourceId) {
-            $this->sessionService->getSession()->doLogout($authSourceId);
+        foreach ($sessionToLogout->getAuthorities() as $authSourceId) {
+            $sessionToLogout->doLogout($authSourceId);
         }
-
+//die();
         $postLogoutRedirectUri = $logoutRequest->getPostLogoutRedirectUri();
         if ($postLogoutRedirectUri !== null) {
             return new Response\RedirectResponse($postLogoutRedirectUri);
@@ -134,10 +134,16 @@ class LogoutController
      */
     public static function logoutHandler(): void
     {
+        // TODO Check for session logout tickets. If there are any, it means that the logout was initiated
+        // using OIDC RP initiated flow for specific session.
+
+        // TODO Check current session and logout any current RP associations.
         $session = Session::getSessionFromRequest();
+
+//        var_dump(SessionService::getRelyingPartyAssociationsForSession($session));
 
         // TODO send BCL requests to associated RPs
 
-        SessionService::clearRpAssociationsForSession($session);
+        SessionService::clearRelyingPartyAssociationsForSession($session);
     }
 }

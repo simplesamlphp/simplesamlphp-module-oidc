@@ -35,6 +35,11 @@ class ClientForm extends Form
         "/^http(s?):\/\/[^\s\/!$&'()+,;=.?#@*:]+\.[^\s\/!$&'()+,;=.?#@*]+\.?(\.[^\s\/!$&'()+,;=?#@*:]+)*(:\d{1,5})?$/i";
 
     /**
+     * URI which must contain https or http scheme, can contain path and query, and can't contain fragment.
+     */
+    public const REGEX_HTTP_URI = '/^http(s?):\/\/[^\s\/$.?#][^\s#]*$/i';
+
+    /**
      * @var \SimpleSAML\Module\oidc\Services\ConfigurationService
      */
     private $configurationService;
@@ -78,6 +83,17 @@ class ClientForm extends Form
         );
     }
 
+    public function validateBackchannelLogoutUri(Form $form): void
+    {
+        if (($bclUri = $form->getValues()['backchannel_logout_uri'] ?? null) !== null) {
+            $this->validateByMatchingRegex(
+                [$bclUri],
+                self::REGEX_HTTP_URI,
+                'Invalid backchannel logout URI: '
+            );
+        }
+    }
+
     protected function validateByMatchingRegex(
         array $values,
         string $regex,
@@ -108,6 +124,9 @@ class ClientForm extends Form
         }
         $values['post_logout_redirect_uri'] =
             $this->convertTextToArrayWithLinesAsValues($values['post_logout_redirect_uri']);
+
+        $bclUri = trim($values['backchannel_logout_uri']);
+        $values['backchannel_logout_uri'] = empty($bclUri) ? null : $bclUri;
 
         // openid scope is mandatory
         $values['scopes'] = array_unique(
@@ -151,6 +170,7 @@ class ClientForm extends Form
         $this->onValidate[] = [$this, 'validateRedirectUri'];
         $this->onValidate[] = [$this, 'validateAllowedOrigin'];
         $this->onValidate[] = [$this, 'validatePostLogoutRedirectUri'];
+        $this->onValidate[] = [$this, 'validateBackchannelLogoutUri'];
 
         $this->setMethod('POST');
         $this->addComponent(new CsrfProtection('{oidc:client:csrf_error}'), Form::PROTECTOR_ID);
@@ -183,6 +203,8 @@ class ClientForm extends Form
             ->setMaxLength(190);
         $this->addTextArea('post_logout_redirect_uri', '{oidc:client:post_logout_redirect_uri}', null, 5);
         $this->addTextArea('allowed_origin', '{oidc:client:allowed_origin}', null, 5);
+
+        $this->addText('backchannel_logout_uri', '{oidc:client:backchannel_logout_uri}');
     }
 
     protected function getScopes(): array

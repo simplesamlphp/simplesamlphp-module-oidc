@@ -59,6 +59,11 @@ class ClientEntity implements ClientEntityInterface
     private $postLogoutRedirectUri;
 
     /**
+     * @var string|null
+     */
+    private $backchannelLogoutUri;
+
+    /**
      * Constructor.
      */
     private function __construct()
@@ -77,7 +82,8 @@ class ClientEntity implements ClientEntityInterface
         bool $isConfidential = false,
         ?string $authSource = null,
         ?string $owner = null,
-        array $postLogoutRedirectUri = []
+        array $postLogoutRedirectUri = [],
+        ?string $backchannelLogoutUri = null
     ): ClientEntityInterface {
         $client = new self();
 
@@ -92,6 +98,7 @@ class ClientEntity implements ClientEntityInterface
         $client->isConfidential = $isConfidential;
         $client->owner = $owner;
         $client->postLogoutRedirectUri = $postLogoutRedirectUri;
+        $client->backchannelLogoutUri = $backchannelLogoutUri;
 
         return $client;
     }
@@ -116,6 +123,7 @@ class ClientEntity implements ClientEntityInterface
         $client->postLogoutRedirectUri = $state['post_logout_redirect_uri'] !== null ?
             json_decode($state['post_logout_redirect_uri'], true) :
             [];
+        $client->backchannelLogoutUri = $state['backchannel_logout_uri'] ?? null;
 
         return $client;
     }
@@ -137,6 +145,7 @@ class ClientEntity implements ClientEntityInterface
             'is_confidential' => (int) $this->isConfidential(),
             'owner' => $this->getOwner(),
             'post_logout_redirect_uri' => json_encode($this->getPostLogoutRedirectUri()),
+            'backchannel_logout_uri' => $this->getBackchannelLogoutUri(),
 
         ];
     }
@@ -155,6 +164,7 @@ class ClientEntity implements ClientEntityInterface
             'is_confidential' => $this->isConfidential,
             'owner' => $this->owner,
             'post_logout_redirect_uri' => $this->postLogoutRedirectUri,
+            'backchannel_logout_uri' => $this->backchannelLogoutUri,
         ];
     }
 
@@ -203,5 +213,15 @@ class ClientEntity implements ClientEntityInterface
     public function setPostLogoutRedirectUri(array $postLogoutRedirectUri): void
     {
         $this->postLogoutRedirectUri = $postLogoutRedirectUri;
+    }
+
+    public function getBackchannelLogoutUri(): ?string
+    {
+        return $this->backchannelLogoutUri;
+    }
+
+    public function setBackchannelLogoutUri(?string $backchannelLogoutUri): void
+    {
+        $this->backchannelLogoutUri = $backchannelLogoutUri;
     }
 }
