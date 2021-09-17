@@ -8,7 +8,7 @@ RUN sqlite3 /var/simplesamlphp/data/mydb.sq3  < /tmp/conformance.sql \
     && chown www-data /var/simplesamlphp/data/mydb.sq3 
 
 # --build-arg OIDC_VERSION
-ARG OIDC_VERSION=version-not-set1
+ARG OIDC_VERSION="@dev"
 
 ENV STAGINGCOMPOSERREPOS=oidc \
     COMPOSER_REQUIRE="simplesamlphp/simplesamlphp-module-oidc:$OIDC_VERSION"
