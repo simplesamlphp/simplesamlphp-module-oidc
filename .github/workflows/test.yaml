@@ -204,3 +204,73 @@ jobs:
       - name: Psalter
         continue-on-error: true
         run: php vendor/bin/psalter --issues=UnnecessaryVarAnnotation --dry-run
+
+  build-conformance-suite:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: release-v4.1.11
+    steps:
+      - name: Load Cached Conformance Suite Build
+        uses: actions/cache@v2
+        id: cache
+        with:
+          path: ./conformance-suite
+          key: suite-${{ hashFiles('**/test.yml') }}
+      - name: Conformance Suite Checkout
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        run: git clone --depth 1 --single-branch --branch $VERSION https://gitlab.com/openid/conformance-suite.git
+      - name: Conformance Suite Build
+        working-directory: ./conformance-suite
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        env:
+          MAVEN_CACHE: ./m2
+        run: |
+          sed -i -e 's/localhost/localhost.emobix.co.uk/g' src/main/resources/application.properties
+          sed -i -e 's/-B clean/-B -DskipTests=true/g' builder-compose.yml
+          docker-compose -f builder-compose.yml run builder
+
+  conformance-suite:
+    runs-on: ubuntu-latest
+    needs:
+      - build-conformance-suite
+    env:
+      SUITE_BASE_URL: https://localhost.emobix.co.uk:8443
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: main
+      - name: Load Cached Conformance Suite Build
+        uses: actions/cache@v2
+        id: cache
+        with:
+          path: ./conformance-suite
+          key: suite-${{ hashFiles('**/test.yml') }}
+      - name: Run Conformance Suite
+        working-directory: ./conformance-suite
+        run: |
+          docker-compose -f docker-compose-dev.yml up -d
+          while ! curl -skfail https://localhost.emobix.co.uk:8443/api/runner/available >/dev/null; do sleep 2; done
+      - name: Start SSP docker
+        working-directory: ./main
+        # Must run after conformance suite since they share a docker network.
+        run: |
+          OIDC_VERSION=@dev docker-compose -f docker/docker-compose.yml --project-directory . up -d --build
+          sleep 30
+        # while ! curl -skfail https://op.local.stack-dev.cirrusidentity.com/.well-known/openid-configuration >/dev/null; do sleep 2; done
+      - name: Run Basic conformance tests
+        run: |
+          ./conformance-suite/scripts/run-test-plan.py  --expected-failures-file ./main/conformance-tests/basic-warnings.json --expected-skips-file ./main/conformance-tests/basic-skips.json "oidcc-basic-certification-test-plan[server_metadata=discovery][client_registration=static_client]" ./main/conformance-tests/conformance-basic-ci.json
+      - name: Run Implicit conformance tests
+        run: |
+          ./conformance-suite/scripts/run-test-plan.py  --expected-failures-file ./main/conformance-tests/implicit-warnings.json --expected-skips-file ./main/conformance-tests/implicit-skips.json "oidcc-implicit-certification-test-plan[server_metadata=discovery][client_registration=static_client]" ./main/conformance-tests/conformance-implicit-ci.json
+      - name: Stop SSP
+        working-directory: ./main
+        run: |
+          docker-compose -f docker/docker-compose.yml down
+      - name: Stop Conformance Suite
+        working-directory: ./conformance-suite
+        # cleaning up errors out on removing the network, so add "|| true" to prevent that from breaking the build
+        run: |
+          docker-compose -f docker-compose-dev.yml down || true
+          sudo rm -rf mongo
+
