@@ -75,9 +75,8 @@ class ClaimTranslatorExtractorFactory
     protected function applyPrefixToTranslatorTableKeys(array $translatorTable, array $claims, string $prefix): array
     {
         foreach ($translatorTable as $claimKey => $mapping) {
-            list($type, $claimKeyWithoutType) = ClaimTranslatorExtractor::getTypeAndClaimName($claimKey);
-            if (in_array($claimKeyWithoutType, $claims)) {
-                $prefixedClaimKey = $type . ':' . $prefix . $claimKeyWithoutType;
+            if (in_array($claimKey, $claims)) {
+                $prefixedClaimKey = $prefix . $claimKey;
                 $translatorTable[$prefixedClaimKey] = $mapping;
                 unset($translatorTable[$claimKey]);
             }

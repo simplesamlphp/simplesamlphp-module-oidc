@@ -55,15 +55,20 @@ To run basic profile test, launch this command in console inside `simplesamlphp-
 # Run run-test-plan.py script inside conformance-suite/scripts
 # Change the relative path to your conformance-suite installation
 
+OIDC_MODULE_FOLDER=.  # path to your checkout of the OIDC module
 # Basic profile
 conformance-suite/scripts/run-test-plan.py \
+  --expected-failures-file ${OIDC_MODULE_FOLDER}/conformance-tests/basic-warnings.json \
+  --expected-skips-file ${OIDC_MODULE_FOLDER}/conformance-tests/basic-skips.json \
   "oidcc-basic-certification-test-plan[server_metadata=discovery][client_registration=static_client]" \
-  ./conformance-tests/conformance-basic-ci.json
+  ${OIDC_MODULE_FOLDER}/conformance-tests/conformance-basic-ci.json
 
 # Implicit profile
 conformance-suite/scripts/run-test-plan.py \
+  --expected-failures-file ${OIDC_MODULE_FOLDER}/conformance-tests/implicit-warnings.json \
+  --expected-skips-file ${OIDC_MODULE_FOLDER}/conformance-tests/implicit-skips.json \
   "oidcc-implicit-certification-test-plan[server_metadata=discovery][client_registration=static_client]" \
-  ./conformance-tests/conformance-implicit-ci.json
+  ${OIDC_MODULE_FOLDER}/conformance-tests/conformance-implicit-ci.json
 ```
 
 

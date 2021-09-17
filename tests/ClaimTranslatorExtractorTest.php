@@ -16,7 +16,9 @@ class ClaimTranslatorExtractorTest extends TestCase
      */
     public function testTypeConversion(): void
     {
-        $claimSet = new ClaimSetEntity('typeConversion', [
+        $claimSet = new ClaimSetEntity(
+            'typeConversion',
+            [
             'intClaim',
             'boolClaim1',
             'boolClaimYes',
@@ -27,30 +29,58 @@ class ClaimTranslatorExtractorTest extends TestCase
             'jsonClaim',
             //Test oid style claim names is not interpreted as a type of 'urn'
             'urn:oid:2.5.4.3'
-        ]);
+            ]
+        );
         $translate = [
-            'int:intClaim' => ['intAttribute'],
-            'bool:boolClaim1' => ['boolAttribute1'],
-            'bool:boolClaimYes' => ['boolAttributeYes'],
-            'bool:boolClaimTrue' => ['boolAttributeTrue'],
-            'bool:boolClaimOther' => ['boolAttributeOther'],
+            'intClaim' => [
+                'type' => 'int',
+                'attributes' => ['intAttribute']
+            ],
+            'boolClaim1' => [
+                'type' => 'bool',
+                'attributes' => ['boolAttribute1']
+            ],
+            'boolClaimYes' => [
+                'type' => 'bool',
+                'attributes' => ['boolAttributeYes']
+            ]
+            ,
+            'boolClaimTrue' => [
+                'type' => 'bool',
+                'attributes' => ['boolAttributeTrue']
+            ],
+            'boolClaimOther' => [
+                'type' => 'bool',
+                'attributes' => ['boolAttributeOther']
+            ],
             'defaultClaim' => ['stringAttribute'],
-            'string:stringClaim' => ['stringAttribute'],
+            'stringClaim' => ['type' => 'string', 'attributes' => ['stringAttribute']],
             'jsonClaim' => [
-                'int:subIntClaim' => ['intAttribute'],
-                'bool:subBoolClaim' => ['boolAttribute1'],
-                'string:subStringClaim' => ['stringAttribute'],
+                'type' => 'json',
+                'claims' => [
+                    'subIntClaim' => [
+                        'type' => 'int',
+                        'attributes' => ['intAttribute']
+                    ],
+                    'subBoolClaim' => [
+                        'type' => 'bool',
+                        'attributes' => ['boolAttribute1']
+                    ],
+                    'subStringClaim' => ['stringAttribute'],
+                ]
             ],
             'urn:oid:2.5.4.3' => ['stringAttribute']
         ];
-        $userAttributes = Attributes::normalizeAttributesArray([
-            'intAttribute' => '7890',
-            'boolAttribute1' => '1',
-            'boolAttributeYes' => 'yes',
-            'boolAttributeTrue' => 'true',
-            'boolAttributeOther' => 'anythingElseIsFalse',
-            'stringAttribute' => 'someString',
-        ]);
+        $userAttributes = Attributes::normalizeAttributesArray(
+            [
+                'intAttribute' => '7890',
+                'boolAttribute1' => '1',
+                'boolAttributeYes' => 'yes',
+                'boolAttributeTrue' => 'true',
+                'boolAttributeOther' => 'anythingElseIsFalse',
+                'stringAttribute' => 'someString',
+            ]
+        );
         $claimTranslator = new ClaimTranslatorExtractor([$claimSet], $translate);
         $releasedClaims = $claimTranslator->extract(
             ['typeConversion'],
@@ -107,12 +137,24 @@ class ClaimTranslatorExtractorTest extends TestCase
     public function testStandardClaimTypesCanBeSet(): void
     {
         $translate = [
-            'int:updated_at' => ['last_updated'],
-            'bool:email_verified' => ['is_email_verified'],
-            'bool:phone_number_verified' => ['is_phone_number_verified'],
+            'updated_at' => [
+                'type' => 'int',
+                'last_updated'
+            ],
+            'email_verified' => [
+                'type' => 'bool',
+                'is_email_verified'
+            ],
+            'phone_number_verified' => [
+                'type' => 'bool',
+                'is_phone_number_verified'
+            ],
             'address' => [
-                'country' => ['country'],
-                'postal_code' => ['postal'],
+                'type' => 'json',
+                'claims' => [
+                    'country' => ['country'],
+                    'postal_code' => ['postal'],
+                ]
             ],
         ];
         $userAttributes = Attributes::normalizeAttributesArray(
@@ -148,7 +190,10 @@ class ClaimTranslatorExtractorTest extends TestCase
         $this->expectExceptionMessage("Cannot convert '7890F' to int");
         $claimSet = new ClaimSetEntity('typeConversion', ['testClaim',]);
         $translate = [
-            'int:testClaim' => ['testClaim'],
+            'testClaim' => [
+                'type' => 'int',
+                'testClaim'
+            ],
         ];
         $userAttributes = Attributes::normalizeAttributesArray(['testClaim' => '7890F',]);
         $claimTranslator = new ClaimTranslatorExtractor([$claimSet], $translate);
@@ -159,9 +204,9 @@ class ClaimTranslatorExtractorTest extends TestCase
     {
         $claimTranslator = new ClaimTranslatorExtractor();
         $requestClaims = [
-          "userinfo" => [
-              "name" => ['essential' => true]
-          ]
+            "userinfo" => [
+                "name" => ['essential' => true]
+            ]
         ];
 
         $claims = $claimTranslator->extractAdditionalUserInfoClaims($requestClaims, ['cn' => ['bob']]);
