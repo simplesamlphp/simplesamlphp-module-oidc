@@ -21,6 +21,7 @@ use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Store\DbLogoutTicketStore;
 
 class DatabaseMigration
 {
@@ -124,6 +125,11 @@ class DatabaseMigration
         if (!\in_array('20210916153400', $versions, true)) {
             $this->version20210916153400();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210916153400')");
+        }
+
+        if (!\in_array('20210916173400', $versions, true)) {
+            $this->version20210916173400();
+            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210916173400')");
         }
     }
 
@@ -335,6 +341,22 @@ EOT
         $this->database->write(<<< EOT
         ALTER TABLE ${clientTableName}
             ADD backchannel_logout_uri TEXT NULL 
+EOT
+        );
+    }
+
+    /**
+     * Add logout_ticket table
+     */
+    protected function version20210916173400()
+    {
+        $tableName = $this->database->applyPrefix(DbLogoutTicketStore::TABLE_NAME);
+        $this->database->write(
+            <<< EOT
+        CREATE TABLE ${tableName} (
+            sid VARCHAR(191) NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
 EOT
         );
     }
