@@ -101,6 +101,22 @@ $config = [
          * This is the default translate table from SAML to OIDC.
          * You can change here the behaviour or add more translation to your
          * private attributes scopes
+         *
+         * The basic format is
+         *
+         * 'claimName' => [
+         *     'type' => 'string|int|bool|json',
+         *      // For non JSON types
+         *     'attributes' => ['samlAttribute1', 'samlAttribute2']
+         *      // For JSON types
+         *     'claims => [
+         *          'subclaim' => [ 'type' => 'string', 'attributes' => ['saml1']]
+         *      ]
+         *  ]
+         *
+         * For convenience the default type is "string" so type does not need to be defined.
+         * If "attributes" is not set, then it is assumed that the rest of the values are saml
+         * attribute names.
          */
 //        'sub' => [
 //            'eduPersonPrincipalName',
@@ -148,26 +164,32 @@ $config = [
 //        'locale' => [
 //            'preferredLanguage',
 //        ],
-//        'int:updated_at' => [
-//            // Empty
+//        'updated_at' => [
+//            'type' => 'int',
+//            'attributes' => [],
 //        ],
 //        'email' => [
 //            'mail',
 //        ],
-//        'bool:email_verified' => [
-//            // Empty
+//        'email_verified' => [
+//            'type' => 'bool',
+//            'attributes' => [],
 //        ],
 //         // address is a json object. Set the 'formatted' sub claim to postalAddress
 //        'address' => [
-//            'formatted' => ['postalAddress'],
+//            'type' => 'json',
+//            'claims' => [
+//                'formatted' => ['postalAddress'],
+//            ]
 //        ],
 //        'phone_number' => [
 //            'mobile',
 //            'telephoneNumber',
 //            'homePhone',
 //        ],
-//        'bool:phone_number_verified' => [
-//            // Empty
+//        'phone_number_verified' => [
+//            'type' => 'bool',
+//            'attributes' => [],
 //        ],
         /*
          * Optional scopes attributes

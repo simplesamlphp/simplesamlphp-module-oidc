@@ -16,9 +16,15 @@ class ClaimTranslatorExtractorFactorySpec extends ObjectBehavior
                 [
                     'translate' => [
                         'testClaim' => ['attribute'],
-                        'int:intClaim' => ['intAttribute'],
+                        'intClaim' => [
+                            'type' => 'int',
+                            'intAttribute'
+                        ],
                         'testClaim2' => ['attribute2'],
-                        'bool:boolClaim' => ['boolAttribute'],
+                        'boolClaim' => [
+                            'type' => 'bool',
+                            'attributes' => ['boolAttribute']
+                        ],
                     ]
                 ]
             )
