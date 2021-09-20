@@ -55,6 +55,9 @@ class ConfigurationService
         return Configuration::getInstance();
     }
 
+    /**
+     * @throws \Exception
+     */
     public function getOpenIDConnectConfiguration(): Configuration
     {
         return Configuration::getConfig('module_oidc.php');
@@ -187,6 +190,25 @@ class ConfigurationService
     public function getCertPath(): string
     {
         return Config::getCertPath('oidc_module.crt');
+    }
+
+    /**
+     * Get the path to the private key
+     * @return string
+     */
+    public function getPrivateKeyPath(): string
+    {
+        return Config::getCertPath('oidc_module.pem');
+    }
+
+    /**
+     * Get the path to the private key
+     * @return ?string
+     * @throws \Exception
+     */
+    public function getPrivateKeyPassPhrase(): ?string
+    {
+        return $this->getOpenIDConnectConfiguration()->getString('pass_phrase', null);
     }
 
     /**

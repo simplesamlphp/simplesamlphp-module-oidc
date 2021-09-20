@@ -186,16 +186,13 @@ class AuthenticationServiceSpec extends ObjectBehavior
         AuthProcService $authProcService,
         Simple $simple,
         Source $source,
-        ClientEntity $clientEntity,
-        SessionService $sessionService,
-        Session $session
+        SessionService $sessionService
     ): void {
         $simple->isAuthenticated()->shouldBeCalled()->willReturn(false);
         $simple->login()->shouldBeCalled();
         $simple->getAuthSource()->shouldBeCalled()->willReturn($source);
         $sessionService->setIsCookieBasedAuthn(false)->shouldBeCalled();
         $sessionService->setIsAuthnPerformedInPreviousRequest(true)->shouldBeCalled();
-        $sessionService->getSession()->shouldBeCalled()->willReturn($session);
 
         $invalidState = self::STATE;
         unset($invalidState['Attributes'][self::USER_ID_ATTR]);

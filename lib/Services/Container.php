@@ -171,9 +171,9 @@ class Container implements ContainerInterface
         ))->build();
         $this->services[ClaimTranslatorExtractor::class] = $claimTranslatorExtractor;
 
-        $publicKeyPath = Config::getCertPath('oidc_module.crt');
-        $privateKeyPath = Config::getCertPath('oidc_module.pem');
-        $passPhrase = $configurationService->getOpenIDConnectConfiguration()->getString('pass_phrase', null);
+        $publicKeyPath = $configurationService->getCertPath();
+        $privateKeyPath = $configurationService->getPrivateKeyPath();
+        $passPhrase = $configurationService->getPrivateKeyPassPhrase();
 
         $cryptKeyFactory = new CryptKeyFactory(
             $publicKeyPath,

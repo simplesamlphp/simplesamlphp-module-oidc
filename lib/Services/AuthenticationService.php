@@ -95,19 +95,20 @@ class AuthenticationService
         if ($authSimple->isAuthenticated()) {
             if ($this->sessionService->getIsAuthnPerformedInPreviousRequest()) {
                 $this->sessionService->setIsAuthnPerformedInPreviousRequest(false);
+
+                $this->sessionService->registerLogoutHandler(
+                    $this->authSourceId,
+                    LogoutController::class,
+                    'logoutHandler'
+                );
             } else {
                 $this->sessionService->setIsCookieBasedAuthn(true);
             }
         } else {
             $this->sessionService->setIsCookieBasedAuthn(false);
             $this->sessionService->setIsAuthnPerformedInPreviousRequest(true);
-            $authSimple->login();
 
-            $this->sessionService->getSession()->registerLogoutHandler(
-                $this->authSourceId,
-                LogoutController::class,
-                'logoutHandler'
-            );
+            $authSimple->login();
         }
 
         $state = $this->prepareStateArray($authSimple, $oidcClient, $request);

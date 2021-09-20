@@ -47,10 +47,11 @@ class SessionService
 
     public function addRelyingPartyAssociation(RelyingPartyAssociationInterface $association): void
     {
+        $associationId = hash('sha256', $association->getClientId() . $association->getSessionId());
         $associations = $this->getRelyingPartyAssociations();
 
-        if (! array_key_exists($association->getClientId(), $associations)) {
-            $associations[$association->getClientId()] = $association;
+        if (! array_key_exists($associationId, $associations)) {
+            $associations[$associationId] = $association;
         }
 
         $this->session->setData(
@@ -102,5 +103,13 @@ class SessionService
             self::SESSION_DATA_TYPE,
             self::SESSION_DATA_ID_IS_AUTHN_PERFORMED_IN_PREVIOUS_REQUEST,
         );
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function registerLogoutHandler(string $authSourceId, string $className, string $functionName): void
+    {
+        $this->session->registerLogoutHandler($authSourceId, $className, $functionName);
     }
 }

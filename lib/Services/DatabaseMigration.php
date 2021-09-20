@@ -21,7 +21,7 @@ use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
-use SimpleSAML\Module\oidc\Store\DbLogoutTicketStore;
+use SimpleSAML\Module\oidc\Store\SessionLogoutTicketStoreDb;
 
 class DatabaseMigration
 {
@@ -350,7 +350,7 @@ EOT
      */
     protected function version20210916173400()
     {
-        $tableName = $this->database->applyPrefix(DbLogoutTicketStore::TABLE_NAME);
+        $tableName = $this->database->applyPrefix(SessionLogoutTicketStoreDb::TABLE_NAME);
         $this->database->write(
             <<< EOT
         CREATE TABLE ${tableName} (
