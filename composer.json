@@ -21,6 +21,8 @@
         "ext-json": "*",
         "ext-openssl": "*",
         "ext-pdo": "*",
+        "ext-curl": ">=7.19.4",
+        "guzzlehttp/guzzle": "^7.0",
         "laminas/laminas-diactoros": "^2.2.1",
         "laminas/laminas-httphandlerrunner": "^1.1.0",
         "lcobucci/jwt": "^4.1",
@@ -28,9 +30,9 @@
         "nette/forms": "^2.4",
         "psr/container": "^1.0",
         "simplesamlphp/composer-module-installer": "^1.0",
+        "spomky-labs/base64url": "^2.0",
         "steverhoades/oauth2-openid-connect-server": "^2.0",
-        "web-token/jwt-framework": "^2.1",
-        "spomky-labs/base64url": "^2.0"
+        "web-token/jwt-framework": "^2.1"
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^2.10",

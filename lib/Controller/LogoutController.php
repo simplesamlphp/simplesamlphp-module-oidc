@@ -78,7 +78,7 @@ class LogoutController
         //      [wnd] enable clients to register backchannel_logout_session_required property
         //          - wnd since we will support sid
         //      [] send logout requests with logout token, in parallel, to every associated RP
-        //          [] use POST method, with logout_token as body parameter
+        //          [x] use POST method, with logout_token as body parameter
         //          [] check if RP responded with 200 OK, consider logging if other
         //                 https://openid.net/specs/openid-connect-backchannel-1_0.html#BCResponse
         //      [] Refresh tokens issued without the offline_access property to a session being logged out SHOULD
@@ -131,7 +131,7 @@ class LogoutController
         foreach ($this->sessionService->getSession()->getAuthorities() as $authSourceId) {
             $this->sessionService->getSession()->doLogout($authSourceId);
         }
-        die('end');
+
         if ($logoutRequest->getPostLogoutRedirectUri() !== null) {
             return $this->generatePostLogoutRedirectResponse($logoutRequest);
         }
@@ -144,8 +144,6 @@ class LogoutController
      */
     public static function logoutHandler(): void
     {
-        $relyingPartyAssociations = [];
-
         $session = Session::getSessionFromRequest();
         $relyingPartyAssociations = SessionService::getRelyingPartyAssociationsForSession($session);
         SessionService::clearRelyingPartyAssociationsForSession($session);

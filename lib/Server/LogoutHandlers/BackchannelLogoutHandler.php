@@ -2,8 +2,13 @@
 
 namespace SimpleSAML\Module\oidc\Server\LogoutHandlers;
 
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Pool;
+use GuzzleHttp\Psr7\Request;
+use GuzzleHttp\Psr7\Response;
+use SimpleSAML\Logger;
 use SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
 
 class BackchannelLogoutHandler
 {
@@ -29,14 +34,42 @@ class BackchannelLogoutHandler
             return;
         }
 
-        $logoutUriToLogoutTokenMap = [];
-
+        /** Array with URI as key body as value */
+        $requestsData = [];
         foreach ($backchannelLogoutEnabledRelyingPartyAssociations as $association) {
             /** @psalm-suppress PossiblyNullArrayOffset We have filtered out associations with no BCL URI */
-            $logoutUriToLogoutTokenMap[$association->getBackchannelLogoutUri()] =
-                $this->logoutTokenBuilder->forRelyingPartyAssociation($association);
+            $requestsData[$association->getBackchannelLogoutUri()] =
+                http_build_query(
+                    ['logout_token' => $this->logoutTokenBuilder->forRelyingPartyAssociation($association)]
+                );
         }
 
-        // TODO prepare and send requests
+        $client = new Client(['timeout' => 5]);
+
+        $pool = new Pool($client, $this->logoutRequestsGenerator($requestsData), [
+            'concurrency' => 5,
+            'fulfilled' => function (Response $response, $index) {
+                // this is delivered each successful response
+                // TODO Log this
+            },
+            'rejected' => function (RequestException $reason, $index) {
+                // this is delivered each failed request
+                // TODO log this
+            },
+        ]);
+
+        $pool->promise()->wait();
+    }
+
+    protected function logoutRequestsGenerator(array $requestsData): \Generator
+    {
+        foreach ($requestsData as $uri => $body) {
+            yield new Request(
+                'POST',
+                $uri,
+                ['Content-Type' => 'application/x-www-form-urlencoded'],
+                $body
+            );
+        }
     }
 }
