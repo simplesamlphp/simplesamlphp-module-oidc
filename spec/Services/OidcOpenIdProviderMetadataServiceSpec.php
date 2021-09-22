@@ -55,6 +55,8 @@ class OidcOpenIdProviderMetadataServiceSpec extends ObjectBehavior
             'grant_types_supported' => ['authorization_code', 'refresh_token'],
             'claims_parameter_supported' => true,
             'end_session_endpoint' => 'http://localhost/logout.php',
+            'backchannel_logout_supported' => true,
+            'backchannel_logout_session_supported' => true,
         ]);
     }
 }

@@ -44,7 +44,7 @@ class LogoutController
     public function __invoke(ServerRequest $request): ResponseInterface
     {
         // TODO mivanci logout
-        // [] RP-Initiated Logout: https://openid.net/specs/openid-connect-rpinitiated-1_0.html
+        // [x] RP-Initiated Logout: https://openid.net/specs/openid-connect-rpinitiated-1_0.html
         //      [x] register logout handler during authn.
         //          See: \SimpleSAML\Session::registerLogoutHandler, modules/memcookie/www/auth.php:87
         //          $session = \SimpleSAML\Session::getSessionFromRequest();
@@ -71,15 +71,15 @@ class LogoutController
         // [] implement Back-Channel Logout: https://openid.net/specs/openid-connect-backchannel-1_0.html
         //      [x] create Logout Token builder
         //          [x] implement claims as per https://openid.net/specs/openid-connect-backchannel-1_0.html#LogoutToken
-        //      [] indicate BCL using backchannel_logout_supported property in discovery
-        //      [] indicate sid support in Logout Token using backchannel_logout_session_supported property in discovery
+        //      [x] indicate BCL support using backchannel_logout_supported property in discovery
+        //      [x] indicate sid support using backchannel_logout_session_supported property in discovery
         //      [x] enable clients to register backchannel_logout_uri (https but http allowed if confidential)
         //          MAY contain port, path, and query parameter components, but no fragment.
         //      [wnd] enable clients to register backchannel_logout_session_required property
         //          - wnd since we will support sid
-        //      [] send logout requests with logout token, in parallel, to every associated RP
+        //      [x] send logout requests with logout token, in parallel, to every associated RP
         //          [x] use POST method, with logout_token as body parameter
-        //          [] check if RP responded with 200 OK, consider logging if other
+        //          [x] check if RP responded with 200 OK, consider logging if other
         //                 https://openid.net/specs/openid-connect-backchannel-1_0.html#BCResponse
         //      [] Refresh tokens issued without the offline_access property to a session being logged out SHOULD
         //           be revoked. Refresh tokens issued with the offline_access property normally SHOULD NOT be revoked.

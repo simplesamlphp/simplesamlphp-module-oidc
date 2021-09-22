@@ -52,6 +52,8 @@ class OidcOpenIdProviderMetadataService
         if (!(empty($acrValuesSupported = $this->configurationService->getAcrValuesSupported()))) {
             $this->metadata['acr_values_supported'] = $acrValuesSupported;
         }
+        $this->metadata['backchannel_logout_supported'] = true;
+        $this->metadata['backchannel_logout_session_supported'] = true;
     }
 
     /**
