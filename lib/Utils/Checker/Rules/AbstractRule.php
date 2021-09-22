@@ -3,6 +3,7 @@
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Logger;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\RequestRuleInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
@@ -28,7 +29,13 @@ abstract class AbstractRule implements RequestRuleInterface
         $requestMethod = strtoupper($request->getMethod());
 
         if (! in_array($requestMethod, $allowedServerRequestMethods)) {
-            // TODO Log method not allowed
+            Logger::warning(
+                sprintf(
+                    'Method %s not allowed for intended request. Allowed methods were %s.',
+                    $requestMethod,
+                    implode(', ', $allowedServerRequestMethods)
+                )
+            );
             return null;
         }
 
@@ -41,7 +48,12 @@ abstract class AbstractRule implements RequestRuleInterface
                 }
                 // break; // ... falls through to default
             default:
-                // TODO Log method not supported
+                Logger::warning(
+                    sprintf(
+                        'Request method %s is not supported.',
+                        $requestMethod
+                    )
+                );
         }
 
         return null;

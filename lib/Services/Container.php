@@ -217,12 +217,14 @@ class Container implements ContainerInterface
         $privateKey = $cryptKeyFactory->buildPrivateKey();
         $encryptionKey = Config::getSecretSalt();
 
-        $idTokenBuilderFactory = new IdTokenBuilderFactory(
-            $configurationService,
-            $claimTranslatorExtractor,
-            $privateKey
-        );
-        $this->services[IdTokenBuilder::class] = $idTokenBuilderFactory->build();
+        $jsonWebTokenBuilderService = new JsonWebTokenBuilderService($configurationService);
+        $this->services[JsonWebTokenBuilderService::class] = $jsonWebTokenBuilderService;
+
+        $idTokenBuilder = new IdTokenBuilder($jsonWebTokenBuilderService, $claimTranslatorExtractor);
+        $this->services[IdTokenBuilder::class] = $idTokenBuilder;
+
+        $logoutTokenBuilder = new LogoutTokenBuilder($jsonWebTokenBuilderService);
+        $this->services[LogoutTokenBuilder::class] = $logoutTokenBuilder;
 
         $idTokenResponseFactory = new IdTokenResponseFactory(
             $userRepository,

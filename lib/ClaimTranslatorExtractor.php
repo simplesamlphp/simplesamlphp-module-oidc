@@ -99,14 +99,7 @@ class ClaimTranslatorExtractor extends ClaimExtractor
      * From JSON Web Token Claims registry: https://www.iana.org/assignments/jwt/jwt.xhtml
      */
     public const REGISTERED_CLAIMS = [
-        // ...RegisteredClaims::ALL, // TODO consider refactoring to spread operator when upgrading to PHP 7.4
-        RegisteredClaims::ISSUER,
-        RegisteredClaims::SUBJECT,
-        RegisteredClaims::AUDIENCE,
-        RegisteredClaims::EXPIRATION_TIME,
-        RegisteredClaims::NOT_BEFORE,
-        RegisteredClaims::ISSUED_AT,
-        RegisteredClaims::ID,
+        ...RegisteredClaims::ALL,
         'azp',
         'nonce',
         'auth_time',

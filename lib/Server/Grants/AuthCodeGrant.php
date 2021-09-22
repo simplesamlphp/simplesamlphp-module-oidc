@@ -139,7 +139,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         OAuth2AuthorizationRequest $authorizationRequest
     ): bool {
         // Check if the scopes contain 'oidc' scope
-        // TODO mivanci move away from static Arr dependency
         return (bool) Arr::find($authorizationRequest->getScopes(), function (ScopeEntityInterface $scope) {
             return $scope->getIdentifier() === 'openid';
         });

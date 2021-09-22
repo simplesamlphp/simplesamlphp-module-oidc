@@ -30,6 +30,7 @@ use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
+use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 
 class IdTokenResponseSpec extends ObjectBehavior
 {
@@ -75,14 +76,15 @@ class IdTokenResponseSpec extends ObjectBehavior
         $configurationService->getSigner()->willReturn(new Sha256());
         $configurationService->getSimpleSAMLSelfURLHost()->willReturn(self::ISSUER);
         $configurationService->getCertPath()->willReturn($this->certFolder . '/oidc_module.crt');
+        $configurationService->getPrivateKeyPath()->willReturn($this->certFolder . '/oidc_module.pem');
+        $configurationService->getPrivateKeyPassPhrase()->shouldBeCalled();
         $configurationService->getOpenIDConnectConfiguration()->willReturn($oidcConfig);
 
         $privateKey = new CryptKey($this->certFolder . '/oidc_module.pem', null, false);
 
         $idTokenBuilder = new IdTokenBuilder(
-            new ClaimTranslatorExtractor(),
-            $configurationService->getWrappedObject(),
-            $privateKey
+            new JsonWebTokenBuilderService($configurationService->getWrappedObject()),
+            new ClaimTranslatorExtractor()
         );
 
         $this->beConstructedWith($identityProvider->getWrappedObject(), $configurationService, $idTokenBuilder);
@@ -201,7 +203,7 @@ class IdTokenResponseSpec extends ObjectBehavior
                 }
                 $expectedClaimsKeys = array_keys($expectedClaims);
                 $expectedClaimsKeys = array_merge(
-                    ['iss', 'aud', 'jti', 'nbf', 'exp', 'sub', 'iat', 'at_hash'],
+                    ['iss', 'iat', 'jti', 'aud', 'nbf', 'exp', 'sub', 'at_hash'],
                     $expectedClaimsKeys
                 );
                 $claims = array_keys($token->claims()->all());

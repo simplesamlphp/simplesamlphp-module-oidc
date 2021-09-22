@@ -5,12 +5,13 @@ namespace SimpleSAML\Module\oidc\Services;
 use Lcobucci\JWT\Builder;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Encoding\ChainedFormatter;
+use Lcobucci\JWT\Signer;
 use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\UnencryptedToken;
 use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
 use SimpleSAML\Module\oidc\Utils\UniqueIdentifierGenerator;
 
-class JwtTokenBuilderService
+class JsonWebTokenBuilderService
 {
     protected ConfigurationService $configurationService;
     protected Configuration $jwtConfig;
@@ -32,6 +33,7 @@ class JwtTokenBuilderService
 
     public function getDefaultJwtTokenBuilder(): Builder
     {
+        // Ignore microseconds when handling dates.
         return $this->jwtConfig->builder(ChainedFormatter::withUnixTimestampDates())
             ->issuedBy($this->configurationService->getSimpleSAMLSelfURLHost())
             ->issuedAt(new \DateTimeImmutable('now'))
@@ -47,5 +49,10 @@ class JwtTokenBuilderService
                 $this->jwtConfig->signer(),
                 $this->jwtConfig->signingKey()
             );
+    }
+
+    public function getSigner(): Signer
+    {
+        return $this->configurationService->getSigner();
     }
 }

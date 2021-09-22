@@ -1,18 +1,17 @@
 <?php
 
-namespace SimpleSAML\Module\oidc\Server\LogoutHandlers;
+namespace SimpleSAML\Module\oidc\Services;
 
-use SimpleSAML\Module\oidc\Services\JwtTokenBuilderService;
 use SimpleSAML\Module\oidc\Server\Associations\Interfaces\RelyingPartyAssociationInterface;
 
 class LogoutTokenBuilder
 {
-    protected JwtTokenBuilderService $jwtTokenBuilderService;
+    protected JsonWebTokenBuilderService $jwtTokenBuilderService;
 
     public function __construct(
-        ?JwtTokenBuilderService $jwtTokenBuilderService = null
+        ?JsonWebTokenBuilderService $jwtTokenBuilderService = null
     ) {
-        $this->jwtTokenBuilderService = $jwtTokenBuilderService ?? new JwtTokenBuilderService();
+        $this->jwtTokenBuilderService = $jwtTokenBuilderService ?? new JsonWebTokenBuilderService();
     }
 
     public function forRelyingPartyAssociation(RelyingPartyAssociationInterface $relyingPartyAssociation): string

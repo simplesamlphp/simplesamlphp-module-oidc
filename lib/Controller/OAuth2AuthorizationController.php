@@ -14,6 +14,7 @@
 
 namespace SimpleSAML\Module\oidc\Controller;
 
+use SimpleSAML\Logger;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
@@ -133,7 +134,14 @@ class OAuth2AuthorizationController
         }
 
         // ...according to spec we have to return acr claim, and we don't have one available (none configured)...
-        // TODO log this state when logger service or helper is implemented
-        $authorizationRequest->setAcr('N/A');
+        $genericAcr = 'N/A';
+        Logger::warning(
+            sprintf(
+                'No ACRs configured for current auth source, whilst specification mandates one. ' .
+                'Falling back to generic ACR (%s).',
+                $genericAcr
+            )
+        );
+        $authorizationRequest->setAcr($genericAcr);
     }
 }

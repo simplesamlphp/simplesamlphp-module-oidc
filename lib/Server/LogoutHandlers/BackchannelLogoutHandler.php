@@ -9,6 +9,7 @@ use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
 use SimpleSAML\Logger;
 use SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation;
+use SimpleSAML\Module\oidc\Services\LogoutTokenBuilder;
 
 class BackchannelLogoutHandler
 {

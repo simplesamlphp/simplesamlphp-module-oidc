@@ -3,6 +3,7 @@
 namespace SimpleSAML\Module\oidc\Controller;
 
 use Psr\Http\Message\ResponseInterface;
+use SimpleSAML\Logger;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use Laminas\Diactoros\Response;
 use Laminas\Diactoros\ServerRequest;
@@ -43,53 +44,15 @@ class LogoutController
 
     public function __invoke(ServerRequest $request): ResponseInterface
     {
-        // TODO mivanci logout
-        // [x] RP-Initiated Logout: https://openid.net/specs/openid-connect-rpinitiated-1_0.html
-        //      [x] register logout handler during authn.
-        //          See: \SimpleSAML\Session::registerLogoutHandler, modules/memcookie/www/auth.php:87
-        //          $session = \SimpleSAML\Session::getSessionFromRequest();
-        //          $session->registerLogoutHandler($sourceId, 'class', 'method');
-        //      [x] implement 'sid' claim in ID Token during authn.
-        //      [x] store OP -> RP associations, probably using Session
-        //      [x] add end_session_endpoint to discovery
-        //      [x] RP initiated logout request, must support GET and POST:
-        //          [x] id_token_hint - optional, recommended
-        //              [x] ID token, use it to extract sub, aud, sid...
-        //              [x] check issuer, aud, (sub?)...
-        //              [x] check that sid is current or recently existed
-        //          [x] post_logout_redirect_uri - optional
-        //              [wnd] must be https for public clients, optionally http for confidential
-        //                  - left the same validation regex as redirect_uri
-        //              [x] enable registration in client management UI
-        //              [x] only allow registered redirect, must be supplied together with id_token_hint
-        //              [x] redirect to RP after logout
-        //          [x] state - optional
-        //              [x] return with redirect to redirect_uri
-        //          [wnd] ui_locales - optional
-        //              [wnd] preferred language for user UI, for example to ask user to allow logout
-
-        // [] implement Back-Channel Logout: https://openid.net/specs/openid-connect-backchannel-1_0.html
-        //      [x] create Logout Token builder
-        //          [x] implement claims as per https://openid.net/specs/openid-connect-backchannel-1_0.html#LogoutToken
-        //      [x] indicate BCL support using backchannel_logout_supported property in discovery
-        //      [x] indicate sid support using backchannel_logout_session_supported property in discovery
-        //      [x] enable clients to register backchannel_logout_uri (https but http allowed if confidential)
-        //          MAY contain port, path, and query parameter components, but no fragment.
-        //      [wnd] enable clients to register backchannel_logout_session_required property
-        //          - wnd since we will support sid
-        //      [x] send logout requests with logout token, in parallel, to every associated RP
-        //          [x] use POST method, with logout_token as body parameter
-        //          [x] check if RP responded with 200 OK, consider logging if other
-        //                 https://openid.net/specs/openid-connect-backchannel-1_0.html#BCResponse
+        // TODO Back-Channel Logout: https://openid.net/specs/openid-connect-backchannel-1_0.html
         //      [] Refresh tokens issued without the offline_access property to a session being logged out SHOULD
         //           be revoked. Refresh tokens issued with the offline_access property normally SHOULD NOT be revoked.
+        //      - currently we don't handle offline_access at all...
 
-        // [] Replace current ID token builder with generic JwtTokenBuilderService
-
-        // [] consider implementing Front-Channel Logout: https://openid.net/specs/openid-connect-frontchannel-1_0.html
+        // TODO Consider implementing Front-Channel Logout:
+        //      https://openid.net/specs/openid-connect-frontchannel-1_0.html
         //      (FCL has challenges with User Agents Blocking Access to Third-Party Content:
         //      https://openid.net/specs/openid-connect-frontchannel-1_0.html#ThirdPartyContent)
-
 
         $logoutRequest = $this->authorizationServer->validateLogoutRequest($request);
 
@@ -123,7 +86,9 @@ class LogoutController
                     }
                 }
             } catch (\Throwable $exception) {
-                // TODO Log that requested session was not found
+                Logger::warning(
+                    sprintf('Logout: could not get session with ID %s, error: %s', $sidClaim, $exception->getMessage())
+                );
             }
         }
 
@@ -170,7 +135,13 @@ class LogoutController
                         SessionService::clearRelyingPartyAssociationsForSession($sessionLogoutTicketSession);
                     }
                 } catch (\Throwable $exception) {
-                    // TODO Log this
+                    Logger::warning(
+                        sprintf(
+                            'Session Ticket Logout: could not get session with ID %s, error: %s',
+                            $sid,
+                            $exception->getMessage()
+                        )
+                    );
                 }
             }
 

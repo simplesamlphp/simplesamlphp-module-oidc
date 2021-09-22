@@ -3,6 +3,7 @@
 namespace SimpleSAML\Module\oidc\Services;
 
 use Base64Url\Base64Url;
+use Lcobucci\JWT\Builder;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Encoding\ChainedFormatter;
 use Lcobucci\JWT\Signer\Key\InMemory;
@@ -24,22 +25,16 @@ class IdTokenBuilder
      */
     private $claimExtractor;
     /**
-     * @var ConfigurationService
+     * @var JsonWebTokenBuilderService
      */
-    private $configurationService;
-    /**
-     * @var CryptKey
-     */
-    private $privateKey;
+    private $jsonWebTokenBuilderService;
 
     public function __construct(
-        ClaimTranslatorExtractor $claimExtractor,
-        ConfigurationService $configurationService,
-        CryptKey $privateKey
+        JsonWebTokenBuilderService $jsonWebTokenBuilderService,
+        ClaimTranslatorExtractor $claimExtractor
     ) {
+        $this->jsonWebTokenBuilderService = $jsonWebTokenBuilderService;
         $this->claimExtractor = $claimExtractor;
-        $this->configurationService = $configurationService;
-        $this->privateKey = $privateKey;
     }
 
     public function build(
@@ -56,15 +51,8 @@ class IdTokenBuilder
             throw new \RuntimeException('UserEntity must implement ClaimSetInterface');
         }
 
-        $jwtConfig = Configuration::forAsymmetricSigner(
-            $this->configurationService->getSigner(),
-            InMemory::plainText($this->privateKey->getKeyPath(), $this->privateKey->getPassPhrase() ?? ''),
-            // The public key is not needed for signing
-            InMemory::empty()
-        );
-
         // Add required id_token claims
-        $builder = $this->getBuilder($jwtConfig, $accessToken, $userEntity);
+        $builder = $this->getBuilder($accessToken, $userEntity);
 
         if (null !== $nonce) {
             $builder->withClaim('nonce', $nonce);
@@ -77,7 +65,10 @@ class IdTokenBuilder
         if ($addAccessTokenHash) {
             $builder->withClaim(
                 'at_hash',
-                $this->generateAccessTokenHash($accessToken, $jwtConfig->signer()->algorithmId())
+                $this->generateAccessTokenHash(
+                    $accessToken,
+                    $this->jsonWebTokenBuilderService->getSigner()->algorithmId()
+                )
             );
         }
 
@@ -129,29 +120,20 @@ class IdTokenBuilder
             }
         }
 
-        $kid = FingerprintGenerator::forFile($this->configurationService->getCertPath());
-
-        return $builder->withHeader('kid', $kid)
-            ->getToken(
-                $jwtConfig->signer(),
-                $jwtConfig->signingKey()
-            );
+        return $this->jsonWebTokenBuilderService->getSignedJwtTokenFromBuilder($builder);
     }
 
     protected function getBuilder(
-        Configuration $jwtConfig,
         AccessTokenEntityInterface $accessToken,
         UserEntityInterface $userEntity
-    ) {
-        // Ignore microseconds when handling dates.
-        return $jwtConfig->builder(ChainedFormatter::withUnixTimestampDates())
-            ->issuedBy($this->configurationService->getSimpleSAMLSelfURLHost())
+    ): Builder {
+        return $this->jsonWebTokenBuilderService
+            ->getDefaultJwtTokenBuilder()
             ->permittedFor($accessToken->getClient()->getIdentifier())
             ->identifiedBy($accessToken->getIdentifier())
             ->canOnlyBeUsedAfter(new \DateTimeImmutable('now'))
             ->expiresAt($accessToken->getExpiryDateTime())
-            ->relatedTo($userEntity->getIdentifier())
-            ->issuedAt(new \DateTimeImmutable('now'));
+            ->relatedTo($userEntity->getIdentifier());
     }
 
     /**
