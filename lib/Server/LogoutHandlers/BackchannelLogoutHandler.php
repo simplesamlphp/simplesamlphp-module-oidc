@@ -3,7 +3,7 @@
 namespace SimpleSAML\Module\oidc\Server\LogoutHandlers;
 
 use GuzzleHttp\Client;
-use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Pool;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
@@ -25,51 +25,55 @@ class BackchannelLogoutHandler
      */
     public function handle(array $relyingPartyAssociations): void
     {
-        $backchannelLogoutEnabledRelyingPartyAssociations = array_filter(
-            $relyingPartyAssociations,
-            fn($association) => $association->getBackchannelLogoutUri() !== null
-        );
+        $client = new Client(['timeout' => 3]);
 
-        if (empty($backchannelLogoutEnabledRelyingPartyAssociations)) {
-            return;
-        }
-
-        /** Array with URI as key body as value */
-        $requestsData = [];
-        foreach ($backchannelLogoutEnabledRelyingPartyAssociations as $association) {
-            /** @psalm-suppress PossiblyNullArrayOffset We have filtered out associations with no BCL URI */
-            $requestsData[$association->getBackchannelLogoutUri()] =
-                http_build_query(
-                    ['logout_token' => $this->logoutTokenBuilder->forRelyingPartyAssociation($association)]
-                );
-        }
-
-        $client = new Client(['timeout' => 5]);
-
-        $pool = new Pool($client, $this->logoutRequestsGenerator($requestsData), [
+        $pool = new Pool($client, $this->logoutRequestsGenerator($relyingPartyAssociations), [
             'concurrency' => 5,
             'fulfilled' => function (Response $response, $index) {
                 // this is delivered each successful response
-                // TODO Log this
+                $successMessage = "Backhannel Logout (index $index) - success, status: {$response->getStatusCode()} " .
+                    "{$response->getReasonPhrase()}";
+                Logger::notice($successMessage);
             },
-            'rejected' => function (RequestException $reason, $index) {
+            'rejected' => function (GuzzleException $reason, $index) {
                 // this is delivered each failed request
-                // TODO log this
+                $errorMessage = "Backhannel Logout (index $index) - error, reason: {$reason->getCode()} " .
+                    "{$reason->getMessage()}, exception type: " . get_class($reason);
+                Logger::error($errorMessage);
             },
         ]);
 
-        $pool->promise()->wait();
+        try {
+            $pool->promise()->wait();
+        } catch (\Throwable $exception) {
+            Logger::error('Backchannel Logout promise error: ' . $exception->getMessage());
+        }
     }
 
-    protected function logoutRequestsGenerator(array $requestsData): \Generator
+    /**
+     * @param array<string,RelyingPartyAssociation> $relyingPartyAssociations
+     * @return \Generator
+     */
+    protected function logoutRequestsGenerator(array $relyingPartyAssociations): \Generator
     {
-        foreach ($requestsData as $uri => $body) {
-            yield new Request(
-                'POST',
-                $uri,
-                ['Content-Type' => 'application/x-www-form-urlencoded'],
-                $body
-            );
+        $index = 0;
+        foreach ($relyingPartyAssociations as $association) {
+            if ($association->getBackchannelLogoutUri() !== null) {
+                $logMessage = "Backhannel Logout (index $index) - preparing request to: " .
+                    $association->getBackchannelLogoutUri();
+                Logger::notice($logMessage);
+                $index++;
+
+                /** @psalm-suppress PossiblyNullArgument We have checked for nulls... */
+                yield new Request(
+                    'POST',
+                    $association->getBackchannelLogoutUri(),
+                    ['Content-Type' => 'application/x-www-form-urlencoded'],
+                    http_build_query(
+                        ['logout_token' => $this->logoutTokenBuilder->forRelyingPartyAssociation($association)]
+                    )
+                );
+            }
         }
     }
 }
