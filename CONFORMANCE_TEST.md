@@ -78,6 +78,10 @@ conformance-suite/scripts/run-test-plan.py \
 conformance-suite/scripts/run-test-plan.py \
   "oidcc-backchannel-rp-initiated-logout-certification-test-plan[response_type=code][client_registration=static_client]" \
   ${OIDC_MODULE_FOLDER}/conformance-tests/conformance-basic-ci.json
+
+conformance-suite/scripts/run-test-plan.py \
+  "oidcc-rp-initiated-logout-certification-test-plan[response_type=code][client_registration=static_client]" \
+  ${OIDC_MODULE_FOLDER}/conformance-tests/conformance-basic-ci.json
 ```
 
 
