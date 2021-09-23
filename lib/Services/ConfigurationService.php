@@ -14,13 +14,13 @@
 
 namespace SimpleSAML\Module\oidc\Services;
 
+use Exception;
 use Lcobucci\JWT\Signer;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
-use PhpParser\Node\Scalar\String_;
+use ReflectionClass;
 use SimpleSAML\Configuration;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module;
-use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
 use SimpleSAML\Utils\Config;
 use SimpleSAML\Utils\HTTP;
 
@@ -56,7 +56,7 @@ class ConfigurationService
     }
 
     /**
-     * @throws \Exception
+     * @throws Exception
      */
     public function getOpenIDConnectConfiguration(): Configuration
     {
@@ -99,7 +99,7 @@ class ConfigurationService
     }
 
     /**
-     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws ConfigurationError
      *
      * @return void
      */
@@ -109,16 +109,17 @@ class ConfigurationService
         array_walk(
             $privateScopes,
             /**
-             * @param array  $scope
+             * @param array $scope
              * @param string $name
              *
              * @return void
+             * @throws ConfigurationError
              */
             function ($scope, $name) {
-                if (\in_array($name, ['openid', 'profile', 'email', 'address', 'phone'], true)) {
+                if (in_array($name, ['openid', 'profile', 'email', 'address', 'phone'], true)) {
                     throw new ConfigurationError('Can not overwrite protected scope: ' . $name, 'oidc_config.php');
                 }
-                if (!\array_key_exists('description', $scope)) {
+                if (!array_key_exists('description', $scope)) {
                     throw new ConfigurationError('Scope [' . $name . '] description not defined', 'module_oidc.php');
                 }
             }
@@ -166,12 +167,15 @@ class ConfigurationService
         }
     }
 
+    /**
+     * @throws \ReflectionException
+     */
     public function getSigner(): Signer
     {
         /** @psalm-var class-string $signerClassname */
         $signerClassname = (string) $this->getOpenIDConnectConfiguration()->getString('signer', Sha256::class);
 
-        $class = new \ReflectionClass($signerClassname);
+        $class = new ReflectionClass($signerClassname);
         $signer = $class->newInstance();
 
         if (!$signer instanceof Signer) {
@@ -202,7 +206,7 @@ class ConfigurationService
     /**
      * Get the path to the private key
      * @return ?string
-     * @throws \Exception
+     * @throws Exception
      */
     public function getPrivateKeyPassPhrase(): ?string
     {
@@ -213,7 +217,7 @@ class ConfigurationService
      * Get autproc filters defined in the OIDC configuration.
      *
      * @return array
-     * @throws \Exception
+     * @throws Exception
      */
     public function getAuthProcFilters(): array
     {
@@ -224,7 +228,7 @@ class ConfigurationService
      * Get supported Authentication Context Class References (ACRs).
      *
      * @return array
-     * @throws \Exception
+     * @throws Exception
      */
     public function getAcrValuesSupported(): array
     {
@@ -235,7 +239,7 @@ class ConfigurationService
      * Get a map of auth sources and their supported ACRs
      *
      * @return array
-     * @throws \Exception
+     * @throws Exception
      */
     public function getAuthSourcesToAcrValuesMap(): array
     {
@@ -244,12 +248,12 @@ class ConfigurationService
 
     /**
      * @return null|string
-     * @throws \Exception
+     * @throws Exception
      */
     public function getForcedAcrValueForCookieAuthentication(): ?string
     {
         $value = $this->getOpenIDConnectConfiguration()
-            ->getValue('forcedAcrValueForCookieAuthentication', null);
+            ->getValue('forcedAcrValueForCookieAuthentication');
 
         if (is_null($value)) {
             return null;

@@ -32,7 +32,6 @@ use SimpleSAML\Module\oidc\Factories\Grant\AuthCodeGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\ImplicitGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\OAuth2ImplicitGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\RefreshTokenGrantFactory;
-use SimpleSAML\Module\oidc\Factories\IdTokenBuilderFactory;
 use SimpleSAML\Module\oidc\Factories\IdTokenResponseFactory;
 use SimpleSAML\Module\oidc\Factories\ResourceServerFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
@@ -51,6 +50,8 @@ use SimpleSAML\Module\oidc\Server\Grants\OAuth2ImplicitGrant;
 use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
+use SimpleSAML\Module\oidc\Store\SessionLogoutTicketStoreBuilder;
+use SimpleSAML\Module\oidc\Store\SessionLogoutTicketStoreDb;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\AcrValuesRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule;
@@ -225,6 +226,12 @@ class Container implements ContainerInterface
 
         $logoutTokenBuilder = new LogoutTokenBuilder($jsonWebTokenBuilderService);
         $this->services[LogoutTokenBuilder::class] = $logoutTokenBuilder;
+
+        $sessionLogoutTicketStoreDb = new SessionLogoutTicketStoreDb($database);
+        $this->services[SessionLogoutTicketStoreDb::class] = $sessionLogoutTicketStoreDb;
+
+        $sessionLogoutTicketStoreBuilder = new SessionLogoutTicketStoreBuilder($sessionLogoutTicketStoreDb);
+        $this->services[SessionLogoutTicketStoreBuilder::class] = $sessionLogoutTicketStoreBuilder;
 
         $idTokenResponseFactory = new IdTokenResponseFactory(
             $userRepository,

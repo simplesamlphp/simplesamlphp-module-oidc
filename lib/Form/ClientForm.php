@@ -40,7 +40,7 @@ class ClientForm extends Form
     public const REGEX_HTTP_URI = '/^http(s?):\/\/[^\s\/$.?#][^\s#]*$/i';
 
     /**
-     * @var \SimpleSAML\Module\oidc\Services\ConfigurationService
+     * @var ConfigurationService
      */
     private $configurationService;
 
@@ -49,7 +49,7 @@ class ClientForm extends Form
      */
     public function __construct(ConfigurationService $configurationService)
     {
-        parent::__construct(null);
+        parent::__construct();
 
         $this->configurationService = $configurationService;
 
@@ -209,11 +209,9 @@ class ClientForm extends Form
 
     protected function getScopes(): array
     {
-        $items = array_map(function ($item) {
+        return array_map(function ($item) {
             return $item['description'];
         }, $this->configurationService->getOpenIDScopes());
-
-        return $items;
     }
 
     /**

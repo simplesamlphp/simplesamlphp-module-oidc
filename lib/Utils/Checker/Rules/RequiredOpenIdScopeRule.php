@@ -43,6 +43,6 @@ class RequiredOpenIdScopeRule extends AbstractRule
             );
         }
 
-        return new Result($this->getKey(), $isOpenIdScopePresent);
+        return new Result($this->getKey(), true);
     }
 }

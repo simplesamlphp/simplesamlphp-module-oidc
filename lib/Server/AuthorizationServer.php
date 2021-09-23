@@ -4,6 +4,7 @@ namespace SimpleSAML\Module\oidc\Server;
 
 use Lcobucci\JWT\UnencryptedToken;
 use League\OAuth2\Server\AuthorizationServer as OAuth2AuthorizationServer;
+use LogicException;
 use SimpleSAML\Error\BadRequest;
 use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
@@ -58,7 +59,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         $this->clientRepository = $clientRepository;
 
         if ($requestRulesManager === null) {
-            throw new \LogicException('Can not validate request (no RequestRulesManager defined)');
+            throw new LogicException('Can not validate request (no RequestRulesManager defined)');
         }
         $this->requestRulesManager = $requestRulesManager;
     }
@@ -77,7 +78,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         try {
             $resultBag = $this->requestRulesManager->check($request, $rulesToExecute);
         } catch (OidcServerException $exception) {
-            $reason = \sprintf("%s %s", $exception->getMessage(), $exception->getHint() ?? '');
+            $reason = sprintf("%s %s", $exception->getMessage(), $exception->getHint() ?? '');
             throw new BadRequest($reason);
         }
 
@@ -111,7 +112,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         try {
             $resultBag = $this->requestRulesManager->check($request, $rulesToExecute, false, ['GET', 'POST']);
         } catch (OidcServerException $exception) {
-            $reason = \sprintf("%s %s", $exception->getMessage(), $exception->getHint() ?? '');
+            $reason = sprintf("%s %s", $exception->getMessage(), $exception->getHint() ?? '');
             throw new BadRequest($reason);
         }
 

@@ -3,7 +3,6 @@
 namespace SimpleSAML\Module\oidc\Entity\Interfaces;
 
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
-use SimpleSAML\Module\oidc\Entity\Interfaces\MementoInterface;
 
 interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInterface
 {

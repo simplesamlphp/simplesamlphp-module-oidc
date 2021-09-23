@@ -2,6 +2,7 @@
 
 namespace SimpleSAML\Module\oidc\Services;
 
+use DateTimeImmutable;
 use Lcobucci\JWT\Builder;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Encoding\ChainedFormatter;
@@ -36,7 +37,7 @@ class JsonWebTokenBuilderService
         // Ignore microseconds when handling dates.
         return $this->jwtConfig->builder(ChainedFormatter::withUnixTimestampDates())
             ->issuedBy($this->configurationService->getSimpleSAMLSelfURLHost())
-            ->issuedAt(new \DateTimeImmutable('now'))
+            ->issuedAt(new DateTimeImmutable('now'))
             ->identifiedBy(UniqueIdentifierGenerator::hitMe());
     }
 

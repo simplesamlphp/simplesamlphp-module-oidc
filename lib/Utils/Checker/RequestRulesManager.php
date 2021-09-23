@@ -2,11 +2,14 @@
 
 namespace SimpleSAML\Module\oidc\Utils\Checker;
 
+use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\RequestRuleInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
+
+use function sprintf;
 
 class RequestRulesManager
 {
@@ -58,7 +61,7 @@ class RequestRulesManager
     ): ResultBagInterface {
         foreach ($ruleKeysToExecute as $ruleKey) {
             if (! isset($this->rules[$ruleKey])) {
-                throw new \LogicException(\sprintf('Rule for key %s not defined.', $ruleKey));
+                throw new LogicException(sprintf('Rule for key %s not defined.', $ruleKey));
             }
 
             $result = $this->rules[$ruleKey]->checkRule(

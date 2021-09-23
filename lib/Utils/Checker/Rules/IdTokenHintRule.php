@@ -8,14 +8,13 @@ use Lcobucci\JWT\UnencryptedToken;
 use Lcobucci\JWT\Validation\Constraint\IssuedBy;
 use Lcobucci\JWT\Validation\Constraint\SignedWith;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\cdc\Client;
 use SimpleSAML\Module\oidc\Factories\CryptKeyFactory;
-use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
+use Throwable;
 
 class IdTokenHintRule extends AbstractRule
 {
@@ -76,7 +75,7 @@ class IdTokenHintRule extends AbstractRule
                     InMemory::plainText($publicKey->getKeyContents())
                 )
             );
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             throw OidcServerException::invalidRequest('id_token_hint', $exception->getMessage(), null, null, $state);
         }
 

@@ -115,7 +115,7 @@ class AuthenticationService
         $state = $this->authProcService->processState($state);
         $claims = $state['Attributes'];
 
-        if (!\array_key_exists($this->userIdAttr, $claims)) {
+        if (!array_key_exists($this->userIdAttr, $claims)) {
             $attr = implode(', ', array_keys($claims));
             throw new Exception('Attribute `useridattr` doesn\'t exists in claims. Available attributes are: ' . $attr);
         }

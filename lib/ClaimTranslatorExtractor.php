@@ -17,7 +17,8 @@ namespace SimpleSAML\Module\oidc;
 use Lcobucci\JWT\Token\RegisteredClaims;
 use OpenIDConnectServer\ClaimExtractor;
 use OpenIDConnectServer\Entities\ClaimSetEntity;
-use SimpleSAML\Logger;
+use OpenIDConnectServer\Exception\InvalidArgumentException;
+use RuntimeException;
 
 class ClaimTranslatorExtractor extends ClaimExtractor
 {
@@ -123,7 +124,7 @@ class ClaimTranslatorExtractor extends ClaimExtractor
      *
      * @param array $translationTable
      * @param array $allowedMultipleValueClaims
-     * @throws \OpenIDConnectServer\Exception\InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     public function __construct(
         array $claimSets = [],
@@ -145,6 +146,7 @@ class ClaimTranslatorExtractor extends ClaimExtractor
     /**
      * @param array $translationTable
      * @param array $samlAttributes
+     * @return array
      */
     private function translateSamlAttributesToClaims(array $translationTable, array $samlAttributes): array
     {
@@ -161,7 +163,7 @@ class ClaimTranslatorExtractor extends ClaimExtractor
             $attributes = $mappingConfig['attributes'] ?? $mappingConfig;
 
             foreach ($attributes as $samlMatch) {
-                if (\array_key_exists($samlMatch, $samlAttributes)) {
+                if (array_key_exists($samlMatch, $samlAttributes)) {
                     $values = in_array($claim, $this->allowedMultiValueClaims) ?
                         $samlAttributes[$samlMatch] :
                         current($samlAttributes[$samlMatch]);
@@ -187,7 +189,7 @@ class ClaimTranslatorExtractor extends ClaimExtractor
                 if (is_numeric($attributes)) {
                     return (int)$attributes;
                 } else {
-                    throw new \RuntimeException("Cannot convert '$attributes' to int");
+                    throw new RuntimeException("Cannot convert '$attributes' to int");
                 }
             case 'bool':
                 return filter_var($attributes, FILTER_VALIDATE_BOOLEAN);

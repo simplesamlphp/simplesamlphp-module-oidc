@@ -130,7 +130,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
     /**
      * @param int $page
      * @param string $query
-     *
+     * @param string|null $owner
      * @return array{numPages: int, currentPage: int, items: ClientEntityInterface[]}
      */
     public function findPaginated(int $page = 1, string $query = '', ?string $owner = null): array

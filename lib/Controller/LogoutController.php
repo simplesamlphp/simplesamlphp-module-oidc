@@ -3,6 +3,7 @@
 namespace SimpleSAML\Module\oidc\Controller;
 
 use Psr\Http\Message\ResponseInterface;
+use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Logger;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use Laminas\Diactoros\Response;
@@ -14,34 +15,34 @@ use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Store\SessionLogoutTicketStoreBuilder;
 use SimpleSAML\Session;
+use Throwable;
 
 class LogoutController
 {
-    /**
-     * @var AuthorizationServer
-     */
-    protected $authorizationServer;
+    protected AuthorizationServer $authorizationServer;
 
-    /**
-     * @var AuthenticationService
-     */
-    protected $authenticationService;
+    protected AuthenticationService $authenticationService;
 
-    /**
-     * @var SessionService
-     */
-    protected $sessionService;
+    protected SessionService $sessionService;
+
+    protected SessionLogoutTicketStoreBuilder $sessionLogoutTicketStoreBuilder;
 
     public function __construct(
         AuthorizationServer $authorizationServer,
         AuthenticationService $authenticationService,
-        SessionService $sessionService
+        SessionService $sessionService,
+        SessionLogoutTicketStoreBuilder $sessionLogoutTicketStoreBuilder
     ) {
         $this->authorizationServer = $authorizationServer;
         $this->authenticationService = $authenticationService;
         $this->sessionService = $sessionService;
+        $this->sessionLogoutTicketStoreBuilder = $sessionLogoutTicketStoreBuilder;
     }
 
+    /**
+     * @throws BadRequest
+     * @throws OidcServerException
+     */
     public function __invoke(ServerRequest $request): ResponseInterface
     {
         // TODO Back-Channel Logout: https://openid.net/specs/openid-connect-backchannel-1_0.html
@@ -78,14 +79,14 @@ class LogoutController
 
                     if (! empty($validAuthorities)) {
                         // Create a SessionLogoutTicket so that the sid is available in the static logoutHandler()
-                        SessionLogoutTicketStoreBuilder::getInstance()->add($sidClaim);
+                        $this->sessionLogoutTicketStoreBuilder::getInstance()->add($sidClaim);
                         // Initiate logout for every valid auth source for the requested session.
                         foreach ($validAuthorities as $authSourceId) {
                             $sidSession->doLogout($authSourceId);
                         }
                     }
                 }
-            } catch (\Throwable $exception) {
+            } catch (Throwable $exception) {
                 Logger::warning(
                     sprintf('Logout: could not get session with ID %s, error: %s', $sidClaim, $exception->getMessage())
                 );
@@ -134,7 +135,7 @@ class LogoutController
 
                         SessionService::clearRelyingPartyAssociationsForSession($sessionLogoutTicketSession);
                     }
-                } catch (\Throwable $exception) {
+                } catch (Throwable $exception) {
                     Logger::warning(
                         sprintf(
                             'Session Ticket Logout: could not get session with ID %s, error: %s',
@@ -158,7 +159,7 @@ class LogoutController
         }
 
         if ($logoutRequest->getState() !== null) {
-            $postLogoutRedirectUri .= (\strstr($postLogoutRedirectUri, '?') === false) ? '?' : '&';
+            $postLogoutRedirectUri .= (strstr($postLogoutRedirectUri, '?') === false) ? '?' : '&';
             $postLogoutRedirectUri .= http_build_query(['state' => $logoutRequest->getState()]);
         }
 

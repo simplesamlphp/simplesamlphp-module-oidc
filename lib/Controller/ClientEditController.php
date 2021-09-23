@@ -14,9 +14,7 @@
 
 namespace SimpleSAML\Module\oidc\Controller;
 
-use Nette\Forms\Controls\BaseControl;
 use SimpleSAML\Module\oidc\Controller\Traits\AuthenticatedGetClientFromRequestTrait;
-use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
@@ -29,6 +27,7 @@ use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\Utils\HTTP;
 use Laminas\Diactoros\Response\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;
+use SimpleSAML\XHTML\Template;
 
 class ClientEditController
 {
@@ -77,7 +76,7 @@ class ClientEditController
     }
 
     /**
-     * @return \Laminas\Diactoros\Response\RedirectResponse|\SimpleSAML\XHTML\Template
+     * @return RedirectResponse|Template
      */
     public function __invoke(ServerRequest $request)
     {

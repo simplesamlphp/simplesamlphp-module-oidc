@@ -2,6 +2,7 @@
 
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
+use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -23,7 +24,7 @@ class RedirectUriRule extends AbstractRule
     ): ?ResultInterface {
         $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
         if (! $client instanceof ClientEntityInterface) {
-            throw new \LogicException('Can not check redirect_uri, client is not ClientEntityInterface.');
+            throw new LogicException('Can not check redirect_uri, client is not ClientEntityInterface.');
         }
 
         /** @var string|null $redirectUri */
@@ -37,13 +38,13 @@ class RedirectUriRule extends AbstractRule
 
         /** @psalm-suppress PossiblyInvalidArgument */
         if (
-            \is_string($client->getRedirectUri()) &&
-            (\strcmp($client->getRedirectUri(), $redirectUri) !== 0)
+            is_string($client->getRedirectUri()) &&
+            (strcmp($client->getRedirectUri(), $redirectUri) !== 0)
         ) {
             throw OidcServerException::invalidClient($request);
         } elseif (
-            \is_array($client->getRedirectUri()) &&
-            \in_array($redirectUri, $client->getRedirectUri(), true) === false
+            is_array($client->getRedirectUri()) &&
+            in_array($redirectUri, $client->getRedirectUri(), true) === false
         ) {
             throw OidcServerException::invalidRequest('redirect_uri');
         }

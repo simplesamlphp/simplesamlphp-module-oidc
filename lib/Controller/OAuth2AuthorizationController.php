@@ -14,6 +14,8 @@
 
 namespace SimpleSAML\Module\oidc\Controller;
 
+use Exception;
+use Psr\Http\Message\ResponseInterface;
 use SimpleSAML\Logger;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -55,7 +57,7 @@ class OAuth2AuthorizationController
         $this->configurationService = $configurationService;
     }
 
-    public function __invoke(ServerRequest $request): \Psr\Http\Message\ResponseInterface
+    public function __invoke(ServerRequest $request): ResponseInterface
     {
         $authorizationRequest = $this->authorizationServer->validateAuthorizationRequest($request);
 
@@ -79,7 +81,7 @@ class OAuth2AuthorizationController
      * Validate authorization request after the authn has been performed. For example, check if the
      * ACR claim has been requested and that authn performed satisfies it.
      * @param AuthorizationRequest $authorizationRequest
-     * @throws \Exception
+     * @throws Exception
      */
     protected function validatePostAuthnAuthorizationRequest(AuthorizationRequest &$authorizationRequest)
     {
@@ -88,7 +90,7 @@ class OAuth2AuthorizationController
 
     /**
      * @param AuthorizationRequest $authorizationRequest
-     * @throws \Exception
+     * @throws Exception
      */
     protected function validateAcr(AuthorizationRequest &$authorizationRequest): void
     {

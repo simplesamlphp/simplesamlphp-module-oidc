@@ -59,7 +59,6 @@ class ClientCreateControllerSpec extends ObjectBehavior
         $uri->getPath()->willReturn('/');
 
         $this->beConstructedWith(
-            $configurationService,
             $clientRepository,
             $allowedOriginRepository,
             $templateFactory,

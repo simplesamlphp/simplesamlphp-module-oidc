@@ -21,7 +21,7 @@ use SimpleSAML\Module\oidc\Services\ConfigurationService;
 class ClaimTranslatorExtractorFactory
 {
     /**
-     * @var \SimpleSAML\Module\oidc\Services\ConfigurationService
+     * @var ConfigurationService
      */
     private $configurationService;
 

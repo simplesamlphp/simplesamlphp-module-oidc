@@ -70,7 +70,7 @@ class ScopeRule extends AbstractRule
      */
     protected function convertScopesQueryStringToArray(string $scopes, string $scopeDelimiterString): array
     {
-        return \array_filter(\explode($scopeDelimiterString, \trim($scopes)), function ($scope) {
+        return array_filter(explode($scopeDelimiterString, trim($scopes)), function ($scope) {
             return !empty($scope);
         });
     }

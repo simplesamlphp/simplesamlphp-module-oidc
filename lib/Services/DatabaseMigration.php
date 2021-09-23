@@ -14,6 +14,7 @@
 
 namespace SimpleSAML\Module\oidc\Services;
 
+use PDO;
 use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
@@ -43,7 +44,7 @@ class DatabaseMigration
         $implementedVersions = $this->versions();
         $notImplementedVersions = array_filter(get_class_methods($this), function ($method) use ($implementedVersions) {
             if (preg_match('/^version(\d+)/', $method, $matches)) {
-                return !\in_array($matches[1], $implementedVersions, true);
+                return !in_array($matches[1], $implementedVersions, true);
             }
 
             return false;
@@ -62,11 +63,9 @@ class DatabaseMigration
             "CREATE TABLE IF NOT EXISTS {$versionsTablename} (version VARCHAR(191) PRIMARY KEY NOT NULL)"
         );
 
-        $versions = $this->database
+        return $this->database
             ->read("SELECT version FROM ${versionsTablename}")
-            ->fetchAll(\PDO::FETCH_COLUMN, 0);
-
-        return $versions;
+            ->fetchAll(PDO::FETCH_COLUMN, 0);
     }
 
     /**
@@ -77,57 +76,57 @@ class DatabaseMigration
         $versionsTablename = $this->versionsTableName();
         $versions = $this->versions();
 
-        if (!\in_array('20180305180300', $versions, true)) {
+        if (!in_array('20180305180300', $versions, true)) {
             $this->version20180305180300();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20180305180300')");
         }
 
-        if (!\in_array('20180425203400', $versions, true)) {
+        if (!in_array('20180425203400', $versions, true)) {
             $this->version20180425203400();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20180425203400')");
         }
 
-        if (!\in_array('20200517071100', $versions, true)) {
+        if (!in_array('20200517071100', $versions, true)) {
             $this->version20200517071100();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20200517071100')");
         }
 
-        if (!\in_array('20200901163000', $versions, true)) {
+        if (!in_array('20200901163000', $versions, true)) {
             $this->version20200901163000();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20200901163000')");
         }
 
-        if (!\in_array('20210714113000', $versions, true)) {
+        if (!in_array('20210714113000', $versions, true)) {
             $this->version20210714113000();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210714113000')");
         }
 
-        if (!\in_array('20210823141300', $versions, true)) {
+        if (!in_array('20210823141300', $versions, true)) {
             $this->version20210823141300();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210823141300')");
         }
 
-        if (!\in_array('20210827111300', $versions, true)) {
+        if (!in_array('20210827111300', $versions, true)) {
             $this->version20210827111300();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210827111300')");
         }
 
-        if (!\in_array('20210902113500', $versions, true)) {
+        if (!in_array('20210902113500', $versions, true)) {
             $this->version20210902113500();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210902113500')");
         }
 
-        if (!\in_array('20210908143500', $versions, true)) {
+        if (!in_array('20210908143500', $versions, true)) {
             $this->version20210908143500();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210908143500')");
         }
 
-        if (!\in_array('20210916153400', $versions, true)) {
+        if (!in_array('20210916153400', $versions, true)) {
             $this->version20210916153400();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210916153400')");
         }
 
-        if (!\in_array('20210916173400', $versions, true)) {
+        if (!in_array('20210916173400', $versions, true)) {
             $this->version20210916173400();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210916173400')");
         }

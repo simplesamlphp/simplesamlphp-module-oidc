@@ -2,6 +2,8 @@
 
 namespace SimpleSAML\Module\oidc\Store;
 
+use DateInterval;
+use Exception;
 use PDO;
 use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
@@ -17,9 +19,9 @@ class SessionLogoutTicketStoreDb implements SessionLogoutTicketStoreInterface
      */
     protected int $ttl;
 
-    public function __construct(int $ttl = 60)
+    public function __construct(?Database $database = null, int $ttl = 60)
     {
-        $this->database = Database::getInstance();
+        $this->database = $database ?? Database::getInstance();
         $this->ttl = $ttl >= 0 ? $ttl : 0;
     }
 
@@ -36,6 +38,9 @@ class SessionLogoutTicketStoreDb implements SessionLogoutTicketStoreInterface
         );
     }
 
+    /**
+     * @throws Exception
+     */
     public function delete(string $sid): void
     {
         $this->deleteExpired();
@@ -46,6 +51,9 @@ class SessionLogoutTicketStoreDb implements SessionLogoutTicketStoreInterface
         );
     }
 
+    /**
+     * @throws Exception
+     */
     public function deleteMultiple(array $sids): void
     {
         $this->deleteExpired();
@@ -76,13 +84,16 @@ class SessionLogoutTicketStoreDb implements SessionLogoutTicketStoreInterface
         return $this->database->read("SELECT * FROM {$this->getTableName()}")->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    /**
+     * @throws Exception
+     */
     protected function deleteExpired(): void
     {
         $this->database->write(
             "DELETE FROM {$this->getTableName()} WHERE created_at < :expiration",
             [
                 'expiration' => TimestampGenerator::utc()
-                    ->sub(new \DateInterval('PT' . $this->ttl . 'S'))
+                    ->sub(new DateInterval('PT' . $this->ttl . 'S'))
                     ->format('Y-m-d H:i:s'),
             ]
         );

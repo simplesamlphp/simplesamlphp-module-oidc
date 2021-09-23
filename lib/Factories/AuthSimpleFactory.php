@@ -14,7 +14,7 @@
 
 namespace SimpleSAML\Module\oidc\Factories;
 
-use Psr\Http\Message\ServerRequestInterface;
+use Exception;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
@@ -61,7 +61,7 @@ class AuthSimpleFactory
      *
      * @param ClientEntityInterface $client
      * @return string
-     * @throws \Exception
+     * @throws Exception
      */
     public function resolveAuthSourceId(ClientEntityInterface $client): string
     {

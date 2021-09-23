@@ -3,20 +3,16 @@
 namespace SimpleSAML\Module\oidc\Services;
 
 use Base64Url\Base64Url;
+use DateTimeImmutable;
 use Lcobucci\JWT\Builder;
-use Lcobucci\JWT\Configuration;
-use Lcobucci\JWT\Encoding\ChainedFormatter;
-use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Token\RegisteredClaims;
-use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
-use OpenIDConnectServer\ClaimExtractor;
 use OpenIDConnectServer\Entities\ClaimSetInterface;
+use RuntimeException;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
-use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
 
 class IdTokenBuilder
 {
@@ -48,7 +44,7 @@ class IdTokenBuilder
         ?string $sessionId
     ) {
         if (false === is_a($userEntity, ClaimSetInterface::class)) {
-            throw new \RuntimeException('UserEntity must implement ClaimSetInterface');
+            throw new RuntimeException('UserEntity must implement ClaimSetInterface');
         }
 
         // Add required id_token claims
@@ -96,19 +92,19 @@ class IdTokenBuilder
                     $builder->permittedFor($claimValue);
                     break;
                 case RegisteredClaims::EXPIRATION_TIME:
-                    $builder->expiresAt(new \DateTimeImmutable('@' . $claimValue));
+                    $builder->expiresAt(new DateTimeImmutable('@' . $claimValue));
                     break;
                 case RegisteredClaims::ID:
                     $builder->identifiedBy($claimValue);
                     break;
                 case RegisteredClaims::ISSUED_AT:
-                    $builder->issuedAt(new \DateTimeImmutable('@' . $claimValue));
+                    $builder->issuedAt(new DateTimeImmutable('@' . $claimValue));
                     break;
                 case RegisteredClaims::ISSUER:
                     $builder->issuedBy($claimValue);
                     break;
                 case RegisteredClaims::NOT_BEFORE:
-                    $builder->canOnlyBeUsedAfter(new \DateTimeImmutable('@' . $claimValue));
+                    $builder->canOnlyBeUsedAfter(new DateTimeImmutable('@' . $claimValue));
                     break;
                 case RegisteredClaims::SUBJECT:
                     $builder->relatedTo($claimValue);
@@ -131,7 +127,7 @@ class IdTokenBuilder
             ->getDefaultJwtTokenBuilder()
             ->permittedFor($accessToken->getClient()->getIdentifier())
             ->identifiedBy($accessToken->getIdentifier())
-            ->canOnlyBeUsedAfter(new \DateTimeImmutable('now'))
+            ->canOnlyBeUsedAfter(new DateTimeImmutable('now'))
             ->expiresAt($accessToken->getExpiryDateTime())
             ->relatedTo($userEntity->getIdentifier());
     }
@@ -148,11 +144,11 @@ class IdTokenBuilder
         $jwsAlgorithmBitLength = (int) substr($jwsAlgorithm, 2);
 
         if (! in_array($jwsAlgorithmBitLength, $validBitLengths, true)) {
-            throw new \RuntimeException(sprintf('JWS algorithm not supported (%s)', $jwsAlgorithm));
+            throw new RuntimeException(sprintf('JWS algorithm not supported (%s)', $jwsAlgorithm));
         }
 
         if ($accessToken instanceof EntityStringRepresentationInterface === false) {
-            throw new \RuntimeException('AccessTokenEntity must implement ' .
+            throw new RuntimeException('AccessTokenEntity must implement ' .
                                         EntityStringRepresentationInterface::class);
         }
 

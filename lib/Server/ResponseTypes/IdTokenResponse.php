@@ -19,8 +19,8 @@ use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\ResponseTypes\BearerTokenResponse;
 use OpenIDConnectServer\Repositories\IdentityProviderInterface;
+use RuntimeException;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
-use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AcrResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
@@ -88,6 +88,7 @@ class IdTokenResponse extends BearerTokenResponse implements
 
     /**
      * @return array
+     * @throws \Exception
      */
     protected function getExtraParams(AccessTokenEntityInterface $accessToken)
     {
@@ -96,7 +97,7 @@ class IdTokenResponse extends BearerTokenResponse implements
         }
 
         if ($accessToken instanceof AccessTokenEntity === false) {
-            throw new \RuntimeException('AccessToken must be ' . AccessTokenEntity::class);
+            throw new RuntimeException('AccessToken must be ' . AccessTokenEntity::class);
         }
         // Per https://openid.net/specs/openid-connect-core-1_0.html#rfc.section.5.4 certain claims
         // should only be added in certain scenarios. Allow deployer to control this.

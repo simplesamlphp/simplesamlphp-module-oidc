@@ -8,6 +8,7 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
+use Throwable;
 
 class CodeChallengeMethodRule extends AbstractRule
 {
@@ -21,6 +22,10 @@ class CodeChallengeMethodRule extends AbstractRule
         $this->codeChallengeVerifiersRepository = $codeChallengeVerifiersRepository;
     }
 
+    /**
+     * @throws Throwable
+     * @throws OidcServerException
+     */
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
@@ -36,14 +41,14 @@ class CodeChallengeMethodRule extends AbstractRule
         $codeChallengeMethod = $request->getQueryParams()['code_challenge_method'] ?? 'plain';
         $codeChallengeVerifiers = $this->codeChallengeVerifiersRepository->getAll();
 
-        if (\array_key_exists($codeChallengeMethod, $codeChallengeVerifiers) === false) {
+        if (array_key_exists($codeChallengeMethod, $codeChallengeVerifiers) === false) {
             throw OidcServerException::invalidRequest(
                 'code_challenge_method',
-                'Code challenge method must be one of ' . \implode(', ', \array_map(
+                'Code challenge method must be one of ' . implode(', ', array_map(
                     function ($method) {
                         return '`' . $method . '`';
                     },
-                    \array_keys($codeChallengeVerifiers)
+                    array_keys($codeChallengeVerifiers)
                 )),
                 null,
                 $redirectUri,

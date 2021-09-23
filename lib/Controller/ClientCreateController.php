@@ -23,18 +23,12 @@ use SimpleSAML\Module\oidc\Form\ClientForm;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\Utils\HTTP;
 use SimpleSAML\Utils\Random;
 
 class ClientCreateController
 {
-    /**
-     * @var ConfigurationService
-     */
-    private $configurationService;
-
     /**
      * @var ClientRepository
      */
@@ -66,7 +60,6 @@ class ClientCreateController
     private $allowedOriginRepository;
 
     public function __construct(
-        ConfigurationService $configurationService,
         ClientRepository $clientRepository,
         AllowedOriginRepository $allowedOriginRepository,
         TemplateFactory $templateFactory,
@@ -74,7 +67,6 @@ class ClientCreateController
         SessionMessagesService $messages,
         AuthContextService $authContextService
     ) {
-        $this->configurationService = $configurationService;
         $this->clientRepository = $clientRepository;
         $this->allowedOriginRepository = $allowedOriginRepository;
         $this->templateFactory = $templateFactory;
