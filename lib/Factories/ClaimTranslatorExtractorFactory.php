@@ -45,7 +45,7 @@ class ClaimTranslatorExtractorFactory
         $allowedMultipleValueClaims = [];
 
         foreach ($privateScopes as $scopeName => $scopeConfig) {
-            $claims = $scopeConfig['attributes'] ?? [];
+            $claims = $scopeConfig['claims'] ?? [];
 
             if ($this->isScopeClaimNamePrefixSet($scopeConfig)) {
                 $prefix = $scopeConfig[self::CONFIG_KEY_CLAIM_NAME_PREFIX];

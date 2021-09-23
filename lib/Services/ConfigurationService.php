@@ -87,9 +87,7 @@ class ConfigurationService
      */
     public function getOpenIDScopes()
     {
-        $scopes = $this->getOpenIDConnectConfiguration()->getArray('scopes', []);
-
-        return array_merge(self::$standardClaims, $scopes);
+        return array_merge(self::$standardClaims, $this->getOpenIDPrivateScopes());
     }
 
     /**
@@ -107,9 +105,9 @@ class ConfigurationService
      */
     private function validateConfiguration()
     {
-        $scopes = $this->getOpenIDConnectConfiguration()->getArray('scopes', []);
+        $privateScopes = $this->getOpenIDPrivateScopes();
         array_walk(
-            $scopes,
+            $privateScopes,
             /**
              * @param array  $scope
              * @param string $name
@@ -118,7 +116,7 @@ class ConfigurationService
              */
             function ($scope, $name) {
                 if (\in_array($name, ['openid', 'profile', 'email', 'address', 'phone'], true)) {
-                    throw new ConfigurationError('Protected scope can be overwrited: ' . $name, 'oidc_config.php');
+                    throw new ConfigurationError('Can not overwrite protected scope: ' . $name, 'oidc_config.php');
                 }
                 if (!\array_key_exists('description', $scope)) {
                     throw new ConfigurationError('Scope [' . $name . '] description not defined', 'module_oidc.php');
