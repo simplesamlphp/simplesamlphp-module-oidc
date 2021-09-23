@@ -12,6 +12,7 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\LogoutHandlers\BackchannelLogoutHandler;
 use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Store\SessionLogoutTicketStoreBuilder;
 use SimpleSAML\Session;
@@ -26,22 +27,29 @@ class LogoutController
     protected SessionService $sessionService;
 
     protected SessionLogoutTicketStoreBuilder $sessionLogoutTicketStoreBuilder;
+    /**
+     * @var \SimpleSAML\Module\oidc\Services\LoggerService
+     */
+    protected LoggerService $loggerService;
 
     public function __construct(
         AuthorizationServer $authorizationServer,
         AuthenticationService $authenticationService,
         SessionService $sessionService,
-        SessionLogoutTicketStoreBuilder $sessionLogoutTicketStoreBuilder
+        SessionLogoutTicketStoreBuilder $sessionLogoutTicketStoreBuilder,
+        LoggerService $loggerService
     ) {
         $this->authorizationServer = $authorizationServer;
         $this->authenticationService = $authenticationService;
         $this->sessionService = $sessionService;
         $this->sessionLogoutTicketStoreBuilder = $sessionLogoutTicketStoreBuilder;
+        $this->loggerService = $loggerService;
     }
 
     /**
      * @throws BadRequest
      * @throws OidcServerException
+     * @throws \Throwable
      */
     public function __invoke(ServerRequest $request): ResponseInterface
     {
@@ -71,15 +79,15 @@ class LogoutController
         // sid is different from the current session ID, try to find the requested session.
         if (
             $sidClaim !== null &&
-            $this->sessionService->getSession()->getSessionId() !== $sidClaim
+            $this->sessionService->getCurrentSession()->getSessionId() !== $sidClaim
         ) {
             try {
-                if (($sidSession = Session::getSession($sidClaim)) !== null) {
+                if (($sidSession = $this->sessionService->getSessionById($sidClaim)) !== null) {
                     $validAuthorities = $sidSession->getAuthorities();
 
                     if (! empty($validAuthorities)) {
                         // Create a SessionLogoutTicket so that the sid is available in the static logoutHandler()
-                        $this->sessionLogoutTicketStoreBuilder::getInstance()->add($sidClaim);
+                        $this->sessionLogoutTicketStoreBuilder->getInstance()->add($sidClaim);
                         // Initiate logout for every valid auth source for the requested session.
                         foreach ($validAuthorities as $authSourceId) {
                             $sidSession->doLogout($authSourceId);
@@ -87,22 +95,18 @@ class LogoutController
                     }
                 }
             } catch (Throwable $exception) {
-                Logger::warning(
+                $this->loggerService->warning(
                     sprintf('Logout: could not get session with ID %s, error: %s', $sidClaim, $exception->getMessage())
                 );
             }
         }
 
         // Initiate logout for every valid auth source for the current session.
-        foreach ($this->sessionService->getSession()->getAuthorities() as $authSourceId) {
-            $this->sessionService->getSession()->doLogout($authSourceId);
+        foreach ($this->sessionService->getCurrentSession()->getAuthorities() as $authSourceId) {
+            $this->sessionService->getCurrentSession()->doLogout($authSourceId);
         }
 
-        if ($logoutRequest->getPostLogoutRedirectUri() !== null) {
-            return $this->generatePostLogoutRedirectResponse($logoutRequest);
-        }
-
-        return new Response();
+        return $this->resolveResponse($logoutRequest);
     }
 
     /**
@@ -116,7 +120,7 @@ class LogoutController
 
         // Check for session logout tickets. If there are any, it means that the logout was initiated using OIDC RP
         // initiated flow for specific session (not current one).
-        $sessionLogoutTicketStore = SessionLogoutTicketStoreBuilder::getInstance();
+        $sessionLogoutTicketStore = SessionLogoutTicketStoreBuilder::getStaticInstance();
         $sessionLogoutTickets = $sessionLogoutTicketStore->getAll();
 
         if (! empty($sessionLogoutTickets)) {
@@ -152,17 +156,17 @@ class LogoutController
         (new BackchannelLogoutHandler())->handle($relyingPartyAssociations);
     }
 
-    protected function generatePostLogoutRedirectResponse(LogoutRequest $logoutRequest): Response\RedirectResponse
+    protected function resolveResponse(LogoutRequest $logoutRequest): Response
     {
-        if (($postLogoutRedirectUri = $logoutRequest->getPostLogoutRedirectUri()) === null) {
-            throw OidcServerException::serverError('Post logout redirect URI not available.');
+        if (($postLogoutRedirectUri = $logoutRequest->getPostLogoutRedirectUri()) !== null) {
+            if ($logoutRequest->getState() !== null) {
+                $postLogoutRedirectUri .= (strstr($postLogoutRedirectUri, '?') === false) ? '?' : '&';
+                $postLogoutRedirectUri .= http_build_query(['state' => $logoutRequest->getState()]);
+            }
+
+            return new Response\RedirectResponse($postLogoutRedirectUri);
         }
 
-        if ($logoutRequest->getState() !== null) {
-            $postLogoutRedirectUri .= (strstr($postLogoutRedirectUri, '?') === false) ? '?' : '&';
-            $postLogoutRedirectUri .= http_build_query(['state' => $logoutRequest->getState()]);
-        }
-
-        return new Response\RedirectResponse($postLogoutRedirectUri);
+        return new Response();
     }
 }

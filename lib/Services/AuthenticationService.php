@@ -183,6 +183,6 @@ class AuthenticationService
 
     public function getSessionId(): ?string
     {
-        return $this->sessionService->getSession()->getSessionId();
+        return $this->sessionService->getCurrentSession()->getSessionId();
     }
 }

@@ -22,9 +22,14 @@ class SessionService
         $this->session = $session;
     }
 
-    public function getSession(): Session
+    public function getCurrentSession(): Session
     {
         return $this->session;
+    }
+
+    public function getSessionById(string $id): ?Session
+    {
+        return Session::getSession($id);
     }
 
     public function setIsCookieBasedAuthn(bool $isCookieBasedAuthn): void

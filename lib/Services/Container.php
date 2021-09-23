@@ -90,6 +90,9 @@ class Container implements ContainerInterface
         $configurationService = new ConfigurationService();
         $this->services[ConfigurationService::class] = $configurationService;
 
+        $loggerService = new LoggerService();
+        $this->services[LoggerService::class] = $loggerService;
+
         $clientRepository = new ClientRepository($configurationService);
         $this->services[ClientRepository::class] = $clientRepository;
 

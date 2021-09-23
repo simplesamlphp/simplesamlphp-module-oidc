@@ -100,6 +100,10 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         throw OidcServerException::unsupportedResponseType($redirectUri, $state);
     }
 
+    /**
+     * @throws \Throwable
+     * @throws BadRequest
+     */
     public function validateLogoutRequest(ServerRequestInterface $request): LogoutRequest
     {
         $rulesToExecute = [

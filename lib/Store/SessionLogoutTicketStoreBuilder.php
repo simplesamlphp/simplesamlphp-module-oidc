@@ -11,7 +11,12 @@ class SessionLogoutTicketStoreBuilder
         self::$sessionLogoutTicketStore = $sessionLogoutTicketStore ?? self::getDefaultSessionLogoutTicketStore();
     }
 
-    public static function getInstance(): SessionLogoutTicketStoreInterface
+    public function getInstance(): SessionLogoutTicketStoreInterface
+    {
+        return self::getStaticInstance();
+    }
+
+    public static function getStaticInstance(): SessionLogoutTicketStoreInterface
     {
         return self::$sessionLogoutTicketStore ?? self::getDefaultSessionLogoutTicketStore();
     }

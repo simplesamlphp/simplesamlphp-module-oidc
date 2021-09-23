@@ -134,7 +134,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
         $sessionService->setIsAuthnPerformedInPreviousRequest(true)->shouldBeCalled();
         $relyingPartyAssociation = new RelyingPartyAssociation($clientId, self::USERNAME, null);
         $sessionService->addRelyingPartyAssociation($relyingPartyAssociation);
-        $sessionService->getSession()->shouldBeCalled()->willReturn($session);
+        $sessionService->getCurrentSession()->shouldBeCalled()->willReturn($session);
 
         $userRepository->getUserEntityByIdentifier(self::USERNAME)->shouldBeCalled()->willReturn(null);
         $userRepository->add(Argument::type(UserEntity::class))->shouldBeCalled();
@@ -173,7 +173,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
         $sessionService->setIsAuthnPerformedInPreviousRequest(true)->shouldBeCalled();
         $relyingPartyAssociation = new RelyingPartyAssociation($clientId, $userId, null);
         $sessionService->addRelyingPartyAssociation($relyingPartyAssociation);
-        $sessionService->getSession()->shouldBeCalled()->willReturn($session);
+        $sessionService->getCurrentSession()->shouldBeCalled()->willReturn($session);
 
         $userRepository->getUserEntityByIdentifier(self::USERNAME)->shouldBeCalled()->willReturn($userEntity);
         $userEntity->setClaims(self::USER_ENTITY_ATTRIBUTES)->shouldBeCalled();
