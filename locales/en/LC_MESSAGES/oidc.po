@@ -190,3 +190,9 @@ msgstr ""
 
 msgid "{oidc:client:backchannel_logout_uri_not_valid}"
 msgstr "Back-Channel Logout URI is not valid."
+
+msgid "{oidc:logout:info}"
+msgstr "Info"
+
+msgid "{oidc:logout:no_redirect_message}"
+msgstr "You can now close this window or navigate to another page."

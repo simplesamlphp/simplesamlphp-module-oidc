@@ -38,6 +38,7 @@ class OidcOpenIdProviderMetadataService
             $this->configurationService->getOpenIdConnectModuleURL('authorize.php');
         $this->metadata['token_endpoint'] = $this->configurationService->getOpenIdConnectModuleURL('access_token.php');
         $this->metadata['userinfo_endpoint'] = $this->configurationService->getOpenIdConnectModuleURL('userinfo.php');
+        $this->metadata['end_session_endpoint'] = $this->configurationService->getOpenIdConnectModuleURL('logout.php');
         $this->metadata['jwks_uri'] = $this->configurationService->getOpenIdConnectModuleURL('jwks.php');
         $this->metadata['scopes_supported'] = array_keys($this->configurationService->getOpenIDScopes());
         $this->metadata['response_types_supported'] = ['code', 'token', 'id_token', 'id_token token'];
@@ -48,7 +49,6 @@ class OidcOpenIdProviderMetadataService
         $this->metadata['request_parameter_supported'] = false;
         $this->metadata['grant_types_supported'] = ['authorization_code', 'refresh_token'];
         $this->metadata['claims_parameter_supported'] = true;
-        $this->metadata['end_session_endpoint'] = $this->configurationService->getOpenIdConnectModuleURL('logout.php');
         if (!(empty($acrValuesSupported = $this->configurationService->getAcrValuesSupported()))) {
             $this->metadata['acr_values_supported'] = $acrValuesSupported;
         }

@@ -44,6 +44,7 @@ class OidcOpenIdProviderMetadataServiceSpec extends ObjectBehavior
             'authorization_endpoint' => 'http://localhost/authorize.php',
             'token_endpoint' => 'http://localhost/access_token.php',
             'userinfo_endpoint' => 'http://localhost/userinfo.php',
+            'end_session_endpoint' => 'http://localhost/logout.php',
             'jwks_uri' => 'http://localhost/jwks.php',
             'scopes_supported' => ['openid'],
             'response_types_supported' => ['code', 'token', 'id_token', 'id_token token'],
@@ -54,7 +55,6 @@ class OidcOpenIdProviderMetadataServiceSpec extends ObjectBehavior
             'request_parameter_supported' => false,
             'grant_types_supported' => ['authorization_code', 'refresh_token'],
             'claims_parameter_supported' => true,
-            'end_session_endpoint' => 'http://localhost/logout.php',
             'backchannel_logout_supported' => true,
             'backchannel_logout_session_supported' => true,
         ]);

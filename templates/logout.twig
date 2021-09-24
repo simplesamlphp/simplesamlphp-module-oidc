@@ -1,0 +1,19 @@
+{% extends "@oidc/oidc_base.twig" %}
+
+{% set pagetitle = 'Sign-out Success' | trans %}
+
+{% block content %}
+    <h2>{{ pagetitle }}</h2>
+
+    <div class="ui hidden divider"></div>
+
+    <div class="ui attached message">
+        <div class="header">
+            {% trans '{oidc:logout:info}' %}
+        </div>
+        <p>
+            {% trans '{oidc:logout:no_redirect_message}' %}
+        </p>
+    </div>
+
+{% endblock %}

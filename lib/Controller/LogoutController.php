@@ -2,11 +2,9 @@
 
 namespace SimpleSAML\Module\oidc\Controller;
 
-use Psr\Http\Message\ResponseInterface;
 use SimpleSAML\Error\BadRequest;
-use SimpleSAML\Logger;
+use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
-use Laminas\Diactoros\Response;
 use Laminas\Diactoros\ServerRequest;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\LogoutHandlers\BackchannelLogoutHandler;
@@ -16,6 +14,8 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Store\SessionLogoutTicketStoreBuilder;
 use SimpleSAML\Session;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
 class LogoutController
@@ -27,23 +27,25 @@ class LogoutController
     protected SessionService $sessionService;
 
     protected SessionLogoutTicketStoreBuilder $sessionLogoutTicketStoreBuilder;
-    /**
-     * @var \SimpleSAML\Module\oidc\Services\LoggerService
-     */
+
     protected LoggerService $loggerService;
+
+    protected TemplateFactory $templateFactory;
 
     public function __construct(
         AuthorizationServer $authorizationServer,
         AuthenticationService $authenticationService,
         SessionService $sessionService,
         SessionLogoutTicketStoreBuilder $sessionLogoutTicketStoreBuilder,
-        LoggerService $loggerService
+        LoggerService $loggerService,
+        TemplateFactory $templateFactory
     ) {
         $this->authorizationServer = $authorizationServer;
         $this->authenticationService = $authenticationService;
         $this->sessionService = $sessionService;
         $this->sessionLogoutTicketStoreBuilder = $sessionLogoutTicketStoreBuilder;
         $this->loggerService = $loggerService;
+        $this->templateFactory = $templateFactory;
     }
 
     /**
@@ -51,7 +53,7 @@ class LogoutController
      * @throws OidcServerException
      * @throws \Throwable
      */
-    public function __invoke(ServerRequest $request): ResponseInterface
+    public function __invoke(ServerRequest $request): Response
     {
         // TODO Back-Channel Logout: https://openid.net/specs/openid-connect-backchannel-1_0.html
         //      [] Refresh tokens issued without the offline_access property to a session being logged out SHOULD
@@ -64,6 +66,9 @@ class LogoutController
         //      https://openid.net/specs/openid-connect-frontchannel-1_0.html#ThirdPartyContent)
 
         $logoutRequest = $this->authorizationServer->validateLogoutRequest($request);
+
+        // Indication if any there was a call to logout action on any auth source at all...
+        $logoutActionCalled = false;
 
         $sidClaim = null;
 
@@ -164,9 +169,9 @@ class LogoutController
                 $postLogoutRedirectUri .= http_build_query(['state' => $logoutRequest->getState()]);
             }
 
-            return new Response\RedirectResponse($postLogoutRedirectUri);
+            return new RedirectResponse($postLogoutRedirectUri);
         }
 
-        return new Response();
+        return $this->templateFactory->render('oidc:/logout.twig');
     }
 }

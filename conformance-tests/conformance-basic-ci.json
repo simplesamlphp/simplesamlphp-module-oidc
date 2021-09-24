@@ -748,7 +748,7 @@
                     "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
                     "tasks": [
                         {
-                            "task": "TODO: currently blank page. what should it be",
+                            "task": "Expect success page",
                             "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
                             "commands": [
                                 [
@@ -756,7 +756,7 @@
                                     "xpath",
                                     "//*",
                                     10,
-                                    "logout",
+                                    "Sign-out Success",
                                     "update-image-placeholder"
                                 ]
                             ]
@@ -812,7 +812,7 @@
                     "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
                     "tasks": [
                         {
-                            "task": "TODO: currently blank page. what should it be",
+                            "task": "Expect success page",
                             "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
                             "commands": [
                                 [
@@ -820,7 +820,7 @@
                                     "xpath",
                                     "//*",
                                     10,
-                                    "logout",
+                                    "Sign-out Success",
                                     "update-image-placeholder"
                                 ]
                             ]
@@ -876,7 +876,7 @@
                     "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
                     "tasks": [
                         {
-                            "task": "TODO: currently blank page. what should it be",
+                            "task": "Expect success page",
                             "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
                             "commands": [
                                 [
@@ -884,7 +884,7 @@
                                     "xpath",
                                     "//*",
                                     10,
-                                    "logout",
+                                    "Sign-out Success",
                                     "update-image-placeholder"
                                 ]
                             ]

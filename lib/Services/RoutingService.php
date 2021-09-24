@@ -63,8 +63,10 @@ class RoutingService
         $response = $controller($serverRequest);
 
         # TODO sspv2 return Symfony\Component\HttpFoundation\Response (Template instance) in SSP v2
-        if ($response instanceof Template) {
-            $response->data['messages'] = $container->get(SessionMessagesService::class)->getMessages();
+        if ($response instanceof \Symfony\Component\HttpFoundation\Response) {
+            if ($response instanceof Template) {
+                $response->data['messages'] = $container->get(SessionMessagesService::class)->getMessages();
+            }
 
             $response->send();
 
