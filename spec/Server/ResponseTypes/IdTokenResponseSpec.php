@@ -39,6 +39,7 @@ class IdTokenResponseSpec extends ObjectBehavior
     public const CLIENT_ID = 'clientId';
     public const SUBJECT = 'userId';
     public const KEY_ID = 'f0687e30bc113bef19f5ec6762f902e0';
+    public const USER_ID_ATTR = 'uid';
 
     private $certFolder;
 
@@ -84,7 +85,7 @@ class IdTokenResponseSpec extends ObjectBehavior
 
         $idTokenBuilder = new IdTokenBuilder(
             new JsonWebTokenBuilderService($configurationService->getWrappedObject()),
-            new ClaimTranslatorExtractor()
+            new ClaimTranslatorExtractor(self::USER_ID_ATTR)
         );
 
         $this->beConstructedWith($identityProvider->getWrappedObject(), $configurationService, $idTokenBuilder);

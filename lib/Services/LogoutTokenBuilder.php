@@ -20,13 +20,7 @@ class LogoutTokenBuilder
             ->getDefaultJwtTokenBuilder()
             ->permittedFor($relyingPartyAssociation->getClientId())
             ->relatedTo($relyingPartyAssociation->getUserId())
-            ->withClaim(
-                'events',
-                json_encode(
-                    ['http://schemas.openid.net/event/backchannel-logout' => []],
-                    JSON_FORCE_OBJECT | JSON_UNESCAPED_SLASHES
-                )
-            )
+            ->withClaim('events', ['http://schemas.openid.net/event/backchannel-logout' => new \stdClass()])
         ;
 
         if ($relyingPartyAssociation->getSessionId() !== null) {

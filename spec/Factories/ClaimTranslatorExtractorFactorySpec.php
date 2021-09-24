@@ -14,6 +14,7 @@ class ClaimTranslatorExtractorFactorySpec extends ObjectBehavior
         $configurationService->getOpenIDConnectConfiguration()->willReturn(
             Configuration::loadFromArray(
                 [
+                    'useridattr' => 'uid',
                     'translate' => [
                         'testClaim' => ['attribute'],
                         'intClaim' => [

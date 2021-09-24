@@ -134,7 +134,7 @@ class AuthenticationService
         $this->sessionService->addRelyingPartyAssociation(
             new RelyingPartyAssociation(
                 $oidcClient->getIdentifier(),
-                $user->getIdentifier(),
+                $claims['sub'] ?? $user->getIdentifier(),
                 $this->getSessionId(),
                 $oidcClient->getBackchannelLogoutUri()
             )

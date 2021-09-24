@@ -31,7 +31,7 @@ class BackchannelLogoutHandler
      */
     public function handle(array $relyingPartyAssociations): void
     {
-        $client = new Client(['timeout' => 3]);
+        $client = new Client(['timeout' => 3, 'verify' => false]);
 
         $pool = new Pool($client, $this->logoutRequestsGenerator($relyingPartyAssociations), [
             'concurrency' => 5,

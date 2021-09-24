@@ -61,7 +61,9 @@ class ClaimTranslatorExtractorFactory
             }
         }
 
-        return new ClaimTranslatorExtractor($claimSet, $translatorTable, $allowedMultipleValueClaims);
+        $userIdAttr = $this->configurationService->getOpenIDConnectConfiguration()->getString('useridattr');
+
+        return new ClaimTranslatorExtractor($userIdAttr, $claimSet, $translatorTable, $allowedMultipleValueClaims);
     }
 
     /**

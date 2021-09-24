@@ -23,6 +23,7 @@ class RequestedClaimsRuleTest extends TestCase
     protected $request;
     protected $redirectUri = 'https://some-redirect-uri.org';
     protected $loggerServiceStub;
+    protected static string $userIdAttr = 'uid';
 
 
     protected function setUp(): void
@@ -37,7 +38,7 @@ class RequestedClaimsRuleTest extends TestCase
 
     public function testNoRequestedClaims(): void
     {
-        $rule = new RequestedClaimsRule(new ClaimTranslatorExtractor());
+        $rule = new RequestedClaimsRule(new ClaimTranslatorExtractor(self::$userIdAttr));
         $result = $rule->checkRule($this->request, $this->resultBag, $this->loggerServiceStub, []);
         $this->assertNull($result);
     }
@@ -70,7 +71,7 @@ class RequestedClaimsRuleTest extends TestCase
             'client_id' => 'abc'
                                                              ]);
 
-        $rule = new RequestedClaimsRule(new ClaimTranslatorExtractor());
+        $rule = new RequestedClaimsRule(new ClaimTranslatorExtractor(self::$userIdAttr));
         $result = $rule->checkRule($this->request, $this->resultBag, $this->loggerServiceStub, []);
         $this->assertNotNull($result);
         $this->assertEquals($expectedClaims, $result->getValue());
@@ -90,7 +91,7 @@ class RequestedClaimsRuleTest extends TestCase
                                                                  'client_id' => 'abc'
                                                              ]);
 
-        $rule = new RequestedClaimsRule(new ClaimTranslatorExtractor());
+        $rule = new RequestedClaimsRule(new ClaimTranslatorExtractor(self::$userIdAttr));
         $result = $rule->checkRule($this->request, $this->resultBag, $this->loggerServiceStub, []);
         $this->assertNotNull($result);
         $this->assertEquals($expectedClaims, $result->getValue());

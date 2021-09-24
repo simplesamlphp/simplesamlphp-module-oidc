@@ -120,17 +120,21 @@ class ClaimTranslatorExtractor extends ClaimExtractor
     /**
      * ClaimTranslatorExtractor constructor.
      *
+     * @param string $userIdAttr
      * @param ClaimSetEntity[] $claimSets
-     *
      * @param array $translationTable
      * @param array $allowedMultipleValueClaims
-     * @throws InvalidArgumentException
+     * @throws \OpenIDConnectServer\Exception\InvalidArgumentException
      */
     public function __construct(
+        string $userIdAttr,
         array $claimSets = [],
         array $translationTable = [],
         array $allowedMultipleValueClaims = []
     ) {
+        // By default, add the userIdAttribute as one of the attribute for 'sub' claim.
+        array_unshift($this->translationTable['sub'], $userIdAttr);
+
         $this->translationTable = array_merge($this->translationTable, $translationTable);
 
         $this->allowedMultiValueClaims = $allowedMultipleValueClaims;
