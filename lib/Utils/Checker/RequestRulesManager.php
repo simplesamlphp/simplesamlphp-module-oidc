@@ -5,6 +5,7 @@ namespace SimpleSAML\Module\oidc\Utils\Checker;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\RequestRuleInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
@@ -25,18 +26,23 @@ class RequestRulesManager
 
     /** @var array $data Which will be available during each check */
     protected $data = [];
+    /**
+     * @var LoggerService
+     */
+    protected $loggerService;
 
     /**
      * RequestRulesManager constructor.
      * @param RequestRuleInterface[] $rules
      */
-    public function __construct(array $rules = [])
+    public function __construct(array $rules = [], ?LoggerService $loggerService = null)
     {
         foreach ($rules as $rule) {
             $this->add($rule);
         }
 
         $this->resultBag = new ResultBag();
+        $this->loggerService = $loggerService ?? new LoggerService();
     }
 
     public function add(RequestRuleInterface $rule): void
@@ -67,6 +73,7 @@ class RequestRulesManager
             $result = $this->rules[$ruleKey]->checkRule(
                 $request,
                 $this->resultBag,
+                $this->loggerService,
                 $this->data,
                 $useFragmentInHttpErrorResponses,
                 $allowedServerRequestMethods

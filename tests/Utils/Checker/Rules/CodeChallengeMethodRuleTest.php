@@ -6,6 +6,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Repositories\CodeChallengeVerifiersRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
@@ -24,6 +25,7 @@ class CodeChallengeMethodRuleTest extends TestCase
     protected $resultBagStub;
     protected $redirectUriResult;
     protected $stateResult;
+    protected $loggerServiceStub;
 
     protected function setUp(): void
     {
@@ -32,13 +34,14 @@ class CodeChallengeMethodRuleTest extends TestCase
         $this->resultBagStub = $this->createStub(ResultBagInterface::class);
         $this->redirectUriResult = new Result(RedirectUriRule::class, 'https://some-uri.org');
         $this->stateResult = new Result(StateRule::class, '123');
+        $this->loggerServiceStub = $this->createStub(LoggerService::class);
     }
 
     public function testCheckRuleRedirectUriDependency(): void
     {
         $resultBag = new ResultBag();
         $this->expectException(\LogicException::class);
-        $this->rule->checkRule($this->requestStub, $resultBag, []);
+        $this->rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, []);
     }
 
     public function testCheckRuleStateDependency(): void
@@ -46,7 +49,7 @@ class CodeChallengeMethodRuleTest extends TestCase
         $resultBag = new ResultBag();
         $resultBag->add($this->redirectUriResult);
         $this->expectException(\LogicException::class);
-        $this->rule->checkRule($this->requestStub, $resultBag, []);
+        $this->rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, []);
     }
 
     public function testCheckRuleWithInvalidCodeChallengeMethodThrows(): void
@@ -54,14 +57,14 @@ class CodeChallengeMethodRuleTest extends TestCase
         $resultBag = $this->prepareValidResultBag();
         $this->requestStub->method('getQueryParams')->willReturn(['code_challenge_method' => 'invalid']);
         $this->expectException(OidcServerException::class);
-        $this->rule->checkRule($this->requestStub, $resultBag, []);
+        $this->rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, []);
     }
 
     public function testCheckRuleForValidCodeChallengeMethod(): void
     {
         $resultBag = $this->prepareValidResultBag();
         $this->requestStub->method('getQueryParams')->willReturn(['code_challenge_method' => 'plain']);
-        $result = $this->rule->checkRule($this->requestStub, $resultBag, []);
+        $result = $this->rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, []);
 
         $this->assertInstanceOf(ResultInterface::class, $result);
         $this->assertSame('plain', $result->getValue());

@@ -24,6 +24,7 @@ use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use Laminas\Diactoros\Response;
 use Laminas\Diactoros\ServerRequest;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 
 class OAuth2AuthorizationController
 {
@@ -41,6 +42,10 @@ class OAuth2AuthorizationController
      * @var ConfigurationService
      */
     private $configurationService;
+    /**
+     * @var LoggerService
+     */
+    private $loggerService;
 
     /**
      * @param AuthenticationService $authenticationService
@@ -50,11 +55,13 @@ class OAuth2AuthorizationController
     public function __construct(
         AuthenticationService $authenticationService,
         AuthorizationServer $authorizationServer,
-        ConfigurationService $configurationService
+        ConfigurationService $configurationService,
+        LoggerService $loggerService
     ) {
         $this->authenticationService = $authenticationService;
         $this->authorizationServer = $authorizationServer;
         $this->configurationService = $configurationService;
+        $this->loggerService = $loggerService;
     }
 
     public function __invoke(ServerRequest $request): ResponseInterface
@@ -137,7 +144,7 @@ class OAuth2AuthorizationController
 
         // ...according to spec we have to return acr claim, and we don't have one available (none configured)...
         $genericAcr = 'N/A';
-        Logger::warning(
+        $this->loggerService->warning(
             sprintf(
                 'No ACRs configured for current auth source, whilst specification mandates one. ' .
                 'Falling back to generic ACR (%s).',

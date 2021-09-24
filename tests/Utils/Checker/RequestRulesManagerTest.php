@@ -5,6 +5,7 @@ namespace SimpleSAML\Test\Module\oidc\Utils\Checker;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\RequestRuleInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
@@ -107,6 +108,7 @@ class RequestRulesManagerTest extends TestCase
             ->with(
                 $this->identicalTo($this->request),
                 $this->isInstanceOf(ResultBagInterface::class),
+                $this->isInstanceOf(LoggerService::class),
                 $this->arrayHasKey($this->key)
             );
 

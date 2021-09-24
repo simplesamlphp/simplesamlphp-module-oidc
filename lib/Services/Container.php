@@ -205,7 +205,7 @@ class Container implements ContainerInterface
             new UiLocalesRule(),
             new AcrValuesRule(),
         ];
-        $requestRuleManager = new RequestRulesManager($requestRules);
+        $requestRuleManager = new RequestRulesManager($requestRules, $loggerService);
         $this->services[RequestRulesManager::class] = $requestRuleManager;
 
         $accessTokenDuration = new DateInterval(

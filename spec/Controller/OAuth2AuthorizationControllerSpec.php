@@ -27,6 +27,7 @@ use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 
 class OAuth2AuthorizationControllerSpec extends ObjectBehavior
 {
@@ -39,9 +40,10 @@ class OAuth2AuthorizationControllerSpec extends ObjectBehavior
     public function let(
         AuthenticationService $authenticationService,
         AuthorizationServer $authorizationServer,
-        ConfigurationService $configurationService
+        ConfigurationService $configurationService,
+        LoggerService $loggerService
     ): void {
-        $this->beConstructedWith($authenticationService, $authorizationServer, $configurationService);
+        $this->beConstructedWith($authenticationService, $authorizationServer, $configurationService, $loggerService);
     }
 
     /**

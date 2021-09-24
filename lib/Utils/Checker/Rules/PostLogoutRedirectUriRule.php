@@ -6,6 +6,7 @@ use Lcobucci\JWT\UnencryptedToken;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
@@ -25,6 +26,7 @@ class PostLogoutRedirectUriRule extends AbstractRule
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
+        LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = ['GET']
@@ -38,6 +40,7 @@ class PostLogoutRedirectUriRule extends AbstractRule
         $postLogoutRedirectUri = $this->getParamFromRequestBasedOnAllowedMethods(
             'post_logout_redirect_uri',
             $request,
+            $loggerService,
             $allowedServerRequestMethods
         );
 

@@ -5,6 +5,7 @@ namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Logger;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\RequestRuleInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
@@ -22,6 +23,7 @@ abstract class AbstractRule implements RequestRuleInterface
     protected function getParamFromRequestBasedOnAllowedMethods(
         string $paramKey,
         ServerRequestInterface $request,
+        LoggerService $loggerService,
         array $allowedServerRequestMethods = ['GET']
     ): ?string {
         // Make sure the case is compatible...
@@ -29,7 +31,7 @@ abstract class AbstractRule implements RequestRuleInterface
         $requestMethod = strtoupper($request->getMethod());
 
         if (! in_array($requestMethod, $allowedServerRequestMethods)) {
-            Logger::warning(
+            $loggerService->warning(
                 sprintf(
                     'Method %s not allowed for intended request. Allowed methods were %s.',
                     $requestMethod,
@@ -48,7 +50,7 @@ abstract class AbstractRule implements RequestRuleInterface
                 }
                 // break; // ... falls through to default
             default:
-                Logger::warning(
+                $loggerService->warning(
                     sprintf(
                         'Request method %s is not supported.',
                         $requestMethod

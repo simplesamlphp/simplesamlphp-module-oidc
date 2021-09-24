@@ -7,7 +7,6 @@ use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 use SimpleSAML\Logger;
 
-// TODO mivanci replace static Logger::..() calls
 class LoggerService implements LoggerInterface
 {
     public function emergency($message, array $context = []): void
@@ -80,5 +79,10 @@ class LoggerService implements LoggerInterface
             default:
                 throw new InvalidArgumentException("Unrecognized log level '$level''");
         }
+    }
+
+    public static function getInstance(): self
+    {
+        return new self();
     }
 }

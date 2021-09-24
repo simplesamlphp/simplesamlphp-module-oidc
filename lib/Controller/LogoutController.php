@@ -140,7 +140,7 @@ class LogoutController
                         SessionService::clearRelyingPartyAssociationsForSession($sessionLogoutTicketSession);
                     }
                 } catch (Throwable $exception) {
-                    Logger::warning(
+                    LoggerService::getInstance()->warning(
                         sprintf(
                             'Session Ticket Logout: could not get session with ID %s, error: %s',
                             $sid,

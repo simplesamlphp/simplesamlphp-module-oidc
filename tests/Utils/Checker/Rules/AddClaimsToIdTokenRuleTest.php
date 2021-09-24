@@ -4,6 +4,7 @@ namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\Checker\ResultBag;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule;
@@ -41,11 +42,14 @@ class AddClaimsToIdTokenRuleTest extends TestCase
      */
     private $resultBag;
 
+    private $loggerServiceStub;
+
     protected function setUp(): void
     {
         $this->requestStub = $this->createStub(ServerRequestInterface::class);
 
         $this->resultBag = new ResultBag();
+        $this->loggerServiceStub = $this->createStub(LoggerService::class);
     }
 
     /**
@@ -56,7 +60,7 @@ class AddClaimsToIdTokenRuleTest extends TestCase
         $rule = new AddClaimsToIdTokenRule();
         $this->resultBag->add(new Result(ResponseTypeRule::class, $responseType));
 
-        $result = $rule->checkRule($this->requestStub, $this->resultBag) ??
+        $result = $rule->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub) ??
             new Result(AddClaimsToIdTokenRule::class, null);
         $this->assertTrue($result->getValue());
     }
@@ -76,7 +80,7 @@ class AddClaimsToIdTokenRuleTest extends TestCase
         $rule = new AddClaimsToIdTokenRule();
         $this->resultBag->add(new Result(ResponseTypeRule::class, $responseType));
 
-        $result = $rule->checkRule($this->requestStub, $this->resultBag) ??
+        $result = $rule->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub) ??
             new Result(AddClaimsToIdTokenRule::class, null);
 
         $this->assertFalse($result->getValue());
@@ -98,6 +102,6 @@ class AddClaimsToIdTokenRuleTest extends TestCase
     {
         $rule = new AddClaimsToIdTokenRule();
         $this->expectException(\LogicException::class);
-        $rule->checkRule($this->requestStub, $this->resultBag);
+        $rule->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
     }
 }

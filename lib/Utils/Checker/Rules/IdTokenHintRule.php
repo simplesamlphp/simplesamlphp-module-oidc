@@ -11,6 +11,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Factories\CryptKeyFactory;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
@@ -35,6 +36,7 @@ class IdTokenHintRule extends AbstractRule
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
+        LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = ['GET']
@@ -45,6 +47,7 @@ class IdTokenHintRule extends AbstractRule
         $idTokenHintParam = $this->getParamFromRequestBasedOnAllowedMethods(
             'id_token_hint',
             $request,
+            $loggerService,
             $allowedServerRequestMethods
         );
 

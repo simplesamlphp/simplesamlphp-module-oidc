@@ -9,6 +9,7 @@ use League\OAuth2\Server\CryptKey;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\IdTokenHintRule;
@@ -36,6 +37,8 @@ class PostLogoutRedirectUriRuleTest extends TestCase
     protected static string $issuer = 'https://example.org';
     private Configuration $jwtConfig;
 
+    protected $loggerServiceStub;
+
     public static function setUpBeforeClass(): void
     {
         self::$certFolder = dirname(__DIR__, 4) . '/docker/ssp/';
@@ -58,12 +61,15 @@ class PostLogoutRedirectUriRuleTest extends TestCase
             InMemory::plainText(self::$privateKey->getKeyContents()),
             InMemory::plainText(self::$publicKey->getKeyContents())
         );
+
+        $this->loggerServiceStub = $this->createStub(LoggerService::class);
     }
 
     public function testCheckRuleReturnsNullIfNoParamSet(): void
     {
         $result = (new PostLogoutRedirectUriRule($this->clientRepository))
-            ->checkRule($this->requestStub, $this->resultBagStub) ?? (new Result(PostLogoutRedirectUriRule::class));
+            ->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
+                (new Result(PostLogoutRedirectUriRule::class));
 
         $this->assertNull($result->getValue());
     }
@@ -76,7 +82,8 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         $this->expectException(\Throwable::class);
 
         (new PostLogoutRedirectUriRule($this->clientRepository))
-            ->checkRule($this->requestStub, $this->resultBagStub) ?? (new Result(PostLogoutRedirectUriRule::class));
+            ->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
+                (new Result(PostLogoutRedirectUriRule::class));
     }
 
     public function testCheckRuleThrowsWhenAudClaimNotValid(): void
@@ -99,7 +106,8 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         $this->expectException(\Throwable::class);
 
         (new PostLogoutRedirectUriRule($this->clientRepository))
-            ->checkRule($this->requestStub, $this->resultBagStub) ?? (new Result(PostLogoutRedirectUriRule::class));
+            ->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
+                (new Result(PostLogoutRedirectUriRule::class));
     }
 
     public function testCheckRuleThrowsWhenClientNotFound(): void
@@ -125,7 +133,8 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         $this->expectException(\Throwable::class);
 
         (new PostLogoutRedirectUriRule($this->clientRepository))
-            ->checkRule($this->requestStub, $this->resultBagStub) ?? (new Result(PostLogoutRedirectUriRule::class));
+            ->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
+                (new Result(PostLogoutRedirectUriRule::class));
     }
 
     public function testCheckRuleThrowsWhenPostLogoutRegisteredUriNotRegistered(): void
@@ -155,7 +164,8 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         $this->expectException(\Throwable::class);
 
         (new PostLogoutRedirectUriRule($this->clientRepository))
-            ->checkRule($this->requestStub, $this->resultBagStub) ?? (new Result(PostLogoutRedirectUriRule::class));
+            ->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
+                (new Result(PostLogoutRedirectUriRule::class));
     }
 
     public function testCheckRuleReturnsForRegisteredPostLogoutRedirectUri(): void
@@ -183,7 +193,8 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         );
 
         $result = (new PostLogoutRedirectUriRule($this->clientRepository))
-            ->checkRule($this->requestStub, $this->resultBagStub) ?? (new Result(PostLogoutRedirectUriRule::class));
+            ->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
+                    (new Result(PostLogoutRedirectUriRule::class));
 
         $this->assertEquals(self::$postLogoutRedirectUri, $result->getValue());
     }
