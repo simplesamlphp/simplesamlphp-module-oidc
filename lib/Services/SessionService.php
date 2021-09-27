@@ -17,6 +17,8 @@ class SessionService
 
     public const SESSION_DATA_ID_IS_AUTHN_PERFORMED_IN_PREVIOUS_REQUEST = 'is-authn-performed-in-previous-request';
 
+    public const SESSION_DATA_ID_IS_LOGOUT_HANDLER_DISABLED = 'is-logout-handler-disabled';
+
     public function __construct(Session $session)
     {
         $this->session = $session;
@@ -116,5 +118,28 @@ class SessionService
     public function registerLogoutHandler(string $authSourceId, string $className, string $functionName): void
     {
         $this->session->registerLogoutHandler($authSourceId, $className, $functionName);
+    }
+
+    public function setIsLogoutHandlerDisabled(bool $isLogoutHandlerDisabled): void
+    {
+        $this->session->setData(
+            self::SESSION_DATA_TYPE,
+            self::SESSION_DATA_ID_IS_LOGOUT_HANDLER_DISABLED,
+            $isLogoutHandlerDisabled,
+            Session::DATA_TIMEOUT_SESSION_END
+        );
+    }
+
+    public function getIsLogoutHandlerDisabled(): bool
+    {
+        return self::getIsLogoutHandlerDisabledForSession($this->session);
+    }
+
+    public static function getIsLogoutHandlerDisabledForSession(Session $session): bool
+    {
+        return (bool) $session->getData(
+            self::SESSION_DATA_TYPE,
+            self::SESSION_DATA_ID_IS_LOGOUT_HANDLER_DISABLED,
+        );
     }
 }

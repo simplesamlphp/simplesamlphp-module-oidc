@@ -7,10 +7,13 @@ use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Session;
+use SimpleSAML\Utils\HTTP;
 
 class PromptRule extends AbstractRule
 {
@@ -21,14 +24,23 @@ class PromptRule extends AbstractRule
      */
     private $authSimpleFactory;
     /**
-     * @var Session
+     * @var SessionService
      */
-    private $session;
+    private $sessionService;
 
-    public function __construct(AuthSimpleFactory $authSimpleFactory, Session $session)
-    {
+    /**
+     * @var AuthenticationService
+     */
+    private $authenticationService;
+
+    public function __construct(
+        AuthSimpleFactory $authSimpleFactory,
+        SessionService $sessionService,
+        AuthenticationService $authenticationService
+    ) {
         $this->authSimpleFactory = $authSimpleFactory;
-        $this->session = $session;
+        $this->sessionService = $sessionService;
+        $this->authenticationService = $authenticationService;
     }
 
     public function checkRule(
@@ -44,10 +56,10 @@ class PromptRule extends AbstractRule
 
         $authSimple = $this->authSimpleFactory->build($client);
 
+        $this->sessionService->setIsLogoutHandlerDisabled(false);
+
         $queryParams = $request->getQueryParams();
         if (!array_key_exists('prompt', $queryParams)) {
-            $this->session->setData('oidc', self::PROMPT_REAUTHENTICATE, false);
-
             return null;
         }
 
@@ -69,12 +81,13 @@ class PromptRule extends AbstractRule
         }
 
         if (in_array('login', $prompt, true) && $authSimple->isAuthenticated()) {
-            if ($this->session->getData('oidc', self::PROMPT_REAUTHENTICATE) !== 'login') {
-                $authId = $authSimple->getAuthSource()->getAuthId();
-                $this->session->doLogout($authId);
-            }
+            $queryParams = HTTP::parseQueryString($request->getUri()->getQuery());
+            unset($queryParams['prompt']);
+            $loginParams = [];
+            $loginParams['ReturnTo'] = HTTP::addURLParameters(HTTP::getSelfURLNoQuery(), $queryParams);
 
-            $this->session->setData('oidc', self::PROMPT_REAUTHENTICATE, 'login');
+            $this->sessionService->setIsLogoutHandlerDisabled(true);
+            $this->authenticationService->getAuthenticateUser($request, $loginParams, true);
         }
 
         return null;

@@ -20,6 +20,7 @@ use Prophecy\Argument;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Auth\Source;
 use SimpleSAML\Error\Exception;
+use SimpleSAML\Module\oidc\Controller\LogoutController;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
@@ -126,15 +127,15 @@ class AuthenticationServiceSpec extends ObjectBehavior
     ): void {
         $clientId = 'client123';
         $simple->isAuthenticated()->shouldBeCalled()->willReturn(false);
-        $simple->login()->shouldBeCalled();
+        $simple->login([])->shouldBeCalled();
         $simple->getAuthSource()->shouldBeCalled()->willReturn($source);
         $clientEntity->getIdentifier()->shouldBeCalled()->willReturn($clientId);
         $clientEntity->getBackchannelLogoutUri()->shouldBeCalled()->willReturn(null);
-        $sessionService->setIsCookieBasedAuthn(false)->shouldBeCalled();
-        $sessionService->setIsAuthnPerformedInPreviousRequest(true)->shouldBeCalled();
         $relyingPartyAssociation = new RelyingPartyAssociation($clientId, self::USERNAME, null);
         $sessionService->addRelyingPartyAssociation($relyingPartyAssociation);
         $sessionService->getCurrentSession()->shouldBeCalled()->willReturn($session);
+        $sessionService->setIsCookieBasedAuthn(false)->shouldBeCalled();
+        $sessionService->setIsAuthnPerformedInPreviousRequest(true)->shouldBeCalled();
 
         $userRepository->getUserEntityByIdentifier(self::USERNAME)->shouldBeCalled()->willReturn(null);
         $userRepository->add(Argument::type(UserEntity::class))->shouldBeCalled();
@@ -164,7 +165,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
         $clientId = 'client123';
         $userId = 'user123';
         $simple->isAuthenticated()->shouldBeCalled()->willReturn(false);
-        $simple->login()->shouldBeCalled();
+        $simple->login([])->shouldBeCalled();
         $simple->getAuthSource()->shouldBeCalled()->willReturn($source);
         $clientEntity->getIdentifier()->shouldBeCalled()->willReturn($clientId);
         $clientEntity->getBackchannelLogoutUri()->shouldBeCalled()->willReturn(null);
@@ -189,7 +190,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
         SessionService $sessionService
     ): void {
         $simple->isAuthenticated()->shouldBeCalled()->willReturn(false);
-        $simple->login()->shouldBeCalled();
+        $simple->login([])->shouldBeCalled();
         $simple->getAuthSource()->shouldBeCalled()->willReturn($source);
         $sessionService->setIsCookieBasedAuthn(false)->shouldBeCalled();
         $sessionService->setIsAuthnPerformedInPreviousRequest(true)->shouldBeCalled();

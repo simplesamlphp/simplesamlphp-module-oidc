@@ -125,6 +125,11 @@ class LogoutController
     public static function logoutHandler(): void
     {
         $session = Session::getSessionFromRequest();
+
+        if (SessionService::getIsLogoutHandlerDisabledForSession($session)) {
+            return;
+        }
+
         $relyingPartyAssociations = SessionService::getRelyingPartyAssociationsForSession($session);
         SessionService::clearRelyingPartyAssociationsForSession($session);
 

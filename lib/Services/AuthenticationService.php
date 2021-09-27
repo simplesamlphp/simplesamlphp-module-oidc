@@ -15,6 +15,7 @@
 namespace SimpleSAML\Module\oidc\Services;
 
 use Laminas\Diactoros\ServerRequest;
+use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Module\oidc\Controller\LogoutController;
@@ -81,34 +82,40 @@ class AuthenticationService
     }
 
     /**
-     * @param ServerRequest $request
+     * @param ServerRequestInterface $request
+     * @param array $loginParams
+     * @param bool $forceAuthn
      * @return UserEntity
-     * @throws \Exception
+     * @throws Exception
+     * @throws \SimpleSAML\Error\AuthSource
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\NotFound
      */
-    public function getAuthenticateUser(ServerRequest $request): UserEntity
-    {
+    public function getAuthenticateUser(
+        ServerRequestInterface $request,
+        array $loginParams = [],
+        bool $forceAuthn = false
+    ): UserEntity {
         $oidcClient = $this->getClientFromRequest($request);
         $authSimple = $this->authSimpleFactory->build($oidcClient);
 
         $this->authSourceId = $authSimple->getAuthSource()->getAuthId();
 
-        if ($authSimple->isAuthenticated()) {
-            if ($this->sessionService->getIsAuthnPerformedInPreviousRequest()) {
-                $this->sessionService->setIsAuthnPerformedInPreviousRequest(false);
-
-                $this->sessionService->registerLogoutHandler(
-                    $this->authSourceId,
-                    LogoutController::class,
-                    'logoutHandler'
-                );
-            } else {
-                $this->sessionService->setIsCookieBasedAuthn(true);
-            }
-        } else {
+        if (! $authSimple->isAuthenticated() || $forceAuthn === true) {
             $this->sessionService->setIsCookieBasedAuthn(false);
             $this->sessionService->setIsAuthnPerformedInPreviousRequest(true);
 
-            $authSimple->login();
+            $authSimple->login($loginParams);
+        } elseif ($this->sessionService->getIsAuthnPerformedInPreviousRequest()) {
+            $this->sessionService->setIsAuthnPerformedInPreviousRequest(false);
+
+            $this->sessionService->registerLogoutHandler(
+                $this->authSourceId,
+                LogoutController::class,
+                'logoutHandler'
+            );
+        } else {
+            $this->sessionService->setIsCookieBasedAuthn(true);
         }
 
         $state = $this->prepareStateArray($authSimple, $oidcClient, $request);
@@ -146,11 +153,14 @@ class AuthenticationService
     /**
      * @param Simple $authSimple
      * @param ClientEntityInterface $client
-     * @param ServerRequest $request
+     * @param ServerRequestInterface $request
      * @return array
      */
-    private function prepareStateArray(Simple $authSimple, ClientEntityInterface $client, ServerRequest $request): array
-    {
+    private function prepareStateArray(
+        Simple $authSimple,
+        ClientEntityInterface $client,
+        ServerRequestInterface $request
+    ): array {
         $state = $authSimple->getAuthDataArray();
 
         $state['Oidc'] = [
