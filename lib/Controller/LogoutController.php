@@ -51,7 +51,7 @@ class LogoutController
     /**
      * @throws BadRequest
      * @throws OidcServerException
-     * @throws \Throwable
+     * @throws Throwable
      */
     public function __invoke(ServerRequest $request): Response
     {
@@ -68,7 +68,7 @@ class LogoutController
         $logoutRequest = $this->authorizationServer->validateLogoutRequest($request);
 
         // Indication if any there was a call to logout action on any auth source at all...
-        $logoutActionCalled = false;
+        $wasLogoutActionCalled = false;
 
         $sidClaim = null;
 
@@ -88,13 +88,14 @@ class LogoutController
         ) {
             try {
                 if (($sidSession = $this->sessionService->getSessionById($sidClaim)) !== null) {
-                    $validAuthorities = $sidSession->getAuthorities();
+                    $sidSessionValidAuthorities = $sidSession->getAuthorities();
 
-                    if (! empty($validAuthorities)) {
+                    if (! empty($sidSessionValidAuthorities)) {
+                        $wasLogoutActionCalled = true;
                         // Create a SessionLogoutTicket so that the sid is available in the static logoutHandler()
                         $this->sessionLogoutTicketStoreBuilder->getInstance()->add($sidClaim);
                         // Initiate logout for every valid auth source for the requested session.
-                        foreach ($validAuthorities as $authSourceId) {
+                        foreach ($sidSessionValidAuthorities as $authSourceId) {
                             $sidSession->doLogout($authSourceId);
                         }
                     }
@@ -106,12 +107,16 @@ class LogoutController
             }
         }
 
-        // Initiate logout for every valid auth source for the current session.
-        foreach ($this->sessionService->getCurrentSession()->getAuthorities() as $authSourceId) {
-            $this->sessionService->getCurrentSession()->doLogout($authSourceId);
+        $currentSessionValidAuthorities = $this->sessionService->getCurrentSession()->getAuthorities();
+        if (! empty($currentSessionValidAuthorities)) {
+            $wasLogoutActionCalled = true;
+            // Initiate logout for every valid auth source for the current session.
+            foreach ($this->sessionService->getCurrentSession()->getAuthorities() as $authSourceId) {
+                $this->sessionService->getCurrentSession()->doLogout($authSourceId);
+            }
         }
 
-        return $this->resolveResponse($logoutRequest);
+        return $this->resolveResponse($logoutRequest, $wasLogoutActionCalled);
     }
 
     /**
@@ -161,7 +166,7 @@ class LogoutController
         (new BackchannelLogoutHandler())->handle($relyingPartyAssociations);
     }
 
-    protected function resolveResponse(LogoutRequest $logoutRequest): Response
+    protected function resolveResponse(LogoutRequest $logoutRequest, bool $wasLogoutActionCalled): Response
     {
         if (($postLogoutRedirectUri = $logoutRequest->getPostLogoutRedirectUri()) !== null) {
             if ($logoutRequest->getState() !== null) {
@@ -172,6 +177,8 @@ class LogoutController
             return new RedirectResponse($postLogoutRedirectUri);
         }
 
-        return $this->templateFactory->render('oidc:/logout.twig');
+        return $this->templateFactory->render('oidc:/logout.twig', [
+            'wasLogoutActionCalled' => $wasLogoutActionCalled
+        ]);
     }
 }

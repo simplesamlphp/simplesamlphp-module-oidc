@@ -191,8 +191,17 @@ msgstr ""
 msgid "{oidc:client:backchannel_logout_uri_not_valid}"
 msgstr "Back-Channel Logout URI is not valid."
 
-msgid "{oidc:logout:info}"
+msgid "{oidc:logout:page_title_success}"
+msgstr "Logout Successful"
+
+msgid "{oidc:logout:page_title_fail}"
+msgstr "Logout Failed"
+
+msgid "{oidc:logout:info_title}"
 msgstr "Info"
 
-msgid "{oidc:logout:no_redirect_message}"
+msgid "{oidc:logout:info_message_success}"
 msgstr "You can now close this window or navigate to another page."
+
+msgid "{oidc:logout:info_message_fail}"
+msgstr "Requested session was not found or it is expired."

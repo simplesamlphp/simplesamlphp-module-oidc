@@ -756,7 +756,7 @@
                                     "xpath",
                                     "//*",
                                     10,
-                                    "Sign-out Success",
+                                    "Logout Successful",
                                     "update-image-placeholder"
                                 ]
                             ]
@@ -820,7 +820,7 @@
                                     "xpath",
                                     "//*",
                                     10,
-                                    "Sign-out Success",
+                                    "Logout Successful",
                                     "update-image-placeholder"
                                 ]
                             ]
@@ -884,7 +884,7 @@
                                     "xpath",
                                     "//*",
                                     10,
-                                    "Sign-out Success",
+                                    "Logout Successful",
                                     "update-image-placeholder"
                                 ]
                             ]
