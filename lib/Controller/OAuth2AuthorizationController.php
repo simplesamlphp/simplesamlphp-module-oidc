@@ -15,8 +15,9 @@
 namespace SimpleSAML\Module\oidc\Controller;
 
 use Exception;
+use League\OAuth2\Server\Exception\OAuthServerException;
+use SimpleSAML\Error;
 use Psr\Http\Message\ResponseInterface;
-use SimpleSAML\Logger;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
@@ -51,6 +52,7 @@ class OAuth2AuthorizationController
      * @param AuthenticationService $authenticationService
      * @param AuthorizationServer $authorizationServer
      * @param ConfigurationService $configurationService
+     * @param LoggerService $loggerService
      */
     public function __construct(
         AuthenticationService $authenticationService,
@@ -64,6 +66,13 @@ class OAuth2AuthorizationController
         $this->loggerService = $loggerService;
     }
 
+    /**
+     * @throws Error\AuthSource
+     * @throws Error\BadRequest
+     * @throws Error\NotFound
+     * @throws Error\Exception
+     * @throws OAuthServerException
+     */
     public function __invoke(ServerRequest $request): ResponseInterface
     {
         $authorizationRequest = $this->authorizationServer->validateAuthorizationRequest($request);
@@ -144,13 +153,12 @@ class OAuth2AuthorizationController
 
         // ...according to spec we have to return acr claim, and we don't have one available (none configured)...
         $genericAcr = 'N/A';
-        $this->loggerService->warning(
-            sprintf(
-                'No ACRs configured for current auth source, whilst specification mandates one. ' .
-                'Falling back to generic ACR (%s).',
-                $genericAcr
-            )
+        $message = sprintf(
+            'No ACRs configured for current auth source, whilst specification mandates one. ' .
+            'Falling back to generic ACR (%s).',
+            $genericAcr
         );
+        $this->loggerService->warning($message);
         $authorizationRequest->setAcr($genericAcr);
     }
 }
