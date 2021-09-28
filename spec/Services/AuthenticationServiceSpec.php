@@ -20,6 +20,7 @@ use Prophecy\Argument;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Auth\Source;
 use SimpleSAML\Error\Exception;
+use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Controller\LogoutController;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
@@ -77,7 +78,8 @@ class AuthenticationServiceSpec extends ObjectBehavior
         ClientRepository $clientRepository,
         ConfigurationService $configurationService,
         OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService,
-        SessionService $sessionService
+        SessionService $sessionService,
+        ClaimTranslatorExtractor $claimTranslatorExtractor
     ): void {
         $request->getQueryParams()->willReturn(self::AUTHZ_REQUEST_PARAMS);
         $clientEntity->getAuthSourceId()->willReturn(self::AUTH_SOURCE);
@@ -97,6 +99,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
             $clientRepository,
             $oidcOpenIdProviderMetadataService,
             $sessionService,
+            $claimTranslatorExtractor,
             self::USER_ID_ATTR
         );
     }
@@ -123,7 +126,8 @@ class AuthenticationServiceSpec extends ObjectBehavior
         Source $source,
         ClientEntity $clientEntity,
         SessionService $sessionService,
-        Session $session
+        Session $session,
+        ClaimTranslatorExtractor $claimTranslatorExtractor
     ): void {
         $clientId = 'client123';
         $simple->isAuthenticated()->shouldBeCalled()->willReturn(false);
@@ -139,6 +143,8 @@ class AuthenticationServiceSpec extends ObjectBehavior
 
         $userRepository->getUserEntityByIdentifier(self::USERNAME)->shouldBeCalled()->willReturn(null);
         $userRepository->add(Argument::type(UserEntity::class))->shouldBeCalled();
+
+        $claimTranslatorExtractor->extract(['openid'], Argument::type('array'))->willReturn([]);
 
         $this->getAuthenticateUser($request)->shouldHaveIdentifier(self::USERNAME);
         $this->getAuthenticateUser($request)->shouldHaveClaims(self::USER_ENTITY_ATTRIBUTES);
@@ -160,7 +166,8 @@ class AuthenticationServiceSpec extends ObjectBehavior
         Source $source,
         ClientEntity $clientEntity,
         SessionService $sessionService,
-        Session $session
+        Session $session,
+        ClaimTranslatorExtractor $claimTranslatorExtractor
     ): void {
         $clientId = 'client123';
         $userId = 'user123';
@@ -179,6 +186,10 @@ class AuthenticationServiceSpec extends ObjectBehavior
         $userRepository->getUserEntityByIdentifier(self::USERNAME)->shouldBeCalled()->willReturn($userEntity);
         $userEntity->setClaims(self::USER_ENTITY_ATTRIBUTES)->shouldBeCalled();
         $userRepository->update($userEntity)->shouldBeCalled();
+
+        $userEntity->getClaims()->shouldBeCalled()->willReturn([]);
+        $claimTranslatorExtractor->extract(['openid'], Argument::type('array'))->willReturn([]);
+
         $this->getAuthenticateUser($request)->shouldBe($userEntity);
     }
 

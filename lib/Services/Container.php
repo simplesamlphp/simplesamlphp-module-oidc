@@ -156,6 +156,11 @@ class Container implements ContainerInterface
         $metadataStorageHandler = MetaDataStorageHandler::getMetadataHandler();
         $this->services[MetaDataStorageHandler::class] = $metadataStorageHandler;
 
+        $claimTranslatorExtractor = (new ClaimTranslatorExtractorFactory(
+            $configurationService
+        ))->build();
+        $this->services[ClaimTranslatorExtractor::class] = $claimTranslatorExtractor;
+
         $authenticationService = new AuthenticationService(
             $userRepository,
             $authSimpleFactory,
@@ -163,17 +168,13 @@ class Container implements ContainerInterface
             $clientRepository,
             $oidcOpenIdProviderMetadataService,
             $sessionService,
+            $claimTranslatorExtractor,
             $oidcModuleConfiguration->getString('useridattr', 'uid')
         );
         $this->services[AuthenticationService::class] = $authenticationService;
 
         $codeChallengeVerifiersRepository = new CodeChallengeVerifiersRepository();
         $this->services[CodeChallengeVerifiersRepository::class] = $codeChallengeVerifiersRepository;
-
-        $claimTranslatorExtractor = (new ClaimTranslatorExtractorFactory(
-            $configurationService
-        ))->build();
-        $this->services[ClaimTranslatorExtractor::class] = $claimTranslatorExtractor;
 
         $publicKeyPath = $configurationService->getCertPath();
         $privateKeyPath = $configurationService->getPrivateKeyPath();

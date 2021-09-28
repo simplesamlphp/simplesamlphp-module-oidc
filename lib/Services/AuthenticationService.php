@@ -18,6 +18,7 @@ use Laminas\Diactoros\ServerRequest;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Error\Exception;
+use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Controller\LogoutController;
 use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
@@ -62,6 +63,10 @@ class AuthenticationService
      * @var string|null
      */
     private $authSourceId;
+    /**
+     * @var ClaimTranslatorExtractor
+     */
+    private $claimTranslatorExtractor;
 
     public function __construct(
         UserRepository $userRepository,
@@ -70,6 +75,7 @@ class AuthenticationService
         ClientRepository $clientRepository,
         OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService,
         SessionService $sessionService,
+        ClaimTranslatorExtractor $claimTranslatorExtractor,
         string $userIdAttr
     ) {
         $this->userRepository = $userRepository;
@@ -78,6 +84,7 @@ class AuthenticationService
         $this->clientRepository = $clientRepository;
         $this->oidcOpenIdProviderMetadataService = $oidcOpenIdProviderMetadataService;
         $this->sessionService = $sessionService;
+        $this->claimTranslatorExtractor = $claimTranslatorExtractor;
         $this->userIdAttr = $userIdAttr;
     }
 
@@ -138,14 +145,7 @@ class AuthenticationService
             $this->userRepository->update($user);
         }
 
-        $this->sessionService->addRelyingPartyAssociation(
-            new RelyingPartyAssociation(
-                $oidcClient->getIdentifier(),
-                $claims['sub'] ?? $user->getIdentifier(),
-                $this->getSessionId(),
-                $oidcClient->getBackchannelLogoutUri()
-            )
-        );
+        $this->addRelyingPartyAssociation($oidcClient, $user);
 
         return $user;
     }
@@ -194,5 +194,25 @@ class AuthenticationService
     public function getSessionId(): ?string
     {
         return $this->sessionService->getCurrentSession()->getSessionId();
+    }
+
+    /**
+     * Store Relying Party Association to the current session.
+     * @param ClientEntityInterface $oidcClient
+     * @param UserEntity $user
+     */
+    protected function addRelyingPartyAssociation(ClientEntityInterface $oidcClient, UserEntity $user): void
+    {
+        // We need to make sure that we use 'sub' as user identifier, if configured.
+        $claims = $this->claimTranslatorExtractor->extract(['openid'], $user->getClaims());
+
+        $this->sessionService->addRelyingPartyAssociation(
+            new RelyingPartyAssociation(
+                $oidcClient->getIdentifier(),
+                $claims['sub'] ?? $user->getIdentifier(),
+                $this->getSessionId(),
+                $oidcClient->getBackchannelLogoutUri()
+            )
+        );
     }
 }
