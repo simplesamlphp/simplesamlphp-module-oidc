@@ -17,16 +17,11 @@ use SimpleSAML\Utils\HTTP;
 
 class PromptRule extends AbstractRule
 {
-    private const PROMPT_REAUTHENTICATE = 'prompt_reauthenticate';
 
     /**
      * @var AuthSimpleFactory
      */
     private $authSimpleFactory;
-    /**
-     * @var SessionService
-     */
-    private $sessionService;
 
     /**
      * @var AuthenticationService
@@ -35,11 +30,9 @@ class PromptRule extends AbstractRule
 
     public function __construct(
         AuthSimpleFactory $authSimpleFactory,
-        SessionService $sessionService,
         AuthenticationService $authenticationService
     ) {
         $this->authSimpleFactory = $authSimpleFactory;
-        $this->sessionService = $sessionService;
         $this->authenticationService = $authenticationService;
     }
 
@@ -55,8 +48,6 @@ class PromptRule extends AbstractRule
         $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
 
         $authSimple = $this->authSimpleFactory->build($client);
-
-        $this->sessionService->setIsLogoutHandlerDisabled(false);
 
         $queryParams = $request->getQueryParams();
         if (!array_key_exists('prompt', $queryParams)) {
@@ -86,7 +77,6 @@ class PromptRule extends AbstractRule
             $loginParams = [];
             $loginParams['ReturnTo'] = HTTP::addURLParameters(HTTP::getSelfURLNoQuery(), $queryParams);
 
-            $this->sessionService->setIsLogoutHandlerDisabled(true);
             $this->authenticationService->getAuthenticateUser($request, $loginParams, true);
         }
 

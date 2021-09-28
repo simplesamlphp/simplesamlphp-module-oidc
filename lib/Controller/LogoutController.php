@@ -67,6 +67,10 @@ class LogoutController
 
         $logoutRequest = $this->authorizationServer->validateLogoutRequest($request);
 
+        // Set indication that the logout is initiated using OIDC protocol. This will be checked in the
+        // logoutHandler() method.
+        $this->sessionService->setIsOidcInitiatedLogout(true);
+
         // Indication if any there was a call to logout action on any auth source at all...
         $wasLogoutActionCalled = false;
 
@@ -116,6 +120,10 @@ class LogoutController
             }
         }
 
+        // Set indication for OIDC initiated logout back to false, so that the logoutHandler() method does not
+        // run for other logout initiated actions, like (currently) re-authentication...
+        $this->sessionService->setIsOidcInitiatedLogout(false);
+
         return $this->resolveResponse($logoutRequest, $wasLogoutActionCalled);
     }
 
@@ -126,7 +134,10 @@ class LogoutController
     {
         $session = Session::getSessionFromRequest();
 
-        if (SessionService::getIsLogoutHandlerDisabledForSession($session)) {
+        // Only run this handler if logout was initiated using OIDC protocol. This is important since this
+        // logout handler will (currently) also be called in re-authentication cases.
+        // https://groups.google.com/g/simplesamlphp/c/-uhiVE8TaF4
+        if (! SessionService::getIsOidcInitiatedLogoutForSession($session)) {
             return;
         }
 

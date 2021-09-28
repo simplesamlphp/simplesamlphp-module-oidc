@@ -17,7 +17,7 @@ class SessionService
 
     public const SESSION_DATA_ID_IS_AUTHN_PERFORMED_IN_PREVIOUS_REQUEST = 'is-authn-performed-in-previous-request';
 
-    public const SESSION_DATA_ID_IS_LOGOUT_HANDLER_DISABLED = 'is-logout-handler-disabled';
+    public const SESSION_DATA_ID_IS_OIDC_INITIATED_LOGOUT = 'is-logout-handler-disabled';
 
     public function __construct(Session $session)
     {
@@ -120,26 +120,40 @@ class SessionService
         $this->session->registerLogoutHandler($authSourceId, $className, $functionName);
     }
 
-    public function setIsLogoutHandlerDisabled(bool $isLogoutHandlerDisabled): void
+    /**
+     * Set indication if logout was initiated using OIDC protocol.
+     * @param bool $isOidcInitiatedLogout
+     * @throws \Exception
+     */
+    public function setIsOidcInitiatedLogout(bool $isOidcInitiatedLogout): void
     {
         $this->session->setData(
             self::SESSION_DATA_TYPE,
-            self::SESSION_DATA_ID_IS_LOGOUT_HANDLER_DISABLED,
-            $isLogoutHandlerDisabled,
+            self::SESSION_DATA_ID_IS_OIDC_INITIATED_LOGOUT,
+            $isOidcInitiatedLogout,
             Session::DATA_TIMEOUT_SESSION_END
         );
     }
 
-    public function getIsLogoutHandlerDisabled(): bool
+    /**
+     * Get indication if logout was initiated using OIDC protocol.
+     * @return bool
+     */
+    public function getIsOidcInitiatedLogout(): bool
     {
-        return self::getIsLogoutHandlerDisabledForSession($this->session);
+        return self::getIsOidcInitiatedLogoutForSession($this->session);
     }
 
-    public static function getIsLogoutHandlerDisabledForSession(Session $session): bool
+    /**
+     * Helper method to get indication if logout was initiated using OIDC protocol for given session.
+     * @param Session $session
+     * @return bool
+     */
+    public static function getIsOidcInitiatedLogoutForSession(Session $session): bool
     {
         return (bool) $session->getData(
             self::SESSION_DATA_TYPE,
-            self::SESSION_DATA_ID_IS_LOGOUT_HANDLER_DISABLED,
+            self::SESSION_DATA_ID_IS_OIDC_INITIATED_LOGOUT,
         );
     }
 }
