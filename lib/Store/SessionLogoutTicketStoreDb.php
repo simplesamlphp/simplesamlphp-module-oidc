@@ -90,7 +90,7 @@ class SessionLogoutTicketStoreDb implements SessionLogoutTicketStoreInterface
     protected function deleteExpired(): void
     {
         $this->database->write(
-            "DELETE FROM {$this->getTableName()} WHERE created_at < :expiration",
+            "DELETE FROM {$this->getTableName()} WHERE created_at <= :expiration",
             [
                 'expiration' => TimestampGenerator::utc()
                     ->sub(new DateInterval('PT' . $this->ttl . 'S'))

@@ -4,10 +4,10 @@ namespace SimpleSAML\Module\oidc\Server\LogoutHandlers;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
+use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Pool;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
-use SimpleSAML\Logger;
 use SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\LogoutTokenBuilder;
@@ -28,10 +28,13 @@ class BackchannelLogoutHandler
 
     /**
      * @param array<string,RelyingPartyAssociation> $relyingPartyAssociations
+     * @param HandlerStack|null $handlerStack For easier testing
      */
-    public function handle(array $relyingPartyAssociations): void
+    public function handle(array $relyingPartyAssociations, HandlerStack $handlerStack = null): void
     {
-        $client = new Client(['timeout' => 3, 'verify' => false]);
+        $clientConfig = ['timeout' => 3, 'verify' => false, 'handler' => $handlerStack];
+
+        $client = new Client($clientConfig);
 
         $pool = new Pool($client, $this->logoutRequestsGenerator($relyingPartyAssociations), [
             'concurrency' => 5,
@@ -70,14 +73,16 @@ class BackchannelLogoutHandler
                 $this->loggerService->notice($logMessage);
                 $index++;
 
+                $query = http_build_query(
+                    ['logout_token' => $this->logoutTokenBuilder->forRelyingPartyAssociation($association)]
+                );
+
                 /** @psalm-suppress PossiblyNullArgument We have checked for nulls... */
                 yield new Request(
                     'POST',
                     $association->getBackchannelLogoutUri(),
                     ['Content-Type' => 'application/x-www-form-urlencoded'],
-                    http_build_query(
-                        ['logout_token' => $this->logoutTokenBuilder->forRelyingPartyAssociation($association)]
-                    )
+                    $query
                 );
             }
         }

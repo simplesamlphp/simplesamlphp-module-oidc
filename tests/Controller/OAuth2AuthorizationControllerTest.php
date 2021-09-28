@@ -5,7 +5,6 @@ namespace SimpleSAML\Test\Module\oidc\Controller;
 use Laminas\Diactoros\ServerRequest;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Error;
 use SimpleSAML\Module\oidc\Controller\OAuth2AuthorizationController;
 use PHPUnit\Framework\TestCase;
@@ -17,6 +16,9 @@ use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 
+/**
+ * @covers \SimpleSAML\Module\oidc\Controller\OAuth2AuthorizationController
+ */
 class OAuth2AuthorizationControllerTest extends TestCase
 {
     /**
