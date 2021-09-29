@@ -3,7 +3,6 @@
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Logger;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\RequestRuleInterface;

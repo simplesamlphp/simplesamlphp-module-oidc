@@ -2,6 +2,8 @@
 
 namespace SimpleSAML\Module\oidc\Services;
 
+use Exception;
+
 /**
  * OpenID Provider Metadata Service - provides information about OIDC authentication server.
  *
@@ -10,16 +12,13 @@ namespace SimpleSAML\Module\oidc\Services;
  */
 class OidcOpenIdProviderMetadataService
 {
-    /**
-     * @var ConfigurationService
-     */
-    private $configurationService;
+    private ConfigurationService $configurationService;
+
+    private array $metadata;
 
     /**
-     * @var array $metadata
+     * @throws Exception
      */
-    private $metadata;
-
     public function __construct(
         ConfigurationService $configurationService
     ) {
@@ -29,6 +28,7 @@ class OidcOpenIdProviderMetadataService
 
     /**
      * Initialize metadata array.
+     * @throws Exception
      */
     public function initMetadata(): void
     {

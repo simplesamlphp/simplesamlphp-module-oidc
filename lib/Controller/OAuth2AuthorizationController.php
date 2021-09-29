@@ -29,24 +29,13 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 
 class OAuth2AuthorizationController
 {
-    /**
-     * @var AuthenticationService
-     */
-    private $authenticationService;
+    private AuthenticationService $authenticationService;
 
-    /**
-     * @var AuthorizationServer
-     */
-    private $authorizationServer;
+    private AuthorizationServer $authorizationServer;
 
-    /**
-     * @var ConfigurationService
-     */
-    private $configurationService;
-    /**
-     * @var LoggerService
-     */
-    private $loggerService;
+    private ConfigurationService $configurationService;
+
+    private LoggerService $loggerService;
 
     /**
      * @param AuthenticationService $authenticationService
@@ -72,6 +61,7 @@ class OAuth2AuthorizationController
      * @throws Error\NotFound
      * @throws Error\Exception
      * @throws OAuthServerException
+     * @throws Exception
      */
     public function __invoke(ServerRequest $request): ResponseInterface
     {

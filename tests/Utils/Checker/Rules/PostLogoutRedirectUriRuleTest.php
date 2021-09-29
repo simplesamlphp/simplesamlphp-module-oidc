@@ -9,6 +9,7 @@ use League\OAuth2\Server\CryptKey;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
@@ -16,6 +17,7 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\PostLogoutRedirectUriRule;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
+use Throwable;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Utils\Checker\Rules\PostLogoutRedirectUriRule
@@ -65,6 +67,10 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
     }
 
+    /**
+     * @throws Throwable
+     * @throws OidcServerException
+     */
     public function testCheckRuleReturnsNullIfNoParamSet(): void
     {
         $result = (new PostLogoutRedirectUriRule($this->clientRepository))
@@ -74,18 +80,24 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         $this->assertNull($result->getValue());
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testCheckRuleThrowsWhenIdTokenHintNotAvailable(): void
     {
         $this->requestStub->method('getQueryParams')
             ->willReturn(['post_logout_redirect_uri' => self::$postLogoutRedirectUri]);
 
-        $this->expectException(\Throwable::class);
+        $this->expectException(Throwable::class);
 
         (new PostLogoutRedirectUriRule($this->clientRepository))
             ->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
                 (new Result(PostLogoutRedirectUriRule::class));
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testCheckRuleThrowsWhenAudClaimNotValid(): void
     {
         $this->requestStub->method('getQueryParams')
@@ -103,13 +115,16 @@ class PostLogoutRedirectUriRuleTest extends TestCase
             new Result(IdTokenHintRule::class, $jwt)
         );
 
-        $this->expectException(\Throwable::class);
+        $this->expectException(Throwable::class);
 
         (new PostLogoutRedirectUriRule($this->clientRepository))
             ->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
                 (new Result(PostLogoutRedirectUriRule::class));
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testCheckRuleThrowsWhenClientNotFound(): void
     {
         $this->requestStub->method('getQueryParams')
@@ -130,13 +145,16 @@ class PostLogoutRedirectUriRuleTest extends TestCase
             new Result(IdTokenHintRule::class, $jwt)
         );
 
-        $this->expectException(\Throwable::class);
+        $this->expectException(Throwable::class);
 
         (new PostLogoutRedirectUriRule($this->clientRepository))
             ->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
                 (new Result(PostLogoutRedirectUriRule::class));
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testCheckRuleThrowsWhenPostLogoutRegisteredUriNotRegistered(): void
     {
         $this->requestStub->method('getQueryParams')
@@ -161,13 +179,17 @@ class PostLogoutRedirectUriRuleTest extends TestCase
             new Result(IdTokenHintRule::class, $jwt)
         );
 
-        $this->expectException(\Throwable::class);
+        $this->expectException(Throwable::class);
 
         (new PostLogoutRedirectUriRule($this->clientRepository))
             ->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
                 (new Result(PostLogoutRedirectUriRule::class));
     }
 
+    /**
+     * @throws Throwable
+     * @throws OidcServerException
+     */
     public function testCheckRuleReturnsForRegisteredPostLogoutRedirectUri(): void
     {
         $this->requestStub->method('getQueryParams')

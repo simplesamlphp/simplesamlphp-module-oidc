@@ -10,13 +10,11 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
+use Throwable;
 
 class ScopeRule extends AbstractRule
 {
-    /**
-     * @var ScopeRepositoryInterface $scopeRepository
-     */
-    protected $scopeRepository;
+    protected ScopeRepositoryInterface $scopeRepository;
 
     public function __construct(ScopeRepositoryInterface $scopeRepository)
     {
@@ -25,6 +23,7 @@ class ScopeRule extends AbstractRule
 
     /**
      * @inheritDoc
+     * @throws Throwable
      */
     public function checkRule(
         ServerRequestInterface $request,

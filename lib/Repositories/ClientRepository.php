@@ -14,6 +14,7 @@
 
 namespace SimpleSAML\Module\oidc\Repositories;
 
+use Exception;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;
@@ -33,6 +34,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
     /**
      * {@inheritdoc}
+     * @throws OAuthServerException
      */
     public function getClientEntity($clientIdentifier)
     {
@@ -51,8 +53,9 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
     /**
      * @inheritDoc
+     * @throws OAuthServerException
      */
-    public function validateClient($clientIdentifier, $clientSecret, $grantType)
+    public function validateClient($clientIdentifier, $clientSecret, $grantType): bool
     {
         $client = $this->getClientEntity($clientIdentifier);
 
@@ -90,7 +93,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         return ClientEntity::fromState(current($rows));
     }
 
-    private function addOwnerWhereClause(string $query, array $params, ?string $owner = null)
+    private function addOwnerWhereClause(string $query, array $params, ?string $owner = null): array
     {
         if (isset($owner)) {
             $params['ownerFilter'] = $owner;
@@ -132,6 +135,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
      * @param string $query
      * @param string|null $owner
      * @return array{numPages: int, currentPage: int, items: ClientEntityInterface[]}
+     * @throws Exception
      */
     public function findPaginated(int $page = 1, string $query = '', ?string $owner = null): array
     {
@@ -264,6 +268,9 @@ EOF
         return (int) $stmt->fetchColumn(0);
     }
 
+    /**
+     * @throws Exception
+     */
     private function getItemsPerPage(): int
     {
         return $this->config->getIntegerRange('items_per_page', 1, 100, 20);

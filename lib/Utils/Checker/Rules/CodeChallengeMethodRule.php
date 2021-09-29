@@ -13,10 +13,7 @@ use Throwable;
 
 class CodeChallengeMethodRule extends AbstractRule
 {
-    /**
-     * @var CodeChallengeVerifiersRepository
-     */
-    protected $codeChallengeVerifiersRepository;
+    protected CodeChallengeVerifiersRepository $codeChallengeVerifiersRepository;
 
     public function __construct(CodeChallengeVerifiersRepository $codeChallengeVerifiersRepository)
     {

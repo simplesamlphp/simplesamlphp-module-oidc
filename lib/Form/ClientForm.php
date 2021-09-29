@@ -39,10 +39,7 @@ class ClientForm extends Form
      */
     public const REGEX_HTTP_URI = '/^http(s?):\/\/[^\s\/$.?#][^\s#]*$/i';
 
-    /**
-     * @var ConfigurationService
-     */
-    private $configurationService;
+    private ConfigurationService $configurationService;
 
     /**
      * {@inheritdoc}
@@ -83,13 +80,13 @@ class ClientForm extends Form
         );
     }
 
-    public function validateBackchannelLogoutUri(Form $form): void
+    public function validateBackChannelLogoutUri(Form $form): void
     {
         if (($bclUri = $form->getValues()['backchannel_logout_uri'] ?? null) !== null) {
             $this->validateByMatchingRegex(
                 [$bclUri],
                 self::REGEX_HTTP_URI,
-                'Invalid backchannel logout URI: '
+                'Invalid back-channel logout URI: '
             );
         }
     }
@@ -111,7 +108,7 @@ class ClientForm extends Form
      *
      * @return array
      */
-    public function getValues($asArray = false)
+    public function getValues($asArray = false): array
     {
         $values = parent::getValues(true);
 
@@ -145,7 +142,7 @@ class ClientForm extends Form
      *
      * @return Form
      */
-    public function setDefaults($values, $erase = false)
+    public function setDefaults($values, $erase = false): Form
     {
         $values['redirect_uri'] = implode("\n", $values['redirect_uri']);
 
@@ -170,7 +167,7 @@ class ClientForm extends Form
         $this->onValidate[] = [$this, 'validateRedirectUri'];
         $this->onValidate[] = [$this, 'validateAllowedOrigin'];
         $this->onValidate[] = [$this, 'validatePostLogoutRedirectUri'];
-        $this->onValidate[] = [$this, 'validateBackchannelLogoutUri'];
+        $this->onValidate[] = [$this, 'validateBackChannelLogoutUri'];
 
         $this->setMethod('POST');
         $this->addComponent(new CsrfProtection('{oidc:client:csrf_error}'), Form::PROTECTOR_ID);

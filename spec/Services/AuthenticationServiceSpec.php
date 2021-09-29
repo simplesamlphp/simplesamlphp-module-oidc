@@ -21,7 +21,6 @@ use SimpleSAML\Auth\Simple;
 use SimpleSAML\Auth\Source;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
-use SimpleSAML\Module\oidc\Controller\LogoutController;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
@@ -134,7 +133,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
         $simple->login([])->shouldBeCalled();
         $simple->getAuthSource()->shouldBeCalled()->willReturn($source);
         $clientEntity->getIdentifier()->shouldBeCalled()->willReturn($clientId);
-        $clientEntity->getBackchannelLogoutUri()->shouldBeCalled()->willReturn(null);
+        $clientEntity->getBackChannelLogoutUri()->shouldBeCalled()->willReturn(null);
         $relyingPartyAssociation = new RelyingPartyAssociation($clientId, self::USERNAME, null);
         $sessionService->addRelyingPartyAssociation($relyingPartyAssociation);
         $sessionService->getCurrentSession()->shouldBeCalled()->willReturn($session);
@@ -175,7 +174,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
         $simple->login([])->shouldBeCalled();
         $simple->getAuthSource()->shouldBeCalled()->willReturn($source);
         $clientEntity->getIdentifier()->shouldBeCalled()->willReturn($clientId);
-        $clientEntity->getBackchannelLogoutUri()->shouldBeCalled()->willReturn(null);
+        $clientEntity->getBackChannelLogoutUri()->shouldBeCalled()->willReturn(null);
         $userEntity->getIdentifier()->shouldBeCalled()->willReturn($userId);
         $sessionService->setIsCookieBasedAuthn(false)->shouldBeCalled();
         $sessionService->setIsAuthnPerformedInPreviousRequest(true)->shouldBeCalled();

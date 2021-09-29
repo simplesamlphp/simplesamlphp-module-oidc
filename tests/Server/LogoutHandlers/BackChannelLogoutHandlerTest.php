@@ -6,15 +6,15 @@ use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
 use SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation;
-use SimpleSAML\Module\oidc\Server\LogoutHandlers\BackchannelLogoutHandler;
+use SimpleSAML\Module\oidc\Server\LogoutHandlers\BackChannelLogoutHandler;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\LogoutTokenBuilder;
 
 /**
- * @covers SimpleSAML\Module\oidc\Server\LogoutHandlers\BackchannelLogoutHandler
+ * @covers \SimpleSAML\Module\oidc\Server\LogoutHandlers\BackChannelLogoutHandler
  */
-class BackchannelLogoutHandlerTest extends TestCase
+class BackChannelLogoutHandlerTest extends TestCase
 {
     /**
      * @var mixed
@@ -42,7 +42,7 @@ class BackchannelLogoutHandlerTest extends TestCase
             ->method('error')
             ->with($this->stringContains('error'));
 
-        $handler = new BackchannelLogoutHandler($this->logoutTokenBuilderMock, $this->loggerServiceMock);
+        $handler = new BackChannelLogoutHandler($this->logoutTokenBuilderMock, $this->loggerServiceMock);
 
         $handler->handle($this->sampleRelyingPartyAssociation);
     }
@@ -59,7 +59,7 @@ class BackchannelLogoutHandlerTest extends TestCase
             ->expects($this->exactly(2))
             ->method('notice');
 
-        $handler = new BackchannelLogoutHandler($this->logoutTokenBuilderMock, $this->loggerServiceMock);
+        $handler = new BackChannelLogoutHandler($this->logoutTokenBuilderMock, $this->loggerServiceMock);
 
         $handler->handle($this->sampleRelyingPartyAssociation, $handlerStack);
     }

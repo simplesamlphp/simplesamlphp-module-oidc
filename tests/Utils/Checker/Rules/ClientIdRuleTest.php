@@ -18,7 +18,6 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
 class ClientIdRuleTest extends TestCase
 {
     protected $clientRepository;
-    protected $rule;
     protected $requestStub;
     protected $resultBagStub;
     protected $loggerServiceStub;
@@ -61,6 +60,9 @@ class ClientIdRuleTest extends TestCase
         );
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testCheckRuleForValidClientId(): void
     {
         $this->requestStub->method('getQueryParams')->willReturn(['client_id' => '123']);

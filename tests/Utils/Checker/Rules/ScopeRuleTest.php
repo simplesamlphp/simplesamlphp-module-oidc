@@ -3,6 +3,7 @@
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
+use LogicException;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entity\ScopeEntity;
@@ -15,6 +16,7 @@ use SimpleSAML\Module\oidc\Utils\Checker\ResultBag;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
+use Throwable;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule
@@ -23,16 +25,16 @@ class ScopeRuleTest extends TestCase
 {
     protected $scopeRepositoryStub;
     protected $resultBagStub;
-    protected $data = [
+    protected array $data = [
         'default_scope' => '',
         'scope_delimiter_string' => ' ',
     ];
-    protected $scopes = 'openid profile';
+    protected string $scopes = 'openid profile';
 
-    protected $scopeEntities = [];
+    protected array $scopeEntities = [];
 
-    protected $redirectUriResult;
-    protected $stateResult;
+    protected Result $redirectUriResult;
+    protected Result $stateResult;
 
     protected $requestStub;
 
@@ -57,23 +59,35 @@ class ScopeRuleTest extends TestCase
         $this->assertInstanceOf(ScopeRule::class, new ScopeRule($this->scopeRepositoryStub));
     }
 
+    /**
+     * @throws Throwable
+     * @throws OidcServerException
+     */
     public function testCheckRuleRedirectUriDependency(): void
     {
         $rule = new ScopeRule($this->scopeRepositoryStub);
         $resultBag = new ResultBag();
-        $this->expectException(\LogicException::class);
+        $this->expectException(LogicException::class);
         $rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->data);
     }
 
+    /**
+     * @throws Throwable
+     * @throws OidcServerException
+     */
     public function testCheckRuleStateDependency(): void
     {
         $rule = new ScopeRule($this->scopeRepositoryStub);
         $resultBag = new ResultBag();
         $resultBag->add($this->redirectUriResult);
-        $this->expectException(\LogicException::class);
+        $this->expectException(LogicException::class);
         $rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->data);
     }
 
+    /**
+     * @throws Throwable
+     * @throws OidcServerException
+     */
     public function testValidScopes(): void
     {
         $resultBag = $this->prepareValidResultBag();
@@ -95,6 +109,9 @@ class ScopeRuleTest extends TestCase
         $this->assertSame($this->scopeEntities['profile'], $result->getValue()[1]);
     }
 
+    /**
+     * @throws Throwable
+     */
     public function testInvalidScopeThrows(): void
     {
         $resultBag = $this->prepareValidResultBag();

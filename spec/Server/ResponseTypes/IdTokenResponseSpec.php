@@ -90,6 +90,10 @@ class IdTokenResponseSpec extends ObjectBehavior
 
         $this->beConstructedWith($identityProvider->getWrappedObject(), $configurationService, $idTokenBuilder);
         $this->setPrivateKey($privateKey);
+        $this->setNonce(null);
+        $this->setAuthTime(null);
+        $this->setAcr(null);
+        $this->setSessionId(null);
     }
 
     /**

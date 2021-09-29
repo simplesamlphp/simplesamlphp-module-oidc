@@ -22,18 +22,13 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\PostLogoutRedirectUriRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\UiLocalesRule;
+use Throwable;
 
 class AuthorizationServer extends OAuth2AuthorizationServer
 {
-    /**
-     * @var ClientRepositoryInterface
-     */
-    protected $clientRepository;
+    protected ClientRepositoryInterface $clientRepository;
 
-    /**
-     * @var RequestRulesManager
-     */
-    protected $requestRulesManager;
+    protected RequestRulesManager $requestRulesManager;
 
     /**
      * @inheritDoc
@@ -66,6 +61,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
 
     /**
      * @inheritDoc
+     * @throws BadRequest|Throwable
      */
     public function validateAuthorizationRequest(ServerRequestInterface $request): OAuth2AuthorizationRequest
     {
@@ -101,7 +97,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
     }
 
     /**
-     * @throws \Throwable
+     * @throws Throwable
      * @throws BadRequest
      */
     public function validateLogoutRequest(ServerRequestInterface $request): LogoutRequest

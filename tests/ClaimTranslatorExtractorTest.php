@@ -3,6 +3,7 @@
 namespace SimpleSAML\Test\Module\oidc;
 
 use OpenIDConnectServer\Entities\ClaimSetEntity;
+use OpenIDConnectServer\Exception\InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Utils\Attributes;
@@ -12,7 +13,7 @@ class ClaimTranslatorExtractorTest extends TestCase
     protected static string $userIdAttr = 'uid';
     /**
      * Test various type conversions work, including types in subobjects
-     * @throws \OpenIDConnectServer\Exception\InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     public function testTypeConversion(): void
     {
@@ -107,6 +108,7 @@ class ClaimTranslatorExtractorTest extends TestCase
 
     /**
      * Test that the default translator configuration sets address correctly.
+     * @throws InvalidArgumentException
      */
     public function testDefaultTypeConversion(): void
     {
@@ -132,7 +134,7 @@ class ClaimTranslatorExtractorTest extends TestCase
 
     /**
      * Test we can set the non-string standard claims
-     * @throws \OpenIDConnectServer\Exception\InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     public function testStandardClaimTypesCanBeSet(): void
     {
@@ -185,6 +187,9 @@ class ClaimTranslatorExtractorTest extends TestCase
         $this->assertSame($expectedClaims, $releasedClaims);
     }
 
+    /**
+     * @throws InvalidArgumentException
+     */
     public function testInvalidTypeConversion(): void
     {
         $this->expectExceptionMessage("Cannot convert '7890F' to int");
@@ -200,6 +205,9 @@ class ClaimTranslatorExtractorTest extends TestCase
         $claimTranslator->extract(['typeConversion'], $userAttributes);
     }
 
+    /**
+     * @throws InvalidArgumentException
+     */
     public function testExtractRequestClaimsUserInfo(): void
     {
         $claimTranslator = new ClaimTranslatorExtractor(self::$userIdAttr);
@@ -213,6 +221,9 @@ class ClaimTranslatorExtractorTest extends TestCase
         $this->assertEquals(['name' => 'bob'], $claims);
     }
 
+    /**
+     * @throws InvalidArgumentException
+     */
     public function testExtractRequestClaimsIdToken(): void
     {
         $claimTranslator = new ClaimTranslatorExtractor(self::$userIdAttr);

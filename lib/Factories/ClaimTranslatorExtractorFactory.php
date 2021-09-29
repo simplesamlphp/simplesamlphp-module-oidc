@@ -14,16 +14,15 @@
 
 namespace SimpleSAML\Module\oidc\Factories;
 
+use Exception;
 use OpenIDConnectServer\Entities\ClaimSetEntity;
+use OpenIDConnectServer\Exception\InvalidArgumentException;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 
 class ClaimTranslatorExtractorFactory
 {
-    /**
-     * @var ConfigurationService
-     */
-    private $configurationService;
+    private ConfigurationService $configurationService;
 
     protected const CONFIG_KEY_CLAIM_NAME_PREFIX = 'claim_name_prefix';
 
@@ -35,6 +34,10 @@ class ClaimTranslatorExtractorFactory
         $this->configurationService = $configurationService;
     }
 
+    /**
+     * @throws InvalidArgumentException
+     * @throws Exception
+     */
     public function build(): ClaimTranslatorExtractor
     {
         $translatorTable = $this->configurationService->getOpenIDConnectConfiguration()->getArray('translate', []);

@@ -4,6 +4,7 @@ namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\ResultBag;
@@ -28,6 +29,9 @@ class StateRuleTest extends TestCase
         $this->assertSame(StateRule::class, $rule->getKey());
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testCheckRuleGetMethod(): void
     {
         $key = 'state';
@@ -46,6 +50,9 @@ class StateRuleTest extends TestCase
         $this->assertSame($value, $result->getValue());
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testCheckRulePostMethod(): void
     {
         $key = 'state';
@@ -64,6 +71,9 @@ class StateRuleTest extends TestCase
         $this->assertSame($value, $result->getValue());
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testCheckRuleReturnsNullWhenMethodNotAllowed(): void
     {
         $key = 'state';
@@ -81,6 +91,9 @@ class StateRuleTest extends TestCase
         $this->assertNull($result->getValue());
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testCheckRuleReturnsNullWhenMethodNotSupported(): void
     {
         $key = 'state';

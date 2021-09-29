@@ -2,12 +2,13 @@
 
 namespace SimpleSAML\Module\oidc\Controller;
 
+use Exception;
 use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use Laminas\Diactoros\ServerRequest;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\Module\oidc\Server\LogoutHandlers\BackchannelLogoutHandler;
+use SimpleSAML\Module\oidc\Server\LogoutHandlers\BackChannelLogoutHandler;
 use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
@@ -129,6 +130,7 @@ class LogoutController
 
     /**
      * Logout handler function registered using Session::registerLogoutHandler() during authn.
+     * @throws Exception
      */
     public static function logoutHandler(): void
     {
@@ -179,7 +181,7 @@ class LogoutController
             $sessionLogoutTicketStore->deleteMultiple(array_map(fn($slt) => $slt['sid'], $sessionLogoutTickets));
         }
 
-        (new BackchannelLogoutHandler())->handle($relyingPartyAssociations);
+        (new BackChannelLogoutHandler())->handle($relyingPartyAssociations);
     }
 
     protected function resolveResponse(LogoutRequest $logoutRequest, bool $wasLogoutActionCalled): Response

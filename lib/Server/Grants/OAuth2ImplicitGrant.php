@@ -5,8 +5,10 @@ namespace SimpleSAML\Module\oidc\Server\Grants;
 use DateInterval;
 use League\OAuth2\Server\Grant\ImplicitGrant;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
+use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithCheckerResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
@@ -14,21 +16,15 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
+use Throwable;
 
 class OAuth2ImplicitGrant extends ImplicitGrant implements AuthorizationValidatableWithCheckerResultBagInterface
 {
-    /**
-     * @var DateInterval
-     */
-    protected $accessTokenTTL;
-    /**
-     * @var string
-     */
-    protected $queryDelimiter;
-    /**
-     * @var RequestRulesManager
-     */
-    protected $requestRulesManager;
+    protected DateInterval $accessTokenTTL;
+
+    protected string $queryDelimiter;
+
+    protected RequestRulesManager $requestRulesManager;
 
     /**
      * @inheritDoc
@@ -41,7 +37,7 @@ class OAuth2ImplicitGrant extends ImplicitGrant implements AuthorizationValidata
         parent::__construct($accessTokenTTL, $queryDelimiter);
 
         if ($requestRulesManager === null) {
-            throw new \LogicException('Can not validate request (no RequestRulesManager defined)');
+            throw new LogicException('Can not validate request (no RequestRulesManager defined)');
         }
 
         $this->accessTokenTTL = $accessTokenTTL;
@@ -49,6 +45,10 @@ class OAuth2ImplicitGrant extends ImplicitGrant implements AuthorizationValidata
         $this->requestRulesManager = $requestRulesManager;
     }
 
+    /**
+     * @throws Throwable
+     * @throws OidcServerException
+     */
     public function validateAuthorizationRequestWithCheckerResultBag(
         ServerRequestInterface $request,
         ResultBagInterface $resultBag

@@ -10,9 +10,9 @@ class LogoutRequestTest extends TestCase
 {
     protected $idTokenHintStub;
 
-    protected static $postLogoutRedirectUri = 'https://redirect.org/uri';
-    protected static $state = 'state123';
-    protected static $uiLocales = 'en';
+    protected static string $postLogoutRedirectUri = 'https://redirect.org/uri';
+    protected static string $state = 'state123';
+    protected static string $uiLocales = 'en';
 
     protected function setUp(): void
     {

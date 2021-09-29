@@ -113,9 +113,8 @@ class ClaimTranslatorExtractor extends ClaimExtractor
 
     /**
      * Claims for which it is allowed to have multiple values.
-     * @var array $allowedMultiValueClaims
      */
-    protected $allowedMultiValueClaims;
+    protected array $allowedMultiValueClaims;
 
     /**
      * ClaimTranslatorExtractor constructor.
@@ -124,7 +123,7 @@ class ClaimTranslatorExtractor extends ClaimExtractor
      * @param ClaimSetEntity[] $claimSets
      * @param array $translationTable
      * @param array $allowedMultipleValueClaims
-     * @throws \OpenIDConnectServer\Exception\InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     public function __construct(
         string $userIdAttr,

@@ -14,10 +14,10 @@
 
 namespace SimpleSAML\Module\oidc\Services;
 
-use Laminas\Diactoros\ServerRequest;
+use Exception;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Auth\Simple;
-use SimpleSAML\Error\Exception;
+use SimpleSAML\Error;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Controller\LogoutController;
 use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
@@ -32,41 +32,24 @@ class AuthenticationService
 {
     use GetClientFromRequestTrait;
 
-    /**
-     * @var UserRepository
-     */
-    private $userRepository;
-    /**
-     * @var AuthSimpleFactory
-     */
-    private $authSimpleFactory;
-    /**
-     * @var string
-     */
-    private $userIdAttr;
-    /**
-     * @var AuthProcService
-     */
-    private $authProcService;
-    /**
-     * @var OidcOpenIdProviderMetadataService
-     */
-    private $oidcOpenIdProviderMetadataService;
+    private UserRepository $userRepository;
+
+    private AuthSimpleFactory $authSimpleFactory;
+
+    private string $userIdAttr;
+
+    private AuthProcService $authProcService;
+
+    private OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService;
+
+    private SessionService $sessionService;
 
     /**
-     * @var SessionService
+     * ID of auth source used during authn.
      */
-    private $sessionService;
+    private ?string $authSourceId;
 
-    /**
-     * ID of authsource used during authn.
-     * @var string|null
-     */
-    private $authSourceId;
-    /**
-     * @var ClaimTranslatorExtractor
-     */
-    private $claimTranslatorExtractor;
+    private ClaimTranslatorExtractor $claimTranslatorExtractor;
 
     public function __construct(
         UserRepository $userRepository,
@@ -93,10 +76,11 @@ class AuthenticationService
      * @param array $loginParams
      * @param bool $forceAuthn
      * @return UserEntity
+     * @throws Error\Exception
+     * @throws Error\AuthSource
+     * @throws Error\BadRequest
+     * @throws Error\NotFound
      * @throws Exception
-     * @throws \SimpleSAML\Error\AuthSource
-     * @throws \SimpleSAML\Error\BadRequest
-     * @throws \SimpleSAML\Error\NotFound
      */
     public function getAuthenticateUser(
         ServerRequestInterface $request,
@@ -131,7 +115,9 @@ class AuthenticationService
 
         if (!array_key_exists($this->userIdAttr, $claims)) {
             $attr = implode(', ', array_keys($claims));
-            throw new Exception('Attribute `useridattr` doesn\'t exists in claims. Available attributes are: ' . $attr);
+            throw new Error\Exception(
+                'Attribute `useridattr` doesn\'t exists in claims. Available attributes are: ' . $attr
+            );
         }
 
         $userId = $claims[$this->userIdAttr][0];
@@ -200,6 +186,7 @@ class AuthenticationService
      * Store Relying Party Association to the current session.
      * @param ClientEntityInterface $oidcClient
      * @param UserEntity $user
+     * @throws Exception
      */
     protected function addRelyingPartyAssociation(ClientEntityInterface $oidcClient, UserEntity $user): void
     {
@@ -211,7 +198,7 @@ class AuthenticationService
                 $oidcClient->getIdentifier(),
                 $claims['sub'] ?? $user->getIdentifier(),
                 $this->getSessionId(),
-                $oidcClient->getBackchannelLogoutUri()
+                $oidcClient->getBackChannelLogoutUri()
             )
         );
     }

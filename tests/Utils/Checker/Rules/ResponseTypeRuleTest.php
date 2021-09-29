@@ -17,12 +17,12 @@ class ResponseTypeRuleTest extends TestCase
 {
     protected $requestStub;
 
-    protected $requestParams = [
+    protected array $requestParams = [
         'client_id' => 'client123',
         'response_type' => '',
     ];
 
-    protected $sampleResponseTypes = [
+    protected array $sampleResponseTypes = [
         'should_add' => [
             'id_token',
         ],
@@ -39,7 +39,7 @@ class ResponseTypeRuleTest extends TestCase
     /**
      * @var ResultBag
      */
-    private $resultBag;
+    private ResultBag $resultBag;
 
     protected $loggerServiceStub;
 
@@ -53,6 +53,7 @@ class ResponseTypeRuleTest extends TestCase
 
     /**
      * @dataProvider validResponseTypeProvider
+     * @throws OidcServerException
      */
     public function testResponseTypeRuleTest($responseType)
     {

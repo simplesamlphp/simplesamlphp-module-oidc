@@ -4,6 +4,8 @@ namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use DateInterval;
 use League\OAuth2\Server\Entities\UserEntityInterface;
+use League\OAuth2\Server\Exception\OAuthServerException;
+use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
@@ -34,10 +36,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
 {
     use IssueAccessTokenTrait;
 
-    /**
-     * @var IdTokenBuilder
-     */
-    protected $idTokenBuilder;
+    protected IdTokenBuilder $idTokenBuilder;
 
     public function __construct(
         IdTokenBuilder $idTokenBuilder,
@@ -54,7 +53,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
     /**
      * {@inheritdoc}
      */
-    public function canRespondToAuthorizationRequest(ServerRequestInterface $request)
+    public function canRespondToAuthorizationRequest(ServerRequestInterface $request): bool
     {
         $queryParams = $request->getQueryParams();
         if (!isset($queryParams['response_type']) || !isset($queryParams['client_id'])) {
@@ -69,9 +68,15 @@ class ImplicitGrant extends OAuth2ImplicitGrant
 
     /**
      * {@inheritdoc}
+     * @param OAuth2AuthorizationRequest $authorizationRequest
+     * @return ResponseTypeInterface
+     * @throws OidcServerException
+     * @throws OAuthServerException
+     * @throws UniqueTokenIdentifierConstraintViolationException
      */
-    public function completeAuthorizationRequest(OAuth2AuthorizationRequest $authorizationRequest)
-    {
+    public function completeAuthorizationRequest(
+        OAuth2AuthorizationRequest $authorizationRequest
+    ): ResponseTypeInterface {
         if ($authorizationRequest instanceof AuthorizationRequest) {
             return $this->completeOidcAuthorizationRequest($authorizationRequest);
         }
@@ -134,6 +139,11 @@ class ImplicitGrant extends OAuth2ImplicitGrant
         return $authorizationRequest;
     }
 
+    /**
+     * @throws UniqueTokenIdentifierConstraintViolationException
+     * @throws OAuthServerException
+     * @throws OidcServerException
+     */
     private function completeOidcAuthorizationRequest(AuthorizationRequest $authorizationRequest): ResponseTypeInterface
     {
         $user = $authorizationRequest->getUser();
@@ -188,7 +198,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
 
             $responseParams['access_token'] = $accessToken->toString() ?? (string) $accessToken;
             $responseParams['token_type'] = 'Bearer';
-            $responseParams['expires_in'] = $accessToken->getExpiryDateTime()->getTimestamp() - \time();
+            $responseParams['expires_in'] = $accessToken->getExpiryDateTime()->getTimestamp() - time();
         }
 
         $idToken = $this->idTokenBuilder->build(

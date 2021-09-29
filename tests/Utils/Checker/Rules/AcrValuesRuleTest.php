@@ -3,6 +3,7 @@
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
@@ -15,7 +16,6 @@ use PHPUnit\Framework\TestCase;
  */
 class AcrValuesRuleTest extends TestCase
 {
-    protected $rule;
     protected $requestStub;
     protected $resultBagStub;
     protected $resultStub;
@@ -29,6 +29,9 @@ class AcrValuesRuleTest extends TestCase
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testNoAcrIsSetIfAcrValuesNotRequested(): void
     {
         $result = (new AcrValuesRule())->checkRule(
@@ -39,6 +42,9 @@ class AcrValuesRuleTest extends TestCase
         $this->assertNull($result->getValue());
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testPopulatesAcrValuesFromClaimsParameter(): void
     {
         $claims = ['id_token' => ['acr' => ['values' => ['1', '0'], 'essential' => true]]];
@@ -55,6 +61,9 @@ class AcrValuesRuleTest extends TestCase
         $this->assertTrue($result->getValue()['essential']);
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testPopulatesAcrValuesFromAcrValuesRequestParameter(): void
     {
         $this->requestStub->method('getQueryParams')->willReturn(['acr_values' => '1 0']);

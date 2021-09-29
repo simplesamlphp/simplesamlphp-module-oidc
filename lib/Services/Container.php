@@ -76,8 +76,7 @@ use SimpleSAML\Utils\Config;
 
 class Container implements ContainerInterface
 {
-    /** @var array */
-    private $services = [];
+    private array $services = [];
 
     /**
      * @throws \Exception
@@ -320,7 +319,7 @@ class Container implements ContainerInterface
     /**
      * @inheritdoc
      */
-    public function has($id)
+    public function has($id): bool
     {
         return array_key_exists($id, $this->services);
     }

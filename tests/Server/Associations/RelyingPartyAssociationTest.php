@@ -17,31 +17,31 @@ class RelyingPartyAssociationTest extends TestCase
 
     public function testConstruct(): void
     {
-        $rpAssocioantion = new RelyingPartyAssociation(
+        $rpAssociation = new RelyingPartyAssociation(
             $this->clientId,
             $this->userId,
             $this->sessionId,
             $this->backChannelLogoutUri
         );
 
-        $this->assertEquals($this->clientId, $rpAssocioantion->getClientId());
-        $this->assertEquals($this->userId, $rpAssocioantion->getUserId());
-        $this->assertEquals($this->sessionId, $rpAssocioantion->getSessionId());
-        $this->assertEquals($this->backChannelLogoutUri, $rpAssocioantion->getBackchannelLogoutUri());
+        $this->assertEquals($this->clientId, $rpAssociation->getClientId());
+        $this->assertEquals($this->userId, $rpAssociation->getUserId());
+        $this->assertEquals($this->sessionId, $rpAssociation->getSessionId());
+        $this->assertEquals($this->backChannelLogoutUri, $rpAssociation->getBackChannelLogoutUri());
 
         $newClientId = 'newClient123';
         $newUserId = 'newUser123';
         $newSessionId = 'newSession123';
         $newBackChannelLogoutUri = 'https//new.example.org/logout';
 
-        $rpAssocioantion->setClientId($newClientId);
-        $rpAssocioantion->setUserId($newUserId);
-        $rpAssocioantion->setSessionId($newSessionId);
-        $rpAssocioantion->setBackchannelLogoutUri($newBackChannelLogoutUri);
+        $rpAssociation->setClientId($newClientId);
+        $rpAssociation->setUserId($newUserId);
+        $rpAssociation->setSessionId($newSessionId);
+        $rpAssociation->setBackChannelLogoutUri($newBackChannelLogoutUri);
 
-        $this->assertEquals($newClientId, $rpAssocioantion->getClientId());
-        $this->assertEquals($newUserId, $rpAssocioantion->getUserId());
-        $this->assertEquals($newSessionId, $rpAssocioantion->getSessionId());
-        $this->assertEquals($newBackChannelLogoutUri, $rpAssocioantion->getBackchannelLogoutUri());
+        $this->assertEquals($newClientId, $rpAssociation->getClientId());
+        $this->assertEquals($newUserId, $rpAssociation->getUserId());
+        $this->assertEquals($newSessionId, $rpAssociation->getSessionId());
+        $this->assertEquals($newBackChannelLogoutUri, $rpAssociation->getBackChannelLogoutUri());
     }
 }

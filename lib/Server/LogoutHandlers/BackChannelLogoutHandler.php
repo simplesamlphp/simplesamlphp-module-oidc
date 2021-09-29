@@ -2,17 +2,20 @@
 
 namespace SimpleSAML\Module\oidc\Server\LogoutHandlers;
 
+use Generator;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Pool;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
+use League\OAuth2\Server\Exception\OAuthServerException;
 use SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\LogoutTokenBuilder;
+use Throwable;
 
-class BackchannelLogoutHandler
+class BackChannelLogoutHandler
 {
     protected LogoutTokenBuilder $logoutTokenBuilder;
 
@@ -29,6 +32,7 @@ class BackchannelLogoutHandler
     /**
      * @param array<string,RelyingPartyAssociation> $relyingPartyAssociations
      * @param HandlerStack|null $handlerStack For easier testing
+     * @throws OAuthServerException
      */
     public function handle(array $relyingPartyAssociations, HandlerStack $handlerStack = null): void
     {
@@ -54,22 +58,23 @@ class BackchannelLogoutHandler
 
         try {
             $pool->promise()->wait();
-        } catch (\Throwable $exception) {
-            $this->loggerService->error('Backchannel Logout promise error: ' . $exception->getMessage());
+        } catch (Throwable $exception) {
+            $this->loggerService->error('Back-channel Logout promise error: ' . $exception->getMessage());
         }
     }
 
     /**
      * @param array<string,RelyingPartyAssociation> $relyingPartyAssociations
-     * @return \Generator
+     * @return Generator
+     * @throws OAuthServerException
      */
-    protected function logoutRequestsGenerator(array $relyingPartyAssociations): \Generator
+    protected function logoutRequestsGenerator(array $relyingPartyAssociations): Generator
     {
         $index = 0;
         foreach ($relyingPartyAssociations as $association) {
-            if ($association->getBackchannelLogoutUri() !== null) {
+            if ($association->getBackChannelLogoutUri() !== null) {
                 $logMessage = "Backhannel Logout (index $index) - preparing request to: " .
-                    $association->getBackchannelLogoutUri();
+                    $association->getBackChannelLogoutUri();
                 $this->loggerService->notice($logMessage);
                 $index++;
 
@@ -80,7 +85,7 @@ class BackchannelLogoutHandler
                 /** @psalm-suppress PossiblyNullArgument We have checked for nulls... */
                 yield new Request(
                     'POST',
-                    $association->getBackchannelLogoutUri(),
+                    $association->getBackChannelLogoutUri(),
                     ['Content-Type' => 'application/x-www-form-urlencoded'],
                     $query
                 );

@@ -15,18 +15,18 @@ class RelyingPartyAssociation implements RelyingPartyAssociationInterface
     /**
      * Registered back-channel logout URI for the client.
      */
-    protected ?string $backchannelLogoutUri;
+    protected ?string $backChannelLogoutUri;
 
     public function __construct(
         string $clientId,
         string $userId,
         ?string $sessionId,
-        ?string $backchannelLogoutUri = null
+        ?string $backChannelLogoutUri = null
     ) {
         $this->clientId = $clientId;
         $this->userId = $userId;
         $this->sessionId = $sessionId;
-        $this->backchannelLogoutUri = $backchannelLogoutUri;
+        $this->backChannelLogoutUri = $backChannelLogoutUri;
     }
 
     public function getClientId(): string
@@ -59,13 +59,13 @@ class RelyingPartyAssociation implements RelyingPartyAssociationInterface
         $this->sessionId = $sessionId;
     }
 
-    public function getBackchannelLogoutUri(): ?string
+    public function getBackChannelLogoutUri(): ?string
     {
-        return $this->backchannelLogoutUri;
+        return $this->backChannelLogoutUri;
     }
 
-    public function setBackchannelLogoutUri(?string $backchannelLogoutUri): void
+    public function setBackChannelLogoutUri(?string $backChannelLogoutUri): void
     {
-        $this->backchannelLogoutUri = $backchannelLogoutUri;
+        $this->backChannelLogoutUri = $backChannelLogoutUri;
     }
 }

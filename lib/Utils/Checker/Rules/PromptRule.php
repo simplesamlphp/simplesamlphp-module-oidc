@@ -9,24 +9,17 @@ use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
-use SimpleSAML\Session;
 use SimpleSAML\Utils\HTTP;
+use SimpleSAML\Error;
+use Throwable;
 
 class PromptRule extends AbstractRule
 {
+    private AuthSimpleFactory $authSimpleFactory;
 
-    /**
-     * @var AuthSimpleFactory
-     */
-    private $authSimpleFactory;
-
-    /**
-     * @var AuthenticationService
-     */
-    private $authenticationService;
+    private AuthenticationService $authenticationService;
 
     public function __construct(
         AuthSimpleFactory $authSimpleFactory,
@@ -36,6 +29,15 @@ class PromptRule extends AbstractRule
         $this->authenticationService = $authenticationService;
     }
 
+    /**
+     * @throws Error\AuthSource
+     * @throws Error\BadRequest
+     * @throws Error\Exception
+     * @throws OAuthServerException
+     * @throws Throwable
+     * @throws OidcServerException
+     * @throws Error\NotFound
+     */
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,

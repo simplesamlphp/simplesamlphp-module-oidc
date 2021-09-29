@@ -3,12 +3,15 @@
 namespace SimpleSAML\Module\oidc\Services;
 
 use DateTimeImmutable;
+use Exception;
 use Lcobucci\JWT\Builder;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Encoding\ChainedFormatter;
 use Lcobucci\JWT\Signer;
 use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\UnencryptedToken;
+use League\OAuth2\Server\Exception\OAuthServerException;
+use ReflectionException;
 use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
 use SimpleSAML\Module\oidc\Utils\UniqueIdentifierGenerator;
 
@@ -17,6 +20,10 @@ class JsonWebTokenBuilderService
     protected ConfigurationService $configurationService;
     protected Configuration $jwtConfig;
 
+    /**
+     * @throws ReflectionException
+     * @throws Exception
+     */
     public function __construct(
         ?ConfigurationService $configurationService = null
     ) {
@@ -32,6 +39,9 @@ class JsonWebTokenBuilderService
         );
     }
 
+    /**
+     * @throws OAuthServerException
+     */
     public function getDefaultJwtTokenBuilder(): Builder
     {
         // Ignore microseconds when handling dates.
@@ -52,6 +62,9 @@ class JsonWebTokenBuilderService
             );
     }
 
+    /**
+     * @throws ReflectionException
+     */
     public function getSigner(): Signer
     {
         return $this->configurationService->getSigner();

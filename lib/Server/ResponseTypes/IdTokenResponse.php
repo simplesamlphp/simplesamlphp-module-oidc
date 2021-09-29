@@ -14,6 +14,7 @@
 
 namespace SimpleSAML\Module\oidc\Server\ResponseTypes;
 
+use Exception;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
@@ -42,39 +43,19 @@ class IdTokenResponse extends BearerTokenResponse implements
     AcrResponseTypeInterface,
     SessionIdResponseTypeInterface
 {
-    /**
-     * @var IdentityProviderInterface
-     */
-    private $identityProvider;
-    /**
-     * @var ConfigurationService
-     */
-    private $configurationService;
+    private IdentityProviderInterface $identityProvider;
 
-    /**
-     * @var IdTokenBuilder
-     */
-    protected $idTokenBuilder;
+    private ConfigurationService $configurationService;
 
-    /**
-     * @var string|null
-     */
-    protected $nonce;
+    protected IdTokenBuilder $idTokenBuilder;
 
-    /**
-     * @var int|null
-     */
-    protected $authTime;
+    protected ?string $nonce = null;
 
-    /**
-     * @var string|null
-     */
-    protected $acr;
+    protected ?int $authTime = null;
 
-    /**
-     * @var string|null
-     */
-    protected $sessionId;
+    protected ?string $acr = null;
+
+    protected ?string $sessionId = null;
 
     public function __construct(
         IdentityProviderInterface $identityProvider,
@@ -87,10 +68,11 @@ class IdTokenResponse extends BearerTokenResponse implements
     }
 
     /**
+     * @param AccessTokenEntityInterface $accessToken
      * @return array
-     * @throws \Exception
+     * @throws Exception
      */
-    protected function getExtraParams(AccessTokenEntityInterface $accessToken)
+    protected function getExtraParams(AccessTokenEntityInterface $accessToken): array
     {
         if (false === $this->isOpenIDRequest($accessToken->getScopes())) {
             return [];
@@ -129,7 +111,7 @@ class IdTokenResponse extends BearerTokenResponse implements
      *
      * @return bool
      */
-    private function isOpenIDRequest($scopes)
+    private function isOpenIDRequest(array $scopes): bool
     {
         // Verify scope and make sure openid exists.
         foreach ($scopes as $scope) {
@@ -142,9 +124,9 @@ class IdTokenResponse extends BearerTokenResponse implements
     }
 
     /**
-     * @param string $nonce
+     * @param string|null $nonce
      */
-    public function setNonce(string $nonce): void
+    public function setNonce(?string $nonce): void
     {
         $this->nonce = $nonce;
     }
@@ -158,9 +140,9 @@ class IdTokenResponse extends BearerTokenResponse implements
     }
 
     /**
-     * @param int $authTime
+     * @param int|null $authTime
      */
-    public function setAuthTime(int $authTime): void
+    public function setAuthTime(?int $authTime): void
     {
         $this->authTime = $authTime;
     }

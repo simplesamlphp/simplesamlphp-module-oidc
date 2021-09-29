@@ -3,6 +3,7 @@
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
@@ -27,6 +28,9 @@ class UiLocalesRuleTest extends TestCase
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testCheckRuleReturnsResultWhenParamSet()
     {
         $this->requestStub->method('getQueryParams')->willReturn(['ui_locales' => 'en']);
@@ -38,6 +42,9 @@ class UiLocalesRuleTest extends TestCase
         $this->assertEquals('en', $result->getValue());
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testCheckRuleReturnsNullWhenParamNotSet()
     {
         $this->requestStub->method('getQueryParams')->willReturn([]);

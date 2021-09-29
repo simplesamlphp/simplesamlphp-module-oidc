@@ -14,17 +14,18 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
+use Throwable;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredOpenIdScopeRule
  */
 class RequiredOpenIdScopeRuleTest extends TestCase
 {
-    protected $scopeEntities = [];
+    protected array $scopeEntities = [];
 
-    protected $redirectUriResult;
-    protected $stateResult;
-    protected $scopeResult;
+    protected Result $redirectUriResult;
+    protected Result $stateResult;
+    protected Result $scopeResult;
 
     protected $requestStub;
 
@@ -43,6 +44,10 @@ class RequiredOpenIdScopeRuleTest extends TestCase
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
     }
 
+    /**
+     * @throws Throwable
+     * @throws OidcServerException
+     */
     public function testCheckRuleRedirectUriDependency(): void
     {
         $rule = new RequiredOpenIdScopeRule();
@@ -51,6 +56,10 @@ class RequiredOpenIdScopeRuleTest extends TestCase
         $rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, []);
     }
 
+    /**
+     * @throws Throwable
+     * @throws OidcServerException
+     */
     public function testCheckRuleStateDependency(): void
     {
         $rule = new RequiredOpenIdScopeRule();
@@ -60,6 +69,10 @@ class RequiredOpenIdScopeRuleTest extends TestCase
         $rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, []);
     }
 
+    /**
+     * @throws Throwable
+     * @throws OidcServerException
+     */
     public function testCheckRulePassesWhenOpenIdScopeIsPresent()
     {
         $rule = new RequiredOpenIdScopeRule();
@@ -74,6 +87,9 @@ class RequiredOpenIdScopeRuleTest extends TestCase
         $this->assertTrue($result->getValue());
     }
 
+    /**
+     * @throws Throwable
+     */
     public function testCheckRuleThrowsWhenOpenIdScopeIsNotPresent()
     {
         $rule = new RequiredOpenIdScopeRule();

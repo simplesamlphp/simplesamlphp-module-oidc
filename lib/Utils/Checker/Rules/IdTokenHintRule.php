@@ -32,6 +32,7 @@ class IdTokenHintRule extends AbstractRule
 
     /**
      * @inheritDoc
+     * @throws Throwable
      */
     public function checkRule(
         ServerRequestInterface $request,

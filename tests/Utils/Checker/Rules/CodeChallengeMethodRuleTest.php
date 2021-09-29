@@ -2,6 +2,7 @@
 
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
+use LogicException;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Repositories\CodeChallengeVerifiersRepository;
@@ -14,17 +15,18 @@ use SimpleSAML\Module\oidc\Utils\Checker\ResultBag;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
+use Throwable;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeMethodRule
  */
 class CodeChallengeMethodRuleTest extends TestCase
 {
-    protected $rule;
+    protected CodeChallengeMethodRule $rule;
     protected $requestStub;
     protected $resultBagStub;
-    protected $redirectUriResult;
-    protected $stateResult;
+    protected Result $redirectUriResult;
+    protected Result $stateResult;
     protected $loggerServiceStub;
 
     protected function setUp(): void
@@ -37,21 +39,32 @@ class CodeChallengeMethodRuleTest extends TestCase
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
     }
 
+    /**
+     * @throws Throwable
+     * @throws OidcServerException
+     */
     public function testCheckRuleRedirectUriDependency(): void
     {
         $resultBag = new ResultBag();
-        $this->expectException(\LogicException::class);
+        $this->expectException(LogicException::class);
         $this->rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, []);
     }
 
+    /**
+     * @throws Throwable
+     * @throws OidcServerException
+     */
     public function testCheckRuleStateDependency(): void
     {
         $resultBag = new ResultBag();
         $resultBag->add($this->redirectUriResult);
-        $this->expectException(\LogicException::class);
+        $this->expectException(LogicException::class);
         $this->rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, []);
     }
 
+    /**
+     * @throws Throwable
+     */
     public function testCheckRuleWithInvalidCodeChallengeMethodThrows(): void
     {
         $resultBag = $this->prepareValidResultBag();
@@ -60,6 +73,10 @@ class CodeChallengeMethodRuleTest extends TestCase
         $this->rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, []);
     }
 
+    /**
+     * @throws Throwable
+     * @throws OidcServerException
+     */
     public function testCheckRuleForValidCodeChallengeMethod(): void
     {
         $resultBag = $this->prepareValidResultBag();

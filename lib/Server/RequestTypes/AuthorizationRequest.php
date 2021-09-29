@@ -6,61 +6,41 @@ use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2Authorizatio
 
 class AuthorizationRequest extends OAuth2AuthorizationRequest
 {
-    /**
-     * @var string|null
-     */
-    protected $nonce;
+    protected ?string $nonce = null;
 
-    /**
-     * @var int|null
-     */
-    protected $authTime;
+    protected ?int $authTime = null;
 
     /**
      * The JSON object sent as `claims` request parameter.
      * @link https://openid.net/specs/openid-connect-core-1_0.html#ClaimsParameter
-     * @var array|null
      */
-    protected $claims;
+    protected ?array $claims = null;
 
-    /*
-     * @var bool
-     */
-    protected $addClaimsToIdToken = false;
+    protected bool $addClaimsToIdToken = false;
 
-    /**
-     * @var string|null
-     */
-    protected $responseType;
+    protected ?string $responseType;
 
-    /**
-     * @var bool|null
-     */
-    protected $isCookieBasedAuthn;
+    protected ?bool $isCookieBasedAuthn = null;
 
     /**
      * ID of the AuthSource used during authn.
-     * @var string|null
      */
-    protected $authSourceId;
+    protected ?string $authSourceId = null;
 
     /**
      * ACR values requested during authorization request.
-     * @var array|null
      */
-    protected $requestedAcrValues;
+    protected ?array $requestedAcrValues = null;
 
     /**
      * ACR used during authn.
-     * @var string|null
      */
-    protected $acr;
+    protected ?string $acr = null;
 
     /**
      * Current Session ID
-     * @var string|null
      */
-    protected $sessionId;
+    protected ?string $sessionId = null;
 
     public static function fromOAuth2AuthorizationRequest(
         OAuth2AuthorizationRequest $oAuth2authorizationRequest

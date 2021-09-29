@@ -23,45 +23,24 @@ class ClientEntity implements ClientEntityInterface
     use EntityTrait;
     use ClientTrait;
 
-    /**
-     * @var string
-     */
-    private $secret;
+    private string $secret;
 
-    /**
-     * @var string
-     */
-    private $description;
+    private string $description;
 
-    /**
-     * @var string|null
-     */
-    private $authSource;
+    private ?string $authSource;
 
-    /**
-     * @var array
-     */
-    private $scopes;
+    private array $scopes;
 
-    /**
-     * @var bool
-     */
-    private $isEnabled;
+    private bool $isEnabled;
 
-    /**
-     * @var string|null
-     */
-    private $owner;
+    private ?string $owner;
 
     /**
      * @var string[]|null
      */
-    private $postLogoutRedirectUri;
+    private ?array $postLogoutRedirectUri;
 
-    /**
-     * @var string|null
-     */
-    private $backchannelLogoutUri;
+    private ?string $backChannelLogoutUri;
 
     /**
      * Constructor.
@@ -83,7 +62,7 @@ class ClientEntity implements ClientEntityInterface
         ?string $authSource = null,
         ?string $owner = null,
         array $postLogoutRedirectUri = [],
-        ?string $backchannelLogoutUri = null
+        ?string $backChannelLogoutUri = null
     ): ClientEntityInterface {
         $client = new self();
 
@@ -98,7 +77,7 @@ class ClientEntity implements ClientEntityInterface
         $client->isConfidential = $isConfidential;
         $client->owner = $owner;
         $client->postLogoutRedirectUri = $postLogoutRedirectUri;
-        $client->backchannelLogoutUri = $backchannelLogoutUri;
+        $client->backChannelLogoutUri = $backChannelLogoutUri;
 
         return $client;
     }
@@ -123,7 +102,7 @@ class ClientEntity implements ClientEntityInterface
         $client->postLogoutRedirectUri = $state['post_logout_redirect_uri'] !== null ?
             json_decode($state['post_logout_redirect_uri'], true) :
             [];
-        $client->backchannelLogoutUri = $state['backchannel_logout_uri'] ?? null;
+        $client->backChannelLogoutUri = $state['backchannel_logout_uri'] ?? null;
 
         return $client;
     }
@@ -145,7 +124,7 @@ class ClientEntity implements ClientEntityInterface
             'is_confidential' => (int) $this->isConfidential(),
             'owner' => $this->getOwner(),
             'post_logout_redirect_uri' => json_encode($this->getPostLogoutRedirectUri()),
-            'backchannel_logout_uri' => $this->getBackchannelLogoutUri(),
+            'backchannel_logout_uri' => $this->getBackChannelLogoutUri(),
 
         ];
     }
@@ -164,7 +143,7 @@ class ClientEntity implements ClientEntityInterface
             'is_confidential' => $this->isConfidential,
             'owner' => $this->owner,
             'post_logout_redirect_uri' => $this->postLogoutRedirectUri,
-            'backchannel_logout_uri' => $this->backchannelLogoutUri,
+            'backchannel_logout_uri' => $this->backChannelLogoutUri,
         ];
     }
 
@@ -215,13 +194,13 @@ class ClientEntity implements ClientEntityInterface
         $this->postLogoutRedirectUri = $postLogoutRedirectUri;
     }
 
-    public function getBackchannelLogoutUri(): ?string
+    public function getBackChannelLogoutUri(): ?string
     {
-        return $this->backchannelLogoutUri;
+        return $this->backChannelLogoutUri;
     }
 
-    public function setBackchannelLogoutUri(?string $backchannelLogoutUri): void
+    public function setBackChannelLogoutUri(?string $backChannelLogoutUri): void
     {
-        $this->backchannelLogoutUri = $backchannelLogoutUri;
+        $this->backChannelLogoutUri = $backChannelLogoutUri;
     }
 }

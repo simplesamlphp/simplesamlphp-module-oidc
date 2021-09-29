@@ -18,6 +18,7 @@ interface RequestRuleInterface
      * Check specific rule.
      * @param ServerRequestInterface $request
      * @param ResultBagInterface $currentResultBag ResultBag with all results of the checks performed to current check
+     * @param LoggerService $loggerService
      * @param array $data Data which will be available during check.
      * @param bool $useFragmentInHttpErrorResponses Indicate that in case of HTTP error responses, params should be
      * returned in URI fragment instead of query.

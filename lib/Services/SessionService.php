@@ -2,6 +2,7 @@
 
 namespace SimpleSAML\Module\oidc\Services;
 
+use Exception;
 use SimpleSAML\Module\oidc\Server\Associations\Interfaces\RelyingPartyAssociationInterface;
 use SimpleSAML\Session;
 
@@ -34,6 +35,9 @@ class SessionService
         return Session::getSession($id);
     }
 
+    /**
+     * @throws Exception
+     */
     public function setIsCookieBasedAuthn(bool $isCookieBasedAuthn): void
     {
         $this->session->setData(
@@ -52,6 +56,9 @@ class SessionService
         );
     }
 
+    /**
+     * @throws Exception
+     */
     public function addRelyingPartyAssociation(RelyingPartyAssociationInterface $association): void
     {
         $associationId = hash('sha256', $association->getClientId() . $association->getSessionId());
@@ -79,11 +86,17 @@ class SessionService
         return $session->getData(self::SESSION_DATA_TYPE, self::SESSION_DATA_ID_RP_ASSOCIATIONS) ?? [];
     }
 
+    /**
+     * @throws Exception
+     */
     public function clearRelyingPartyAssociations(): void
     {
         self::clearRelyingPartyAssociationsForSession($this->session);
     }
 
+    /**
+     * @throws Exception
+     */
     public static function clearRelyingPartyAssociationsForSession(Session $session): void
     {
         $session->setData(
@@ -94,6 +107,9 @@ class SessionService
         );
     }
 
+    /**
+     * @throws Exception
+     */
     public function setIsAuthnPerformedInPreviousRequest(bool $isAuthnPerformedInPreviousRequest): void
     {
         $this->session->setData(
@@ -113,7 +129,7 @@ class SessionService
     }
 
     /**
-     * @throws \Exception
+     * @throws Exception
      */
     public function registerLogoutHandler(string $authSourceId, string $className, string $functionName): void
     {
@@ -123,7 +139,7 @@ class SessionService
     /**
      * Set indication if logout was initiated using OIDC protocol.
      * @param bool $isOidcInitiatedLogout
-     * @throws \Exception
+     * @throws Exception
      */
     public function setIsOidcInitiatedLogout(bool $isOidcInitiatedLogout): void
     {

@@ -2,6 +2,8 @@
 
 namespace SimpleSAML\Test\Module\oidc\Controller;
 
+use Exception;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;
@@ -19,6 +21,7 @@ use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Store\SessionLogoutTicketStoreBuilder;
 use SimpleSAML\Module\oidc\Store\SessionLogoutTicketStoreDb;
 use SimpleSAML\Session;
+use Throwable;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Controller\LogoutController
@@ -66,7 +69,7 @@ class LogoutControllerTest extends TestCase
      */
     protected $sessionMock;
     /**
-     * @var \Lcobucci\JWT\Token\DataSet
+     * @var DataSet
      */
     protected DataSet $dataSet;
     /**
@@ -118,6 +121,10 @@ class LogoutControllerTest extends TestCase
         );
     }
 
+    /**
+     * @throws Throwable
+     * @throws OidcServerException
+     */
     public function testInvokeThrowsForInvalidLogoutRequest(): void
     {
         $this->authorizationServerStub->method('validateLogoutRequest')
@@ -137,6 +144,11 @@ class LogoutControllerTest extends TestCase
         $logoutController->__invoke($this->serverRequestStub);
     }
 
+    /**
+     * @throws Throwable
+     * @throws BadRequest
+     * @throws OidcServerException
+     */
     public function testCallLogoutForSessionIdInIdTokenHint(): void
     {
         $this->currentSessionMock->method('getSessionId')->willReturn('currentSession123');
@@ -167,13 +179,18 @@ class LogoutControllerTest extends TestCase
         ))->__invoke($this->serverRequestStub);
     }
 
+    /**
+     * @throws Throwable
+     * @throws BadRequest
+     * @throws OidcServerException
+     */
     public function testLogsIfSessionFromIdTokenHintNotFound(): void
     {
         $this->currentSessionMock->method('getSessionId')->willReturn('currentSession123');
         $this->currentSessionMock->method('getAuthorities')->willReturn([]);
         $this->sessionServiceStub->method('getCurrentSession')->willReturn($this->currentSessionMock);
         $this->sessionMock->method('getAuthorities')->willReturn(['authId1', 'authId2']);
-        $this->sessionServiceStub->method('getSessionById')->willThrowException(new \Exception());
+        $this->sessionServiceStub->method('getSessionById')->willThrowException(new Exception());
         $this->idTokenHintStub->method('claims')->willReturn($this->dataSet);
         $this->logoutRequestStub->method('getIdTokenHint')->willReturn($this->idTokenHintStub);
         $this->authorizationServerStub->method('validateLogoutRequest')->willReturn($this->logoutRequestStub);
@@ -193,6 +210,11 @@ class LogoutControllerTest extends TestCase
         ))->__invoke($this->serverRequestStub);
     }
 
+    /**
+     * @throws Throwable
+     * @throws BadRequest
+     * @throws OidcServerException
+     */
     public function testLogoutCalledOnCurrentSession(): void
     {
         $this->currentSessionMock->method('getAuthorities')->willReturn(['authId1', 'authId2']);
@@ -216,6 +238,11 @@ class LogoutControllerTest extends TestCase
         ))->__invoke($this->serverRequestStub);
     }
 
+    /**
+     * @throws Throwable
+     * @throws BadRequest
+     * @throws OidcServerException
+     */
     public function testReturnsRedirectResponseIfPostLogoutRedirectUriIsSet(): void
     {
         $this->currentSessionMock->method('getAuthorities')->willReturn([]);
@@ -236,6 +263,11 @@ class LogoutControllerTest extends TestCase
         $this->assertInstanceOf(RedirectResponse::class, $logoutController->__invoke($this->serverRequestStub));
     }
 
+    /**
+     * @throws Throwable
+     * @throws BadRequest
+     * @throws OidcServerException
+     */
     public function testReturnsResponse(): void
     {
         $this->currentSessionMock->method('getAuthorities')->willReturn([]);

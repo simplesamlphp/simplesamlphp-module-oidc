@@ -21,16 +21,20 @@ use Laminas\HttpHandlerRunner\Emitter\SapiEmitter;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
+use ReflectionClass;
+use ReflectionException;
+use RuntimeException;
 use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Error\Error;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Utils\Auth;
 use SimpleSAML\XHTML\Template;
+use Throwable;
 
 class RoutingService
 {
     /**
-     * @throws \SimpleSAML\Error\Exception
+     * @throws Exception
      *
      * @return void
      */
@@ -46,6 +50,10 @@ class RoutingService
         self::callController(new Container(), $controllerClassname);
     }
 
+    /**
+     * @throws Exception
+     * @throws \Exception
+     */
     public static function callWithPermission(string $controllerClassname, string $permission)
     {
         $container = new Container();
@@ -55,6 +63,11 @@ class RoutingService
         self::callController($container, $controllerClassname);
     }
 
+    /**
+     * @throws BadRequest
+     * @throws Exception
+     * @throws \Exception
+     */
     private static function callController($container, string $controllerClassname): void
     {
         /** @var callable $controller */
@@ -81,15 +94,19 @@ class RoutingService
             return;
         }
 
-        throw new Exception('Response type not supported: ' . \get_class($response));
+        throw new Exception('Response type not supported: ' . get_class($response));
     }
 
+    /**
+     * @throws ReflectionException
+     * @throws BadRequest
+     */
     protected static function getController(string $controllerClassname, ContainerInterface $container): object
     {
         if (!class_exists($controllerClassname)) {
             throw new BadRequest("Controller does not exist: {$controllerClassname}");
         }
-        $controllerReflectionClass = new \ReflectionClass($controllerClassname);
+        $controllerReflectionClass = new ReflectionClass($controllerClassname);
 
         $arguments = [];
         $constructor = $controllerReflectionClass->getConstructor();
@@ -98,12 +115,12 @@ class RoutingService
             foreach ($constructor->getParameters() as $parameter) {
                 $reflectionClass = $parameter->getClass();
                 if (null === $reflectionClass) {
-                    throw new \RuntimeException('Parameter not found in container: ' . $parameter->getName());
+                    throw new RuntimeException('Parameter not found in container: ' . $parameter->getName());
                 }
 
                 $className = $reflectionClass->getName();
                 if (false === $container->has($className)) {
-                    throw new \RuntimeException('Service not found in container: ' . $className);
+                    throw new RuntimeException('Service not found in container: ' . $className);
                 }
 
                 $arguments[] = $container->get($className);
@@ -118,7 +135,7 @@ class RoutingService
      */
     protected static function enableJsonExceptionResponse()
     {
-        set_exception_handler(function (\Throwable $t) {
+        set_exception_handler(function (Throwable $t) {
             if ($t instanceof Error) {
                 // Showing SSP Error will also use SSP logger to log it.
                 return $t->show();

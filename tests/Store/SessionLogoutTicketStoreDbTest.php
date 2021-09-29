@@ -2,6 +2,7 @@
 
 namespace SimpleSAML\Test\Module\oidc\Store;
 
+use Exception;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Store\SessionLogoutTicketStoreDb;
@@ -27,6 +28,9 @@ class SessionLogoutTicketStoreDbTest extends TestCase
         (new DatabaseMigration())->migrate();
     }
 
+    /**
+     * @throws Exception
+     */
     public function testCanAddAndDeleteTickets(): void
     {
         $store = new SessionLogoutTicketStoreDb();
@@ -41,6 +45,9 @@ class SessionLogoutTicketStoreDbTest extends TestCase
         $this->assertEmpty($store->getAll());
     }
 
+    /**
+     * @throws Exception
+     */
     public function testCanDeleteMultipleTickets(): void
     {
         $sid1 = 'sid1';
@@ -67,6 +74,9 @@ class SessionLogoutTicketStoreDbTest extends TestCase
         $this->assertEmpty($store->getAll());
     }
 
+    /**
+     * @throws Exception
+     */
     public function testCanDeleteExpiredTickets(): void
     {
         $store = new SessionLogoutTicketStoreDb(null, 0);

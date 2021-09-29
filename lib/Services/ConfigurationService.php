@@ -18,6 +18,7 @@ use Exception;
 use Lcobucci\JWT\Signer;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
 use ReflectionClass;
+use ReflectionException;
 use SimpleSAML\Configuration;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module;
@@ -26,8 +27,7 @@ use SimpleSAML\Utils\HTTP;
 
 class ConfigurationService
 {
-    /** @var array */
-    protected static $standardClaims = [
+    protected static array $standardClaims = [
         'openid' => [
             'description' => 'openid',
         ],
@@ -45,11 +45,17 @@ class ConfigurationService
         ],
     ];
 
+    /**
+     * @throws ConfigurationError
+     */
     public function __construct()
     {
         $this->validateConfiguration();
     }
 
+    /**
+     * @throws Exception
+     */
     public function getSimpleSAMLConfiguration(): Configuration
     {
         return Configuration::getInstance();
@@ -63,10 +69,7 @@ class ConfigurationService
         return Configuration::getConfig('module_oidc.php');
     }
 
-    /**
-     * @return string
-     */
-    public function getSimpleSAMLSelfURLHost()
+    public function getSimpleSAMLSelfURLHost(): string
     {
         return HTTP::getSelfURLHost();
     }
@@ -83,25 +86,26 @@ class ConfigurationService
     }
 
     /**
-     * @return array
+     * @throws Exception
      */
-    public function getOpenIDScopes()
+    public function getOpenIDScopes(): array
     {
         return array_merge(self::$standardClaims, $this->getOpenIDPrivateScopes());
     }
 
     /**
-     * @return array
+     * @throws Exception
      */
-    public function getOpenIDPrivateScopes()
+    public function getOpenIDPrivateScopes(): array
     {
         return $this->getOpenIDConnectConfiguration()->getArray('scopes', []);
     }
 
     /**
-     * @throws ConfigurationError
-     *
      * @return void
+     * @throws Exception
+     *
+     * @throws ConfigurationError
      */
     private function validateConfiguration()
     {
@@ -109,13 +113,9 @@ class ConfigurationService
         array_walk(
             $privateScopes,
             /**
-             * @param array $scope
-             * @param string $name
-             *
-             * @return void
              * @throws ConfigurationError
              */
-            function ($scope, $name) {
+            function (array $scope, string $name): void {
                 if (in_array($name, ['openid', 'profile', 'email', 'address', 'phone'], true)) {
                     throw new ConfigurationError('Can not overwrite protected scope: ' . $name, 'oidc_config.php');
                 }
@@ -168,7 +168,8 @@ class ConfigurationService
     }
 
     /**
-     * @throws \ReflectionException
+     * @throws ReflectionException
+     * @throws Exception
      */
     public function getSigner(): Signer
     {

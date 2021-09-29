@@ -78,6 +78,9 @@ class SessionLogoutTicketStoreDb implements SessionLogoutTicketStoreInterface
         $this->database->write($stmt, $params);
     }
 
+    /**
+     * @throws Exception
+     */
     public function getAll(): array
     {
         $this->deleteExpired();

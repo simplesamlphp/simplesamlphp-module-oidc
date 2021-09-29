@@ -13,10 +13,7 @@ use SimpleSAML\Module\oidc\Utils\Checker\Result;
 
 class ClientIdRule extends AbstractRule
 {
-    /**
-     * @var ClientRepositoryInterface $clientRepository
-     */
-    protected $clientRepository;
+    protected ClientRepositoryInterface $clientRepository;
 
     public function __construct(ClientRepositoryInterface $clientRepository)
     {

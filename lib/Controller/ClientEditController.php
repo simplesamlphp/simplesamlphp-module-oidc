@@ -14,6 +14,7 @@
 
 namespace SimpleSAML\Module\oidc\Controller;
 
+use Exception;
 use SimpleSAML\Module\oidc\Controller\Traits\AuthenticatedGetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
@@ -33,29 +34,15 @@ class ClientEditController
 {
     use AuthenticatedGetClientFromRequestTrait;
 
-    /**
-     * @var ConfigurationService
-     */
-    private $configurationService;
+    private ConfigurationService $configurationService;
 
-    /**
-     * @var TemplateFactory
-     */
-    private $templateFactory;
-    /**
-     * @var FormFactory
-     */
-    private $formFactory;
+    private TemplateFactory $templateFactory;
 
-    /**
-     * @var SessionMessagesService
-     */
-    private $messages;
+    private FormFactory $formFactory;
 
-    /**
-     * @var AllowedOriginRepository
-     */
-    protected $allowedOriginRepository;
+    private SessionMessagesService $messages;
+
+    protected AllowedOriginRepository $allowedOriginRepository;
 
     public function __construct(
         ConfigurationService $configurationService,
@@ -77,6 +64,7 @@ class ClientEditController
 
     /**
      * @return RedirectResponse|Template
+     * @throws Exception
      */
     public function __invoke(ServerRequest $request)
     {

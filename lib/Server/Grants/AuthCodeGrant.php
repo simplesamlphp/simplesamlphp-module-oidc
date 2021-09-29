@@ -51,6 +51,8 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestParameterRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
+use stdClass;
+use Throwable;
 
 class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     PkceEnabledGrantTypeInterface,
@@ -59,15 +61,12 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 {
     use IssueAccessTokenTrait;
 
-    /**
-     * @var DateInterval
-     */
-    protected $authCodeTTL;
+    protected DateInterval $authCodeTTL;
 
     /**
      * @var CodeChallengeVerifierInterface[]
      */
-    protected $codeChallengeVerifiers = [];
+    protected array $codeChallengeVerifiers = [];
 
     /**
      * @var AuthCodeRepositoryInterface
@@ -84,15 +83,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      */
     protected $refreshTokenRepository;
 
-    /**
-     * @var RequestRulesManager
-     */
-    private $requestRulesManager;
+    private RequestRulesManager $requestRulesManager;
 
-    /**
-     * @var bool $requireCodeChallengeForPublicClients
-     */
-    protected $requireCodeChallengeForPublicClients = true;
+    protected bool $requireCodeChallengeForPublicClients = true;
 
     public function __construct(
         OAuth2AuthCodeRepositoryInterface $authCodeRepository,
@@ -110,7 +103,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $this->authCodeTTL = $authCodeTTL;
         $this->requestRulesManager = $requestRulesManager;
 
-        if (\in_array('sha256', \hash_algos(), true)) {
+        if (in_array('sha256', hash_algos(), true)) {
             $s256Verifier = new S256Verifier();
             $this->codeChallengeVerifiers[$s256Verifier->getMethod()] = $s256Verifier;
         }
@@ -146,6 +139,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
     /**
      * @inheritDoc
+     * @throws OAuthServerException
      */
     public function completeAuthorizationRequest(
         OAuth2AuthorizationRequest $authorizationRequest
@@ -213,7 +207,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             'session_id'            => $authorizationRequest->getSessionId(),
         ];
 
-        $jsonPayload = \json_encode($payload);
+        $jsonPayload = json_encode($payload);
 
         if ($jsonPayload === false) {
             throw new LogicException('An error was encountered when JSON encoding the authorization ' .
@@ -296,7 +290,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     {
         $rediretctUri = $authorizationRequest->getClient()->getRedirectUri();
 
-        if (\is_array($rediretctUri)) {
+        if (is_array($rediretctUri)) {
             return $rediretctUri[0];
         }
 
@@ -337,7 +331,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         }
 
         try {
-            $authCodePayload = \json_decode($this->decrypt($encryptedAuthCode));
+            $authCodePayload = json_decode($this->decrypt($encryptedAuthCode));
 
             $this->validateAuthorizationCode($authCodePayload, $client, $request);
 
@@ -361,14 +355,14 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
             // Validate code_verifier according to RFC-7636
             // @see: https://tools.ietf.org/html/rfc7636#section-4.1
-            if (\preg_match('/^[A-Za-z0-9-._~]{43,128}$/', $codeVerifier) !== 1) {
+            if (preg_match('/^[A-Za-z0-9-._~]{43,128}$/', $codeVerifier) !== 1) {
                 throw OAuthServerException::invalidRequest(
                     'code_verifier',
                     'Code Verifier must follow the specifications of RFC-7636.'
                 );
             }
 
-            if (\property_exists($authCodePayload, 'code_challenge_method')) {
+            if (property_exists($authCodePayload, 'code_challenge_method')) {
                 if (isset($this->codeChallengeVerifiers[$authCodePayload->code_challenge_method])) {
                     $codeChallengeVerifier = $this->codeChallengeVerifiers[$authCodePayload->code_challenge_method];
 
@@ -382,7 +376,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                     }
                 } else {
                     throw OAuthServerException::serverError(
-                        \sprintf(
+                        sprintf(
                             'Unsupported code challenge method `%s`',
                             $authCodePayload->code_challenge_method
                         )
@@ -410,7 +404,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         // Set nonce in response if the auth code had one set.
         if (
             $responseType instanceof NonceResponseTypeInterface &&
-            \property_exists($authCodePayload, 'nonce') &&
+            property_exists($authCodePayload, 'nonce') &&
             ! empty($authCodePayload->nonce)
         ) {
             $responseType->setNonce($authCodePayload->nonce);
@@ -418,7 +412,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         if (
             $responseType instanceof AuthTimeResponseTypeInterface &&
-            \property_exists($authCodePayload, 'auth_time') &&
+            property_exists($authCodePayload, 'auth_time') &&
             ! empty($authCodePayload->auth_time)
         ) {
             $responseType->setAuthTime($authCodePayload->auth_time);
@@ -426,7 +420,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         if (
             $responseType instanceof AcrResponseTypeInterface &&
-            \property_exists($authCodePayload, 'acr') &&
+            property_exists($authCodePayload, 'acr') &&
             $authCodePayload->acr !== null
         ) {
             $responseType->setAcr($authCodePayload->acr);
@@ -434,7 +428,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         if (
             $responseType instanceof SessionIdResponseTypeInterface &&
-            \property_exists($authCodePayload, 'session_id') &&
+            property_exists($authCodePayload, 'session_id') &&
             $authCodePayload->session_id !== null
         ) {
             $responseType->setSessionId($authCodePayload->session_id);
@@ -457,21 +451,21 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     /**
      * Reimplementation because of private parent access
      *
-     * @param \stdClass $authCodePayload
+     * @param stdClass $authCodePayload
      * @param OAuth2ClientEntityInterface $client
      * @param ServerRequestInterface $request
      * @throws OAuthServerException
      */
     protected function validateAuthorizationCode(
-        \stdClass $authCodePayload,
+        stdClass $authCodePayload,
         OAuth2ClientEntityInterface $client,
         ServerRequestInterface $request
     ): void {
-        if (!\property_exists($authCodePayload, 'auth_code_id')) {
+        if (!property_exists($authCodePayload, 'auth_code_id')) {
             throw OAuthServerException::invalidRequest('code', 'Authorization code malformed');
         }
 
-        if (\time() > $authCodePayload->expire_time) {
+        if (time() > $authCodePayload->expire_time) {
             throw OAuthServerException::invalidGrant('Authorization code has expired');
         }
 
@@ -499,6 +493,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
     /**
      * @inheritDoc
+     * @throws Throwable
      */
     public function validateAuthorizationRequestWithCheckerResultBag(
         ServerRequestInterface $request,

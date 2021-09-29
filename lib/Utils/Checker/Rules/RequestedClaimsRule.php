@@ -10,10 +10,11 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
+use Throwable;
 
 class RequestedClaimsRule extends AbstractRule
 {
-    private $claimExtractor;
+    private ClaimExtractor $claimExtractor;
 
     public function __construct(ClaimExtractor $claimExtractor)
     {
@@ -21,6 +22,9 @@ class RequestedClaimsRule extends AbstractRule
     }
 
 
+    /**
+     * @throws Throwable
+     */
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,

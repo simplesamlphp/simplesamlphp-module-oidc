@@ -2,6 +2,7 @@
 
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
+use OpenIDConnectServer\Exception\InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
@@ -11,6 +12,7 @@ use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\Checker\ResultBag;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
+use Throwable;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule
@@ -18,10 +20,10 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
 class RequestedClaimsRuleTest extends TestCase
 {
 
-    protected $resultBag;
+    protected ResultBag $resultBag;
     protected $clientStub;
     protected $request;
-    protected $redirectUri = 'https://some-redirect-uri.org';
+    protected string $redirectUri = 'https://some-redirect-uri.org';
     protected $loggerServiceStub;
     protected static string $userIdAttr = 'uid';
 
@@ -36,6 +38,10 @@ class RequestedClaimsRuleTest extends TestCase
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
     }
 
+    /**
+     * @throws InvalidArgumentException
+     * @throws Throwable
+     */
     public function testNoRequestedClaims(): void
     {
         $rule = new RequestedClaimsRule(new ClaimTranslatorExtractor(self::$userIdAttr));
@@ -43,6 +49,10 @@ class RequestedClaimsRuleTest extends TestCase
         $this->assertNull($result);
     }
 
+    /**
+     * @throws InvalidArgumentException
+     * @throws Throwable
+     */
     public function testWithClaims(): void
     {
         $expectedClaims = [
@@ -78,6 +88,10 @@ class RequestedClaimsRuleTest extends TestCase
     }
 
 
+    /**
+     * @throws InvalidArgumentException
+     * @throws Throwable
+     */
     public function testOnlyWithNonStandardClaimRequest(): void
     {
         $expectedClaims = [

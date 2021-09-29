@@ -12,19 +12,20 @@ use SimpleSAML\Module\oidc\Utils\Checker\ResultBag;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredNonceRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
+use Throwable;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredNonceRule
  */
 class RequiredNonceRuleTest extends TestCase
 {
-    protected $resultBag;
-    protected $redirectUriResult;
-    protected $stateResult;
+    protected ResultBag $resultBag;
+    protected Result $redirectUriResult;
+    protected Result $stateResult;
 
     protected $requestStub;
 
-    protected $requestQueryParams = [
+    protected array $requestQueryParams = [
         'nonce' => 'nonce123',
         'state' => 'state123',
     ];
@@ -44,6 +45,10 @@ class RequiredNonceRuleTest extends TestCase
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
     }
 
+    /**
+     * @throws Throwable
+     * @throws OidcServerException
+     */
     public function testCheckRuleRedirectUriDependency(): void
     {
         $rule = new RequiredNonceRule();
@@ -52,6 +57,10 @@ class RequiredNonceRuleTest extends TestCase
         $rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, []);
     }
 
+    /**
+     * @throws Throwable
+     * @throws OidcServerException
+     */
     public function testCheckRuleStateDependency(): void
     {
         $rule = new RequiredNonceRule();
@@ -61,6 +70,10 @@ class RequiredNonceRuleTest extends TestCase
         $rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, []);
     }
 
+    /**
+     * @throws Throwable
+     * @throws OidcServerException
+     */
     public function testCheckRulePassesWhenNonceIsPresent()
     {
         $rule = new RequiredNonceRule();
@@ -73,6 +86,9 @@ class RequiredNonceRuleTest extends TestCase
         $this->assertEquals($this->requestQueryParams['nonce'], $result->getValue());
     }
 
+    /**
+     * @throws Throwable
+     */
     public function testCheckRuleThrowsWhenNonceIsNotPresent()
     {
         $rule = new RequiredNonceRule();

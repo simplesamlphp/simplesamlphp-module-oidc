@@ -14,6 +14,7 @@
 
 namespace SimpleSAML\Module\oidc\Controller;
 
+use Exception;
 use Laminas\Diactoros\Response\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;
@@ -26,38 +27,21 @@ use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\Utils\HTTP;
 use SimpleSAML\Utils\Random;
+use SimpleSAML\XHTML\Template;
 
 class ClientCreateController
 {
-    /**
-     * @var ClientRepository
-     */
-    private $clientRepository;
+    private ClientRepository $clientRepository;
 
-    /**
-     * @var \SimpleSAML\Module\oidc\Factories\TemplateFactory
-     */
-    private $templateFactory;
+    private TemplateFactory $templateFactory;
 
-    /**
-     * @var \SimpleSAML\Module\oidc\Factories\FormFactory
-     */
-    private $formFactory;
+    private FormFactory $formFactory;
 
-    /**
-     * @var \SimpleSAML\Module\oidc\Services\SessionMessagesService
-     */
-    private $messages;
+    private SessionMessagesService $messages;
 
-    /**
-     * @var AuthContextService
-     */
-    private $authContextService;
+    private AuthContextService $authContextService;
 
-    /*
-     * @var AllowedOriginRepository
-     */
-    private $allowedOriginRepository;
+    private AllowedOriginRepository $allowedOriginRepository;
 
     public function __construct(
         ClientRepository $clientRepository,
@@ -76,7 +60,8 @@ class ClientCreateController
     }
 
     /**
-     * @return \Laminas\Diactoros\Response\RedirectResponse|\SimpleSAML\XHTML\Template
+     * @return RedirectResponse|Template
+     * @throws Exception
      */
     public function __invoke(ServerRequest $request)
     {

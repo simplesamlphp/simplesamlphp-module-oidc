@@ -142,7 +142,7 @@
             return true;
         };
 
-        $.fn.form.settings.rules.backchannelLogoutUri = function(value) {
+        $.fn.form.settings.rules.backChannelLogoutUri = function(value) {
             var uri = value.trim();
 
             if (uri.length) {
@@ -214,7 +214,7 @@
                         identifier: 'backchannel_logout_uri',
                         rules: [
                             {
-                                type: 'backchannelLogoutUri',
+                                type: 'backChannelLogoutUri',
                                 prompt: '{% trans "{oidc:client:backchannel_logout_uri_not_valid}" %}'
                             }
                         ]

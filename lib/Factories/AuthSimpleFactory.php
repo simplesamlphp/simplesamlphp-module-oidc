@@ -25,10 +25,7 @@ class AuthSimpleFactory
 {
     use GetClientFromRequestTrait;
 
-    /**
-     * @var ConfigurationService
-     */
-    private $configurationService;
+    private ConfigurationService $configurationService;
 
     public function __construct(
         ClientRepository $clientRepository,
@@ -40,6 +37,7 @@ class AuthSimpleFactory
 
     /**
      * @codeCoverageIgnore
+     * @throws Exception
      */
     public function build(ClientEntityInterface $clientEntity): Simple
     {
@@ -50,6 +48,7 @@ class AuthSimpleFactory
 
     /**
      * @return Simple The default authsource
+     * @throws Exception
      */
     public function getDefaultAuthSource(): Simple
     {
@@ -68,6 +67,9 @@ class AuthSimpleFactory
         return $client->getAuthSourceId() ?? $this->getDefaultAuthSourceId();
     }
 
+    /**
+     * @throws Exception
+     */
     public function getDefaultAuthSourceId(): string
     {
         return $this->configurationService->getOpenIDConnectConfiguration()->getString('auth');

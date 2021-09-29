@@ -7,15 +7,17 @@ use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
 use Lcobucci\JWT\UnencryptedToken;
 use League\OAuth2\Server\CryptKey;
-use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Message\ServerRequestInterface;
+use ReflectionException;
 use SimpleSAML\Module\oidc\Factories\CryptKeyFactory;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\IdTokenHintRule;
 use PHPUnit\Framework\TestCase;
+use Throwable;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Utils\Checker\Rules\IdTokenHintRule
@@ -47,6 +49,9 @@ class IdTokenHintRuleTest extends TestCase
         self::$publicKey = new CryptKey(self::$publicKeyPath, null, false);
     }
 
+    /**
+     * @throws ReflectionException
+     */
     protected function setUp(): void
     {
         $this->requestStub = $this->createStub(ServerRequestInterface::class);
@@ -78,6 +83,10 @@ class IdTokenHintRuleTest extends TestCase
         ));
     }
 
+    /**
+     * @throws Throwable
+     * @throws OidcServerException
+     */
     public function testCheckRuleIsNullWhenParamNotSet(): void
     {
         $rule = new IdTokenHintRule($this->configurationServiceStub, $this->cryptKeyFactoryStub);
@@ -90,15 +99,21 @@ class IdTokenHintRuleTest extends TestCase
         $this->assertNull($result->getValue());
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testCheckRuleThrowsForMalformedIdToken(): void
     {
         $this->requestStub->method('getMethod')->willReturn('GET');
         $this->requestStub->method('getQueryParams')->willReturn(['id_token_hint' => 'malformed']);
         $rule = new IdTokenHintRule($this->configurationServiceStub, $this->cryptKeyFactoryStub);
-        $this->expectException(\Throwable::class);
+        $this->expectException(Throwable::class);
         $rule->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testCheckRuleThrowsForIdTokenWithInvalidSignature(): void
     {
         $this->requestStub->method('getMethod')->willReturn('GET');
@@ -111,10 +126,14 @@ class IdTokenHintRuleTest extends TestCase
 
         $this->requestStub->method('getQueryParams')->willReturn(['id_token_hint' => $invalidSignatureJwt]);
         $rule = new IdTokenHintRule($this->configurationServiceStub, $this->cryptKeyFactoryStub);
-        $this->expectException(\Throwable::class);
+        $this->expectException(Throwable::class);
         $rule->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
     }
 
+    /**
+     * @throws ReflectionException
+     * @throws OidcServerException
+     */
     public function testCheckRuleThrowsForIdTokenWithInvalidIssuer(): void
     {
         $this->requestStub->method('getMethod')->willReturn('GET');
@@ -126,10 +145,15 @@ class IdTokenHintRuleTest extends TestCase
 
         $this->requestStub->method('getQueryParams')->willReturn(['id_token_hint' => $invalidIssuerJwt]);
         $rule = new IdTokenHintRule($this->configurationServiceStub, $this->cryptKeyFactoryStub);
-        $this->expectException(\Throwable::class);
+        $this->expectException(Throwable::class);
         $rule->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
     }
 
+    /**
+     * @throws ReflectionException
+     * @throws Throwable
+     * @throws OidcServerException
+     */
     public function testCheckRulePassesForValidIdToken(): void
     {
         $this->requestStub->method('getMethod')->willReturn('GET');

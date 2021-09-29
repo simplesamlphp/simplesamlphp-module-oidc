@@ -17,7 +17,7 @@ class RequestRulesManager
     /**
      * @var RequestRuleInterface[] $rules
      */
-    private $rules = [];
+    private array $rules = [];
 
     /**
      * @var ResultBagInterface $resultBag
@@ -25,11 +25,9 @@ class RequestRulesManager
     protected $resultBag;
 
     /** @var array $data Which will be available during each check */
-    protected $data = [];
-    /**
-     * @var LoggerService
-     */
-    protected $loggerService;
+    protected array $data = [];
+
+    protected LoggerService $loggerService;
 
     /**
      * RequestRulesManager constructor.

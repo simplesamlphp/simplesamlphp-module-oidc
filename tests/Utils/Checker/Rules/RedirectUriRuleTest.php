@@ -2,6 +2,7 @@
 
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
+use LogicException;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
@@ -12,17 +13,18 @@ use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\Checker\ResultBag;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
+use Throwable;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule
  */
 class RedirectUriRuleTest extends TestCase
 {
-    protected $rule;
-    protected $resultBag;
+    protected RedirectUriRule $rule;
+    protected ResultBag $resultBag;
     protected $clientStub;
     protected $request;
-    protected $redirectUri = 'https://some-redirect-uri.org';
+    protected string $redirectUri = 'https://some-redirect-uri.org';
     protected $loggerServiceStub;
 
 
@@ -35,19 +37,30 @@ class RedirectUriRuleTest extends TestCase
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
     }
 
+    /**
+     * @throws Throwable
+     * @throws OidcServerException
+     */
     public function testCheckRuleClientIdDependancy(): void
     {
-        $this->expectException(\LogicException::class);
+        $this->expectException(LogicException::class);
         $this->rule->checkRule($this->request, $this->resultBag, $this->loggerServiceStub, []);
     }
 
+    /**
+     * @throws Throwable
+     * @throws OidcServerException
+     */
     public function testCheckRuleWithInvalidClientDependancy(): void
     {
         $this->resultBag->add(new Result(ClientIdRule::class, 'invalid'));
-        $this->expectException(\LogicException::class);
+        $this->expectException(LogicException::class);
         $this->rule->checkRule($this->request, $this->resultBag, $this->loggerServiceStub, []);
     }
 
+    /**
+     * @throws Throwable
+     */
     public function testCheckRuleRedirectUriNotSetThrows(): void
     {
         $this->request->method('getQueryParams')->willReturn([]);
@@ -57,6 +70,9 @@ class RedirectUriRuleTest extends TestCase
         $this->rule->checkRule($this->request, $resultBag, $this->loggerServiceStub, []);
     }
 
+    /**
+     * @throws Throwable
+     */
     public function testCheckRuleDifferentClientRedirectUriThrows(): void
     {
         $this->request->method('getQueryParams')->willReturn(['redirect_uri' => 'invalid']);
@@ -66,6 +82,9 @@ class RedirectUriRuleTest extends TestCase
         $this->rule->checkRule($this->request, $resultBag, $this->loggerServiceStub, []);
     }
 
+    /**
+     * @throws Throwable
+     */
     public function testCheckRuleDifferentClientRedirectUriArrayThrows(): void
     {
         $this->request->method('getQueryParams')->willReturn(['redirect_uri' => 'invalid']);
@@ -77,6 +96,10 @@ class RedirectUriRuleTest extends TestCase
         $this->rule->checkRule($this->request, $this->resultBag, $this->loggerServiceStub, []);
     }
 
+    /**
+     * @throws Throwable
+     * @throws OidcServerException
+     */
     public function testCheckRuleWithValidRedirectUri(): void
     {
         $this->request->method('getQueryParams')->willReturn(['redirect_uri' => $this->redirectUri]);
@@ -88,7 +111,7 @@ class RedirectUriRuleTest extends TestCase
         $this->assertSame($this->redirectUri, $result->getValue());
     }
 
-    protected function prepareValidResultBag()
+    protected function prepareValidResultBag(): ResultBag
     {
         $this->clientStub->method('getRedirectUri')->willReturn($this->redirectUri);
         $this->resultBag->add(new Result(ClientIdRule::class, $this->clientStub));

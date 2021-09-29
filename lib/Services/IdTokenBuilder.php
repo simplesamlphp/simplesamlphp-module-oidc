@@ -4,8 +4,10 @@ namespace SimpleSAML\Module\oidc\Services;
 
 use Base64Url\Base64Url;
 use DateTimeImmutable;
+use Exception;
 use Lcobucci\JWT\Builder;
 use Lcobucci\JWT\Token\RegisteredClaims;
+use Lcobucci\JWT\UnencryptedToken;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use OpenIDConnectServer\Entities\ClaimSetInterface;
@@ -16,14 +18,9 @@ use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface
 
 class IdTokenBuilder
 {
-    /**
-     * @var ClaimTranslatorExtractor
-     */
-    private $claimExtractor;
-    /**
-     * @var JsonWebTokenBuilderService
-     */
-    private $jsonWebTokenBuilderService;
+    private ClaimTranslatorExtractor $claimExtractor;
+
+    private JsonWebTokenBuilderService $jsonWebTokenBuilderService;
 
     public function __construct(
         JsonWebTokenBuilderService $jsonWebTokenBuilderService,
@@ -33,6 +30,9 @@ class IdTokenBuilder
         $this->claimExtractor = $claimExtractor;
     }
 
+    /**
+     * @throws Exception
+     */
     public function build(
         UserEntityInterface $userEntity,
         AccessTokenEntity $accessToken,
@@ -42,7 +42,7 @@ class IdTokenBuilder
         ?int $authTime,
         ?string $acr,
         ?string $sessionId
-    ) {
+    ): UnencryptedToken {
         if (false === is_a($userEntity, ClaimSetInterface::class)) {
             throw new RuntimeException('UserEntity must implement ClaimSetInterface');
         }

@@ -8,24 +8,18 @@ use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
-use SimpleSAML\Session;
 use SimpleSAML\Utils\HTTP;
+use SimpleSAML\Error;
+use Throwable;
 
 class MaxAgeRule extends AbstractRule
 {
-    /**
-     * @var AuthSimpleFactory
-     */
-    private $authSimpleFactory;
+    private AuthSimpleFactory $authSimpleFactory;
 
-    /**
-     * @var AuthenticationService
-     */
-    private $authenticationService;
+    private AuthenticationService $authenticationService;
 
     public function __construct(
         AuthSimpleFactory $authSimpleFactory,
@@ -35,6 +29,14 @@ class MaxAgeRule extends AbstractRule
         $this->authenticationService = $authenticationService;
     }
 
+    /**
+     * @throws Error\AuthSource
+     * @throws Throwable
+     * @throws Error\BadRequest
+     * @throws OidcServerException
+     * @throws Error\NotFound
+     * @throws Error\Exception
+     */
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,

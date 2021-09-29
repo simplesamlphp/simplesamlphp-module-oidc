@@ -26,20 +26,14 @@ use SimpleSAML\Module\oidc\Store\SessionLogoutTicketStoreDb;
 
 class DatabaseMigration
 {
-    /**
-     * @var Database
-     */
-    private $database;
+    private Database $database;
 
     public function __construct(Database $database = null)
     {
         $this->database = $database ?? Database::getInstance();
     }
 
-    /**
-     * @return bool
-     */
-    public function isUpdated()
+    public function isUpdated(): bool
     {
         $implementedVersions = $this->versions();
         $notImplementedVersions = array_filter(get_class_methods($this), function ($method) use ($implementedVersions) {
@@ -53,10 +47,7 @@ class DatabaseMigration
         return empty($notImplementedVersions);
     }
 
-    /**
-     * @return array
-     */
-    public function versions()
+    public function versions(): array
     {
         $versionsTablename = $this->versionsTableName();
         $this->database->write(
@@ -68,10 +59,7 @@ class DatabaseMigration
             ->fetchAll(PDO::FETCH_COLUMN, 0);
     }
 
-    /**
-     * @return void
-     */
-    public function migrate()
+    public function migrate(): void
     {
         $versionsTablename = $this->versionsTableName();
         $versions = $this->versions();
@@ -360,13 +348,7 @@ EOT
         );
     }
 
-    /**
-     * @param string $prefix
-     * @param int    $maxSize
-     *
-     * @return string
-     */
-    private function generateIdentifierName(array $columnNames, $prefix = '', $maxSize = 30)
+    private function generateIdentifierName(array $columnNames, string $prefix = '', int $maxSize = 30): string
     {
         $hash = implode('', array_map(function ($column) {
             return dechex(crc32($column));

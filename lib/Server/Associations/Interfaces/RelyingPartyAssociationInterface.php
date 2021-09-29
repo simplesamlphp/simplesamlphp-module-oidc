@@ -10,6 +10,6 @@ interface RelyingPartyAssociationInterface
     public function setUserId(string $userId): void;
     public function getSessionId(): ?string;
     public function setSessionId(?string $sessionId): void;
-    public function getBackchannelLogoutUri(): ?string;
-    public function setBackchannelLogoutUri(?string $backchannelLogoutUri): void;
+    public function getBackChannelLogoutUri(): ?string;
+    public function setBackChannelLogoutUri(?string $backChannelLogoutUri): void;
 }
