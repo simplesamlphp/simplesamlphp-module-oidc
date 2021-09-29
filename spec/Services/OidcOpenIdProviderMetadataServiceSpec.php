@@ -18,8 +18,8 @@ class OidcOpenIdProviderMetadataServiceSpec extends ObjectBehavior
             ->willReturn('http://localhost');
         $configurationService->getOpenIdConnectModuleURL('authorize.php')
             ->willReturn('http://localhost/authorize.php');
-        $configurationService->getOpenIdConnectModuleURL('access_token.php')
-            ->willReturn('http://localhost/access_token.php');
+        $configurationService->getOpenIdConnectModuleURL('token.php')
+            ->willReturn('http://localhost/token.php');
         $configurationService->getOpenIdConnectModuleURL('userinfo.php')
             ->willReturn('http://localhost/userinfo.php');
         $configurationService->getOpenIdConnectModuleURL('jwks.php')
@@ -40,7 +40,7 @@ class OidcOpenIdProviderMetadataServiceSpec extends ObjectBehavior
         $this->getMetadata()->shouldBe([
             'issuer' => 'http://localhost',
             'authorization_endpoint' => 'http://localhost/authorize.php',
-            'token_endpoint' => 'http://localhost/access_token.php',
+            'token_endpoint' => 'http://localhost/token.php',
             'userinfo_endpoint' => 'http://localhost/userinfo.php',
             'jwks_uri' => 'http://localhost/jwks.php',
             'scopes_supported' => ['openid'],
