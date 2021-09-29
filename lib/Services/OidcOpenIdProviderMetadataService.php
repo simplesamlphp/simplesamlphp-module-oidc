@@ -36,7 +36,7 @@ class OidcOpenIdProviderMetadataService
         $this->metadata['issuer'] = $this->configurationService->getSimpleSAMLSelfURLHost();
         $this->metadata['authorization_endpoint'] =
             $this->configurationService->getOpenIdConnectModuleURL('authorize.php');
-        $this->metadata['token_endpoint'] = $this->configurationService->getOpenIdConnectModuleURL('access_token.php');
+        $this->metadata['token_endpoint'] = $this->configurationService->getOpenIdConnectModuleURL('token.php');
         $this->metadata['userinfo_endpoint'] = $this->configurationService->getOpenIdConnectModuleURL('userinfo.php');
         $this->metadata['jwks_uri'] = $this->configurationService->getOpenIdConnectModuleURL('jwks.php');
         $this->metadata['scopes_supported'] = array_keys($this->configurationService->getOpenIDScopes());
