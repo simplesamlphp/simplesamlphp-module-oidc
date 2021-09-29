@@ -74,7 +74,6 @@ conformance-suite/scripts/run-test-plan.py \
   ${OIDC_MODULE_FOLDER}/conformance-tests/conformance-implicit-ci.json
 
 # RP Initiated back channel
-# Work in progress
 conformance-suite/scripts/run-test-plan.py \
   "oidcc-backchannel-rp-initiated-logout-certification-test-plan[response_type=code][client_registration=static_client]" \
   ${OIDC_MODULE_FOLDER}/conformance-tests/conformance-back-channel-logout-ci.json
