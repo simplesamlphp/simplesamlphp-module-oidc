@@ -2,9 +2,11 @@
 
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker;
 
+use LogicException;
 use PHPUnit\Framework\TestCase;
-use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\RequestRuleInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
@@ -16,8 +18,8 @@ use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
  */
 class RequestRulesManagerTest extends TestCase
 {
-    protected $key = 'some-key';
-    protected $value = 'some-value';
+    protected string $key = 'some-key';
+    protected string $value = 'some-value';
     protected $result;
     protected $rule;
     protected $request;
@@ -54,7 +56,9 @@ class RequestRulesManagerTest extends TestCase
     /**
      * @depends testConstructWithoutRules
      *
+     * @param RequestRulesManager $requestRulesManager
      * @return void
+     * @throws OidcServerException
      */
     public function testAddAndCheck(RequestRulesManager $requestRulesManager): void
     {
@@ -69,18 +73,22 @@ class RequestRulesManagerTest extends TestCase
     /**
      * @depends testConstructWithoutRules
      *
+     * @param RequestRulesManager $requestRulesManager
      * @return void
+     * @throws OidcServerException
      */
     public function testCheckWithNonExistingRuleKeyThrows(RequestRulesManager $requestRulesManager): void
     {
-        $this->expectException(\LogicException::class);
+        $this->expectException(LogicException::class);
         $requestRulesManager->check($this->request, ['wrong-key']);
     }
 
     /**
      * @depends testConstructWithoutRules
      *
+     * @param RequestRulesManager $requestRulesManager
      * @return void
+     * @throws OidcServerException
      */
     public function testPredefineResult(RequestRulesManager $requestRulesManager): void
     {
@@ -94,7 +102,9 @@ class RequestRulesManagerTest extends TestCase
     /**
      * @depends testConstructWithoutRules
      *
+     * @param RequestRulesManager $requestRulesManager
      * @return void
+     * @throws OidcServerException
      */
     public function testSetData(RequestRulesManager $requestRulesManager): void
     {
@@ -107,6 +117,7 @@ class RequestRulesManagerTest extends TestCase
             ->with(
                 $this->identicalTo($this->request),
                 $this->isInstanceOf(ResultBagInterface::class),
+                $this->isInstanceOf(LoggerService::class),
                 $this->arrayHasKey($this->key)
             );
 

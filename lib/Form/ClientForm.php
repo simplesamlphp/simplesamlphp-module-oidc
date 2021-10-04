@@ -23,7 +23,6 @@ class ClientForm extends Form
 {
     /**
      * RFC3986. AppendixB. Parsing a URI Reference with a Regular Expression.
-     * Important if updating regex: also used in JavaScript validation in templates/clients/_form.twig
      */
     public const REGEX_URI = '/^[^:]+:\/\/?[^\s\/$.?#].[^\s]*$/';
 
@@ -31,22 +30,23 @@ class ClientForm extends Form
      * Must have http:// or https:// scheme, and at least one 'domain.top-level-domain' pair, or more subdomains.
      * Top-level-domain may end with '.'.
      * No reserved chars allowed, meaning no userinfo, path, query or fragment components. May end with port number.
-     * Important if updating regex: also used in JavaScript validation in templates/clients/_form.twig
      */
     public const REGEX_ALLOWED_ORIGIN_URL =
         "/^http(s?):\/\/[^\s\/!$&'()+,;=.?#@*:]+\.[^\s\/!$&'()+,;=.?#@*]+\.?(\.[^\s\/!$&'()+,;=?#@*:]+)*(:\d{1,5})?$/i";
 
     /**
-     * @var \SimpleSAML\Module\oidc\Services\ConfigurationService
+     * URI which must contain https or http scheme, can contain path and query, and can't contain fragment.
      */
-    private $configurationService;
+    public const REGEX_HTTP_URI = '/^http(s?):\/\/[^\s\/$.?#][^\s#]*$/i';
+
+    private ConfigurationService $configurationService;
 
     /**
      * {@inheritdoc}
      */
     public function __construct(ConfigurationService $configurationService)
     {
-        parent::__construct(null);
+        parent::__construct();
 
         $this->configurationService = $configurationService;
 
@@ -71,6 +71,26 @@ class ClientForm extends Form
         );
     }
 
+    public function validatePostLogoutRedirectUri(Form $form): void
+    {
+        $this->validateByMatchingRegex(
+            $form->getValues()['post_logout_redirect_uri'] ?? [],
+            self::REGEX_URI,
+            'Invalid post-logout redirect URI: '
+        );
+    }
+
+    public function validateBackChannelLogoutUri(Form $form): void
+    {
+        if (($bclUri = $form->getValues()['backchannel_logout_uri'] ?? null) !== null) {
+            $this->validateByMatchingRegex(
+                [$bclUri],
+                self::REGEX_HTTP_URI,
+                'Invalid back-channel logout URI: '
+            );
+        }
+    }
+
     protected function validateByMatchingRegex(
         array $values,
         string $regex,
@@ -88,7 +108,7 @@ class ClientForm extends Form
      *
      * @return array
      */
-    public function getValues($asArray = false)
+    public function getValues($asArray = false): array
     {
         $values = parent::getValues(true);
 
@@ -99,6 +119,11 @@ class ClientForm extends Form
         } else {
             $values['allowed_origin'] = [];
         }
+        $values['post_logout_redirect_uri'] =
+            $this->convertTextToArrayWithLinesAsValues($values['post_logout_redirect_uri']);
+
+        $bclUri = trim($values['backchannel_logout_uri']);
+        $values['backchannel_logout_uri'] = empty($bclUri) ? null : $bclUri;
 
         // openid scope is mandatory
         $values['scopes'] = array_unique(
@@ -117,7 +142,7 @@ class ClientForm extends Form
      *
      * @return Form
      */
-    public function setDefaults($values, $erase = false)
+    public function setDefaults($values, $erase = false): Form
     {
         $values['redirect_uri'] = implode("\n", $values['redirect_uri']);
 
@@ -127,6 +152,8 @@ class ClientForm extends Form
         } else {
             $values['allowed_origin'] = '';
         }
+
+        $values['post_logout_redirect_uri'] = implode("\n", $values['post_logout_redirect_uri']);
 
         $values['scopes'] = array_intersect($values['scopes'], array_keys($this->getScopes()));
 
@@ -139,6 +166,8 @@ class ClientForm extends Form
 
         $this->onValidate[] = [$this, 'validateRedirectUri'];
         $this->onValidate[] = [$this, 'validateAllowedOrigin'];
+        $this->onValidate[] = [$this, 'validatePostLogoutRedirectUri'];
+        $this->onValidate[] = [$this, 'validateBackChannelLogoutUri'];
 
         $this->setMethod('POST');
         $this->addComponent(new CsrfProtection('{oidc:client:csrf_error}'), Form::PROTECTOR_ID);
@@ -169,16 +198,17 @@ class ClientForm extends Form
 
         $this->addText('owner', '{oidc:client:owner}')
             ->setMaxLength(190);
+        $this->addTextArea('post_logout_redirect_uri', '{oidc:client:post_logout_redirect_uri}', null, 5);
         $this->addTextArea('allowed_origin', '{oidc:client:allowed_origin}', null, 5);
+
+        $this->addText('backchannel_logout_uri', '{oidc:client:backchannel_logout_uri}');
     }
 
     protected function getScopes(): array
     {
-        $items = array_map(function ($item) {
+        return array_map(function ($item) {
             return $item['description'];
         }, $this->configurationService->getOpenIDScopes());
-
-        return $items;
     }
 
     /**

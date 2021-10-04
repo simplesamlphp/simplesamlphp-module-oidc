@@ -39,7 +39,9 @@ class ClientEntitySpec extends ObjectBehavior
                 'scopes' => json_encode([]),
                 'is_enabled' => true,
                 'is_confidential' => false,
-                'owner' => 'user@test.com'
+                'owner' => 'user@test.com',
+                'post_logout_redirect_uri' => json_encode([]),
+                'backchannel_logout_uri' => null,
             ],
         ]);
     }
@@ -98,7 +100,7 @@ class ClientEntitySpec extends ObjectBehavior
      */
     public function it_has_an_auth_source()
     {
-        $this->getAuthSource()->shouldBeLike('auth_source');
+        $this->getAuthSourceId()->shouldBeLike('auth_source');
     }
 
     /**
@@ -136,6 +138,14 @@ class ClientEntitySpec extends ObjectBehavior
     /**
      * @return void
      */
+    public function it_can_return_post_logout_redirect_uri()
+    {
+        $this->getPostLogoutRedirectUri()->shouldBeEqualTo([]);
+    }
+
+    /**
+     * @return void
+     */
     public function it_can_return_state()
     {
         $this->getState()->shouldBeLike([
@@ -149,6 +159,8 @@ class ClientEntitySpec extends ObjectBehavior
             'is_enabled' => true,
             'is_confidential' => false,
             'owner' => 'user@test.com',
+            'post_logout_redirect_uri' => json_encode([]),
+            'backchannel_logout_uri' => null,
         ]);
     }
 
@@ -167,7 +179,9 @@ class ClientEntitySpec extends ObjectBehavior
             'scopes' => [],
             'is_enabled' => true,
             'is_confidential' => false,
-            'owner' => 'user@test.com'
+            'owner' => 'user@test.com',
+            'post_logout_redirect_uri' => [],
+            'backchannel_logout_uri' => null,
         ]);
     }
 }

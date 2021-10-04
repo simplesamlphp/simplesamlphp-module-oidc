@@ -6,16 +6,14 @@ use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
 
 class ClientIdRule extends AbstractRule
 {
-    /**
-     * @var ClientRepositoryInterface $clientRepository
-     */
-    protected $clientRepository;
+    protected ClientRepositoryInterface $clientRepository;
 
     public function __construct(ClientRepositoryInterface $clientRepository)
     {
@@ -28,8 +26,10 @@ class ClientIdRule extends AbstractRule
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
+        LoggerService $loggerService,
         array $data = [],
-        bool $useFragmentInHttpErrorResponses = false
+        bool $useFragmentInHttpErrorResponses = false,
+        array $allowedServerRequestMethods = ['GET']
     ): ?ResultInterface {
         $clientId = $request->getQueryParams()['client_id'] ?? $request->getServerParams()['PHP_AUTH_USER'] ?? null;
 

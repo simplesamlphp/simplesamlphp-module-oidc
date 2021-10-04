@@ -14,7 +14,7 @@
 
 namespace SimpleSAML\Module\oidc\Factories;
 
-use Psr\Http\Message\ServerRequestInterface;
+use Exception;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
@@ -25,10 +25,7 @@ class AuthSimpleFactory
 {
     use GetClientFromRequestTrait;
 
-    /**
-     * @var ConfigurationService
-     */
-    private $configurationService;
+    private ConfigurationService $configurationService;
 
     public function __construct(
         ClientRepository $clientRepository,
@@ -40,21 +37,22 @@ class AuthSimpleFactory
 
     /**
      * @codeCoverageIgnore
+     * @throws Exception
      */
-    public function build(ServerRequestInterface $request): Simple
+    public function build(ClientEntityInterface $clientEntity): Simple
     {
-        $client = $this->getClientFromRequest($request);
-        $authSource = $this->resolveAuthSource($client);
+        $authSourceId = $this->resolveAuthSourceId($clientEntity);
 
-        return new Simple($authSource);
+        return new Simple($authSourceId);
     }
 
     /**
      * @return Simple The default authsource
+     * @throws Exception
      */
     public function getDefaultAuthSource(): Simple
     {
-        return new Simple($this->getDefaultAuthSourceName());
+        return new Simple($this->getDefaultAuthSourceId());
     }
 
     /**
@@ -62,14 +60,17 @@ class AuthSimpleFactory
      *
      * @param ClientEntityInterface $client
      * @return string
-     * @throws \Exception
+     * @throws Exception
      */
-    private function resolveAuthSource(ClientEntityInterface $client): string
+    public function resolveAuthSourceId(ClientEntityInterface $client): string
     {
-        return $client->getAuthSource() ?? $this->getDefaultAuthSourceName();
+        return $client->getAuthSourceId() ?? $this->getDefaultAuthSourceId();
     }
 
-    private function getDefaultAuthSourceName(): string
+    /**
+     * @throws Exception
+     */
+    public function getDefaultAuthSourceId(): string
     {
         return $this->configurationService->getOpenIDConnectConfiguration()->getString('auth');
     }

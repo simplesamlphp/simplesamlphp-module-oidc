@@ -14,6 +14,7 @@
 
 namespace SimpleSAML\Module\oidc\Controller;
 
+use Exception;
 use Laminas\Diactoros\Response\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;
@@ -23,50 +24,26 @@ use SimpleSAML\Module\oidc\Form\ClientForm;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\Utils\HTTP;
 use SimpleSAML\Utils\Random;
+use SimpleSAML\XHTML\Template;
 
 class ClientCreateController
 {
-    /**
-     * @var ConfigurationService
-     */
-    private $configurationService;
+    private ClientRepository $clientRepository;
 
-    /**
-     * @var ClientRepository
-     */
-    private $clientRepository;
+    private TemplateFactory $templateFactory;
 
-    /**
-     * @var \SimpleSAML\Module\oidc\Factories\TemplateFactory
-     */
-    private $templateFactory;
+    private FormFactory $formFactory;
 
-    /**
-     * @var \SimpleSAML\Module\oidc\Factories\FormFactory
-     */
-    private $formFactory;
+    private SessionMessagesService $messages;
 
-    /**
-     * @var \SimpleSAML\Module\oidc\Services\SessionMessagesService
-     */
-    private $messages;
+    private AuthContextService $authContextService;
 
-    /**
-     * @var AuthContextService
-     */
-    private $authContextService;
-
-    /*
-     * @var AllowedOriginRepository
-     */
-    private $allowedOriginRepository;
+    private AllowedOriginRepository $allowedOriginRepository;
 
     public function __construct(
-        ConfigurationService $configurationService,
         ClientRepository $clientRepository,
         AllowedOriginRepository $allowedOriginRepository,
         TemplateFactory $templateFactory,
@@ -74,7 +51,6 @@ class ClientCreateController
         SessionMessagesService $messages,
         AuthContextService $authContextService
     ) {
-        $this->configurationService = $configurationService;
         $this->clientRepository = $clientRepository;
         $this->allowedOriginRepository = $allowedOriginRepository;
         $this->templateFactory = $templateFactory;
@@ -84,7 +60,8 @@ class ClientCreateController
     }
 
     /**
-     * @return \Laminas\Diactoros\Response\RedirectResponse|\SimpleSAML\XHTML\Template
+     * @return RedirectResponse|Template
+     * @throws Exception
      */
     public function __invoke(ServerRequest $request)
     {
@@ -111,7 +88,9 @@ class ClientCreateController
                 $client['is_enabled'],
                 $client['is_confidential'],
                 $client['auth_source'],
-                $client['owner'] ?? null
+                $client['owner'] ?? null,
+                $client['post_logout_redirect_uri'],
+                $client['backchannel_logout_uri']
             ));
 
             // Also persist allowed origins for this client.
@@ -124,6 +103,9 @@ class ClientCreateController
 
         return $this->templateFactory->render('oidc:clients/new.twig', [
             'form' => $form,
+            'regexUri' => ClientForm::REGEX_URI,
+            'regexAllowedOriginUrl' => ClientForm::REGEX_ALLOWED_ORIGIN_URL,
+            'regexHttpUri' => ClientForm::REGEX_HTTP_URI,
         ]);
     }
 }

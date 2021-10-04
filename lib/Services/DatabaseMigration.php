@@ -14,6 +14,7 @@
 
 namespace SimpleSAML\Module\oidc\Services;
 
+use PDO;
 use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
@@ -21,28 +22,23 @@ use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Store\SessionLogoutTicketStoreDb;
 
 class DatabaseMigration
 {
-    /**
-     * @var Database
-     */
-    private $database;
+    private Database $database;
 
     public function __construct(Database $database = null)
     {
         $this->database = $database ?? Database::getInstance();
     }
 
-    /**
-     * @return bool
-     */
-    public function isUpdated()
+    public function isUpdated(): bool
     {
         $implementedVersions = $this->versions();
         $notImplementedVersions = array_filter(get_class_methods($this), function ($method) use ($implementedVersions) {
             if (preg_match('/^version(\d+)/', $method, $matches)) {
-                return !\in_array($matches[1], $implementedVersions, true);
+                return !in_array($matches[1], $implementedVersions, true);
             }
 
             return false;
@@ -51,69 +47,76 @@ class DatabaseMigration
         return empty($notImplementedVersions);
     }
 
-    /**
-     * @return array
-     */
-    public function versions()
+    public function versions(): array
     {
         $versionsTablename = $this->versionsTableName();
         $this->database->write(
             "CREATE TABLE IF NOT EXISTS {$versionsTablename} (version VARCHAR(191) PRIMARY KEY NOT NULL)"
         );
 
-        $versions = $this->database
+        return $this->database
             ->read("SELECT version FROM ${versionsTablename}")
-            ->fetchAll(\PDO::FETCH_COLUMN, 0);
-
-        return $versions;
+            ->fetchAll(PDO::FETCH_COLUMN, 0);
     }
 
-    /**
-     * @return void
-     */
-    public function migrate()
+    public function migrate(): void
     {
         $versionsTablename = $this->versionsTableName();
         $versions = $this->versions();
 
-        if (!\in_array('20180305180300', $versions, true)) {
+        if (!in_array('20180305180300', $versions, true)) {
             $this->version20180305180300();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20180305180300')");
         }
 
-        if (!\in_array('20180425203400', $versions, true)) {
+        if (!in_array('20180425203400', $versions, true)) {
             $this->version20180425203400();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20180425203400')");
         }
 
-        if (!\in_array('20200517071100', $versions, true)) {
+        if (!in_array('20200517071100', $versions, true)) {
             $this->version20200517071100();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20200517071100')");
         }
 
-        if (!\in_array('20200901163000', $versions, true)) {
+        if (!in_array('20200901163000', $versions, true)) {
             $this->version20200901163000();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20200901163000')");
         }
 
-        if (!\in_array('20210714113000', $versions, true)) {
+        if (!in_array('20210714113000', $versions, true)) {
             $this->version20210714113000();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210714113000')");
         }
 
-        if (!\in_array('20210823141300', $versions, true)) {
+        if (!in_array('20210823141300', $versions, true)) {
             $this->version20210823141300();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210823141300')");
         }
 
-        if (!\in_array('20210827111300', $versions, true)) {
+        if (!in_array('20210827111300', $versions, true)) {
             $this->version20210827111300();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210827111300')");
         }
 
-        if (!\in_array('20210902113500', $versions, true)) {
+        if (!in_array('20210902113500', $versions, true)) {
             $this->version20210902113500();
             $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210902113500')");
+        }
+
+        if (!in_array('20210908143500', $versions, true)) {
+            $this->version20210908143500();
+            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210908143500')");
+        }
+
+        if (!in_array('20210916153400', $versions, true)) {
+            $this->version20210916153400();
+            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210916153400')");
+        }
+
+        if (!in_array('20210916173400', $versions, true)) {
+            $this->version20210916173400();
+            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210916173400')");
         }
     }
 
@@ -304,12 +307,48 @@ EOT
     }
 
     /**
-     * @param string $prefix
-     * @param int    $maxSize
-     *
-     * @return string
+     * Add post_logout_redirect_uri to client.
      */
-    private function generateIdentifierName(array $columnNames, $prefix = '', $maxSize = 30)
+    protected function version20210908143500(): void
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE ${clientTableName}
+            ADD post_logout_redirect_uri TEXT NULL 
+EOT
+        );
+    }
+
+    /**
+     * Add backchannel_logout_uri to client
+     */
+    protected function version20210916153400()
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE ${clientTableName}
+            ADD backchannel_logout_uri TEXT NULL 
+EOT
+        );
+    }
+
+    /**
+     * Add logout_ticket table
+     */
+    protected function version20210916173400()
+    {
+        $tableName = $this->database->applyPrefix(SessionLogoutTicketStoreDb::TABLE_NAME);
+        $this->database->write(
+            <<< EOT
+        CREATE TABLE ${tableName} (
+            sid VARCHAR(191) NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+EOT
+        );
+    }
+
+    private function generateIdentifierName(array $columnNames, string $prefix = '', int $maxSize = 30): string
     {
         $hash = implode('', array_map(function ($column) {
             return dechex(crc32($column));

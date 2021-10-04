@@ -14,9 +14,8 @@
 
 namespace SimpleSAML\Module\oidc\Controller;
 
-use Nette\Forms\Controls\BaseControl;
+use Exception;
 use SimpleSAML\Module\oidc\Controller\Traits\AuthenticatedGetClientFromRequestTrait;
-use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
@@ -29,34 +28,21 @@ use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\Utils\HTTP;
 use Laminas\Diactoros\Response\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;
+use SimpleSAML\XHTML\Template;
 
 class ClientEditController
 {
     use AuthenticatedGetClientFromRequestTrait;
 
-    /**
-     * @var ConfigurationService
-     */
-    private $configurationService;
+    private ConfigurationService $configurationService;
 
-    /**
-     * @var TemplateFactory
-     */
-    private $templateFactory;
-    /**
-     * @var FormFactory
-     */
-    private $formFactory;
+    private TemplateFactory $templateFactory;
 
-    /**
-     * @var SessionMessagesService
-     */
-    private $messages;
+    private FormFactory $formFactory;
 
-    /**
-     * @var AllowedOriginRepository
-     */
-    protected $allowedOriginRepository;
+    private SessionMessagesService $messages;
+
+    protected AllowedOriginRepository $allowedOriginRepository;
 
     public function __construct(
         ConfigurationService $configurationService,
@@ -77,7 +63,8 @@ class ClientEditController
     }
 
     /**
-     * @return \Laminas\Diactoros\Response\RedirectResponse|\SimpleSAML\XHTML\Template
+     * @return RedirectResponse|Template
+     * @throws Exception
      */
     public function __invoke(ServerRequest $request)
     {
@@ -108,7 +95,9 @@ class ClientEditController
                 (bool) $data['is_enabled'],
                 (bool) $data['is_confidential'],
                 $data['auth_source'],
-                $client->getOwner()
+                $client->getOwner(),
+                $data['post_logout_redirect_uri'],
+                $data['backchannel_logout_uri']
             ), $authedUser);
 
             // Also persist allowed origins for this client.
@@ -121,6 +110,9 @@ class ClientEditController
 
         return $this->templateFactory->render('oidc:clients/edit.twig', [
             'form' => $form,
+            'regexUri' => ClientForm::REGEX_URI,
+            'regexAllowedOriginUrl' => ClientForm::REGEX_ALLOWED_ORIGIN_URL,
+            'regexHttpUri' => ClientForm::REGEX_HTTP_URI
         ]);
     }
 }

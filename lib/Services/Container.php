@@ -32,7 +32,6 @@ use SimpleSAML\Module\oidc\Factories\Grant\AuthCodeGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\ImplicitGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\OAuth2ImplicitGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\RefreshTokenGrantFactory;
-use SimpleSAML\Module\oidc\Factories\IdTokenBuilderFactory;
 use SimpleSAML\Module\oidc\Factories\IdTokenResponseFactory;
 use SimpleSAML\Module\oidc\Factories\ResourceServerFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
@@ -51,6 +50,8 @@ use SimpleSAML\Module\oidc\Server\Grants\OAuth2ImplicitGrant;
 use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
+use SimpleSAML\Module\oidc\Store\SessionLogoutTicketStoreBuilder;
+use SimpleSAML\Module\oidc\Store\SessionLogoutTicketStoreDb;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\AcrValuesRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule;
@@ -67,13 +68,15 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ResponseTypeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\IdTokenHintRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\PostLogoutRedirectUriRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\UiLocalesRule;
 use SimpleSAML\Session;
 use SimpleSAML\Utils\Config;
 
 class Container implements ContainerInterface
 {
-    /** @var array */
-    private $services = [];
+    private array $services = [];
 
     /**
      * @throws \Exception
@@ -85,6 +88,9 @@ class Container implements ContainerInterface
 
         $configurationService = new ConfigurationService();
         $this->services[ConfigurationService::class] = $configurationService;
+
+        $loggerService = new LoggerService();
+        $this->services[LoggerService::class] = $loggerService;
 
         $clientRepository = new ClientRepository($configurationService);
         $this->services[ClientRepository::class] = $clientRepository;
@@ -131,6 +137,9 @@ class Container implements ContainerInterface
         $session = Session::getSessionFromRequest();
         $this->services[Session::class] = $session;
 
+        $sessionService = new SessionService($session);
+        $this->services[SessionService::class] = $sessionService;
+
         $sessionMessagesService = new SessionMessagesService($session);
         $this->services[SessionMessagesService::class] = $sessionMessagesService;
 
@@ -146,13 +155,19 @@ class Container implements ContainerInterface
         $metadataStorageHandler = MetaDataStorageHandler::getMetadataHandler();
         $this->services[MetaDataStorageHandler::class] = $metadataStorageHandler;
 
+        $claimTranslatorExtractor = (new ClaimTranslatorExtractorFactory(
+            $configurationService
+        ))->build();
+        $this->services[ClaimTranslatorExtractor::class] = $claimTranslatorExtractor;
+
         $authenticationService = new AuthenticationService(
             $userRepository,
             $authSimpleFactory,
             $authProcService,
             $clientRepository,
             $oidcOpenIdProviderMetadataService,
-            $session,
+            $sessionService,
+            $claimTranslatorExtractor,
             $oidcModuleConfiguration->getString('useridattr', 'uid')
         );
         $this->services[AuthenticationService::class] = $authenticationService;
@@ -160,18 +175,23 @@ class Container implements ContainerInterface
         $codeChallengeVerifiersRepository = new CodeChallengeVerifiersRepository();
         $this->services[CodeChallengeVerifiersRepository::class] = $codeChallengeVerifiersRepository;
 
-        $claimTranslatorExtractor = (new ClaimTranslatorExtractorFactory(
-            $configurationService
-        ))->build();
-        $this->services[ClaimTranslatorExtractor::class] = $claimTranslatorExtractor;
+        $publicKeyPath = $configurationService->getCertPath();
+        $privateKeyPath = $configurationService->getPrivateKeyPath();
+        $passPhrase = $configurationService->getPrivateKeyPassPhrase();
+
+        $cryptKeyFactory = new CryptKeyFactory(
+            $publicKeyPath,
+            $privateKeyPath,
+            $passPhrase
+        );
 
         $requestRules = [
             new StateRule(),
             new ClientIdRule($clientRepository),
             new RedirectUriRule(),
             new RequestParameterRule(),
-            new PromptRule($authSimpleFactory, $session),
-            new MaxAgeRule($authSimpleFactory, $session),
+            new PromptRule($authSimpleFactory, $authenticationService),
+            new MaxAgeRule($authSimpleFactory, $authenticationService),
             new ScopeRule($scopeRepository),
             new RequiredOpenIdScopeRule(),
             new CodeChallengeRule(),
@@ -180,9 +200,12 @@ class Container implements ContainerInterface
             new AddClaimsToIdTokenRule(),
             new RequiredNonceRule(),
             new ResponseTypeRule(),
+            new IdTokenHintRule($configurationService, $cryptKeyFactory),
+            new PostLogoutRedirectUriRule($clientRepository),
+            new UiLocalesRule(),
             new AcrValuesRule(),
         ];
-        $requestRuleManager = new RequestRulesManager($requestRules);
+        $requestRuleManager = new RequestRulesManager($requestRules, $loggerService);
         $this->services[RequestRulesManager::class] = $requestRuleManager;
 
         $accessTokenDuration = new DateInterval(
@@ -194,26 +217,24 @@ class Container implements ContainerInterface
         $refreshTokenDuration = new DateInterval(
             $configurationService->getOpenIDConnectConfiguration()->getString('refreshTokenDuration')
         );
-
-        $publicKeyPath = Config::getCertPath('oidc_module.crt');
-        $privateKeyPath = Config::getCertPath('oidc_module.pem');
-        $passPhrase = $configurationService->getOpenIDConnectConfiguration()->getString('pass_phrase', null);
-
-        $cryptKeyFactory = new CryptKeyFactory(
-            $publicKeyPath,
-            $privateKeyPath,
-            $passPhrase
-        );
         $publicKey = $cryptKeyFactory->buildPublicKey();
         $privateKey = $cryptKeyFactory->buildPrivateKey();
         $encryptionKey = Config::getSecretSalt();
 
-        $idTokenBuilderFactory = new IdTokenBuilderFactory(
-            $configurationService,
-            $claimTranslatorExtractor,
-            $privateKey
-        );
-        $this->services[IdTokenBuilder::class] = $idTokenBuilderFactory->build();
+        $jsonWebTokenBuilderService = new JsonWebTokenBuilderService($configurationService);
+        $this->services[JsonWebTokenBuilderService::class] = $jsonWebTokenBuilderService;
+
+        $idTokenBuilder = new IdTokenBuilder($jsonWebTokenBuilderService, $claimTranslatorExtractor);
+        $this->services[IdTokenBuilder::class] = $idTokenBuilder;
+
+        $logoutTokenBuilder = new LogoutTokenBuilder($jsonWebTokenBuilderService);
+        $this->services[LogoutTokenBuilder::class] = $logoutTokenBuilder;
+
+        $sessionLogoutTicketStoreDb = new SessionLogoutTicketStoreDb($database);
+        $this->services[SessionLogoutTicketStoreDb::class] = $sessionLogoutTicketStoreDb;
+
+        $sessionLogoutTicketStoreBuilder = new SessionLogoutTicketStoreBuilder($sessionLogoutTicketStoreDb);
+        $this->services[SessionLogoutTicketStoreBuilder::class] = $sessionLogoutTicketStoreBuilder;
 
         $idTokenResponseFactory = new IdTokenResponseFactory(
             $userRepository,
@@ -298,7 +319,7 @@ class Container implements ContainerInterface
     /**
      * @inheritdoc
      */
-    public function has($id)
+    public function has($id): bool
     {
         return array_key_exists($id, $this->services);
     }

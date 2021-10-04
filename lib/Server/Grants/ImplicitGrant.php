@@ -4,13 +4,15 @@ namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use DateInterval;
 use League\OAuth2\Server\Entities\UserEntityInterface;
+use League\OAuth2\Server\Exception\OAuthServerException;
+use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
+use RuntimeException;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -19,10 +21,8 @@ use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
-use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\AcrValuesRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
@@ -30,15 +30,13 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestParameterRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredNonceRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ResponseTypeRule;
+use Throwable;
 
 class ImplicitGrant extends OAuth2ImplicitGrant
 {
     use IssueAccessTokenTrait;
 
-    /**
-     * @var IdTokenBuilder
-     */
-    protected $idTokenBuilder;
+    protected IdTokenBuilder $idTokenBuilder;
 
     public function __construct(
         IdTokenBuilder $idTokenBuilder,
@@ -55,7 +53,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
     /**
      * {@inheritdoc}
      */
-    public function canRespondToAuthorizationRequest(ServerRequestInterface $request)
+    public function canRespondToAuthorizationRequest(ServerRequestInterface $request): bool
     {
         $queryParams = $request->getQueryParams();
         if (!isset($queryParams['response_type']) || !isset($queryParams['client_id'])) {
@@ -70,9 +68,15 @@ class ImplicitGrant extends OAuth2ImplicitGrant
 
     /**
      * {@inheritdoc}
+     * @param OAuth2AuthorizationRequest $authorizationRequest
+     * @return ResponseTypeInterface
+     * @throws OidcServerException
+     * @throws OAuthServerException
+     * @throws UniqueTokenIdentifierConstraintViolationException
      */
-    public function completeAuthorizationRequest(OAuth2AuthorizationRequest $authorizationRequest)
-    {
+    public function completeAuthorizationRequest(
+        OAuth2AuthorizationRequest $authorizationRequest
+    ): ResponseTypeInterface {
         if ($authorizationRequest instanceof AuthorizationRequest) {
             return $this->completeOidcAuthorizationRequest($authorizationRequest);
         }
@@ -81,7 +85,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
     }
 
     /**
-     * @throws \Throwable
+     * @throws Throwable
      * @throws OidcServerException
      */
     public function validateAuthorizationRequestWithCheckerResultBag(
@@ -135,6 +139,11 @@ class ImplicitGrant extends OAuth2ImplicitGrant
         return $authorizationRequest;
     }
 
+    /**
+     * @throws UniqueTokenIdentifierConstraintViolationException
+     * @throws OAuthServerException
+     * @throws OidcServerException
+     */
     private function completeOidcAuthorizationRequest(AuthorizationRequest $authorizationRequest): ResponseTypeInterface
     {
         $user = $authorizationRequest->getUser();
@@ -177,10 +186,10 @@ class ImplicitGrant extends OAuth2ImplicitGrant
         );
 
         if ($accessToken instanceof EntityStringRepresentationInterface === false) {
-            throw new \RuntimeException('AccessToken must implement ' . EntityStringRepresentationInterface::class);
+            throw new RuntimeException('AccessToken must implement ' . EntityStringRepresentationInterface::class);
         }
         if ($accessToken instanceof AccessTokenEntity === false) {
-            throw new \RuntimeException('AccessToken must be ' . AccessTokenEntity::class);
+            throw new RuntimeException('AccessToken must be ' . AccessTokenEntity::class);
         }
 
         $addAccessTokenHashToIdToken = false;
@@ -189,7 +198,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
 
             $responseParams['access_token'] = $accessToken->toString() ?? (string) $accessToken;
             $responseParams['token_type'] = 'Bearer';
-            $responseParams['expires_in'] = $accessToken->getExpiryDateTime()->getTimestamp() - \time();
+            $responseParams['expires_in'] = $accessToken->getExpiryDateTime()->getTimestamp() - time();
         }
 
         $idToken = $this->idTokenBuilder->build(
@@ -199,7 +208,8 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             $addAccessTokenHashToIdToken,
             $authorizationRequest->getNonce(),
             $authorizationRequest->getAuthTime(),
-            $authorizationRequest->getAcr()
+            $authorizationRequest->getAcr(),
+            $authorizationRequest->getSessionId()
         );
 
         $responseParams['id_token'] = $idToken->toString();

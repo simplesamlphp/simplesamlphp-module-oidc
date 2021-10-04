@@ -4,43 +4,55 @@ namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Services\AuthenticationService;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
-use SimpleSAML\Session;
+use SimpleSAML\Utils\HTTP;
+use SimpleSAML\Error;
+use Throwable;
 
 class PromptRule extends AbstractRule
 {
-    private const PROMPT_REAUTHENTICATE = 'prompt_reauthenticate';
+    private AuthSimpleFactory $authSimpleFactory;
 
-    /**
-     * @var AuthSimpleFactory
-     */
-    private $authSimpleFactory;
-    /**
-     * @var Session
-     */
-    private $session;
+    private AuthenticationService $authenticationService;
 
-    public function __construct(AuthSimpleFactory $authSimpleFactory, Session $session)
-    {
+    public function __construct(
+        AuthSimpleFactory $authSimpleFactory,
+        AuthenticationService $authenticationService
+    ) {
         $this->authSimpleFactory = $authSimpleFactory;
-        $this->session = $session;
+        $this->authenticationService = $authenticationService;
     }
 
+    /**
+     * @throws Error\AuthSource
+     * @throws Error\BadRequest
+     * @throws Error\Exception
+     * @throws OAuthServerException
+     * @throws Throwable
+     * @throws OidcServerException
+     * @throws Error\NotFound
+     */
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
+        LoggerService $loggerService,
         array $data = [],
-        bool $useFragmentInHttpErrorResponses = false
+        bool $useFragmentInHttpErrorResponses = false,
+        array $allowedServerRequestMethods = ['GET']
     ): ?ResultInterface {
-        $authSimple = $this->authSimpleFactory->build($request);
+        /** @var ClientEntityInterface $client */
+        $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
+
+        $authSimple = $this->authSimpleFactory->build($client);
 
         $queryParams = $request->getQueryParams();
         if (!array_key_exists('prompt', $queryParams)) {
-            $this->session->setData('oidc', self::PROMPT_REAUTHENTICATE, false);
-
             return null;
         }
 
@@ -62,12 +74,12 @@ class PromptRule extends AbstractRule
         }
 
         if (in_array('login', $prompt, true) && $authSimple->isAuthenticated()) {
-            if ($this->session->getData('oidc', self::PROMPT_REAUTHENTICATE) !== 'login') {
-                $authId = $authSimple->getAuthSource()->getAuthId();
-                $this->session->doLogout($authId);
-            }
+            $queryParams = HTTP::parseQueryString($request->getUri()->getQuery());
+            unset($queryParams['prompt']);
+            $loginParams = [];
+            $loginParams['ReturnTo'] = HTTP::addURLParameters(HTTP::getSelfURLNoQuery(), $queryParams);
 
-            $this->session->setData('oidc', self::PROMPT_REAUTHENTICATE, 'login');
+            $this->authenticationService->getAuthenticateUser($request, $loginParams, true);
         }
 
         return null;

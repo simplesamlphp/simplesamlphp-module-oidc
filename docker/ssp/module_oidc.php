@@ -34,7 +34,9 @@ $config = [
     // is not specified on particular client
     'auth' => 'example-userpass',
 
-    // useridattr is the attribute-name that contains the userid as returned from idp
+    // useridattr is the attribute-name that contains the userid as returned from idp. By default, this attribute
+    // will be dynamically added to the 'sub' claim in the attribute-to-claim translation table (you will probably
+    // want to use this attribute as the 'sub' claim since it designates unique identifier for the user).
     'useridattr' => 'uid',
     'permissions' => [
         // Attribute to inspect to determine user's permissions
@@ -61,16 +63,13 @@ $config = [
         // Add authproc filters here
     ],
 
-    // You can create as many scopes as you want and assign attributes to them
+    // Optional custom scopes. You can create as many scopes as you want and assign claims to them.
     'scopes' => [
-        /*
-         * Optional. You can add more scopes.
-         */
-//        'private' => [
+//        'private' => [ // The key represents the scope name.
 //            'description' => 'private scope',
 //            'claim_name_prefix' => '', // Prefix to apply for all claim names from this scope
 //            'are_multiple_claim_values_allowed' => false, // Are claims for this scope allowed to have multiple values
-//            'attributes' => ['national_document_id']
+//            'claims' => ['national_document_id'] // Claims from the translation table which this scope will contain
 //        ],
     ],
     'translate' => [
@@ -78,8 +77,13 @@ $config = [
          * This is the default translate table from SAML to OIDC.
          * You can change here the behaviour or add more translation to your
          * private attributes scopes
+         *
+         * Note on 'sub' claim: by default, the list of attributes for 'sub' claim will also contain attribute defined
+         * in 'useridattr' setting. You will probably want to use this attribute as the 'sub' claim since it
+         * designates unique identifier for the user, However, override as necessary.
          */
 //        'sub' => [
+//            'attribute-defined-in-useridattr', // will be dynamically added if the list for 'sub' claim is not set.
 //            'eduPersonPrincipalName',
 //            'eduPersonTargetedID',
 //            'eduPersonUniqueId',

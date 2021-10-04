@@ -34,19 +34,18 @@ $config = [
     // is not specified on particular client
     'auth' => 'default-sp',
 
-    // useridattr is the attribute-name that contains the userid as returned from idp
+    // useridattr is the attribute-name that contains the userid as returned from idp. By default, this attribute
+    // will be dynamically added to the 'sub' claim in the attribute-to-claim translation table (you will probably
+    // want to use this attribute as the 'sub' claim since it designates unique identifier for the user).
     'useridattr' => 'uid',
 
-    // You can create as many scopes as you want and assign attributes to them
+    // Optional custom scopes. You can create as many scopes as you want and assign claims to them.
     'scopes' => [
-        /*
-         * Optional. You can add more scopes.
-         */
-//        'private' => [
+//        'private' => [ // The key represents the scope name.
 //            'description' => 'private scope',
 //            'claim_name_prefix' => '', // Prefix to apply for all claim names from this scope
 //            'are_multiple_claim_values_allowed' => false, // Are claims for this scope allowed to have multiple values
-//            'attributes' => ['national_document_id']
+//            'claims' => ['national_document_id'] // Claims from the translation table which this scope will contain
 //        ],
     ],
     'translate' => [
@@ -54,11 +53,36 @@ $config = [
          * This is the default translate table from SAML to OIDC.
          * You can change here the behaviour or add more translation to your
          * private attributes scopes
+         *
+         * The basic format is
+         *
+         * 'claimName' => [
+         *     'type' => 'string|int|bool|json',
+         *      // For non JSON types
+         *     'attributes' => ['samlAttribute1', 'samlAttribute2']
+         *      // For JSON types
+         *     'claims => [
+         *          'subclaim' => [ 'type' => 'string', 'attributes' => ['saml1']]
+         *      ]
+         *  ]
+         *
+         * For convenience the default type is "string" so type does not need to be defined.
+         * If "attributes" is not set, then it is assumed that the rest of the values are saml
+         * attribute names.
+         *
+         * Note on 'sub' claim: by default, the list of attributes for 'sub' claim will also contain attribute defined
+         * in 'useridattr' setting. You will probably want to use this attribute as the 'sub' claim since it
+         * designates unique identifier for the user, However, override as necessary.
          */
 //        'sub' => [
+//            'attribute-defined-in-useridattr', // will be dynamically added if the list for 'sub' claim is not set.
 //            'eduPersonPrincipalName',
 //            'eduPersonTargetedID',
 //            'eduPersonUniqueId',
+//        ],
+//        'name' => [
+//            'cn',
+//            'displayName',
 //        ],
 //        'family_name' => [
 //            'sn',
@@ -80,7 +104,7 @@ $config = [
 //            'description',
 //        ],
 //        'picture' => [
-//            'jpegPhoto',
+//            // Empty. Previously 'jpegPhoto' however spec calls for a url to photo, not an actual photo.
 //        ],
 //        'website' => [
 //            // Empty
@@ -98,16 +122,22 @@ $config = [
 //            'preferredLanguage',
 //        ],
 //        'updated_at' => [
-//            // Empty
+//            'type' => 'int',
+//            'attributes' => [],
 //        ],
 //        'email' => [
 //            'mail',
 //        ],
 //        'email_verified' => [
-//            // Empty
+//            'type' => 'bool',
+//            'attributes' => [],
 //        ],
+//         // address is a json object. Set the 'formatted' sub claim to postalAddress
 //        'address' => [
-//            'postalAddress',
+//            'type' => 'json',
+//            'claims' => [
+//                'formatted' => ['postalAddress'],
+//            ]
 //        ],
 //        'phone_number' => [
 //            'mobile',
@@ -115,7 +145,8 @@ $config = [
 //            'homePhone',
 //        ],
 //        'phone_number_verified' => [
-//            // Empty
+//            'type' => 'bool',
+//            'attributes' => [],
 //        ],
         /*
          * Optional scopes attributes
@@ -124,4 +155,54 @@ $config = [
 //            'schacPersonalUniqueId',
 //        ],
     ],
+
+    // Optional list of the Authentication Context Class References that this OP supports.
+    // If populated, this list will be available in OP discovery document (OP Metadata) as 'acr_values_supported'.
+    // @see https://datatracker.ietf.org/doc/html/rfc6711
+    // @see https://www.iana.org/assignments/loa-profiles/loa-profiles.xhtml
+    // @see https://openid.net/specs/openid-connect-core-1_0.html#IDToken (acr claim)
+    // @see https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest (acr_values parameter)
+    // Syntax: string[] (array of strings)
+    'acrValuesSupported' => [
+//        'https://refeds.org/assurance/profile/espresso',
+//        'https://refeds.org/assurance/profile/cappuccino',
+//        'https://refeds.org/profile/mfa',
+//        'https://refeds.org/profile/sfa',
+//        'urn:mace:incommon:iap:silver',
+//        'urn:mace:incommon:iap:bronze',
+//        '4',
+//        '3',
+//        '2',
+//        '1',
+//        '0',
+//        '...',
+    ],
+
+    // If this OP supports ACRs, indicate which usable auth source supports which ACRs.
+    // Order of ACRs is important, more important ones being first.
+    // Syntax: array<string,string[]> (array with auth source as key and value being array of ACR values as strings)
+    'authSourcesToAcrValuesMap' => [
+//        'example-userpass' => ['1', '0'],
+//        'default-sp' => ['http://id.incommon.org/assurance/bronze', '2', '1', '0'],
+//        'strongly-assured-authsource' => [
+//            'https://refeds.org/assurance/profile/espresso',
+//            'https://refeds.org/profile/mfa',
+//            'https://refeds.org/assurance/profile/cappuccino',
+//            'https://refeds.org/profile/sfa',
+//            '3',
+//            '2',
+//            '1',
+//            '0',
+//        ],
+    ],
+
+    // If this OP supports ACRs, indicate if authentication using cookie should be forced to specific ACR value.
+    // If this option is set to null, no specific ACR will be forced for cookie authentication and the resulting ACR
+    // will be one of the ACRs supported on used auth source during authentication, that is, session creation.
+    // If this option is set to specific ACR, with ACR value being one of the ACR value this OP supports, it will be
+    // set to that ACR for cookie authentication.
+    // For example, OIDC Core Spec notes that authentication using a long-lived browser cookie is one example where
+    // the use of "level 0" is appropriate:
+//     'forcedAcrValueForCookieAuthentication' => '0',
+    'forcedAcrValueForCookieAuthentication' => null,
 ];

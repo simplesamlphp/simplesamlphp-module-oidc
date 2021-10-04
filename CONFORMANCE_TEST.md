@@ -54,6 +54,9 @@ To run basic profile test, launch this command in console inside `simplesamlphp-
 ```shell
 # Run run-test-plan.py script inside conformance-suite/scripts
 # Change the relative path to your conformance-suite installation
+# conformance-basic-ci.json contains clients, and browser interactions for automating various tests
+# Lines like "oidcc-implicit-certification-test-plan[server_metadata=discovery][client_registration=static_client]"
+#    indicate the conformance plan to run, and any variants (parameters) are passed in []
 
 OIDC_MODULE_FOLDER=.  # path to your checkout of the OIDC module
 # Basic profile
@@ -69,6 +72,15 @@ conformance-suite/scripts/run-test-plan.py \
   --expected-skips-file ${OIDC_MODULE_FOLDER}/conformance-tests/implicit-skips.json \
   "oidcc-implicit-certification-test-plan[server_metadata=discovery][client_registration=static_client]" \
   ${OIDC_MODULE_FOLDER}/conformance-tests/conformance-implicit-ci.json
+
+# RP Initiated back channel
+conformance-suite/scripts/run-test-plan.py \
+  "oidcc-backchannel-rp-initiated-logout-certification-test-plan[response_type=code][client_registration=static_client]" \
+  ${OIDC_MODULE_FOLDER}/conformance-tests/conformance-back-channel-logout-ci.json
+
+conformance-suite/scripts/run-test-plan.py \
+  "oidcc-rp-initiated-logout-certification-test-plan[response_type=code][client_registration=static_client]" \
+  ${OIDC_MODULE_FOLDER}/conformance-tests/conformance-rp-initiated-logout-ci.json
 ```
 
 

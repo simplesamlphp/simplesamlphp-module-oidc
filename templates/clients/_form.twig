@@ -66,6 +66,20 @@
         </div>
 
         <div class="field">
+            <label for="frm-backchannel_logout_uri">{% trans '{oidc:client:backchannel_logout_uri}' %}</label>
+
+            {{ form['backchannel_logout_uri'].control | raw }}
+            <small class="helper">{% trans '{oidc:client:backchannel_logout_uri_help}' %}</small>
+        </div>
+
+        <div class="field ">
+            <label for="frm-post_logout_redirect_uri">{% trans '{oidc:client:post_logout_redirect_uri}' %}</label>
+
+            {{ form['post_logout_redirect_uri'].control | raw }}
+            <small class="helper">{% trans '{oidc:client:post_logout_redirect_uri_help}' %}</small>
+        </div>
+
+        <div class="field">
             <label for="frm-allowed_origin">{% trans '{oidc:client:allowed_origin}' %}</label>
 
             {{ form['allowed_origin'].control | raw }}
@@ -100,8 +114,7 @@
 
         $.fn.form.settings.rules.redirectUri = function(value) {
             return value.trim().split("\n").reduce(function(current, url) {
-                // Important if updating regex: also used in PHP validation in lib/Form/ClientForm.php
-                return current && null !== url.match(/^[^:]+:\/\/?[^\s\/$.?#].[^\s]*$/);
+                return current && null !== url.match({{ regexUri | raw }});
             }, true)
         };
 
@@ -110,9 +123,30 @@
 
             if (urls.length && urls[0] !== '') {
                 return urls.reduce(function(current, url) {
-                    // Important if updating regex: also used in PHP validation in lib/Form/ClientForm.php
-                    return current && null !== url.match(/^http(s?):\/\/[^\s\/!$&'()+,;=.?#@*:]+\.[^\s\/!$&'()+,;=.?#@*]+\.?(\.[^\s\/!$&'()+,;=?#@*:]+)*(:\d{1,5})?$/i);
+                    return current && null !== url.match({{ regexAllowedOriginUrl | raw }});
                 }, true)
+            }
+
+            return true;
+        };
+
+        $.fn.form.settings.rules.postLogoutRedirectUri = function(value) {
+            var urls = value.trim().split("\n");
+
+            if (urls.length && urls[0] !== '') {
+                return urls.reduce(function(current, url) {
+                    return current && null !== url.match({{ regexUri | raw }});
+                }, true)
+            }
+
+            return true;
+        };
+
+        $.fn.form.settings.rules.backChannelLogoutUri = function(value) {
+            var uri = value.trim();
+
+            if (uri.length) {
+                return null !== uri.match({{ regexHttpUri | raw }});
             }
 
             return true;
@@ -164,6 +198,24 @@
                             {
                                 type: 'allowedOrigin',
                                 prompt: '{% trans "{oidc:client:allowed_origin_not_valid}" %}'
+                            }
+                        ]
+                    },
+                    post_logout_redirect_uri: {
+                        identifier: 'post_logout_redirect_uri',
+                        rules: [
+                            {
+                                type: 'postLogoutRedirectUri',
+                                prompt: '{% trans "{oidc:client:post_logout_redirect_uri_not_valid}" %}'
+                            }
+                        ]
+                    },
+                    backchannel_logout_uri: {
+                        identifier: 'backchannel_logout_uri',
+                        rules: [
+                            {
+                                type: 'backChannelLogoutUri',
+                                prompt: '{% trans "{oidc:client:backchannel_logout_uri_not_valid}" %}'
                             }
                         ]
                     }

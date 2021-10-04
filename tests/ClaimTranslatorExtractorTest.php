@@ -3,16 +3,17 @@
 namespace SimpleSAML\Test\Module\oidc;
 
 use OpenIDConnectServer\Entities\ClaimSetEntity;
+use OpenIDConnectServer\Exception\InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Utils\Attributes;
 
 class ClaimTranslatorExtractorTest extends TestCase
 {
-
+    protected static string $userIdAttr = 'uid';
     /**
      * Test various type conversions work, including types in subobjects
-     * @throws \OpenIDConnectServer\Exception\InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     public function testTypeConversion(): void
     {
@@ -81,7 +82,7 @@ class ClaimTranslatorExtractorTest extends TestCase
                 'stringAttribute' => 'someString',
             ]
         );
-        $claimTranslator = new ClaimTranslatorExtractor([$claimSet], $translate);
+        $claimTranslator = new ClaimTranslatorExtractor(self::$userIdAttr, [$claimSet], $translate);
         $releasedClaims = $claimTranslator->extract(
             ['typeConversion'],
             $userAttributes
@@ -107,6 +108,7 @@ class ClaimTranslatorExtractorTest extends TestCase
 
     /**
      * Test that the default translator configuration sets address correctly.
+     * @throws InvalidArgumentException
      */
     public function testDefaultTypeConversion(): void
     {
@@ -116,7 +118,7 @@ class ClaimTranslatorExtractorTest extends TestCase
                 'postalAddress' => 'myAddress'
             ]
         );
-        $claimTranslator = new ClaimTranslatorExtractor();
+        $claimTranslator = new ClaimTranslatorExtractor(self::$userIdAttr);
         $releasedClaims = $claimTranslator->extract(
             ['address'],
             $userAttributes
@@ -132,7 +134,7 @@ class ClaimTranslatorExtractorTest extends TestCase
 
     /**
      * Test we can set the non-string standard claims
-     * @throws \OpenIDConnectServer\Exception\InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     public function testStandardClaimTypesCanBeSet(): void
     {
@@ -167,7 +169,7 @@ class ClaimTranslatorExtractorTest extends TestCase
                 'is_phone_number_verified' => 'no',
             ]
         );
-        $claimTranslator = new ClaimTranslatorExtractor([], $translate);
+        $claimTranslator = new ClaimTranslatorExtractor(self::$userIdAttr, [], $translate);
         $releasedClaims = $claimTranslator->extract(
             ['address', 'profile', 'email', 'phone'],
             $userAttributes
@@ -185,6 +187,9 @@ class ClaimTranslatorExtractorTest extends TestCase
         $this->assertSame($expectedClaims, $releasedClaims);
     }
 
+    /**
+     * @throws InvalidArgumentException
+     */
     public function testInvalidTypeConversion(): void
     {
         $this->expectExceptionMessage("Cannot convert '7890F' to int");
@@ -196,13 +201,16 @@ class ClaimTranslatorExtractorTest extends TestCase
             ],
         ];
         $userAttributes = Attributes::normalizeAttributesArray(['testClaim' => '7890F',]);
-        $claimTranslator = new ClaimTranslatorExtractor([$claimSet], $translate);
+        $claimTranslator = new ClaimTranslatorExtractor(self::$userIdAttr, [$claimSet], $translate);
         $claimTranslator->extract(['typeConversion'], $userAttributes);
     }
 
+    /**
+     * @throws InvalidArgumentException
+     */
     public function testExtractRequestClaimsUserInfo(): void
     {
-        $claimTranslator = new ClaimTranslatorExtractor();
+        $claimTranslator = new ClaimTranslatorExtractor(self::$userIdAttr);
         $requestClaims = [
             "userinfo" => [
                 "name" => ['essential' => true]
@@ -213,9 +221,12 @@ class ClaimTranslatorExtractorTest extends TestCase
         $this->assertEquals(['name' => 'bob'], $claims);
     }
 
+    /**
+     * @throws InvalidArgumentException
+     */
     public function testExtractRequestClaimsIdToken(): void
     {
-        $claimTranslator = new ClaimTranslatorExtractor();
+        $claimTranslator = new ClaimTranslatorExtractor(self::$userIdAttr);
         $requestClaims = [
             "id_token" => [
                 "name" => ['essential' => true]

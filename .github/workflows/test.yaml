@@ -263,6 +263,12 @@ jobs:
       - name: Run Implicit conformance tests
         run: |
           ./conformance-suite/scripts/run-test-plan.py  --expected-failures-file ./main/conformance-tests/implicit-warnings.json --expected-skips-file ./main/conformance-tests/implicit-skips.json "oidcc-implicit-certification-test-plan[server_metadata=discovery][client_registration=static_client]" ./main/conformance-tests/conformance-implicit-ci.json
+      - name: Run RP logout
+        run: |
+          ./conformance-suite/scripts/run-test-plan.py   "oidcc-rp-initiated-logout-certification-test-plan[response_type=code][client_registration=static_client]"   ./main/conformance-tests/conformance-rp-initiated-logout-ci.json
+      - name: Run RP backchannel
+        run: |
+          ./conformance-suite/scripts/run-test-plan.py     "oidcc-backchannel-rp-initiated-logout-certification-test-plan[response_type=code][client_registration=static_client]" ./main/conformance-tests/conformance-back-channel-logout-ci.json
       - name: Stop SSP
         working-directory: ./main
         run: |

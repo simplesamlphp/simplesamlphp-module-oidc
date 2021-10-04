@@ -17,7 +17,8 @@ namespace SimpleSAML\Module\oidc;
 use Lcobucci\JWT\Token\RegisteredClaims;
 use OpenIDConnectServer\ClaimExtractor;
 use OpenIDConnectServer\Entities\ClaimSetEntity;
-use SimpleSAML\Logger;
+use OpenIDConnectServer\Exception\InvalidArgumentException;
+use RuntimeException;
 
 class ClaimTranslatorExtractor extends ClaimExtractor
 {
@@ -99,14 +100,7 @@ class ClaimTranslatorExtractor extends ClaimExtractor
      * From JSON Web Token Claims registry: https://www.iana.org/assignments/jwt/jwt.xhtml
      */
     public const REGISTERED_CLAIMS = [
-        // ...RegisteredClaims::ALL, // TODO consider refactoring to spread operator when upgrading to PHP 7.4
-        RegisteredClaims::ISSUER,
-        RegisteredClaims::SUBJECT,
-        RegisteredClaims::AUDIENCE,
-        RegisteredClaims::EXPIRATION_TIME,
-        RegisteredClaims::NOT_BEFORE,
-        RegisteredClaims::ISSUED_AT,
-        RegisteredClaims::ID,
+        ...RegisteredClaims::ALL,
         'azp',
         'nonce',
         'auth_time',
@@ -119,24 +113,27 @@ class ClaimTranslatorExtractor extends ClaimExtractor
 
     /**
      * Claims for which it is allowed to have multiple values.
-     * @var array $allowedMultiValueClaims
      */
-    protected $allowedMultiValueClaims;
+    protected array $allowedMultiValueClaims;
 
     /**
      * ClaimTranslatorExtractor constructor.
      *
+     * @param string $userIdAttr
      * @param ClaimSetEntity[] $claimSets
-     *
      * @param array $translationTable
      * @param array $allowedMultipleValueClaims
-     * @throws \OpenIDConnectServer\Exception\InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     public function __construct(
+        string $userIdAttr,
         array $claimSets = [],
         array $translationTable = [],
         array $allowedMultipleValueClaims = []
     ) {
+        // By default, add the userIdAttribute as one of the attribute for 'sub' claim.
+        array_unshift($this->translationTable['sub'], $userIdAttr);
+
         $this->translationTable = array_merge($this->translationTable, $translationTable);
 
         $this->allowedMultiValueClaims = $allowedMultipleValueClaims;
@@ -152,6 +149,7 @@ class ClaimTranslatorExtractor extends ClaimExtractor
     /**
      * @param array $translationTable
      * @param array $samlAttributes
+     * @return array
      */
     private function translateSamlAttributesToClaims(array $translationTable, array $samlAttributes): array
     {
@@ -168,7 +166,7 @@ class ClaimTranslatorExtractor extends ClaimExtractor
             $attributes = $mappingConfig['attributes'] ?? $mappingConfig;
 
             foreach ($attributes as $samlMatch) {
-                if (\array_key_exists($samlMatch, $samlAttributes)) {
+                if (array_key_exists($samlMatch, $samlAttributes)) {
                     $values = in_array($claim, $this->allowedMultiValueClaims) ?
                         $samlAttributes[$samlMatch] :
                         current($samlAttributes[$samlMatch]);
@@ -194,7 +192,7 @@ class ClaimTranslatorExtractor extends ClaimExtractor
                 if (is_numeric($attributes)) {
                     return (int)$attributes;
                 } else {
-                    throw new \RuntimeException("Cannot convert '$attributes' to int");
+                    throw new RuntimeException("Cannot convert '$attributes' to int");
                 }
             case 'bool':
                 return filter_var($attributes, FILTER_VALIDATE_BOOLEAN);

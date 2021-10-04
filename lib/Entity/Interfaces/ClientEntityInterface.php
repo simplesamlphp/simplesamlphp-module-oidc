@@ -3,7 +3,6 @@
 namespace SimpleSAML\Module\oidc\Entity\Interfaces;
 
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
-use SimpleSAML\Module\oidc\Entity\Interfaces\MementoInterface;
 
 interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInterface
 {
@@ -28,11 +27,31 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
 
     public function getDescription(): string;
 
-    public function getAuthSource(): ?string;
+    public function getAuthSourceId(): ?string;
 
     public function getScopes(): array;
 
     public function isEnabled(): bool;
 
     public function getOwner(): ?string;
+
+    /**
+     * @return string[]
+     */
+    public function getPostLogoutRedirectUri(): array;
+
+    /**
+     * @param string[] $postLogoutRedirectUri
+     */
+    public function setPostLogoutRedirectUri(array $postLogoutRedirectUri): void;
+
+    /**
+     * @return string|null
+     */
+    public function getBackChannelLogoutUri(): ?string;
+
+    /**
+     * @param string|null $backChannelLogoutUri
+     */
+    public function setBackChannelLogoutUri(?string $backChannelLogoutUri): void;
 }

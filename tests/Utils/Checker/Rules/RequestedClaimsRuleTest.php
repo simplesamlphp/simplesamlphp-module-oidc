@@ -1,24 +1,31 @@
 <?php
 
-namespace Tests\SimpleSAML\Module\oidc\Utils\Checker\Rules;
+namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
-use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
+use OpenIDConnectServer\Exception\InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\Checker\ResultBag;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
+use Throwable;
 
+/**
+ * @covers \SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule
+ */
 class RequestedClaimsRuleTest extends TestCase
 {
 
-    protected $resultBag;
+    protected ResultBag $resultBag;
     protected $clientStub;
     protected $request;
-    protected $redirectUri = 'https://some-redirect-uri.org';
+    protected string $redirectUri = 'https://some-redirect-uri.org';
+    protected $loggerServiceStub;
+    protected static string $userIdAttr = 'uid';
 
 
     protected function setUp(): void
@@ -28,15 +35,24 @@ class RequestedClaimsRuleTest extends TestCase
         $this->request = $this->createStub(ServerRequestInterface::class);
         $this->clientStub->method('getScopes')->willReturn(['openid', 'profile', 'email']);
         $this->resultBag->add(new Result(ClientIdRule::class, $this->clientStub));
+        $this->loggerServiceStub = $this->createStub(LoggerService::class);
     }
 
+    /**
+     * @throws InvalidArgumentException
+     * @throws Throwable
+     */
     public function testNoRequestedClaims(): void
     {
-        $rule = new RequestedClaimsRule(new ClaimTranslatorExtractor());
-        $result = $rule->checkRule($this->request, $this->resultBag, []);
+        $rule = new RequestedClaimsRule(new ClaimTranslatorExtractor(self::$userIdAttr));
+        $result = $rule->checkRule($this->request, $this->resultBag, $this->loggerServiceStub, []);
         $this->assertNull($result);
     }
 
+    /**
+     * @throws InvalidArgumentException
+     * @throws Throwable
+     */
     public function testWithClaims(): void
     {
         $expectedClaims = [
@@ -65,13 +81,17 @@ class RequestedClaimsRuleTest extends TestCase
             'client_id' => 'abc'
                                                              ]);
 
-        $rule = new RequestedClaimsRule(new ClaimTranslatorExtractor());
-        $result = $rule->checkRule($this->request, $this->resultBag, []);
+        $rule = new RequestedClaimsRule(new ClaimTranslatorExtractor(self::$userIdAttr));
+        $result = $rule->checkRule($this->request, $this->resultBag, $this->loggerServiceStub, []);
         $this->assertNotNull($result);
         $this->assertEquals($expectedClaims, $result->getValue());
     }
 
 
+    /**
+     * @throws InvalidArgumentException
+     * @throws Throwable
+     */
     public function testOnlyWithNonStandardClaimRequest(): void
     {
         $expectedClaims = [
@@ -85,8 +105,8 @@ class RequestedClaimsRuleTest extends TestCase
                                                                  'client_id' => 'abc'
                                                              ]);
 
-        $rule = new RequestedClaimsRule(new ClaimTranslatorExtractor());
-        $result = $rule->checkRule($this->request, $this->resultBag, []);
+        $rule = new RequestedClaimsRule(new ClaimTranslatorExtractor(self::$userIdAttr));
+        $result = $rule->checkRule($this->request, $this->resultBag, $this->loggerServiceStub, []);
         $this->assertNotNull($result);
         $this->assertEquals($expectedClaims, $result->getValue());
     }

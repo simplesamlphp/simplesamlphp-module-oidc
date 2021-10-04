@@ -69,6 +69,17 @@
                     "match": "*/test/a/simplesamlphp-module-oidc/post*"
                 }
             ]
+        },
+        {
+            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
+            "tasks": [
+                {
+                    "task": "nothing to do. We redirect to postback",
+                    "optional": true,
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php**",
+                    "commands": []
+                }
+            ]
         }
     ],
     "override": {
@@ -414,11 +425,11 @@
                 },
                 {
                     "comment": "expect an immediate error page",
-                    "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
                     "tasks": [
                         {
                             "task": "Expect error page",
-                            "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
                             "commands": [
                                 [
                                     "wait",
@@ -478,11 +489,11 @@
                 },
                 {
                     "comment": "expect an immediate error page",
-                    "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
                     "tasks": [
                         {
                             "task": "Expect error page",
-                            "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
                             "commands": [
                                 [
                                     "wait",
@@ -542,18 +553,18 @@
                 },
                 {
                     "comment": "expect an immediate error page",
-                    "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
                     "tasks": [
                         {
                             "task": "Expect error page",
-                            "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
                             "commands": [
                                 [
                                     "wait",
                                     "xpath",
                                     "//*",
                                     10,
-                                    "could not validate id_token_hint",
+                                    "Token signer mismatch",
                                     "update-image-placeholder"
                                 ]
                             ]
@@ -606,18 +617,18 @@
                 },
                 {
                     "comment": "expect an immediate error page",
-                    "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
                     "tasks": [
                         {
                             "task": "Expect error page",
-                            "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
                             "commands": [
                                 [
                                     "wait",
                                     "xpath",
                                     "//*",
                                     10,
-                                    "unrecognized id_token_hint audience",
+                                    "The token was not issued by the given issuers",
                                     "update-image-placeholder"
                                 ]
                             ]
@@ -670,18 +681,18 @@
                 },
                 {
                     "comment": "expect an immediate error page",
-                    "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
                     "tasks": [
                         {
                             "task": "Expect error page",
-                            "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
                             "commands": [
                                 [
                                     "wait",
                                     "xpath",
                                     "//*",
                                     10,
-                                    "post_logout_redirect_uri can only be used in combination with id_token_hint",
+                                    "id_token_hint is mandatory when post_logout_redirect_uri is included",
                                     "update-image-placeholder"
                                 ]
                             ]
@@ -734,23 +745,18 @@
                 },
                 {
                     "comment": "wait for the logout success",
-                    "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
                     "tasks": [
                         {
-                            "task": "Choose logout option",
-                            "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
-                            "commands": [["click", "css", "button[autofocus] "]]
-                        },
-                        {
                             "task": "Expect success page",
-                            "match": "https://op.local.stack-dev.cirrusidentity.com/session/end/success",
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
                             "commands": [
                                 [
                                     "wait",
                                     "xpath",
                                     "//*",
                                     10,
-                                    "Sign-out Success",
+                                    "Logout Successful",
                                     "update-image-placeholder"
                                 ]
                             ]
@@ -803,23 +809,18 @@
                 },
                 {
                     "comment": "wait for the logout success",
-                    "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
                     "tasks": [
                         {
-                            "task": "Choose logout option",
-                            "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
-                            "commands": [["click", "css", "button[autofocus] "]]
-                        },
-                        {
                             "task": "Expect success page",
-                            "match": "https://op.local.stack-dev.cirrusidentity.com/session/end/success",
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
                             "commands": [
                                 [
                                     "wait",
                                     "xpath",
                                     "//*",
                                     10,
-                                    "Sign-out Success",
+                                    "Logout Successful",
                                     "update-image-placeholder"
                                 ]
                             ]
@@ -872,23 +873,18 @@
                 },
                 {
                     "comment": "wait for the logout success",
-                    "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
                     "tasks": [
                         {
-                            "task": "Choose logout option",
-                            "match": "https://op.local.stack-dev.cirrusidentity.com/session/end*",
-                            "commands": [["click", "css", "button[autofocus] "]]
-                        },
-                        {
                             "task": "Expect success page",
-                            "match": "https://op.local.stack-dev.cirrusidentity.com/session/end/success",
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
                             "commands": [
                                 [
                                     "wait",
                                     "xpath",
                                     "//*",
                                     10,
-                                    "Sign-out Success",
+                                    "Logout Successful",
                                     "update-image-placeholder"
                                 ]
                             ]

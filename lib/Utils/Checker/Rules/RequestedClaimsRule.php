@@ -2,19 +2,19 @@
 
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
-use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use OpenIDConnectServer\ClaimExtractor;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
+use Throwable;
 
 class RequestedClaimsRule extends AbstractRule
 {
-    private $claimExtractor;
+    private ClaimExtractor $claimExtractor;
 
     public function __construct(ClaimExtractor $claimExtractor)
     {
@@ -22,11 +22,16 @@ class RequestedClaimsRule extends AbstractRule
     }
 
 
+    /**
+     * @throws Throwable
+     */
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
+        LoggerService $loggerService,
         array $data = [],
-        bool $useFragmentInHttpErrorResponses = false
+        bool $useFragmentInHttpErrorResponses = false,
+        array $allowedServerRequestMethods = ['GET']
     ): ?ResultInterface {
         $claimsParam = $request->getQueryParams()['claims'] ?? null;
         if ($claimsParam === null) {

@@ -14,6 +14,7 @@ class ClaimTranslatorExtractorFactorySpec extends ObjectBehavior
         $configurationService->getOpenIDConnectConfiguration()->willReturn(
             Configuration::loadFromArray(
                 [
+                    'useridattr' => 'uid',
                     'translate' => [
                         'testClaim' => ['attribute'],
                         'intClaim' => [
@@ -32,10 +33,10 @@ class ClaimTranslatorExtractorFactorySpec extends ObjectBehavior
         $configurationService->getOpenIDPrivateScopes()->willReturn(
             [
                 'customScope1' => [
-                    'attributes' => ['testClaim', 'intClaim']
+                    'claims' => ['testClaim', 'intClaim']
                 ],
                 'customScope2' => [
-                    'attributes' => ['testClaim2', 'boolClaim'],
+                    'claims' => ['testClaim2', 'boolClaim'],
                     'claim_name_prefix' => 'myprefix_'
                 ]
 

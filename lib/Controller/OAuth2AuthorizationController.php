@@ -14,6 +14,10 @@
 
 namespace SimpleSAML\Module\oidc\Controller;
 
+use Exception;
+use League\OAuth2\Server\Exception\OAuthServerException;
+use SimpleSAML\Error;
+use Psr\Http\Message\ResponseInterface;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
@@ -21,40 +25,45 @@ use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use Laminas\Diactoros\Response;
 use Laminas\Diactoros\ServerRequest;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 
 class OAuth2AuthorizationController
 {
-    /**
-     * @var AuthenticationService
-     */
-    private $authenticationService;
+    private AuthenticationService $authenticationService;
 
-    /**
-     * @var AuthorizationServer
-     */
-    private $authorizationServer;
+    private AuthorizationServer $authorizationServer;
 
-    /**
-     * @var ConfigurationService
-     */
-    private $configurationService;
+    private ConfigurationService $configurationService;
+
+    private LoggerService $loggerService;
 
     /**
      * @param AuthenticationService $authenticationService
      * @param AuthorizationServer $authorizationServer
      * @param ConfigurationService $configurationService
+     * @param LoggerService $loggerService
      */
     public function __construct(
         AuthenticationService $authenticationService,
         AuthorizationServer $authorizationServer,
-        ConfigurationService $configurationService
+        ConfigurationService $configurationService,
+        LoggerService $loggerService
     ) {
         $this->authenticationService = $authenticationService;
         $this->authorizationServer = $authorizationServer;
         $this->configurationService = $configurationService;
+        $this->loggerService = $loggerService;
     }
 
-    public function __invoke(ServerRequest $request): \Psr\Http\Message\ResponseInterface
+    /**
+     * @throws Error\AuthSource
+     * @throws Error\BadRequest
+     * @throws Error\NotFound
+     * @throws Error\Exception
+     * @throws OAuthServerException
+     * @throws Exception
+     */
+    public function __invoke(ServerRequest $request): ResponseInterface
     {
         $authorizationRequest = $this->authorizationServer->validateAuthorizationRequest($request);
 
@@ -66,6 +75,7 @@ class OAuth2AuthorizationController
         if ($authorizationRequest instanceof AuthorizationRequest) {
             $authorizationRequest->setIsCookieBasedAuthn($this->authenticationService->isCookieBasedAuthn());
             $authorizationRequest->setAuthSourceId($this->authenticationService->getAuthSourceId());
+            $authorizationRequest->setSessionId($this->authenticationService->getSessionId());
 
             $this->validatePostAuthnAuthorizationRequest($authorizationRequest);
         }
@@ -77,7 +87,7 @@ class OAuth2AuthorizationController
      * Validate authorization request after the authn has been performed. For example, check if the
      * ACR claim has been requested and that authn performed satisfies it.
      * @param AuthorizationRequest $authorizationRequest
-     * @throws \Exception
+     * @throws Exception
      */
     protected function validatePostAuthnAuthorizationRequest(AuthorizationRequest &$authorizationRequest)
     {
@@ -86,7 +96,7 @@ class OAuth2AuthorizationController
 
     /**
      * @param AuthorizationRequest $authorizationRequest
-     * @throws \Exception
+     * @throws Exception
      */
     protected function validateAcr(AuthorizationRequest &$authorizationRequest): void
     {
@@ -132,7 +142,13 @@ class OAuth2AuthorizationController
         }
 
         // ...according to spec we have to return acr claim, and we don't have one available (none configured)...
-        // TODO log this state when logger service or helper is implemented
-        $authorizationRequest->setAcr('N/A');
+        $genericAcr = 'N/A';
+        $message = sprintf(
+            'No ACRs configured for current auth source, whilst specification mandates one. ' .
+            'Falling back to generic ACR (%s).',
+            $genericAcr
+        );
+        $this->loggerService->warning($message);
+        $authorizationRequest->setAcr($genericAcr);
     }
 }

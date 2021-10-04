@@ -14,16 +14,18 @@
 
 namespace SimpleSAML\Module\oidc\Server\ResponseTypes;
 
+use Exception;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\ResponseTypes\BearerTokenResponse;
 use OpenIDConnectServer\Repositories\IdentityProviderInterface;
+use RuntimeException;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
-use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AcrResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\SessionIdResponseTypeInterface;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 
@@ -38,36 +40,22 @@ use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 class IdTokenResponse extends BearerTokenResponse implements
     NonceResponseTypeInterface,
     AuthTimeResponseTypeInterface,
-    AcrResponseTypeInterface
+    AcrResponseTypeInterface,
+    SessionIdResponseTypeInterface
 {
-    /**
-     * @var IdentityProviderInterface
-     */
-    private $identityProvider;
-    /**
-     * @var ConfigurationService
-     */
-    private $configurationService;
+    private IdentityProviderInterface $identityProvider;
 
-    /**
-     * @var IdTokenBuilder
-     */
-    protected $idTokenBuilder;
+    private ConfigurationService $configurationService;
 
-    /**
-     * @var string|null
-     */
-    protected $nonce;
+    protected IdTokenBuilder $idTokenBuilder;
 
-    /**
-     * @var int|null
-     */
-    protected $authTime;
+    protected ?string $nonce = null;
 
-    /**
-     * @var string|null
-     */
-    protected $acr;
+    protected ?int $authTime = null;
+
+    protected ?string $acr = null;
+
+    protected ?string $sessionId = null;
 
     public function __construct(
         IdentityProviderInterface $identityProvider,
@@ -80,16 +68,18 @@ class IdTokenResponse extends BearerTokenResponse implements
     }
 
     /**
+     * @param AccessTokenEntityInterface $accessToken
      * @return array
+     * @throws Exception
      */
-    protected function getExtraParams(AccessTokenEntityInterface $accessToken)
+    protected function getExtraParams(AccessTokenEntityInterface $accessToken): array
     {
         if (false === $this->isOpenIDRequest($accessToken->getScopes())) {
             return [];
         }
 
         if ($accessToken instanceof AccessTokenEntity === false) {
-            throw new \RuntimeException('AccessToken must be ' . AccessTokenEntity::class);
+            throw new RuntimeException('AccessToken must be ' . AccessTokenEntity::class);
         }
         // Per https://openid.net/specs/openid-connect-core-1_0.html#rfc.section.5.4 certain claims
         // should only be added in certain scenarios. Allow deployer to control this.
@@ -107,7 +97,8 @@ class IdTokenResponse extends BearerTokenResponse implements
             true,
             $this->getNonce(),
             $this->getAuthTime(),
-            $this->getAcr()
+            $this->getAcr(),
+            $this->getSessionId()
         );
 
         return [
@@ -120,7 +111,7 @@ class IdTokenResponse extends BearerTokenResponse implements
      *
      * @return bool
      */
-    private function isOpenIDRequest($scopes)
+    private function isOpenIDRequest(array $scopes): bool
     {
         // Verify scope and make sure openid exists.
         foreach ($scopes as $scope) {
@@ -133,9 +124,9 @@ class IdTokenResponse extends BearerTokenResponse implements
     }
 
     /**
-     * @param string $nonce
+     * @param string|null $nonce
      */
-    public function setNonce(string $nonce): void
+    public function setNonce(?string $nonce): void
     {
         $this->nonce = $nonce;
     }
@@ -149,9 +140,9 @@ class IdTokenResponse extends BearerTokenResponse implements
     }
 
     /**
-     * @param int $authTime
+     * @param int|null $authTime
      */
-    public function setAuthTime(int $authTime): void
+    public function setAuthTime(?int $authTime): void
     {
         $this->authTime = $authTime;
     }
@@ -172,5 +163,15 @@ class IdTokenResponse extends BearerTokenResponse implements
     public function getAcr(): ?string
     {
         return $this->acr;
+    }
+
+    public function getSessionId(): ?string
+    {
+        return $this->sessionId;
+    }
+
+    public function setSessionId(?string $sessionId): void
+    {
+        $this->sessionId = $sessionId;
     }
 }

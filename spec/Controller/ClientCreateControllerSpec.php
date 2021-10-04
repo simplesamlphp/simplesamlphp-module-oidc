@@ -59,7 +59,6 @@ class ClientCreateControllerSpec extends ObjectBehavior
         $uri->getPath()->willReturn('/');
 
         $this->beConstructedWith(
-            $configurationService,
             $clientRepository,
             $allowedOriginRepository,
             $templateFactory,
@@ -91,7 +90,12 @@ class ClientCreateControllerSpec extends ObjectBehavior
         $clientForm->setAction(Argument::any())->shouldBeCalled();
         $clientForm->isSuccess()->shouldBeCalled()->willReturn(false);
 
-        $templateFactory->render('oidc:clients/new.twig', ['form' => $clientForm])
+        $templateFactory->render('oidc:clients/new.twig', [
+            'form' => $clientForm,
+            'regexUri' => ClientForm::REGEX_URI,
+            'regexAllowedOriginUrl' => ClientForm::REGEX_ALLOWED_ORIGIN_URL,
+            'regexHttpUri' => ClientForm::REGEX_HTTP_URI,
+        ])
             ->shouldBeCalled()
             ->willReturn($template);
         $this->__invoke($request)->shouldBe($template);
@@ -120,7 +124,9 @@ class ClientCreateControllerSpec extends ObjectBehavior
             'scopes' => ['openid'],
             'is_enabled' => true,
             'is_confidential' => false,
-            'allowed_origin' => []
+            'allowed_origin' => [],
+            'post_logout_redirect_uri' => [],
+            'backchannel_logout_uri' => null,
         ]);
 
         $clientRepository->add(Argument::type(ClientEntity::class))->shouldBeCalled();
@@ -160,6 +166,8 @@ class ClientCreateControllerSpec extends ObjectBehavior
                 'is_confidential' => false,
                 'owner' => 'wrongOwner',
                 'allowed_origin' => [],
+                'post_logout_redirect_uri' => [],
+                'backchannel_logout_uri' => null,
             ]
         );
 

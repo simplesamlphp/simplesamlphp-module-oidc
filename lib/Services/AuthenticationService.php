@@ -14,60 +14,42 @@
 
 namespace SimpleSAML\Module\oidc\Services;
 
-use Laminas\Diactoros\ServerRequest;
+use Exception;
+use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Auth\Simple;
-use SimpleSAML\Error\Exception;
+use SimpleSAML\Error;
+use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Controller\LogoutController;
 use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
-use SimpleSAML\Session;
+use SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation;
 
 class AuthenticationService
 {
     use GetClientFromRequestTrait;
 
-    /**
-     * @var UserRepository
-     */
-    private $userRepository;
-    /**
-     * @var AuthSimpleFactory
-     */
-    private $authSimpleFactory;
-    /**
-     * @var string
-     */
-    private $userIdAttr;
-    /**
-     * @var AuthProcService
-     */
-    private $authProcService;
-    /**
-     * @var OidcOpenIdProviderMetadataService
-     */
-    private $oidcOpenIdProviderMetadataService;
+    private UserRepository $userRepository;
+
+    private AuthSimpleFactory $authSimpleFactory;
+
+    private string $userIdAttr;
+
+    private AuthProcService $authProcService;
+
+    private OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService;
+
+    private SessionService $sessionService;
 
     /**
-     * @var bool
+     * ID of auth source used during authn.
      */
-    private $isCookieBasedAuthn = false;
-    /**
-     * @var Session
-     */
-    private $session;
+    private ?string $authSourceId;
 
-    public const SESSION_DATA_TYPE = 'oidc-authn';
-
-    public const SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN = 'is-cookie-based-authn';
-
-    /**
-     * ID of authsource used during authn.
-     * @var string|null
-     */
-    private $authSourceId;
+    private ClaimTranslatorExtractor $claimTranslatorExtractor;
 
     public function __construct(
         UserRepository $userRepository,
@@ -75,7 +57,8 @@ class AuthenticationService
         AuthProcService $authProcService,
         ClientRepository $clientRepository,
         OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService,
-        Session $session,
+        SessionService $sessionService,
+        ClaimTranslatorExtractor $claimTranslatorExtractor,
         string $userIdAttr
     ) {
         $this->userRepository = $userRepository;
@@ -83,42 +66,58 @@ class AuthenticationService
         $this->authProcService = $authProcService;
         $this->clientRepository = $clientRepository;
         $this->oidcOpenIdProviderMetadataService = $oidcOpenIdProviderMetadataService;
-        $this->session = $session;
+        $this->sessionService = $sessionService;
+        $this->claimTranslatorExtractor = $claimTranslatorExtractor;
         $this->userIdAttr = $userIdAttr;
     }
 
     /**
-     * @param ServerRequest $request
+     * @param ServerRequestInterface $request
+     * @param array $loginParams
+     * @param bool $forceAuthn
      * @return UserEntity
-     * @throws \Exception
+     * @throws Error\Exception
+     * @throws Error\AuthSource
+     * @throws Error\BadRequest
+     * @throws Error\NotFound
+     * @throws Exception
      */
-    public function getAuthenticateUser(ServerRequest $request): UserEntity
-    {
+    public function getAuthenticateUser(
+        ServerRequestInterface $request,
+        array $loginParams = [],
+        bool $forceAuthn = false
+    ): UserEntity {
         $oidcClient = $this->getClientFromRequest($request);
-        $authSimple = $this->authSimpleFactory->build($request);
+        $authSimple = $this->authSimpleFactory->build($oidcClient);
 
         $this->authSourceId = $authSimple->getAuthSource()->getAuthId();
 
-        // Distinguish if the user already had active session or the actual authn was performed.
-        $this->isCookieBasedAuthn = $this->session->getData(
-            self::SESSION_DATA_TYPE,
-            self::SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN
-        ) ?? false;
+        if (! $authSimple->isAuthenticated() || $forceAuthn === true) {
+            $this->sessionService->setIsCookieBasedAuthn(false);
+            $this->sessionService->setIsAuthnPerformedInPreviousRequest(true);
 
-        if ($authSimple->isAuthenticated()) {
-            $this->session->setData(self::SESSION_DATA_TYPE, self::SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN, true);
+            $authSimple->login($loginParams);
+        } elseif ($this->sessionService->getIsAuthnPerformedInPreviousRequest()) {
+            $this->sessionService->setIsAuthnPerformedInPreviousRequest(false);
+
+            $this->sessionService->registerLogoutHandler(
+                $this->authSourceId,
+                LogoutController::class,
+                'logoutHandler'
+            );
         } else {
-            $this->session->setData(self::SESSION_DATA_TYPE, self::SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN, false);
-            $authSimple->login();
+            $this->sessionService->setIsCookieBasedAuthn(true);
         }
 
         $state = $this->prepareStateArray($authSimple, $oidcClient, $request);
         $state = $this->authProcService->processState($state);
         $claims = $state['Attributes'];
 
-        if (!\array_key_exists($this->userIdAttr, $claims)) {
+        if (!array_key_exists($this->userIdAttr, $claims)) {
             $attr = implode(', ', array_keys($claims));
-            throw new Exception('Attribute `useridattr` doesn\'t exists in claims. Available attributes are: ' . $attr);
+            throw new Error\Exception(
+                'Attribute `useridattr` doesn\'t exists in claims. Available attributes are: ' . $attr
+            );
         }
 
         $userId = $claims[$this->userIdAttr][0];
@@ -132,17 +131,22 @@ class AuthenticationService
             $this->userRepository->update($user);
         }
 
+        $this->addRelyingPartyAssociation($oidcClient, $user);
+
         return $user;
     }
 
     /**
      * @param Simple $authSimple
      * @param ClientEntityInterface $client
-     * @param ServerRequest $request
+     * @param ServerRequestInterface $request
      * @return array
      */
-    private function prepareStateArray(Simple $authSimple, ClientEntityInterface $client, ServerRequest $request): array
-    {
+    private function prepareStateArray(
+        Simple $authSimple,
+        ClientEntityInterface $client,
+        ServerRequestInterface $request
+    ): array {
         $state = $authSimple->getAuthDataArray();
 
         $state['Oidc'] = [
@@ -163,13 +167,39 @@ class AuthenticationService
         return $state;
     }
 
-    public function isCookieBasedAuthn(): ?bool
+    public function isCookieBasedAuthn(): bool
     {
-        return $this->isCookieBasedAuthn;
+        return (bool) $this->sessionService->getIsCookieBasedAuthn();
     }
 
     public function getAuthSourceId(): ?string
     {
         return $this->authSourceId;
+    }
+
+    public function getSessionId(): ?string
+    {
+        return $this->sessionService->getCurrentSession()->getSessionId();
+    }
+
+    /**
+     * Store Relying Party Association to the current session.
+     * @param ClientEntityInterface $oidcClient
+     * @param UserEntity $user
+     * @throws Exception
+     */
+    protected function addRelyingPartyAssociation(ClientEntityInterface $oidcClient, UserEntity $user): void
+    {
+        // We need to make sure that we use 'sub' as user identifier, if configured.
+        $claims = $this->claimTranslatorExtractor->extract(['openid'], $user->getClaims());
+
+        $this->sessionService->addRelyingPartyAssociation(
+            new RelyingPartyAssociation(
+                $oidcClient->getIdentifier(),
+                $claims['sub'] ?? $user->getIdentifier(),
+                $this->getSessionId(),
+                $oidcClient->getBackChannelLogoutUri()
+            )
+        );
     }
 }

@@ -3,45 +3,36 @@
 namespace SimpleSAML\Module\oidc\Services;
 
 use Base64Url\Base64Url;
-use Lcobucci\JWT\Configuration;
-use Lcobucci\JWT\Encoding\ChainedFormatter;
-use Lcobucci\JWT\Signer\Key\InMemory;
+use DateTimeImmutable;
+use Exception;
+use Lcobucci\JWT\Builder;
 use Lcobucci\JWT\Token\RegisteredClaims;
-use League\OAuth2\Server\CryptKey;
+use Lcobucci\JWT\UnencryptedToken;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
-use OpenIDConnectServer\ClaimExtractor;
 use OpenIDConnectServer\Entities\ClaimSetInterface;
+use RuntimeException;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
-use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
 
 class IdTokenBuilder
 {
-    /**
-     * @var ClaimTranslatorExtractor
-     */
-    private $claimExtractor;
-    /**
-     * @var ConfigurationService
-     */
-    private $configurationService;
-    /**
-     * @var CryptKey
-     */
-    private $privateKey;
+    private ClaimTranslatorExtractor $claimExtractor;
+
+    private JsonWebTokenBuilderService $jsonWebTokenBuilderService;
 
     public function __construct(
-        ClaimTranslatorExtractor $claimExtractor,
-        ConfigurationService $configurationService,
-        CryptKey $privateKey
+        JsonWebTokenBuilderService $jsonWebTokenBuilderService,
+        ClaimTranslatorExtractor $claimExtractor
     ) {
+        $this->jsonWebTokenBuilderService = $jsonWebTokenBuilderService;
         $this->claimExtractor = $claimExtractor;
-        $this->configurationService = $configurationService;
-        $this->privateKey = $privateKey;
     }
 
+    /**
+     * @throws Exception
+     */
     public function build(
         UserEntityInterface $userEntity,
         AccessTokenEntity $accessToken,
@@ -49,21 +40,15 @@ class IdTokenBuilder
         bool $addAccessTokenHash,
         ?string $nonce,
         ?int $authTime,
-        ?string $acr
-    ) {
+        ?string $acr,
+        ?string $sessionId
+    ): UnencryptedToken {
         if (false === is_a($userEntity, ClaimSetInterface::class)) {
-            throw new \RuntimeException('UserEntity must implement ClaimSetInterface');
+            throw new RuntimeException('UserEntity must implement ClaimSetInterface');
         }
 
-        $jwtConfig = Configuration::forAsymmetricSigner(
-            $this->configurationService->getSigner(),
-            InMemory::plainText($this->privateKey->getKeyPath(), $this->privateKey->getPassPhrase() ?? ''),
-            // The public key is not needed for signing
-            InMemory::empty()
-        );
-
         // Add required id_token claims
-        $builder = $this->getBuilder($jwtConfig, $accessToken, $userEntity);
+        $builder = $this->getBuilder($accessToken, $userEntity);
 
         if (null !== $nonce) {
             $builder->withClaim('nonce', $nonce);
@@ -76,12 +61,19 @@ class IdTokenBuilder
         if ($addAccessTokenHash) {
             $builder->withClaim(
                 'at_hash',
-                $this->generateAccessTokenHash($accessToken, $jwtConfig->signer()->algorithmId())
+                $this->generateAccessTokenHash(
+                    $accessToken,
+                    $this->jsonWebTokenBuilderService->getSigner()->algorithmId()
+                )
             );
         }
 
         if (null !== $acr) {
             $builder->withClaim('acr', $acr);
+        }
+
+        if (null !== $sessionId) {
+            $builder->withClaim('sid', $sessionId);
         }
 
         // Need a claim factory here to reduce the number of claims by provided scope.
@@ -100,19 +92,19 @@ class IdTokenBuilder
                     $builder->permittedFor($claimValue);
                     break;
                 case RegisteredClaims::EXPIRATION_TIME:
-                    $builder->expiresAt(new \DateTimeImmutable('@' . $claimValue));
+                    $builder->expiresAt(new DateTimeImmutable('@' . $claimValue));
                     break;
                 case RegisteredClaims::ID:
                     $builder->identifiedBy($claimValue);
                     break;
                 case RegisteredClaims::ISSUED_AT:
-                    $builder->issuedAt(new \DateTimeImmutable('@' . $claimValue));
+                    $builder->issuedAt(new DateTimeImmutable('@' . $claimValue));
                     break;
                 case RegisteredClaims::ISSUER:
                     $builder->issuedBy($claimValue);
                     break;
                 case RegisteredClaims::NOT_BEFORE:
-                    $builder->canOnlyBeUsedAfter(new \DateTimeImmutable('@' . $claimValue));
+                    $builder->canOnlyBeUsedAfter(new DateTimeImmutable('@' . $claimValue));
                     break;
                 case RegisteredClaims::SUBJECT:
                     $builder->relatedTo($claimValue);
@@ -124,29 +116,20 @@ class IdTokenBuilder
             }
         }
 
-        $kid = FingerprintGenerator::forFile($this->configurationService->getCertPath());
-
-        return $builder->withHeader('kid', $kid)
-            ->getToken(
-                $jwtConfig->signer(),
-                $jwtConfig->signingKey()
-            );
+        return $this->jsonWebTokenBuilderService->getSignedJwtTokenFromBuilder($builder);
     }
 
     protected function getBuilder(
-        Configuration $jwtConfig,
         AccessTokenEntityInterface $accessToken,
         UserEntityInterface $userEntity
-    ) {
-        // Ignore microseconds when handling dates.
-        return $jwtConfig->builder(ChainedFormatter::withUnixTimestampDates())
-            ->issuedBy($this->configurationService->getSimpleSAMLSelfURLHost())
+    ): Builder {
+        return $this->jsonWebTokenBuilderService
+            ->getDefaultJwtTokenBuilder()
             ->permittedFor($accessToken->getClient()->getIdentifier())
             ->identifiedBy($accessToken->getIdentifier())
-            ->canOnlyBeUsedAfter(new \DateTimeImmutable('now'))
+            ->canOnlyBeUsedAfter(new DateTimeImmutable('now'))
             ->expiresAt($accessToken->getExpiryDateTime())
-            ->relatedTo($userEntity->getIdentifier())
-            ->issuedAt(new \DateTimeImmutable('now'));
+            ->relatedTo($userEntity->getIdentifier());
     }
 
     /**
@@ -161,11 +144,11 @@ class IdTokenBuilder
         $jwsAlgorithmBitLength = (int) substr($jwsAlgorithm, 2);
 
         if (! in_array($jwsAlgorithmBitLength, $validBitLengths, true)) {
-            throw new \RuntimeException(sprintf('JWS algorithm not supported (%s)', $jwsAlgorithm));
+            throw new RuntimeException(sprintf('JWS algorithm not supported (%s)', $jwsAlgorithm));
         }
 
         if ($accessToken instanceof EntityStringRepresentationInterface === false) {
-            throw new \RuntimeException('AccessTokenEntity must implement ' .
+            throw new RuntimeException('AccessTokenEntity must implement ' .
                                         EntityStringRepresentationInterface::class);
         }
 
