@@ -19,6 +19,10 @@ Installation can be as easy as executing:
 
 Once you install and configure the module checkout the [FAQ](FAQ.md)
 
+## Upgrading?
+
+If you are upgrading versions checkout the [upgrade guide](UPGRADE.md)
+
 ### Configure the database
 
 Edit your `config/config.php` and check you configured at least the next parameters from the _database_ section:

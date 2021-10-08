@@ -15,4 +15,4 @@
 use SimpleSAML\Module\oidc\Controller\OpenIdConnectInstallerController;
 use SimpleSAML\Module\oidc\Services\RoutingService;
 
-RoutingService::call(OpenIdConnectInstallerController::class, false);
+RoutingService::call(OpenIdConnectInstallerController::class, true);
