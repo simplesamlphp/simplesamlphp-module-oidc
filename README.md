@@ -143,11 +143,11 @@ The oidc library used generates Json Web Tokens to create the Access Tokens, so 
 
 To generate the private key run this command on the terminal:
 
-    openssl genrsa -out cert/oidc_module.pem 1024
+    openssl genrsa -out cert/oidc_module.pem 2048
 
 If you want to provide a passphrase for your private key run this command instead:
 
-    openssl genrsa -passout pass:myPassPhrase -out cert/oidc_module.pem 1024
+    openssl genrsa -passout pass:myPassPhrase -out cert/oidc_module.pem 2048
 
 Now you need to extract the public key from the private key:
 
