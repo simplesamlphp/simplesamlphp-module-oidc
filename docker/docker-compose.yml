@@ -30,7 +30,6 @@ services:
       - ./docker/ssp/authsources.php:/var/simplesamlphp/config/authsources.php:ro
       - ./docker/ssp/config-override.php:/var/simplesamlphp/config/config-override.php:ro
       - ./docker/apache-override.cf:/etc/apache2/sites-enabled/ssp-override.cf:ro
-#    image: cirrusid/simplesamlphp:1.19.0
 # oidc-rp still need work
 #  oidc-rp:
 #    ports:
