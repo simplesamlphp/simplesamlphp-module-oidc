@@ -99,9 +99,7 @@ class ClientEntity implements ClientEntityInterface
         $client->isEnabled = (bool) $state['is_enabled'];
         $client->isConfidential = (bool) ($state['is_confidential'] ?? false);
         $client->owner = $state['owner'] ?? null;
-        $client->postLogoutRedirectUri = $state['post_logout_redirect_uri'] !== null ?
-            json_decode($state['post_logout_redirect_uri'], true) :
-            [];
+        $client->postLogoutRedirectUri = json_decode($state['post_logout_redirect_uri']??"[]",true);
         $client->backChannelLogoutUri = $state['backchannel_logout_uri'] ?? null;
 
         return $client;
