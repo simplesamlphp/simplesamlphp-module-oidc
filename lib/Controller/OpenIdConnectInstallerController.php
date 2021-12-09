@@ -63,7 +63,7 @@ class OpenIdConnectInstallerController
     public function __invoke(ServerRequest $request)
     {
         if ($this->databaseMigration->isUpdated()) {
-            return new RedirectResponse(HTTP::addURLParameters('admin-clients/index.php', []));
+            return new RedirectResponse((new HTTP())->addURLParameters('admin-clients/index.php', []));
         }
 
         $oauth2Enabled = \in_array('oauth2', Module::getModules(), true);
@@ -78,7 +78,7 @@ class OpenIdConnectInstallerController
                 $this->messages->addMessage('{oidc:import:finished}');
             }
 
-            return new RedirectResponse(HTTP::addURLParameters('admin-clients/index.php', []));
+            return new RedirectResponse((new HTTP())->addURLParameters('admin-clients/index.php', []));
         }
 
         return $this->templateFactory->render('oidc:install.twig', [

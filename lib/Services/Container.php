@@ -221,7 +221,7 @@ class Container implements ContainerInterface
         );
         $publicKey = $cryptKeyFactory->buildPublicKey();
         $privateKey = $cryptKeyFactory->buildPrivateKey();
-        $encryptionKey = Config::getSecretSalt();
+        $encryptionKey = (new Config())->getSecretSalt();
 
         $jsonWebTokenBuilderService = new JsonWebTokenBuilderService($configurationService);
         $this->services[JsonWebTokenBuilderService::class] = $jsonWebTokenBuilderService;

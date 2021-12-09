@@ -74,7 +74,7 @@ class ConfigurationService
 
     public function getSimpleSAMLSelfURLHost(): string
     {
-        return HTTP::getSelfURLHost();
+        return (new HTTP())->getSelfURLHost();
     }
 
     public function getOpenIdConnectModuleURL(string $path = null): string
@@ -195,8 +195,8 @@ class ConfigurationService
      */
     public function getCertPath(): string
     {
-        $certName = $this->getOpenIDConnectConfiguration()->getString('certificate', 'oidc_module.crt');
-        return Config::getCertPath($certName);
+        $keyName = $this->getOpenIDConnectConfiguration()->getOptionalString('privatekey', 'oidc_module.crt');
+        return (new Config())->getCertPath($keyName);
     }
 
     /**
@@ -205,8 +205,8 @@ class ConfigurationService
      */
     public function getPrivateKeyPath(): string
     {
-        $keyName = $this->getOpenIDConnectConfiguration()->getString('privatekey', 'oidc_module.pem');
-        return Config::getCertPath($keyName);
+        $keyName = $this->getOpenIDConnectConfiguration()->getOptionalString('privatekey', 'oidc_module.key');
+        return (new Config())->getCertPath($keyName);
     }
 
     /**
