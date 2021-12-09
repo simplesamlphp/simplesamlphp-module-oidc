@@ -72,8 +72,8 @@ class ClientCreateController
 
         if ($form->isSuccess()) {
             $client = $form->getValues();
-            $client['id'] = Random::generateID();
-            $client['secret'] = Random::generateID();
+            $client['id'] = (new Random())->generateID();
+            $client['secret'] = (new Random())->generateID();
             if (!$this->authContextService->isSspAdmin()) {
                 $client['owner'] = $this->authContextService->getAuthUserId();
             }

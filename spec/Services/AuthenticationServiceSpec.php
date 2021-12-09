@@ -135,6 +135,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
         ClaimTranslatorExtractor $claimTranslatorExtractor
     ): void {
         $clientId = 'client123';
+        $source->getAuthId()->willReturn('theAuthId');
         $simple->isAuthenticated()->shouldBeCalled()->willReturn(false);
         $simple->login([])->shouldBeCalled();
         $simple->getAuthSource()->shouldBeCalled()->willReturn($source);
@@ -176,6 +177,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
     ): void {
         $clientId = 'client123';
         $userId = 'user123';
+        $source->getAuthId()->willReturn('theAuthId');
         $simple->isAuthenticated()->shouldBeCalled()->willReturn(false);
         $simple->login([])->shouldBeCalled();
         $simple->getAuthSource()->shouldBeCalled()->willReturn($source);
@@ -205,6 +207,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
         Source $source,
         SessionService $sessionService
     ): void {
+        $source->getAuthId()->willReturn('theAuthId');
         $simple->isAuthenticated()->shouldBeCalled()->willReturn(false);
         $simple->login([])->shouldBeCalled();
         $simple->getAuthSource()->shouldBeCalled()->willReturn($source);

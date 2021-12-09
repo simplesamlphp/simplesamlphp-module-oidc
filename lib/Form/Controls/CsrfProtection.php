@@ -40,7 +40,7 @@ class CsrfProtection extends BaseCsrfProtection
         $token = $session->getData('form_csrf', 'token');
 
         if (!$token) {
-            $token = Random::generate();
+            $token = (new Random())->generate();
             $session->setData('form_csrf', 'token', $token);
         }
 
