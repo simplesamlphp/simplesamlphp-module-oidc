@@ -72,7 +72,7 @@ class ClaimTranslatorExtractorTest extends TestCase
             ],
             'urn:oid:2.5.4.3' => ['stringAttribute']
         ];
-        $userAttributes = Attributes::normalizeAttributesArray(
+        $userAttributes = (new Attributes())->normalizeAttributesArray(
             [
                 'intAttribute' => '7890',
                 'boolAttribute1' => '1',
@@ -113,7 +113,7 @@ class ClaimTranslatorExtractorTest extends TestCase
     public function testDefaultTypeConversion(): void
     {
         // Address is the only non-string attribute with a default saml source
-        $userAttributes = Attributes::normalizeAttributesArray(
+        $userAttributes = (new Attributes())->normalizeAttributesArray(
             [
                 'postalAddress' => 'myAddress'
             ]
@@ -159,7 +159,7 @@ class ClaimTranslatorExtractorTest extends TestCase
                 ]
             ],
         ];
-        $userAttributes = Attributes::normalizeAttributesArray(
+        $userAttributes = (new Attributes())->normalizeAttributesArray(
             [
                 'country' => 'CA',
                 'postal' => '93105',
@@ -200,7 +200,7 @@ class ClaimTranslatorExtractorTest extends TestCase
                 'testClaim'
             ],
         ];
-        $userAttributes = Attributes::normalizeAttributesArray(['testClaim' => '7890F',]);
+        $userAttributes = (new Attributes())->normalizeAttributesArray(['testClaim' => '7890F',]);
         $claimTranslator = new ClaimTranslatorExtractor(self::$userIdAttr, [$claimSet], $translate);
         $claimTranslator->extract(['typeConversion'], $userAttributes);
     }

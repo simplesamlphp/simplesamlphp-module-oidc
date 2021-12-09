@@ -71,7 +71,7 @@ class ClientDeleteController
             $this->clientRepository->delete($client, $authedUser);
             $this->messages->addMessage('{oidc:client:removed}');
 
-            return new RedirectResponse(HTTP::addURLParameters('index.php', []));
+            return new RedirectResponse((new HTTP())->addURLParameters('index.php', []));
         }
 
         return $this->templateFactory->render('oidc:clients/delete.twig', [

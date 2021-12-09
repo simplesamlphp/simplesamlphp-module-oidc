@@ -75,10 +75,10 @@ class MaxAgeRule extends AbstractRule
         $isExpired = $lastAuth + $maxAge < time();
 
         if ($isExpired) {
-            $queryParams = HTTP::parseQueryString($request->getUri()->getQuery());
+            $queryParams = (new HTTP())->parseQueryString($request->getUri()->getQuery());
             unset($queryParams['prompt']);
             $loginParams = [];
-            $loginParams['ReturnTo'] = HTTP::addURLParameters(HTTP::getSelfURLNoQuery(), $queryParams);
+            $loginParams['ReturnTo'] = (new HTTP())->addURLParameters((new HTTP())->getSelfURLNoQuery(), $queryParams);
 
             $this->authenticationService->getAuthenticateUser($request, $loginParams, true);
         }
