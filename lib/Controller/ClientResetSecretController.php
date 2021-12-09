@@ -59,7 +59,7 @@ class ClientResetSecretController
                 throw new BadRequest('Client secret is invalid.');
             }
 
-            $client->restoreSecret(Random::generateID());
+            $client->restoreSecret((new Random())->generateID());
             $authedUser = $this->authContextService->isSspAdmin() ? null : $this->authContextService->getAuthUserId();
             $this->clientRepository->update($client, $authedUser);
             $this->messages->addMessage('{oidc:client:secret_updated}');

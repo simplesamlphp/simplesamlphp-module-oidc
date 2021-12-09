@@ -41,7 +41,7 @@ class RoutingService
     public static function call(string $controllerClassname, bool $authenticated = true, bool $jsonResponse = false)
     {
         if ($authenticated) {
-            Auth::requireAdmin();
+            (new Auth())->requireAdmin();
         }
 
         if ($jsonResponse) {

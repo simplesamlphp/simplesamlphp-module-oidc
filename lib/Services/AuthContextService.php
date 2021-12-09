@@ -41,14 +41,14 @@ class AuthContextService
 
     public function isSspAdmin(): bool
     {
-        return Auth::isAdmin();
+        return (new Auth())->isAdmin();
     }
 
     public function getAuthUserId(): string
     {
         $simple = $this->authenticate();
         $userIdAttr = $this->configurationService->getOpenIDConnectConfiguration()->getString('useridattr');
-        return Attributes::getExpectedAttribute($simple->getAttributes(), $userIdAttr);
+        return (new Attributes())->getExpectedAttribute($simple->getAttributes(), $userIdAttr);
     }
 
     /**
