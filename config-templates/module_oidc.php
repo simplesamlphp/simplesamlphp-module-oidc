@@ -18,6 +18,9 @@ $config = [
 
     // The private key passphrase (optional)
     // 'pass_phrase' => 'secret',
+    // The cert and key for signing the ID token. Default names are oidc_module.pem and oidc_module.crt
+    // 'privatekey' => 'oidc_module.pem',
+    // 'certificate' => 'oidc_module.crt',
 
     // Tokens TTL
     'authCodeDuration' => 'PT10M', // 10 minutes
