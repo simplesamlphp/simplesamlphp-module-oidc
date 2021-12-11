@@ -41,7 +41,7 @@ This module used the new twig template system, so you need to configure the next
 
 Copy the template file to the config directory:
 
-    cp modules/oidc/config-template/module_oidc.php config/
+    cp modules/oidc/config-templates/module_oidc.php config/
 
 and edit it. The options are self explained.
 
