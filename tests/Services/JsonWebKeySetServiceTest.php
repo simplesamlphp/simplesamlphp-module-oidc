@@ -18,6 +18,7 @@ use Jose\Component\Core\JWKSet;
 use Jose\Component\KeyManagement\JWKFactory;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
 use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
 
@@ -50,6 +51,11 @@ class JsonWebKeySetServiceTest extends TestCase
         openssl_pkey_free($pkGenerate);
 
         file_put_contents(sys_get_temp_dir() . '/oidc_module.crt', self::$pkGeneratePublic);
+
+        Configuration::setPreLoadedConfig(
+            Configuration::loadFromArray([]),
+            'module_oidc.php'
+        );
     }
 
     /**
@@ -57,6 +63,7 @@ class JsonWebKeySetServiceTest extends TestCase
      */
     public static function tearDownAfterClass(): void
     {
+        Configuration::clearInternalState();
         unlink(sys_get_temp_dir() . '/oidc_module.crt');
     }
 
@@ -79,7 +86,7 @@ class JsonWebKeySetServiceTest extends TestCase
         ]);
         $JWKSet = new JWKSet([$jwk]);
 
-        $jsonWebKeySetService = new JsonWebKeySetService();
+        $jsonWebKeySetService = new JsonWebKeySetService(new ConfigurationService());
 
         $this->assertEquals($JWKSet->all(), $jsonWebKeySetService->keys());
     }
@@ -87,12 +94,13 @@ class JsonWebKeySetServiceTest extends TestCase
     public function testCertificationFileNotFound(): void
     {
         $this->expectException(\Exception::class);
+        $this->expectExceptionMessageMatches('/OpenId Connect certification file does not exists/');
 
         $config = [
             'certdir' => __DIR__,
         ];
         Configuration::loadFromArray($config, '', 'simplesaml');
 
-        new JsonWebKeySetService();
+        new JsonWebKeySetService(new ConfigurationService());
     }
 }
