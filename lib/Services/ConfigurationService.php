@@ -192,7 +192,8 @@ class ConfigurationService
      */
     public function getCertPath(): string
     {
-        return (new Config())->getCertPath('oidc_module.crt');
+        $certName = $this->getOpenIDConnectConfiguration()->getString('certificate', 'oidc_module.crt');
+        return (new Config())->getCertPath($certName);
     }
 
     /**
@@ -201,7 +202,8 @@ class ConfigurationService
      */
     public function getPrivateKeyPath(): string
     {
-        return (new Config())->getCertPath('oidc_module.pem');
+        $keyName = $this->getOpenIDConnectConfiguration()->getString('privatekey', 'oidc_module.pem');
+        return (new Config())->getCertPath($keyName);
     }
 
     /**

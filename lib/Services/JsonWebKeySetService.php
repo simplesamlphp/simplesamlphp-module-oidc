@@ -27,9 +27,14 @@ class JsonWebKeySetService
      */
     private $jwkSet;
 
-    public function __construct()
+    /**
+     * @param ConfigurationService $configurationService
+     * @throws Exception
+     */
+    public function __construct(ConfigurationService $configurationService)
     {
-        $publicKeyPath = (new Config())->getCertPath('oidc_module.crt');
+
+        $publicKeyPath = $configurationService->getCertPath();
 
         if (!file_exists($publicKeyPath)) {
             throw new Exception("OpenId Connect certification file does not exists: {$publicKeyPath}.");

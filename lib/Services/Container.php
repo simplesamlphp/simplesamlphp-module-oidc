@@ -131,7 +131,7 @@ class Container implements ContainerInterface
         $formFactory = new FormFactory($configurationService);
         $this->services[FormFactory::class] = $formFactory;
 
-        $jsonWebKeySetService = new JsonWebKeySetService();
+        $jsonWebKeySetService = new JsonWebKeySetService($configurationService);
         $this->services[JsonWebKeySetService::class] = $jsonWebKeySetService;
 
         $session = Session::getSessionFromRequest();
