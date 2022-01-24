@@ -8,6 +8,7 @@ use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface as OAuth2AccessTokenRepositoryInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
@@ -17,6 +18,8 @@ use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator
+ *
+ * @backupGlobals enabled
  */
 class BearerTokenValidatorTest extends TestCase
 {
@@ -95,8 +98,20 @@ class BearerTokenValidatorTest extends TestCase
 
     public static function setUpBeforeClass(): void
     {
-        self::$publicKeyPath = sys_get_temp_dir() . '/oidc_module.crt';
-        self::$privateKeyPath = sys_get_temp_dir() . '/oidc_module.key';
+        // To make lib/SimpleSAML/Utils/HTTP::getSelfURL() work...
+        global $_SERVER;
+        $_SERVER['REQUEST_URI'] = '';
+
+        $tempDir = sys_get_temp_dir();
+
+        // Plant certdir config for JsonWebTokenBuilderService (since we don't inject it)
+        $config = [
+            'certdir' => $tempDir,
+        ];
+        Configuration::loadFromArray($config, '', 'simplesaml');
+
+        self::$publicKeyPath = $tempDir . '/oidc_module.crt';
+        self::$privateKeyPath = $tempDir . '/oidc_module.pem';
 
         $pkGenerate = openssl_pkey_new([
                                            'private_key_bits' => 1024,
