@@ -19,7 +19,6 @@ use Throwable;
  */
 class RequestedClaimsRuleTest extends TestCase
 {
-
     protected ResultBag $resultBag;
     protected $clientStub;
     protected $request;
