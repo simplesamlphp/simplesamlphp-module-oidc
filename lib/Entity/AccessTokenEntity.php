@@ -14,15 +14,19 @@
 
 namespace SimpleSAML\Module\oidc\Entity;
 
+use DateTimeImmutable;
+use Lcobucci\JWT\Token;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Entities\Traits\AccessTokenTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\TokenEntityTrait;
+use League\OAuth2\Server\Exception\OAuthServerException;
 use SimpleSAML\Module\oidc\Entity\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\Entity\Traits\AssociateWithAuthCodeTrait;
 use SimpleSAML\Module\oidc\Entity\Traits\RevokeTokenTrait;
+use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 class AccessTokenEntity implements
@@ -120,8 +124,6 @@ class AccessTokenEntity implements
         $this->requestedClaims = $requestedClaims;
     }
 
-
-
     /**
      * {@inheritdoc}
      */
@@ -142,6 +144,7 @@ class AccessTokenEntity implements
     /**
      * Generate string representation, save it in a field, and return it.
      * @return string
+     * @throws OAuthServerException
      */
     public function __toString()
     {
@@ -155,5 +158,28 @@ class AccessTokenEntity implements
     public function toString(): ?string
     {
         return $this->stringRepresentation;
+    }
+
+    /**
+     * Implemented instead of original AccessTokenTrait::convertToJWT() method in order to remove microseconds from
+     * timestamps and to add claims like iss, etc., by using our own JWT builder service.
+     *
+     * @return Token
+     * @throws OAuthServerException
+     */
+    protected function convertToJWT(): Token
+    {
+        $jwtBuilderService = new JsonWebTokenBuilderService();
+
+        $jwtBuilder = $jwtBuilderService->getDefaultJwtTokenBuilder()
+            ->permittedFor($this->getClient()->getIdentifier())
+            ->identifiedBy($this->getIdentifier())
+            ->issuedAt(new DateTimeImmutable())
+            ->canOnlyBeUsedAfter(new DateTimeImmutable())
+            ->expiresAt($this->getExpiryDateTime())
+            ->relatedTo((string) $this->getUserIdentifier())
+            ->withClaim('scopes', $this->getScopes());
+
+        return $jwtBuilderService->getSignedJwtTokenFromBuilder($jwtBuilder);
     }
 }
