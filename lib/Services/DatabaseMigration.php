@@ -292,13 +292,14 @@ EOT
     {
         $allowedOriginTableName = $this->database->applyPrefix(AllowedOriginRepository::TABLE_NAME);
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $pkAllowedOriginClient = $this->generateIdentifierName([$allowedOriginTableName, 'client_id', 'origin'], 'pk');
         $fkAllowedOriginClient = $this->generateIdentifierName([$allowedOriginTableName, 'client_id'], 'fk');
 
         $this->database->write(<<< EOT
         CREATE TABLE ${allowedOriginTableName} (
             client_id VARCHAR(191) NOT NULL,
             origin VARCHAR(191) NOT NULL,
-            CONSTRAINT PK_ALLOWED_ORIGIN PRIMARY KEY (client_id, origin),
+            CONSTRAINT {$pkAllowedOriginClient} PRIMARY KEY (client_id, origin),
             CONSTRAINT {$fkAllowedOriginClient} FOREIGN KEY (client_id)
                 REFERENCES ${clientTableName} (id) ON DELETE CASCADE
         )
