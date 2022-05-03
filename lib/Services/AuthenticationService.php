@@ -17,6 +17,7 @@ namespace SimpleSAML\Module\oidc\Services;
 use Exception;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Auth\Simple;
+use SimpleSAML\Auth\State;
 use SimpleSAML\Error;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Controller\LogoutController;
@@ -163,6 +164,8 @@ class AuthenticationService
         // Source and destination entity IDs, useful for eg. F-ticks logging...
         $state['Source'] = ['entityid' => $state['Oidc']['OpenIdProviderMetadata']['issuer']];
         $state['Destination'] = ['entityid' => $state['Oidc']['RelyingPartyMetadata']['id']];
+
+        $state[State::RESTART] = $request->getUri()->__toString();
 
         return $state;
     }

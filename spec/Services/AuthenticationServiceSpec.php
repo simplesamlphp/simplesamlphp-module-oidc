@@ -15,6 +15,7 @@
 namespace spec\SimpleSAML\Module\oidc\Services;
 
 use Laminas\Diactoros\ServerRequest;
+use Laminas\Diactoros\Uri;
 use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
 use SimpleSAML\Auth\Simple;
@@ -56,6 +57,10 @@ class AuthenticationServiceSpec extends ObjectBehavior
         ],
     ];
 
+    public static $uri = 'https://some-server/authorize.php?abc=efg';
+
+
+
     /**
      * @param ServerRequest $request
      * @param ClientEntity $clientEntity
@@ -81,6 +86,7 @@ class AuthenticationServiceSpec extends ObjectBehavior
         ClaimTranslatorExtractor $claimTranslatorExtractor
     ): void {
         $request->getQueryParams()->willReturn(self::AUTHZ_REQUEST_PARAMS);
+        $request->getUri()->willReturn(new Uri(self::$uri));
         $clientEntity->getAuthSourceId()->willReturn(self::AUTH_SOURCE);
         $clientEntity->toArray()->willReturn(self::CLIENT_ENTITY);
         $clientRepository->findById(self::CLIENT_ENTITY['id'])->willReturn($clientEntity);
