@@ -32,6 +32,7 @@ class LogoutTokenBuilderTest extends TestCase
     private static string $userId = 'user123';
     private static string $sessionId = 'session123';
     private static string $backChannelLogoutUri = 'https//some-host.org/logout';
+    private static string $logoutTokenType = 'logout+jwt';
     /**
      * @var mixed
      */
@@ -106,5 +107,8 @@ class LogoutTokenBuilderTest extends TestCase
                 )
             )
         );
+
+        $this->assertTrue($parsedToken->headers()->has('typ'));
+        $this->assertSame($parsedToken->headers()->get('typ'), self::$logoutTokenType);
     }
 }
