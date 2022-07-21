@@ -23,6 +23,7 @@ class LogoutTokenBuilder
     {
         $logoutTokenBuilder = $this->jsonWebTokenBuilderService
             ->getDefaultJwtTokenBuilder()
+            ->withHeader('typ', 'logout+jwt')
             ->permittedFor($relyingPartyAssociation->getClientId())
             ->relatedTo($relyingPartyAssociation->getUserId())
             ->withClaim('events', ['http://schemas.openid.net/event/backchannel-logout' => new stdClass()])
