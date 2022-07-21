@@ -17,6 +17,7 @@
     <!-- Ignore deprecated classes -->
     <ignoreFiles>
        <directory name="www/assets" />
+       <file name="vendor/bin/psalm" />
     </ignoreFiles>
   </projectFiles>
 
@@ -45,7 +46,7 @@
     <!-- Ignore UnresolvableInclude on CLI-scripts -->
     <UnresolvableInclude>
         <errorLevel type="suppress">
-            <file name="tests/bootstrap.php" />
+          <file name="tests/bootstrap.php" />
         </errorLevel>
     </UnresolvableInclude>
   </issueHandlers>
