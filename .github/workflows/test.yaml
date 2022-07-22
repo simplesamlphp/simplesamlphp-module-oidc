@@ -194,15 +194,15 @@ jobs:
         uses: codecov/codecov-action@v1
 
       - name: PHP Code Sniffer
-        continue-on-error: true
+        if: always()
         run: php vendor/bin/phpcs
 
       - name: Psalm
-        continue-on-error: true
+        if: always()
         run: php vendor/bin/psalm --show-info=true
 
       - name: Psalter
-        continue-on-error: true
+        if: always()
         run: php vendor/bin/psalter --issues=UnnecessaryVarAnnotation --dry-run
 
   build-conformance-suite:
