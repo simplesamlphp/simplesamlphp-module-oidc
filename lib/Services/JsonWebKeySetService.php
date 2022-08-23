@@ -33,7 +33,6 @@ class JsonWebKeySetService
      */
     public function __construct(ConfigurationService $configurationService)
     {
-
         $publicKeyPath = $configurationService->getCertPath();
 
         if (!file_exists($publicKeyPath)) {
