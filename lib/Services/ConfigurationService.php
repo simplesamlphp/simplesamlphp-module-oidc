@@ -101,7 +101,7 @@ class ConfigurationService
      */
     public function getOpenIDPrivateScopes(): array
     {
-        return $this->getOpenIDConnectConfiguration()->getArray('scopes', []);
+        return $this->getOpenIDConnectConfiguration()->getOptionalArray('scopes', []);
     }
 
     /**
@@ -177,7 +177,7 @@ class ConfigurationService
     public function getSigner(): Signer
     {
         /** @psalm-var class-string $signerClassname */
-        $signerClassname = (string) $this->getOpenIDConnectConfiguration()->getString('signer', Sha256::class);
+        $signerClassname = (string) $this->getOpenIDConnectConfiguration()->getOptionalString('signer', Sha256::class);
 
         $class = new ReflectionClass($signerClassname);
         $signer = $class->newInstance();
@@ -195,8 +195,8 @@ class ConfigurationService
      */
     public function getCertPath(): string
     {
-        $keyName = $this->getOpenIDConnectConfiguration()->getOptionalString('privatekey', 'oidc_module.crt');
-        return (new Config())->getCertPath($keyName);
+        $certName = $this->getOpenIDConnectConfiguration()->getOptionalString('certificate', 'oidc_module.crt');
+        return (new Config())->getCertPath($certName);
     }
 
     /**
@@ -216,7 +216,7 @@ class ConfigurationService
      */
     public function getPrivateKeyPassPhrase(): ?string
     {
-        return $this->getOpenIDConnectConfiguration()->getString('pass_phrase', null);
+        return $this->getOpenIDConnectConfiguration()->getOptionalString('pass_phrase', null);
     }
 
     /**
@@ -227,7 +227,7 @@ class ConfigurationService
      */
     public function getAuthProcFilters(): array
     {
-        return $this->getOpenIDConnectConfiguration()->getArray('authproc.oidc', []);
+        return $this->getOpenIDConnectConfiguration()->getOptionalArray('authproc.oidc', []);
     }
 
     /**
@@ -238,7 +238,7 @@ class ConfigurationService
      */
     public function getAcrValuesSupported(): array
     {
-        return array_values($this->getOpenIDConnectConfiguration()->getArray('acrValuesSupported', []));
+        return array_values($this->getOpenIDConnectConfiguration()->getOptionalArray('acrValuesSupported', []));
     }
 
     /**
@@ -249,7 +249,7 @@ class ConfigurationService
      */
     public function getAuthSourcesToAcrValuesMap(): array
     {
-        return $this->getOpenIDConnectConfiguration()->getArray('authSourcesToAcrValuesMap', []);
+        return $this->getOpenIDConnectConfiguration()->getOptionalArray('authSourcesToAcrValuesMap', []);
     }
 
     /**
