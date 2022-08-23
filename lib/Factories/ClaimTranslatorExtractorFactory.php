@@ -40,7 +40,8 @@ class ClaimTranslatorExtractorFactory
      */
     public function build(): ClaimTranslatorExtractor
     {
-        $translatorTable = $this->configurationService->getOpenIDConnectConfiguration()->getArray('translate', []);
+        $translatorTable = $this->configurationService->getOpenIDConnectConfiguration()
+            ->getOptionalArray('translate', []);
 
         $privateScopes = $this->configurationService->getOpenIDPrivateScopes();
 

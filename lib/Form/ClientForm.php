@@ -110,6 +110,7 @@ class ClientForm extends Form
      */
     public function getValues($asArray = false): array
     {
+        /** @var array $values */
         $values = parent::getValues(true);
 
         // Sanitize redirect_uri and allowed_origin
