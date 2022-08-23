@@ -2,7 +2,6 @@
 <psalm
   name="SimpleSAMLphp"
   useDocblockTypes="true"
-  totallyTyped="false"
   hideExternalErrors="true"
 >
   <projectFiles>
@@ -23,6 +22,7 @@
 
   <issueHandlers>
     <LessSpecificReturnType errorLevel="info" />
+    <LessSpecificImplementedReturnType errorLevel="info" />
 
     <!-- level 3 issues - slightly lazy code writing, but probably low false-negatives -->
     <DeprecatedMethod errorLevel="info" />
@@ -31,7 +31,6 @@
     <MissingReturnType errorLevel="info" />
     <MissingPropertyType errorLevel="info" />
     <InvalidDocblock errorLevel="info" />
-    <MisplacedRequiredParam errorLevel="info" />
 
     <PropertyNotSetInConstructor errorLevel="info" />
     <MissingConstructor errorLevel="info" />
