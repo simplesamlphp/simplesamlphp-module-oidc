@@ -38,7 +38,7 @@ class IdTokenResponseSpec extends ObjectBehavior
     public const ISSUER = 'someIssuer';
     public const CLIENT_ID = 'clientId';
     public const SUBJECT = 'userId';
-    public const KEY_ID = 'f0687e30bc113bef19f5ec6762f902e0';
+    public const KEY_ID = 'bafd184e90a88107054f4bc05f5e7a76';
     public const USER_ID_ATTR = 'uid';
 
     private $certFolder;
