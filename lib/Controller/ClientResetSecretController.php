@@ -65,6 +65,8 @@ class ClientResetSecretController
             $this->messages->addMessage('{oidc:client:secret_updated}');
         }
 
-        return new RedirectResponse((new HTTP())->addURLParameters('show.php', ['client_id' => $client->getIdentifier()]));
+        return new RedirectResponse(
+            (new HTTP())->addURLParameters('show.php', ['client_id' => $client->getIdentifier()])
+        );
     }
 }
