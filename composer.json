@@ -42,8 +42,8 @@
         "phpunit/php-code-coverage": "^9.0.0",
         "phpunit/phpcov": "^8.2.0",
         "phpunit/phpunit": "^9.0.0",
-        "simplesamlphp/simplesamlphp": "v2.0.0-beta.1",
-        "simplesamlphp/simplesamlphp-test-framework": "^1.1.4"
+        "simplesamlphp/simplesamlphp": "v2.0.0-rc1",
+        "simplesamlphp/simplesamlphp-test-framework": "^1.2.1"
     },
     "config": {
         "preferred-install": {
