@@ -259,7 +259,7 @@ class ConfigurationService
     public function getForcedAcrValueForCookieAuthentication(): ?string
     {
         $value = $this->getOpenIDConnectConfiguration()
-            ->getValue('forcedAcrValueForCookieAuthentication');
+            ->getOptionalValue('forcedAcrValueForCookieAuthentication', null);
 
         if (is_null($value)) {
             return null;
