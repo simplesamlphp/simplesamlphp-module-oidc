@@ -273,7 +273,7 @@ EOF
      */
     private function getItemsPerPage(): int
     {
-        return $this->config->getIntegerRange('items_per_page', 1, 100, 20);
+        return $this->config->getOptionalIntegerRange('items_per_page', 1, 100, 20);
     }
 
     /**
