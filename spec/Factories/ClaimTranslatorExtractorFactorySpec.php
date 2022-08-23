@@ -8,7 +8,6 @@ use SimpleSAML\Module\oidc\Services\ConfigurationService;
 
 class ClaimTranslatorExtractorFactorySpec extends ObjectBehavior
 {
-
     public function it_sets_private_scope_prefixes_and_types(ConfigurationService $configurationService)
     {
         $configurationService->getOpenIDConnectConfiguration()->willReturn(

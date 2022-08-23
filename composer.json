@@ -49,7 +49,10 @@
         "preferred-install": {
             "*": "dist"
         },
-        "sort-packages": true
+        "sort-packages": true,
+        "allow-plugins": {
+            "simplesamlphp/composer-module-installer": true
+        }
     },
     "autoload": {
         "psr-4": {

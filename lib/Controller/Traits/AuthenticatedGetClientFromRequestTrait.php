@@ -23,7 +23,6 @@ use SimpleSAML\Module\oidc\Services\AuthContextService;
 
 trait AuthenticatedGetClientFromRequestTrait
 {
-
     /**
      * @var ClientRepository
      */

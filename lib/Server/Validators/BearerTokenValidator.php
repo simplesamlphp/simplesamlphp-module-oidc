@@ -63,7 +63,7 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
     {
         $this->jwtConfiguration = Configuration::forSymmetricSigner(
             new Sha256(),
-            InMemory::plainText('')
+            InMemory::empty()
         );
 
         $this->jwtConfiguration->setValidationConstraints(
