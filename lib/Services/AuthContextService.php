@@ -60,7 +60,7 @@ class AuthContextService
     {
         $auth = $this->authenticate();
 
-        $permissions = $this->configurationService->getOpenIDConnectConfiguration()->getConfigItem('permissions', []);
+        $permissions = $this->configurationService->getOpenIDConnectConfiguration()->getOptionalConfigItem('permissions', []);
         if (is_null($permissions) || !$permissions->hasValue('attribute')) {
             throw new \RuntimeException('Permissions not enabled');
         }
