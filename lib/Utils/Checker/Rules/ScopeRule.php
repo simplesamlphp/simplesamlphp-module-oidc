@@ -53,7 +53,8 @@ class ScopeRule extends AbstractRule
             $scope = $this->scopeRepository->getScopeEntityByIdentifier($scopeItem);
 
             if ($scope instanceof ScopeEntityInterface === false) {
-                throw OidcServerException::invalidScope($scopeItem, $redirectUri, $state);
+                $loggerService->info("Ignoring invalid scope '$scopeItem'");
+                continue;
             }
 
             $validScopes[] = $scope;

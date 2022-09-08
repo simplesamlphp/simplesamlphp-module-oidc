@@ -112,21 +112,26 @@ class ScopeRuleTest extends TestCase
     /**
      * @throws Throwable
      */
-    public function testInvalidScopeThrows(): void
+    public function testInvalidScopeAreIgnored(): void
     {
         $resultBag = $this->prepareValidResultBag();
-        $this->requestStub->method('getQueryParams')->willReturn(['scope' => 'openid']);
+        $this->requestStub->method('getQueryParams')->willReturn(['scope' => 'openid invalid-scope profile']);
         $this->scopeRepositoryStub
             ->method('getScopeEntityByIdentifier')
-            ->willReturn(
-                $this->onConsecutiveCalls(
-                    'invalid-scope-entity'
-                )
+            ->willReturnMap(
+                [
+                    ['openid', $this->scopeEntities['openid'] ],
+                    ['invalid-scope', null ],
+                    ['profile', $this->scopeEntities['profile'] ],
+                ]
             );
 
-        $this->expectException(OidcServerException::class);
-        (new ScopeRule($this->scopeRepositoryStub))
-            ->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->data);
+  $result = (new ScopeRule($this->scopeRepositoryStub))
+      ->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->data);
+        $this->assertInstanceOf(ResultInterface::class, $result);
+        $this->assertIsArray($result->getValue());
+        $this->assertSame($this->scopeEntities['openid'], $result->getValue()[0]);
+        $this->assertSame($this->scopeEntities['profile'], $result->getValue()[1]);
     }
 
     protected function prepareValidResultBag(): ResultBag
