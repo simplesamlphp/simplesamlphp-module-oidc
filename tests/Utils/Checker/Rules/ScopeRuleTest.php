@@ -126,8 +126,8 @@ class ScopeRuleTest extends TestCase
                 ]
             );
 
-  $result = (new ScopeRule($this->scopeRepositoryStub))
-      ->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->data);
+        $result = (new ScopeRule($this->scopeRepositoryStub))
+        ->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->data);
         $this->assertInstanceOf(ResultInterface::class, $result);
         $this->assertIsArray($result->getValue());
         $this->assertSame($this->scopeEntities['openid'], $result->getValue()[0]);
