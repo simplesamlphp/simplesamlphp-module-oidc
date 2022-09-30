@@ -81,12 +81,23 @@ class RoutingService
                 $response->data['messages'] = $container->get(SessionMessagesService::class)->getMessages();
             }
 
+            // If not already handled, allow CORS (for JS clients).
+            if (!$response->headers->has('Access-Control-Allow-Origin')) {
+                $response->headers->set('Access-Control-Allow-Origin', '*');
+            }
+
+
             $response->send();
 
             return;
         }
 
         if ($response instanceof ResponseInterface) {
+            // If not already handled, allow CORS (for JS clients).
+            if (!$response->hasHeader('Access-Control-Allow-Origin')) {
+                $response = $response->withHeader('Access-Control-Allow-Origin', '*');
+            }
+
             $emitter = new SapiEmitter();
 
             $emitter->emit($response);
