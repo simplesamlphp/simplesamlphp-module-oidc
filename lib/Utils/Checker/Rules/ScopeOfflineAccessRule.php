@@ -36,7 +36,7 @@ class ScopeOfflineAccessRule extends AbstractRule
 
         // Check if offline_access scope is used. If not, we don't have to check anything else.
         if (! $this->isOfflineAccessScopeUsed($validScopes)) {
-            return new Result($this->getKey(), true);
+            return new Result($this->getKey(), false);
         }
 
         // Scope offline_access is used. Check if the client has it registered.
