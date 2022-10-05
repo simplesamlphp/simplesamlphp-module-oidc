@@ -52,6 +52,7 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestParameterRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeOfflineAccessRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
+use SimpleSAML\Module\oidc\Utils\ScopeHelper;
 use stdClass;
 use Throwable;
 
@@ -435,12 +436,15 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $responseType->setSessionId($authCodePayload->session_id);
         }
 
-        // Issue and persist new refresh token if given
-        $refreshToken = $this->issueRefreshToken($accessToken, $authCodePayload->auth_code_id);
+        // Release refresh token only if it is requested by using offline_access scope.
+        if (ScopeHelper::scopeExists($scopes, 'offline_access')) {
+            // Issue and persist new refresh token if given
+            $refreshToken = $this->issueRefreshToken($accessToken, $authCodePayload->auth_code_id);
 
-        if ($refreshToken !== null) {
-            $this->getEmitter()->emit(new RequestEvent(RequestEvent::REFRESH_TOKEN_ISSUED, $request));
-            $responseType->setRefreshToken($refreshToken);
+            if ($refreshToken !== null) {
+                $this->getEmitter()->emit(new RequestEvent(RequestEvent::REFRESH_TOKEN_ISSUED, $request));
+                $responseType->setRefreshToken($refreshToken);
+            }
         }
 
         // Revoke used auth code
