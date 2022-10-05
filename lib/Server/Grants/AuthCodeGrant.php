@@ -49,6 +49,7 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestParameterRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeOfflineAccessRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
 use stdClass;
@@ -506,6 +507,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             ScopeRule::class,
             RequestedClaimsRule::class,
             AcrValuesRule::class,
+            ScopeOfflineAccessRule::class,
         ];
 
         // Since we have already validated redirect_uri and we have state, make it available for other checkers.
