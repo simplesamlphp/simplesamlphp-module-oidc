@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [2.0.4]
+### Fixed
+- Attempt fix for 'pull access denied for symfonycorp/cli' by @pradtke in #188
+- Add Access-Control-Allow-Origin header to responses, if not already present by @cicnavi in #190
+
+
+## [2.0.3]
+### Fixed
+- Use InMemory::empty by @pkoenig10 in #186
+
+## [2.0.2] - 2022-07-22
+### Fixed
+- Correct readme typo for module_oidc.php template path by @dgoosens in #168
+- Allow overriding cert+key name/location by @pradtke in #167
+- Fix access token timestamps, add issuer by @cicnavi in #174
+- Fix PK constraint name for allowed origin table - make it unique by @cicnavi in #173
+- Set restart url for authorize commands by @pradtke in #180
+- Fix admin-clients link by @Pyrex-FWI in #177
+- Logout tokens should have typ header with value 'logout+jwt' by @IlanaRadinsky in #185
+- Fail actions on code quality issues by @pradtke in #175
+
 ## [2.0.1]
 ### Fixed
 - Make lib/Store/* available for Symfony DI.

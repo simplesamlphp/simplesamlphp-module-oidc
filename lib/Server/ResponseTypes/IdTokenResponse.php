@@ -83,6 +83,7 @@ class IdTokenResponse extends BearerTokenResponse implements
         }
         // Per https://openid.net/specs/openid-connect-core-1_0.html#rfc.section.5.4 certain claims
         // should only be added in certain scenarios. Allow deployer to control this.
+        // TODO in v3 remove this config option and do as per spec.
         $addClaimsFromScopes = $this->configurationService
             ->getOpenIDConnectConfiguration()
             ->getBoolean('alwaysAddClaimsToIdToken', true);
