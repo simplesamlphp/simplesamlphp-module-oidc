@@ -205,7 +205,7 @@ class Container implements ContainerInterface
             new PostLogoutRedirectUriRule($clientRepository),
             new UiLocalesRule(),
             new AcrValuesRule(),
-            new ScopeOfflineAccessRule(),
+            new ScopeOfflineAccessRule($configurationService),
         ];
         $requestRuleManager = new RequestRulesManager($requestRules, $loggerService);
         $this->services[RequestRulesManager::class] = $requestRuleManager;
@@ -253,7 +253,8 @@ class Container implements ContainerInterface
             $refreshTokenRepository,
             $refreshTokenDuration,
             $authCodeDuration,
-            $requestRuleManager
+            $requestRuleManager,
+            $configurationService
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 
