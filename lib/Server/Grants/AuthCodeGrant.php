@@ -37,6 +37,7 @@ use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AcrResponseTypeInterf
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\SessionIdResponseTypeInterface;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Utils\Arr;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
@@ -49,8 +50,10 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestParameterRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeOfflineAccessRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
+use SimpleSAML\Module\oidc\Utils\ScopeHelper;
 use stdClass;
 use Throwable;
 
@@ -85,6 +88,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
     private RequestRulesManager $requestRulesManager;
 
+    protected ConfigurationService $configurationService;
+
     protected bool $requireCodeChallengeForPublicClients = true;
 
     public function __construct(
@@ -92,7 +97,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         AccessTokenRepositoryInterface $accessTokenRepository,
         RefreshTokenRepositoryInterface $refreshTokenRepository,
         DateInterval $authCodeTTL,
-        RequestRulesManager $requestRulesManager
+        RequestRulesManager $requestRulesManager,
+        ConfigurationService $configurationService
     ) {
         parent::__construct($authCodeRepository, $refreshTokenRepository, $authCodeTTL);
 
@@ -102,6 +108,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         $this->authCodeTTL = $authCodeTTL;
         $this->requestRulesManager = $requestRulesManager;
+        $this->configurationService = $configurationService;
 
         if (in_array('sha256', hash_algos(), true)) {
             $s256Verifier = new S256Verifier();
@@ -434,12 +441,24 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $responseType->setSessionId($authCodePayload->session_id);
         }
 
-        // Issue and persist new refresh token if given
-        $refreshToken = $this->issueRefreshToken($accessToken, $authCodePayload->auth_code_id);
+        // Refresh token should only be released if the client requests it using the 'offline_access' scope.
+        // However, for module backwards compatibility we have enabled the deployer to explicitly state that
+        // the refresh token should always be released.
+        // @see https://openid.net/specs/openid-connect-core-1_0.html#OfflineAccess
+        // TODO in v3 remove this config option and do as per spec.
+        $alwaysIssueRefreshToken = $this->configurationService
+            ->getOpenIDConnectConfiguration()
+            ->getBoolean('alwaysIssueRefreshToken', true);
 
-        if ($refreshToken !== null) {
-            $this->getEmitter()->emit(new RequestEvent(RequestEvent::REFRESH_TOKEN_ISSUED, $request));
-            $responseType->setRefreshToken($refreshToken);
+        // Release refresh token per deployer config or if it is requested by using offline_access scope.
+        if ($alwaysIssueRefreshToken || ScopeHelper::scopeExists($scopes, 'offline_access')) {
+            // Issue and persist new refresh token if given
+            $refreshToken = $this->issueRefreshToken($accessToken, $authCodePayload->auth_code_id);
+
+            if ($refreshToken !== null) {
+                $this->getEmitter()->emit(new RequestEvent(RequestEvent::REFRESH_TOKEN_ISSUED, $request));
+                $responseType->setRefreshToken($refreshToken);
+            }
         }
 
         // Revoke used auth code
@@ -506,6 +525,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             ScopeRule::class,
             RequestedClaimsRule::class,
             AcrValuesRule::class,
+            ScopeOfflineAccessRule::class,
         ];
 
         // Since we have already validated redirect_uri and we have state, make it available for other checkers.

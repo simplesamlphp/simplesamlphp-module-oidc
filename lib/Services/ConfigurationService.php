@@ -31,6 +31,9 @@ class ConfigurationService
         'openid' => [
             'description' => 'openid',
         ],
+        'offline_access' => [
+            'description' => 'offline_access',
+        ],
         'profile' => [
             'description' => 'profile',
         ],
@@ -116,7 +119,7 @@ class ConfigurationService
              * @throws ConfigurationError
              */
             function (array $scope, string $name): void {
-                if (in_array($name, ['openid', 'profile', 'email', 'address', 'phone'], true)) {
+                if (in_array($name, array_keys(self::$standardClaims), true)) {
                     throw new ConfigurationError('Can not overwrite protected scope: ' . $name, 'oidc_config.php');
                 }
                 if (!array_key_exists('description', $scope)) {
@@ -202,7 +205,7 @@ class ConfigurationService
      */
     public function getPrivateKeyPath(): string
     {
-        $keyName = $this->getOpenIDConnectConfiguration()->getOptionalString('privatekey', 'oidc_module.pem');
+        $keyName = $this->getOpenIDConnectConfiguration()->getOptionalString('privatekey', 'oidc_module.key');
         return (new Config())->getCertPath($keyName);
     }
 

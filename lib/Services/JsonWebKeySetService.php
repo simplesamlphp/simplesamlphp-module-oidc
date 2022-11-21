@@ -34,7 +34,6 @@ class JsonWebKeySetService
     public function __construct(ConfigurationService $configurationService)
     {
         $publicKeyPath = $configurationService->getCertPath();
-
         if (!file_exists($publicKeyPath)) {
             throw new Exception("OpenId Connect certification file does not exists: {$publicKeyPath}.");
         }

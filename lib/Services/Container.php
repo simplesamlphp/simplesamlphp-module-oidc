@@ -66,6 +66,7 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestParameterRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredNonceRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ResponseTypeRule;
+use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeOfflineAccessRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\IdTokenHintRule;
@@ -204,6 +205,7 @@ class Container implements ContainerInterface
             new PostLogoutRedirectUriRule($clientRepository),
             new UiLocalesRule(),
             new AcrValuesRule(),
+            new ScopeOfflineAccessRule($configurationService),
         ];
         $requestRuleManager = new RequestRulesManager($requestRules, $loggerService);
         $this->services[RequestRulesManager::class] = $requestRuleManager;
@@ -251,7 +253,8 @@ class Container implements ContainerInterface
             $refreshTokenRepository,
             $refreshTokenDuration,
             $authCodeDuration,
-            $requestRuleManager
+            $requestRuleManager,
+            $configurationService
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 
