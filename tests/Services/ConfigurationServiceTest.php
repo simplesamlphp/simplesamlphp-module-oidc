@@ -26,20 +26,20 @@ class ConfigurationServiceTest extends TestCase
         // Test default cert and pem
         $service = new ConfigurationService();
         $this->assertEquals($certDir . 'oidc_module.crt', $service->getCertPath());
-        $this->assertEquals($certDir . 'oidc_module.pem', $service->getPrivateKeyPath());
+        $this->assertEquals($certDir . 'oidc_module.key', $service->getPrivateKeyPath());
 
         // Set customized
         Configuration::setPreLoadedConfig(
             Configuration::loadFromArray(
                 [
                     'privatekey' => 'myPrivateKey.key',
-                    'certificate' => 'myCertificate.pem',
+                    'certificate' => 'myCertificate.crt',
                 ]
             ),
             'module_oidc.php'
         );
         $service = new ConfigurationService();
-        $this->assertEquals($certDir . 'myCertificate.pem', $service->getCertPath());
+        $this->assertEquals($certDir . 'myCertificate.crt', $service->getCertPath());
         $this->assertEquals($certDir . 'myPrivateKey.key', $service->getPrivateKeyPath());
     }
 }

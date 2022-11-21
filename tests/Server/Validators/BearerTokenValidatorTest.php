@@ -111,7 +111,7 @@ class BearerTokenValidatorTest extends TestCase
         Configuration::loadFromArray($config, '', 'simplesaml');
 
         self::$publicKeyPath = $tempDir . '/oidc_module.crt';
-        self::$privateKeyPath = $tempDir . '/oidc_module.pem';
+        self::$privateKeyPath = $tempDir . '/oidc_module.key';
 
         $pkGenerate = openssl_pkey_new([
                                            'private_key_bits' => 2048,

@@ -18,8 +18,8 @@ $config = [
 
     // The private key passphrase (optional)
     // 'pass_phrase' => 'secret',
-    // The cert and key for signing the ID token. Default names are oidc_module.pem and oidc_module.crt
-    // 'privatekey' => 'oidc_module.pem',
+    // The cert and key for signing the ID token. Default names are oidc_module.key and oidc_module.crt
+    // 'privatekey' => 'oidc_module.key',
     // 'certificate' => 'oidc_module.crt',
 
     // Tokens TTL
