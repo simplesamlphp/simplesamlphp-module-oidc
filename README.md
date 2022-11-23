@@ -147,19 +147,19 @@ The oidc library used generates Json Web Tokens to create the Access Tokens, so 
 
 To generate the private key run this command on the terminal:
 
-    openssl genrsa -out cert/oidc_module.pem 2048
+    openssl genrsa -out cert/oidc_module.key 2048
 
 If you want to provide a passphrase for your private key run this command instead:
 
-    openssl genrsa -passout pass:myPassPhrase -out cert/oidc_module.pem 2048
+    openssl genrsa -passout pass:myPassPhrase -out cert/oidc_module.key 2048
 
 Now you need to extract the public key from the private key:
 
-    openssl rsa -in cert/oidc_module.pem -pubout -out cert/oidc_module.crt
+    openssl rsa -in cert/oidc_module.key -pubout -out cert/oidc_module.crt
 
 or use your passphrase if provided on private key generation:
 
-    openssl rsa -in cert/oidc_module.pem -passin pass:myPassPhrase -pubout -out cert/oidc_module.crt
+    openssl rsa -in cert/oidc_module.key -passin pass:myPassPhrase -pubout -out cert/oidc_module.crt
 
 If you use a passphrase remember to configure it in the module_oidc.php config file.
 
@@ -247,7 +247,7 @@ docker run --name ssp-oidc-dev \
   --mount type=bind,source="$(pwd)/docker/ssp/authsources.php",target=/var/simplesamlphp/config/authsources.php,readonly \
   --mount type=bind,source="$(pwd)/docker/ssp/config-override.php",target=/var/simplesamlphp/config/config-override.php,readonly \
   --mount type=bind,source="$(pwd)/docker/ssp/oidc_module.crt",target=/var/simplesamlphp/cert/oidc_module.crt,readonly \
-  --mount type=bind,source="$(pwd)/docker/ssp/oidc_module.pem",target=/var/simplesamlphp/cert/oidc_module.pem,readonly \
+  --mount type=bind,source="$(pwd)/docker/ssp/oidc_module.key",target=/var/simplesamlphp/cert/oidc_module.key,readonly \
   --mount type=bind,source="$(pwd)/docker/apache-override.cf",target=/etc/apache2/sites-enabled/ssp-override.cf,readonly \
    -p 443:443 cirrusid/simplesamlphp:1.19.0
 ```

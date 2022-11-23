@@ -77,11 +77,11 @@ class IdTokenResponseSpec extends ObjectBehavior
         $configurationService->getSigner()->willReturn(new Sha256());
         $configurationService->getSimpleSAMLSelfURLHost()->willReturn(self::ISSUER);
         $configurationService->getCertPath()->willReturn($this->certFolder . '/oidc_module.crt');
-        $configurationService->getPrivateKeyPath()->willReturn($this->certFolder . '/oidc_module.pem');
+        $configurationService->getPrivateKeyPath()->willReturn($this->certFolder . '/oidc_module.key');
         $configurationService->getPrivateKeyPassPhrase()->shouldBeCalled();
         $configurationService->getOpenIDConnectConfiguration()->willReturn($oidcConfig);
 
-        $privateKey = new CryptKey($this->certFolder . '/oidc_module.pem', null, false);
+        $privateKey = new CryptKey($this->certFolder . '/oidc_module.key', null, false);
 
         $idTokenBuilder = new IdTokenBuilder(
             new JsonWebTokenBuilderService($configurationService->getWrappedObject()),

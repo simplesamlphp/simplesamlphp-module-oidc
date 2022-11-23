@@ -1,4 +1,4 @@
-FROM cirrusid/simplesamlphp:2.0.0-rc1
+FROM cirrusid/simplesamlphp:v2.0.0-rc2
 
 RUN apt-get update && apt-get install -y sqlite3
 # Prepopulate the DB with items needed for testing
@@ -20,7 +20,7 @@ ADD docker/ssp/module_oidc.php /var/simplesamlphp/config/module_oidc.php
 ADD docker/ssp/authsources.php /var/simplesamlphp/config/authsources.php
 ADD docker/ssp/config-override.php /var/simplesamlphp/config/config-override.php
 ADD docker/ssp/oidc_module.crt /var/simplesamlphp/cert/oidc_module.crt
-ADD docker/ssp/oidc_module.pem /var/simplesamlphp/cert/oidc_module.pem
+ADD docker/ssp/oidc_module.key /var/simplesamlphp/cert/oidc_module.key
 ADD docker/apache-override.cf /etc/apache2/sites-enabled/ssp-override.cf
 
 RUN chown www-data /var/simplesamlphp/cert/oidc* \
