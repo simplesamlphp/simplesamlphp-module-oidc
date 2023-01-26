@@ -68,7 +68,7 @@ class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInter
         $user = new self();
 
         $user->identifier = $state['id'];
-        $user->claims = json_decode($state['claims'], true);
+        $user->claims = json_decode($state['claims'], true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
         $user->updatedAt = TimestampGenerator::utc($state['updated_at']);
         $user->createdAt = TimestampGenerator::utc($state['created_at']);
 
@@ -82,7 +82,7 @@ class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInter
     {
         return [
             'id' => $this->getIdentifier(),
-            'claims' => json_encode($this->getClaims()),
+            'claims' => json_encode($this->getClaims(), JSON_INVALID_UTF8_SUBSTITUTE),
             'updated_at' => $this->getUpdatedAt()->format('Y-m-d H:i:s'),
             'created_at' => $this->getCreatedAt()->format('Y-m-d H:i:s'),
         ];
