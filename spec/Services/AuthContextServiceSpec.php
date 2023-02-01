@@ -35,7 +35,7 @@ class AuthContextServiceSpec extends ObjectBehavior
                 'client' => ['val2'],
             ]
         );
-        $oidcConfiguration->getConfigItem('permissions', [])->willReturn($permssions);
+        $oidcConfiguration->getOptionalConfigItem('permissions', null)->willReturn($permssions);
         $this->beConstructedWith(
             $configurationService,
             $authSimpleFactory
@@ -86,7 +86,7 @@ class AuthContextServiceSpec extends ObjectBehavior
     public function it_has_no_enable_permissions(Configuration $oidcConfiguration)
     {
         $permssions = Configuration::loadFromArray([]);
-        $oidcConfiguration->getConfigItem('permissions', [])->willReturn($permssions);
+        $oidcConfiguration->getOptionalConfigItem('permissions', null)->willReturn($permssions);
         $this->shouldThrow(new RuntimeException('Permissions not enabled'))->duringRequirePermission('client');
     }
 }

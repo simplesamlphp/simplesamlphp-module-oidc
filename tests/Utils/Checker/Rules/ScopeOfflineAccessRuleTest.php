@@ -117,7 +117,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
                 $this->validScopesResultStub
             );
 
-        $this->openIdConfigurationStub->method('getBoolean')->willReturn(true);
+        $this->openIdConfigurationStub->method('getOptionalBoolean')->willReturn(true);
         $this->configurationServiceStub->method('getOpenIDConnectConfiguration')
             ->willReturn($this->openIdConfigurationStub);
 
