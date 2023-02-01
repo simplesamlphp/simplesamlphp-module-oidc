@@ -3,6 +3,8 @@
   name="SimpleSAMLphp"
   useDocblockTypes="true"
   hideExternalErrors="true"
+  findUnusedBaselineEntry="true"
+  findUnusedCode="false"
 >
   <projectFiles>
     <directory name="config-templates" />
