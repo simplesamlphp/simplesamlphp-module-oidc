@@ -16,7 +16,7 @@ namespace SimpleSAML\Module\oidc\Repositories;
 
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface as OAuth2AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
-use SimpleSAML\Error\Assertion;
+use SimpleSAML\Error\Error;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
@@ -56,7 +56,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
     public function persistNewAccessToken(OAuth2AccessTokenEntityInterface $accessTokenEntity)
     {
         if (!$accessTokenEntity instanceof AccessTokenEntity) {
-            throw new Assertion('Invalid AccessTokenEntity');
+            throw new Error('Invalid AccessTokenEntity');
         }
 
         $stmt = sprintf(

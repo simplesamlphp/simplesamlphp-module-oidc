@@ -15,12 +15,10 @@
 namespace SimpleSAML\Module\oidc\Repositories;
 
 use League\OAuth2\Server\Entities\AuthCodeEntityInterface as OAuth2AuthCodeEntityInterface;
-use SimpleSAML\Error\Assertion;
+use SimpleSAML\Error\Error;
 use SimpleSAML\Module\oidc\Entity\AuthCodeEntity;
 use SimpleSAML\Module\oidc\Entity\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
-use SimpleSAML\Module\oidc\Entity\Interfaces\OidcAuthCodeEntityInterface;
-use SimpleSAML\Module\oidc\Repositories\Interfaces\OidcAuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeRepositoryInterface
@@ -46,7 +44,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
     public function persistNewAuthCode(OAuth2AuthCodeEntityInterface $authCodeEntity)
     {
         if (!$authCodeEntity instanceof AuthCodeEntity) {
-            throw new Assertion('Invalid AuthCodeEntity');
+            throw new Error('Invalid AuthCodeEntity');
         }
 
         $stmt = sprintf(
