@@ -33,9 +33,7 @@ class CsrfProtection extends BaseCsrfProtection
 
     public function getToken(): string
     {
-        $sessionHandler = SessionHandler::getSessionHandler();
-        /** @var Session $session */
-        $session = $sessionHandler->loadSession();
+        $session = Session::getSessionFromRequest();
 
         $token = $session->getData('form_csrf', 'token');
 
