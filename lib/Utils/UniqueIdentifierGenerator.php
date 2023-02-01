@@ -17,6 +17,10 @@ class UniqueIdentifierGenerator
      */
     public static function hitMe(int $length = 40): string
     {
+        if ($length < 1) {
+            throw OidcServerException::serverError('Random string lenght can not be less than 1');
+        }
+
         try {
             return bin2hex(random_bytes($length));
         } catch (Throwable $e) {

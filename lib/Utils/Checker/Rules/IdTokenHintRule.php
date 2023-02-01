@@ -58,6 +58,7 @@ class IdTokenHintRule extends AbstractRule
 
         $privateKey = $this->cryptKeyFactory->buildPrivateKey();
         $publicKey = $this->cryptKeyFactory->buildPublicKey();
+        /** @psalm-suppress ArgumentTypeCoercion */
         $jwtConfig = Configuration::forAsymmetricSigner(
             $this->configurationService->getSigner(),
             InMemory::plainText($privateKey->getKeyContents(), $privateKey->getPassPhrase() ?? ''),
@@ -68,6 +69,7 @@ class IdTokenHintRule extends AbstractRule
             /** @var UnencryptedToken $idTokenHint */
             $idTokenHint = $jwtConfig->parser()->parse($idTokenHintParam);
 
+            /** @psalm-suppress ArgumentTypeCoercion */
             $jwtConfig->validator()->assert(
                 $idTokenHint,
                 new IssuedBy($this->configurationService->getSimpleSAMLSelfURLHost()),

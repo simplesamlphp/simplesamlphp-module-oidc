@@ -86,7 +86,7 @@ class IdTokenResponse extends BearerTokenResponse implements
         // TODO in v3 remove this config option and do as per spec.
         $addClaimsFromScopes = $this->configurationService
             ->getOpenIDConnectConfiguration()
-            ->getBoolean('alwaysAddClaimsToIdToken', true);
+            ->getOptionalBoolean('alwaysAddClaimsToIdToken', true);
 
         /** @var UserEntityInterface $userEntity */
         $userEntity = $this->identityProvider->getUserEntityByIdentifier($accessToken->getUserIdentifier());

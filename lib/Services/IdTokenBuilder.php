@@ -158,7 +158,7 @@ class IdTokenBuilder
 
         $hashAlgorithm = 'sha' . $jwsAlgorithmBitLength;
 
-        $hashByteLength = (int) ($jwsAlgorithmBitLength / 2 / 8);
+        $hashByteLength = $jwsAlgorithmBitLength / 2 / 8;
 
         return Base64Url::encode(
             substr(

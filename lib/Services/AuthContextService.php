@@ -63,6 +63,7 @@ class AuthContextService
         $permissions = $this->configurationService
             ->getOpenIDConnectConfiguration()
             ->getOptionalConfigItem('permissions', null);
+        /** @psalm-suppress DocblockTypeContradiction */
         if (is_null($permissions) || !$permissions->hasValue('attribute')) {
             throw new \RuntimeException('Permissions not enabled');
         }

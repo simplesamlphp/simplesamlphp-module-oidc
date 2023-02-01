@@ -169,7 +169,7 @@ class Container implements ContainerInterface
             $oidcOpenIdProviderMetadataService,
             $sessionService,
             $claimTranslatorExtractor,
-            $oidcModuleConfiguration->getString('useridattr', 'uid')
+            $oidcModuleConfiguration->getOptionalString('useridattr', 'uid')
         );
         $this->services[AuthenticationService::class] = $authenticationService;
 

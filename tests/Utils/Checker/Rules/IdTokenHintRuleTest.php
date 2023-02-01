@@ -66,6 +66,7 @@ class IdTokenHintRuleTest extends TestCase
         $this->cryptKeyFactoryStub->method('buildPrivateKey')->willReturn(self::$privateKey);
         $this->cryptKeyFactoryStub->method('buildPublicKey')->willReturn(self::$publicKey);
 
+        /** @psalm-suppress ArgumentTypeCoercion */
         $this->jwtConfig = Configuration::forAsymmetricSigner(
             $this->configurationServiceStub->getSigner(),
             InMemory::plainText(self::$privateKey->getKeyContents()),
@@ -138,6 +139,7 @@ class IdTokenHintRuleTest extends TestCase
     {
         $this->requestStub->method('getMethod')->willReturn('GET');
 
+        /** @psalm-suppress ArgumentTypeCoercion */
         $invalidIssuerJwt = $this->jwtConfig->builder()->issuedBy('invalid')->getToken(
             $this->configurationServiceStub->getSigner(),
             InMemory::plainText(self::$privateKey->getKeyContents())
@@ -158,6 +160,7 @@ class IdTokenHintRuleTest extends TestCase
     {
         $this->requestStub->method('getMethod')->willReturn('GET');
 
+        /** @psalm-suppress ArgumentTypeCoercion */
         $idToken = $this->jwtConfig->builder()->issuedBy(self::$issuer)->getToken(
             $this->configurationServiceStub->getSigner(),
             InMemory::plainText(self::$privateKey->getKeyContents())

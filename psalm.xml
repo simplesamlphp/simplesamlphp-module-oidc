@@ -43,6 +43,12 @@
     <PropertyNotSetInConstructor errorLevel="suppress" />
     <MissingClosureReturnType errorLevel="suppress" />
 
+    <InvalidArgument>
+      <errorLevel type="suppress">
+        <directory name="tests" /> <!-- Since a lot of stub/mocks are used in tests, suppress InvalidArgument -->
+      </errorLevel>
+    </InvalidArgument>
+
 
     <!-- Ignore UnresolvableInclude on CLI-scripts -->
     <UnresolvableInclude>

@@ -439,7 +439,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         // TODO in v3 remove this config option and do as per spec.
         $alwaysIssueRefreshToken = $this->configurationService
             ->getOpenIDConnectConfiguration()
-            ->getBoolean('alwaysIssueRefreshToken', true);
+            ->getOptionalBoolean('alwaysIssueRefreshToken', true);
 
         // Release refresh token per deployer config or if it is requested by using offline_access scope.
         if ($alwaysIssueRefreshToken || ScopeHelper::scopeExists($scopes, 'offline_access')) {

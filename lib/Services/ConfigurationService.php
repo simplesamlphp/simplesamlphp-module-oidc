@@ -177,7 +177,7 @@ class ConfigurationService
     public function getSigner(): Signer
     {
         /** @psalm-var class-string $signerClassname */
-        $signerClassname = (string) $this->getOpenIDConnectConfiguration()->getOptionalString('signer', Sha256::class);
+        $signerClassname = $this->getOpenIDConnectConfiguration()->getOptionalString('signer', Sha256::class);
 
         $class = new ReflectionClass($signerClassname);
         $signer = $class->newInstance();

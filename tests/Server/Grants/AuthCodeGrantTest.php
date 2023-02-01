@@ -16,24 +16,24 @@ use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 class AuthCodeGrantTest extends TestCase
 {
     /**
-     * @var \PHPUnit\Framework\MockObject\Stub|AuthCodeRepositoryInterface
+     * @var \PHPUnit\Framework\MockObject\Stub
      */
     protected $authCodeRepositoryStub;
     /**
-     * @var \PHPUnit\Framework\MockObject\Stub|AccessTokenRepositoryInterface
+     * @var \PHPUnit\Framework\MockObject\Stub
      */
     protected $accessTokenRepositoryStub;
     /**
-     * @var \PHPUnit\Framework\MockObject\Stub|RefreshTokenRepositoryInterface
+     * @var \PHPUnit\Framework\MockObject\Stub
      */
     protected $refreshTokenRepositoryStub;
     protected \DateInterval $authCodeTtl;
     /**
-     * @var \PHPUnit\Framework\MockObject\Stub|RequestRulesManager
+     * @var \PHPUnit\Framework\MockObject\Stub
      */
     protected $requestRulesManagerStub;
     /**
-     * @var \PHPUnit\Framework\MockObject\Stub|ConfigurationService
+     * @var \PHPUnit\Framework\MockObject\Stub
      */
     protected $configurationServiceStub;
 

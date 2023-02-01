@@ -49,7 +49,7 @@ class ScopeOfflineAccessRule extends AbstractRule
         // TODO in v3 remove this config option and do as per spec.
         $alwaysIssueRefreshToken = $this->configurationService
             ->getOpenIDConnectConfiguration()
-            ->getBoolean('alwaysIssueRefreshToken', true);
+            ->getOptionalBoolean('alwaysIssueRefreshToken', true);
         // If the deployer decided to always issue refresh token, we don't have to check offline_access scope.
         if ($alwaysIssueRefreshToken) {
             return new Result($this->getKey(), true);
