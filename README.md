@@ -31,12 +31,6 @@ Edit your `config/config.php` and check you configured at least the next paramet
     'database.username' => 'user',
     'database.password' => 'password',
 
-### Configure the template
-
-This module used the new twig template system, so you need to configure the next option in `config/config.php`:
-
-    'language.i18n.backend' => 'gettext/gettext',
-
 ### Configure the module
 
 Copy the template file to the config directory:
