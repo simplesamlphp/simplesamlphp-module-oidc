@@ -5,9 +5,9 @@
 {% block content %}
     <h2>
         {% if wasLogoutActionCalled %}
-            {% trans '{oidc:logout:page_title_success}' %}
+            {{ '{oidc:logout:page_title_success}'|trans }}
         {% else %}
-            {% trans '{oidc:logout:page_title_fail}' %}
+            {{ '{oidc:logout:page_title_fail}'|trans }}
         {% endif %}
     </h2>
 
@@ -15,13 +15,13 @@
 
     <div class="ui attached message">
         <div class="header">
-            {% trans '{oidc:logout:info_title}' %}
+            {{ '{oidc:logout:info_title}'|trans }}
         </div>
         <p>
             {% if wasLogoutActionCalled %}
-                {% trans '{oidc:logout:info_message_success}' %}
+                {{ '{oidc:logout:info_message_success}'|trans }}
             {% else %}
-                {% trans '{oidc:logout:info_message_fail}' %}
+                {{ '{oidc:logout:info_message_fail}'|trans }}
             {% endif %}
         </p>
     </div>

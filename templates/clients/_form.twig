@@ -17,13 +17,13 @@
         {% endif %}
 
         <div class="field required">
-            <label for="frm-name">{% trans '{oidc:client:name}' %}</label>
+            <label for="frm-name">{{ '{oidc:client:name}'|trans }}</label>
 
             {{ form['name'].control | raw }}
         </div>
 
         <div class="field">
-            <label for="frm-description">{% trans '{oidc:client:description}' %}</label>
+            <label for="frm-description">{{ '{oidc:client:description}'|trans }}</label>
 
             {{ form['description'].control | raw }}
         </div>
@@ -32,7 +32,7 @@
             <div class="ui checkbox">
                 <input name="is_enabled" id="frm-is_enabled" {% if form['is_enabled'].filled %}checked=""{% endif %} type="checkbox">
 
-                <label for="frm-is_enabled">{% trans '{oidc:client:is_enabled}' %}</label>
+                <label for="frm-is_enabled">{{ '{oidc:client:is_enabled}'|trans }}</label>
             </div>
         </div>
 
@@ -40,50 +40,50 @@
             <div class="ui checkbox">
                 <input name="is_confidential" id="frm-is_confidential" {% if form['is_confidential'].filled %}checked=""{% endif %} type="checkbox">
 
-                <label for="frm-is_confidential">{% trans '{oidc:client:is_confidential}' %}</label>
-                <small class="helper">{% trans '{oidc:client:is_confidential_help}' %}</small>
+                <label for="frm-is_confidential">{{ '{oidc:client:is_confidential}'|trans }}</label>
+                <small class="helper">{{ '{oidc:client:is_confidential_help}'|trans }}</small>
             </div>
         </div>
 
         <div class="field required">
-            <label for="frm-redirect_uri">{% trans '{oidc:client:redirect_uri}' %}</label>
+            <label for="frm-redirect_uri">{{ '{oidc:client:redirect_uri}'|trans }}</label>
 
             {{ form['redirect_uri'].control | raw }}
-            <small class="helper">{% trans '{oidc:client:redirect_uri_help}' %}</small>
+            <small class="helper">{{ '{oidc:client:redirect_uri_help}'|trans }}</small>
         </div>
 
         <div class="field">
-            <label for="frm-auth_source">{% trans '{oidc:client:auth_source}' %}</label>
+            <label for="frm-auth_source">{{ '{oidc:client:auth_source}'|trans }}</label>
 
             {{ form['auth_source'].control | raw }}
-            <small class="helper">{% trans '{oidc:client:auth_source_help}' %}</small>
+            <small class="helper">{{ '{oidc:client:auth_source_help}'|trans }}</small>
         </div>
 
         <div class="field required">
-            <label for="frm-scopes">{% trans '{oidc:client:scopes}' %}</label>
+            <label for="frm-scopes">{{ '{oidc:client:scopes}'|trans }}</label>
 
             {{ form['scopes'].control | raw }}
         </div>
 
         <div class="field">
-            <label for="frm-backchannel_logout_uri">{% trans '{oidc:client:backchannel_logout_uri}' %}</label>
+            <label for="frm-backchannel_logout_uri">{{ '{oidc:client:backchannel_logout_uri}'|trans }}</label>
 
             {{ form['backchannel_logout_uri'].control | raw }}
-            <small class="helper">{% trans '{oidc:client:backchannel_logout_uri_help}' %}</small>
+            <small class="helper">{{ '{oidc:client:backchannel_logout_uri_help}'|trans }}</small>
         </div>
 
         <div class="field ">
-            <label for="frm-post_logout_redirect_uri">{% trans '{oidc:client:post_logout_redirect_uri}' %}</label>
+            <label for="frm-post_logout_redirect_uri">{{ '{oidc:client:post_logout_redirect_uri}'|trans }}</label>
 
             {{ form['post_logout_redirect_uri'].control | raw }}
-            <small class="helper">{% trans '{oidc:client:post_logout_redirect_uri_help}' %}</small>
+            <small class="helper">{{ '{oidc:client:post_logout_redirect_uri_help}'|trans }}</small>
         </div>
 
         <div class="field">
-            <label for="frm-allowed_origin">{% trans '{oidc:client:allowed_origin}' %}</label>
+            <label for="frm-allowed_origin">{{ '{oidc:client:allowed_origin}'|trans }}</label>
 
             {{ form['allowed_origin'].control | raw }}
-            <small class="helper">{% trans '{oidc:client:allowed_origin_help}' %}</small>
+            <small class="helper">{{ '{oidc:client:allowed_origin_help}'|trans }}</small>
         </div>
 
         <div class="ui divider"></div>
@@ -92,7 +92,7 @@
             {% block action %}{% endblock %}
             <a class="ui secondary icon labeled button" href="./index.php">
                 <i class="left arrow icon"></i>
-                {% trans '{oidc:return}' %}
+                {{ '{oidc:return}'|trans }}
             </a>
         </div>
 
@@ -162,7 +162,7 @@
                         rules: [
                             {
                                 type: 'empty',
-                                prompt: '{% trans "{oidc:client:name_not_empty}" %}'
+                                prompt: '{{ "{oidc:client:name_not_empty}"|trans }}'
                             }
                         ]
                     },
@@ -171,11 +171,11 @@
                         rules: [
                             {
                                 type: 'empty',
-                                prompt: '{% trans "{oidc:client:redirect_uri_not_empty}" %}'
+                                prompt: '{{ "{oidc:client:redirect_uri_not_empty}"|trans }}'
                             },
                             {
                                 type: 'redirectUri',
-                                prompt: '{% trans "{oidc:client:redirect_uri_not_valid}" %}'
+                                prompt: '{{ "{oidc:client:redirect_uri_not_valid}"|trans }}'
                             }
                         ]
                     },
@@ -188,7 +188,7 @@
                         rules: [
                             {
                                 type: 'minCount[1]',
-                                prompt: '{% trans "{oidc:client:scopes_not_empty}" %}'
+                                prompt: '{{ "{oidc:client:scopes_not_empty}"|trans }}'
                             }
                         ]
                     },
@@ -197,7 +197,7 @@
                         rules: [
                             {
                                 type: 'allowedOrigin',
-                                prompt: '{% trans "{oidc:client:allowed_origin_not_valid}" %}'
+                                prompt: '{{ "{oidc:client:allowed_origin_not_valid}"|trans }}'
                             }
                         ]
                     },
@@ -206,7 +206,7 @@
                         rules: [
                             {
                                 type: 'postLogoutRedirectUri',
-                                prompt: '{% trans "{oidc:client:post_logout_redirect_uri_not_valid}" %}'
+                                prompt: '{{ "{oidc:client:post_logout_redirect_uri_not_valid}"|trans }}'
                             }
                         ]
                     },
@@ -215,7 +215,7 @@
                         rules: [
                             {
                                 type: 'backChannelLogoutUri',
-                                prompt: '{% trans "{oidc:client:backchannel_logout_uri_not_valid}" %}'
+                                prompt: '{{ "{oidc:client:backchannel_logout_uri_not_valid}"|trans }}'
                             }
                         ]
                     }

@@ -85,7 +85,7 @@
                     {% if messages is not empty %}
                     <div class="ui positive message">
                         {% for message in messages %}
-                        <p>{% trans message %}</p>
+                        <p>{{ message|trans }}</p>
                         {% endfor %}
                     </div>
                     {% endif %}

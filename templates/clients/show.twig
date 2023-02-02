@@ -4,7 +4,7 @@
 
 {% block pre_breadcrump %}
     <span class="divider">/</span>
-    <a class="section" href="./index.php">{% trans 'OpenID Connect Client Registry' %}</a>
+    <a class="section" href="./index.php">{{ 'OpenID Connect Client Registry'|trans }}</a>
 {% endblock %}
 
 {% block content %}
@@ -15,45 +15,45 @@
     <table class="ui definition table">
         <tbody>
         <tr>
-            <td class="collapsing">{% trans '{oidc:client:name}' %}</td>
+            <td class="collapsing">{{ '{oidc:client:name}'|trans }}</td>
             <td>
                 {{ client.name }}
             </td>
         </tr>
         <tr>
-            <td class="collapsing">{% trans '{oidc:client:description}' %}</td>
+            <td class="collapsing">{{ '{oidc:client:description}'|trans }}</td>
             <td>{{ client.description }}</td>
         </tr>
         <tr>
-            <td class="collapsing">{% trans '{oidc:client:state}' %}</td>
+            <td class="collapsing">{{ '{oidc:client:state}'|trans }}</td>
             <td>
                 <span class="ui {{ client.isEnabled ? 'green' : 'red' }} tiny label">
-                    {% trans '{oidc:client:is_enabled}' %}
+                    {{ '{oidc:client:is_enabled}'|trans }}
                 </span>
                 <span class="ui {{ client.isConfidential ? 'green' : 'red' }} tiny label">
-                    {% trans '{oidc:client:is_confidential}' %}
+                    {{ '{oidc:client:is_confidential}'|trans }}
                 </span>
             </td>
         </tr>
         <tr>
-            <td class="collapsing">{% trans '{oidc:client:identifier}' %}</td>
+            <td class="collapsing">{{ '{oidc:client:identifier}'|trans }}</td>
             <td>{{ client.identifier }}
-                <i data-clipboard-text="{{ client.identifier }}" data-html="{% trans '{oidc:copy}' %}" class="copy link icon"></i>
+                <i data-clipboard-text="{{ client.identifier }}" data-html="{{ '{oidc:copy}'|trans }}" class="copy link icon"></i>
             </td>
         </tr>
         <tr>
-            <td class="collapsing">{% trans '{oidc:client:secret}' %}</td>
+            <td class="collapsing">{{ '{oidc:client:secret}'|trans }}</td>
             <td>
                 {{ client.secret }}
-                <i data-clipboard-text="{{ client.secret }}" data-html="{% trans '{oidc:copy}' %}" class="copy link icon"></i>
+                <i data-clipboard-text="{{ client.secret }}" data-html="{{ '{oidc:copy}'|trans }}" class="copy link icon"></i>
             </td>
         </tr>
         <tr>
-            <td class="collapsing">{% trans '{oidc:client:auth_source}' %}</td>
+            <td class="collapsing">{{ '{oidc:client:auth_source}'|trans }}</td>
             <td>{{ client.authSourceId }}</td>
         </tr>
         <tr>
-            <td class="collapsing">{% trans '{oidc:client:redirect_uri}' %}</td>
+            <td class="collapsing">{{ '{oidc:client:redirect_uri}'|trans }}</td>
             <td>
                 <ul class="list">
                     {% for uri in client.redirectUri %}
@@ -63,7 +63,7 @@
             </td>
         </tr>
         <tr>
-            <td class="collapsing">{% trans '{oidc:client:scopes}' %}</td>
+            <td class="collapsing">{{ '{oidc:client:scopes}'|trans }}</td>
             <td>
                 <ul class="list">
                     {% for key, scope in client.scopes %}
@@ -73,11 +73,11 @@
             </td>
         </tr>
         <tr>
-            <td class="collapsing">{% trans '{oidc:client:backchannel_logout_uri}' %}</td>
+            <td class="collapsing">{{ '{oidc:client:backchannel_logout_uri}'|trans }}</td>
             <td>{{ client.backChannelLogoutUri }}</td>
         </tr>
         <tr>
-            <td class="collapsing">{% trans '{oidc:client:post_logout_redirect_uri}' %}</td>
+            <td class="collapsing">{{ '{oidc:client:post_logout_redirect_uri}'|trans }}</td>
             <td>
                 <ul class="list">
                     {% for uri in client.postLogoutRedirectUri %}
@@ -87,12 +87,12 @@
             </td>
         </tr>
         <tr>
-            <td class="collapsing">{% trans '{oidc:client:owner}' %}</td>
+            <td class="collapsing">{{ '{oidc:client:owner}'|trans }}</td>
             <td>{{ client.owner }}</td>
         </tr>
         <tr>
 
-            <td class="collapsing">{% trans '{oidc:client:allowed_origin}' %}</td>
+            <td class="collapsing">{{ '{oidc:client:allowed_origin}'|trans }}</td>
             <td>
                 <ul class="list">
                     {% for allowedOrigin in allowedOrigins %}
@@ -109,20 +109,20 @@
             <th>
                 <div class="ui buttons">
                     <a href="./index.php" class="ui small primary labeled icon button">
-                        <i class="arrow left icon"></i> {% trans '{oidc:return}' %}
+                        <i class="arrow left icon"></i> {{ '{oidc:return}'|trans }}
                     </a>
                     <a href="./edit.php?client_id={{ client.identifier }}" class="ui small labeled icon button">
-                        <i class="edit icon"></i> {% trans '{oidc:edit}' %}
+                        <i class="edit icon"></i> {{ '{oidc:edit}'|trans }}
                     </a>
                     <div class="ui small teal labeled icon button">
-                        <i class="refresh icon"></i> {% trans '{oidc:client:reset_secret}' %}
+                        <i class="refresh icon"></i> {{ '{oidc:client:reset_secret}'|trans }}
                     </div>
                     <div class="ui flowing popup top left transition hidden">
-                        <h4 class="ui header">{% trans '{oidc:client:reset_secret}' %}</h4>
-                        <p>{% trans '{oidc:client:reset_secret_warning}' %}</p>
+                        <h4 class="ui header">{{ '{oidc:client:reset_secret}'|trans }}</h4>
+                        <p>{{ '{oidc:client:reset_secret_warning}'|trans }}</p>
                         <form method="post" action="./reset.php?client_id={{ client.identifier }}">
                             <input type="hidden" name="secret" value="{{ client.secret }}">
-                            <input type="submit" class="ui button" value="{% trans '{oidc:confirm}' %}">
+                            <input type="submit" class="ui button" value="{{ '{oidc:confirm}'|trans }}">
                         </form>
                     </div>
                 </div>
@@ -142,7 +142,7 @@
         new ClipboardJS('.copy.link')
             .on('success', function (e) {
                 e.clearSelection();
-                $(e.trigger).popup('change content', '{% trans '{oidc:copied}' %}')
+                $(e.trigger).popup('change content', '{{ '{oidc:copied}'|trans }}')
             })
         ;
 
