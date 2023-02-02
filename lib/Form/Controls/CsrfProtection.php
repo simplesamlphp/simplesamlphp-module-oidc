@@ -17,7 +17,6 @@ namespace SimpleSAML\Module\oidc\Form\Controls;
 use Nette\Forms\Controls\CsrfProtection as BaseCsrfProtection;
 use Nette\Utils\Random;
 use SimpleSAML\Session;
-use SimpleSAML\SessionHandler;
 
 class CsrfProtection extends BaseCsrfProtection
 {
@@ -38,7 +37,7 @@ class CsrfProtection extends BaseCsrfProtection
         $token = $session->getData('form_csrf', 'token');
 
         if (!$token) {
-            $token = (new Random())->generate();
+            $token = Random::generate();
             $session->setData('form_csrf', 'token', $token);
         }
 
