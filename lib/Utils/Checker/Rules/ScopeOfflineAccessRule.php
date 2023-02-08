@@ -42,19 +42,6 @@ class ScopeOfflineAccessRule extends AbstractRule
         /** @var ScopeEntityInterface[] $validScopes */
         $validScopes = $currentResultBag->getOrFail(ScopeRule::class)->getValue();
 
-        // Refresh token should only be released if the client requests it using the 'offline_access' scope.
-        // However, for module backwards compatibility we have enabled the deployer to explicitly state that
-        // the refresh token should always be released.
-        // @see https://openid.net/specs/openid-connect-core-1_0.html#OfflineAccess
-        // TODO in v3 remove this config option and do as per spec.
-        $alwaysIssueRefreshToken = $this->configurationService
-            ->getOpenIDConnectConfiguration()
-            ->getOptionalBoolean('alwaysIssueRefreshToken', true);
-        // If the deployer decided to always issue refresh token, we don't have to check offline_access scope.
-        if ($alwaysIssueRefreshToken) {
-            return new Result($this->getKey(), true);
-        }
-
         // Check if offline_access scope is used. If not, we don't have to check anything else.
         if (! ScopeHelper::scopeExists($validScopes, 'offline_access')) {
             return new Result($this->getKey(), false);

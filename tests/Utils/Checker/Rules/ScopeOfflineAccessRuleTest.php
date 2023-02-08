@@ -102,32 +102,6 @@ class ScopeOfflineAccessRuleTest extends TestCase
         );
     }
 
-    public function testReturnsTrueWhenDeployerSetToAlwaysIssueRefreshToken(): void
-    {
-        $this->clientStub->method('getScopes')->willReturn(['openid']);
-        $this->clientResultStub->method('getValue')->willReturn($this->clientStub);
-        $this->validScopesResultStub->method('getValue')->willReturn([$this->scopeEntityOpenid]);
-
-        $this->resultBagMock
-            ->method('getOrFail')
-            ->willReturnOnConsecutiveCalls(
-                $this->redirectUriResultStub,
-                $this->stateResultStub,
-                $this->clientResultStub,
-                $this->validScopesResultStub
-            );
-
-        $this->openIdConfigurationStub->method('getOptionalBoolean')->willReturn(true);
-        $this->configurationServiceStub->method('getOpenIDConnectConfiguration')
-            ->willReturn($this->openIdConfigurationStub);
-
-        $result = (new ScopeOfflineAccessRule($this->configurationServiceStub))
-            ->checkRule($this->serverRequestStub, $this->resultBagMock, $this->loggerServiceMock);
-
-        $this->assertNotNull($result);
-        $this->assertTrue($result->getValue());
-    }
-
     public function testReturnsFalseWhenOfflineAccessScopeNotPresent(): void
     {
         $this->clientStub->method('getScopes')->willReturn(['openid']);

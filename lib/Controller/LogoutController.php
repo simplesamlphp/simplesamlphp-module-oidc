@@ -59,12 +59,7 @@ class LogoutController
         // TODO Back-Channel Logout: https://openid.net/specs/openid-connect-backchannel-1_0.html
         //      [] Refresh tokens issued without the offline_access property to a session being logged out SHOULD
         //           be revoked. Refresh tokens issued with the offline_access property normally SHOULD NOT be revoked.
-        //      - currently we don't handle offline_access at all...
-
-        // TODO Consider implementing Front-Channel Logout:
-        //      https://openid.net/specs/openid-connect-frontchannel-1_0.html
-        //      (FCL has challenges with User Agents Blocking Access to Third-Party Content:
-        //      https://openid.net/specs/openid-connect-frontchannel-1_0.html#ThirdPartyContent)
+        //      - offline_access scope is now handled.
 
         $logoutRequest = $this->authorizationServer->validateLogoutRequest($request);
 

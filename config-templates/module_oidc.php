@@ -70,12 +70,6 @@ $config = [
     // @deprecated option will be removed in v3.
     'alwaysAddClaimsToIdToken' => true,
 
-    // Refresh token should only be released if the client requests it using the 'offline_access' scope.
-    // For module backwards compatibility you can always issue refresh token.
-    // @see https://openid.net/specs/openid-connect-core-1_0.html#OfflineAccess
-    // @deprecated option will be removed in v3.
-    'alwaysIssueRefreshToken' => true,
-
     // Settings regarding Authentication Processing Filters.
     // Note: OIDC authN state array will not contain all of the keys which are available during SAML authN,
     // like Service Provider metadata, etc.

@@ -25,7 +25,6 @@ use SimpleSAML\Module\oidc\Entity\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
-use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithCheckerResultBagInterface;
@@ -432,17 +431,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $responseType->setSessionId($authCodePayload->session_id);
         }
 
-        // Refresh token should only be released if the client requests it using the 'offline_access' scope.
-        // However, for module backwards compatibility we have enabled the deployer to explicitly state that
-        // the refresh token should always be released.
-        // @see https://openid.net/specs/openid-connect-core-1_0.html#OfflineAccess
-        // TODO in v3 remove this config option and do as per spec.
-        $alwaysIssueRefreshToken = $this->configurationService
-            ->getOpenIDConnectConfiguration()
-            ->getOptionalBoolean('alwaysIssueRefreshToken', true);
-
-        // Release refresh token per deployer config or if it is requested by using offline_access scope.
-        if ($alwaysIssueRefreshToken || ScopeHelper::scopeExists($scopes, 'offline_access')) {
+        // Release refresh token if it is requested by using offline_access scope.
+        if (ScopeHelper::scopeExists($scopes, 'offline_access')) {
             // Issue and persist new refresh token if given
             $refreshToken = $this->issueRefreshToken($accessToken, $authCodePayload->auth_code_id);
 
