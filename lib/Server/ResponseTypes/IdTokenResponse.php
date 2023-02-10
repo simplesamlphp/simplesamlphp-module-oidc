@@ -81,12 +81,6 @@ class IdTokenResponse extends BearerTokenResponse implements
         if ($accessToken instanceof AccessTokenEntity === false) {
             throw new RuntimeException('AccessToken must be ' . AccessTokenEntity::class);
         }
-        // Per https://openid.net/specs/openid-connect-core-1_0.html#rfc.section.5.4 certain claims
-        // should only be added in certain scenarios. Allow deployer to control this.
-        // TODO in v3 remove this config option and do as per spec.
-        $addClaimsFromScopes = $this->configurationService
-            ->getOpenIDConnectConfiguration()
-            ->getOptionalBoolean('alwaysAddClaimsToIdToken', true);
 
         /** @var UserEntityInterface $userEntity */
         $userEntity = $this->identityProvider->getUserEntityByIdentifier($accessToken->getUserIdentifier());
@@ -94,7 +88,7 @@ class IdTokenResponse extends BearerTokenResponse implements
         $token = $this->idTokenBuilder->build(
             $userEntity,
             $accessToken,
-            $addClaimsFromScopes,
+            false,
             true,
             $this->getNonce(),
             $this->getAuthTime(),

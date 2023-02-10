@@ -106,7 +106,6 @@ class IdTokenResponseSpec extends ObjectBehavior
 
     public function it_can_generate_response(AccessTokenEntity $accessToken, Configuration $oidcConfig)
     {
-        $oidcConfig->getOptionalBoolean('alwaysAddClaimsToIdToken', true)->willReturn(true);
         $response = new Response();
         $this->setAccessToken($accessToken);
         $response = $this->generateHttpResponse($response);
@@ -114,14 +113,13 @@ class IdTokenResponseSpec extends ObjectBehavior
         $response->getBody()->rewind();
         $body = $response->getBody()->getContents();
         echo "json body response " . $body->getWrappedObject();
-        $body->shouldHaveValidIdToken(['email' => 'myEmail@example.com']);
+        $body->shouldHaveValidIdToken();
     }
 
     public function it_can_generate_response_with_no_token_claims(
         AccessTokenEntity $accessToken,
         Configuration $oidcConfig
     ) {
-        $oidcConfig->getOptionalBoolean('alwaysAddClaimsToIdToken', true)->willReturn(false);
         $response = new Response();
         $this->setAccessToken($accessToken);
         $response = $this->generateHttpResponse($response);
@@ -136,7 +134,6 @@ class IdTokenResponseSpec extends ObjectBehavior
         AccessTokenEntity $accessToken,
         Configuration $oidcConfig
     ) {
-        $oidcConfig->getOptionalBoolean('alwaysAddClaimsToIdToken', true)->willReturn(false);
         // ID token should only look at id_token for hints
         $accessToken->getRequestedClaims()->willReturn(
             [
