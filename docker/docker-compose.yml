@@ -1,6 +1,6 @@
 services:
   http-proxy:
-    image: jwilder/nginx-proxy:0.8.0
+    image: nginxproxy/nginx-proxy:1.2.1
     ports:
       - "443:443"
       - "80:80"
