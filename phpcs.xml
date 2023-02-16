@@ -8,7 +8,7 @@
 
     <file>config-templates</file>
     <file>hooks</file>
-    <file>lib</file>
+    <file>src</file>
     <file>spec</file>
     <file>tests</file>
     <file>www</file>

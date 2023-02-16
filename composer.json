@@ -56,7 +56,7 @@
     },
     "autoload": {
         "psr-4": {
-            "SimpleSAML\\Module\\oidc\\": "lib/"
+            "SimpleSAML\\Module\\oidc\\": "src/"
         }
     },
     "autoload-dev": {

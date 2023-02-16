@@ -9,7 +9,7 @@
   <projectFiles>
     <directory name="config-templates" />
     <directory name="hooks" />
-    <directory name="lib" />
+    <directory name="src" />
     <directory name="templates" />
     <directory name="tests" />
     <directory name="www" />
