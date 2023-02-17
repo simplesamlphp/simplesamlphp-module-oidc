@@ -12,12 +12,12 @@
     <directory name="src" />
     <directory name="templates" />
     <directory name="tests" />
-    <directory name="www" />
+    <directory name="public" />
 
 
     <!-- Ignore deprecated classes -->
     <ignoreFiles>
-       <directory name="www/assets" />
+       <directory name="public/assets" />
        <file name="vendor/bin/psalm" />
     </ignoreFiles>
   </projectFiles>
