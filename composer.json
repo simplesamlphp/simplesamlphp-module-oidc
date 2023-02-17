@@ -36,7 +36,7 @@
         "web-token/jwt-framework": "^2.1"
     },
     "require-dev": {
-        "friendsofphp/php-cs-fixer": "^2.10",
+        "friendsofphp/php-cs-fixer": "^3",
         "friends-of-phpspec/phpspec-code-coverage": "^6.1",
         "phpspec/phpspec": "^7.1.0",
         "phpunit/php-code-coverage": "^9.0.0",
