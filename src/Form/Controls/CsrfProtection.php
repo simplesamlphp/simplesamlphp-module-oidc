@@ -15,6 +15,7 @@
 namespace SimpleSAML\Module\oidc\Form\Controls;
 
 use Nette\Forms\Controls\CsrfProtection as BaseCsrfProtection;
+use Nette\InvalidStateException;
 use Nette\Utils\Random;
 use SimpleSAML\Session;
 
@@ -22,25 +23,36 @@ class CsrfProtection extends BaseCsrfProtection
 {
     public const PROTECTION = 'SimpleSAML\Module\oidc\Form\Controls\CsrfProtection::validateCsrf';
 
+    protected $sspSession;
+
     public function __construct($errorMessage)
     {
-        parent::__construct($errorMessage);
+        // Instead of calling CsrfProtection parent class constructor, go to it's parent (HiddenField), and call
+        // its constructor. This is to avoid setting a Nette session in CsrfProtection parent, and use the SSP one.
+        $hiddentFieldParent = get_parent_class(get_parent_class($this));
 
-        $this->getRules()->reset();
-        $this->addRule(self::PROTECTION, $errorMessage);
+        if (! is_string($hiddentFieldParent)) {
+            throw new InvalidStateException('CsrfProtection initialization error');
+        }
+
+        $hiddentFieldParent::__construct();
+
+        $this->setOmitted()
+            ->setRequired()
+            ->addRule(self::PROTECTION, $errorMessage);
+
+        $this->sspSession = Session::getSessionFromRequest();
     }
 
     public function getToken(): string
     {
-        $session = Session::getSessionFromRequest();
-
-        $token = $session->getData('form_csrf', 'token');
+        $token = $this->sspSession->getData('form_csrf', 'token');
 
         if (!$token) {
             $token = Random::generate();
-            $session->setData('form_csrf', 'token', $token);
+            $this->sspSession->setData('form_csrf', 'token', $token);
         }
 
-        return $token ^ $session->getSessionId();
+        return $token ^ $this->sspSession->getSessionId();
     }
 }

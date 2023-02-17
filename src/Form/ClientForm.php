@@ -14,9 +14,7 @@
 
 namespace SimpleSAML\Module\oidc\Form;
 
-use Nette\Forms\Container;
 use Nette\Forms\Form;
-use Nette\InvalidArgumentException;
 use SimpleSAML\Auth\Source;
 use SimpleSAML\Module\oidc\Form\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
