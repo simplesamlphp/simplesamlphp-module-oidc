@@ -14,13 +14,17 @@
 
 namespace SimpleSAML\Module\oidc\Form;
 
+use Nette\Forms\Container;
 use Nette\Forms\Form;
+use Nette\InvalidArgumentException;
 use SimpleSAML\Auth\Source;
 use SimpleSAML\Module\oidc\Form\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 
 class ClientForm extends Form
 {
+    protected const TYPE_ARRAY = 'array';
+
     /**
      * RFC3986. AppendixB. Parsing a URI Reference with a Regular Expression.
      */
@@ -55,8 +59,11 @@ class ClientForm extends Form
 
     public function validateRedirectUri(Form $form): void
     {
+        /** @var array $values */
+        $values = $form->getValues(self::TYPE_ARRAY);
+
         $this->validateByMatchingRegex(
-            $form->getValues()['redirect_uri'],
+            $values['redirect_uri'] ?? [],
             self::REGEX_URI,
             'Invalid URI: '
         );
@@ -64,8 +71,11 @@ class ClientForm extends Form
 
     public function validateAllowedOrigin(Form $form): void
     {
+        /** @var array $values */
+        $values = $form->getValues(self::TYPE_ARRAY);
+
         $this->validateByMatchingRegex(
-            $form->getValues()['allowed_origin'] ?? [],
+            $values['allowed_origin'] ?? [],
             self::REGEX_ALLOWED_ORIGIN_URL,
             'Invalid allowed origin: '
         );
@@ -73,8 +83,11 @@ class ClientForm extends Form
 
     public function validatePostLogoutRedirectUri(Form $form): void
     {
+        /** @var array $values */
+        $values = $form->getValues(self::TYPE_ARRAY);
+
         $this->validateByMatchingRegex(
-            $form->getValues()['post_logout_redirect_uri'] ?? [],
+            $values['post_logout_redirect_uri'] ?? [],
             self::REGEX_URI,
             'Invalid post-logout redirect URI: '
         );
@@ -103,15 +116,10 @@ class ClientForm extends Form
         }
     }
 
-    /**
-     * @param bool $asArray
-     *
-     * @return array
-     */
-    public function getValues($asArray = false): array
+    public function getValues($returnType = null, ?array $controls = null): array
     {
         /** @var array $values */
-        $values = parent::getValues(true);
+        $values = parent::getValues(self::TYPE_ARRAY);
 
         // Sanitize redirect_uri and allowed_origin
         $values['redirect_uri'] = $this->convertTextToArrayWithLinesAsValues($values['redirect_uri']);
@@ -137,37 +145,43 @@ class ClientForm extends Form
         return $values;
     }
 
-    /**
-     * @param array $values
-     * @param bool  $erase
-     *
-     * @return Form
-     */
-    public function setDefaults($values, $erase = false): Form
+    public function setDefaults($data, bool $erase = false)
     {
-        $values['redirect_uri'] = implode("\n", $values['redirect_uri']);
-
-        // Allowed origins are only available for public clients (not for confidential clients).
-        if (! $values['is_confidential'] && isset($values['allowed_origin'])) {
-            $values['allowed_origin'] = implode("\n", $values['allowed_origin']);
-        } else {
-            $values['allowed_origin'] = '';
+        if (! is_array($data)) {
+            if ($data instanceof \Traversable) {
+                $data = iterator_to_array($data);
+            } else {
+                $data = (array) $data;
+            }
         }
 
-        $values['post_logout_redirect_uri'] = implode("\n", $values['post_logout_redirect_uri']);
+        $data['redirect_uri'] = implode("\n", $data['redirect_uri']);
 
-        $values['scopes'] = array_intersect($values['scopes'], array_keys($this->getScopes()));
+        // Allowed origins are only available for public clients (not for confidential clients).
+        if (! $data['is_confidential'] && isset($data['allowed_origin'])) {
+            $data['allowed_origin'] = implode("\n", $data['allowed_origin']);
+        } else {
+            $data['allowed_origin'] = '';
+        }
 
-        return parent::setDefaults($values, $erase);
+        $data['post_logout_redirect_uri'] = implode("\n", $data['post_logout_redirect_uri']);
+
+        $data['scopes'] = array_intersect($data['scopes'], array_keys($this->getScopes()));
+
+        return parent::setDefaults($data, $erase);
     }
 
     protected function buildForm(): void
     {
         $this->getElementPrototype()->addAttributes(['class' => 'ui form']);
 
+        /** @psalm-suppress InvalidPropertyAssignmentValue According to docs this is fine. */
         $this->onValidate[] = [$this, 'validateRedirectUri'];
+        /** @psalm-suppress InvalidPropertyAssignmentValue According to docs this is fine. */
         $this->onValidate[] = [$this, 'validateAllowedOrigin'];
+        /** @psalm-suppress InvalidPropertyAssignmentValue According to docs this is fine. */
         $this->onValidate[] = [$this, 'validatePostLogoutRedirectUri'];
+        /** @psalm-suppress InvalidPropertyAssignmentValue According to docs this is fine. */
         $this->onValidate[] = [$this, 'validateBackChannelLogoutUri'];
 
         $this->setMethod('POST');
@@ -186,14 +200,14 @@ class ClientForm extends Form
         $this->addCheckbox('is_confidential', '{oidc:client:is_confidential}');
 
         $this->addSelect('auth_source', '{oidc:client:auth_source}:')
-            ->setAttribute('class', 'ui fluid dropdown clearable')
+            ->setHtmlAttribute('class', 'ui fluid dropdown clearable')
             ->setItems(Source::getSources(), false)
             ->setPrompt('Pick an AuthSource');
 
         $scopes = $this->getScopes();
 
         $this->addMultiSelect('scopes', '{oidc:client:scopes}')
-            ->setAttribute('class', 'ui fluid dropdown')
+            ->setHtmlAttribute('class', 'ui fluid dropdown')
             ->setItems($scopes)
             ->setRequired('Select one scope at least');
 
