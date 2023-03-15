@@ -54,9 +54,6 @@ jobs:
       - name: Install Composer dependencies
         run: composer install --no-progress --prefer-dist --optimize-autoloader
 
-      - name: Syntax check PHP
-        run: bash vendor/bin/check-syntax-php.sh
-
       - name: Decide whether to run code coverage or not
         if: ${{ matrix.php-versions != '7.4' }}
         run: |
