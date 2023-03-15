@@ -50,6 +50,14 @@ $config = [
     'useridattr' => 'uid',
 
     /**
+     * Data like authorization codes, access tokens, refresh tokens and users will be stored in database by default.
+     * We can optionally choose to cache it using memcache to save a few database queries during the authentication.
+     */
+    'repositoryType' =>
+        \SimpleSAML\Module\oidc\Factories\RepositoryFactory::TYPE_DATABASE, // Default
+//        \SimpleSAML\Module\oidc\Factories\RepositoryFactory::TYPE_DATABASE_AND_MEMCACHE,
+
+    /**
      * Permissions let the module expose functionality to specific users.
      * In the below configuration, a user's eduPersonEntitlement attribute is examined. If the user
      * tries to do something that requires the 'client' permission (such as registering their own client)

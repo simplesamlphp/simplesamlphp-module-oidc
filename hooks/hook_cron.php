@@ -12,8 +12,8 @@
  * file that was distributed with this source code.
  */
 
-use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 
 /**
@@ -39,7 +39,7 @@ function oidc_hook_cron(&$croninfo)
     $container = new \SimpleSAML\Module\oidc\Services\Container();
 
     try {
-        $accessTokenRepository = $container->get(AccessTokenRepository::class);
+        $accessTokenRepository = $container->get(AccessTokenRepositoryInterface::class);
         $accessTokenRepository->removeExpired();
 
         $authTokenRepository = $container->get(AuthCodeRepository::class);

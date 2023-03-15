@@ -22,8 +22,8 @@ use SimpleSAML\Error\UserNotFound;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
-use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
@@ -36,10 +36,7 @@ class OpenIdConnectUserInfoController
      */
     private $resourceServer;
 
-    /**
-     * @var AccessTokenRepository
-     */
-    private $accessTokenRepository;
+    private AccessTokenRepositoryInterface $accessTokenRepository;
 
     /**
      * @var UserRepository
@@ -58,7 +55,7 @@ class OpenIdConnectUserInfoController
 
     public function __construct(
         ResourceServer $resourceServer,
-        AccessTokenRepository $accessTokenRepository,
+        AccessTokenRepositoryInterface $accessTokenRepository,
         UserRepository $userRepository,
         AllowedOriginRepository $allowedOriginRepository,
         ClaimTranslatorExtractor $claimTranslatorExtractor

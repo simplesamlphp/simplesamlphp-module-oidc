@@ -267,4 +267,16 @@ class ConfigurationService
 
         return (string) $value;
     }
+
+    public function getRepositoryType(): string
+    {
+        $value = $this->getOpenIDConnectConfiguration()
+            ->getString('repositoryType', Module\oidc\Factories\RepositoryFactory::TYPE_DATABASE);
+
+        if (in_array($value, Module\oidc\Factories\RepositoryFactory::VALID_TYPES)) {
+            return $value;
+        }
+
+        return Module\oidc\Factories\RepositoryFactory::TYPE_DATABASE;
+    }
 }

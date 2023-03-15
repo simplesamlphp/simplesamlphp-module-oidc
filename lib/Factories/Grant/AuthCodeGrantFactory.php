@@ -14,8 +14,8 @@
 
 namespace SimpleSAML\Module\oidc\Factories\Grant;
 
-use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
@@ -28,10 +28,7 @@ class AuthCodeGrantFactory
      */
     private $authCodeRepository;
 
-    /**
-     * @var AccessTokenRepository
-     */
-    private $accessTokenRepository;
+    private AccessTokenRepositoryInterface $accessTokenRepository;
 
     /**
      * @var \SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository
@@ -56,7 +53,7 @@ class AuthCodeGrantFactory
 
     public function __construct(
         AuthCodeRepository $authCodeRepository,
-        AccessTokenRepository $accessTokenRepository,
+        AccessTokenRepositoryInterface $accessTokenRepository,
         RefreshTokenRepository $refreshTokenRepository,
         \DateInterval $refreshTokenDuration,
         \DateInterval $authCodeDuration,

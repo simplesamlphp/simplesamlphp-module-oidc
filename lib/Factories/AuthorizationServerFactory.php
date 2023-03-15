@@ -14,13 +14,13 @@
 
 namespace SimpleSAML\Module\oidc\Factories;
 
+use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use League\OAuth2\Server\CryptKey;
 use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
 use SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant;
 use SimpleSAML\Module\oidc\Server\Grants\OAuth2ImplicitGrant;
 use League\OAuth2\Server\Grant\RefreshTokenGrant;
-use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
@@ -33,10 +33,7 @@ class AuthorizationServerFactory
      */
     private $clientRepository;
 
-    /**
-     * @var AccessTokenRepository
-     */
-    private $accessTokenRepository;
+    private AccessTokenRepositoryInterface $accessTokenRepository;
 
     /**
      * @var ScopeRepository
@@ -88,7 +85,7 @@ class AuthorizationServerFactory
 
     /**
      * @param ClientRepository $clientRepository
-     * @param AccessTokenRepository $accessTokenRepository
+     * @param AccessTokenRepositoryInterface $accessTokenRepository
      * @param ScopeRepository $scopeRepository
      * @param AuthCodeGrant $authCodeGrant
      * @param OAuth2ImplicitGrant $oAuth2ImplicitGrant
@@ -102,7 +99,7 @@ class AuthorizationServerFactory
      */
     public function __construct(
         ClientRepository $clientRepository,
-        AccessTokenRepository $accessTokenRepository,
+        AccessTokenRepositoryInterface $accessTokenRepository,
         ScopeRepository $scopeRepository,
         AuthCodeGrant $authCodeGrant,
         OAuth2ImplicitGrant $oAuth2ImplicitGrant,

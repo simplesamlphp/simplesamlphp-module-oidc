@@ -16,10 +16,14 @@ namespace SimpleSAML\Module\oidc\Repositories;
 
 use League\OAuth2\Server\Entities\RefreshTokenEntityInterface as OAuth2RefreshTokenEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
+use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Entity\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entity\RefreshTokenEntity;
+use SimpleSAML\Module\oidc\Factories\RepositoryFactory;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
+use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 class RefreshTokenRepository extends AbstractDatabaseRepository implements RefreshTokenRepositoryInterface
@@ -27,6 +31,18 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
     use RevokeTokenByAuthCodeIdTrait;
 
     public const TABLE_NAME = 'oidc_refresh_token';
+    protected AccessTokenRepositoryInterface $accessTokenRepository;
+
+    public function __construct(
+        ConfigurationService $configurationService,
+        Database $database = null,
+        AccessTokenRepositoryInterface $accessTokenRepository = null
+    ) {
+        parent::__construct($configurationService, $database);
+
+        $this->accessTokenRepository = $accessTokenRepository ??
+            (new RepositoryFactory($this->configurationService, $this->database))->getAccessTokenRepository();
+    }
 
     /**
      * @return string
@@ -83,8 +99,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         }
 
         $data = current($rows);
-        $accessTokenRepository = new AccessTokenRepository($this->configurationService);
-        $data['access_token'] = ($accessTokenRepository)->findById($data['access_token_id']);
+        $data['access_token'] = $this->accessTokenRepository->findById($data['access_token_id']);
 
         return RefreshTokenEntity::fromState($data);
     }

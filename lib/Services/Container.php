@@ -33,13 +33,14 @@ use SimpleSAML\Module\oidc\Factories\Grant\ImplicitGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\OAuth2ImplicitGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\RefreshTokenGrantFactory;
 use SimpleSAML\Module\oidc\Factories\IdTokenResponseFactory;
+use SimpleSAML\Module\oidc\Factories\RepositoryFactory;
 use SimpleSAML\Module\oidc\Factories\ResourceServerFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
-use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\CodeChallengeVerifiersRepository;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
@@ -93,6 +94,9 @@ class Container implements ContainerInterface
         $loggerService = new LoggerService();
         $this->services[LoggerService::class] = $loggerService;
 
+        $repositoryFactory = new RepositoryFactory($configurationService);
+        $this->services[RepositoryFactory::class] = $repositoryFactory;
+
         $clientRepository = new ClientRepository($configurationService);
         $this->services[ClientRepository::class] = $clientRepository;
 
@@ -105,8 +109,8 @@ class Container implements ContainerInterface
         $refreshTokenRepository = new RefreshTokenRepository($configurationService);
         $this->services[RefreshTokenRepository::class] = $refreshTokenRepository;
 
-        $accessTokenRepository = new AccessTokenRepository($configurationService);
-        $this->services[AccessTokenRepository::class] = $accessTokenRepository;
+        $accessTokenRepository = $repositoryFactory->getAccessTokenRepository();
+        $this->services[AccessTokenRepositoryInterface::class] = $accessTokenRepository;
 
         $scopeRepository = new ScopeRepository($configurationService);
         $this->services[ScopeRepository::class] = $scopeRepository;

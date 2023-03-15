@@ -21,11 +21,6 @@ use SimpleSAML\Module\oidc\Services\ConfigurationService;
 abstract class AbstractDatabaseRepository
 {
     /**
-     * @var \SimpleSAML\Configuration
-     */
-    protected $config;
-
-    /**
      * @var \SimpleSAML\Database
      */
     protected $database;
@@ -38,11 +33,12 @@ abstract class AbstractDatabaseRepository
     /**
      * ClientRepository constructor.
      */
-    public function __construct(ConfigurationService $configurationService)
-    {
-        $this->config = Configuration::getOptionalConfig('module_oidc.php');
-        $this->database = Database::getInstance();
+    public function __construct(
+        ConfigurationService $configurationService,
+        Database $database = null
+    ) {
         $this->configurationService = $configurationService;
+        $this->database = $database ?? Database::getInstance();
     }
 
     /**

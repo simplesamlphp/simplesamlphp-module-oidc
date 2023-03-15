@@ -39,6 +39,14 @@ $config = [
     // want to use this attribute as the 'sub' claim since it designates unique identifier for the user).
     'useridattr' => 'uid',
 
+    /**
+     * Data like authorization codes, access tokens, refresh tokens and users will be stored in database by default.
+     * We can optionally choose to cache it using memcache to save a few database queries during the authentication.
+     */
+    'repositoryType' =>
+        \SimpleSAML\Module\oidc\Factories\RepositoryFactory::TYPE_DATABASE, // Default
+//        \SimpleSAML\Module\oidc\Factories\RepositoryFactory::TYPE_DATABASE_AND_MEMCACHE,
+
     // Optional custom scopes. You can create as many scopes as you want and assign claims to them.
     'scopes' => [
 //        'private' => [ // The key represents the scope name.
