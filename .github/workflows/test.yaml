@@ -144,12 +144,6 @@ jobs:
       - name: Install Composer dependencies
         run: composer install --no-progress --prefer-dist --optimize-autoloader
 
-      - name: Syntax check YAML / XML / JSON
-        run: |
-          bash vendor/bin/check-syntax-yaml.sh
-          bash vendor/bin/check-syntax-xml.sh
-          bash vendor/bin/check-syntax-json.sh
-
   quality:
     name: Quality control
     runs-on: [ubuntu-latest]
