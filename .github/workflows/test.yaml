@@ -192,10 +192,6 @@ jobs:
         if: always()
         run: php vendor/bin/psalm --show-info=true
 
-      - name: Psalter
-        if: always()
-        run: php vendor/bin/psalter --issues=UnnecessaryVarAnnotation --dry-run
-
   conformance-suite:
     runs-on: ubuntu-latest
     env:

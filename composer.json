@@ -36,14 +36,16 @@
         "web-token/jwt-framework": "^2.1"
     },
     "require-dev": {
-        "friendsofphp/php-cs-fixer": "^3",
         "friends-of-phpspec/phpspec-code-coverage": "^6.1",
+        "friendsofphp/php-cs-fixer": "^3",
         "phpspec/phpspec": "^7.1.0",
         "phpunit/php-code-coverage": "^9.0.0",
         "phpunit/phpcov": "^8.2.0",
         "phpunit/phpunit": "^9.0.0",
         "simplesamlphp/simplesamlphp": "^v2.0.0",
-        "simplesamlphp/simplesamlphp-test-framework": "^1.2.1"
+        "simplesamlphp/simplesamlphp-test-framework": "^1.2.1",
+        "squizlabs/php_codesniffer": "^3.7",
+        "vimeo/psalm": "^5.8"
     },
     "config": {
         "preferred-install": {
@@ -71,12 +73,7 @@
     },
     "scripts": {
         "pre-commit": [
-            "vendor/bin/check-syntax-php.sh",
-            "vendor/bin/check-syntax-json.sh",
-            "vendor/bin/check-syntax-xml.sh",
-            "vendor/bin/check-syntax-yaml.sh",
             "vendor/bin/psalm",
-            "vendor/bin/psalter --issues=UnnecessaryVarAnnotation --dry-run",
             "vendor/bin/phpcs -p"
         ],
         "tests": [
