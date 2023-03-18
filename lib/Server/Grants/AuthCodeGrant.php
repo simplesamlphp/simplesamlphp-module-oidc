@@ -352,10 +352,18 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             throw OAuthServerException::invalidRequest('code', 'Cannot decrypt the authorization code', $e);
         }
 
+        $codeVerifier = $this->getRequestParameter('code_verifier', $request, null);
+
+        // If a code challenge isn't present but a code verifier is, reject the request to block PKCE downgrade attack
+        if ($this->shouldCheckPkce($client) && empty($authCodePayload->code_challenge) && $codeVerifier !== null) {
+            throw OAuthServerException::invalidRequest(
+                'code_challenge',
+                'code_verifier received when no code_challenge is present'
+            );
+        }
+
         // Validate code challenge
         if (!empty($authCodePayload->code_challenge)) {
-            $codeVerifier = $this->getRequestParameter('code_verifier', $request, null);
-
             if ($codeVerifier === null) {
                 throw OAuthServerException::invalidRequest('code_verifier');
             }
