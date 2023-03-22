@@ -44,7 +44,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
     public static function setUpBeforeClass(): void
     {
         self::$certFolder = dirname(__DIR__, 4) . '/docker/ssp/';
-        self::$privateKeyPath = self::$certFolder . 'oidc_module.pem';
+        self::$privateKeyPath = self::$certFolder . 'oidc_module.key';
         self::$publicKeyPath = self::$certFolder . 'oidc_module.crt';
         self::$privateKey = new CryptKey(self::$privateKeyPath, null, false);
         self::$publicKey = new CryptKey(self::$publicKeyPath, null, false);
@@ -58,6 +58,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         $this->resultBagStub = $this->createStub(ResultBagInterface::class);
         $this->clientStub = $this->createStub(ClientEntityInterface::class);
 
+        /** @psalm-suppress ArgumentTypeCoercion */
         $this->jwtConfig = Configuration::forAsymmetricSigner(
             new Sha256(),
             InMemory::plainText(self::$privateKey->getKeyContents()),
@@ -103,6 +104,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         $this->requestStub->method('getQueryParams')
             ->willReturn(['post_logout_redirect_uri' => self::$postLogoutRedirectUri]);
 
+        /** @psalm-suppress ArgumentTypeCoercion */
         $jwt = $this->jwtConfig->builder()->issuedBy(self::$issuer)
             ->getToken(
                 new Sha256(),
@@ -130,6 +132,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         $this->requestStub->method('getQueryParams')
             ->willReturn(['post_logout_redirect_uri' => self::$postLogoutRedirectUri]);
 
+        /** @psalm-suppress ArgumentTypeCoercion */
         $jwt = $this->jwtConfig->builder()
             ->issuedBy(self::$issuer)
             ->permittedFor('invalid-client-id')
@@ -160,6 +163,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         $this->requestStub->method('getQueryParams')
             ->willReturn(['post_logout_redirect_uri' => self::$postLogoutRedirectUri]);
 
+        /** @psalm-suppress ArgumentTypeCoercion */
         $jwt = $this->jwtConfig->builder()
             ->issuedBy(self::$issuer)
             ->permittedFor('client-id')
@@ -195,6 +199,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         $this->requestStub->method('getQueryParams')
             ->willReturn(['post_logout_redirect_uri' => self::$postLogoutRedirectUri]);
 
+        /** @psalm-suppress ArgumentTypeCoercion */
         $jwt = $this->jwtConfig->builder()
             ->issuedBy(self::$issuer)
             ->permittedFor('client-id')

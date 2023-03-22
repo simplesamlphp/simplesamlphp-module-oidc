@@ -4,12 +4,12 @@
 
 {% block pre_breadcrump %}
     <span class="divider">/</span>
-    <a class="section" href="./index.php">{% trans 'OpenID Connect Client Registry' %}</a>
+    <a class="section" href="./index.php">{{ 'OpenID Connect Client Registry'|trans }}</a>
 {% endblock %}
 
 {% block action %}
     <div class="ui submit primary icon labeled button">
         <i class="save icon"></i>
-        {% trans '{oidc:save}' %}
+        {{ '{oidc:save}'|trans }}
     </div>
 {% endblock %}

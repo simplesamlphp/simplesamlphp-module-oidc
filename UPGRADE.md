@@ -1,3 +1,10 @@
+# Version 2 to 3
+ - Module code was refactored to make it compatible with SimpleSAMLphp v2
+ - Default key name was changed from oidc_module.pem to oidc_module.key. If you don't set custom
+key name using option 'privatekey' in module config file, make sure to change the file name of the
+key from oidc_module.pem to oidc_module.key.
+ - Removed config option 'alwaysIssueRefreshToken'
+ - Removed config option 'alwaysAddClaimsToIdToken'
 
 # Version 1 to 2
 

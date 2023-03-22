@@ -4,7 +4,7 @@
 
 {% block pre_breadcrump %}
     <span class="divider">/</span>
-    <a class="section" href="./index.php">{% trans 'OpenID Connect Client Registry' %}</a>
+    <a class="section" href="./index.php">{{ 'OpenID Connect Client Registry'|trans }}</a>
 {% endblock %}
 
 {% block content %}
@@ -14,28 +14,28 @@
 
     <div class="ui attached red message">
         <div class="header">
-            {% trans '{oidc:client:delete}' %}
+            {{ '{oidc:client:delete}'|trans }}
         </div>
-        <p>{% trans '{oidc:client:confirm_delete}' %}</p>
+        <p>{{ '{oidc:client:confirm_delete}'|trans }}</p>
     </div>
     <form class="ui form attached fluid segment" method="post">
         <input type="hidden" name="secret" value="{{ client.secret }}">
         <div class="field">
-            <label>{% trans '{oidc:client:name}' %}</label>
+            <label>{{ '{oidc:client:name}'|trans }}</label>
             <input readonly="readonly" type="text" value="{{ client.name }}">
         </div>
         <div class="field">
-            <label>{% trans '{oidc:client:description}' %}</label>
+            <label>{{ '{oidc:client:description}'|trans }}</label>
             <textarea readonly="readonly" rows="6">
                 {{- client.description -}}
             </textarea>
         </div>
         <div class="ui buttons">
             <button type="submit"  class="ui small primary labeled icon button">
-                <i class="trash icon"></i> {% trans '{oidc:delete}' %}
+                <i class="trash icon"></i> {{ '{oidc:delete}'|trans }}
             </button>
             <a href="./index.php" class="ui small secondary labeled icon button">
-                <i class="arrow left icon"></i> {% trans '{oidc:return}' %}
+                <i class="arrow left icon"></i> {{ '{oidc:return}'|trans }}
             </a>
         </div>
     </form>

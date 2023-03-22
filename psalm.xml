@@ -2,27 +2,29 @@
 <psalm
   name="SimpleSAMLphp"
   useDocblockTypes="true"
-  totallyTyped="false"
   hideExternalErrors="true"
+  findUnusedBaselineEntry="true"
+  findUnusedCode="false"
 >
   <projectFiles>
     <directory name="config-templates" />
     <directory name="hooks" />
-    <directory name="lib" />
+    <directory name="src" />
     <directory name="templates" />
     <directory name="tests" />
-    <directory name="www" />
+    <directory name="public" />
 
 
     <!-- Ignore deprecated classes -->
     <ignoreFiles>
-       <directory name="www/assets" />
+       <directory name="public/assets" />
        <file name="vendor/bin/psalm" />
     </ignoreFiles>
   </projectFiles>
 
   <issueHandlers>
     <LessSpecificReturnType errorLevel="info" />
+    <LessSpecificImplementedReturnType errorLevel="info" />
 
     <!-- level 3 issues - slightly lazy code writing, but probably low false-negatives -->
     <DeprecatedMethod errorLevel="info" />
@@ -31,7 +33,6 @@
     <MissingReturnType errorLevel="info" />
     <MissingPropertyType errorLevel="info" />
     <InvalidDocblock errorLevel="info" />
-    <MisplacedRequiredParam errorLevel="info" />
 
     <PropertyNotSetInConstructor errorLevel="info" />
     <MissingConstructor errorLevel="info" />
@@ -41,6 +42,12 @@
     <PossiblyUnusedMethod errorLevel="info" />
     <PropertyNotSetInConstructor errorLevel="suppress" />
     <MissingClosureReturnType errorLevel="suppress" />
+
+    <InvalidArgument>
+      <errorLevel type="suppress">
+        <directory name="tests" /> <!-- Since a lot of stub/mocks are used in tests, suppress InvalidArgument -->
+      </errorLevel>
+    </InvalidArgument>
 
 
     <!-- Ignore UnresolvableInclude on CLI-scripts -->

@@ -38,7 +38,7 @@ class ClientRepositoryTest extends TestCase
             'database.password' => null,
             'database.prefix' => 'phpunit_',
             'database.persistent' => true,
-            'database.slaves' => [],
+            'database.secondaries' => [],
         ];
 
         Configuration::loadFromArray($config, '', 'simplesaml');

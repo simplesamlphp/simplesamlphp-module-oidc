@@ -43,7 +43,7 @@ class IdTokenHintRuleTest extends TestCase
     public static function setUpBeforeClass(): void
     {
         self::$certFolder = dirname(__DIR__, 4) . '/docker/ssp/';
-        self::$privateKeyPath = self::$certFolder . 'oidc_module.pem';
+        self::$privateKeyPath = self::$certFolder . 'oidc_module.key';
         self::$publicKeyPath = self::$certFolder . 'oidc_module.crt';
         self::$privateKey = new CryptKey(self::$privateKeyPath, null, false);
         self::$publicKey = new CryptKey(self::$publicKeyPath, null, false);
@@ -66,6 +66,7 @@ class IdTokenHintRuleTest extends TestCase
         $this->cryptKeyFactoryStub->method('buildPrivateKey')->willReturn(self::$privateKey);
         $this->cryptKeyFactoryStub->method('buildPublicKey')->willReturn(self::$publicKey);
 
+        /** @psalm-suppress ArgumentTypeCoercion */
         $this->jwtConfig = Configuration::forAsymmetricSigner(
             $this->configurationServiceStub->getSigner(),
             InMemory::plainText(self::$privateKey->getKeyContents()),
@@ -90,6 +91,7 @@ class IdTokenHintRuleTest extends TestCase
     public function testCheckRuleIsNullWhenParamNotSet(): void
     {
         $rule = new IdTokenHintRule($this->configurationServiceStub, $this->cryptKeyFactoryStub);
+        $this->requestStub->method('getMethod')->willReturn('');
         $result = $rule->checkRule(
             $this->requestStub,
             $this->resultBagStub,
@@ -138,6 +140,7 @@ class IdTokenHintRuleTest extends TestCase
     {
         $this->requestStub->method('getMethod')->willReturn('GET');
 
+        /** @psalm-suppress ArgumentTypeCoercion */
         $invalidIssuerJwt = $this->jwtConfig->builder()->issuedBy('invalid')->getToken(
             $this->configurationServiceStub->getSigner(),
             InMemory::plainText(self::$privateKey->getKeyContents())
@@ -158,6 +161,7 @@ class IdTokenHintRuleTest extends TestCase
     {
         $this->requestStub->method('getMethod')->willReturn('GET');
 
+        /** @psalm-suppress ArgumentTypeCoercion */
         $idToken = $this->jwtConfig->builder()->issuedBy(self::$issuer)->getToken(
             $this->configurationServiceStub->getSigner(),
             InMemory::plainText(self::$privateKey->getKeyContents())

@@ -1,5 +1,6 @@
 <?php
 $config['module.enable']['exampleauth'] = true;
+$config['module.enable']['oidc'] = true;
 $config = [
         'secretsalt' => 'testsalt',
         'database.dsn' => 'sqlite:/var/simplesamlphp/data/mydb.sq3',

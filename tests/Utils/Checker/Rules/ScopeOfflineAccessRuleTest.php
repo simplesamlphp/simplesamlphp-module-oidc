@@ -21,51 +21,51 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeOfflineAccessRule;
 class ScopeOfflineAccessRuleTest extends TestCase
 {
     /**
-     * @var \PHPUnit\Framework\MockObject\Stub|ServerRequestInterface
+     * @var \PHPUnit\Framework\MockObject\Stub
      */
     protected $serverRequestStub;
     /**
-     * @var \PHPUnit\Framework\MockObject\MockObject|ResultBagInterface
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $resultBagMock;
     /**
-     * @var \PHPUnit\Framework\MockObject\MockObject|LoggerService
+     * @var \PHPUnit\Framework\MockObject\MockObject
      */
     protected $loggerServiceMock;
     /**
-     * @var \PHPUnit\Framework\MockObject\Stub|ClientEntityInterface
+     * @var \PHPUnit\Framework\MockObject\Stub
      */
     protected $clientStub;
     /**
-     * @var \PHPUnit\Framework\MockObject\Stub|ScopeEntityInterface
+     * @var \PHPUnit\Framework\MockObject\Stub
      */
     protected $scopeEntityOpenid;
     /**
-     * @var \PHPUnit\Framework\MockObject\Stub|ScopeEntityInterface
+     * @var \PHPUnit\Framework\MockObject\Stub
      */
     protected $scopeEntityOfflineAccess;
     /**
-     * @var \PHPUnit\Framework\MockObject\Stub|Result
+     * @var \PHPUnit\Framework\MockObject\Stub
      */
     protected $redirectUriResultStub;
     /**
-     * @var \PHPUnit\Framework\MockObject\Stub|Result
+     * @var \PHPUnit\Framework\MockObject\Stub
      */
     protected $stateResultStub;
     /**
-     * @var \PHPUnit\Framework\MockObject\Stub|Result
+     * @var \PHPUnit\Framework\MockObject\Stub
      */
     protected $clientResultStub;
     /**
-     * @var \PHPUnit\Framework\MockObject\Stub|Result
+     * @var \PHPUnit\Framework\MockObject\Stub
      */
     protected $validScopesResultStub;
     /**
-     * @var \PHPUnit\Framework\MockObject\Stub|ConfigurationService
+     * @var \PHPUnit\Framework\MockObject\Stub
      */
     protected $configurationServiceStub;
     /**
-     * @var \PHPUnit\Framework\MockObject\Stub|Configuration
+     * @var \PHPUnit\Framework\MockObject\Stub
      */
     protected $openIdConfigurationStub;
 
@@ -102,31 +102,6 @@ class ScopeOfflineAccessRuleTest extends TestCase
         );
     }
 
-    public function testReturnsTrueWhenDeployerSetToAlwaysIssueRefreshToken(): void
-    {
-        $this->clientStub->method('getScopes')->willReturn(['openid']);
-        $this->clientResultStub->method('getValue')->willReturn($this->clientStub);
-        $this->validScopesResultStub->method('getValue')->willReturn([$this->scopeEntityOpenid]);
-
-        $this->resultBagMock
-            ->method('getOrFail')
-            ->willReturnOnConsecutiveCalls(
-                $this->redirectUriResultStub,
-                $this->stateResultStub,
-                $this->clientResultStub,
-                $this->validScopesResultStub
-            );
-
-        $this->openIdConfigurationStub->method('getBoolean')->willReturn(true);
-        $this->configurationServiceStub->method('getOpenIDConnectConfiguration')
-            ->willReturn($this->openIdConfigurationStub);
-
-        $result = (new ScopeOfflineAccessRule($this->configurationServiceStub))
-            ->checkRule($this->serverRequestStub, $this->resultBagMock, $this->loggerServiceMock);
-
-        $this->assertTrue($result->getValue());
-    }
-
     public function testReturnsFalseWhenOfflineAccessScopeNotPresent(): void
     {
         $this->clientStub->method('getScopes')->willReturn(['openid']);
@@ -149,6 +124,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
         $result = (new ScopeOfflineAccessRule($this->configurationServiceStub))
             ->checkRule($this->serverRequestStub, $this->resultBagMock, $this->loggerServiceMock);
 
+        $this->assertNotNull($result);
         $this->assertFalse($result->getValue());
     }
 
@@ -201,6 +177,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
         $result = (new ScopeOfflineAccessRule($this->configurationServiceStub))
             ->checkRule($this->serverRequestStub, $this->resultBagMock, $this->loggerServiceMock);
 
+        $this->assertNotNull($result);
         $this->assertTrue($result->getValue());
     }
 }

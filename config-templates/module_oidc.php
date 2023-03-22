@@ -18,8 +18,8 @@ $config = [
 
     // The private key passphrase (optional)
     // 'pass_phrase' => 'secret',
-    // The cert and key for signing the ID token. Default names are oidc_module.pem and oidc_module.crt
-    // 'privatekey' => 'oidc_module.pem',
+    // The cert and key for signing the ID token. Default names are oidc_module.key and oidc_module.crt
+    // 'privatekey' => 'oidc_module.key',
     // 'certificate' => 'oidc_module.crt',
 
     // Tokens TTL
@@ -63,18 +63,6 @@ $config = [
         // Which entitlements allow for registering, editing, delete a client. OIDC clients are owned by the creator
         'client' => ['urn:example:oidc:manage:client'],
     ],
-
-    // The claims from the standard scopes should only be put in the ID token when no access token is issued
-    // For module backwards compatibility you can always include claims in the id token.
-    // @see https://openid.net/specs/openid-connect-core-1_0.html#rfc.section.5.4
-    // @deprecated option will be removed in v3.
-    'alwaysAddClaimsToIdToken' => true,
-
-    // Refresh token should only be released if the client requests it using the 'offline_access' scope.
-    // For module backwards compatibility you can always issue refresh token.
-    // @see https://openid.net/specs/openid-connect-core-1_0.html#OfflineAccess
-    // @deprecated option will be removed in v3.
-    'alwaysIssueRefreshToken' => true,
 
     // Settings regarding Authentication Processing Filters.
     // Note: OIDC authN state array will not contain all of the keys which are available during SAML authN,

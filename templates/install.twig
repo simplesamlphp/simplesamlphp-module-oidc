@@ -9,24 +9,24 @@
 
     <div class="ui attached message">
         <div class="header">
-            {% trans '{oidc:install}' %}
+            {{ '{oidc:install}'|trans }}
         </div>
-        <p>{% trans '{oidc:install:description}' %}</p>
+        <p>{{ '{oidc:install:description}'|trans }}</p>
     </div>
     <form class="ui form attached fluid segment" method="post">
         {% if oauth2_enabled %}
         <div class="field">
-            <label>{% trans '{oidc:install:oauth2}' %}</label>
+            <label>{{ '{oidc:install:oauth2}'|trans }}</label>
             <input type="checkbox" value="{{ oauth2_enabled }}" name="oauth2_migrate">
         </div>
         {% endif %}
         <input type="hidden" value="1" name="migrate"/>
         <div class="ui buttons">
             <button type="submit"  class="ui small primary labeled icon button">
-                <i class="puzzle piece  icon"></i> {% trans '{oidc:install}' %}
+                <i class="puzzle piece  icon"></i> {{ '{oidc:install}'|trans }}
             </button>
             <a href="{{ moduleURL('oidc/admin-clients/index.php') }}" class="ui small secondary labeled icon button">
-                <i class="arrow left icon"></i> {% trans '{oidc:return}' %}
+                <i class="arrow left icon"></i> {{ '{oidc:return}'|trans }}
             </a>
         </div>
     </form>

@@ -29,10 +29,10 @@ function oidc_hook_cron(&$croninfo)
 
     $oidcConfig = \SimpleSAML\Configuration::getConfig('module_oidc.php');
 
-    if (null === $oidcConfig->getValue('cron_tag', 'hourly')) {
+    if (null === $oidcConfig->getOptionalValue('cron_tag', null)) {
         return;
     }
-    if ($oidcConfig->getValue('cron_tag', null) !== $croninfo['tag']) {
+    if ($oidcConfig->getOptionalValue('cron_tag', null) !== $croninfo['tag']) {
         return;
     }
 

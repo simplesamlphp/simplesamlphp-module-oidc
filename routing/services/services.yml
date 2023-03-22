@@ -4,18 +4,18 @@ services:
         public: false
 
     SimpleSAML\Module\oidc\Services\:
-        resource: '../../lib/Services/*'
-        exclude: '../../lib/Services/{Container.php}'
+        resource: '../../src/Services/*'
+        exclude: '../../src/Services/{Container.php}'
 
     SimpleSAML\Module\oidc\Repositories\:
-        resource: '../../lib/Repositories/*'
-        exclude: '../../lib/Repositories/{Interfaces}'
+        resource: '../../src/Repositories/*'
+        exclude: '../../src/Repositories/{Interfaces}'
 
     SimpleSAML\Module\oidc\Factories\:
-        resource: '../../lib/Factories/*'
+        resource: '../../src/Factories/*'
 
     SimpleSAML\Module\oidc\Store\:
-        resource: '../../lib/Store/*'
+        resource: '../../src/Store/*'
 
     SimpleSAML\Module\oidc\Server\AuthorizationServer:
         class: SimpleSAML\Module\oidc\Server\AuthorizationServer

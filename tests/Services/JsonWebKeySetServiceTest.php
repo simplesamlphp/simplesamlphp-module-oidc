@@ -40,15 +40,9 @@ class JsonWebKeySetServiceTest extends TestCase
             'private_key_type' => OPENSSL_KEYTYPE_RSA,
         ]);
 
-        // get the private key
-        openssl_pkey_export($pkGenerate, $pkGeneratePrivate);
-
         // get the public key
         $pkGenerateDetails = openssl_pkey_get_details($pkGenerate);
         self::$pkGeneratePublic = $pkGenerateDetails['key'];
-
-        // free resources
-        openssl_pkey_free($pkGenerate);
 
         file_put_contents(sys_get_temp_dir() . '/oidc_module.crt', self::$pkGeneratePublic);
 

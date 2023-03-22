@@ -13,7 +13,7 @@
                 <form method="get">
                     <div class="ui right action left icon input">
                         <i class="search link icon"></i>
-                        <input name="q" placeholder="{% trans '{oidc:search}' %}" type="text" value="{{ query }}">
+                        <input name="q" placeholder="{{ '{oidc:search}'|trans }}" type="text" value="{{ query }}">
                         <div class="ui button" onclick="location.href = './index.php'">Reset</div>
                     </div>
                 </form>
@@ -26,11 +26,11 @@
         <tr>
             <th colspan="2">
                 <span class="ui header">
-                     {% trans '{oidc:client_list}' %}
+                     {{ '{oidc:client_list}'|trans }}
                 </span>
 
                 <a href="./new.php" class="ui primary labeled icon button right floated">
-                    <i class="add icon"></i>{% trans '{oidc:add_client}' %}
+                    <i class="add icon"></i>{{ '{oidc:add_client}'|trans }}
                 </a>
             </th>
         </tr>
@@ -60,7 +60,7 @@
             <tr class="noclient">
                 <td colspan="2">
                     <div class="ui warning message">
-                        <i class="warning icon"></i> {% trans '{oidc:no_clients}' %}
+                        <i class="warning icon"></i> {{ '{oidc:no_clients}'|trans }}
                     </div>
                 </td>
             </tr>

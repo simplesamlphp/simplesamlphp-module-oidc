@@ -45,9 +45,6 @@ $config = [
         'client' => ['urn:example:oidc:manage:client'],
     ],
 
-    'alwaysAddClaimsToIdToken' => false,
-    'alwaysIssueRefreshToken' => false,
-
     // Settings regarding Authentication Processing Filters.
     // Note: OIDC authN state array will not contain all of the keys which are available during SAML authN,
     // like Service Provider metadata, etc.
