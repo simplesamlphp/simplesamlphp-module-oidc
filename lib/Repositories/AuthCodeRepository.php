@@ -102,12 +102,12 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
     /**
      * {@inheritdoc}
      */
-    public function isAuthCodeRevoked($tokenId): bool
+    public function isAuthCodeRevoked($codeId): bool
     {
-        $authCode = $this->findById($tokenId);
+        $authCode = $this->findById($codeId);
 
         if (!$authCode instanceof AuthCodeEntity) {
-            throw new \RuntimeException("AuthCode not found: {$tokenId}");
+            throw new \RuntimeException("AuthCode not found: {$codeId}");
         }
 
         return $authCode->isRevoked();

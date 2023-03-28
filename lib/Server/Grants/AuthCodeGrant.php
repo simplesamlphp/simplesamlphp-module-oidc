@@ -71,19 +71,10 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      */
     protected array $codeChallengeVerifiers = [];
 
-    /**
-     * @var AuthCodeRepositoryInterface
-     */
     protected $authCodeRepository;
 
-    /**
-     * @var AccessTokenRepositoryInterface
-     */
     protected $accessTokenRepository;
 
-    /**
-     * @var RefreshTokenRepositoryInterface
-     */
     protected $refreshTokenRepository;
 
     private RequestRulesManager $requestRulesManager;
@@ -120,10 +111,10 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     }
 
     /**
-     * @param ClientEntityInterface $client
+     * @param OAuth2ClientEntityInterface $client
      * @return bool
      */
-    protected function shouldCheckPkce(ClientEntityInterface $client): bool
+    protected function shouldCheckPkce(OAuth2ClientEntityInterface $client): bool
     {
         return $this->requireCodeChallengeForPublicClients &&
             ! $client->isConfidential();

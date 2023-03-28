@@ -68,9 +68,14 @@ class ScopeRule extends AbstractRule
      * @param string $scopes
      * @param string $scopeDelimiterString
      * @return array
+     * @throws OidcServerException
      */
     protected function convertScopesQueryStringToArray(string $scopes, string $scopeDelimiterString): array
     {
+        if (empty($scopeDelimiterString)) {
+            throw OidcServerException::serverError('Scope delimiter string can not be empty.');
+        }
+
         return array_filter(explode($scopeDelimiterString, trim($scopes)), function ($scope) {
             return !empty($scope);
         });

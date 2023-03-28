@@ -22,9 +22,6 @@ use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterfac
  */
 trait IssueAccessTokenTrait
 {
-    /**
-     * @var AccessTokenRepositoryInterface
-     */
     protected $accessTokenRepository;
 
     /**

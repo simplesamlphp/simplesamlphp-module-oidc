@@ -66,6 +66,7 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
             InMemory::empty()
         );
 
+        /** @psalm-suppress ArgumentTypeCoercion */
         $this->jwtConfiguration->setValidationConstraints(
             new StrictValidAt(new SystemClock(new DateTimeZone(\date_default_timezone_get()))),
             new SignedWith(
