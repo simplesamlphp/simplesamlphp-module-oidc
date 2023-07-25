@@ -195,7 +195,7 @@ jobs:
   build-conformance-suite:
     runs-on: ubuntu-latest
     env:
-      VERSION: release-v4.1.11
+      VERSION: release-v4.1.45
     steps:
       - name: Load Cached Conformance Suite Build
         uses: actions/cache@v2
