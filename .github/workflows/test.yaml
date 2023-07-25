@@ -197,12 +197,13 @@ jobs:
     env:
       VERSION: release-v4.1.45
     steps:
-      - name: Load Cached Conformance Suite Build
-        uses: actions/cache@v2
-        id: cache
+      - uses: actions/checkout@v3
         with:
-          path: ./conformance-suite
-          key: suite-${{ hashFiles('**/test.yml') }}
+          path: main
+      - name: Setup Python Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install httpx
       - name: Conformance Suite Checkout
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
         run: git clone --depth 1 --single-branch --branch $VERSION https://gitlab.com/openid/conformance-suite.git
