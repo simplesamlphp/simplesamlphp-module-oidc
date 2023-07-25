@@ -236,10 +236,10 @@ class ImplicitGrant extends OAuth2ImplicitGrant
 
         $redirectUris = $authorizationRequest->getClient()->getRedirectUri();
         if (is_array($redirectUris)) {
-            return (string) $redirectUris[0];
+            return $redirectUris[0];
         }
 
-        return (string) $redirectUris;
+        return $redirectUris;
     }
 
     /**

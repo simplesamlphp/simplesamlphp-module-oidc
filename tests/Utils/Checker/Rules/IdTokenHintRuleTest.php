@@ -90,6 +90,7 @@ class IdTokenHintRuleTest extends TestCase
     public function testCheckRuleIsNullWhenParamNotSet(): void
     {
         $rule = new IdTokenHintRule($this->configurationServiceStub, $this->cryptKeyFactoryStub);
+        $this->requestStub->method('getMethod')->willReturn('');
         $result = $rule->checkRule(
             $this->requestStub,
             $this->resultBagStub,

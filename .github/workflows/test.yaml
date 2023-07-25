@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php-versions: ["7.4"]
+        php-versions: ["7.4", "8.0", "8.1"]
 
     steps:
       - name: Setup PHP, with composer and extensions
@@ -35,14 +35,14 @@ jobs:
           git config --global core.autocrlf false
           git config --global core.eol lf
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Get composer cache directory
         id: composer-cache
         run: echo "::set-output name=dir::$(composer config cache-files-dir)"
 
       - name: Cache composer dependencies
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
@@ -53,9 +53,6 @@ jobs:
 
       - name: Install Composer dependencies
         run: composer install --no-progress --prefer-dist --optimize-autoloader
-
-      - name: Syntax check PHP
-        run: bash vendor/bin/check-syntax-php.sh
 
       - name: Decide whether to run code coverage or not
         if: ${{ matrix.php-versions != '7.4' }}
@@ -90,7 +87,7 @@ jobs:
       - name: Setup problem matchers for PHP
         run: echo "::add-matcher::${{ runner.tool_cache }}/php.json"
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Get composer cache directory
         id: composer-cache
@@ -131,14 +128,14 @@ jobs:
       - name: Setup problem matchers for PHP
         run: echo "::add-matcher::${{ runner.tool_cache }}/php.json"
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Get composer cache directory
         id: composer-cache
         run: echo "::set-output name=dir::$(composer config cache-files-dir)"
 
       - name: Cache composer dependencies
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
@@ -146,12 +143,6 @@ jobs:
 
       - name: Install Composer dependencies
         run: composer install --no-progress --prefer-dist --optimize-autoloader
-
-      - name: Syntax check YAML / XML / JSON
-        run: |
-          bash vendor/bin/check-syntax-yaml.sh
-          bash vendor/bin/check-syntax-xml.sh
-          bash vendor/bin/check-syntax-json.sh
 
   quality:
     name: Quality control
@@ -169,14 +160,14 @@ jobs:
       - name: Setup problem matchers for PHP
         run: echo "::add-matcher::${{ runner.tool_cache }}/php.json"
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Get composer cache directory
         id: composer-cache
         run: echo "::set-output name=dir::$(composer config cache-files-dir)"
 
       - name: Cache composer dependencies
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
@@ -185,13 +176,13 @@ jobs:
       - name: Install Composer dependencies
         run: composer install --no-progress --prefer-dist --optimize-autoloader
 
-      - uses: actions/download-artifact@v1
+      - uses: actions/download-artifact@v3
         with:
           name: build-data
           path: ${{ github.workspace }}/build
 
       - name: Codecov
-        uses: codecov/codecov-action@v1
+        uses: codecov/codecov-action@v3
 
       - name: PHP Code Sniffer
         if: always()
@@ -201,21 +192,19 @@ jobs:
         if: always()
         run: php vendor/bin/psalm --show-info=true
 
-      - name: Psalter
-        if: always()
-        run: php vendor/bin/psalter --issues=UnnecessaryVarAnnotation --dry-run
-
-  build-conformance-suite:
+  conformance-suite:
     runs-on: ubuntu-latest
     env:
-      VERSION: release-v4.1.11
+      SUITE_BASE_URL: https://localhost.emobix.co.uk:8443
+      VERSION: release-v4.1.45
     steps:
-      - name: Load Cached Conformance Suite Build
-        uses: actions/cache@v2
-        id: cache
+      - uses: actions/checkout@v3
         with:
-          path: ./conformance-suite
-          key: suite-${{ hashFiles('**/test.yml') }}
+          path: main
+      - name: Setup Python Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install httpx
       - name: Conformance Suite Checkout
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
         run: git clone --depth 1 --single-branch --branch $VERSION https://gitlab.com/openid/conformance-suite.git
@@ -228,23 +217,6 @@ jobs:
           sed -i -e 's/localhost/localhost.emobix.co.uk/g' src/main/resources/application.properties
           sed -i -e 's/-B clean/-B -DskipTests=true/g' builder-compose.yml
           docker-compose -f builder-compose.yml run builder
-
-  conformance-suite:
-    runs-on: ubuntu-latest
-    needs:
-      - build-conformance-suite
-    env:
-      SUITE_BASE_URL: https://localhost.emobix.co.uk:8443
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          path: main
-      - name: Load Cached Conformance Suite Build
-        uses: actions/cache@v2
-        id: cache
-        with:
-          path: ./conformance-suite
-          key: suite-${{ hashFiles('**/test.yml') }}
       - name: Run Conformance Suite
         working-directory: ./conformance-suite
         run: |

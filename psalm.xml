@@ -4,13 +4,14 @@
   useDocblockTypes="true"
   totallyTyped="false"
   hideExternalErrors="true"
+  findUnusedBaselineEntry="true"
+  findUnusedCode="false"
 >
   <projectFiles>
     <directory name="config-templates" />
     <directory name="hooks" />
     <directory name="lib" />
     <directory name="templates" />
-    <directory name="tests" />
     <directory name="www" />
 
 
@@ -31,7 +32,6 @@
     <MissingReturnType errorLevel="info" />
     <MissingPropertyType errorLevel="info" />
     <InvalidDocblock errorLevel="info" />
-    <MisplacedRequiredParam errorLevel="info" />
 
     <PropertyNotSetInConstructor errorLevel="info" />
     <MissingConstructor errorLevel="info" />

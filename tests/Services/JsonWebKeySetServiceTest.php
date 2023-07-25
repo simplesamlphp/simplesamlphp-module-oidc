@@ -48,7 +48,9 @@ class JsonWebKeySetServiceTest extends TestCase
         self::$pkGeneratePublic = $pkGenerateDetails['key'];
 
         // free resources
-        openssl_pkey_free($pkGenerate);
+        if (version_compare(PHP_VERSION, '8.0.0') < 0) {
+            openssl_pkey_free($pkGenerate);
+        }
 
         file_put_contents(sys_get_temp_dir() . '/oidc_module.crt', self::$pkGeneratePublic);
 
