@@ -21,6 +21,9 @@ use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 
+/**
+ * @covers \SimpleSAML\Module\oidc\Repositories\UserRepository
+ */
 class UserRepositoryTest extends TestCase
 {
     /**

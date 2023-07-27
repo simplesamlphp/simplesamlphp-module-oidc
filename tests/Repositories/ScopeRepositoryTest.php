@@ -22,6 +22,9 @@ use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 
+/**
+ * @covers \SimpleSAML\Module\oidc\Repositories\ScopeRepository
+ */
 class ScopeRepositoryTest extends TestCase
 {
     public static function setUpBeforeClass(): void

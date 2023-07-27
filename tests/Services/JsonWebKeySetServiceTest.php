@@ -22,6 +22,9 @@ use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
 use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
 
+/**
+ * @covers \SimpleSAML\Module\oidc\Services\JsonWebKeySetService
+ */
 class JsonWebKeySetServiceTest extends TestCase
 {
     /**

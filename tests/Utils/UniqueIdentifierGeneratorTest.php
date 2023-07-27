@@ -6,6 +6,9 @@ use League\OAuth2\Server\Exception\OAuthServerException;
 use SimpleSAML\Module\oidc\Utils\UniqueIdentifierGenerator;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * @covers \SimpleSAML\Module\oidc\Utils\UniqueIdentifierGenerator
+ */
 class UniqueIdentifierGeneratorTest extends TestCase
 {
     /**

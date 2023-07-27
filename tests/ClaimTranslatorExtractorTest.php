@@ -8,6 +8,9 @@ use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Utils\Attributes;
 
+/**
+ * @covers \SimpleSAML\Module\oidc\ClaimTranslatorExtractor
+ */
 class ClaimTranslatorExtractorTest extends TestCase
 {
     protected static string $userIdAttr = 'uid';

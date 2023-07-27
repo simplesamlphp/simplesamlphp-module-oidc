@@ -1,8 +1,9 @@
 <?php
 
-namespace SimpleSAML\Module\oidc\Utils\Checker;
+namespace SimpleSAML\Test\Module\oidc\Utils\Checker;
 
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\Utils\Checker\Result;
 
 /**
  * Class ResultTest

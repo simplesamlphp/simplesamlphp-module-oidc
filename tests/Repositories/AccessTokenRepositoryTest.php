@@ -25,6 +25,9 @@ use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
+/**
+ * @covers \SimpleSAML\Module\oidc\Repositories\AccessTokenRepository
+ */
 class AccessTokenRepositoryTest extends TestCase
 {
     public const CLIENT_ID = 'access_token_client_id';
