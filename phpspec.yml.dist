@@ -1,5 +1,0 @@
-formatter.name: 'dot'
-suites:
-    OpenIDConnect:
-        namespace: SimpleSAML\Module\oidc
-        psr4_prefix: SimpleSAML\Module\oidc

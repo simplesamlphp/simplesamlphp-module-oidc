@@ -26,6 +26,9 @@ use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
+/**
+ * @covers \SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository
+ */
 class RefreshTokenRepositoryTest extends TestCase
 {
     public const CLIENT_ID = 'refresh_token_client_id';

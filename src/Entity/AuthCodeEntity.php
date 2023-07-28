@@ -16,7 +16,6 @@ namespace SimpleSAML\Module\oidc\Entity;
 
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\TokenEntityTrait;
-use SimpleSAML\Module\oidc\Entity\Interfaces\OidcAuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\MementoInterface;
 use SimpleSAML\Module\oidc\Entity\Traits\OidcAuthCodeTrait;
 use SimpleSAML\Module\oidc\Entity\Traits\RevokeTokenTrait;

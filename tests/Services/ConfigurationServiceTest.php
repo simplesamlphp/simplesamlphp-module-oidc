@@ -6,6 +6,9 @@ use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * @covers \SimpleSAML\Module\oidc\Services\ConfigurationService
+ */
 class ConfigurationServiceTest extends TestCase
 {
     public function testSigningKeyNameCanBeCustomized(): void

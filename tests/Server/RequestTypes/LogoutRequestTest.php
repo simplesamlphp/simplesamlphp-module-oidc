@@ -6,6 +6,9 @@ use Lcobucci\JWT\UnencryptedToken;
 use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * @covers \SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest
+ */
 class LogoutRequestTest extends TestCase
 {
     protected $idTokenHintStub;
