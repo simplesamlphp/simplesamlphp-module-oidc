@@ -2,7 +2,6 @@
 /vendor/
 /.php_cs.cache
 /composer.lock
-/phpspec.yml
 /phpunit.yml
 .phpunit.result.cache
 /.idea/

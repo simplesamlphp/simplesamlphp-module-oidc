@@ -36,9 +36,7 @@
         "web-token/jwt-framework": "^2.1"
     },
     "require-dev": {
-        "friends-of-phpspec/phpspec-code-coverage": "^6.1",
         "friendsofphp/php-cs-fixer": "^3",
-        "phpspec/phpspec": "^7.1.0",
         "phpunit/php-code-coverage": "^9.0.0",
         "phpunit/phpcov": "^8.2.0",
         "phpunit/phpunit": "^9.0.0",
@@ -77,8 +75,7 @@
             "vendor/bin/phpcs -p"
         ],
         "tests": [
-            "vendor/bin/phpunit --no-coverage",
-            "vendor/bin/phpspec run "
+            "vendor/bin/phpunit --no-coverage"
         ]
     }
 }
