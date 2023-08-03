@@ -102,6 +102,12 @@ class ClientForm extends Form
         }
     }
 
+    /**
+     * @param array $values
+     * @param non-empty-string $regex
+     * @param string $messagePrefix
+     * @return void
+     */
     protected function validateByMatchingRegex(
         array $values,
         string $regex,

@@ -17,6 +17,14 @@ Currently supported flows are:
 
 ![Main screen capture](docs/oidc.png)
 
+## Version compatibility
+
+| OIDC module | SimpleSAMLphp |  PHP   | Note                        |
+|:------------|:--------------|:------:|-----------------------------|
+| v4.\*       | v2.\*         | \>=8.0 | Recommended                 |
+| v3.\*       | v2.\*         | \>=7.4 | Abandoned from August 2023. |
+| v2.\*       | v1.19.\*      | \>=7.4 |                             |
+
 ## Installation
 
 Installation can be as easy as executing:
