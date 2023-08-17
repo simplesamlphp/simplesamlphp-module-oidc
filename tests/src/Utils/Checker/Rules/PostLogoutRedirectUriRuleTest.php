@@ -43,7 +43,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
 
     public static function setUpBeforeClass(): void
     {
-        self::$certFolder = dirname(__DIR__, 4) . '/docker/ssp/';
+        self::$certFolder = dirname(__DIR__, 5) . '/docker/ssp/';
         self::$privateKeyPath = self::$certFolder . 'oidc_module.key';
         self::$publicKeyPath = self::$certFolder . 'oidc_module.crt';
         self::$privateKey = new CryptKey(self::$privateKeyPath, null, false);

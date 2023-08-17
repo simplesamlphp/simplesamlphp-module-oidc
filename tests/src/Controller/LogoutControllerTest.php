@@ -164,10 +164,9 @@ class LogoutControllerTest extends TestCase
 
         $this->sessionMock->expects($this->exactly(2))
             ->method('doLogout')
-            ->withConsecutive(
-                ['authId1'],
-                ['authId2']
-            );
+            ->with($this->callback(function ($authId) {
+                return in_array($authId, ['authId1', 'authId2']);
+            }));
 
         (new LogoutController(
             $this->authorizationServerStub,
@@ -221,10 +220,9 @@ class LogoutControllerTest extends TestCase
 
         $this->currentSessionMock->expects($this->exactly(2))
             ->method('doLogout')
-            ->withConsecutive(
-                ['authId1'],
-                ['authId2']
-            );
+            ->with($this->callback(function ($authId) {
+                return in_array($authId, ['authId1', 'authId2']);
+            }));
 
         $this->sessionServiceStub->method('getCurrentSession')->willReturn($this->currentSessionMock);
 

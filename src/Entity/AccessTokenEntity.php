@@ -146,7 +146,7 @@ class AccessTokenEntity implements
      * @return string
      * @throws OAuthServerException
      */
-    public function __toString()
+    public function __toString(): string
     {
         return $this->stringRepresentation = $this->convertToJWT()->toString();
     }

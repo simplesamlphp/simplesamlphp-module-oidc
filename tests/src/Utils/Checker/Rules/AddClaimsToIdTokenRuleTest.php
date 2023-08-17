@@ -65,7 +65,7 @@ class AddClaimsToIdTokenRuleTest extends TestCase
         $this->assertTrue($result->getValue());
     }
 
-    public function validResponseTypeProvider(): array
+    public static function validResponseTypeProvider(): array
     {
         return [
             ['id_token'],
@@ -86,7 +86,7 @@ class AddClaimsToIdTokenRuleTest extends TestCase
         $this->assertFalse($result->getValue());
     }
 
-    public function invalidResponseTypeProvider(): array
+    public static function invalidResponseTypeProvider(): array
     {
         return [
             ['code'],

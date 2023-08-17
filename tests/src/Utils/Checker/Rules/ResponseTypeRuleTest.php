@@ -66,7 +66,7 @@ class ResponseTypeRuleTest extends TestCase
         $this->assertSame($responseType, $result->getValue());
     }
 
-    public function validResponseTypeProvider(): array
+    public static function validResponseTypeProvider(): array
     {
         return [
             ['id_token'],

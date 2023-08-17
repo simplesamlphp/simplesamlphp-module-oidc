@@ -5,6 +5,7 @@
   hideExternalErrors="true"
   findUnusedBaselineEntry="true"
   findUnusedCode="false"
+  cacheDirectory="build/psalm"
 >
   <projectFiles>
     <directory name="config-templates" />
