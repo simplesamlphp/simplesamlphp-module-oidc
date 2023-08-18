@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils\Checker;
 
 use LogicException;
@@ -22,7 +24,7 @@ class RequestRulesManager
     /**
      * @var ResultBagInterface $resultBag
      */
-    protected $resultBag;
+    protected ResultBagInterface $resultBag;
 
     /** @var array $data Which will be available during each check */
     protected array $data = [];
@@ -108,7 +110,7 @@ class RequestRulesManager
      * @param string $key
      * @param mixed $value
      */
-    public function setData(string $key, $value): void
+    public function setData(string $key, mixed $value): void
     {
         $this->data[$key] = $value;
     }

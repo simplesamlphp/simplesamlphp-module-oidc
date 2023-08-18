@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use OpenIDConnectServer\ClaimExtractor;
@@ -60,7 +62,7 @@ class RequestedClaimsRule extends AbstractRule
         return new Result($this->getKey(), $claims);
     }
 
-    private function filterUnauthorizedClaims(array &$requestClaims, string $key, array $authorized)
+    private function filterUnauthorizedClaims(array &$requestClaims, string $key, array $authorized): void
     {
         if (!array_key_exists($key, $requestClaims)) {
             return;

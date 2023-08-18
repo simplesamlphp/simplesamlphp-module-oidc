@@ -35,7 +35,7 @@ class JsonWebKeySetService
     {
         $publicKeyPath = $configurationService->getCertPath();
         if (!file_exists($publicKeyPath)) {
-            throw new Exception("OpenId Connect certification file does not exists: {$publicKeyPath}.");
+            throw new Exception("OpenId Connect certification file does not exists: $publicKeyPath.");
         }
 
         $kid = FingerprintGenerator::forFile($publicKeyPath);

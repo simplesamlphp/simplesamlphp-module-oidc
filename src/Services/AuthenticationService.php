@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -48,7 +50,7 @@ class AuthenticationService
     /**
      * ID of auth source used during authn.
      */
-    private ?string $authSourceId;
+    private ?string $authSourceId = null;
 
     private ClaimTranslatorExtractor $claimTranslatorExtractor;
 
@@ -161,7 +163,7 @@ class AuthenticationService
             }, ARRAY_FILTER_USE_KEY),
         ];
 
-        // Source and destination entity IDs, useful for eg. F-ticks logging...
+        // Source and destination entity IDs, useful for e.g. F-ticks logging...
         $state['Source'] = ['entityid' => $state['Oidc']['OpenIdProviderMetadata']['issuer']];
         $state['Destination'] = ['entityid' => $state['Oidc']['RelyingPartyMetadata']['id']];
 

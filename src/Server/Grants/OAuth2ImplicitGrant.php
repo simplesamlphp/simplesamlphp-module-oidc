@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use DateInterval;
@@ -31,7 +33,7 @@ class OAuth2ImplicitGrant extends ImplicitGrant implements AuthorizationValidata
      */
     public function __construct(
         DateInterval $accessTokenTTL,
-        $queryDelimiter = '#',
+        string $queryDelimiter = '#',
         RequestRulesManager $requestRulesManager = null
     ) {
         parent::__construct($accessTokenTTL, $queryDelimiter);

@@ -1,8 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Services;
 
+use RuntimeException;
 use SimpleSAML\Auth\Simple;
+use SimpleSAML\Error\Exception;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Utils\Attributes;
 use SimpleSAML\Utils\Auth;
@@ -21,12 +25,12 @@ class AuthContextService
     /**
      * @var ConfigurationService
      */
-    private $configurationService;
+    private ConfigurationService $configurationService;
 
     /**
      * @var AuthSimpleFactory
      */
-    private $authSimpleFactory;
+    private AuthSimpleFactory $authSimpleFactory;
 
     /**
      * AuthContextService constructor.
@@ -44,6 +48,10 @@ class AuthContextService
         return (new Auth())->isAdmin();
     }
 
+    /**
+     * @throws Exception
+     * @throws \Exception
+     */
     public function getAuthUserId(): string
     {
         $simple = $this->authenticate();
@@ -56,7 +64,7 @@ class AuthContextService
      * @param string $neededPermission The permissions needed
      * @throws \Exception thrown if permissions are not enabled or user is missing the needed entitlements
      */
-    public function requirePermission(string $neededPermission)
+    public function requirePermission(string $neededPermission): void
     {
         $auth = $this->authenticate();
 
@@ -65,10 +73,10 @@ class AuthContextService
             ->getOptionalConfigItem('permissions', null);
         /** @psalm-suppress DocblockTypeContradiction */
         if (is_null($permissions) || !$permissions->hasValue('attribute')) {
-            throw new \RuntimeException('Permissions not enabled');
+            throw new RuntimeException('Permissions not enabled');
         }
         if (!$permissions->hasValue($neededPermission)) {
-            throw new \RuntimeException('No permission defined for ' . $neededPermission);
+            throw new RuntimeException('No permission defined for ' . $neededPermission);
         }
         $attributeName = $permissions->getString('attribute');
         $entitlements = $auth->getAttributes()[$attributeName] ?? [];
@@ -78,9 +86,12 @@ class AuthContextService
                 return;
             }
         }
-        throw new \RuntimeException('Missing entitlement for ' . $neededPermission);
+        throw new RuntimeException('Missing entitlement for ' . $neededPermission);
     }
 
+    /**
+     * @throws \Exception
+     */
     private function authenticate(): Simple
     {
         $simple = $this->authSimpleFactory->getDefaultAuthSource();

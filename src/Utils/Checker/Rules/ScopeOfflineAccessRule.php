@@ -1,29 +1,25 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\ScopeHelper;
+use Throwable;
 
 class ScopeOfflineAccessRule extends AbstractRule
 {
-    protected ConfigurationService $configurationService;
-
-    public function __construct(ConfigurationService $configurationService)
-    {
-        $this->configurationService = $configurationService;
-    }
-
     /**
      * @inheritDoc
+     * @throws Throwable
      */
     public function checkRule(
         ServerRequestInterface $request,

@@ -61,10 +61,9 @@ class IdTokenResponseFactory
     {
         $idTokenResponse = new IdTokenResponse(
             $this->userRepository,
-            $this->configurationService,
-            $this->idTokenBuilder
+            $this->idTokenBuilder,
+            $this->privateKey
         );
-        $idTokenResponse->setPrivateKey($this->privateKey);
         $idTokenResponse->setEncryptionKey($this->encryptionKey);
 
         return $idTokenResponse;

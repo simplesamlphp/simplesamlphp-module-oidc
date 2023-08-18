@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Server\Grants\Traits;
 
 use DateInterval;
@@ -10,9 +12,8 @@ use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use League\OAuth2\Server\Grant\AbstractGrant;
-use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
+use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\AccessTokenEntityInterface;
-use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 
 /**
  * Trait IssueAccessTokenTrait
@@ -22,6 +23,7 @@ use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterfac
  */
 trait IssueAccessTokenTrait
 {
+    /** @psalm-suppress MissingPropertyType */
     protected $accessTokenRepository;
 
     /**
@@ -81,7 +83,6 @@ trait IssueAccessTokenTrait
      * Generate a new unique identifier.
      *
      * @param int $length
-     *
      * @throws OAuthServerException
      *
      * @return string

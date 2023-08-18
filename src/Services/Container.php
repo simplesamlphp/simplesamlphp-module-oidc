@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -205,7 +207,7 @@ class Container implements ContainerInterface
             new PostLogoutRedirectUriRule($clientRepository),
             new UiLocalesRule(),
             new AcrValuesRule(),
-            new ScopeOfflineAccessRule($configurationService),
+            new ScopeOfflineAccessRule(),
         ];
         $requestRuleManager = new RequestRulesManager($requestRules, $loggerService);
         $this->services[RequestRulesManager::class] = $requestRuleManager;
@@ -291,7 +293,7 @@ class Container implements ContainerInterface
         );
         $this->services[AuthorizationServer::class] = $authorizationServerFactory->build();
 
-        $bearerTokenValidator = new BearerTokenValidator($accessTokenRepository);
+        $bearerTokenValidator = new BearerTokenValidator($accessTokenRepository, $publicKey);
         $this->services[BearerTokenValidator::class] = $bearerTokenValidator;
 
         $resourceServerFactory = new ResourceServerFactory(

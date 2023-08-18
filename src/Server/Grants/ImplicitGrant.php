@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use DateInterval;
@@ -42,7 +44,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
         IdTokenBuilder $idTokenBuilder,
         DateInterval $accessTokenTTL,
         AccessTokenRepositoryInterface $accessTokenRepository,
-        $queryDelimiter = '#',
+        string $queryDelimiter = '#',
         RequestRulesManager $requestRulesManager = null
     ) {
         parent::__construct($accessTokenTTL, $queryDelimiter, $requestRulesManager);

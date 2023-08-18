@@ -92,8 +92,7 @@ class BearerTokenValidatorTest extends TestCase
     {
         $this->accessTokenRepositoryStub = $this->createStub(AccessTokenRepository::class);
         $this->serverRequest = new ServerRequest();
-        $this->bearerTokenValidator = new BearerTokenValidator($this->accessTokenRepositoryStub);
-        $this->bearerTokenValidator->setPublicKey(self::$publicCryptKey);
+        $this->bearerTokenValidator = new BearerTokenValidator($this->accessTokenRepositoryStub, self::$publicCryptKey);
     }
 
     public static function setUpBeforeClass(): void

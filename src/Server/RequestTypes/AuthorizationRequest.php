@@ -18,7 +18,7 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
 
     protected bool $addClaimsToIdToken = false;
 
-    protected ?string $responseType;
+    protected ?string $responseType = null;
 
     protected ?bool $isCookieBasedAuthn = null;
 

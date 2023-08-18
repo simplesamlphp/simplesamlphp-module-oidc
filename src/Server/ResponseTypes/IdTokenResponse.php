@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -15,7 +17,9 @@
 namespace SimpleSAML\Module\oidc\Server\ResponseTypes;
 
 use Exception;
+use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
+use League\OAuth2\Server\Entities\RefreshTokenEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\ResponseTypes\BearerTokenResponse;
@@ -26,7 +30,6 @@ use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AcrResponseTypeInterf
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\SessionIdResponseTypeInterface;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 
 /**
@@ -45,8 +48,6 @@ class IdTokenResponse extends BearerTokenResponse implements
 {
     private IdentityProviderInterface $identityProvider;
 
-    private ConfigurationService $configurationService;
-
     protected IdTokenBuilder $idTokenBuilder;
 
     protected ?string $nonce = null;
@@ -57,14 +58,26 @@ class IdTokenResponse extends BearerTokenResponse implements
 
     protected ?string $sessionId = null;
 
+    /**
+     * @var AccessTokenEntityInterface
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $accessToken;
+
+    /**
+     * @var RefreshTokenEntityInterface
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $refreshToken;
+
     public function __construct(
         IdentityProviderInterface $identityProvider,
-        ConfigurationService $configurationService,
-        IdTokenBuilder $idTokenBuilder
+        IdTokenBuilder $idTokenBuilder,
+        CryptKey $privateKey
     ) {
         $this->identityProvider = $identityProvider;
         $this->idTokenBuilder = $idTokenBuilder;
-        $this->configurationService = $configurationService;
+        $this->privateKey = $privateKey;
     }
 
     /**

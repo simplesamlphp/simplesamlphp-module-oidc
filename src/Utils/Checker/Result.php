@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils\Checker;
 
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
@@ -9,19 +11,19 @@ class Result implements ResultInterface
     /**
      * @var string
      */
-    protected $key;
+    protected string $key;
 
     /**
      * @var mixed
      */
-    protected $value;
+    protected mixed $value;
 
     /**
      * Result constructor.
      * @param string $key
-     * @param mixed $value
+     * @param mixed|null $value
      */
-    public function __construct(string $key, $value = null)
+    public function __construct(string $key, mixed $value = null)
     {
         $this->key = $key;
         $this->value = $value;
@@ -32,7 +34,7 @@ class Result implements ResultInterface
         return $this->key;
     }
 
-    public function getValue()
+    public function getValue(): mixed
     {
         return $this->value;
     }

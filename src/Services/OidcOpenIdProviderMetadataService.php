@@ -30,7 +30,7 @@ class OidcOpenIdProviderMetadataService
      * Initialize metadata array.
      * @throws Exception
      */
-    public function initMetadata(): void
+    private function initMetadata(): void
     {
         $this->metadata = [];
         $this->metadata['issuer'] = $this->configurationService->getSimpleSAMLSelfURLHost();

@@ -152,15 +152,6 @@ class SessionService
     }
 
     /**
-     * Get indication if logout was initiated using OIDC protocol.
-     * @return bool
-     */
-    public function getIsOidcInitiatedLogout(): bool
-    {
-        return self::getIsOidcInitiatedLogoutForSession($this->session);
-    }
-
-    /**
      * Helper method to get indication if logout was initiated using OIDC protocol for given session.
      * @param Session $session
      * @return bool

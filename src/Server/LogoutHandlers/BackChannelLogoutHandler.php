@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Server\LogoutHandlers;
 
 use Generator;
@@ -42,13 +44,13 @@ class BackChannelLogoutHandler
 
         $pool = new Pool($client, $this->logoutRequestsGenerator($relyingPartyAssociations), [
             'concurrency' => 5,
-            'fulfilled' => function (Response $response, $index) {
+            'fulfilled' => function (Response $response, mixed $index) {
                 // this is delivered each successful response
                 $successMessage = "Backhannel Logout (index $index) - success, status: {$response->getStatusCode()} " .
                     "{$response->getReasonPhrase()}";
                 $this->loggerService->notice($successMessage);
             },
-            'rejected' => function (GuzzleException $reason, $index) {
+            'rejected' => function (GuzzleException $reason, mixed $index) {
                 // this is delivered each failed request
                 $errorMessage = "Backhannel Logout (index $index) - error, reason: {$reason->getCode()} " .
                     "{$reason->getMessage()}, exception type: " . get_class($reason);

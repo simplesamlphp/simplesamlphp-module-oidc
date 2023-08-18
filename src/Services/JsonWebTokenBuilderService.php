@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Services;
 
 use DateTimeImmutable;
@@ -35,7 +37,7 @@ class JsonWebTokenBuilderService
                 $this->configurationService->getPrivateKeyPath(),
                 $this->configurationService->getPrivateKeyPassPhrase() ?? ''
             ),
-            InMemory::empty()
+            InMemory::plainText('empty', 'empty')
         );
     }
 
