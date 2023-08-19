@@ -5,7 +5,14 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use DateInterval;
+use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Grant\ImplicitGrant;
+use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
+use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface;
+use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
+use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
+use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
+use League\OAuth2\Server\Repositories\UserRepositoryInterface;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
@@ -27,6 +34,58 @@ class OAuth2ImplicitGrant extends ImplicitGrant implements AuthorizationValidata
     protected string $queryDelimiter;
 
     protected RequestRulesManager $requestRulesManager;
+    /**
+     * @var bool
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $revokeRefreshTokens;
+    /**
+     * @var string
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $defaultScope;
+    /**
+     * @var CryptKey
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $privateKey;
+    /**
+     * @var DateInterval
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $refreshTokenTTL;
+    /**
+     * @var UserRepositoryInterface
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $userRepository;
+    /**
+     * @var RefreshTokenRepositoryInterface
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $refreshTokenRepository;
+    /**
+     * @var AuthCodeRepositoryInterface
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $authCodeRepository;
+    /**
+     * @var ScopeRepositoryInterface
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $scopeRepository;
+    /**
+     * @var AccessTokenRepositoryInterface
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $accessTokenRepository;
+    /**
+     * @var ClientRepositoryInterface
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $clientRepository;
+
+
 
     /**
      * @inheritDoc

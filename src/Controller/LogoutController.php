@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Controller;
 
 use Exception;
@@ -10,7 +12,6 @@ use Laminas\Diactoros\ServerRequest;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\LogoutHandlers\BackChannelLogoutHandler;
 use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
-use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Store\SessionLogoutTicketStoreBuilder;
@@ -23,8 +24,6 @@ class LogoutController
 {
     protected AuthorizationServer $authorizationServer;
 
-    protected AuthenticationService $authenticationService;
-
     protected SessionService $sessionService;
 
     protected SessionLogoutTicketStoreBuilder $sessionLogoutTicketStoreBuilder;
@@ -35,14 +34,12 @@ class LogoutController
 
     public function __construct(
         AuthorizationServer $authorizationServer,
-        AuthenticationService $authenticationService,
         SessionService $sessionService,
         SessionLogoutTicketStoreBuilder $sessionLogoutTicketStoreBuilder,
         LoggerService $loggerService,
         TemplateFactory $templateFactory
     ) {
         $this->authorizationServer = $authorizationServer;
-        $this->authenticationService = $authenticationService;
         $this->sessionService = $sessionService;
         $this->sessionLogoutTicketStoreBuilder = $sessionLogoutTicketStoreBuilder;
         $this->loggerService = $loggerService;
@@ -173,7 +170,7 @@ class LogoutController
                 }
             }
 
-            $sessionLogoutTicketStore->deleteMultiple(array_map(fn($slt) => $slt['sid'], $sessionLogoutTickets));
+            $sessionLogoutTicketStore->deleteMultiple(array_map(fn($slt): mixed => $slt['sid'], $sessionLogoutTickets));
         }
 
         (new BackChannelLogoutHandler())->handle($relyingPartyAssociations);

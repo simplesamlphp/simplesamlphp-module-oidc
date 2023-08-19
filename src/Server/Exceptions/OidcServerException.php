@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Server\Exceptions;
 
 use League\OAuth2\Server\Exception\OAuthServerException;
@@ -11,27 +13,29 @@ class OidcServerException extends OAuthServerException
     /**
      * @var array
      */
-    protected $payload;
+    protected array $payload;
 
     /**
      * @var int
+     * @psalm-suppress PossiblyUnusedProperty Property is private in parent.
      */
-    protected $httpStatusCode;
+    protected int $httpStatusCode;
 
     /**
      * @var string
+     * @psalm-suppress PossiblyUnusedProperty Property is private in parent.
      */
-    protected $errorType;
+    protected string $errorType;
 
     /**
      * @var null|string
      */
-    protected $redirectUri;
+    protected ?string $redirectUri;
 
     /**
      * @var bool
      */
-    protected $useFragmentInHttpResponses = false;
+    protected bool $useFragmentInHttpResponses = false;
 
     /**
      * Throw a new exception.
@@ -226,13 +230,13 @@ class OidcServerException extends OAuthServerException
     /**
      * Invalid refresh token.
      *
-     * @param null|string $hint
-     * @param Throwable   $previous
+     * @param string|null $hint
+     * @param Throwable|null $previous
      *
      * @return self
      * @psalm-suppress LessSpecificImplementedReturnType
      */
-    public static function invalidRefreshToken($hint = null, Throwable $previous = null)
+    public static function invalidRefreshToken($hint = null, Throwable $previous = null): OidcServerException
     {
         return new self('The refresh token is invalid.', 8, 'invalid_grant', 400, $hint, null, $previous);
     }
@@ -252,7 +256,7 @@ class OidcServerException extends OAuthServerException
      *
      * @param array $payload
      */
-    public function setPayload(array $payload)
+    public function setPayload(array $payload): void
     {
         $this->payload = $payload;
     }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -98,7 +100,7 @@ class ClaimTranslatorExtractorFactory
      */
     protected function applyPrefixToClaimNames(array $claims, string $prefix): array
     {
-        array_walk($claims, function (&$value, $key, $prefix) {
+        array_walk($claims, function (string &$value, mixed $key, string $prefix) {
             $value = $prefix . $value;
         }, $prefix);
 

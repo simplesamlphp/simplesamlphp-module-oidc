@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -23,7 +25,7 @@ use RuntimeException;
 class ClaimTranslatorExtractor extends ClaimExtractor
 {
     /** @var array */
-    protected $translationTable = [
+    protected array $translationTable = [
         'sub' => [
             'eduPersonPrincipalName',
             'eduPersonTargetedID',
@@ -178,7 +180,7 @@ class ClaimTranslatorExtractor extends ClaimExtractor
         return $claims;
     }
 
-    private function convertType(string $type, $attributes)
+    private function convertType(string $type, mixed $attributes): mixed
     {
         if (is_array($attributes)) {
             $values = [];

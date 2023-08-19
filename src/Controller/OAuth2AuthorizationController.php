@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -26,6 +28,7 @@ use Laminas\Diactoros\Response;
 use Laminas\Diactoros\ServerRequest;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use Throwable;
 
 class OAuth2AuthorizationController
 {
@@ -61,7 +64,7 @@ class OAuth2AuthorizationController
      * @throws Error\NotFound
      * @throws Error\Exception
      * @throws OAuthServerException
-     * @throws Exception
+     * @throws Exception|Throwable
      */
     public function __invoke(ServerRequest $request): ResponseInterface
     {
@@ -89,7 +92,7 @@ class OAuth2AuthorizationController
      * @param AuthorizationRequest $authorizationRequest
      * @throws Exception
      */
-    protected function validatePostAuthnAuthorizationRequest(AuthorizationRequest &$authorizationRequest)
+    protected function validatePostAuthnAuthorizationRequest(AuthorizationRequest &$authorizationRequest): void
     {
         $this->validateAcr($authorizationRequest);
     }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -29,6 +31,9 @@ use SimpleSAML\Module\oidc\Entity\Traits\RevokeTokenTrait;
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
+/**
+ * @psalm-suppress PropertyNotSetInConstructor
+ */
 class AccessTokenEntity implements
     AccessTokenEntityInterface,
     EntityStringRepresentationInterface
@@ -43,13 +48,13 @@ class AccessTokenEntity implements
      * String representation of access token issued to the client.
      * @var string $stringRepresentation
      */
-    protected $stringRepresentation;
+    protected string $stringRepresentation;
 
     /**
      * Claims that were individual requested
      * @var array $requestedClaims
      */
-    protected $requestedClaims;
+    protected array $requestedClaims;
 
     /**
      * Constructor.
@@ -97,7 +102,7 @@ class AccessTokenEntity implements
 
         $accessToken->identifier = $state['id'];
         $accessToken->scopes = $scopes;
-        $accessToken->expiryDateTime = \DateTimeImmutable::createFromMutable(
+        $accessToken->expiryDateTime = DateTimeImmutable::createFromMutable(
             TimestampGenerator::utc($state['expires_at'])
         );
         $accessToken->userIdentifier = $state['user_id'];

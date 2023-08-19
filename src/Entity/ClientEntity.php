@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -18,6 +20,9 @@ use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use League\OAuth2\Server\Entities\Traits\ClientTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 
+/**
+ * @psalm-suppress PropertyNotSetInConstructor
+ */
 class ClientEntity implements ClientEntityInterface
 {
     use EntityTrait;

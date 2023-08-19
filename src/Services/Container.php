@@ -242,7 +242,6 @@ class Container implements ContainerInterface
 
         $idTokenResponseFactory = new IdTokenResponseFactory(
             $userRepository,
-            $this->services[ConfigurationService::class],
             $this->services[IdTokenBuilder::class],
             $privateKey,
             $encryptionKey
@@ -256,7 +255,6 @@ class Container implements ContainerInterface
             $refreshTokenDuration,
             $authCodeDuration,
             $requestRuleManager,
-            $configurationService
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 

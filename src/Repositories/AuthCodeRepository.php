@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -15,6 +17,7 @@
 namespace SimpleSAML\Module\oidc\Repositories;
 
 use League\OAuth2\Server\Entities\AuthCodeEntityInterface as OAuth2AuthCodeEntityInterface;
+use RuntimeException;
 use SimpleSAML\Error\Error;
 use SimpleSAML\Module\oidc\Entity\AuthCodeEntity;
 use SimpleSAML\Module\oidc\Entity\Interfaces\AuthCodeEntityInterface;
@@ -40,8 +43,9 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
 
     /**
      * {@inheritdoc}
+     * @throws Error
      */
-    public function persistNewAuthCode(OAuth2AuthCodeEntityInterface $authCodeEntity)
+    public function persistNewAuthCode(OAuth2AuthCodeEntityInterface $authCodeEntity): void
     {
         if (!$authCodeEntity instanceof AuthCodeEntity) {
             throw new Error('Invalid AuthCodeEntity');
@@ -85,12 +89,12 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
     /**
      * {@inheritdoc}
      */
-    public function revokeAuthCode($codeId)
+    public function revokeAuthCode($codeId): void
     {
         $authCode = $this->findById($codeId);
 
         if (!$authCode instanceof AuthCodeEntity) {
-            throw new \RuntimeException("AuthCode not found: {$codeId}");
+            throw new RuntimeException("AuthCode not found: $codeId");
         }
 
         $authCode->revoke();
@@ -105,7 +109,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
         $authCode = $this->findById($codeId);
 
         if (!$authCode instanceof AuthCodeEntity) {
-            throw new \RuntimeException("AuthCode not found: {$codeId}");
+            throw new RuntimeException("AuthCode not found: $codeId");
         }
 
         return $authCode->isRevoked();
@@ -125,9 +129,10 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
     }
 
     /**
+     * @param AuthCodeEntity $authCodeEntity
      * @return void
      */
-    private function update(AuthCodeEntity $authCodeEntity)
+    private function update(AuthCodeEntity $authCodeEntity): void
     {
         $stmt = sprintf(
             <<<EOS

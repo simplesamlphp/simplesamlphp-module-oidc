@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -14,54 +16,52 @@
 
 namespace SimpleSAML\Module\oidc\Factories\Grant;
 
+use DateInterval;
+use Exception;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 
 class AuthCodeGrantFactory
 {
     /**
-     * @var \SimpleSAML\Module\oidc\Repositories\AuthCodeRepository
+     * @var AuthCodeRepository
      */
-    private $authCodeRepository;
+    private AuthCodeRepository $authCodeRepository;
 
     /**
      * @var AccessTokenRepository
      */
-    private $accessTokenRepository;
+    private AccessTokenRepository $accessTokenRepository;
 
     /**
-     * @var \SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository
+     * @var RefreshTokenRepository
      */
-    private $refreshTokenRepository;
+    private RefreshTokenRepository $refreshTokenRepository;
 
     /**
-     * @var \DateInterval
+     * @var DateInterval
      */
-    private $refreshTokenDuration;
+    private DateInterval $refreshTokenDuration;
 
     /**
-     * @var \DateInterval
+     * @var DateInterval
      */
-    private $authCodeDuration;
+    private DateInterval $authCodeDuration;
     /**
      * @var RequestRulesManager
      */
-    private $requestRulesManager;
-
-    private ConfigurationService $configurationService;
+    private RequestRulesManager $requestRulesManager;
 
     public function __construct(
         AuthCodeRepository $authCodeRepository,
         AccessTokenRepository $accessTokenRepository,
         RefreshTokenRepository $refreshTokenRepository,
-        \DateInterval $refreshTokenDuration,
-        \DateInterval $authCodeDuration,
-        RequestRulesManager $requestRulesManager,
-        ConfigurationService $configurationService
+        DateInterval $refreshTokenDuration,
+        DateInterval $authCodeDuration,
+        RequestRulesManager $requestRulesManager
     ) {
         $this->authCodeRepository = $authCodeRepository;
         $this->accessTokenRepository = $accessTokenRepository;
@@ -69,9 +69,11 @@ class AuthCodeGrantFactory
         $this->refreshTokenDuration = $refreshTokenDuration;
         $this->authCodeDuration = $authCodeDuration;
         $this->requestRulesManager = $requestRulesManager;
-        $this->configurationService = $configurationService;
     }
 
+    /**
+     * @throws Exception
+     */
     public function build(): AuthCodeGrant
     {
         $authCodeGrant = new AuthCodeGrant(
@@ -79,8 +81,7 @@ class AuthCodeGrantFactory
             $this->accessTokenRepository,
             $this->refreshTokenRepository,
             $this->authCodeDuration,
-            $this->requestRulesManager,
-            $this->configurationService
+            $this->requestRulesManager
         );
         $authCodeGrant->setRefreshTokenTTL($this->refreshTokenDuration);
 

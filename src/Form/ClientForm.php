@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -14,10 +16,12 @@
 
 namespace SimpleSAML\Module\oidc\Form;
 
+use Exception;
 use Nette\Forms\Form;
 use SimpleSAML\Auth\Source;
 use SimpleSAML\Module\oidc\Form\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use Traversable;
 
 class ClientForm extends Form
 {
@@ -44,7 +48,7 @@ class ClientForm extends Form
     private ConfigurationService $configurationService;
 
     /**
-     * {@inheritdoc}
+     * @throws Exception
      */
     public function __construct(ConfigurationService $configurationService)
     {
@@ -149,10 +153,13 @@ class ClientForm extends Form
         return $values;
     }
 
-    public function setDefaults($data, bool $erase = false)
+    /**
+     * @throws Exception
+     */
+    public function setDefaults($data, bool $erase = false): ClientForm
     {
         if (! is_array($data)) {
-            if ($data instanceof \Traversable) {
+            if ($data instanceof Traversable) {
                 $data = iterator_to_array($data);
             } else {
                 $data = (array) $data;
@@ -175,6 +182,9 @@ class ClientForm extends Form
         return parent::setDefaults($data, $erase);
     }
 
+    /**
+     * @throws Exception
+     */
     protected function buildForm(): void
     {
         $this->getElementPrototype()->addAttributes(['class' => 'ui form']);
@@ -223,9 +233,12 @@ class ClientForm extends Form
         $this->addText('backchannel_logout_uri', '{oidc:client:backchannel_logout_uri}');
     }
 
+    /**
+     * @throws Exception
+     */
     protected function getScopes(): array
     {
-        return array_map(function ($item) {
+        return array_map(function ($item): mixed {
             return $item['description'];
         }, $this->configurationService->getOpenIDScopes());
     }

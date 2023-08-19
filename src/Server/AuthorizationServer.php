@@ -1,9 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Server;
 
+use Defuse\Crypto\Key;
 use Lcobucci\JWT\UnencryptedToken;
 use League\OAuth2\Server\AuthorizationServer as OAuth2AuthorizationServer;
+use League\OAuth2\Server\CryptKey;
 use LogicException;
 use SimpleSAML\Error\BadRequest;
 use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
@@ -26,9 +30,15 @@ use Throwable;
 
 class AuthorizationServer extends OAuth2AuthorizationServer
 {
+    /** @psalm-suppress PossiblyUnusedProperty Private property in parent. */
     protected ClientRepositoryInterface $clientRepository;
 
     protected RequestRulesManager $requestRulesManager;
+    /**
+     * @var CryptKey
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $publicKey;
 
     /**
      * @inheritDoc
@@ -37,8 +47,8 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         ClientRepositoryInterface $clientRepository,
         AccessTokenRepositoryInterface $accessTokenRepository,
         ScopeRepositoryInterface $scopeRepository,
-        $privateKey,
-        $encryptionKey,
+        CryptKey|string $privateKey,
+        Key|string $encryptionKey,
         ResponseTypeInterface $responseType = null,
         RequestRulesManager $requestRulesManager = null
     ) {

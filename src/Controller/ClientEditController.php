@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -14,7 +16,9 @@
 
 namespace SimpleSAML\Module\oidc\Controller;
 
-use Exception;
+use SimpleSAML\Error\BadRequest;
+use SimpleSAML\Error\Exception;
+use SimpleSAML\Error\NotFound;
 use SimpleSAML\Module\oidc\Controller\Traits\AuthenticatedGetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
@@ -22,7 +26,6 @@ use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Form\ClientForm;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\Utils\HTTP;
@@ -34,8 +37,6 @@ class ClientEditController
 {
     use AuthenticatedGetClientFromRequestTrait;
 
-    private ConfigurationService $configurationService;
-
     private TemplateFactory $templateFactory;
 
     private FormFactory $formFactory;
@@ -45,7 +46,6 @@ class ClientEditController
     protected AllowedOriginRepository $allowedOriginRepository;
 
     public function __construct(
-        ConfigurationService $configurationService,
         ClientRepository $clientRepository,
         AllowedOriginRepository $allowedOriginRepository,
         TemplateFactory $templateFactory,
@@ -53,7 +53,6 @@ class ClientEditController
         SessionMessagesService $messages,
         AuthContextService $authContextService
     ) {
-        $this->configurationService = $configurationService;
         $this->clientRepository = $clientRepository;
         $this->allowedOriginRepository = $allowedOriginRepository;
         $this->templateFactory = $templateFactory;
@@ -63,12 +62,15 @@ class ClientEditController
     }
 
     /**
+     * @param ServerRequest $request
      * @return RedirectResponse|Template
+     * @throws BadRequest
      * @throws Exception
+     * @throws NotFound
+     * @throws \Exception
      */
-    public function __invoke(ServerRequest $request)
+    public function __invoke(ServerRequest $request): Template|RedirectResponse
     {
-
         $client = $this->getClientFromRequest($request);
         $clientAllowedOrigins = $this->allowedOriginRepository->get($client->getIdentifier());
 

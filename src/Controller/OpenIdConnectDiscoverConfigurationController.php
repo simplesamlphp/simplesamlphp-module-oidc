@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -15,7 +17,6 @@
 namespace SimpleSAML\Module\oidc\Controller;
 
 use Laminas\Diactoros\Response\JsonResponse;
-use Laminas\Diactoros\ServerRequest;
 use SimpleSAML\Module\oidc\Services\OidcOpenIdProviderMetadataService;
 
 class OpenIdConnectDiscoverConfigurationController
@@ -23,7 +24,7 @@ class OpenIdConnectDiscoverConfigurationController
     /**
      * @var OidcOpenIdProviderMetadataService
      */
-    private $oidcOpenIdProviderMetadataService;
+    private OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService;
 
     public function __construct(
         OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService
@@ -31,7 +32,7 @@ class OpenIdConnectDiscoverConfigurationController
         $this->oidcOpenIdProviderMetadataService = $oidcOpenIdProviderMetadataService;
     }
 
-    public function __invoke(ServerRequest $serverRequest): JsonResponse
+    public function __invoke(): JsonResponse
     {
         return new JsonResponse($this->oidcOpenIdProviderMetadataService->getMetadata());
     }

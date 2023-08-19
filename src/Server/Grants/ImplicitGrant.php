@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use DateInterval;
+use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
@@ -39,6 +40,11 @@ class ImplicitGrant extends OAuth2ImplicitGrant
     use IssueAccessTokenTrait;
 
     protected IdTokenBuilder $idTokenBuilder;
+    /**
+     * @var CryptKey
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $privateKey;
 
     public function __construct(
         IdTokenBuilder $idTokenBuilder,

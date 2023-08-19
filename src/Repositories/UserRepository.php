@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -14,7 +16,9 @@
 
 namespace SimpleSAML\Module\oidc\Repositories;
 
+use Exception;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
+use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\Repositories\UserRepositoryInterface;
 use OpenIDConnectServer\Repositories\IdentityProviderInterface;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
@@ -31,9 +35,9 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
     /**
      * @param string $identifier
      *
-     * @return \SimpleSAML\Module\oidc\Entity\UserEntity|null
+     * @return UserEntity|null
      */
-    public function getUserEntityByIdentifier($identifier)
+    public function getUserEntityByIdentifier($identifier): ?UserEntity
     {
         $stmt = $this->database->read(
             "SELECT * FROM {$this->getTableName()} WHERE id = :id",
@@ -51,14 +55,15 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
 
     /**
      * {@inheritdoc}
+     * @throws Exception
      */
     public function getUserEntityByUserCredentials(
         $username,
         $password,
         $grantType,
         OAuth2ClientEntityInterface $clientEntity
-    ) {
-        throw new \Exception('Not supported');
+    ): ?UserEntityInterface {
+        throw new Exception('Not supported');
     }
 
     public function add(UserEntity $userEntity): void
@@ -74,7 +79,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
     }
 
     /**
-     * @param \SimpleSAML\Module\oidc\Entity\UserEntity $userEntity
+     * @param UserEntity $user
      */
     public function delete(UserEntity $user): void
     {
@@ -87,7 +92,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
     }
 
     /**
-     * @param \SimpleSAML\Module\oidc\Entity\UserEntity $userEntity
+     * @param UserEntity $user
      */
     public function update(UserEntity $user): void
     {

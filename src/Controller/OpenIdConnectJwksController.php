@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -16,21 +18,20 @@ namespace SimpleSAML\Module\oidc\Controller;
 
 use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
 use Laminas\Diactoros\Response\JsonResponse;
-use Laminas\Diactoros\ServerRequest;
 
 class OpenIdConnectJwksController
 {
     /**
      * @var JsonWebKeySetService
      */
-    private $jsonWebKeySetService;
+    private JsonWebKeySetService $jsonWebKeySetService;
 
     public function __construct(JsonWebKeySetService $jsonWebKeySetService)
     {
         $this->jsonWebKeySetService = $jsonWebKeySetService;
     }
 
-    public function __invoke(ServerRequest $request): JsonResponse
+    public function __invoke(): JsonResponse
     {
         return new JsonResponse([
             'keys' => array_values($this->jsonWebKeySetService->keys()),

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Entity\Traits;
 
 use League\OAuth2\Server\Entities\Traits\AuthCodeTrait;
@@ -11,7 +13,7 @@ trait OidcAuthCodeTrait
     /**
      * @var null|string
      */
-    protected $nonce;
+    protected ?string $nonce = null;
 
     /**
      * @inheritDoc
@@ -24,7 +26,7 @@ trait OidcAuthCodeTrait
     /**
      * @inheritDoc
      */
-    public function setNonce($nonce): void
+    public function setNonce(string $nonce): void
     {
         $this->nonce = $nonce;
     }

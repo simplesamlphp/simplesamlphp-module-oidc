@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use DateInterval;
@@ -7,6 +9,7 @@ use DateTimeImmutable;
 use League\OAuth2\Server\CodeChallengeVerifiers\CodeChallengeVerifierInterface;
 use League\OAuth2\Server\CodeChallengeVerifiers\PlainVerifier;
 use League\OAuth2\Server\CodeChallengeVerifiers\S256Verifier;
+use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface as OAuth2AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
@@ -14,7 +17,11 @@ use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use League\OAuth2\Server\Grant\AuthCodeGrant as OAuth2AuthCodeGrant;
+use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface;
 use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface as OAuth2AuthCodeRepositoryInterface;
+use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
+use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
+use League\OAuth2\Server\Repositories\UserRepositoryInterface;
 use League\OAuth2\Server\RequestEvent;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use League\OAuth2\Server\ResponseTypes\RedirectResponse;
@@ -36,7 +43,6 @@ use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AcrResponseTypeInterf
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\SessionIdResponseTypeInterface;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Utils\Arr;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
@@ -70,25 +76,59 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      */
     protected array $codeChallengeVerifiers = [];
 
+    /**
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
     protected $authCodeRepository;
-
+    /**
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
     protected $accessTokenRepository;
-
+    /**
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
     protected $refreshTokenRepository;
 
     private RequestRulesManager $requestRulesManager;
 
-    protected ConfigurationService $configurationService;
-
     protected bool $requireCodeChallengeForPublicClients = true;
+    /**
+     * @var bool
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $revokeRefreshTokens;
+    /**
+     * @var string
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $defaultScope;
+    /**
+     * @var UserRepositoryInterface
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $userRepository;
+    /**
+     * @var ScopeRepositoryInterface
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $scopeRepository;
+    /**
+     * @var ClientRepositoryInterface
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $clientRepository;
+    /**
+     * @var CryptKey
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $privateKey;
 
     public function __construct(
         OAuth2AuthCodeRepositoryInterface $authCodeRepository,
         AccessTokenRepositoryInterface $accessTokenRepository,
         RefreshTokenRepositoryInterface $refreshTokenRepository,
         DateInterval $authCodeTTL,
-        RequestRulesManager $requestRulesManager,
-        ConfigurationService $configurationService
+        RequestRulesManager $requestRulesManager
     ) {
         parent::__construct($authCodeRepository, $refreshTokenRepository, $authCodeTTL);
 
@@ -98,7 +138,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         $this->authCodeTTL = $authCodeTTL;
         $this->requestRulesManager = $requestRulesManager;
-        $this->configurationService = $configurationService;
 
         if (in_array('sha256', hash_algos(), true)) {
             $s256Verifier = new S256Verifier();
@@ -321,7 +360,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $this->validateClient($request);
         }
 
-        $encryptedAuthCode = $this->getRequestParameter('code', $request, null);
+        $encryptedAuthCode = $this->getRequestParameter('code', $request);
 
         if ($encryptedAuthCode === null) {
             throw OAuthServerException::invalidRequest('code');
@@ -342,7 +381,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             throw OAuthServerException::invalidRequest('code', 'Cannot decrypt the authorization code', $e);
         }
 
-        $codeVerifier = $this->getRequestParameter('code_verifier', $request, null);
+        $codeVerifier = $this->getRequestParameter('code_verifier', $request);
 
         // If a code challenge isn't present but a code verifier is, reject the request to block PKCE downgrade attack
         if ($this->shouldCheckPkce($client) && empty($authCodePayload->code_challenge) && $codeVerifier !== null) {
@@ -489,7 +528,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         }
 
         // The redirect URI is required in this request
-        $redirectUri = $this->getRequestParameter('redirect_uri', $request, null);
+        $redirectUri = $this->getRequestParameter('redirect_uri', $request);
         if (empty($authCodePayload->redirect_uri) === false && $redirectUri === null) {
             throw OAuthServerException::invalidRequest('redirect_uri');
         }

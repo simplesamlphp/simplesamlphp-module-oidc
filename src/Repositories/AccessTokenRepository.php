@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -16,6 +18,7 @@ namespace SimpleSAML\Module\oidc\Repositories;
 
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface as OAuth2AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
+use RuntimeException;
 use SimpleSAML\Error\Error;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\Interfaces\AccessTokenEntityInterface;
@@ -52,8 +55,9 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
 
     /**
      * {@inheritdoc}
+     * @throws Error
      */
-    public function persistNewAccessToken(OAuth2AccessTokenEntityInterface $accessTokenEntity)
+    public function persistNewAccessToken(OAuth2AccessTokenEntityInterface $accessTokenEntity): void
     {
         if (!$accessTokenEntity instanceof AccessTokenEntity) {
             throw new Error('Invalid AccessTokenEntity');
@@ -97,12 +101,12 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
     /**
      * {@inheritdoc}
      */
-    public function revokeAccessToken($tokenId)
+    public function revokeAccessToken($tokenId): void
     {
         $accessToken = $this->findById($tokenId);
 
         if (!$accessToken instanceof AccessTokenEntity) {
-            throw new \RuntimeException("AccessToken not found: {$tokenId}");
+            throw new RuntimeException("AccessToken not found: $tokenId");
         }
 
         $accessToken->revoke();
@@ -112,12 +116,12 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
     /**
      * {@inheritdoc}
      */
-    public function isAccessTokenRevoked($tokenId)
+    public function isAccessTokenRevoked($tokenId): bool
     {
         $accessToken = $this->findById($tokenId);
 
         if (!$accessToken) {
-            throw new \RuntimeException("AccessToken not found: {$tokenId}");
+            throw new RuntimeException("AccessToken not found: $tokenId");
         }
 
         return $accessToken->isRevoked();
@@ -133,10 +137,10 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
 
         // Delete expired access tokens, but only if the corresponding refresh token is also expired.
         $this->database->write(
-            "DELETE FROM {$accessTokenTableName} WHERE expires_at < :now AND
+            "DELETE FROM $accessTokenTableName WHERE expires_at < :now AND
                 NOT EXISTS (
                     SELECT 1 FROM {$refreshTokenTableName}
-                    WHERE {$accessTokenTableName}.id = {$refreshTokenTableName}.access_token_id AND expires_at > :now
+                    WHERE $accessTokenTableName.id = $refreshTokenTableName.access_token_id AND expires_at > :now
                 )",
             [
                 'now' => TimestampGenerator::utc()->format('Y-m-d H:i:s'),

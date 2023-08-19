@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -16,6 +18,7 @@ namespace SimpleSAML\Module\oidc\Repositories;
 
 use League\OAuth2\Server\Entities\RefreshTokenEntityInterface as OAuth2RefreshTokenEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
+use RuntimeException;
 use SimpleSAML\Module\oidc\Entity\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entity\RefreshTokenEntity;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
@@ -92,12 +95,12 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
     /**
      * {@inheritdoc}
      */
-    public function revokeRefreshToken($tokenId)
+    public function revokeRefreshToken($tokenId): void
     {
         $refreshToken = $this->findById($tokenId);
 
         if (!$refreshToken) {
-            throw new \RuntimeException("RefreshToken not found: {$tokenId}");
+            throw new RuntimeException("RefreshToken not found: $tokenId");
         }
 
         $refreshToken->revoke();
@@ -107,12 +110,12 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
     /**
      * {@inheritdoc}
      */
-    public function isRefreshTokenRevoked($tokenId)
+    public function isRefreshTokenRevoked($tokenId): bool
     {
         $refreshToken = $this->findById($tokenId);
 
         if (!$refreshToken) {
-            throw new \RuntimeException("RefreshToken not found: {$tokenId}");
+            throw new RuntimeException("RefreshToken not found: $tokenId");
         }
 
         return $refreshToken->isRevoked();

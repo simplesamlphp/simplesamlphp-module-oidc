@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -14,6 +16,7 @@
 
 namespace SimpleSAML\Module\oidc\Form\Controls;
 
+use Exception;
 use Nette\Forms\Controls\CsrfProtection as BaseCsrfProtection;
 use Nette\InvalidStateException;
 use Nette\Utils\Random;
@@ -23,9 +26,13 @@ class CsrfProtection extends BaseCsrfProtection
 {
     public const PROTECTION = 'SimpleSAML\Module\oidc\Form\Controls\CsrfProtection::validateCsrf';
 
-    protected $sspSession;
+    protected Session $sspSession;
 
-    public function __construct($errorMessage)
+    /** @noinspection PhpMissingParentConstructorInspection */
+    /**
+     * @throws Exception
+     */
+    public function __construct(object|string $errorMessage)
     {
         // Instead of calling CsrfProtection parent class constructor, go to it's parent (HiddenField), and call
         // its constructor. This is to avoid setting a Nette session in CsrfProtection parent, and use the SSP one.
@@ -35,6 +42,7 @@ class CsrfProtection extends BaseCsrfProtection
             throw new InvalidStateException('CsrfProtection initialization error');
         }
 
+        /** @noinspection PhpUndefinedMethodInspection */
         $hiddentFieldParent::__construct();
 
         $this->setOmitted()
@@ -44,6 +52,9 @@ class CsrfProtection extends BaseCsrfProtection
         $this->sspSession = Session::getSessionFromRequest();
     }
 
+    /**
+     * @throws Exception
+     */
     public function getToken(): string
     {
         $token = $this->sspSession->getData('form_csrf', 'token');

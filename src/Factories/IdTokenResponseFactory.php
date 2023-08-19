@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -17,7 +19,6 @@ namespace SimpleSAML\Module\oidc\Factories;
 use League\OAuth2\Server\CryptKey;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 
 class IdTokenResponseFactory
@@ -25,33 +26,27 @@ class IdTokenResponseFactory
     /**
      * @var UserRepository
      */
-    private $userRepository;
-    /**
-     * @var ConfigurationService
-     */
-    private $configurationService;
+    private UserRepository $userRepository;
     /**
      * @var IdTokenBuilder
      */
-    private $idTokenBuilder;
+    private IdTokenBuilder $idTokenBuilder;
     /**
      * @var CryptKey
      */
-    private $privateKey;
+    private CryptKey $privateKey;
     /**
      * @var string
      */
-    private $encryptionKey;
+    private string $encryptionKey;
 
     public function __construct(
         UserRepository $userRepository,
-        ConfigurationService $configurationService,
         IdTokenBuilder $idTokenBuilder,
         CryptKey $privateKey,
         string $encryptionKey
     ) {
         $this->userRepository = $userRepository;
-        $this->configurationService = $configurationService;
         $this->idTokenBuilder = $idTokenBuilder;
         $this->privateKey = $privateKey;
         $this->encryptionKey = $encryptionKey;

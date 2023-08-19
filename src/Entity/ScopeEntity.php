@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -17,6 +19,9 @@ namespace SimpleSAML\Module\oidc\Entity;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 
+/**
+ * @psalm-suppress PropertyNotSetInConstructor
+ */
 class ScopeEntity implements ScopeEntityInterface
 {
     use EntityTrait;
@@ -24,21 +29,18 @@ class ScopeEntity implements ScopeEntityInterface
     /**
      * @var string|null
      */
-    private $icon;
+    private ?string $icon;
 
     /**
      * @var string|null
      */
-    private $description;
+    private ?string $description;
 
     /**
      * @var array<string>
      */
-    private $attributes;
+    private array $attributes;
 
-    /**
-     * Constructor.
-     */
     private function __construct()
     {
     }

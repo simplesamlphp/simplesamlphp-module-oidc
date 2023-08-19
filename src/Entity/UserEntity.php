@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -14,36 +16,37 @@
 
 namespace SimpleSAML\Module\oidc\Entity;
 
+use DateTime;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use OpenIDConnectServer\Entities\ClaimSetInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\MementoInterface;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
+/**
+ * @psalm-suppress PropertyNotSetInConstructor
+ */
 class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInterface
 {
     /**
      * @var string
      */
-    private $identifier;
+    private string $identifier;
 
     /**
      * @var array
      */
-    private $claims;
+    private array $claims;
 
     /**
-     * @var \DateTime
+     * @var DateTime
      */
-    private $createdAt;
+    private DateTime $createdAt;
 
     /**
-     * @var \DateTime
+     * @var DateTime
      */
-    private $updatedAt;
+    private DateTime $updatedAt;
 
-    /**
-     * Constructor.
-     */
     private function __construct()
     {
     }
@@ -106,12 +109,12 @@ class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInter
         return $this;
     }
 
-    public function getUpdatedAt(): \DateTime
+    public function getUpdatedAt(): DateTime
     {
         return $this->updatedAt;
     }
 
-    public function getCreatedAt(): \DateTime
+    public function getCreatedAt(): DateTime
     {
         return $this->createdAt;
     }

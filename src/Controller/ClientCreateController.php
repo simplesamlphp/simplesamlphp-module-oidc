@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -14,9 +16,8 @@
 
 namespace SimpleSAML\Module\oidc\Controller;
 
-use Exception;
 use Laminas\Diactoros\Response\RedirectResponse;
-use Laminas\Diactoros\ServerRequest;
+use SimpleSAML\Error\Exception;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
@@ -62,8 +63,9 @@ class ClientCreateController
     /**
      * @return RedirectResponse|Template
      * @throws Exception
+     * @throws \Exception
      */
-    public function __invoke(ServerRequest $request)
+    public function __invoke(): Template|RedirectResponse
     {
         /** @var ClientForm $form */
         $form = $this->formFactory->build(ClientForm::class);
