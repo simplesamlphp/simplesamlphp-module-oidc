@@ -99,7 +99,6 @@ class ClientEditControllerTest extends TestCase
     protected function getStubbedInstance(): ClientEditController
     {
         return new ClientEditController(
-            $this->configurationServiceMock,
             $this->clientRepositoryMock,
             $this->allowedOriginRepositoryMock,
             $this->templateFactoryMock,

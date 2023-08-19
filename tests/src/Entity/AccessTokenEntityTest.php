@@ -2,7 +2,6 @@
 
 namespace SimpleSAML\Test\Module\oidc\Entity;
 
-use PHPUnit\Framework\MockObject\Stub;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;

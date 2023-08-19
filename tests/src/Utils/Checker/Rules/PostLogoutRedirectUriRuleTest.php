@@ -58,7 +58,6 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         $this->resultBagStub = $this->createStub(ResultBagInterface::class);
         $this->clientStub = $this->createStub(ClientEntityInterface::class);
 
-        /** @psalm-suppress ArgumentTypeCoercion */
         $this->jwtConfig = Configuration::forAsymmetricSigner(
             new Sha256(),
             InMemory::plainText(self::$privateKey->getKeyContents()),
@@ -104,7 +103,6 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         $this->requestStub->method('getQueryParams')
             ->willReturn(['post_logout_redirect_uri' => self::$postLogoutRedirectUri]);
 
-        /** @psalm-suppress ArgumentTypeCoercion */
         $jwt = $this->jwtConfig->builder()->issuedBy(self::$issuer)
             ->getToken(
                 new Sha256(),
@@ -132,7 +130,6 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         $this->requestStub->method('getQueryParams')
             ->willReturn(['post_logout_redirect_uri' => self::$postLogoutRedirectUri]);
 
-        /** @psalm-suppress ArgumentTypeCoercion */
         $jwt = $this->jwtConfig->builder()
             ->issuedBy(self::$issuer)
             ->permittedFor('invalid-client-id')
@@ -163,7 +160,6 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         $this->requestStub->method('getQueryParams')
             ->willReturn(['post_logout_redirect_uri' => self::$postLogoutRedirectUri]);
 
-        /** @psalm-suppress ArgumentTypeCoercion */
         $jwt = $this->jwtConfig->builder()
             ->issuedBy(self::$issuer)
             ->permittedFor('client-id')
@@ -199,7 +195,6 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         $this->requestStub->method('getQueryParams')
             ->willReturn(['post_logout_redirect_uri' => self::$postLogoutRedirectUri]);
 
-        /** @psalm-suppress ArgumentTypeCoercion */
         $jwt = $this->jwtConfig->builder()
             ->issuedBy(self::$issuer)
             ->permittedFor('client-id')

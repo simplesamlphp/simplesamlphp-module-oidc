@@ -145,7 +145,6 @@ class OpenIdConnectUserInfoControllerTest extends TestCase
             ->with([], ['mail' => ['userid@localhost.localdomain']])
             ->willReturn([]);
 
-        /** @psalm-suppress UndefinedMethod */
         $this->assertSame(
             ['email' => 'userid@localhost.localdomain'],
             $this->prepareMockedInstance()->__invoke($this->serverRequestMock)->getPayload()

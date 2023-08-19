@@ -92,7 +92,6 @@ class LogoutControllerTest extends TestCase
     public function setUp(): void
     {
         $this->authorizationServerStub = $this->createStub(AuthorizationServer::class);
-        $this->authenticationServiceStub = $this->createStub(AuthenticationService::class);
         $this->sessionServiceStub = $this->createStub(SessionService::class);
         $this->sessionLogoutTicketStoreBuilderStub = $this->createStub(SessionLogoutTicketStoreBuilder::class);
         $this->serverRequestStub = $this->createStub(ServerRequest::class);
@@ -112,7 +111,6 @@ class LogoutControllerTest extends TestCase
             LogoutController::class,
             new LogoutController(
                 $this->authorizationServerStub,
-                $this->authenticationServiceStub,
                 $this->sessionServiceStub,
                 $this->sessionLogoutTicketStoreBuilderStub,
                 $this->loggerServiceMock,
@@ -132,7 +130,6 @@ class LogoutControllerTest extends TestCase
 
         $logoutController = new LogoutController(
             $this->authorizationServerStub,
-            $this->authenticationServiceStub,
             $this->sessionServiceStub,
             $this->sessionLogoutTicketStoreBuilderStub,
             $this->loggerServiceMock,
@@ -170,7 +167,6 @@ class LogoutControllerTest extends TestCase
 
         (new LogoutController(
             $this->authorizationServerStub,
-            $this->authenticationServiceStub,
             $this->sessionServiceStub,
             $this->sessionLogoutTicketStoreBuilderStub,
             $this->loggerServiceMock,
@@ -201,7 +197,6 @@ class LogoutControllerTest extends TestCase
 
         (new LogoutController(
             $this->authorizationServerStub,
-            $this->authenticationServiceStub,
             $this->sessionServiceStub,
             $this->sessionLogoutTicketStoreBuilderStub,
             $this->loggerServiceMock,
@@ -228,7 +223,6 @@ class LogoutControllerTest extends TestCase
 
         (new LogoutController(
             $this->authorizationServerStub,
-            $this->authenticationServiceStub,
             $this->sessionServiceStub,
             $this->sessionLogoutTicketStoreBuilderStub,
             $this->loggerServiceMock,
@@ -251,7 +245,6 @@ class LogoutControllerTest extends TestCase
 
         $logoutController = new LogoutController(
             $this->authorizationServerStub,
-            $this->authenticationServiceStub,
             $this->sessionServiceStub,
             $this->sessionLogoutTicketStoreBuilderStub,
             $this->loggerServiceMock,
@@ -273,7 +266,6 @@ class LogoutControllerTest extends TestCase
 
         $logoutController = new LogoutController(
             $this->authorizationServerStub,
-            $this->authenticationServiceStub,
             $this->sessionServiceStub,
             $this->sessionLogoutTicketStoreBuilderStub,
             $this->loggerServiceMock,

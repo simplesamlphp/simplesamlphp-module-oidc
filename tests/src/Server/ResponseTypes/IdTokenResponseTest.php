@@ -110,11 +110,10 @@ class IdTokenResponseTest extends TestCase
     {
         $idTokenResponse = new IdTokenResponse(
             $this->identityProviderMock,
-            $this->configurationServiceMock,
-            $this->idTokenBuilder
+            $this->idTokenBuilder,
+            $this->privateKey,
         );
 
-        $idTokenResponse->setPrivateKey($this->privateKey);
         $idTokenResponse->setNonce(null);
         $idTokenResponse->setAuthTime(null);
         $idTokenResponse->setAcr(null);
@@ -214,7 +213,6 @@ class IdTokenResponseTest extends TestCase
         /** @var Plain $token */
         $token = (new Parser(new JoseEncoder()))->parse($result['id_token']);
 
-        /** @psalm-suppress ArgumentTypeCoercion */
         $validator->assert(
             $token,
             new IdentifiedBy(self::TOKEN_ID),
@@ -239,7 +237,6 @@ class IdTokenResponseTest extends TestCase
             $expectedClaimsKeys
         );
         $claims = array_keys($token->claims()->all());
-        /** @psalm-suppress DocblockTypeContradiction */
         if ($claims !== $expectedClaimsKeys) {
             throw new Exception(
                 'missing expected claim. Got ' . var_export($claims, true)

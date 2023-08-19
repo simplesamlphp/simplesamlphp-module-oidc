@@ -209,7 +209,6 @@ class ClientRepositoryTest extends TestCase
         self::$repository->add($client);
 
         $client = self::$repository->findById('clientid');
-        /** @psalm-suppress PossiblyNullArgument */
         self::$repository->delete($client);
         $foundClient = self::$repository->findById('clientid');
 

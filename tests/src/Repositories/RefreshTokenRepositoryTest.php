@@ -83,7 +83,6 @@ class RefreshTokenRepositoryTest extends TestCase
         $refreshToken = self::$repository->getNewRefreshToken();
         $refreshToken->setIdentifier(self::REFRESH_TOKEN_ID);
         $refreshToken->setExpiryDateTime(\DateTimeImmutable::createFromMutable(TimestampGenerator::utc('yesterday')));
-        /** @psalm-suppress PossiblyNullArgument */
         $refreshToken->setAccessToken($accessToken);
 
         self::$repository->persistNewRefreshToken($refreshToken);

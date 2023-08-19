@@ -232,11 +232,12 @@ class BearerTokenValidatorTest extends TestCase
 
     public function testThrowsForRevokedAccessToken()
     {
-        /** @psalm-suppress UndefinedInterfaceMethod */
         $this->accessTokenRepositoryStub->method('isAccessTokenRevoked')->willReturn(true);
 
-        $bearerTokenValidator = new BearerTokenValidator($this->accessTokenRepositoryStub);
-        $bearerTokenValidator->setPublicKey(self::$publicCryptKey);
+        $bearerTokenValidator = new BearerTokenValidator(
+            $this->accessTokenRepositoryStub,
+            self::$publicCryptKey,
+        );
 
         $serverRequest = $this->serverRequest->withAddedHeader('Authorization', 'Bearer ' . self::$accessToken);
 

@@ -61,7 +61,6 @@ class UserRepositoryTest extends TestCase
         $user = self::$repository->getUserEntityByIdentifier('uniqueid');
 
         $this->assertNotNull($user);
-        /** @psalm-suppress PossiblyNullReference */
         $this->assertSame($user->getIdentifier(), 'uniqueid');
     }
 
@@ -75,7 +74,6 @@ class UserRepositoryTest extends TestCase
     public function testUpdate(): void
     {
         $user = self::$repository->getUserEntityByIdentifier('uniqueid');
-        /** @psalm-suppress PossiblyNullReference */
         $user->setClaims(['uid' => ['johndoe']]);
         self::$repository->update($user);
 
@@ -86,7 +84,6 @@ class UserRepositoryTest extends TestCase
     public function testDelete(): void
     {
         $user = self::$repository->getUserEntityByIdentifier('uniqueid');
-        /** @psalm-suppress PossiblyNullArgument */
         self::$repository->delete($user);
         $user = self::$repository->getUserEntityByIdentifier('uniqueid');
 

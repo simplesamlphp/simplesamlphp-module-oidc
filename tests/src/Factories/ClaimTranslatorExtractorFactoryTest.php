@@ -86,7 +86,6 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
     {
         $claimTranslatorExtractor = $this->prepareMockedInstance()->build();
 
-        /** @psalm-suppress PossiblyNullReference */
         $this->assertSame(
             $claimTranslatorExtractor->getClaimSet('customScope2')->getClaims(),
             ['myprefix_testClaim2', 'myprefix_boolClaim']

@@ -46,9 +46,9 @@ class AccessTokenEntity implements
 
     /**
      * String representation of access token issued to the client.
-     * @var string $stringRepresentation
+     * @var string|null $stringRepresentation
      */
-    protected string $stringRepresentation;
+    protected ?string $stringRepresentation = null;
 
     /**
      * Claims that were individual requested
@@ -158,7 +158,7 @@ class AccessTokenEntity implements
 
     /**
      * Get string representation of access token at the moment of casting it to string.
-     * @return string|null String representation or null if it was not casted to string yet.
+     * @return string|null String representation or null if it was not cast to string yet.
      */
     public function toString(): ?string
     {

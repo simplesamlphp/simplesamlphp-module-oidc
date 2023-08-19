@@ -27,6 +27,7 @@
           <file name="tests/bootstrap.php" />
         </errorLevel>
     </UnresolvableInclude>
+    <!-- Ignore UnusedVariable in config template -->
     <UnusedVariable>
       <errorLevel type="suppress">
         <file name="config-templates/module_oidc.php" />
