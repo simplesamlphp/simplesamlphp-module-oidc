@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Services;
 
 use Base64Url\Base64Url;
@@ -10,6 +12,7 @@ use Lcobucci\JWT\Token\RegisteredClaims;
 use Lcobucci\JWT\UnencryptedToken;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
+use League\OAuth2\Server\Exception\OAuthServerException;
 use OpenIDConnectServer\Entities\ClaimSetInterface;
 use RuntimeException;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
@@ -85,29 +88,42 @@ class IdTokenBuilder
         );
         $claims = array_merge($additionalClaims, $claims);
 
-
+        /**
+         * @var string $claimName
+         * @var  mixed $claimValue
+         */
         foreach ($claims as $claimName => $claimValue) {
             switch ($claimName) {
                 case RegisteredClaims::AUDIENCE:
-                    $builder->permittedFor($claimValue);
+                    if (is_array($claimValue)) {
+                        /** @var string $aud */
+                        foreach ($claimValue as $aud) {
+                            $builder->permittedFor($aud);
+                        }
+                    } else {
+                        $builder->permittedFor((string)$claimValue);
+                    }
                     break;
                 case RegisteredClaims::EXPIRATION_TIME:
-                    $builder->expiresAt(new DateTimeImmutable('@' . $claimValue));
+                    /** @noinspection PhpUnnecessaryStringCastInspection */
+                    $builder->expiresAt(new DateTimeImmutable('@' . (string)$claimValue));
                     break;
                 case RegisteredClaims::ID:
-                    $builder->identifiedBy($claimValue);
+                    $builder->identifiedBy((string)$claimValue);
                     break;
                 case RegisteredClaims::ISSUED_AT:
-                    $builder->issuedAt(new DateTimeImmutable('@' . $claimValue));
+                    /** @noinspection PhpUnnecessaryStringCastInspection */
+                    $builder->issuedAt(new DateTimeImmutable('@' . (string)$claimValue));
                     break;
                 case RegisteredClaims::ISSUER:
-                    $builder->issuedBy($claimValue);
+                    $builder->issuedBy((string)$claimValue);
                     break;
                 case RegisteredClaims::NOT_BEFORE:
-                    $builder->canOnlyBeUsedAfter(new DateTimeImmutable('@' . $claimValue));
+                    /** @noinspection PhpUnnecessaryStringCastInspection */
+                    $builder->canOnlyBeUsedAfter(new DateTimeImmutable('@' . (string)$claimValue));
                     break;
                 case RegisteredClaims::SUBJECT:
-                    $builder->relatedTo($claimValue);
+                    $builder->relatedTo((string)$claimValue);
                     break;
                 default:
                     if ($addClaimsFromScopes || array_key_exists($claimName, $additionalClaims)) {
@@ -119,6 +135,9 @@ class IdTokenBuilder
         return $this->jsonWebTokenBuilderService->getSignedJwtTokenFromBuilder($builder);
     }
 
+    /**
+     * @throws OAuthServerException
+     */
     protected function getBuilder(
         AccessTokenEntityInterface $accessToken,
         UserEntityInterface $userEntity
@@ -129,7 +148,7 @@ class IdTokenBuilder
             ->identifiedBy($accessToken->getIdentifier())
             ->canOnlyBeUsedAfter(new DateTimeImmutable('now'))
             ->expiresAt($accessToken->getExpiryDateTime())
-            ->relatedTo($userEntity->getIdentifier());
+            ->relatedTo((string)$userEntity->getIdentifier());
     }
 
     /**
@@ -153,7 +172,7 @@ class IdTokenBuilder
         }
 
         // Try to use toString() so that it uses the string representation if it was already casted to string,
-        // otherwise, use the casted version.
+        // otherwise, use the cast version.
         $accessTokenString = $accessToken->toString() ?? (string) $accessToken;
 
         $hashAlgorithm = 'sha' . $jwsAlgorithmBitLength;

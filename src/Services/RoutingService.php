@@ -89,6 +89,7 @@ class RoutingService
      * @throws ContainerExceptionInterface
      * @throws NotFoundExceptionInterface
      * @throws \Exception
+     * @psalm-suppress MixedArgument, MixedMethodCall, MixedAssignment
      */
     private static function callController(ContainerInterface $container, string $controllerClassname): void
     {
@@ -138,6 +139,7 @@ class RoutingService
      * @throws ContainerExceptionInterface
      * @throws NotFoundExceptionInterface
      * @throws ReflectionException
+     * @psalm-suppress MixedAssignment
      */
     protected static function getController(string $controllerClassname, ContainerInterface $container): object
     {

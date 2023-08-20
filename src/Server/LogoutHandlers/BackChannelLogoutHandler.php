@@ -12,7 +12,7 @@ use GuzzleHttp\Pool;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
 use League\OAuth2\Server\Exception\OAuthServerException;
-use SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation;
+use SimpleSAML\Module\oidc\Server\Associations\Interfaces\RelyingPartyAssociationInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\LogoutTokenBuilder;
 use Throwable;
@@ -32,7 +32,7 @@ class BackChannelLogoutHandler
     }
 
     /**
-     * @param array<string,RelyingPartyAssociation> $relyingPartyAssociations
+     * @param array<string,RelyingPartyAssociationInterface> $relyingPartyAssociations
      * @param HandlerStack|null $handlerStack For easier testing
      * @throws OAuthServerException
      */
@@ -66,7 +66,7 @@ class BackChannelLogoutHandler
     }
 
     /**
-     * @param array<string,RelyingPartyAssociation> $relyingPartyAssociations
+     * @param array<string,RelyingPartyAssociationInterface> $relyingPartyAssociations
      * @return Generator
      * @throws OAuthServerException
      */

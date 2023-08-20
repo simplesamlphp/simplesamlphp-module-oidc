@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Services;
 
 use Exception;
@@ -50,10 +52,17 @@ class SessionService
 
     public function getIsCookieBasedAuthn(): ?bool
     {
-        return $this->session->getData(
+        /** @var ?bool $isCookieBasedAuthn */
+        $isCookieBasedAuthn = $this->session->getData(
             self::SESSION_DATA_TYPE,
             self::SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN
         );
+
+        if (is_bool($isCookieBasedAuthn)) {
+            return $isCookieBasedAuthn;
+        }
+
+        return null;
     }
 
     /**
@@ -61,7 +70,12 @@ class SessionService
      */
     public function addRelyingPartyAssociation(RelyingPartyAssociationInterface $association): void
     {
-        $associationId = hash('sha256', $association->getClientId() . $association->getSessionId());
+        $sessionId = $association->getSessionId();
+        if (empty($sessionId)) {
+            return;
+        }
+
+        $associationId = hash('sha256', $association->getClientId() . $sessionId);
         $associations = $this->getRelyingPartyAssociations();
 
         if (! array_key_exists($associationId, $associations)) {
@@ -81,9 +95,23 @@ class SessionService
         return self::getRelyingPartyAssociationsForSession($this->session);
     }
 
+    /**
+     * @param Session $session
+     * @return array<RelyingPartyAssociationInterface>
+     */
     public static function getRelyingPartyAssociationsForSession(Session $session): array
     {
-        return $session->getData(self::SESSION_DATA_TYPE, self::SESSION_DATA_ID_RP_ASSOCIATIONS) ?? [];
+        $relyingPartyAssociations = $session->getData(self::SESSION_DATA_TYPE, self::SESSION_DATA_ID_RP_ASSOCIATIONS);
+
+        if (!is_array($relyingPartyAssociations)) {
+            return [];
+        }
+
+        // Make sure we only have RelyingPartyAssociations here...
+        return array_filter(
+            $relyingPartyAssociations,
+            fn($value) => $value instanceof RelyingPartyAssociationInterface
+        );
     }
 
     /**

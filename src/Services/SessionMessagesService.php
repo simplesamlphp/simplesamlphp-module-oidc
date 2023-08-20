@@ -44,6 +44,7 @@ class SessionMessagesService
      */
     public function getMessages(): array
     {
+        /** @var array<string,string> $messages */
         $messages = $this->session->getDataOfType('message');
 
         foreach (array_keys($messages) as $key) {
