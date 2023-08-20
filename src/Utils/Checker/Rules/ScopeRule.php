@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
@@ -43,7 +45,7 @@ class ScopeRule extends AbstractRule
         $scopeDelimiterString = $data['scope_delimiter_string'] ?? ' ';
 
         $scopes = $this->convertScopesQueryStringToArray(
-            $request->getQueryParams()['scope'] ?? $defaultScope,
+            (string)($request->getQueryParams()['scope'] ?? $defaultScope),
             $scopeDelimiterString
         );
 
@@ -67,7 +69,7 @@ class ScopeRule extends AbstractRule
      *
      * @param string $scopes
      * @param string $scopeDelimiterString
-     * @return array
+     * @return string[]
      * @throws OidcServerException
      */
     protected function convertScopesQueryStringToArray(string $scopes, string $scopeDelimiterString): array

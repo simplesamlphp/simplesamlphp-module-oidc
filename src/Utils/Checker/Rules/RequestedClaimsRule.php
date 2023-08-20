@@ -35,10 +35,12 @@ class RequestedClaimsRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = ['GET']
     ): ?ResultInterface {
+        /** @var ?string $claimsParam */
         $claimsParam = $request->getQueryParams()['claims'] ?? null;
         if ($claimsParam === null) {
             return null;
         }
+        /** @var ?array $claims */
         $claims = json_decode($claimsParam, true);
         if (is_null($claims)) {
             return null;

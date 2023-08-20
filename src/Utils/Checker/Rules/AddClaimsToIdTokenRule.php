@@ -23,7 +23,7 @@ class AddClaimsToIdTokenRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = ['GET']
     ): ?ResultInterface {
-
+        /** @var string $responseType */
         $responseType = $currentResultBag->getOrFail(ResponseTypeRule::class)->getValue();
 
         return new Result($this->getKey(), $responseType === "id_token");

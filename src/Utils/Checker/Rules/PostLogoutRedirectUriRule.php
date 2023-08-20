@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use Lcobucci\JWT\UnencryptedToken;
@@ -59,9 +61,10 @@ class PostLogoutRedirectUriRule extends AbstractRule
 
         $claims = $idTokenHint->claims()->all();
 
-        if (! isset($claims['aud']) || empty($claims['aud'])) {
+        if (empty($claims['aud'])) {
             throw OidcServerException::invalidRequest('id_token_hint', 'aud claim not present', null, null, $state);
         }
+        /** @var string[] $auds */
         $auds = is_array($claims['aud']) ? $claims['aud'] : [$claims['aud']];
 
         $isPostLogoutRedirectUriRegistered = false;

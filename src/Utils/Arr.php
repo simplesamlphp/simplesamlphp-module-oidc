@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils;
 
 /**
@@ -17,8 +19,9 @@ class Arr
      * @param callable $fn
      * @return mixed|null
      */
-    public static function find(array $arr, callable $fn)
+    public static function find(array $arr, callable $fn): mixed
     {
+        /** @psalm-suppress MixedAssignment */
         foreach ($arr as $x) {
             if (call_user_func($fn, $x) === true) {
                 return $x;

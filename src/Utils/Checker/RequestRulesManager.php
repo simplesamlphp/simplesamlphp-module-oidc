@@ -52,10 +52,10 @@ class RequestRulesManager
 
     /**
      * @param ServerRequestInterface $request
-     * @param array $ruleKeysToExecute
+     * @param class-string[] $ruleKeysToExecute
      * @param bool $useFragmentInHttpErrorResponses Indicate that in case of HTTP error responses, params should be
      * returned in URI fragment instead of query.
-     * @param array $allowedServerRequestMethods Indicate allowed HTTP methods used for request
+     * @param string[] $allowedServerRequestMethods Indicate allowed HTTP methods used for request
      * @return ResultBagInterface
      * @throws OidcServerException
      */

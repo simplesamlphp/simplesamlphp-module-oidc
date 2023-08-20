@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use League\OAuth2\Server\Exception\OAuthServerException;
@@ -56,19 +58,21 @@ class PromptRule extends AbstractRule
             return null;
         }
 
-        $prompt = explode(" ", $queryParams['prompt']);
+        $prompt = explode(" ", (string)$queryParams['prompt']);
         if (count($prompt) > 1 && in_array('none', $prompt, true)) {
             throw OAuthServerException::invalidRequest('prompt', 'Invalid prompt parameter');
         }
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
+        /** @var ?string $state */
+        $state = $queryParams['state'] ?? null;
 
         if (in_array('none', $prompt, true) && !$authSimple->isAuthenticated()) {
             throw OidcServerException::loginRequired(
                 null,
                 $redirectUri,
                 null,
-                $queryParams['state'] ?? null,
+                $state,
                 $useFragmentInHttpErrorResponses
             );
         }

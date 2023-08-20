@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
@@ -58,6 +60,8 @@ class MaxAgeRule extends AbstractRule
 
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
+        /** @var ?string $state */
+        $state = $queryParams['state'] ?? null;
 
         if (false === filter_var($queryParams['max_age'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]])) {
             throw OidcServerException::invalidRequest(
@@ -65,7 +69,7 @@ class MaxAgeRule extends AbstractRule
                 'max_age must be a valid integer',
                 null,
                 $redirectUri,
-                $queryParams['state'] ?? null,
+                $state,
                 $useFragmentInHttpErrorResponses
             );
         }

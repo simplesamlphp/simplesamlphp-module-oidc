@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Store;
 
 use DateInterval;
@@ -52,6 +54,7 @@ class SessionLogoutTicketStoreDb implements SessionLogoutTicketStoreInterface
     }
 
     /**
+     * @inheritDoc
      * @throws Exception
      */
     public function deleteMultiple(array $sids): void

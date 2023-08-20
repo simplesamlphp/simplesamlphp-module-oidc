@@ -37,6 +37,7 @@ class CodeChallengeMethodRule extends AbstractRule
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
+        /** @var string $codeChallengeMethod */
         $codeChallengeMethod = $request->getQueryParams()['code_challenge_method'] ?? 'plain';
         $codeChallengeVerifiers = $this->codeChallengeVerifiersRepository->getAll();
 

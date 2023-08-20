@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
@@ -41,16 +43,20 @@ class AcrValuesRule extends AbstractRule
              * ]
              * }
              */
+            /** @var array $requestedAcrClaim */
             $requestedAcrClaim = $requestedClaimsResult->getValue()['id_token']['acr'] ?? [];
-            $acrValues['essential'] = $requestedAcrClaim['essential'] ?? false;
+            $acrValues['essential'] = (bool)($requestedAcrClaim['essential'] ?? false);
             $acrValues['values'] = array_merge(
                 isset($requestedAcrClaim['value']) ? [$requestedAcrClaim['value']] : [],
-                $requestedAcrClaim['values'] ?? []
+                isset($requestedAcrClaim['values']) && is_array($requestedAcrClaim['values']) ?
+                    $requestedAcrClaim['values'] : []
             );
         }
 
         // Check for acr_values request parameter
-        if (($acrValuesParam = $request->getQueryParams()['acr_values'] ?? null) !== null) {
+        /** @var ?string $acrValuesParam */
+        $acrValuesParam = $request->getQueryParams()['acr_values'] ?? null;
+        if ($acrValuesParam !== null) {
             $acrValues['values'] = array_merge($acrValues['values'], explode(' ', $acrValuesParam));
         }
 

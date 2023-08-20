@@ -22,7 +22,7 @@ interface RequestRuleInterface
      * @param array $data Data which will be available during check.
      * @param bool $useFragmentInHttpErrorResponses Indicate that in case of HTTP error responses, params should be
      * returned in URI fragment instead of query.
-     * @param array $allowedServerRequestMethods Indicate allowed HTTP methods used for request
+     * @param string[] $allowedServerRequestMethods Indicate allowed HTTP methods used for request
      * @return ResultInterface|null Result of the specific check
      * @throws OidcServerException If check fails
      */

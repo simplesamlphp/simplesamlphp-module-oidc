@@ -8,5 +8,10 @@ interface SessionLogoutTicketStoreInterface
 {
     public function add(string $sid): void;
     public function getAll(): array;
+
+    /**
+     * @param string[] $sids
+     * @return void
+     */
     public function deleteMultiple(array $sids): void;
 }

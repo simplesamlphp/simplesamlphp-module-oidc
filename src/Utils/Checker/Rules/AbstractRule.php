@@ -1,13 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\RequestRuleInterface;
-use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
-use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 
 abstract class AbstractRule implements RequestRuleInterface
 {
@@ -19,6 +18,13 @@ abstract class AbstractRule implements RequestRuleInterface
         return static::class;
     }
 
+    /**
+     * @param string $paramKey
+     * @param ServerRequestInterface $request
+     * @param LoggerService $loggerService
+     * @param string[] $allowedServerRequestMethods
+     * @return string|null
+     */
     protected function getParamFromRequestBasedOnAllowedMethods(
         string $paramKey,
         ServerRequestInterface $request,
@@ -40,14 +46,18 @@ abstract class AbstractRule implements RequestRuleInterface
             return null;
         }
 
+        /** @var ?string $param */
+        $param = null;
         switch ($requestMethod) {
             case 'GET':
-                return $request->getQueryParams()[$paramKey] ?? null;
+                $param = isset($request->getQueryParams()[$paramKey]) ?
+                    (string)$request->getQueryParams()[$paramKey] : null;
+                break;
             case 'POST':
                 if (is_array($parsedBody = $request->getParsedBody())) {
-                    return $parsedBody[$paramKey] ?? null;
+                    $param = isset($parsedBody[$paramKey]) ? (string)$parsedBody[$paramKey] : null;
                 }
-                // break; // ... falls through to default
+                break;
             default:
                 $loggerService->warning(
                     sprintf(
@@ -57,6 +67,6 @@ abstract class AbstractRule implements RequestRuleInterface
                 );
         }
 
-        return null;
+        return $param;
     }
 }
