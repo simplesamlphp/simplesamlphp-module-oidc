@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -147,6 +149,7 @@ class ConfigurationService
                                              'values containing supported ACRs for each auth source key.');
             }
 
+            /** @psalm-suppress MixedAssignment */
             foreach ($acrValues as $acrValue) {
                 if (! is_string($acrValue)) {
                     throw new ConfigurationError('Config option authSourcesToAcrValuesMap should have array ' .
@@ -258,6 +261,7 @@ class ConfigurationService
      */
     public function getForcedAcrValueForCookieAuthentication(): ?string
     {
+        /** @psalm-suppress MixedAssignment */
         $value = $this->getOpenIDConnectConfiguration()
             ->getOptionalValue('forcedAcrValueForCookieAuthentication', null);
 

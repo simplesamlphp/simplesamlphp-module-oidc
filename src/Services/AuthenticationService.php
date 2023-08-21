@@ -114,16 +114,21 @@ class AuthenticationService
 
         $state = $this->prepareStateArray($authSimple, $oidcClient, $request);
         $state = $this->authProcService->processState($state);
+
+        if (!isset($state['Attributes']) || !is_array($state['Attributes'])) {
+            throw new Error\Exception('State array does not contain any attributes.');
+        }
+
         $claims = $state['Attributes'];
 
-        if (!array_key_exists($this->userIdAttr, $claims)) {
+        if (!array_key_exists($this->userIdAttr, $claims) || !is_array($claims[$this->userIdAttr])) {
             $attr = implode(', ', array_keys($claims));
             throw new Error\Exception(
                 'Attribute `useridattr` doesn\'t exists in claims. Available attributes are: ' . $attr
             );
         }
 
-        $userId = $claims[$this->userIdAttr][0];
+        $userId = (string)$claims[$this->userIdAttr][0];
         $user = $this->userRepository->getUserEntityByIdentifier($userId);
 
         if (!$user) {
@@ -201,7 +206,7 @@ class AuthenticationService
         $this->sessionService->addRelyingPartyAssociation(
             new RelyingPartyAssociation(
                 $oidcClient->getIdentifier(),
-                $claims['sub'] ?? $user->getIdentifier(),
+                (string)($claims['sub'] ?? $user->getIdentifier()),
                 $this->getSessionId(),
                 $oidcClient->getBackChannelLogoutUri()
             )

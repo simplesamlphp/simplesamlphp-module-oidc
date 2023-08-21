@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -23,9 +25,9 @@ use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 class DatabaseLegacyOAuth2Import
 {
     /**
-     * @var \SimpleSAML\Module\oidc\Repositories\ClientRepository
+     * @var ClientRepository
      */
-    private $clientRepository;
+    private ClientRepository $clientRepository;
 
     public function __construct(ClientRepository $clientRepository)
     {
@@ -33,11 +35,11 @@ class DatabaseLegacyOAuth2Import
     }
 
     /**
-     * @psalm-suppress UndefinedClass UndefinedMethod
+     * @psalm-suppress UndefinedClass, UndefinedMethod, MixedAssignment, MixedArrayAccess, MixedArgument
      *
      * @return void
      */
-    public function import()
+    public function import(): void
     {
         if (!class_exists('\SimpleSAML\Modules\OAuth2\Repositories\ClientRepository')) {
             return;

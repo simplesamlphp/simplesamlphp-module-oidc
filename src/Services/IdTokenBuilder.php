@@ -96,9 +96,9 @@ class IdTokenBuilder
             switch ($claimName) {
                 case RegisteredClaims::AUDIENCE:
                     if (is_array($claimValue)) {
-                        /** @var string $aud */
+                        /** @psalm-suppress MixedAssignment */
                         foreach ($claimValue as $aud) {
-                            $builder->permittedFor($aud);
+                            $builder->permittedFor((string)$aud);
                         }
                     } else {
                         $builder->permittedFor((string)$claimValue);

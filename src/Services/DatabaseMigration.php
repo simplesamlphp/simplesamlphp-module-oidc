@@ -351,6 +351,12 @@ EOT
         );
     }
 
+    /**
+     * @param string[] $columnNames
+     * @param string $prefix
+     * @param int $maxSize
+     * @return string
+     */
     private function generateIdentifierName(array $columnNames, string $prefix = '', int $maxSize = 30): string
     {
         $hash = implode('', array_map(function ($column) {

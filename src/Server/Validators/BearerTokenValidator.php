@@ -17,8 +17,6 @@ use Lcobucci\JWT\Validation\Constraint\StrictValidAt;
 use Lcobucci\JWT\Validation\RequiredConstraintsViolated;
 use League\OAuth2\Server\AuthorizationValidators\BearerTokenValidator as OAuth2BearerTokenValidator;
 use League\OAuth2\Server\CryptKey;
-use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
-use League\OAuth2\Server\Entities\RefreshTokenEntityInterface;
 use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
 use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface as OAuth2AccessTokenRepositoryInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -111,12 +109,13 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
         } elseif (
             strcasecmp($request->getMethod(), 'POST') === 0 &&
             is_array($parsedBody = $request->getParsedBody()) &&
-            isset($parsedBody['access_token'])
+            isset($parsedBody['access_token']) &&
+            is_string($parsedBody['access_token'])
         ) {
             $jwt = $parsedBody['access_token'];
         }
 
-        if ($jwt === null) {
+        if (!is_string($jwt)) {
             throw OidcServerException::accessDenied('Missing Authorization header or access_token request body param.');
         }
 
@@ -138,8 +137,8 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
 
         $claims = $token->claims();
 
-        if (is_null($jti = $claims->get('jti')) || empty($jti)) {
-            throw OidcServerException::accessDenied('Access token malformed (jti missing)');
+        if (is_null($jti = $claims->get('jti')) || empty($jti) || !is_string($jti)) {
+            throw OidcServerException::accessDenied('Access token malformed (jti missing or unexpected type)');
         }
 
         // Check if token has been revoked
@@ -161,9 +160,22 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
      * @param mixed $aud
      *
      * @return array|string
+     * @throws OidcServerException
      */
     protected function convertSingleRecordAudToString(mixed $aud): array|string
     {
-        return is_array($aud) && count($aud) === 1 ? $aud[0] : $aud;
+        if (is_string($aud)) {
+            return $aud;
+        }
+
+        if (is_array($aud) && !empty($aud)) {
+            if (count($aud) === 1) {
+                return (string)$aud[0];
+            } else {
+                return $aud;
+            }
+        }
+
+        throw OidcServerException::accessDenied('Unexpected sub claim value.');
     }
 }

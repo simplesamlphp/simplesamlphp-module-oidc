@@ -18,7 +18,7 @@ use SimpleSAML\Utils\Auth;
 class AuthContextService
 {
     /**
-     * Users with this permission can register,edit,etc their own clients
+     * Users with this permission can register,edit,etc. their own clients
      */
     public const PERM_CLIENT = 'client';
 
@@ -56,7 +56,7 @@ class AuthContextService
     {
         $simple = $this->authenticate();
         $userIdAttr = $this->configurationService->getOpenIDConnectConfiguration()->getString('useridattr');
-        return (new Attributes())->getExpectedAttribute($simple->getAttributes(), $userIdAttr);
+        return (string)(new Attributes())->getExpectedAttribute($simple->getAttributes(), $userIdAttr);
     }
 
     /**
@@ -79,6 +79,7 @@ class AuthContextService
             throw new RuntimeException('No permission defined for ' . $neededPermission);
         }
         $attributeName = $permissions->getString('attribute');
+        /** @var string[] $entitlements */
         $entitlements = $auth->getAttributes()[$attributeName] ?? [];
         $neededEntitlements = $permissions->getArrayizeString($neededPermission);
         foreach ($entitlements as $entitlement) {
