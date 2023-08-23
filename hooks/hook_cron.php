@@ -39,12 +39,15 @@ function oidc_hook_cron(&$croninfo)
     $container = new \SimpleSAML\Module\oidc\Services\Container();
 
     try {
+        /** @var AccessTokenRepository $accessTokenRepository */
         $accessTokenRepository = $container->get(AccessTokenRepository::class);
         $accessTokenRepository->removeExpired();
 
+        /** @var AuthCodeRepository $authTokenRepository */
         $authTokenRepository = $container->get(AuthCodeRepository::class);
         $authTokenRepository->removeExpired();
 
+        /** @var RefreshTokenRepository $refreshTokenRepository */
         $refreshTokenRepository = $container->get(RefreshTokenRepository::class);
         $refreshTokenRepository->removeExpired();
 

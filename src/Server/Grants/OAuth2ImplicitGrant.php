@@ -6,6 +6,7 @@ namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use DateInterval;
 use League\OAuth2\Server\CryptKey;
+use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Grant\ImplicitGrant;
 use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
 use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface;
@@ -134,7 +135,7 @@ class OAuth2ImplicitGrant extends ImplicitGrant implements AuthorizationValidata
 
         $resultBag = $this->requestRulesManager->check($request, $rulesToExecute);
 
-        /** @var array $scopes */
+        /** @var ScopeEntityInterface[] $scopes */
         $scopes = $resultBag->getOrFail(ScopeRule::class)->getValue();
 
         $oAuth2AuthorizationRequest = new OAuth2AuthorizationRequest();

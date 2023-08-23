@@ -322,6 +322,7 @@ class OidcServerException extends OAuthServerException
         $useFragment = false,
         $jsonOptions = 0
     ): ResponseInterface {
+        /** @var array<string,string> $headers */
         $headers = $this->getHttpHeaders();
 
         $payload = $this->getPayload();

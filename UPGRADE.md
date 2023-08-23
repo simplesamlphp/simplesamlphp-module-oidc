@@ -1,5 +1,15 @@
 # Version 4 to 5
 - PHP version requirement was bumped to v8.1
+- (internal) psalm error level set to 1
+- TODO move checkers to templates (generics) for proper type handling
+- TODO move to SSP (symfony) routing
+- TODO move to SSP (symfony) container
+- TODO remove dependency on laminas/laminas-diactoros
+- TODO remove dependency on laminas/laminas-httphandlerrunner
+- TODO remove dependency on steverhoades/oauth2-openid-connect-server (low maintenance)
+- TODO move away from SSP database as store; move to custom store interface
+- TODO implement store for different entities: i.e. client data can use RDB like mysql, whilst short term data
+like tokens can utilize faster stores like memcache, redis...
 
 # Version 3 to 4
 - PHP version requirement was bumped to v8.0 to enable updating important dependant packages like 'league/oauth2-server'

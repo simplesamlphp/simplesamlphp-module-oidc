@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <psalm
   name="SSP OIDC"
+  errorLevel="1"
   findUnusedBaselineEntry="true"
   findUnusedCode="true"
   cacheDirectory="build/psalm"

@@ -76,17 +76,25 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
         }
 
         $refreshTokenData = \json_decode($refreshToken, true);
+
+        if (! is_array($refreshTokenData)) {
+            throw OidcServerException::invalidRefreshToken('Refresh token has unexpected type');
+        }
         if ($refreshTokenData['client_id'] !== $clientId) {
             $this->getEmitter()->emit(new RequestEvent(RequestEvent::REFRESH_TOKEN_CLIENT_FAILED, $request));
-            throw OidcServerException::invalidRefreshToken('Token is not linked to client');
+            throw OidcServerException::invalidRefreshToken('Refresh token is not linked to client');
         }
 
         if ($refreshTokenData['expire_time'] < \time()) {
-            throw OidcServerException::invalidRefreshToken('Token has expired');
+            throw OidcServerException::invalidRefreshToken('Refresh token has expired');
         }
 
-        if ($this->refreshTokenRepository->isRefreshTokenRevoked($refreshTokenData['refresh_token_id']) === true) {
-            throw OidcServerException::invalidRefreshToken('Token has been revoked');
+        if (
+            $this->refreshTokenRepository->isRefreshTokenRevoked(
+                (string)$refreshTokenData['refresh_token_id']
+            ) === true
+        ) {
+            throw OidcServerException::invalidRefreshToken('Refresh token has been revoked');
         }
 
         return $refreshTokenData;

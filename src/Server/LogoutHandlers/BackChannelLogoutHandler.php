@@ -76,7 +76,7 @@ class BackChannelLogoutHandler
         foreach ($relyingPartyAssociations as $association) {
             if ($association->getBackChannelLogoutUri() !== null) {
                 $logMessage = "Backhannel Logout (index $index) - preparing request to: " .
-                    $association->getBackChannelLogoutUri();
+                    ($association->getBackChannelLogoutUri() ?? '');
                 $this->loggerService->notice($logMessage);
                 $index++;
 
