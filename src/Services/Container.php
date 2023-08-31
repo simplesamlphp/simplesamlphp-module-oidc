@@ -305,7 +305,7 @@ class Container implements ContainerInterface
     /**
      * @inheritdoc
      */
-    public function get($id)
+    public function get(string $id): mixed
     {
         if (false === $this->has($id)) {
             throw new class ($id) extends Exception implements NotFoundExceptionInterface {
@@ -322,7 +322,7 @@ class Container implements ContainerInterface
     /**
      * @inheritdoc
      */
-    public function has($id): bool
+    public function has(string $id): bool
     {
         return array_key_exists($id, $this->services);
     }

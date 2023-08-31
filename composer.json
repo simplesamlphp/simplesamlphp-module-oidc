@@ -28,7 +28,7 @@
         "lcobucci/jwt": "^4.1",
         "league/oauth2-server": "^8.5.3",
         "nette/forms": "^3",
-        "psr/container": "^1.0",
+        "psr/container": "^2.0",
         "psr/log": "^3",
         "simplesamlphp/composer-module-installer": "^1.3",
         "spomky-labs/base64url": "^2.0",
