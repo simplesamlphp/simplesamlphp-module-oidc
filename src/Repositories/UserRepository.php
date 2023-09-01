@@ -46,11 +46,17 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
             ]
         );
 
-        if (!$rows = $stmt->fetchAll()) {
+        if (!is_array($rows = $stmt->fetchAll())) {
             return null;
         }
 
-        return UserEntity::fromState(current($rows));
+        $row = current($rows);
+
+        if (!is_array($row)) {
+            return null;
+        }
+
+        return UserEntity::fromState($row);
     }
 
     /**

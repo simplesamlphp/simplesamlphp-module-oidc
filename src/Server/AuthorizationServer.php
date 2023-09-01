@@ -88,8 +88,10 @@ class AuthorizationServer extends OAuth2AuthorizationServer
             throw new BadRequest($reason);
         }
 
-        // state and redirectUri is used here so we can return HTTP redirect error in case of invalid response_type.
+        // state and redirectUri is used here, so we can return HTTP redirect error in case of invalid response_type.
+        /** @var ?string $state */
         $state = $resultBag->getOrFail(StateRule::class)->getValue();
+        /** @var string $redirectUri */
         $redirectUri = $resultBag->getOrFail(RedirectUriRule::class)->getValue();
 
         foreach ($this->enabledGrantTypes as $grantType) {

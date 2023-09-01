@@ -23,7 +23,7 @@ Currently supported flows are:
 |:------------|:--------------|:------:|-----------------------------|
 | v5.\*       | v2.1.\*       | \>=8.1 | Recommended                 |
 | v4.\*       | v2.0.\*       | \>=8.0 |                             |
-| v3.\*       | v2.\*         | \>=7.4 | Abandoned from August 2023. |
+| v3.\*       | v2.0.\*       | \>=7.4 | Abandoned from August 2023. |
 | v2.\*       | v1.19.\*      | \>=7.4 |                             |
 
 ### Upgrading?

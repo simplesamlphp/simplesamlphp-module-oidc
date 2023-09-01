@@ -2,21 +2,19 @@
 
 ## Major impact changes
 - PHP version requirement was bumped to v8.1
-- SimpleSAMLphp version requirement fixed to v2.1.*
+- TODO (currently dev-simplesamlphp-2.1) SimpleSAMLphp version requirement fixed to v2.1.* 
 - TODO move away from SSP database as store; move to custom store interface
 
 ## Medium impact changes
--- TODO changed routes
+- TODO move to SSP (symfony) routing
 
 ## Low impact changes
 - (internal) psalm error level set to 1
 - TODO move checkers to templates (generics) for proper type handling
-- TODO move to SSP (symfony) routing
 - TODO move to SSP (symfony) container
 - TODO remove dependency on laminas/laminas-diactoros
 - TODO remove dependency on laminas/laminas-httphandlerrunner
 - TODO remove dependency on steverhoades/oauth2-openid-connect-server (low maintenance)
-
 
 ## New features
 - TODO key rollover
