@@ -21,9 +21,14 @@ Currently supported flows are:
 
 | OIDC module | SimpleSAMLphp |  PHP   | Note                        |
 |:------------|:--------------|:------:|-----------------------------|
-| v4.\*       | v2.\*         | \>=8.0 | Recommended                 |
+| v5.\*       | v2.1.\*       | \>=8.1 | Recommended                 |
+| v4.\*       | v2.0.\*       | \>=8.0 |                             |
 | v3.\*       | v2.\*         | \>=7.4 | Abandoned from August 2023. |
 | v2.\*       | v1.19.\*      | \>=7.4 |                             |
+
+### Upgrading?
+
+If you are upgrading from a previous version, checkout the [upgrade guide](UPGRADE.md).
 
 ## Installation
 
@@ -94,10 +99,6 @@ If you use a passphrase, make sure to also configure it in the `module_oidc.php`
 
 In order to purge expired tokens, this module requires [cron module](https://simplesamlphp.org/docs/stable/cron:cron)
 to be enabled and configured.
-
-## Upgrading?
-
-If you are upgrading from a previous version, checkout the [upgrade guide](UPGRADE.md).
 
 ## Additional considerations
 ### Private scopes

@@ -1,5 +1,14 @@
 # Version 4 to 5
+
+## Major impact changes
 - PHP version requirement was bumped to v8.1
+- SimpleSAMLphp version requirement fixed to v2.1.*
+- TODO move away from SSP database as store; move to custom store interface
+
+## Medium impact changes
+-- TODO changed routes
+
+## Low impact changes
 - (internal) psalm error level set to 1
 - TODO move checkers to templates (generics) for proper type handling
 - TODO move to SSP (symfony) routing
@@ -7,13 +16,17 @@
 - TODO remove dependency on laminas/laminas-diactoros
 - TODO remove dependency on laminas/laminas-httphandlerrunner
 - TODO remove dependency on steverhoades/oauth2-openid-connect-server (low maintenance)
-- TODO move away from SSP database as store; move to custom store interface
+
+
+## New features
+- TODO key rollover
 - TODO implement store for different entities: i.e. client data can use RDB like mysql, whilst short term data
-like tokens can utilize faster stores like memcache, redis...
+  like tokens can utilize faster stores like memcache, redis...
 
 # Version 3 to 4
 - PHP version requirement was bumped to v8.0 to enable updating important dependant packages like 'league/oauth2-server'
   which has already moved to PHPv8 between their minor releases.
+- SimpleSAMLphp version requirement fixed to v2.0.*
 
 # Version 2 to 3
  - Module code was refactored to make it compatible with SimpleSAMLphp v2
