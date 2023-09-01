@@ -39,27 +39,27 @@ class ScopeEntity implements ScopeEntityInterface
     /**
      * @var array<string>
      */
-    private array $attributes;
+    private array $claims;
 
     private function __construct()
     {
     }
 
     /**
-     * @param array<string> $attributes
+     * @param array<string> $claims
      */
     public static function fromData(
         string $identifier,
         string $description = null,
         string $icon = null,
-        array $attributes = []
+        array $claims = []
     ): self {
         $scope = new self();
 
         $scope->identifier = $identifier;
         $scope->description = $description;
         $scope->icon = $icon;
-        $scope->attributes = $attributes;
+        $scope->claims = $claims;
 
         return $scope;
     }
@@ -77,9 +77,9 @@ class ScopeEntity implements ScopeEntityInterface
     /**
      * @return array<string>
      */
-    public function getAttributes(): array
+    public function getClaims(): array
     {
-        return $this->attributes;
+        return $this->claims;
     }
 
     public function jsonSerialize(): string

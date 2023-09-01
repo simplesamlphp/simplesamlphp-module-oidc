@@ -30,7 +30,7 @@ class ScopeEntityTest extends TestCase
         $this->assertSame('id', $scopeEntity->getIdentifier());
         $this->assertSame('description', $scopeEntity->getDescription());
         $this->assertSame('icon', $scopeEntity->getIcon());
-        $this->assertSame(['attrid' => 'attrval'], $scopeEntity->getAttributes());
+        $this->assertSame(['attrid' => 'attrval'], $scopeEntity->getClaims());
         $this->assertSame('id', $scopeEntity->jsonSerialize());
     }
 }

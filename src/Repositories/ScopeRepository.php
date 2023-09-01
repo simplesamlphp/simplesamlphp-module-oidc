@@ -42,19 +42,21 @@ class ScopeRepository extends AbstractDatabaseRepository implements ScopeReposit
             return null;
         }
 
+        /** @var array $scope */
         $scope = $scopes[$identifier];
+        /** @var ?string $description */
         $description = $scope['description'] ?? null;
+        /** @var ?string $icon */
         $icon = $scope['icon'] ?? null;
-        $attributes = $scope['attributes'] ?? [];
+        /** @var string[] $claims */
+        $claims = $scope['claims'] ?? [];
 
-        $scope = ScopeEntity::fromData(
+        return ScopeEntity::fromData(
             $identifier,
             $description,
             $icon,
-            $attributes
+            $claims
         );
-
-        return $scope;
     }
 
     /**
