@@ -1,6 +1,7 @@
 # Version 3 to 4
 - PHP version requirement was bumped to v8.0 to enable updating important dependant packages like 'league/oauth2-server'
   which has already moved to PHPv8 between their minor releases.
+- SimpleSAMLphp version fixed to v2.0.*
 
 # Version 2 to 3
  - Module code was refactored to make it compatible with SimpleSAMLphp v2
