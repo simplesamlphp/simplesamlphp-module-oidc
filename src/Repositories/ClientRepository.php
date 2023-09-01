@@ -77,20 +77,31 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
      */
     public function findById(string $clientIdentifier, ?string $owner = null): ?ClientEntityInterface
     {
-        list($query, $params) = $this->addOwnerWhereClause(
+        /**
+         * @var string $query
+         * @var array $params
+         */
+        [$query, $params] = $this->addOwnerWhereClause(
             "SELECT * FROM {$this->getTableName()} WHERE id = :id",
             [
                 'id' => $clientIdentifier,
             ],
             $owner
         );
+
         $stmt = $this->database->read($query, $params);
 
-        if (!$rows = $stmt->fetchAll()) {
+        if (!is_array($rows = $stmt->fetchAll())) {
             return null;
         }
 
-        return ClientEntity::fromState(current($rows));
+        $row = current($rows);
+
+        if (!is_array($row)) {
+            return null;
+        }
+
+        return ClientEntity::fromState($row);
     }
 
     private function addOwnerWhereClause(string $query, array $params, ?string $owner = null): array
@@ -111,6 +122,10 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
      */
     public function findAll(?string $owner = null): array
     {
+        /**
+         * @var string $query
+         * @var array $params
+         */
         list($query, $params) = $this->addOwnerWhereClause(
             "SELECT * FROM {$this->getTableName()}",
             [],
@@ -123,6 +138,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
         $clients = [];
 
+        /** @var array $state */
         foreach ($stmt->fetchAll() as $state) {
             $clients[] = ClientEntity::fromState($state);
         }
@@ -145,6 +161,11 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         $numPages = $this->calculateNumOfPages($total, $limit);
         $page = $this->calculateCurrentPage($page, $numPages);
         $offset = $this->calculateOffset($page, $limit);
+
+        /**
+         * @var string $sqlQuery
+         * @var array $params
+         */
         list($sqlQuery, $params) = $this->addOwnerWhereClause(
             "SELECT * FROM {$this->getTableName()} WHERE name LIKE :name",
             ['name' => '%' . $query . '%'],
@@ -155,7 +176,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
             $params
         );
 
-        $clients = array_map(function ($state) {
+        $clients = array_map(function (array $state) {
             return ClientEntity::fromState($state);
         }, $stmt->fetchAll());
 
@@ -210,6 +231,10 @@ EOS
 
     public function delete(ClientEntityInterface $client, ?string $owner = null): void
     {
+        /**
+         * @var string $sqlQuery
+         * @var array $params
+         */
         list($sqlQuery, $params) = $this->addOwnerWhereClause(
             "DELETE FROM {$this->getTableName()} WHERE id = :id",
             [
@@ -241,6 +266,11 @@ EOF
             ,
             $this->getTableName()
         );
+
+        /**
+         * @var string $sqlQuery
+         * @var array $params
+         */
         list($sqlQuery, $params) = $this->addOwnerWhereClause(
             $stmt,
             $client->getState(),
@@ -254,6 +284,10 @@ EOF
 
     private function count(string $query, ?string $owner): int
     {
+        /**
+         * @var string $sqlQuery
+         * @var array $params
+         */
         list($sqlQuery, $params) = $this->addOwnerWhereClause(
             "SELECT COUNT(id) FROM {$this->getTableName()} WHERE name LIKE :name",
             ['name' => '%' . $query . '%'],

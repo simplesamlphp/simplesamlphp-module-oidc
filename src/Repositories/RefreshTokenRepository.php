@@ -85,9 +85,10 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
             return null;
         }
 
+        /** @var array $data */
         $data = current($rows);
         $accessTokenRepository = new AccessTokenRepository($this->configurationService);
-        $data['access_token'] = ($accessTokenRepository)->findById($data['access_token_id']);
+        $data['access_token'] = $accessTokenRepository->findById((string)$data['access_token_id']);
 
         return RefreshTokenEntity::fromState($data);
     }
