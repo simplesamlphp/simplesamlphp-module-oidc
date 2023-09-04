@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -16,9 +18,11 @@ namespace SimpleSAML\Module\oidc\Entity;
 
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\RefreshTokenTrait;
+use SimpleSAML\Module\oidc\Entity\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entity\Traits\AssociateWithAuthCodeTrait;
 use SimpleSAML\Module\oidc\Entity\Traits\RevokeTokenTrait;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 class RefreshTokenEntity implements RefreshTokenEntityInterface
@@ -28,9 +32,21 @@ class RefreshTokenEntity implements RefreshTokenEntityInterface
     use RevokeTokenTrait;
     use AssociateWithAuthCodeTrait;
 
+    /**
+     * @throws OidcServerException
+     */
     public static function fromState(array $state): RefreshTokenEntityInterface
     {
         $refreshToken = new self();
+
+        if (
+            !is_string($state['id']) ||
+            !is_string($state['expires_at']) ||
+            !is_a($state['access_token'], AccessTokenEntityInterface::class) ||
+            !is_string($state['auth_code_id'])
+        ) {
+            throw OidcServerException::serverError('Invalid Refresh Token state');
+        }
 
         $refreshToken->identifier = $state['id'];
         $refreshToken->expiryDateTime = \DateTimeImmutable::createFromMutable(

@@ -145,10 +145,12 @@ class ClientForm extends Form
         $bclUri = trim((string)$values['backchannel_logout_uri']);
         $values['backchannel_logout_uri'] = empty($bclUri) ? null : $bclUri;
 
+        $scopes = is_array($values['scopes']) ? $values['scopes'] : [];
+
         // openid scope is mandatory
         $values['scopes'] = array_unique(
             array_merge(
-                $values['scopes'],
+                $scopes,
                 ['openid']
             )
         );
@@ -169,18 +171,25 @@ class ClientForm extends Form
             }
         }
 
-        $data['redirect_uri'] = implode("\n", $data['redirect_uri']);
+        /** @var string[] $redirectUris */
+        $redirectUris = is_array($data['redirect_uri']) ? $data['redirect_uri'] : [];
+        $data['redirect_uri'] = implode("\n", $redirectUris);
 
         // Allowed origins are only available for public clients (not for confidential clients).
         if (! $data['is_confidential'] && isset($data['allowed_origin'])) {
-            $data['allowed_origin'] = implode("\n", $data['allowed_origin']);
+            /** @var string[] $allowedOrigins */
+            $allowedOrigins = is_array($data['allowed_origin']) ? $data['allowed_origin'] : [];
+            $data['allowed_origin'] = implode("\n", $allowedOrigins);
         } else {
             $data['allowed_origin'] = '';
         }
 
-        $data['post_logout_redirect_uri'] = implode("\n", $data['post_logout_redirect_uri']);
+        /** @var string[] $postLogoutRedirectUris */
+        $postLogoutRedirectUris = is_array($data['post_logout_redirect_uri']) ? $data['post_logout_redirect_uri'] : [];
+        $data['post_logout_redirect_uri'] = implode("\n", $postLogoutRedirectUris);
 
-        $data['scopes'] = array_intersect($data['scopes'], array_keys($this->getScopes()));
+        $scopes = is_array($data['scopes']) ? $data['scopes'] : [];
+        $data['scopes'] = array_intersect($scopes, array_keys($this->getScopes()));
 
         return parent::setDefaults($data, $erase);
     }
@@ -241,7 +250,7 @@ class ClientForm extends Form
      */
     protected function getScopes(): array
     {
-        return array_map(function ($item): mixed {
+        return array_map(function (array $item): mixed {
             return $item['description'];
         }, $this->configurationService->getOpenIDScopes());
     }

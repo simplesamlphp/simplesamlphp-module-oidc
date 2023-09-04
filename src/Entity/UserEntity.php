@@ -20,6 +20,7 @@ use DateTime;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use OpenIDConnectServer\Entities\ClaimSetInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\MementoInterface;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 /**
@@ -65,13 +66,28 @@ class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInter
 
     /**
      * {@inheritdoc}
+     * @throws OidcServerException
      */
     public static function fromState(array $state): self
     {
         $user = new self();
 
+        if (
+            !is_string($state['id']) ||
+            !is_string($state['claims']) ||
+            !is_string($state['updated_at']) ||
+            !is_string($state['created_at'])
+        ) {
+            throw OidcServerException::serverError('Invalid user entity data');
+        }
+
         $user->identifier = $state['id'];
-        $user->claims = json_decode($state['claims'], true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
+        $claims = json_decode($state['claims'], true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
+
+        if (!is_array($claims)) {
+            throw OidcServerException::serverError('Invalid user entity data');
+        }
+        $user->claims = $claims;
         $user->updatedAt = TimestampGenerator::utc($state['updated_at']);
         $user->createdAt = TimestampGenerator::utc($state['created_at']);
 

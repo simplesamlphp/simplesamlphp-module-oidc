@@ -84,6 +84,6 @@ class ScopeEntity implements ScopeEntityInterface
 
     public function jsonSerialize(): string
     {
-        return $this->getIdentifier();
+        return (string) $this->getIdentifier();
     }
 }

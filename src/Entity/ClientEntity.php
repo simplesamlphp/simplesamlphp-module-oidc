@@ -19,6 +19,7 @@ namespace SimpleSAML\Module\oidc\Entity;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use League\OAuth2\Server\Entities\Traits\ClientTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 /**
  * @psalm-suppress PropertyNotSetInConstructor
@@ -34,6 +35,9 @@ class ClientEntity implements ClientEntityInterface
 
     private ?string $authSource;
 
+    /**
+     * @var string[] $scopes
+     */
     private array $scopes;
 
     private bool $isEnabled;
@@ -55,6 +59,21 @@ class ClientEntity implements ClientEntityInterface
         $this->isEnabled = true;
     }
 
+    /**
+     * @param string $id
+     * @param string $secret
+     * @param string $name
+     * @param string $description
+     * @param string[] $redirectUri
+     * @param string[] $scopes
+     * @param bool $isEnabled
+     * @param bool $isConfidential
+     * @param string|null $authSource
+     * @param string|null $owner
+     * @param string[] $postLogoutRedirectUri
+     * @param string|null $backChannelLogoutUri
+     * @return ClientEntityInterface
+     */
     public static function fromData(
         string $id,
         string $secret,
@@ -75,14 +94,14 @@ class ClientEntity implements ClientEntityInterface
         $client->secret = $secret;
         $client->name = $name;
         $client->description = $description;
-        $client->authSource = $authSource;
+        $client->authSource = empty($authSource) ? null : $authSource;
         $client->redirectUri = $redirectUri;
         $client->scopes = $scopes;
         $client->isEnabled = $isEnabled;
         $client->isConfidential = $isConfidential;
-        $client->owner = $owner;
+        $client->owner = empty($owner) ? null : $owner;
         $client->postLogoutRedirectUri = $postLogoutRedirectUri;
-        $client->backChannelLogoutUri = $backChannelLogoutUri;
+        $client->backChannelLogoutUri = empty($backChannelLogoutUri) ? null : $backChannelLogoutUri;
 
         return $client;
     }
@@ -94,18 +113,42 @@ class ClientEntity implements ClientEntityInterface
     {
         $client = new self();
 
+        if (
+            !is_string($state['id']) ||
+            !is_string($state['secret']) ||
+            !is_string($state['name']) ||
+            !is_string($state['redirect_uri']) ||
+            !is_string($state['scopes'])
+        ) {
+            throw OidcServerException::serverError('Invalid Client Entity state');
+        }
+
         $client->identifier = $state['id'];
         $client->secret = $state['secret'];
         $client->name = $state['name'];
-        $client->description = $state['description'];
-        $client->authSource = $state['auth_source'];
-        $client->redirectUri = json_decode($state['redirect_uri'], true);
-        $client->scopes = json_decode($state['scopes'], true);
+        $client->description = (string)($state['description'] ?? '');
+        $client->authSource = empty($state['auth_source']) ? null : (string)$state['auth_source'];
+
+        /** @var string[] $redirectUris */
+        $redirectUris = json_decode($state['redirect_uri'], true);
+        $client->redirectUri = $redirectUris;
+
+        /** @var string[] $scopes */
+        $scopes = json_decode($state['scopes'], true);
+        $client->scopes = $scopes;
+
         $client->isEnabled = (bool) $state['is_enabled'];
         $client->isConfidential = (bool) ($state['is_confidential'] ?? false);
-        $client->owner = $state['owner'] ?? null;
-        $client->postLogoutRedirectUri = json_decode($state['post_logout_redirect_uri'] ?? "[]", true);
-        $client->backChannelLogoutUri = $state['backchannel_logout_uri'] ?? null;
+        $client->owner = empty($state['owner']) ? null : (string)$state['owner'];
+
+        /** @var string[] $postLogoutRedirectUris */
+        $postLogoutRedirectUris = json_decode((string)($state['post_logout_redirect_uri'] ?? "[]"), true);
+        $client->postLogoutRedirectUri = $postLogoutRedirectUris;
+
+
+        $client->backChannelLogoutUri = empty($state['backchannel_logout_uri']) ?
+            null :
+            (string)$state['backchannel_logout_uri'];
 
         return $client;
     }

@@ -50,11 +50,15 @@ class ClaimTranslatorExtractorFactory
         $claimSet = [];
         $allowedMultipleValueClaims = [];
 
+        /**
+         * @var string $scopeName
+         * @var array $scopeConfig
+         */
         foreach ($privateScopes as $scopeName => $scopeConfig) {
-            $claims = $scopeConfig['claims'] ?? [];
+            $claims = is_array($scopeConfig['claims']) ? $scopeConfig['claims'] : [];
 
             if ($this->isScopeClaimNamePrefixSet($scopeConfig)) {
-                $prefix = $scopeConfig[self::CONFIG_KEY_CLAIM_NAME_PREFIX];
+                $prefix = (string)($scopeConfig[self::CONFIG_KEY_CLAIM_NAME_PREFIX] ?? '');
 
                 $translatorTable = $this->applyPrefixToTranslatorTableKeys($translatorTable, $claims, $prefix);
                 $claims = $this->applyPrefixToClaimNames($claims, $prefix);
@@ -82,6 +86,10 @@ class ClaimTranslatorExtractorFactory
      */
     protected function applyPrefixToTranslatorTableKeys(array $translatorTable, array $claims, string $prefix): array
     {
+        /**
+         * @var string $claimKey
+         * @var array $mapping
+         */
         foreach ($translatorTable as $claimKey => $mapping) {
             if (in_array($claimKey, $claims)) {
                 $prefixedClaimKey = $prefix . $claimKey;
