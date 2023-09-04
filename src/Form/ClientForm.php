@@ -63,9 +63,10 @@ class ClientForm extends Form
     {
         /** @var array $values */
         $values = $form->getValues(self::TYPE_ARRAY);
-
+        /** @var string[] $redirectUris */
+        $redirectUris = $values['redirect_uri'] ?? [];
         $this->validateByMatchingRegex(
-            $values['redirect_uri'] ?? [],
+            $redirectUris,
             self::REGEX_URI,
             'Invalid URI: '
         );
@@ -75,9 +76,10 @@ class ClientForm extends Form
     {
         /** @var array $values */
         $values = $form->getValues(self::TYPE_ARRAY);
-
+        /** @var string[] $allowedOrigins */
+        $allowedOrigins = $values['allowed_origin'] ?? [];
         $this->validateByMatchingRegex(
-            $values['allowed_origin'] ?? [],
+            $allowedOrigins,
             self::REGEX_ALLOWED_ORIGIN_URL,
             'Invalid allowed origin: '
         );
@@ -87,9 +89,10 @@ class ClientForm extends Form
     {
         /** @var array $values */
         $values = $form->getValues(self::TYPE_ARRAY);
-
+        /** @var string[] $postLogoutRedirectUris */
+        $postLogoutRedirectUris = $values['post_logout_redirect_uri'] ?? [];
         $this->validateByMatchingRegex(
-            $values['post_logout_redirect_uri'] ?? [],
+            $postLogoutRedirectUris,
             self::REGEX_URI,
             'Invalid post-logout redirect URI: '
         );
@@ -97,7 +100,7 @@ class ClientForm extends Form
 
     public function validateBackChannelLogoutUri(Form $form): void
     {
-        if (($bclUri = $form->getValues()['backchannel_logout_uri'] ?? null) !== null) {
+        if ((/** @var ?string $bclUri */$bclUri = $form->getValues()['backchannel_logout_uri'] ?? null) !== null) {
             $this->validateByMatchingRegex(
                 [$bclUri],
                 self::REGEX_HTTP_URI,
@@ -107,7 +110,7 @@ class ClientForm extends Form
     }
 
     /**
-     * @param array $values
+     * @param string[] $values
      * @param non-empty-string $regex
      * @param string $messagePrefix
      * @return void
@@ -130,16 +133,16 @@ class ClientForm extends Form
         $values = parent::getValues(self::TYPE_ARRAY);
 
         // Sanitize redirect_uri and allowed_origin
-        $values['redirect_uri'] = $this->convertTextToArrayWithLinesAsValues($values['redirect_uri']);
+        $values['redirect_uri'] = $this->convertTextToArrayWithLinesAsValues((string)$values['redirect_uri']);
         if (! $values['is_confidential'] && isset($values['allowed_origin'])) {
-            $values['allowed_origin'] = $this->convertTextToArrayWithLinesAsValues($values['allowed_origin']);
+            $values['allowed_origin'] = $this->convertTextToArrayWithLinesAsValues((string)$values['allowed_origin']);
         } else {
             $values['allowed_origin'] = [];
         }
         $values['post_logout_redirect_uri'] =
-            $this->convertTextToArrayWithLinesAsValues($values['post_logout_redirect_uri']);
+            $this->convertTextToArrayWithLinesAsValues((string)$values['post_logout_redirect_uri']);
 
-        $bclUri = trim($values['backchannel_logout_uri']);
+        $bclUri = trim((string)$values['backchannel_logout_uri']);
         $values['backchannel_logout_uri'] = empty($bclUri) ? null : $bclUri;
 
         // openid scope is mandatory

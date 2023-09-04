@@ -24,6 +24,9 @@ use SimpleSAML\Session;
 
 class CsrfProtection extends BaseCsrfProtection
 {
+    /**
+     * @psalm-suppress InvalidClassConstantType
+     */
     public const PROTECTION = 'SimpleSAML\Module\oidc\Form\Controls\CsrfProtection::validateCsrf';
 
     protected Session $sspSession;
@@ -42,7 +45,10 @@ class CsrfProtection extends BaseCsrfProtection
             throw new InvalidStateException('CsrfProtection initialization error');
         }
 
-        /** @noinspection PhpUndefinedMethodInspection */
+        /**
+         * @noinspection PhpUndefinedMethodInspection
+         * @psalm-suppress MixedMethodCall
+         */
         $hiddentFieldParent::__construct();
 
         $this->setOmitted()
@@ -57,7 +63,7 @@ class CsrfProtection extends BaseCsrfProtection
      */
     public function getToken(): string
     {
-        $token = $this->sspSession->getData('form_csrf', 'token');
+        $token = (string)$this->sspSession->getData('form_csrf', 'token');
 
         if (!$token) {
             $token = Random::generate();

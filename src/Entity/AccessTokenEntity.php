@@ -71,7 +71,7 @@ class AccessTokenEntity implements
     public static function fromData(
         OAuth2ClientEntityInterface $clientEntity,
         array $scopes,
-        string $userIdentifier = null,
+        int|string $userIdentifier = null,
         string $authCodeId = null,
         array $requestedClaims = null
     ): self {

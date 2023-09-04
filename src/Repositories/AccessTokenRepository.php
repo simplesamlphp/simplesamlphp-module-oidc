@@ -50,6 +50,12 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         string $authCodeId = null,
         array $requestedClaims = null
     ): AccessTokenEntityInterface {
+        if (!is_null($userIdentifier)) {
+            $userIdentifier = (string)$userIdentifier;
+        }
+        if (empty($userIdentifier)) {
+            $userIdentifier = null;
+        }
         return AccessTokenEntity::fromData($clientEntity, $scopes, $userIdentifier, $authCodeId, $requestedClaims);
     }
 
@@ -87,13 +93,14 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
             ]
         );
 
-        if (!$rows = $stmt->fetchAll()) {
+        if (!is_array($rows = $stmt->fetchAll())) {
             return null;
         }
 
+        /** @var array $data */
         $data = current($rows);
         $clientRepository = new ClientRepository($this->configurationService);
-        $data['client'] = $clientRepository->findById($data['client_id']);
+        $data['client'] = $clientRepository->findById((string)$data['client_id']);
 
         return AccessTokenEntity::fromState($data);
     }

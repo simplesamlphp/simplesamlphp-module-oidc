@@ -34,6 +34,11 @@
         <file name="config-templates/module_oidc.php" />
       </errorLevel>
     </UnusedVariable>
+    <InvalidClassConstantType>
+      <errorLevel type="suppress">
+        <file name="src/Form/Controls/CsrfProtection.php" />
+      </errorLevel>
+    </InvalidClassConstantType>
 
     <!-- Ignore errors related to unused classes, methods... -->
     <UnusedClass errorLevel="suppress" />

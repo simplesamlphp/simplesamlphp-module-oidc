@@ -75,13 +75,14 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
             ]
         );
 
-        if (!$rows = $stmt->fetchAll()) {
+        if (!is_array($rows = $stmt->fetchAll())) {
             return null;
         }
 
+        /** @var array $data */
         $data = current($rows);
         $clientRepository = new ClientRepository($this->configurationService);
-        $data['client'] = $clientRepository->findById($data['client_id']);
+        $data['client'] = $clientRepository->findById((string)$data['client_id']);
 
         return AuthCodeEntity::fromState($data);
     }

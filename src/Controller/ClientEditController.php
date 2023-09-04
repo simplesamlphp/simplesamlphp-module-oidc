@@ -78,7 +78,6 @@ class ClientEditController
         $form = $this->formFactory->build(ClientForm::class);
         $formAction = $request->withQueryParams(['client_id' => $client->getIdentifier()])->getRequestTarget();
         $form->setAction($formAction);
-
         $clientData = $client->toArray();
         $clientData['allowed_origin'] = $clientAllowedOrigins;
         $form->setDefaults($clientData);
