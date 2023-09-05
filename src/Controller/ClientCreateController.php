@@ -24,6 +24,7 @@ use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Form\ClientForm;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\Utils\HTTP;
@@ -80,23 +81,43 @@ class ClientCreateController
                 $client['owner'] = $this->authContextService->getAuthUserId();
             }
 
+            if (
+                !is_string($client['name']) ||
+                !is_string($client['description']) ||
+                !is_array($client['redirect_uri']) ||
+                !is_array($client['scopes']) ||
+                !is_array($client['post_logout_redirect_uri']) ||
+                !is_array($client['allowed_origin'])
+            ) {
+                throw OidcServerException::serverError('Invalid Client Entity data');
+            }
+
+            /** @var string[] $redirectUris */
+            $redirectUris = $client['redirect_uri'];
+            /** @var string[] $scopes */
+            $scopes = $client['scopes'];
+            /** @var string[] $postLogoutRedirectUris */
+            $postLogoutRedirectUris = $client['post_logout_redirect_uri'];
+            /** @var string[] $allowedOrigins */
+            $allowedOrigins = $client['allowed_origin'];
+
             $this->clientRepository->add(ClientEntity::fromData(
                 $client['id'],
                 $client['secret'],
                 $client['name'],
                 $client['description'],
-                $client['redirect_uri'],
-                $client['scopes'],
-                $client['is_enabled'],
-                $client['is_confidential'],
-                $client['auth_source'],
-                $client['owner'] ?? null,
-                $client['post_logout_redirect_uri'],
-                $client['backchannel_logout_uri']
+                $redirectUris,
+                $scopes,
+                (bool)$client['is_enabled'],
+                (bool)$client['is_confidential'],
+                empty($client['auth_source']) ? null : (string)$client['auth_source'],
+                empty($client['owner']) ? null : (string)$client['owner'],
+                $postLogoutRedirectUris,
+                empty($client['backchannel_logout_uri']) ? null : (string)$client['backchannel_logout_uri']
             ));
 
             // Also persist allowed origins for this client.
-            $this->allowedOriginRepository->set($client['id'], $client['allowed_origin']);
+            $this->allowedOriginRepository->set($client['id'], $allowedOrigins);
 
             $this->messages->addMessage('{oidc:client:added}');
 

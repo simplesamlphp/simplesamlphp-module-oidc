@@ -48,7 +48,7 @@ class ClientResetSecretController
     {
         $client = $this->getClientFromRequest($request);
         $body = $request->getParsedBody();
-        $clientSecret = $body['secret'] ?? null;
+        $clientSecret = empty($body['secret']) ? null : (string)$body['secret'];
 
         if ('POST' === mb_strtoupper($request->getMethod())) {
             if (!$clientSecret) {

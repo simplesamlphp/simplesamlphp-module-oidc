@@ -93,7 +93,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
             ]
         );
 
-        if (!is_array($rows = $stmt->fetchAll())) {
+        if (empty($rows = $stmt->fetchAll())) {
             return null;
         }
 

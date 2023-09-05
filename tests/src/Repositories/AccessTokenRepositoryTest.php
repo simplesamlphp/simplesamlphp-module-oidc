@@ -108,14 +108,14 @@ class AccessTokenRepositoryTest extends TestCase
 
     public function testErrorRevokeInvalidToken(): void
     {
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(\Exception::class);
 
         self::$repository->revokeAccessToken('notoken');
     }
 
     public function testErrorCheckIsRevokedInvalidToken(): void
     {
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(\Exception::class);
 
         self::$repository->isAccessTokenRevoked('notoken');
     }

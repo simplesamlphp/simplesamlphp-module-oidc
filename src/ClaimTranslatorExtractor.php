@@ -134,12 +134,14 @@ class ClaimTranslatorExtractor extends ClaimExtractor
         array $allowedMultipleValueClaims = []
     ) {
         // By default, add the userIdAttribute as one of the attribute for 'sub' claim.
+        /** @psalm-suppress MixedArgument */
         array_unshift($this->translationTable['sub'], $userIdAttr);
 
         $this->translationTable = array_merge($this->translationTable, $translationTable);
 
         $this->allowedMultiValueClaims = $allowedMultipleValueClaims;
 
+        /** @psalm-suppress MixedArrayAssignment TODO low mivanci remove after moving aways from underlying lib */
         $this->protectedClaims[] = 'openid';
         $this->addClaimSet(new ClaimSetEntity('openid', [
             'sub',
@@ -156,22 +158,32 @@ class ClaimTranslatorExtractor extends ClaimExtractor
     private function translateSamlAttributesToClaims(array $translationTable, array $samlAttributes): array
     {
         $claims = [];
+        /**
+         * @var string $claim
+         * @var array $mappingConfig
+         */
         foreach ($translationTable as $claim => $mappingConfig) {
-            $type = $mappingConfig['type'] ?? 'string';
+            $type = (string)($mappingConfig['type'] ?? 'string');
             unset($mappingConfig['type']);
             if ($type === 'json') {
-                $subClaims = $this->translateSamlAttributesToClaims($mappingConfig['claims'], $samlAttributes);
+                $mappingConfigClaims = is_array($mappingConfig['claims']) ? $mappingConfig['claims'] : [];
+                $subClaims = $this->translateSamlAttributesToClaims($mappingConfigClaims, $samlAttributes);
                 $claims[$claim] = $subClaims;
                 continue;
             }
             // Look for attributes in the attribute key, if not set then assume to legacy style configuration
-            $attributes = $mappingConfig['attributes'] ?? $mappingConfig;
+            $attributes = isset($mappingConfig['attributes']) && is_array($mappingConfig['attributes']) ?
+                $mappingConfig['attributes'] :
+                $mappingConfig;
 
+            /** @var string $samlMatch */
             foreach ($attributes as $samlMatch) {
                 if (array_key_exists($samlMatch, $samlAttributes)) {
+                    /** @psalm-suppress MixedAssignment, MixedArgument */
                     $values = in_array($claim, $this->allowedMultiValueClaims) ?
                         $samlAttributes[$samlMatch] :
                         current($samlAttributes[$samlMatch]);
+                    /** @psalm-suppress MixedAssignment */
                     $claims[$claim] = $this->convertType($type, $values);
                     break;
                 }
@@ -184,7 +196,9 @@ class ClaimTranslatorExtractor extends ClaimExtractor
     {
         if (is_array($attributes)) {
             $values = [];
+            /** @psalm-suppress MixedAssignment */
             foreach ($attributes as $attribute) {
+                /** @psalm-suppress MixedAssignment */
                 $values[] = $this->convertType($type, $attribute);
             }
             return $values;
@@ -211,12 +225,14 @@ class ClaimTranslatorExtractor extends ClaimExtractor
 
     public function extractAdditionalIdTokenClaims(?array $claimsRequest, array $claims): array
     {
+        /** @var array $idTokenClaims */
         $idTokenClaims = $claimsRequest['id_token'] ?? [];
         return $this->extractAdditionalClaims($idTokenClaims, $claims);
     }
 
     public function extractAdditionalUserInfoClaims(?array $claimsRequest, array $claims): array
     {
+        /** @var array $userInfoClaims */
         $userInfoClaims = $claimsRequest['userinfo'] ?? [];
         return $this->extractAdditionalClaims($userInfoClaims, $claims);
     }
@@ -237,7 +253,7 @@ class ClaimTranslatorExtractor extends ClaimExtractor
 
         return array_filter(
             $translatedClaims,
-            function ($key) use ($requestedClaims) {
+            function (string $key) use ($requestedClaims) {
                 return array_key_exists($key, $requestedClaims);
             },
             ARRAY_FILTER_USE_KEY

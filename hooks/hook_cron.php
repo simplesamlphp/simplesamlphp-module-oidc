@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -15,17 +17,24 @@
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 /**
  * @param array &$croninfo
  *
  * @return void
  */
-function oidc_hook_cron(&$croninfo)
+function oidc_hook_cron(array &$croninfo)
 {
-    assert('is_array($croninfo)');
-    assert('array_key_exists("summary", $croninfo)');
-    assert('array_key_exists("tag", $croninfo)');
+    if (
+        !array_key_exists('summary', $croninfo) ||
+        !is_array($croninfo['summary'])
+    ) {
+        $croninfo['summary'] = [];
+    }
+    if (!array_key_exists('tag', $croninfo)) {
+        throw OidcServerException::serverError('Invalid croninfo data: missing tag');
+    }
 
     $oidcConfig = \SimpleSAML\Configuration::getConfig('module_oidc.php');
 

@@ -116,20 +116,30 @@ class OAuth2AuthorizationController
             throw OidcServerException::serverError('isCookieBasedAuthn not set on authz request');
         }
 
-        $availableAuthSourceAcrs = $this->configurationService->getAuthSourcesToAcrValuesMap()[$authSourceId] ?? [];
+        $authSourceToAcrValuesMap = $this->configurationService->getAuthSourcesToAcrValuesMap();
+
+        $availableAuthSourceAcrs = is_array($authSourceToAcrValuesMap[$authSourceId]) ?
+            $authSourceToAcrValuesMap[$authSourceId] :
+            [];
         $forcedAcrForCookieAuthentication = $this->configurationService->getForcedAcrValueForCookieAuthentication();
 
         if ($forcedAcrForCookieAuthentication !== null && $isCookieBasedAuthn) {
             $availableAuthSourceAcrs = [$forcedAcrForCookieAuthentication];
         }
 
-        $isRequestedAcrEssential = $requestedAcrValues['essential'] ?? false;
+        $isRequestedAcrEssential = empty($requestedAcrValues['essential']) ?
+            false :
+            boolval($requestedAcrValues['essential']);
 
-        $matchedAcrs = array_intersect($availableAuthSourceAcrs, $requestedAcrValues['values']);
+        $acrs = !empty($requestedAcrValues['values']) && is_array($requestedAcrValues['values']) ?
+            $requestedAcrValues['values'] :
+            [];
+
+        $matchedAcrs = array_intersect($availableAuthSourceAcrs, $acrs);
 
         // If we have matched ACRs, use the best (first) one (order is important).
         if (!empty($matchedAcrs)) {
-            $authorizationRequest->setAcr(current($matchedAcrs));
+            $authorizationRequest->setAcr((string)current($matchedAcrs));
             return;
         }
 
@@ -140,7 +150,7 @@ class OAuth2AuthorizationController
 
         // If the ACR is not essential, we should return current session ACR (if we have one available)...
         if (! empty($availableAuthSourceAcrs)) {
-            $authorizationRequest->setAcr(current($availableAuthSourceAcrs));
+            $authorizationRequest->setAcr((string)current($availableAuthSourceAcrs));
             return;
         }
 

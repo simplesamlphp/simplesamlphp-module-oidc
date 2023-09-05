@@ -75,7 +75,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
             ]
         );
 
-        if (!is_array($rows = $stmt->fetchAll())) {
+        if (empty($rows = $stmt->fetchAll())) {
             return null;
         }
 

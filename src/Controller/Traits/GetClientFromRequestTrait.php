@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -22,10 +24,7 @@ use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 
 trait GetClientFromRequestTrait
 {
-    /**
-     * @var ClientRepository
-     */
-    protected $clientRepository;
+    protected ClientRepository $clientRepository;
 
     /**
      * @throws BadRequest
@@ -34,9 +33,9 @@ trait GetClientFromRequestTrait
     protected function getClientFromRequest(ServerRequestInterface $request): ClientEntityInterface
     {
         $params = $request->getQueryParams();
-        $clientId = $params['client_id'] ?? null;
+        $clientId = empty($params['client_id']) ? null : (string)$params['client_id'];
 
-        if (!$clientId) {
+        if (!is_string($clientId)) {
             throw new BadRequest('Client id is missing.');
         }
 

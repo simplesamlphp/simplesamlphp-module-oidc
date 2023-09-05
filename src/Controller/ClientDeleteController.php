@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -23,20 +25,14 @@ use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\Utils\HTTP;
 use Laminas\Diactoros\Response\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;
+use SimpleSAML\XHTML\Template;
 
 class ClientDeleteController
 {
     use AuthenticatedGetClientFromRequestTrait;
 
-    /**
-     * @var \SimpleSAML\Module\oidc\Factories\TemplateFactory
-     */
-    private $templateFactory;
-
-    /**
-     * @var \SimpleSAML\Module\oidc\Services\SessionMessagesService
-     */
-    private $messages;
+    private TemplateFactory $templateFactory;
+    private SessionMessagesService $messages;
 
     public function __construct(
         ClientRepository $clientRepository,
@@ -51,13 +47,13 @@ class ClientDeleteController
     }
 
     /**
-     * @return \Laminas\Diactoros\Response\RedirectResponse|\SimpleSAML\XHTML\Template
+     * @return RedirectResponse|Template
      */
     public function __invoke(ServerRequest $request)
     {
         $client = $this->getClientFromRequest($request);
         $body = $request->getParsedBody();
-        $clientSecret = $body['secret'] ?? null;
+        $clientSecret = empty($body['secret']) ? null : (string)$body['secret'];
         $authedUser = $this->authContextService->isSspAdmin() ? null : $this->authContextService->getAuthUserId();
         if ('POST' === mb_strtoupper($request->getMethod())) {
             if (!$clientSecret) {

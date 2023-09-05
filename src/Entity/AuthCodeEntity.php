@@ -16,9 +16,11 @@ namespace SimpleSAML\Module\oidc\Entity;
 
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\TokenEntityTrait;
+use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\MementoInterface;
 use SimpleSAML\Module\oidc\Entity\Traits\OidcAuthCodeTrait;
 use SimpleSAML\Module\oidc\Entity\Traits\RevokeTokenTrait;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 use SimpleSAML\Module\oidc\Entity\Interfaces\AuthCodeEntityInterface;
 
@@ -29,9 +31,27 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
     use OidcAuthCodeTrait;
     use RevokeTokenTrait;
 
+    /**
+     * @throws OidcServerException
+     */
     public static function fromState(array $state): self
     {
         $authCode = new self();
+
+        if (
+            !is_string($state['scopes']) ||
+            !is_string($state['id']) ||
+            !is_string($state['expires_at']) ||
+            !is_a($state['client'], ClientEntityInterface::class)
+        ) {
+            throw OidcServerException::serverError('Invalid Auth Code Entity state');
+        }
+
+        $stateScopes = json_decode($state['scopes'], true);
+
+        if (!is_array($stateScopes)) {
+            throw OidcServerException::serverError('Invalid Auth Code Entity state: scopes');
+        }
 
         $scopes = array_map(
             /**
@@ -40,7 +60,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
             function (string $scope) {
                 return ScopeEntity::fromData($scope);
             },
-            json_decode($state['scopes'], true)
+            $stateScopes
         );
 
         $authCode->identifier = $state['id'];
@@ -48,12 +68,11 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
         $authCode->expiryDateTime = \DateTimeImmutable::createFromMutable(
             TimestampGenerator::utc($state['expires_at'])
         );
-        $authCode->userIdentifier = $state['user_id'];
+        $authCode->userIdentifier = empty($state['user_id']) ? null : (string)$state['user_id'];
         $authCode->client = $state['client'];
         $authCode->isRevoked = (bool) $state['is_revoked'];
-        $authCode->redirectUri = $state['redirect_uri'];
-        $authCode->nonce = $state['nonce'];
-
+        $authCode->redirectUri = empty($state['redirect_uri']) ? null : (string)$state['redirect_uri'];
+        $authCode->nonce = empty($state['nonce']) ? null : (string)$state['nonce'];
 
         return $authCode;
     }

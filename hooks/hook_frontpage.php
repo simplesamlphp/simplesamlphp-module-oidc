@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -17,10 +19,11 @@
  *
  * @return void
  */
-function oidc_hook_frontpage(&$links)
+function oidc_hook_frontpage(array &$links)
 {
-    assert('is_array($links)');
-    assert('array_key_exists("links", $links)');
+    if (!is_array($links['federation'])) {
+        $links['federation'] = [];
+    }
 
     $isUpdated = (new \SimpleSAML\Module\oidc\Services\DatabaseMigration())->isUpdated();
 

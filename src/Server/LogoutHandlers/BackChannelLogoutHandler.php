@@ -32,7 +32,7 @@ class BackChannelLogoutHandler
     }
 
     /**
-     * @param array<string,RelyingPartyAssociationInterface> $relyingPartyAssociations
+     * @param array<RelyingPartyAssociationInterface> $relyingPartyAssociations
      * @param HandlerStack|null $handlerStack For easier testing
      * @throws OAuthServerException
      */
@@ -66,7 +66,7 @@ class BackChannelLogoutHandler
     }
 
     /**
-     * @param array<string,RelyingPartyAssociationInterface> $relyingPartyAssociations
+     * @param array<RelyingPartyAssociationInterface> $relyingPartyAssociations
      * @return Generator
      * @throws OAuthServerException
      */

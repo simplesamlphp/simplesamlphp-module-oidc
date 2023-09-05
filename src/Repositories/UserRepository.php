@@ -46,7 +46,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
             ]
         );
 
-        if (!is_array($rows = $stmt->fetchAll())) {
+        if (empty($rows = $stmt->fetchAll())) {
             return null;
         }
 

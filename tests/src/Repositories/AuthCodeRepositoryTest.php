@@ -110,14 +110,14 @@ class AuthCodeRepositoryTest extends TestCase
 
     public function testErrorRevokeInvalidAuthCode(): void
     {
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(\Exception::class);
 
         self::$repository->revokeAuthCode('nocode');
     }
 
     public function testErrorCheckIsRevokedInvalidAuthCode(): void
     {
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(\Exception::class);
 
         self::$repository->isAuthCodeRevoked('nocode');
     }

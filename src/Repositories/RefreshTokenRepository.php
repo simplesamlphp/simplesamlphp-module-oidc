@@ -81,7 +81,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
             ]
         );
 
-        if (!$rows = $stmt->fetchAll()) {
+        if (empty($rows = $stmt->fetchAll())) {
             return null;
         }
 

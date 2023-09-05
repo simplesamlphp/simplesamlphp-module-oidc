@@ -26,6 +26,7 @@ use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Form\ClientForm;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\Utils\HTTP;
@@ -86,23 +87,43 @@ class ClientEditController
         if ($form->isSuccess()) {
             $data = $form->getValues();
 
+            if (
+                !is_string($data['name']) ||
+                !is_string($data['description']) ||
+                !is_array($data['redirect_uri']) ||
+                !is_array($data['scopes']) ||
+                !is_array($data['post_logout_redirect_uri']) ||
+                !is_array($data['allowed_origin'])
+            ) {
+                throw OidcServerException::serverError('Invalid Client Entity data');
+            }
+
+            /** @var string[] $redirectUris */
+            $redirectUris = $data['redirect_uri'];
+            /** @var string[] $scopes */
+            $scopes = $data['scopes'];
+            /** @var string[] $postLogoutRedirectUris */
+            $postLogoutRedirectUris = $data['post_logout_redirect_uri'];
+            /** @var string[] $allowedOrigins */
+            $allowedOrigins = $data['allowed_origin'];
+
             $this->clientRepository->update(ClientEntity::fromData(
                 $client->getIdentifier(),
                 $client->getSecret(),
                 $data['name'],
                 $data['description'],
-                $data['redirect_uri'],
-                $data['scopes'],
+                $redirectUris,
+                $scopes,
                 (bool) $data['is_enabled'],
                 (bool) $data['is_confidential'],
-                $data['auth_source'],
+                empty($data['auth_source']) ? null : (string)$data['auth_source'],
                 $client->getOwner(),
-                $data['post_logout_redirect_uri'],
-                $data['backchannel_logout_uri']
+                $postLogoutRedirectUris,
+                empty($data['backchannel_logout_uri']) ? null : (string)$data['backchannel_logout_uri']
             ), $authedUser);
 
             // Also persist allowed origins for this client.
-            $this->allowedOriginRepository->set($client->getIdentifier(), $data['allowed_origin']);
+            $this->allowedOriginRepository->set($client->getIdentifier(), $allowedOrigins);
 
             $this->messages->addMessage('{oidc:client:updated}');
 

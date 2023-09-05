@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -28,6 +30,10 @@ function oidc_hook_federationpage(Template &$template)
     if (! (new \SimpleSAML\Module\oidc\Services\DatabaseMigration())->isUpdated()) {
         $href = \SimpleSAML\Module::getModuleURL('oidc/install.php');
         $text = Translate::noop('OpenID Connect Installation');
+    }
+
+    if (!is_array($template->data['links'])) {
+        $template->data['links'] = [];
     }
 
     $template->data['links'][] = [

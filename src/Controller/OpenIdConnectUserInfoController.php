@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -31,30 +33,11 @@ use function PHPUnit\Framework\throwException;
 
 class OpenIdConnectUserInfoController
 {
-    /**
-     * @var ResourceServer
-     */
-    private $resourceServer;
-
-    /**
-     * @var AccessTokenRepository
-     */
-    private $accessTokenRepository;
-
-    /**
-     * @var UserRepository
-     */
-    private $userRepository;
-
-    /**
-     * @var AllowedOriginRepository
-     */
-    private $allowedOriginRepository;
-
-    /**
-     * @var ClaimTranslatorExtractor
-     */
-    private $claimTranslatorExtractor;
+    private ResourceServer $resourceServer;
+    private AccessTokenRepository $accessTokenRepository;
+    private UserRepository $userRepository;
+    private AllowedOriginRepository $allowedOriginRepository;
+    private ClaimTranslatorExtractor $claimTranslatorExtractor;
 
     public function __construct(
         ResourceServer $resourceServer,
@@ -79,7 +62,9 @@ class OpenIdConnectUserInfoController
 
         $authorization = $this->resourceServer->validateAuthenticatedRequest($request);
 
+        /** @var string $tokenId */
         $tokenId = $authorization->getAttribute('oauth_access_token_id');
+        /** @var array $scopes */
         $scopes = $authorization->getAttribute('oauth_scopes');
 
         $accessToken = $this->accessTokenRepository->findById($tokenId);

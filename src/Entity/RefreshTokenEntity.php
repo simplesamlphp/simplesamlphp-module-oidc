@@ -42,8 +42,7 @@ class RefreshTokenEntity implements RefreshTokenEntityInterface
         if (
             !is_string($state['id']) ||
             !is_string($state['expires_at']) ||
-            !is_a($state['access_token'], AccessTokenEntityInterface::class) ||
-            !is_string($state['auth_code_id'])
+            !is_a($state['access_token'], AccessTokenEntityInterface::class)
         ) {
             throw OidcServerException::serverError('Invalid Refresh Token state');
         }
@@ -54,7 +53,7 @@ class RefreshTokenEntity implements RefreshTokenEntityInterface
         );
         $refreshToken->accessToken = $state['access_token'];
         $refreshToken->isRevoked = (bool) $state['is_revoked'];
-        $refreshToken->authCodeId = $state['auth_code_id'];
+        $refreshToken->authCodeId = empty($state['auth_code_id']) ? null : (string)$state['auth_code_id'];
 
         return $refreshToken;
     }

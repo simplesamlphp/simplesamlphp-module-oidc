@@ -72,7 +72,9 @@ class LogoutController
         // If id_token_hint was provided, resolve session ID
         $idTokenHint = $logoutRequest->getIdTokenHint();
         if ($idTokenHint !== null) {
-            $sidClaim = $idTokenHint->claims()->get('sid');
+            $sidClaim = empty($idTokenHint->claims()->get('sid')) ?
+                null :
+                (string)$idTokenHint->claims()->get('sid');
         }
 
         // Check if RP is requesting logout for session that previously existed (not this current session).
@@ -144,8 +146,10 @@ class LogoutController
         $sessionLogoutTickets = $sessionLogoutTicketStore->getAll();
 
         if (! empty($sessionLogoutTickets)) {
+            //  TODO low mivanci This could brake since interface does not mandate type. Move to strong typing.
+            /** @var array $sessionLogoutTicket */
             foreach ($sessionLogoutTickets as $sessionLogoutTicket) {
-                $sid = $sessionLogoutTicket['sid'];
+                $sid = (string)$sessionLogoutTicket['sid'];
                 if ($sid === $session->getSessionId()) {
                     continue;
                 }
@@ -170,7 +174,9 @@ class LogoutController
                 }
             }
 
-            $sessionLogoutTicketStore->deleteMultiple(array_map(fn($slt): mixed => $slt['sid'], $sessionLogoutTickets));
+            $sessionLogoutTicketStore->deleteMultiple(
+                array_map(fn(array $slt): string => (string)$slt['sid'], $sessionLogoutTickets)
+            );
         }
 
         (new BackChannelLogoutHandler())->handle($relyingPartyAssociations);

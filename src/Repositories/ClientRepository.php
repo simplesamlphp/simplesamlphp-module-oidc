@@ -91,7 +91,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
         $stmt = $this->database->read($query, $params);
 
-        if (!is_array($rows = $stmt->fetchAll())) {
+        if (empty($rows = $stmt->fetchAll())) {
             return null;
         }
 
