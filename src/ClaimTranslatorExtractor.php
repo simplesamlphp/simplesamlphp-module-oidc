@@ -12,19 +12,31 @@ declare(strict_types=1);
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
+ *
+ * This file contains modified code from the 'steverhoades/oauth2-openid-connect-server' library
+ * (https://github.com/steverhoades/oauth2-openid-connect-server), with original author, copyright notice and licence:
+ * @author Steve Rhoades <sedonami@gmail.com>
+ * @copyright (c) 2018 Steve Rhoades <sedonami@gmail.com>
+ * @license http://opensource.org/licenses/MIT MIT
  */
 
 namespace SimpleSAML\Module\oidc;
 
 use Lcobucci\JWT\Token\RegisteredClaims;
-use OpenIDConnectServer\ClaimExtractor;
+use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use OpenIDConnectServer\Entities\ClaimSetEntity;
+use OpenIDConnectServer\Entities\ClaimSetEntityInterface;
 use OpenIDConnectServer\Exception\InvalidArgumentException;
 use RuntimeException;
 
-class ClaimTranslatorExtractor extends ClaimExtractor
+class ClaimTranslatorExtractor
 {
-    /** @var array */
+    /** @var ClaimSetEntity[] */
+    protected array $claimSets;
+
+    /** @var string[] */
+    protected array $protectedClaims = ['openid', 'profile', 'email', 'address', 'phone'];
+
     protected array $translationTable = [
         'sub' => [
             'eduPersonPrincipalName',
@@ -141,20 +153,82 @@ class ClaimTranslatorExtractor extends ClaimExtractor
 
         $this->allowedMultiValueClaims = $allowedMultipleValueClaims;
 
-        /** @psalm-suppress MixedArrayAssignment TODO low mivanci remove after moving aways from underlying lib */
-        $this->protectedClaims[] = 'openid';
         $this->addClaimSet(new ClaimSetEntity('openid', [
             'sub',
         ]));
 
-        parent::__construct($claimSets);
+        // Add Default OpenID Connect Claims
+        // @see http://openid.net/specs/openid-connect-core-1_0.html#ScopeClaims
+        $this->addClaimSet(
+            new ClaimSetEntity('profile', [
+                'name',
+                'family_name',
+                'given_name',
+                'middle_name',
+                'nickname',
+                'preferred_username',
+                'profile',
+                'picture',
+                'website',
+                'gender',
+                'birthdate',
+                'zoneinfo',
+                'locale',
+                'updated_at'
+            ])
+        );
+        $this->addClaimSet(
+            new ClaimSetEntity('email', [
+                'email',
+                'email_verified'
+            ])
+        );
+        $this->addClaimSet(
+            new ClaimSetEntity('address', [
+                'address'
+            ])
+        );
+        $this->addClaimSet(
+            new ClaimSetEntity('phone', [
+                'phone_number',
+                'phone_number_verified'
+            ])
+        );
+
+        foreach ($claimSets as $claimSet) {
+            $this->addClaimSet($claimSet);
+        }
     }
 
-    /**
-     * @param array $translationTable
-     * @param array $samlAttributes
-     * @return array
-     */
+    public function addClaimSet(ClaimSetEntityInterface $claimSet): self
+    {
+        $scope = $claimSet->getScope();
+
+        if (in_array($scope, $this->protectedClaims) && !empty($this->claimSets[$scope])) {
+            throw new InvalidArgumentException(
+                sprintf("%s is a protected scope and is pre-defined by the OpenID Connect specification.", $scope)
+            );
+        }
+
+        $this->claimSets[$scope] = $claimSet;
+
+        return $this;
+    }
+
+    public function getClaimSet(string $scope): ?ClaimSetEntity
+    {
+        if (!$this->hasClaimSet($scope)) {
+            return null;
+        }
+
+        return $this->claimSets[$scope];
+    }
+
+    public function hasClaimSet(string $scope): bool
+    {
+        return array_key_exists($scope, $this->claimSets);
+    }
+
     private function translateSamlAttributesToClaims(array $translationTable, array $samlAttributes): array
     {
         $claims = [];
@@ -218,9 +292,37 @@ class ClaimTranslatorExtractor extends ClaimExtractor
 
     public function extract(array $scopes, array $claims): array
     {
-        $translatedClaims = $this->translateSamlAttributesToClaims($this->translationTable, $claims);
+        $claims = $this->translateSamlAttributesToClaims($this->translationTable, $claims);
 
-        return parent::extract($scopes, $translatedClaims);
+        $claimData  = [];
+        $keys       = array_keys($claims);
+
+        foreach ($scopes as $scope) {
+            $scopeName = ($scope instanceof ScopeEntityInterface) ? $scope->getIdentifier() : $scope;
+
+            $claimSet = $this->getClaimSet($scopeName);
+            if (null === $claimSet) {
+                continue;
+            }
+
+            $intersected = array_intersect($claimSet->getClaims(), $keys);
+
+            if (empty($intersected)) {
+                continue;
+            }
+
+            $data = array_filter(
+                $claims,
+                function ($key) use ($intersected) {
+                    return in_array($key, $intersected);
+                },
+                ARRAY_FILTER_USE_KEY
+            );
+
+            $claimData = array_merge($claimData, $data);
+        }
+
+        return $claimData;
     }
 
     public function extractAdditionalIdTokenClaims(?array $claimsRequest, array $claims): array
