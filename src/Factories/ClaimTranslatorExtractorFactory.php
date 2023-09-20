@@ -17,8 +17,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Factories;
 
 use Exception;
-use OpenIDConnectServer\Entities\ClaimSetEntity;
-use OpenIDConnectServer\Exception\InvalidArgumentException;
+use SimpleSAML\Module\oidc\Entity\ClaimSetEntity;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 
@@ -37,7 +36,6 @@ class ClaimTranslatorExtractorFactory
     }
 
     /**
-     * @throws InvalidArgumentException
      * @throws Exception
      */
     public function build(): ClaimTranslatorExtractor

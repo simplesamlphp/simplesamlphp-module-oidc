@@ -2,7 +2,6 @@
 
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
-use OpenIDConnectServer\Exception\InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
@@ -38,7 +37,6 @@ class RequestedClaimsRuleTest extends TestCase
     }
 
     /**
-     * @throws InvalidArgumentException
      * @throws Throwable
      */
     public function testNoRequestedClaims(): void
@@ -49,7 +47,6 @@ class RequestedClaimsRuleTest extends TestCase
     }
 
     /**
-     * @throws InvalidArgumentException
      * @throws Throwable
      */
     public function testWithClaims(): void
@@ -88,7 +85,6 @@ class RequestedClaimsRuleTest extends TestCase
 
 
     /**
-     * @throws InvalidArgumentException
      * @throws Throwable
      */
     public function testOnlyWithNonStandardClaimRequest(): void

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
-use OpenIDConnectServer\ClaimExtractor;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
@@ -16,9 +15,9 @@ use Throwable;
 
 class RequestedClaimsRule extends AbstractRule
 {
-    private ClaimExtractor $claimExtractor;
+    private ClaimTranslatorExtractor $claimExtractor;
 
-    public function __construct(ClaimExtractor $claimExtractor)
+    public function __construct(ClaimTranslatorExtractor $claimExtractor)
     {
         $this->claimExtractor = $claimExtractor;
     }

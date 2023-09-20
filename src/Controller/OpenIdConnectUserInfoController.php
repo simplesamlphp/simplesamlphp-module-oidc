@@ -64,7 +64,7 @@ class OpenIdConnectUserInfoController
 
         /** @var string $tokenId */
         $tokenId = $authorization->getAttribute('oauth_access_token_id');
-        /** @var array $scopes */
+        /** @var string[] $scopes */
         $scopes = $authorization->getAttribute('oauth_scopes');
 
         $accessToken = $this->accessTokenRepository->findById($tokenId);

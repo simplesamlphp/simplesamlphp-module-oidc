@@ -18,7 +18,7 @@ namespace SimpleSAML\Module\oidc\Entity;
 
 use DateTime;
 use League\OAuth2\Server\Entities\UserEntityInterface;
-use OpenIDConnectServer\Entities\ClaimSetInterface;
+use SimpleSAML\Module\oidc\Entity\Interfaces\ClaimSetInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\MementoInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;

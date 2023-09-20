@@ -23,9 +23,10 @@ use League\OAuth2\Server\Entities\RefreshTokenEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\ResponseTypes\BearerTokenResponse;
-use OpenIDConnectServer\Repositories\IdentityProviderInterface;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\IdentityProviderInterface;
 use RuntimeException;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AcrResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
@@ -95,8 +96,17 @@ class IdTokenResponse extends BearerTokenResponse implements
             throw new RuntimeException('AccessToken must be ' . AccessTokenEntity::class);
         }
 
-        /** @var UserEntityInterface $userEntity */
-        $userEntity = $this->identityProvider->getUserEntityByIdentifier($accessToken->getUserIdentifier());
+        $userIdentifier = $accessToken->getUserIdentifier();
+
+        if (empty($userIdentifier)) {
+            throw OidcServerException::accessDenied('No user identifier present in AccessToken.');
+        }
+
+        $userEntity = $this->identityProvider->getUserEntityByIdentifier((string)$userIdentifier);
+
+        if (empty($userEntity)) {
+            throw OidcServerException::accessDenied('No user available for provided user identifier.');
+        }
 
         $token = $this->idTokenBuilder->build(
             $userEntity,

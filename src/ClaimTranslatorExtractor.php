@@ -24,15 +24,15 @@ namespace SimpleSAML\Module\oidc;
 
 use Lcobucci\JWT\Token\RegisteredClaims;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
-use OpenIDConnectServer\Entities\ClaimSetEntity;
-use OpenIDConnectServer\Entities\ClaimSetEntityInterface;
-use OpenIDConnectServer\Exception\InvalidArgumentException;
+use SimpleSAML\Module\oidc\Entity\ClaimSetEntity;
+use SimpleSAML\Module\oidc\Entity\Interfaces\ClaimSetEntityInterface;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use RuntimeException;
 
 class ClaimTranslatorExtractor
 {
-    /** @var ClaimSetEntity[] */
-    protected array $claimSets;
+    /** @var array<string, ClaimSetEntityInterface> */
+    protected array $claimSets = [];
 
     /** @var string[] */
     protected array $protectedClaims = ['openid', 'profile', 'email', 'address', 'phone'];
@@ -137,7 +137,7 @@ class ClaimTranslatorExtractor
      * @param ClaimSetEntity[] $claimSets
      * @param array $translationTable
      * @param array $allowedMultipleValueClaims
-     * @throws InvalidArgumentException
+     * @throws OidcServerException
      */
     public function __construct(
         string $userIdAttr,
@@ -200,12 +200,15 @@ class ClaimTranslatorExtractor
         }
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function addClaimSet(ClaimSetEntityInterface $claimSet): self
     {
         $scope = $claimSet->getScope();
 
         if (in_array($scope, $this->protectedClaims) && !empty($this->claimSets[$scope])) {
-            throw new InvalidArgumentException(
+            throw OidcServerException::serverError(
                 sprintf("%s is a protected scope and is pre-defined by the OpenID Connect specification.", $scope)
             );
         }
@@ -215,7 +218,7 @@ class ClaimTranslatorExtractor
         return $this;
     }
 
-    public function getClaimSet(string $scope): ?ClaimSetEntity
+    public function getClaimSet(string $scope): ?ClaimSetEntityInterface
     {
         if (!$this->hasClaimSet($scope)) {
             return null;
@@ -290,6 +293,11 @@ class ClaimTranslatorExtractor
         return $attributes;
     }
 
+    /**
+     * @param array<array-key, string|ScopeEntityInterface> $scopes
+     * @param array $claims
+     * @return array
+     */
     public function extract(array $scopes, array $claims): array
     {
         $claims = $this->translateSamlAttributesToClaims($this->translationTable, $claims);

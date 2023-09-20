@@ -13,7 +13,7 @@ use Lcobucci\JWT\UnencryptedToken;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
-use OpenIDConnectServer\Entities\ClaimSetInterface;
+use SimpleSAML\Module\oidc\Entity\Interfaces\ClaimSetInterface;
 use RuntimeException;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;

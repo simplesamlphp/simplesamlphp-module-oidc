@@ -19,7 +19,7 @@ use Lcobucci\JWT\Validation\Constraint\SignedWith;
 use Lcobucci\JWT\Validation\Constraint\StrictValidAt;
 use Lcobucci\JWT\Validation\Validator;
 use League\OAuth2\Server\CryptKey;
-use OpenIDConnectServer\Repositories\IdentityProviderInterface;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\IdentityProviderInterface;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;

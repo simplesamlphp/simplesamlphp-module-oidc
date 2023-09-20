@@ -14,11 +14,11 @@
 - TODO move to SSP (symfony) container
 - TODO remove dependency on laminas/laminas-diactoros
 - TODO remove dependency on laminas/laminas-httphandlerrunner
-- TODO remove dependency on steverhoades/oauth2-openid-connect-server (low maintenance)
+- (internal) removed dependency on steverhoades/oauth2-openid-connect-server (low maintenance)
 
 ## New features
 - TODO key rollover
-- TODO implement store for different entities: i.e. client data can use RDB like mysql, whilst short term data
+- TODO implement store for different entities?: i.e. client data can use RDB like mysql, whilst short term data
   like tokens can utilize faster stores like memcache, redis...
 
 # Version 3 to 4
