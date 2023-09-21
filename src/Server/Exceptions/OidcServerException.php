@@ -334,7 +334,7 @@ class OidcServerException extends OAuthServerException
                 $paramSeparator = '#';
             }
 
-            $this->redirectUri .= (\strstr($this->redirectUri, $paramSeparator) === false) ? $paramSeparator : '&';
+            $this->redirectUri .= (!str_contains($this->redirectUri, $paramSeparator)) ? $paramSeparator : '&';
 
             return $response->withStatus(302)->withHeader('Location', $this->redirectUri . \http_build_query($payload));
         }

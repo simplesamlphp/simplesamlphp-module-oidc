@@ -126,32 +126,22 @@ class ClaimTranslatorExtractor
     ];
 
     /**
-     * Claims for which it is allowed to have multiple values.
-     */
-    protected array $allowedMultiValueClaims;
-
-    /**
      * ClaimTranslatorExtractor constructor.
      *
-     * @param string $userIdAttr
      * @param ClaimSetEntity[] $claimSets
-     * @param array $translationTable
-     * @param array $allowedMultipleValueClaims
      * @throws OidcServerException
      */
     public function __construct(
         string $userIdAttr,
         array $claimSets = [],
         array $translationTable = [],
-        array $allowedMultipleValueClaims = []
+        protected array $allowedMultiValueClaims = []
     ) {
         // By default, add the userIdAttribute as one of the attribute for 'sub' claim.
         /** @psalm-suppress MixedArgument */
         array_unshift($this->translationTable['sub'], $userIdAttr);
 
         $this->translationTable = array_merge($this->translationTable, $translationTable);
-
-        $this->allowedMultiValueClaims = $allowedMultipleValueClaims;
 
         $this->addClaimSet(new ClaimSetEntity('openid', [
             'sub',
@@ -295,7 +285,6 @@ class ClaimTranslatorExtractor
 
     /**
      * @param array<array-key, string|ScopeEntityInterface> $scopes
-     * @param array $claims
      * @return array
      */
     public function extract(array $scopes, array $claims): array
@@ -321,9 +310,7 @@ class ClaimTranslatorExtractor
 
             $data = array_filter(
                 $claims,
-                function ($key) use ($intersected) {
-                    return in_array($key, $intersected);
-                },
+                fn($key) => in_array($key, $intersected),
                 ARRAY_FILTER_USE_KEY
             );
 
@@ -351,7 +338,6 @@ class ClaimTranslatorExtractor
      * Add any individually requested claims
      * @link https://openid.net/specs/openid-connect-core-1_0.html#IndividualClaimsRequests
      * @param array $requestedClaims keys are requested claims, value is array of additional info on the request
-     * @param array $claims
      * @return array
      */
     private function extractAdditionalClaims(array $requestedClaims, array $claims): array
@@ -363,9 +349,7 @@ class ClaimTranslatorExtractor
 
         return array_filter(
             $translatedClaims,
-            function (string $key) use ($requestedClaims) {
-                return array_key_exists($key, $requestedClaims);
-            },
+            fn(string $key) => array_key_exists($key, $requestedClaims),
             ARRAY_FILTER_USE_KEY
         );
     }

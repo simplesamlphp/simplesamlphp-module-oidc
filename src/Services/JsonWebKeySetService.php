@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -11,9 +13,9 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
 namespace SimpleSAML\Module\oidc\Services;
 
+use Jose\Component\Core\JWK;
 use Jose\Component\Core\JWKSet;
 use Jose\Component\KeyManagement\JWKFactory;
 use SimpleSAML\Error\Exception;
@@ -22,13 +24,9 @@ use SimpleSAML\Utils\Config;
 
 class JsonWebKeySetService
 {
-    /**
-     * @var JWKSet
-     */
-    private $jwkSet;
+    private JWKSet $jwkSet;
 
     /**
-     * @param ConfigurationService $configurationService
      * @throws Exception
      */
     public function __construct(ConfigurationService $configurationService)
@@ -50,7 +48,7 @@ class JsonWebKeySetService
     }
 
     /**
-     * @return \Jose\Component\Core\JWK[]
+     * @return JWK[]
      */
     public function keys()
     {

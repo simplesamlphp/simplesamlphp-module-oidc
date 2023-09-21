@@ -15,14 +15,8 @@ use SimpleSAML\Module\oidc\Entity\Interfaces\ClaimSetEntityInterface;
  */
 class ClaimSetEntity implements ClaimSetEntityInterface
 {
-    protected string $scope;
-
-    protected array $claims;
-
-    public function __construct(string $scope, array $claims)
+    public function __construct(protected string $scope, protected array $claims)
     {
-        $this->scope = $scope;
-        $this->claims = $claims;
     }
 
     public function getScope(): string

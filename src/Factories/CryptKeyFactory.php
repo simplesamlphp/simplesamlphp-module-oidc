@@ -1,32 +1,18 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Factories;
 
 use League\OAuth2\Server\CryptKey;
 
 class CryptKeyFactory
 {
-    /**
-     * @var string
-     */
-    private $publicKeyPath;
-    /**
-     * @var string
-     */
-    private $privateKeyPath;
-    /**
-     * @var string|null
-     */
-    private $passPhrase;
-
     public function __construct(
-        string $publicKeyPath,
-        string $privateKeyPath,
-        string $passPhrase = null
+        private string $publicKeyPath,
+        private string $privateKeyPath,
+        private ?string $passPhrase = null
     ) {
-        $this->publicKeyPath = $publicKeyPath;
-        $this->privateKeyPath = $privateKeyPath;
-        $this->passPhrase = $passPhrase;
     }
 
     public function buildPrivateKey(): CryptKey

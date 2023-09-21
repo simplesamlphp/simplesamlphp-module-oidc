@@ -23,16 +23,12 @@ use SimpleSAML\Module\oidc\Services\ConfigurationService;
 
 class ClaimTranslatorExtractorFactory
 {
-    private ConfigurationService $configurationService;
-
     protected const CONFIG_KEY_CLAIM_NAME_PREFIX = 'claim_name_prefix';
 
     protected const CONFIG_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED = 'are_multiple_claim_values_allowed';
 
-    public function __construct(
-        ConfigurationService $configurationService
-    ) {
-        $this->configurationService = $configurationService;
+    public function __construct(private ConfigurationService $configurationService)
+    {
     }
 
     /**
@@ -115,8 +111,6 @@ class ClaimTranslatorExtractorFactory
 
     /**
      * Check if the scope has a claim name prefix set
-     * @param array $scopeConfig
-     * @return bool
      */
     protected function isScopeClaimNamePrefixSet(array $scopeConfig): bool
     {
@@ -127,8 +121,6 @@ class ClaimTranslatorExtractorFactory
 
     /**
      * Check if the scope allows claims to have multiple values.
-     * @param array $scopeConfig
-     * @return bool
      */
     protected function doesScopeAllowMultipleClaimValues(array $scopeConfig): bool
     {

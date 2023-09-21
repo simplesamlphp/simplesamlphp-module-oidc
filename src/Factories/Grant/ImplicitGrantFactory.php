@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -11,7 +13,6 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
 namespace SimpleSAML\Module\oidc\Factories\Grant;
 
 use DateInterval;
@@ -22,37 +23,12 @@ use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 
 class ImplicitGrantFactory
 {
-    /**
-     * @var IdTokenBuilder
-     */
-    private $idTokenBuilder;
-
-    /**
-     * @var DateInterval
-     */
-    private $accessTokenDuration;
-
-    /**
-     * @var RequestRulesManager
-     */
-    protected $requestRulesManager;
-
-    /**
-     * @var AccessTokenRepository
-     */
-    private $accessTokenRepository;
-
     public function __construct(
-        IdTokenBuilder $idTokenBuilder,
-        DateInterval $accessTokenDuration,
-        RequestRulesManager $requestRulesManager,
-        AccessTokenRepository $accessTokenRepository
+        private IdTokenBuilder $idTokenBuilder,
+        private DateInterval $accessTokenDuration,
+        private RequestRulesManager $requestRulesManager,
+        private AccessTokenRepository $accessTokenRepository
     ) {
-        $this->idTokenBuilder = $idTokenBuilder;
-        $this->accessTokenDuration = $accessTokenDuration;
-        $this->requestRulesManager = $requestRulesManager;
-        $this->accessTokenDuration = $accessTokenDuration;
-        $this->accessTokenRepository = $accessTokenRepository;
     }
 
     public function build(): ImplicitGrant

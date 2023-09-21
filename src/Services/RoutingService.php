@@ -38,9 +38,6 @@ use Throwable;
 class RoutingService
 {
     /**
-     * @param string $controllerClassname
-     * @param bool $authenticated
-     * @param bool $jsonResponse
      * @return void
      * @throws BadRequest
      * @throws ContainerExceptionInterface
@@ -64,8 +61,6 @@ class RoutingService
     }
 
     /**
-     * @param string $controllerClassname
-     * @param string $permission
      * @throws BadRequest
      * @throws ContainerExceptionInterface
      * @throws Exception
@@ -128,12 +123,10 @@ class RoutingService
             return;
         }
 
-        throw new Exception('Response type not supported: ' . get_class($response));
+        throw new Exception('Response type not supported: ' . $response::class);
     }
 
     /**
-     * @param string $controllerClassname
-     * @param ContainerInterface $container
      * @return object
      * @throws BadRequest
      * @throws ContainerExceptionInterface

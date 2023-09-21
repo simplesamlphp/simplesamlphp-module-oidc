@@ -9,24 +9,11 @@ use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 class Result implements ResultInterface
 {
     /**
-     * @var string
-     */
-    protected string $key;
-
-    /**
-     * @var mixed
-     */
-    protected mixed $value;
-
-    /**
      * Result constructor.
-     * @param string $key
      * @param mixed|null $value
      */
-    public function __construct(string $key, mixed $value = null)
+    public function __construct(protected string $key, protected mixed $value = null)
     {
-        $this->key = $key;
-        $this->value = $value;
     }
 
     public function getKey(): string

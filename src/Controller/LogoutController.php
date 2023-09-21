@@ -22,28 +22,13 @@ use Throwable;
 
 class LogoutController
 {
-    protected AuthorizationServer $authorizationServer;
-
-    protected SessionService $sessionService;
-
-    protected SessionLogoutTicketStoreBuilder $sessionLogoutTicketStoreBuilder;
-
-    protected LoggerService $loggerService;
-
-    protected TemplateFactory $templateFactory;
-
     public function __construct(
-        AuthorizationServer $authorizationServer,
-        SessionService $sessionService,
-        SessionLogoutTicketStoreBuilder $sessionLogoutTicketStoreBuilder,
-        LoggerService $loggerService,
-        TemplateFactory $templateFactory
+        protected AuthorizationServer $authorizationServer,
+        protected SessionService $sessionService,
+        protected SessionLogoutTicketStoreBuilder $sessionLogoutTicketStoreBuilder,
+        protected LoggerService $loggerService,
+        protected TemplateFactory $templateFactory
     ) {
-        $this->authorizationServer = $authorizationServer;
-        $this->sessionService = $sessionService;
-        $this->sessionLogoutTicketStoreBuilder = $sessionLogoutTicketStoreBuilder;
-        $this->loggerService = $loggerService;
-        $this->templateFactory = $templateFactory;
     }
 
     /**
@@ -186,7 +171,7 @@ class LogoutController
     {
         if (($postLogoutRedirectUri = $logoutRequest->getPostLogoutRedirectUri()) !== null) {
             if ($logoutRequest->getState() !== null) {
-                $postLogoutRedirectUri .= (strstr($postLogoutRedirectUri, '?') === false) ? '?' : '&';
+                $postLogoutRedirectUri .= (!str_contains($postLogoutRedirectUri, '?')) ? '?' : '&';
                 $postLogoutRedirectUri .= http_build_query(['state' => $logoutRequest->getState()]);
             }
 

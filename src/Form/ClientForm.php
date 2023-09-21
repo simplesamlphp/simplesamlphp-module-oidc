@@ -45,16 +45,12 @@ class ClientForm extends Form
      */
     public const REGEX_HTTP_URI = '/^http(s?):\/\/[^\s\/$.?#][^\s#]*$/i';
 
-    private ConfigurationService $configurationService;
-
     /**
      * @throws Exception
      */
-    public function __construct(ConfigurationService $configurationService)
+    public function __construct(private ConfigurationService $configurationService)
     {
         parent::__construct();
-
-        $this->configurationService = $configurationService;
 
         $this->buildForm();
     }
@@ -100,7 +96,9 @@ class ClientForm extends Form
 
     public function validateBackChannelLogoutUri(Form $form): void
     {
-        if ((/** @var ?string $bclUri */$bclUri = $form->getValues()['backchannel_logout_uri'] ?? null) !== null) {
+        /** @var ?string $bclUri */
+        $bclUri = $form->getValues()['backchannel_logout_uri'] ?? null;
+        if ($bclUri !== null) {
             $this->validateByMatchingRegex(
                 [$bclUri],
                 self::REGEX_HTTP_URI,
@@ -112,8 +110,6 @@ class ClientForm extends Form
     /**
      * @param string[] $values
      * @param non-empty-string $regex
-     * @param string $messagePrefix
-     * @return void
      */
     protected function validateByMatchingRegex(
         array $values,
@@ -250,27 +246,20 @@ class ClientForm extends Form
      */
     protected function getScopes(): array
     {
-        return array_map(function (array $item): mixed {
-            return $item['description'];
-        }, $this->configurationService->getOpenIDScopes());
+        return array_map(
+            fn(array $item): mixed => $item['description'],
+            $this->configurationService->getOpenIDScopes()
+        );
     }
 
     /**
-     * @param string $text
      * @return string[]
      */
     protected function convertTextToArrayWithLinesAsValues(string $text): array
     {
         return array_filter(
             preg_split("/[\t\r\n]+/", $text),
-            /**
-             * @param string $line
-             *
-             * @return bool
-             */
-            function (string $line) {
-                return !empty(trim($line));
-            }
+            fn(string $line): bool => !empty(trim($line))
         );
     }
 }

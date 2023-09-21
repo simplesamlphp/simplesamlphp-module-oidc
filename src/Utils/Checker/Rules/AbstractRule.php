@@ -19,9 +19,6 @@ abstract class AbstractRule implements RequestRuleInterface
     }
 
     /**
-     * @param string $paramKey
-     * @param ServerRequestInterface $request
-     * @param LoggerService $loggerService
      * @param string[] $allowedServerRequestMethods
      * @return string|null
      */

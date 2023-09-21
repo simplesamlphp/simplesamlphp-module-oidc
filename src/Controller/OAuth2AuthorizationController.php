@@ -32,30 +32,12 @@ use Throwable;
 
 class OAuth2AuthorizationController
 {
-    private AuthenticationService $authenticationService;
-
-    private AuthorizationServer $authorizationServer;
-
-    private ConfigurationService $configurationService;
-
-    private LoggerService $loggerService;
-
-    /**
-     * @param AuthenticationService $authenticationService
-     * @param AuthorizationServer $authorizationServer
-     * @param ConfigurationService $configurationService
-     * @param LoggerService $loggerService
-     */
     public function __construct(
-        AuthenticationService $authenticationService,
-        AuthorizationServer $authorizationServer,
-        ConfigurationService $configurationService,
-        LoggerService $loggerService
+        private AuthenticationService $authenticationService,
+        private AuthorizationServer $authorizationServer,
+        private ConfigurationService $configurationService,
+        private LoggerService $loggerService
     ) {
-        $this->authenticationService = $authenticationService;
-        $this->authorizationServer = $authorizationServer;
-        $this->configurationService = $configurationService;
-        $this->loggerService = $loggerService;
     }
 
     /**
@@ -89,7 +71,6 @@ class OAuth2AuthorizationController
     /**
      * Validate authorization request after the authn has been performed. For example, check if the
      * ACR claim has been requested and that authn performed satisfies it.
-     * @param AuthorizationRequest $authorizationRequest
      * @throws Exception
      */
     protected function validatePostAuthnAuthorizationRequest(AuthorizationRequest &$authorizationRequest): void
@@ -98,7 +79,6 @@ class OAuth2AuthorizationController
     }
 
     /**
-     * @param AuthorizationRequest $authorizationRequest
      * @throws Exception
      */
     protected function validateAcr(AuthorizationRequest &$authorizationRequest): void

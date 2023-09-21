@@ -20,7 +20,6 @@ interface ResultInterface
 
     /**
      * Set (new) value.
-     * @param mixed $value
      */
     public function setValue(mixed $value): void;
 }

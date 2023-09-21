@@ -37,8 +37,6 @@ trait IssueAccessTokenTrait
     /**
      * Issue an access token.
      *
-     * @param DateInterval           $accessTokenTTL
-     * @param ClientEntityInterface  $client
      * @param string|null            $userIdentifier
      * @param ScopeEntityInterface[] $scopes
      * @param string|null $authCodeId

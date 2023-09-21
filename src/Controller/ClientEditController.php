@@ -38,37 +38,20 @@ class ClientEditController
 {
     use AuthenticatedGetClientFromRequestTrait;
 
-    private TemplateFactory $templateFactory;
-
-    private FormFactory $formFactory;
-
-    private SessionMessagesService $messages;
-
-    protected AllowedOriginRepository $allowedOriginRepository;
-
     public function __construct(
         ClientRepository $clientRepository,
-        AllowedOriginRepository $allowedOriginRepository,
-        TemplateFactory $templateFactory,
-        FormFactory $formFactory,
-        SessionMessagesService $messages,
+        protected AllowedOriginRepository $allowedOriginRepository,
+        private TemplateFactory $templateFactory,
+        private FormFactory $formFactory,
+        private SessionMessagesService $messages,
         AuthContextService $authContextService
     ) {
         $this->clientRepository = $clientRepository;
-        $this->allowedOriginRepository = $allowedOriginRepository;
-        $this->templateFactory = $templateFactory;
-        $this->formFactory = $formFactory;
-        $this->messages = $messages;
         $this->authContextService = $authContextService;
     }
 
     /**
-     * @param ServerRequest $request
-     * @return RedirectResponse|Template
-     * @throws BadRequest
-     * @throws Exception
-     * @throws NotFound
-     * @throws \Exception
+     * @throws BadRequest|Exception|NotFound|\Exception
      */
     public function __invoke(ServerRequest $request): Template|RedirectResponse
     {

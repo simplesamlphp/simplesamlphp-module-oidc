@@ -15,8 +15,6 @@ class Arr
     /**
      * Find item in array using the given callable.
      *
-     * @param array $arr
-     * @param callable $fn
      * @return mixed|null
      */
     public static function find(array $arr, callable $fn): mixed

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -29,18 +31,12 @@ class ClientResetSecretController
 {
     use AuthenticatedGetClientFromRequestTrait;
 
-    /**
-     * @var SessionMessagesService
-     */
-    private $messages;
-
     public function __construct(
         ClientRepository $clientRepository,
-        SessionMessagesService $messages,
+        private SessionMessagesService $messages,
         AuthContextService $authContextService
     ) {
         $this->clientRepository = $clientRepository;
-        $this->messages = $messages;
         $this->authContextService = $authContextService;
     }
 

@@ -33,24 +33,13 @@ use function PHPUnit\Framework\throwException;
 
 class OpenIdConnectUserInfoController
 {
-    private ResourceServer $resourceServer;
-    private AccessTokenRepository $accessTokenRepository;
-    private UserRepository $userRepository;
-    private AllowedOriginRepository $allowedOriginRepository;
-    private ClaimTranslatorExtractor $claimTranslatorExtractor;
-
     public function __construct(
-        ResourceServer $resourceServer,
-        AccessTokenRepository $accessTokenRepository,
-        UserRepository $userRepository,
-        AllowedOriginRepository $allowedOriginRepository,
-        ClaimTranslatorExtractor $claimTranslatorExtractor
+        private ResourceServer $resourceServer,
+        private AccessTokenRepository $accessTokenRepository,
+        private UserRepository $userRepository,
+        private AllowedOriginRepository $allowedOriginRepository,
+        private ClaimTranslatorExtractor $claimTranslatorExtractor
     ) {
-        $this->resourceServer = $resourceServer;
-        $this->accessTokenRepository = $accessTokenRepository;
-        $this->userRepository = $userRepository;
-        $this->allowedOriginRepository = $allowedOriginRepository;
-        $this->claimTranslatorExtractor = $claimTranslatorExtractor;
     }
 
     public function __invoke(ServerRequest $request): Response
@@ -85,10 +74,8 @@ class OpenIdConnectUserInfoController
     }
 
     /**
-     * @param AccessTokenEntity $accessToken
      *
      * @throws UserNotFound
-     *
      * @return UserEntity
      */
     private function getUser(AccessTokenEntity $accessToken)
@@ -105,7 +92,6 @@ class OpenIdConnectUserInfoController
     /**
      * Handle CORS 'preflight' requests by checking if 'origin' is registered as allowed to make HTTP CORS requests,
      * typically initiated in browser by JavaScript clients.
-     * @param ServerRequest $request
      * @return Response
      * @throws OidcServerException
      */

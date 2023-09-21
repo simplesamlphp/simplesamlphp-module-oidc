@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Server\RequestTypes;
 
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
@@ -70,9 +72,6 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
         return $this->nonce;
     }
 
-    /**
-     * @param string $nonce
-     */
     public function setNonce(string $nonce): void
     {
         $this->nonce = $nonce;
@@ -119,17 +118,11 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
         return $this->addClaimsToIdToken;
     }
 
-    /**
-     * @param bool $addClaimsToIdToken
-     */
     public function setAddClaimsToIdToken(bool $addClaimsToIdToken): void
     {
         $this->addClaimsToIdToken = $addClaimsToIdToken;
     }
 
-    /**
-     * @param string $responseType
-     */
     public function setResponseType(string $responseType): void
     {
         $this->responseType = $responseType;

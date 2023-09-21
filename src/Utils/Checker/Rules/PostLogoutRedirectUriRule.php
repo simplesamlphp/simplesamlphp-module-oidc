@@ -16,11 +16,8 @@ use Throwable;
 
 class PostLogoutRedirectUriRule extends AbstractRule
 {
-    protected ClientRepository $clientRepository;
-
-    public function __construct(ClientRepository $clientRepository)
+    public function __construct(protected ClientRepository $clientRepository)
     {
-        $this->clientRepository = $clientRepository;
     }
 
     /**

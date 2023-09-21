@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Repositories;
 
 use PDO;
@@ -14,7 +16,6 @@ class AllowedOriginRepository extends AbstractDatabaseRepository
     }
 
     /**
-     * @param string $clientId
      * @param string[] $origins
      */
     public function set(string $clientId, array $origins): void

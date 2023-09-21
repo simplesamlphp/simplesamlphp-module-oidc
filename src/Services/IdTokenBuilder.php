@@ -21,16 +21,10 @@ use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface
 
 class IdTokenBuilder
 {
-    private ClaimTranslatorExtractor $claimExtractor;
-
-    private JsonWebTokenBuilderService $jsonWebTokenBuilderService;
-
     public function __construct(
-        JsonWebTokenBuilderService $jsonWebTokenBuilderService,
-        ClaimTranslatorExtractor $claimExtractor
+        private JsonWebTokenBuilderService $jsonWebTokenBuilderService,
+        private ClaimTranslatorExtractor $claimExtractor
     ) {
-        $this->jsonWebTokenBuilderService = $jsonWebTokenBuilderService;
-        $this->claimExtractor = $claimExtractor;
     }
 
     /**
@@ -152,7 +146,6 @@ class IdTokenBuilder
     }
 
     /**
-     * @param AccessTokenEntityInterface $accessToken
      * @param string $jwsAlgorithm JWS Algorithm designation (like RS256, RS384...)
      * @return string
      */

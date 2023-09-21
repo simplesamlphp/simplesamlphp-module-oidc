@@ -33,32 +33,14 @@ use SimpleSAML\XHTML\Template;
 
 class ClientCreateController
 {
-    private ClientRepository $clientRepository;
-
-    private TemplateFactory $templateFactory;
-
-    private FormFactory $formFactory;
-
-    private SessionMessagesService $messages;
-
-    private AuthContextService $authContextService;
-
-    private AllowedOriginRepository $allowedOriginRepository;
-
     public function __construct(
-        ClientRepository $clientRepository,
-        AllowedOriginRepository $allowedOriginRepository,
-        TemplateFactory $templateFactory,
-        FormFactory $formFactory,
-        SessionMessagesService $messages,
-        AuthContextService $authContextService
+        private ClientRepository $clientRepository,
+        private AllowedOriginRepository $allowedOriginRepository,
+        private TemplateFactory $templateFactory,
+        private FormFactory $formFactory,
+        private SessionMessagesService $messages,
+        private AuthContextService $authContextService
     ) {
-        $this->clientRepository = $clientRepository;
-        $this->allowedOriginRepository = $allowedOriginRepository;
-        $this->templateFactory = $templateFactory;
-        $this->formFactory = $formFactory;
-        $this->messages = $messages;
-        $this->authContextService = $authContextService;
     }
 
     /**

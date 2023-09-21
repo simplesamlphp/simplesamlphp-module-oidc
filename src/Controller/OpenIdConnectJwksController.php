@@ -21,14 +21,8 @@ use Laminas\Diactoros\Response\JsonResponse;
 
 class OpenIdConnectJwksController
 {
-    /**
-     * @var JsonWebKeySetService
-     */
-    private JsonWebKeySetService $jsonWebKeySetService;
-
-    public function __construct(JsonWebKeySetService $jsonWebKeySetService)
+    public function __construct(private JsonWebKeySetService $jsonWebKeySetService)
     {
-        $this->jsonWebKeySetService = $jsonWebKeySetService;
     }
 
     public function __invoke(): JsonResponse

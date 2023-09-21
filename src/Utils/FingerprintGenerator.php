@@ -1,6 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils;
+
+use InvalidArgumentException;
 
 class FingerprintGenerator
 {
@@ -11,14 +15,14 @@ class FingerprintGenerator
      * @param string $algo One of the supported algorithms (see hash_algos() function)
      * @return string
      *
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
-    public static function forFile($path, $algo = 'md5')
+    public static function forFile(string $path, string $algo = 'md5'): string
     {
         $fingerprint = hash_file($algo, $path);
 
         if (false === (bool) $fingerprint) {
-            throw new \InvalidArgumentException('Could not create a fingerprint for provided file using' .
+            throw new InvalidArgumentException('Could not create a fingerprint for provided file using' .
                 ' provided algorithm.');
         }
 
@@ -32,14 +36,14 @@ class FingerprintGenerator
      * @param string $algo One of the supported algorithms (see hash_algos() function)
      * @return string
      *
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
-    public static function forString($content, $algo = 'md5')
+    public static function forString(string $content, string $algo = 'md5'): string
     {
         $fingerprint = hash($algo, $content);
 
         if (false === (bool) $fingerprint) {
-            throw new \InvalidArgumentException('Could not create a fingerprint for provided content using' .
+            throw new InvalidArgumentException('Could not create a fingerprint for provided content using' .
                 ' provided algorithm.');
         }
 

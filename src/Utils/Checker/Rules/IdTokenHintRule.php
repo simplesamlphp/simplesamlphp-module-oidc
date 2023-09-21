@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use Lcobucci\JWT\Configuration;
@@ -19,15 +21,10 @@ use Throwable;
 
 class IdTokenHintRule extends AbstractRule
 {
-    protected ConfigurationService $configurationService;
-    protected CryptKeyFactory $cryptKeyFactory;
-
     public function __construct(
-        ConfigurationService $configurationService,
-        CryptKeyFactory $cryptKeyFactory
+        protected ConfigurationService $configurationService,
+        protected CryptKeyFactory $cryptKeyFactory
     ) {
-        $this->configurationService = $configurationService;
-        $this->cryptKeyFactory = $cryptKeyFactory;
     }
 
     /**

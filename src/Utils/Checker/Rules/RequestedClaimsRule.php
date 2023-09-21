@@ -15,11 +15,8 @@ use Throwable;
 
 class RequestedClaimsRule extends AbstractRule
 {
-    private ClaimTranslatorExtractor $claimExtractor;
-
-    public function __construct(ClaimTranslatorExtractor $claimExtractor)
+    public function __construct(private ClaimTranslatorExtractor $claimExtractor)
     {
-        $this->claimExtractor = $claimExtractor;
     }
 
 
@@ -40,7 +37,7 @@ class RequestedClaimsRule extends AbstractRule
             return null;
         }
         /** @var ?array $claims */
-        $claims = json_decode($claimsParam, true);
+        $claims = json_decode($claimsParam, true, 512, JSON_THROW_ON_ERROR);
         if (is_null($claims)) {
             return null;
         }
@@ -75,9 +72,7 @@ class RequestedClaimsRule extends AbstractRule
         }
         $requestClaims[$key] = array_filter(
             $requested,
-            function ($key) use ($authorized) {
-                return in_array($key, $authorized);
-            },
+            fn($key) => in_array($key, $authorized),
             ARRAY_FILTER_USE_KEY
         );
     }

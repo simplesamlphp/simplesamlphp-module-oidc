@@ -19,16 +19,10 @@ use Throwable;
 
 class MaxAgeRule extends AbstractRule
 {
-    private AuthSimpleFactory $authSimpleFactory;
-
-    private AuthenticationService $authenticationService;
-
     public function __construct(
-        AuthSimpleFactory $authSimpleFactory,
-        AuthenticationService $authenticationService
+        private AuthSimpleFactory $authSimpleFactory,
+        private AuthenticationService $authenticationService
     ) {
-        $this->authSimpleFactory = $authSimpleFactory;
-        $this->authenticationService = $authenticationService;
     }
 
     /**

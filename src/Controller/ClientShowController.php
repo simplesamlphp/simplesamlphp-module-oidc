@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -11,9 +13,9 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
 namespace SimpleSAML\Module\oidc\Controller;
 
+use SimpleSAML\XHTML\Template;
 use Laminas\Diactoros\ServerRequest;
 use SimpleSAML\Module\oidc\Controller\Traits\AuthenticatedGetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
@@ -25,29 +27,17 @@ class ClientShowController
 {
     use AuthenticatedGetClientFromRequestTrait;
 
-    /**
-     * @var TemplateFactory
-     */
-    private $templateFactory;
-
-    /**
-     * @var AllowedOriginRepository
-     */
-    private $allowedOriginRepository;
-
     public function __construct(
         ClientRepository $clientRepository,
-        AllowedOriginRepository $allowedOriginRepository,
-        TemplateFactory $templateFactory,
+        private AllowedOriginRepository $allowedOriginRepository,
+        private TemplateFactory $templateFactory,
         AuthContextService $authContextService
     ) {
         $this->clientRepository = $clientRepository;
-        $this->allowedOriginRepository = $allowedOriginRepository;
-        $this->templateFactory = $templateFactory;
         $this->authContextService = $authContextService;
     }
 
-    public function __invoke(ServerRequest $request): \SimpleSAML\XHTML\Template
+    public function __invoke(ServerRequest $request): Template
     {
         $client = $this->getClientFromRequest($request);
         $allowedOrigins = $this->allowedOriginRepository->get($client->getIdentifier());

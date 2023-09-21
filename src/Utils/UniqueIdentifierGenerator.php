@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils;
 
 use League\OAuth2\Server\Exception\OAuthServerException;
@@ -11,8 +13,6 @@ class UniqueIdentifierGenerator
     /**
      * Generate a new unique identifier.
      *
-     * @param int $length
-     * @return string
      * @throws OAuthServerException
      */
     public static function hitMe(int $length = 40): string

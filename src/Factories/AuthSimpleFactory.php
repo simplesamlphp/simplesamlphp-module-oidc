@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -11,7 +13,6 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
 namespace SimpleSAML\Module\oidc\Factories;
 
 use Exception;
@@ -25,14 +26,11 @@ class AuthSimpleFactory
 {
     use GetClientFromRequestTrait;
 
-    private ConfigurationService $configurationService;
-
     public function __construct(
         ClientRepository $clientRepository,
-        ConfigurationService $configurationService
+        private ConfigurationService $configurationService
     ) {
         $this->clientRepository = $clientRepository;
-        $this->configurationService = $configurationService;
     }
 
     /**
@@ -58,8 +56,6 @@ class AuthSimpleFactory
     /**
      * Get auth source defined on the client. If not set on the client, get the default auth source defined in config.
      *
-     * @param ClientEntityInterface $client
-     * @return string
      * @throws Exception
      */
     public function resolveAuthSourceId(ClientEntityInterface $client): string

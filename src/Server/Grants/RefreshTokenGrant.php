@@ -75,7 +75,7 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
             throw OidcServerException::invalidRefreshToken('Cannot decrypt the refresh token', $e);
         }
 
-        $refreshTokenData = \json_decode($refreshToken, true);
+        $refreshTokenData = \json_decode($refreshToken, true, 512, JSON_THROW_ON_ERROR);
 
         if (! is_array($refreshTokenData)) {
             throw OidcServerException::invalidRefreshToken('Refresh token has unexpected type');

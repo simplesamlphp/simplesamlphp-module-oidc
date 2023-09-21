@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
@@ -13,11 +15,8 @@ use Throwable;
 
 class CodeChallengeMethodRule extends AbstractRule
 {
-    protected CodeChallengeVerifiersRepository $codeChallengeVerifiersRepository;
-
-    public function __construct(CodeChallengeVerifiersRepository $codeChallengeVerifiersRepository)
+    public function __construct(protected CodeChallengeVerifiersRepository $codeChallengeVerifiersRepository)
     {
-        $this->codeChallengeVerifiersRepository = $codeChallengeVerifiersRepository;
     }
 
     /**
@@ -45,9 +44,7 @@ class CodeChallengeMethodRule extends AbstractRule
             throw OidcServerException::invalidRequest(
                 'code_challenge_method',
                 'Code challenge method must be one of ' . implode(', ', array_map(
-                    function ($method) {
-                        return '`' . $method . '`';
-                    },
+                    fn($method) => '`' . $method . '`',
                     array_keys($codeChallengeVerifiers)
                 )),
                 null,

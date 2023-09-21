@@ -23,33 +23,12 @@ use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 
 class IdTokenResponseFactory
 {
-    /**
-     * @var UserRepository
-     */
-    private UserRepository $userRepository;
-    /**
-     * @var IdTokenBuilder
-     */
-    private IdTokenBuilder $idTokenBuilder;
-    /**
-     * @var CryptKey
-     */
-    private CryptKey $privateKey;
-    /**
-     * @var string
-     */
-    private string $encryptionKey;
-
     public function __construct(
-        UserRepository $userRepository,
-        IdTokenBuilder $idTokenBuilder,
-        CryptKey $privateKey,
-        string $encryptionKey
+        private UserRepository $userRepository,
+        private IdTokenBuilder $idTokenBuilder,
+        private CryptKey $privateKey,
+        private string $encryptionKey
     ) {
-        $this->userRepository = $userRepository;
-        $this->idTokenBuilder = $idTokenBuilder;
-        $this->privateKey = $privateKey;
-        $this->encryptionKey = $encryptionKey;
     }
 
     public function build(): IdTokenResponse

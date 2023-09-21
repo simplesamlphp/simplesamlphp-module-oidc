@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Services;
 
 use Exception;
@@ -12,17 +14,14 @@ use Exception;
  */
 class OidcOpenIdProviderMetadataService
 {
-    private ConfigurationService $configurationService;
-
     private array $metadata;
 
     /**
      * @throws Exception
      */
     public function __construct(
-        ConfigurationService $configurationService
+        private ConfigurationService $configurationService
     ) {
-        $this->configurationService = $configurationService;
         $this->initMetadata();
     }
 

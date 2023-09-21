@@ -33,7 +33,7 @@ class ClientEntity implements ClientEntityInterface
 
     private string $description;
 
-    private ?string $authSource;
+    private ?string $authSource = null;
 
     /**
      * @var string[] $scopes
@@ -42,14 +42,14 @@ class ClientEntity implements ClientEntityInterface
 
     private bool $isEnabled;
 
-    private ?string $owner;
+    private ?string $owner = null;
 
     /**
      * @var string[]|null
      */
-    private ?array $postLogoutRedirectUri;
+    private ?array $postLogoutRedirectUri = null;
 
-    private ?string $backChannelLogoutUri;
+    private ?string $backChannelLogoutUri = null;
 
     /**
      * Constructor.
@@ -130,11 +130,11 @@ class ClientEntity implements ClientEntityInterface
         $client->authSource = empty($state['auth_source']) ? null : (string)$state['auth_source'];
 
         /** @var string[] $redirectUris */
-        $redirectUris = json_decode($state['redirect_uri'], true);
+        $redirectUris = json_decode($state['redirect_uri'], true, 512, JSON_THROW_ON_ERROR);
         $client->redirectUri = $redirectUris;
 
         /** @var string[] $scopes */
-        $scopes = json_decode($state['scopes'], true);
+        $scopes = json_decode($state['scopes'], true, 512, JSON_THROW_ON_ERROR);
         $client->scopes = $scopes;
 
         $client->isEnabled = (bool) $state['is_enabled'];
@@ -142,7 +142,12 @@ class ClientEntity implements ClientEntityInterface
         $client->owner = empty($state['owner']) ? null : (string)$state['owner'];
 
         /** @var string[] $postLogoutRedirectUris */
-        $postLogoutRedirectUris = json_decode((string)($state['post_logout_redirect_uri'] ?? "[]"), true);
+        $postLogoutRedirectUris = json_decode(
+            (string)($state['post_logout_redirect_uri'] ?? "[]"),
+            true,
+            512,
+            JSON_THROW_ON_ERROR
+        );
         $client->postLogoutRedirectUri = $postLogoutRedirectUris;
 
 
@@ -164,12 +169,12 @@ class ClientEntity implements ClientEntityInterface
             'name' => $this->getName(),
             'description' => $this->getDescription(),
             'auth_source' => $this->getAuthSourceId(),
-            'redirect_uri' => json_encode($this->getRedirectUri()),
-            'scopes' => json_encode($this->getScopes()),
+            'redirect_uri' => json_encode($this->getRedirectUri(), JSON_THROW_ON_ERROR),
+            'scopes' => json_encode($this->getScopes(), JSON_THROW_ON_ERROR),
             'is_enabled' => (int) $this->isEnabled(),
             'is_confidential' => (int) $this->isConfidential(),
             'owner' => $this->getOwner(),
-            'post_logout_redirect_uri' => json_encode($this->getPostLogoutRedirectUri()),
+            'post_logout_redirect_uri' => json_encode($this->getPostLogoutRedirectUri(), JSON_THROW_ON_ERROR),
             'backchannel_logout_uri' => $this->getBackChannelLogoutUri(),
 
         ];

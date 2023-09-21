@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Repositories\Interfaces;
 
 use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface as OAuth2RefreshTokenRepositoryInterface;
@@ -9,14 +11,11 @@ interface RefreshTokenRepositoryInterface extends OAuth2RefreshTokenRepositoryIn
 {
     /**
      * Revoke refresh token(s) associated with the given auth code ID.
-     * @param string $authCodeId
      */
     public function revokeByAuthCodeId(string $authCodeId): void;
 
     /**
      * Creates a new refresh token
-     *
-     * @return RefreshTokenEntityInterface|null
      */
-    public function getNewRefreshToken();
+    public function getNewRefreshToken(): ?RefreshTokenEntityInterface;
 }

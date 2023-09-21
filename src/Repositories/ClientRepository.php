@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -11,7 +13,6 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
 namespace SimpleSAML\Module\oidc\Repositories;
 
 use Exception;
@@ -24,9 +25,6 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 {
     public const TABLE_NAME = 'oidc_client';
 
-    /**
-     * @return string
-     */
     public function getTableName(): string
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
@@ -70,11 +68,6 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         return true;
     }
 
-    /**
-     * @param string $clientIdentifier
-     * @param ?string $owner restrict lookup to this owner
-     * @return ClientEntityInterface|null
-     */
     public function findById(string $clientIdentifier, ?string $owner = null): ?ClientEntityInterface
     {
         /**
@@ -126,7 +119,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
          * @var string $query
          * @var array $params
          */
-        list($query, $params) = $this->addOwnerWhereClause(
+        [$query, $params] = $this->addOwnerWhereClause(
             "SELECT * FROM {$this->getTableName()}",
             [],
             $owner
@@ -147,9 +140,6 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
     }
 
     /**
-     * @param int $page
-     * @param string $query
-     * @param string|null $owner
      * @return array{numPages: int, currentPage: int, items: ClientEntityInterface[]}
      * @throws Exception
      */
@@ -166,7 +156,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
          * @var string $sqlQuery
          * @var array $params
          */
-        list($sqlQuery, $params) = $this->addOwnerWhereClause(
+        [$sqlQuery, $params] = $this->addOwnerWhereClause(
             "SELECT * FROM {$this->getTableName()} WHERE name LIKE :name",
             ['name' => '%' . $query . '%'],
             $owner
@@ -176,9 +166,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
             $params
         );
 
-        $clients = array_map(function (array $state) {
-            return ClientEntity::fromState($state);
-        }, $stmt->fetchAll());
+        $clients = array_map(fn(array $state) => ClientEntity::fromState($state), $stmt->fetchAll());
 
         return [
             'numPages' => $numPages,
@@ -235,7 +223,7 @@ EOS
          * @var string $sqlQuery
          * @var array $params
          */
-        list($sqlQuery, $params) = $this->addOwnerWhereClause(
+        [$sqlQuery, $params] = $this->addOwnerWhereClause(
             "DELETE FROM {$this->getTableName()} WHERE id = :id",
             [
                 'id' => $client->getIdentifier(),
@@ -271,7 +259,7 @@ EOF
          * @var string $sqlQuery
          * @var array $params
          */
-        list($sqlQuery, $params) = $this->addOwnerWhereClause(
+        [$sqlQuery, $params] = $this->addOwnerWhereClause(
             $stmt,
             $client->getState(),
             $owner
@@ -288,7 +276,7 @@ EOF
          * @var string $sqlQuery
          * @var array $params
          */
-        list($sqlQuery, $params) = $this->addOwnerWhereClause(
+        [$sqlQuery, $params] = $this->addOwnerWhereClause(
             "SELECT COUNT(id) FROM {$this->getTableName()} WHERE name LIKE :name",
             ['name' => '%' . $query . '%'],
             $owner
@@ -311,8 +299,6 @@ EOF
     }
 
     /**
-     * @param int $total
-     * @param int $limit
      * @return int
      */
     private function calculateNumOfPages(int $total, int $limit): int
@@ -323,8 +309,6 @@ EOF
     }
 
     /**
-     * @param int $page
-     * @param int $numPages
      * @return int
      */
     private function calculateCurrentPage(int $page, int $numPages): int
@@ -342,8 +326,6 @@ EOF
 
 
     /**
-     * @param int $page
-     * @param int $limit
      * @return float|int
      */
     private function calculateOffset(int $page, int $limit)

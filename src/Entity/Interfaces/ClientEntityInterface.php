@@ -9,14 +9,8 @@ use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInt
 interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInterface
 {
     /**
-     * @param string $id
-     * @param string $secret
-     * @param string $name
-     * @param string $description
      * @param string[] $redirectUri
      * @param string[] $scopes
-     * @param bool $isEnabled
-     * @param bool $isConfidential
      * @param string|null $authSource
      * @param string|null $owner
      * @return self

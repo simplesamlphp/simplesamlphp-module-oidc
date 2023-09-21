@@ -31,18 +31,13 @@ class ClientDeleteController
 {
     use AuthenticatedGetClientFromRequestTrait;
 
-    private TemplateFactory $templateFactory;
-    private SessionMessagesService $messages;
-
     public function __construct(
         ClientRepository $clientRepository,
-        TemplateFactory $templateFactory,
-        SessionMessagesService $messages,
+        private TemplateFactory $templateFactory,
+        private SessionMessagesService $messages,
         AuthContextService $authContextService
     ) {
         $this->clientRepository = $clientRepository;
-        $this->templateFactory = $templateFactory;
-        $this->messages = $messages;
         $this->authContextService = $authContextService;
     }
 

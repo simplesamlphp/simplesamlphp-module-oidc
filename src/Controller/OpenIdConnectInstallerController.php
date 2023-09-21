@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -11,9 +13,9 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
 namespace SimpleSAML\Module\oidc\Controller;
 
+use SimpleSAML\XHTML\Template;
 use SimpleSAML\Module;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Services\DatabaseLegacyOAuth2Import;
@@ -25,40 +27,16 @@ use Laminas\Diactoros\ServerRequest;
 
 class OpenIdConnectInstallerController
 {
-    /**
-     * @var TemplateFactory
-     */
-    private $templateFactory;
-
-    /**
-     * @var SessionMessagesService
-     */
-    private $messages;
-
-    /**
-     * @var DatabaseMigration
-     */
-    private $databaseMigration;
-
-    /**
-     * @var DatabaseLegacyOAuth2Import
-     */
-    private $databaseLegacyOAuth2Import;
-
     public function __construct(
-        TemplateFactory $templateFactory,
-        SessionMessagesService $messages,
-        DatabaseMigration $databaseMigration,
-        DatabaseLegacyOAuth2Import $databaseLegacyOAuth2Import
+        private TemplateFactory $templateFactory,
+        private SessionMessagesService $messages,
+        private DatabaseMigration $databaseMigration,
+        private DatabaseLegacyOAuth2Import $databaseLegacyOAuth2Import
     ) {
-        $this->templateFactory = $templateFactory;
-        $this->messages = $messages;
-        $this->databaseMigration = $databaseMigration;
-        $this->databaseLegacyOAuth2Import = $databaseLegacyOAuth2Import;
     }
 
     /**
-     * @return \Laminas\Diactoros\Response\RedirectResponse|\SimpleSAML\XHTML\Template
+     * @return RedirectResponse|Template
      */
     public function __invoke(ServerRequest $request)
     {

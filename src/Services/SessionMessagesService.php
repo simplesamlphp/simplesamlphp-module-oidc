@@ -21,16 +21,11 @@ use SimpleSAML\Session;
 
 class SessionMessagesService
 {
-    /** @var Session */
-    private Session $session;
-
-    public function __construct(Session $session)
+    public function __construct(private Session $session)
     {
-        $this->session = $session;
     }
 
     /**
-     * @param string $value
      * @return void
      * @throws Exception
      */

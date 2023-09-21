@@ -53,7 +53,7 @@ class BackChannelLogoutHandler
             'rejected' => function (GuzzleException $reason, mixed $index) {
                 // this is delivered each failed request
                 $errorMessage = "Backhannel Logout (index $index) - error, reason: {$reason->getCode()} " .
-                    "{$reason->getMessage()}, exception type: " . get_class($reason);
+                    "{$reason->getMessage()}, exception type: " . $reason::class;
                 $this->loggerService->error($errorMessage);
             },
         ]);

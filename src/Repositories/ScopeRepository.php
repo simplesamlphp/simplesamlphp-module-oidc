@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -11,7 +13,6 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
 namespace SimpleSAML\Module\oidc\Repositories;
 
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
@@ -26,7 +27,7 @@ class ScopeRepository extends AbstractDatabaseRepository implements ScopeReposit
     /**
      * {@inheritdoc}
      */
-    public function getTableName()
+    public function getTableName(): ?string
     {
         return null;
     }
@@ -72,8 +73,9 @@ class ScopeRepository extends AbstractDatabaseRepository implements ScopeReposit
             return [];
         }
 
-        return array_filter($scopes, function (ScopeEntityInterface $scope) use ($clientEntity) {
-            return \in_array($scope->getIdentifier(), $clientEntity->getScopes(), true);
-        });
+        return array_filter(
+            $scopes,
+            fn(ScopeEntityInterface $scope) => \in_array($scope->getIdentifier(), $clientEntity->getScopes(), true)
+        );
     }
 }

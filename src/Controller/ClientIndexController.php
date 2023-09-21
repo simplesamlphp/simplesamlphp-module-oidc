@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -14,6 +16,7 @@
 
 namespace SimpleSAML\Module\oidc\Controller;
 
+use SimpleSAML\XHTML\Template;
 use Laminas\Diactoros\ServerRequest;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
@@ -21,32 +24,14 @@ use SimpleSAML\Module\oidc\Services\AuthContextService;
 
 class ClientIndexController
 {
-    /**
-     * @var ClientRepository
-     */
-    private $clientRepository;
-
-    /**
-     * @var TemplateFactory
-     */
-    private $templateFactory;
-
-    /**
-     * @var AuthContextService
-     */
-    private $authContextService;
-
     public function __construct(
-        ClientRepository $clientRepository,
-        TemplateFactory $templateFactory,
-        AuthContextService $authContextService
+        private ClientRepository $clientRepository,
+        private TemplateFactory $templateFactory,
+        private AuthContextService $authContextService
     ) {
-        $this->clientRepository = $clientRepository;
-        $this->templateFactory = $templateFactory;
-        $this->authContextService = $authContextService;
     }
 
-    public function __invoke(ServerRequest $request): \SimpleSAML\XHTML\Template
+    public function __invoke(ServerRequest $request): Template
     {
         $queryParams = $request->getQueryParams();
 

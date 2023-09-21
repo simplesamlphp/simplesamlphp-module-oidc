@@ -54,34 +54,17 @@ class LoggerService implements LoggerInterface
 
     public function log($level, string|Stringable $message, array $context = []): void
     {
-        switch ($level) {
-            case LogLevel::ALERT:
-                $this->alert($message, $context);
-                break;
-            case LogLevel::CRITICAL:
-                $this->critical($message, $context);
-                break;
-            case LogLevel::DEBUG:
-                $this->debug($message, $context);
-                break;
-            case LogLevel::EMERGENCY:
-                $this->emergency($message, $context);
-                break;
-            case LogLevel::ERROR:
-                $this->error($message, $context);
-                break;
-            case LogLevel::INFO:
-                $this->info($message, $context);
-                break;
-            case LogLevel::NOTICE:
-                $this->notice($message, $context);
-                break;
-            case LogLevel::WARNING:
-                $this->warning($message, $context);
-                break;
-            default:
-                throw new InvalidArgumentException("Unrecognized log level '$level''");
-        }
+        match ($level) {
+            LogLevel::ALERT => $this->alert($message, $context),
+            LogLevel::CRITICAL => $this->critical($message, $context),
+            LogLevel::DEBUG => $this->debug($message, $context),
+            LogLevel::EMERGENCY => $this->emergency($message, $context),
+            LogLevel::ERROR => $this->error($message, $context),
+            LogLevel::INFO => $this->info($message, $context),
+            LogLevel::NOTICE => $this->notice($message, $context),
+            LogLevel::WARNING => $this->warning($message, $context),
+            default => throw new InvalidArgumentException("Unrecognized log level '$level''"),
+        };
     }
 
     public static function getInstance(): self

@@ -10,8 +10,6 @@ use SimpleSAML\Session;
 
 class SessionService
 {
-    protected Session $session;
-
     public const SESSION_DATA_TYPE = 'oidc';
 
     public const SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN = 'is-cookie-based-authn';
@@ -22,9 +20,8 @@ class SessionService
 
     public const SESSION_DATA_ID_IS_OIDC_INITIATED_LOGOUT = 'is-logout-handler-disabled';
 
-    public function __construct(Session $session)
+    public function __construct(protected Session $session)
     {
-        $this->session = $session;
     }
 
     public function getCurrentSession(): Session
@@ -96,7 +93,6 @@ class SessionService
     }
 
     /**
-     * @param Session $session
      * @return array<RelyingPartyAssociationInterface>
      */
     public static function getRelyingPartyAssociationsForSession(Session $session): array
@@ -166,7 +162,6 @@ class SessionService
 
     /**
      * Set indication if logout was initiated using OIDC protocol.
-     * @param bool $isOidcInitiatedLogout
      * @throws Exception
      */
     public function setIsOidcInitiatedLogout(bool $isOidcInitiatedLogout): void
@@ -181,7 +176,6 @@ class SessionService
 
     /**
      * Helper method to get indication if logout was initiated using OIDC protocol for given session.
-     * @param Session $session
      * @return bool
      */
     public static function getIsOidcInitiatedLogoutForSession(Session $session): bool

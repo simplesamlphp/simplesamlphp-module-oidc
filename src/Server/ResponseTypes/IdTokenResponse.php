@@ -47,10 +47,6 @@ class IdTokenResponse extends BearerTokenResponse implements
     AcrResponseTypeInterface,
     SessionIdResponseTypeInterface
 {
-    private IdentityProviderInterface $identityProvider;
-
-    protected IdTokenBuilder $idTokenBuilder;
-
     protected ?string $nonce = null;
 
     protected ?int $authTime = null;
@@ -72,12 +68,10 @@ class IdTokenResponse extends BearerTokenResponse implements
     protected $refreshToken;
 
     public function __construct(
-        IdentityProviderInterface $identityProvider,
-        IdTokenBuilder $idTokenBuilder,
+        private IdentityProviderInterface $identityProvider,
+        protected IdTokenBuilder $idTokenBuilder,
         CryptKey $privateKey
     ) {
-        $this->identityProvider = $identityProvider;
-        $this->idTokenBuilder = $idTokenBuilder;
         $this->privateKey = $privateKey;
     }
 

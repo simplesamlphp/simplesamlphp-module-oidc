@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Repositories;
 
 use League\OAuth2\Server\CodeChallengeVerifiers\CodeChallengeVerifierInterface;
@@ -11,7 +13,7 @@ class CodeChallengeVerifiersRepository
     /**
      * @var CodeChallengeVerifierInterface[]
      */
-    protected $codeChallengeVerifiers = [];
+    protected array $codeChallengeVerifiers = [];
 
     public function __construct()
     {
@@ -33,7 +35,6 @@ class CodeChallengeVerifiersRepository
     }
 
     /**
-     * @param string $method
      * @return CodeChallengeVerifierInterface|null Verifier for the method or null if not supported.
      */
     public function get(string $method): ?CodeChallengeVerifierInterface
@@ -41,10 +42,6 @@ class CodeChallengeVerifiersRepository
         return $this->codeChallengeVerifiers[$method] ?? null;
     }
 
-    /**
-     * @param string $method
-     * @return bool
-     */
     public function has(string $method): bool
     {
         return isset($this->codeChallengeVerifiers[$method]);

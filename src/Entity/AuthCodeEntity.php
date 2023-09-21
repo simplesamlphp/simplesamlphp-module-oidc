@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -11,9 +13,10 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
 namespace SimpleSAML\Module\oidc\Entity;
 
+use DateTimeImmutable;
+use JsonException;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\TokenEntityTrait;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
@@ -32,7 +35,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
     use RevokeTokenTrait;
 
     /**
-     * @throws OidcServerException
+     * @throws OidcServerException|JsonException
      */
     public static function fromState(array $state): self
     {
@@ -47,7 +50,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
             throw OidcServerException::serverError('Invalid Auth Code Entity state');
         }
 
-        $stateScopes = json_decode($state['scopes'], true);
+        $stateScopes = json_decode($state['scopes'], true, 512, JSON_THROW_ON_ERROR);
 
         if (!is_array($stateScopes)) {
             throw OidcServerException::serverError('Invalid Auth Code Entity state: scopes');
@@ -55,17 +58,15 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
 
         $scopes = array_map(
             /**
-             * @return \SimpleSAML\Module\oidc\Entity\ScopeEntity
+             * @return ScopeEntity
              */
-            function (string $scope) {
-                return ScopeEntity::fromData($scope);
-            },
+            fn(string $scope) => ScopeEntity::fromData($scope),
             $stateScopes
         );
 
         $authCode->identifier = $state['id'];
         $authCode->scopes = $scopes;
-        $authCode->expiryDateTime = \DateTimeImmutable::createFromMutable(
+        $authCode->expiryDateTime = DateTimeImmutable::createFromMutable(
             TimestampGenerator::utc($state['expires_at'])
         );
         $authCode->userIdentifier = empty($state['user_id']) ? null : (string)$state['user_id'];
@@ -77,11 +78,14 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
         return $authCode;
     }
 
+    /**
+     * @throws JsonException
+     */
     public function getState(): array
     {
         return [
             'id' => $this->getIdentifier(),
-            'scopes' => json_encode($this->scopes),
+            'scopes' => json_encode($this->scopes, JSON_THROW_ON_ERROR),
             'expires_at' => $this->getExpiryDateTime()->format('Y-m-d H:i:s'),
             'user_id' => $this->getUserIdentifier(),
             'client_id' => $this->client->getIdentifier(),

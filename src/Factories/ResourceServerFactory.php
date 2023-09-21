@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -11,7 +13,6 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
 namespace SimpleSAML\Module\oidc\Factories;
 
 use League\OAuth2\Server\AuthorizationValidators\AuthorizationValidatorInterface;
@@ -21,29 +22,11 @@ use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 
 class ResourceServerFactory
 {
-    /**
-     * @var AccessTokenRepository
-     */
-    private $accessTokenRepository;
-
-    /**
-     * @var CryptKey
-     */
-    private $publicKey;
-
-    /**
-     * @var AuthorizationValidatorInterface
-     */
-    private $authorizationValidator;
-
     public function __construct(
-        AccessTokenRepository $accessTokenRepository,
-        CryptKey $publicKey,
-        AuthorizationValidatorInterface $authorizationValidator
+        private AccessTokenRepository $accessTokenRepository,
+        private CryptKey $publicKey,
+        private AuthorizationValidatorInterface $authorizationValidator
     ) {
-        $this->accessTokenRepository = $accessTokenRepository;
-        $this->publicKey = $publicKey;
-        $this->authorizationValidator = $authorizationValidator;
     }
 
     public function build(): ResourceServer

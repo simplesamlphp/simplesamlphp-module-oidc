@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Server\Grants\Interfaces;
 
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
@@ -13,8 +15,6 @@ interface AuthorizationValidatableWithCheckerResultBagInterface
      * This is to evade usage of original validateAuthorizationRequest() method in which it is expected to
      * validate client and redirect_uri (which was already validated).
      *
-     * @param ServerRequestInterface $request
-     * @param ResultBagInterface $resultBag
      * @return OAuth2AuthorizationRequest
      */
     public function validateAuthorizationRequestWithCheckerResultBag(

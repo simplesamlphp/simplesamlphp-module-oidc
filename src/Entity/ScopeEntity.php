@@ -29,12 +29,12 @@ class ScopeEntity implements ScopeEntityInterface
     /**
      * @var string|null
      */
-    private ?string $icon;
+    private ?string $icon = null;
 
     /**
      * @var string|null
      */
-    private ?string $description;
+    private ?string $description = null;
 
     /**
      * @var array<string>

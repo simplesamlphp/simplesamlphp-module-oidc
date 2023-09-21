@@ -31,11 +31,7 @@ class ResultBag implements ResultBagInterface
      */
     public function get(string $key): ?ResultInterface
     {
-        if (isset($this->results[$key])) {
-            return $this->results[$key];
-        }
-
-        return null;
+        return $this->results[$key] ?? null;
     }
 
     /**

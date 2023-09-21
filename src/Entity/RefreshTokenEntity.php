@@ -16,6 +16,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Entity;
 
+use DateTimeImmutable;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\RefreshTokenTrait;
 use SimpleSAML\Module\oidc\Entity\Interfaces\AccessTokenEntityInterface;
@@ -48,7 +49,7 @@ class RefreshTokenEntity implements RefreshTokenEntityInterface
         }
 
         $refreshToken->identifier = $state['id'];
-        $refreshToken->expiryDateTime = \DateTimeImmutable::createFromMutable(
+        $refreshToken->expiryDateTime = DateTimeImmutable::createFromMutable(
             TimestampGenerator::utc($state['expires_at'])
         );
         $refreshToken->accessToken = $state['access_token'];

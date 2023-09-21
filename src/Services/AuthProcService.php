@@ -11,26 +11,19 @@ use SimpleSAML\Module;
 class AuthProcService
 {
     /**
-     * @var ConfigurationService
-     */
-    private ConfigurationService $configurationService;
-
-    /**
      * @var ProcessingFilter[] Filters to be applied to OIDC state.
      */
     private array $filters = [];
 
     /**
      * AuthProcService constructor.
-     * @param ConfigurationService $configurationService
      *
      * @throws Exception
      * @see \SimpleSAML\Auth\ProcessingChain for original implementation
      */
     public function __construct(
-        ConfigurationService $configurationService
+        private ConfigurationService $configurationService
     ) {
-        $this->configurationService = $configurationService;
         $this->loadFilters();
     }
 
@@ -77,7 +70,7 @@ class AuthProcService
             $className = Module::resolveClass(
                 $filterConfig['class'],
                 'Auth\Process',
-                '\SimpleSAML\Auth\ProcessingFilter'
+                '\\' . ProcessingFilter::class
             );
 
             if (!is_a($className, ProcessingFilter::class, true)) {
@@ -101,7 +94,6 @@ class AuthProcService
     /**
      * Process given state array.
      *
-     * @param array $state
      * @return array
      */
     public function processState(array $state): array

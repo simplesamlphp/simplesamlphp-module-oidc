@@ -21,15 +21,8 @@ use SimpleSAML\Module\oidc\Services\OidcOpenIdProviderMetadataService;
 
 class OpenIdConnectDiscoverConfigurationController
 {
-    /**
-     * @var OidcOpenIdProviderMetadataService
-     */
-    private OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService;
-
-    public function __construct(
-        OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService
-    ) {
-        $this->oidcOpenIdProviderMetadataService = $oidcOpenIdProviderMetadataService;
+    public function __construct(private OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService)
+    {
     }
 
     public function __invoke(): JsonResponse

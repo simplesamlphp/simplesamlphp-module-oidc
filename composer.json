@@ -35,11 +35,12 @@
         "web-token/jwt-framework": "^3"
     },
     "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3",
+        "phpunit/phpunit": "^10",
+        "rector/rector": "^0.18.3",
         "simplesamlphp/simplesamlphp": "dev-simplesamlphp-2.1",
         "simplesamlphp/simplesamlphp-test-framework": "^1.5",
-        "friendsofphp/php-cs-fixer": "^3",
         "squizlabs/php_codesniffer": "^3",
-        "phpunit/phpunit": "^10",
         "vimeo/psalm": "^5"
     },
     "config": {

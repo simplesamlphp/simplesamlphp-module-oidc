@@ -51,7 +51,6 @@ class RequestRulesManager
     }
 
     /**
-     * @param ServerRequestInterface $request
      * @param class-string[] $ruleKeysToExecute
      * @param bool $useFragmentInHttpErrorResponses Indicate that in case of HTTP error responses, params should be
      * returned in URI fragment instead of query.
@@ -89,7 +88,6 @@ class RequestRulesManager
 
     /**
      * Predefine (add) the existing result so it can be used by other checkers during check.
-     * @param ResultInterface $result
      */
     public function predefineResult(ResultInterface $result): void
     {
@@ -98,7 +96,6 @@ class RequestRulesManager
 
     /**
      * Predefine existing ResultBag so that it can be used by other checkers during check.
-     * @param ResultBagInterface $resultBag
      */
     public function predefineResultBag(ResultBagInterface $resultBag): void
     {
@@ -107,8 +104,6 @@ class RequestRulesManager
 
     /**
      * Set data which will be available in each check, using key value pair
-     * @param string $key
-     * @param mixed $value
      */
     public function setData(string $key, mixed $value): void
     {

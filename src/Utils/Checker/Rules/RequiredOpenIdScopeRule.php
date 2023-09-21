@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
@@ -32,9 +34,10 @@ class RequiredOpenIdScopeRule extends AbstractRule
         /** @var ScopeEntityInterface[] $validScopes */
         $validScopes = $currentResultBag->getOrFail(ScopeRule::class)->getValue();
 
-        $isOpenIdScopePresent = (bool) array_filter($validScopes, function ($scopeEntity) {
-            return $scopeEntity->getIdentifier() === 'openid';
-        });
+        $isOpenIdScopePresent = (bool) array_filter(
+            $validScopes,
+            fn($scopeEntity) => $scopeEntity->getIdentifier() === 'openid'
+        );
 
         if (! $isOpenIdScopePresent) {
             throw OidcServerException::invalidRequest(

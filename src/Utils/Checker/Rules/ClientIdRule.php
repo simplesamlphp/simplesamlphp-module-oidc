@@ -15,11 +15,8 @@ use SimpleSAML\Module\oidc\Utils\Checker\Result;
 
 class ClientIdRule extends AbstractRule
 {
-    protected ClientRepositoryInterface $clientRepository;
-
-    public function __construct(ClientRepositoryInterface $clientRepository)
+    public function __construct(protected ClientRepositoryInterface $clientRepository)
     {
-        $this->clientRepository = $clientRepository;
     }
 
     /**

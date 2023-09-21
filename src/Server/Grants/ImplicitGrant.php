@@ -40,7 +40,6 @@ class ImplicitGrant extends OAuth2ImplicitGrant
 {
     use IssueAccessTokenTrait;
 
-    protected IdTokenBuilder $idTokenBuilder;
     /**
      * @var CryptKey
      * @psalm-suppress PropertyNotSetInConstructor
@@ -48,7 +47,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
     protected $privateKey;
 
     public function __construct(
-        IdTokenBuilder $idTokenBuilder,
+        protected IdTokenBuilder $idTokenBuilder,
         DateInterval $accessTokenTTL,
         AccessTokenRepositoryInterface $accessTokenRepository,
         string $queryDelimiter = '#',
@@ -56,7 +55,6 @@ class ImplicitGrant extends OAuth2ImplicitGrant
     ) {
         parent::__construct($accessTokenTTL, $queryDelimiter, $requestRulesManager);
         $this->accessTokenRepository = $accessTokenRepository;
-        $this->idTokenBuilder = $idTokenBuilder;
     }
 
     /**

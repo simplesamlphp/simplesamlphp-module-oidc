@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Server\Grants;
 
+use Exception;
 use DateInterval;
 use DateTimeImmutable;
 use League\OAuth2\Server\CodeChallengeVerifiers\CodeChallengeVerifierInterface;
@@ -79,49 +80,54 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      * @psalm-suppress PropertyNotSetInConstructor
      */
     protected $authCodeRepository;
+
     /**
      * @psalm-suppress PropertyNotSetInConstructor
      */
     protected $accessTokenRepository;
+
     /**
      * @psalm-suppress PropertyNotSetInConstructor
      */
     protected $refreshTokenRepository;
 
-    private RequestRulesManager $requestRulesManager;
-
     protected bool $requireCodeChallengeForPublicClients = true;
+
     /**
      * @var bool
      * @psalm-suppress PropertyNotSetInConstructor
      */
     protected $revokeRefreshTokens;
+
     /**
      * @var string
      * @psalm-suppress PropertyNotSetInConstructor
      */
     protected $defaultScope;
+
     /**
      * @var UserRepositoryInterface
      * @psalm-suppress PropertyNotSetInConstructor
      */
     protected $userRepository;
+
     /**
      * @var ScopeRepositoryInterface
      * @psalm-suppress PropertyNotSetInConstructor
      */
     protected $scopeRepository;
+
     /**
      * @var ClientRepositoryInterface
      * @psalm-suppress PropertyNotSetInConstructor
      */
     protected $clientRepository;
+
     /**
      * @var CryptKey
      * @psalm-suppress PropertyNotSetInConstructor
      */
     protected $privateKey;
-
 
     /**
      * @psalm-type AuthCodePayloadObject = object{
@@ -135,14 +141,14 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      *     acr?: null|string,
      *     session_id?: null|string
      * }
-     * @throws \Exception
+     * @throws Exception
      */
     public function __construct(
         OAuth2AuthCodeRepositoryInterface $authCodeRepository,
         AccessTokenRepositoryInterface $accessTokenRepository,
         RefreshTokenRepositoryInterface $refreshTokenRepository,
         DateInterval $authCodeTTL,
-        RequestRulesManager $requestRulesManager
+        protected RequestRulesManager $requestRulesManager
     ) {
         parent::__construct($authCodeRepository, $refreshTokenRepository, $authCodeTTL);
 
@@ -151,7 +157,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $this->setRefreshTokenRepository($refreshTokenRepository);
 
         $this->authCodeTTL = $authCodeTTL;
-        $this->requestRulesManager = $requestRulesManager;
 
         if (in_array('sha256', hash_algos(), true)) {
             $s256Verifier = new S256Verifier();
@@ -162,10 +167,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $this->codeChallengeVerifiers[$plainVerifier->getMethod()] = $plainVerifier;
     }
 
-    /**
-     * @param OAuth2ClientEntityInterface $client
-     * @return bool
-     */
     protected function shouldCheckPkce(OAuth2ClientEntityInterface $client): bool
     {
         return $this->requireCodeChallengeForPublicClients &&
@@ -174,17 +175,15 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
     /**
      * Check if the authorization request is OIDC candidate (can respond with ID token).
-     *
-     * @param OAuth2AuthorizationRequest $authorizationRequest
-     * @return bool
      */
     public function isOidcCandidate(
         OAuth2AuthorizationRequest $authorizationRequest
     ): bool {
         // Check if the scopes contain 'oidc' scope
-        return (bool) Arr::find($authorizationRequest->getScopes(), function (ScopeEntityInterface $scope) {
-            return $scope->getIdentifier() === 'openid';
-        });
+        return (bool) Arr::find(
+            $authorizationRequest->getScopes(),
+            fn(ScopeEntityInterface $scope) => $scope->getIdentifier() === 'openid'
+        );
     }
 
     /**
@@ -204,7 +203,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     /**
      * This is reimplementation of OAuth2 completeAuthorizationRequest method with addition of nonce handling.
      *
-     * @param AuthorizationRequest $authorizationRequest
      * @return RedirectResponse
      * @throws OAuthServerException
      * @throws UniqueTokenIdentifierConstraintViolationException
@@ -257,12 +255,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             'session_id'            => $authorizationRequest->getSessionId(),
         ];
 
-        $jsonPayload = json_encode($payload);
-
-        if ($jsonPayload === false) {
-            throw new LogicException('An error was encountered when JSON encoding the authorization ' .
-                'request response');
-        }
+        $jsonPayload = json_encode($payload, JSON_THROW_ON_ERROR);
 
         $response = new RedirectResponse();
         $response->setRedirectUri(
@@ -279,10 +272,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     }
 
     /**
-     * @param DateInterval $authCodeTTL
-     * @param OAuth2ClientEntityInterface $client
-     * @param string $userIdentifier
-     * @param string $redirectUri
      * @param ScopeEntityInterface[] $scopes
      * @param string|null $nonce
      * @return AuthCodeEntityInterface
@@ -373,7 +362,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         ResponseTypeInterface $responseType,
         DateInterval $accessTokenTTL
     ): ResponseTypeInterface {
-        list($clientId) = $this->getClientCredentials($request);
+        [$clientId] = $this->getClientCredentials($request);
 
         $client = $this->getClientEntityOrFail((string)$clientId, $request);
 
@@ -393,7 +382,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
              * @noinspection PhpUndefinedClassInspection
              * @psalm-var AuthCodePayloadObject $authCodePayload
              */
-            $authCodePayload = json_decode($this->decrypt($encryptedAuthCode));
+            $authCodePayload = json_decode($this->decrypt($encryptedAuthCode), null, 512, JSON_THROW_ON_ERROR);
 
             $this->validateAuthorizationCode($authCodePayload, $client, $request);
 
@@ -457,7 +446,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         /** @var array $claims */
         $claims = property_exists($authCodePayload, 'claims') ?
-            json_decode(json_encode($authCodePayload->claims), true)
+            json_decode(json_encode($authCodePayload->claims, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR)
             : null;
 
         // Issue and persist new access token

@@ -23,24 +23,12 @@ class AuthContextService
     public const PERM_CLIENT = 'client';
 
     /**
-     * @var ConfigurationService
-     */
-    private ConfigurationService $configurationService;
-
-    /**
-     * @var AuthSimpleFactory
-     */
-    private AuthSimpleFactory $authSimpleFactory;
-
-    /**
      * AuthContextService constructor.
-     * @param ConfigurationService $configurationService
-     * @param AuthSimpleFactory $authSimpleFactory
      */
-    public function __construct(ConfigurationService $configurationService, AuthSimpleFactory $authSimpleFactory)
-    {
-        $this->configurationService = $configurationService;
-        $this->authSimpleFactory = $authSimpleFactory;
+    public function __construct(
+        private ConfigurationService $configurationService,
+        private AuthSimpleFactory $authSimpleFactory
+    ) {
     }
 
     public function isSspAdmin(): bool

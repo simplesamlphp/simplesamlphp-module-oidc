@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Repositories\Interfaces;
 
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
@@ -11,7 +13,6 @@ interface AccessTokenRepositoryInterface extends OAuth2AccessTokenRepositoryInte
 {
     /**
      * Revoke access token(s) associated with the given auth code ID.
-     * @param string $authCodeId
      */
     public function revokeByAuthCodeId(string $authCodeId): void;
 

@@ -16,6 +16,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Repositories;
 
+use JsonException;
 use League\OAuth2\Server\Entities\AuthCodeEntityInterface as OAuth2AuthCodeEntityInterface;
 use RuntimeException;
 use SimpleSAML\Error\Error;
@@ -43,7 +44,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
 
     /**
      * {@inheritdoc}
-     * @throws Error
+     * @throws Error|JsonException
      */
     public function persistNewAuthCode(OAuth2AuthCodeEntityInterface $authCodeEntity): void
     {
@@ -130,7 +131,6 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
     }
 
     /**
-     * @param AuthCodeEntity $authCodeEntity
      * @return void
      */
     private function update(AuthCodeEntity $authCodeEntity): void

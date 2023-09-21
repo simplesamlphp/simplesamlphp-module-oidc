@@ -86,9 +86,6 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
         );
     }
 
-    /**
-     * @param UserEntity $user
-     */
     public function delete(UserEntity $user): void
     {
         $this->database->write(
@@ -99,9 +96,6 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
         );
     }
 
-    /**
-     * @param UserEntity $user
-     */
     public function update(UserEntity $user): void
     {
         $stmt = sprintf(

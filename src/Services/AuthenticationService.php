@@ -35,49 +35,25 @@ class AuthenticationService
 {
     use GetClientFromRequestTrait;
 
-    private UserRepository $userRepository;
-
-    private AuthSimpleFactory $authSimpleFactory;
-
-    private string $userIdAttr;
-
-    private AuthProcService $authProcService;
-
-    private OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService;
-
-    private SessionService $sessionService;
-
     /**
      * ID of auth source used during authn.
      */
     private ?string $authSourceId = null;
 
-    private ClaimTranslatorExtractor $claimTranslatorExtractor;
-
     public function __construct(
-        UserRepository $userRepository,
-        AuthSimpleFactory $authSimpleFactory,
-        AuthProcService $authProcService,
+        private UserRepository $userRepository,
+        private AuthSimpleFactory $authSimpleFactory,
+        private AuthProcService $authProcService,
         ClientRepository $clientRepository,
-        OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService,
-        SessionService $sessionService,
-        ClaimTranslatorExtractor $claimTranslatorExtractor,
-        string $userIdAttr
+        private OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService,
+        private SessionService $sessionService,
+        private ClaimTranslatorExtractor $claimTranslatorExtractor,
+        private string $userIdAttr
     ) {
-        $this->userRepository = $userRepository;
-        $this->authSimpleFactory = $authSimpleFactory;
-        $this->authProcService = $authProcService;
         $this->clientRepository = $clientRepository;
-        $this->oidcOpenIdProviderMetadataService = $oidcOpenIdProviderMetadataService;
-        $this->sessionService = $sessionService;
-        $this->claimTranslatorExtractor = $claimTranslatorExtractor;
-        $this->userIdAttr = $userIdAttr;
     }
 
     /**
-     * @param ServerRequestInterface $request
-     * @param array $loginParams
-     * @param bool $forceAuthn
      * @return UserEntity
      * @throws Error\Exception
      * @throws Error\AuthSource
@@ -145,9 +121,6 @@ class AuthenticationService
     }
 
     /**
-     * @param Simple $authSimple
-     * @param ClientEntityInterface $client
-     * @param ServerRequestInterface $request
      * @return array
      */
     private function prepareStateArray(
@@ -159,9 +132,11 @@ class AuthenticationService
 
         $state['Oidc'] = [
             'OpenIdProviderMetadata' => $this->oidcOpenIdProviderMetadataService->getMetadata(),
-            'RelyingPartyMetadata' => array_filter($client->toArray(), function (string $key) {
-                return $key !== 'secret';
-            }, ARRAY_FILTER_USE_KEY),
+            'RelyingPartyMetadata' => array_filter(
+                $client->toArray(),
+                fn(string $key) => $key !== 'secret',
+                ARRAY_FILTER_USE_KEY
+            ),
             'AuthorizationRequestParameters' => array_filter($request->getQueryParams(), function (string $key) {
                 $relevantAuthzParams = ['response_type', 'client_id', 'redirect_uri', 'scope', 'code_challenge_method'];
                 return in_array($key, $relevantAuthzParams);
@@ -194,8 +169,6 @@ class AuthenticationService
 
     /**
      * Store Relying Party Association to the current session.
-     * @param ClientEntityInterface $oidcClient
-     * @param UserEntity $user
      * @throws Exception
      */
     protected function addRelyingPartyAssociation(ClientEntityInterface $oidcClient, UserEntity $user): void

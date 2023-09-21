@@ -16,6 +16,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controller\Traits;
 
+use SimpleSAML\Error\Exception;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Error\NotFound;
@@ -30,7 +31,7 @@ trait AuthenticatedGetClientFromRequestTrait
     private AuthContextService $authContextService;
 
     /**
-     * @throws BadRequest|NotFound|\SimpleSAML\Error\Exception
+     * @throws BadRequest|NotFound|Exception
      */
     protected function getClientFromRequest(ServerRequestInterface $request): ClientEntityInterface
     {

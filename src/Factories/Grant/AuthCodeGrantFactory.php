@@ -26,49 +26,14 @@ use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 
 class AuthCodeGrantFactory
 {
-    /**
-     * @var AuthCodeRepository
-     */
-    private AuthCodeRepository $authCodeRepository;
-
-    /**
-     * @var AccessTokenRepository
-     */
-    private AccessTokenRepository $accessTokenRepository;
-
-    /**
-     * @var RefreshTokenRepository
-     */
-    private RefreshTokenRepository $refreshTokenRepository;
-
-    /**
-     * @var DateInterval
-     */
-    private DateInterval $refreshTokenDuration;
-
-    /**
-     * @var DateInterval
-     */
-    private DateInterval $authCodeDuration;
-    /**
-     * @var RequestRulesManager
-     */
-    private RequestRulesManager $requestRulesManager;
-
     public function __construct(
-        AuthCodeRepository $authCodeRepository,
-        AccessTokenRepository $accessTokenRepository,
-        RefreshTokenRepository $refreshTokenRepository,
-        DateInterval $refreshTokenDuration,
-        DateInterval $authCodeDuration,
-        RequestRulesManager $requestRulesManager
+        private AuthCodeRepository $authCodeRepository,
+        private AccessTokenRepository $accessTokenRepository,
+        private RefreshTokenRepository $refreshTokenRepository,
+        private DateInterval $refreshTokenDuration,
+        private DateInterval $authCodeDuration,
+        private RequestRulesManager $requestRulesManager
     ) {
-        $this->authCodeRepository = $authCodeRepository;
-        $this->accessTokenRepository = $accessTokenRepository;
-        $this->refreshTokenRepository = $refreshTokenRepository;
-        $this->refreshTokenDuration = $refreshTokenDuration;
-        $this->authCodeDuration = $authCodeDuration;
-        $this->requestRulesManager = $requestRulesManager;
     }
 
     /**

@@ -16,6 +16,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Entity;
 
+use Stringable;
 use DateTimeImmutable;
 use Lcobucci\JWT\Token;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
@@ -36,9 +37,7 @@ use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 /**
  * @psalm-suppress PropertyNotSetInConstructor
  */
-class AccessTokenEntity implements
-    AccessTokenEntityInterface,
-    EntityStringRepresentationInterface
+class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepresentationInterface, Stringable
 {
     use AccessTokenTrait;
     use TokenEntityTrait;
@@ -107,15 +106,13 @@ class AccessTokenEntity implements
             throw OidcServerException::serverError('Invalid Access Token Entity state');
         }
 
-        $stateScopes = json_decode($state['scopes'], true);
+        $stateScopes = json_decode($state['scopes'], true, 512, JSON_THROW_ON_ERROR);
         if (!is_array($stateScopes)) {
             throw OidcServerException::serverError('Invalid Access Token Entity state: scopes');
         }
 
         /** @psalm-var string $scope */
-        $scopes = array_map(function (string $scope) {
-            return ScopeEntity::fromData($scope);
-        }, $stateScopes);
+        $scopes = array_map(fn(string $scope) => ScopeEntity::fromData($scope), $stateScopes);
 
         $accessToken->identifier = $state['id'];
         $accessToken->scopes = $scopes;
@@ -129,7 +126,9 @@ class AccessTokenEntity implements
 
         $stateRequestedClaims = json_decode(
             empty($state['requested_claims']) ? '[]' : (string)$state['requested_claims'],
-            true
+            true,
+            512,
+            JSON_THROW_ON_ERROR
         );
         if (!is_array($stateRequestedClaims)) {
             throw OidcServerException::serverError('Invalid Access Token Entity state: requested claims');
@@ -147,9 +146,6 @@ class AccessTokenEntity implements
         return $this->requestedClaims;
     }
 
-    /**
-     * @param array $requestedClaims
-     */
     public function setRequestedClaims(array $requestedClaims): void
     {
         $this->requestedClaims = $requestedClaims;
@@ -162,13 +158,13 @@ class AccessTokenEntity implements
     {
         return [
             'id' => $this->getIdentifier(),
-            'scopes' => json_encode($this->scopes),
+            'scopes' => json_encode($this->scopes, JSON_THROW_ON_ERROR),
             'expires_at' => $this->getExpiryDateTime()->format('Y-m-d H:i:s'),
             'user_id' => $this->getUserIdentifier(),
             'client_id' => $this->getClient()->getIdentifier(),
             'is_revoked' => (int) $this->isRevoked(),
             'auth_code_id' => $this->getAuthCodeId(),
-            'requested_claims' => json_encode($this->requestedClaims)
+            'requested_claims' => json_encode($this->requestedClaims, JSON_THROW_ON_ERROR)
         ];
     }
 
