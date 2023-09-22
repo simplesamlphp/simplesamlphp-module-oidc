@@ -17,10 +17,10 @@ namespace SimpleSAML\Module\oidc\Factories;
 
 use Exception;
 use SimpleSAML\Auth\Simple;
+use SimpleSAML\Module\oidc\ConfigurationService;
 use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
 
 class AuthSimpleFactory
 {

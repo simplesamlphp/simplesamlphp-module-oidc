@@ -4,16 +4,16 @@ namespace SimpleSAML\Test\Module\oidc\Controller;
 
 use Laminas\Diactoros\ServerRequest;
 use League\OAuth2\Server\Exception\OAuthServerException;
+use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 use SimpleSAML\Error;
+use SimpleSAML\Module\oidc\ConfigurationService;
 use SimpleSAML\Module\oidc\Controller\OAuth2AuthorizationController;
-use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 
 /**

@@ -4,8 +4,8 @@ namespace SimpleSAML\Test\Module\oidc\Factories;
 
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
+use SimpleSAML\Module\oidc\ConfigurationService;
 use SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
 /**

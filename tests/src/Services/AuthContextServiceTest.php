@@ -2,13 +2,13 @@
 
 namespace SimpleSAML\Test\Module\oidc\Services;
 
+use PHPUnit\Framework\TestCase;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Configuration;
 use SimpleSAML\Error\Exception;
+use SimpleSAML\Module\oidc\ConfigurationService;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
-use PHPUnit\Framework\TestCase;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Services\AuthContextService

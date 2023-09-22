@@ -14,7 +14,7 @@ declare(strict_types=1);
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Module\oidc\Services;
+namespace SimpleSAML\Module\oidc;
 
 use Exception;
 use Lcobucci\JWT\Signer;

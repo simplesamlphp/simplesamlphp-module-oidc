@@ -1,13 +1,12 @@
 <?php
 
-namespace SimpleSAML\Test\Module\oidc\Services;
+namespace SimpleSAML\Test\Module\oidc;
 
-use SimpleSAML\Configuration;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Configuration;
 
 /**
- * @covers \SimpleSAML\Module\oidc\Services\ConfigurationService
+ * @covers \SimpleSAML\Module\oidc\ConfigurationService
  */
 class ConfigurationServiceTest extends TestCase
 {
@@ -27,7 +26,7 @@ class ConfigurationServiceTest extends TestCase
             'module_oidc.php'
         );
         // Test default cert and pem
-        $service = new ConfigurationService();
+        $service = new \SimpleSAML\Module\oidc\ConfigurationService();
         $this->assertEquals($certDir . 'oidc_module.crt', $service->getCertPath());
         $this->assertEquals($certDir . 'oidc_module.key', $service->getPrivateKeyPath());
 
@@ -41,7 +40,7 @@ class ConfigurationServiceTest extends TestCase
             ),
             'module_oidc.php'
         );
-        $service = new ConfigurationService();
+        $service = new \SimpleSAML\Module\oidc\ConfigurationService();
         $this->assertEquals($certDir . 'myCertificate.crt', $service->getCertPath());
         $this->assertEquals($certDir . 'myPrivateKey.key', $service->getPrivateKeyPath());
     }

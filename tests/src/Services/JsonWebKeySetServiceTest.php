@@ -18,7 +18,7 @@ use Jose\Component\Core\JWKSet;
 use Jose\Component\KeyManagement\JWKFactory;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
 use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
 

@@ -24,6 +24,7 @@ use SimpleSAML\Configuration;
 use SimpleSAML\Database;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Metadata\MetaDataStorageHandler;
+use SimpleSAML\Module\oidc\ConfigurationService;
 use SimpleSAML\Module\oidc\Factories\AuthorizationServerFactory;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory;

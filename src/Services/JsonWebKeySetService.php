@@ -19,8 +19,8 @@ use Jose\Component\Core\JWK;
 use Jose\Component\Core\JWKSet;
 use Jose\Component\KeyManagement\JWKFactory;
 use SimpleSAML\Error\Exception;
+use SimpleSAML\Module\oidc\ConfigurationService;
 use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
-use SimpleSAML\Utils\Config;
 
 class JsonWebKeySetService
 {

@@ -10,12 +10,11 @@ use Lcobucci\JWT\Validation\Constraint\IssuedBy;
 use Lcobucci\JWT\Validation\Constraint\PermittedFor;
 use Lcobucci\JWT\Validation\Constraint\RelatedTo;
 use Lcobucci\JWT\Validation\Constraint\SignedWith;
+use PHPUnit\Framework\TestCase;
 use ReflectionException;
 use SimpleSAML\Module\oidc\Server\Associations\Interfaces\RelyingPartyAssociationInterface;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 use SimpleSAML\Module\oidc\Services\LogoutTokenBuilder;
-use PHPUnit\Framework\TestCase;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Services\LogoutTokenBuilder
@@ -56,7 +55,7 @@ class LogoutTokenBuilderTest extends TestCase
      */
     public function setUp(): void
     {
-        $this->configurationServiceStub = $this->createStub(ConfigurationService::class);
+        $this->configurationServiceStub = $this->createStub(\SimpleSAML\Module\oidc\ConfigurationService::class);
         $this->configurationServiceStub->method('getSigner')->willReturn(self::$signerSha256);
         $this->configurationServiceStub->method('getPrivateKeyPath')->willReturn(self::$privateKeyPath);
         $this->configurationServiceStub->method('getCertPath')->willReturn(self::$publicKeyPath);

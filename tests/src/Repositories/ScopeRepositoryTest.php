@@ -14,12 +14,11 @@
 
 namespace SimpleSAML\Test\Module\oidc\Repositories;
 
-use League\OAuth2\Server\Exception\OAuthServerException;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
+use SimpleSAML\Module\oidc\ConfigurationService;
 use SimpleSAML\Module\oidc\Entity\ScopeEntity;
 use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 
 /**

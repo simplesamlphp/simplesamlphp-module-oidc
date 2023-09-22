@@ -4,11 +4,11 @@ namespace SimpleSAML\Test\Module\oidc\Controller;
 
 use Laminas\Diactoros\Response\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;
+use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\UriInterface;
 use SimpleSAML\Error\BadRequest;
-use SimpleSAML\Error\NotFound;
+use SimpleSAML\Module\oidc\ConfigurationService;
 use SimpleSAML\Module\oidc\Controller\ClientEditController;
-use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
@@ -16,7 +16,6 @@ use SimpleSAML\Module\oidc\Form\ClientForm;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\XHTML\Template;
 

@@ -19,8 +19,8 @@ namespace SimpleSAML\Module\oidc\Form;
 use Exception;
 use Nette\Forms\Form;
 use SimpleSAML\Auth\Source;
+use SimpleSAML\Module\oidc\ConfigurationService;
 use SimpleSAML\Module\oidc\Form\Controls\CsrfProtection;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use Traversable;
 
 class ClientForm extends Form

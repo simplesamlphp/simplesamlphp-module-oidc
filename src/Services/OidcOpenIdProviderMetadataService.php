@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Services;
 
 use Exception;
+use SimpleSAML\Module\oidc\ConfigurationService;
 
 /**
  * OpenID Provider Metadata Service - provides information about OIDC authentication server.

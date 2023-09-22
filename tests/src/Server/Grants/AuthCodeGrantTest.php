@@ -2,12 +2,12 @@
 
 namespace SimpleSAML\Test\Module\oidc\Server\Grants;
 
+use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\ConfigurationService;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
-use PHPUnit\Framework\TestCase;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 
 /**

@@ -17,8 +17,8 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Factories;
 
 use Exception;
+use SimpleSAML\Module\oidc\ConfigurationService;
 use SimpleSAML\Module\oidc\Entity\ClaimSetEntity;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
 class ClaimTranslatorExtractorFactory

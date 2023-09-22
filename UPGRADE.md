@@ -30,6 +30,7 @@ match expressions, enums...
 - TODO move to SSP (symfony) container
 - TODO remove dependency on laminas/laminas-diactoros
 - TODO remove dependency on laminas/laminas-httphandlerrunner
+- TODO create a bridge towards SSP utility classes, so they can be easily mocked
 
 # Version 3 to 4
 - PHP version requirement was bumped to v8.0 to enable updating important dependant packages like 'league/oauth2-server'

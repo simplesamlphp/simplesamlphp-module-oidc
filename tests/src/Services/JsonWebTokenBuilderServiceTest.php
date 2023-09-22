@@ -11,10 +11,10 @@ use Lcobucci\JWT\UnencryptedToken;
 use Lcobucci\JWT\Validation\Constraint\IssuedBy;
 use Lcobucci\JWT\Validation\Constraint\SignedWith;
 use League\OAuth2\Server\Exception\OAuthServerException;
-use ReflectionException;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
-use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 use PHPUnit\Framework\TestCase;
+use ReflectionException;
+use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService

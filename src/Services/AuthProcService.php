@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Services;
 use Exception;
 use SimpleSAML\Auth\ProcessingFilter;
 use SimpleSAML\Module;
+use SimpleSAML\Module\oidc\ConfigurationService;
 
 class AuthProcService
 {

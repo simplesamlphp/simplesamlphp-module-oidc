@@ -17,7 +17,7 @@ namespace SimpleSAML\Module\oidc\Factories;
 
 use Nette\Forms\Form;
 use SimpleSAML\Error\Exception;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\ConfigurationService;
 
 class FormFactory
 {

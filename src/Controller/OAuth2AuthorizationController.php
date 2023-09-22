@@ -17,16 +17,16 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Controller;
 
 use Exception;
+use Laminas\Diactoros\Response;
+use Laminas\Diactoros\ServerRequest;
 use League\OAuth2\Server\Exception\OAuthServerException;
-use SimpleSAML\Error;
 use Psr\Http\Message\ResponseInterface;
+use SimpleSAML\Error;
+use SimpleSAML\Module\oidc\ConfigurationService;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
-use Laminas\Diactoros\Response;
-use Laminas\Diactoros\ServerRequest;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use Throwable;
 

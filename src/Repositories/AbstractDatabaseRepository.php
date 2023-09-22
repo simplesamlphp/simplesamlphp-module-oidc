@@ -18,7 +18,7 @@ namespace SimpleSAML\Module\oidc\Repositories;
 use Exception;
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\ConfigurationService;
 
 abstract class AbstractDatabaseRepository
 {

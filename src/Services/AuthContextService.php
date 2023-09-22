@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Services;
 use RuntimeException;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Error\Exception;
+use SimpleSAML\Module\oidc\ConfigurationService;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Utils\Attributes;
 use SimpleSAML\Utils\Auth;

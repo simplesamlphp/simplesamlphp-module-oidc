@@ -2,11 +2,11 @@
 
 namespace SimpleSAML\Test\Module\oidc\Repositories;
 
-use SimpleSAML\Configuration;
-use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Configuration;
+use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 
 /**

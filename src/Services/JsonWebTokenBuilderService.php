@@ -14,6 +14,7 @@ use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\UnencryptedToken;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use ReflectionException;
+use SimpleSAML\Module\oidc\ConfigurationService;
 use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
 use SimpleSAML\Module\oidc\Utils\UniqueIdentifierGenerator;
 

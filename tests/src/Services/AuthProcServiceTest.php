@@ -2,9 +2,8 @@
 
 namespace SimpleSAML\Test\Module\oidc\Services;
 
-use SimpleSAML\Module\oidc\Services\AuthProcService;
 use PHPUnit\Framework\TestCase;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Services\AuthProcService;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Services\AuthProcService
@@ -15,7 +14,7 @@ class AuthProcServiceTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->configurationServiceMock = $this->createMock(ConfigurationService::class);
+        $this->configurationServiceMock = $this->createMock(\SimpleSAML\Module\oidc\ConfigurationService::class);
     }
 
     public function prepareMockedInstance(): AuthProcService
