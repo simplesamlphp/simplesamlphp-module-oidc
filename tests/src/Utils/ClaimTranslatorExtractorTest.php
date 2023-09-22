@@ -1,14 +1,14 @@
 <?php
 
-namespace SimpleSAML\Test\Module\oidc;
+namespace SimpleSAML\Test\Module\oidc\Utils;
 
-use SimpleSAML\Module\oidc\Entity\ClaimSetEntity;
 use PHPUnit\Framework\TestCase;
-use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Entity\ClaimSetEntity;
+use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Utils\Attributes;
 
 /**
- * @covers \SimpleSAML\Module\oidc\ClaimTranslatorExtractor
+ * @covers \SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor
  */
 class ClaimTranslatorExtractorTest extends TestCase
 {

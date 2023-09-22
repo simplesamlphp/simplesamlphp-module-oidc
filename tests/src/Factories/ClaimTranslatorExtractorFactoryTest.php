@@ -2,11 +2,11 @@
 
 namespace SimpleSAML\Test\Module\oidc\Factories;
 
-use SimpleSAML\Configuration;
-use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
-use SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Configuration;
+use SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory

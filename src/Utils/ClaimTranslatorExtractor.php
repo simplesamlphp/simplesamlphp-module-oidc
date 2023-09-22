@@ -20,14 +20,14 @@ declare(strict_types=1);
  * @license http://opensource.org/licenses/MIT MIT
  */
 
-namespace SimpleSAML\Module\oidc;
+namespace SimpleSAML\Module\oidc\Utils;
 
 use Lcobucci\JWT\Token\RegisteredClaims;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
+use RuntimeException;
 use SimpleSAML\Module\oidc\Entity\ClaimSetEntity;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClaimSetEntityInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use RuntimeException;
 
 class ClaimTranslatorExtractor
 {

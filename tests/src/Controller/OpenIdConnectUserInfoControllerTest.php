@@ -4,17 +4,17 @@ namespace SimpleSAML\Test\Module\oidc\Controller;
 
 use Laminas\Diactoros\ServerRequest;
 use League\OAuth2\Server\ResourceServer;
+use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Error\UserNotFound;
-use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Controller\OpenIdConnectUserInfoController;
-use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Controller\OpenIdConnectUserInfoController

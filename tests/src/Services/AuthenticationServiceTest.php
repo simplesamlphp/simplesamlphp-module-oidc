@@ -4,22 +4,21 @@ namespace SimpleSAML\Test\Module\oidc\Services;
 
 use Laminas\Diactoros\ServerRequest;
 use Laminas\Diactoros\Uri;
+use PHPUnit\Framework\TestCase;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Auth\Source;
 use SimpleSAML\Error\Exception;
-use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
-use SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
-use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Services\AuthProcService;
 use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\OidcOpenIdProviderMetadataService;
 use SimpleSAML\Module\oidc\Services\SessionService;
+use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Session;
 
 /**

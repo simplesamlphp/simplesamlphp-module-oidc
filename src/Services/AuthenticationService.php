@@ -21,7 +21,6 @@ use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Auth\State;
 use SimpleSAML\Error;
-use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Controller\LogoutController;
 use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
@@ -30,6 +29,7 @@ use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation;
+use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
 class AuthenticationService
 {

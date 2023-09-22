@@ -16,20 +16,18 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controller;
 
+use Laminas\Diactoros\Response;
 use Laminas\Diactoros\Response\JsonResponse;
 use Laminas\Diactoros\ServerRequest;
-use Laminas\Diactoros\Response;
 use League\OAuth2\Server\ResourceServer;
 use SimpleSAML\Error\UserNotFound;
-use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-
-use function PHPUnit\Framework\throwException;
+use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
 class OpenIdConnectUserInfoController
 {

@@ -24,4 +24,4 @@ services:
         class: League\OAuth2\Server\ResourceServer
 
     SimpleSAML\Module\oidc\ClaimTranslatorExtractor:
-        class: SimpleSAML\Module\oidc\ClaimTranslatorExtractor
+        class: SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor

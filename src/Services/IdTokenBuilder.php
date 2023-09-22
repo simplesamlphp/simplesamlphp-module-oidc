@@ -13,11 +13,11 @@ use Lcobucci\JWT\UnencryptedToken;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClaimSetInterface;
 use RuntimeException;
-use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entity\Interfaces\ClaimSetInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
+use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
 class IdTokenBuilder
 {
