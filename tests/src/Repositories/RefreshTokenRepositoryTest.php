@@ -16,7 +16,7 @@ namespace SimpleSAML\Test\Module\oidc\Repositories;
 
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
@@ -55,19 +55,19 @@ class RefreshTokenRepositoryTest extends TestCase
         Configuration::loadFromArray($config, '', 'simplesaml');
         (new DatabaseMigration())->migrate();
 
-        $configurationService = new ConfigurationService();
+        $moduleConfig = new ModuleConfig();
 
         $client = ClientRepositoryTest::getClient(self::CLIENT_ID);
-        (new ClientRepository($configurationService))->add($client);
+        (new ClientRepository($moduleConfig))->add($client);
         $user = UserEntity::fromData(self::USER_ID);
-        (new UserRepository($configurationService))->add($user);
+        (new UserRepository($moduleConfig))->add($user);
 
         $accessToken = AccessTokenEntity::fromData($client, [], self::USER_ID);
         $accessToken->setIdentifier(self::ACCESS_TOKEN_ID);
         $accessToken->setExpiryDateTime(new \DateTimeImmutable('yesterday'));
-        (new AccessTokenRepository($configurationService))->persistNewAccessToken($accessToken);
+        (new AccessTokenRepository($moduleConfig))->persistNewAccessToken($accessToken);
 
-        self::$repository = new RefreshTokenRepository($configurationService);
+        self::$repository = new RefreshTokenRepository($moduleConfig);
     }
 
     public function testGetTableName(): void
@@ -77,8 +77,8 @@ class RefreshTokenRepositoryTest extends TestCase
 
     public function testAddAndFound(): void
     {
-        $configurationService = new ConfigurationService();
-        $accessToken = (new AccessTokenRepository($configurationService))->findById(self::ACCESS_TOKEN_ID);
+        $moduleConfig = new ModuleConfig();
+        $accessToken = (new AccessTokenRepository($moduleConfig))->findById(self::ACCESS_TOKEN_ID);
 
         $refreshToken = self::$repository->getNewRefreshToken();
         $refreshToken->setIdentifier(self::REFRESH_TOKEN_ID);

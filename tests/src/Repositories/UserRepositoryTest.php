@@ -16,7 +16,7 @@ namespace SimpleSAML\Test\Module\oidc\Repositories;
 
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
@@ -45,9 +45,9 @@ class UserRepositoryTest extends TestCase
         Configuration::loadFromArray($config, '', 'simplesaml');
         (new DatabaseMigration())->migrate();
 
-        $configurationService = new ConfigurationService();
+        $moduleConfig = new ModuleConfig();
 
-        self::$repository = new UserRepository($configurationService);
+        self::$repository = new UserRepository($moduleConfig);
     }
 
     public function testGetTableName(): void

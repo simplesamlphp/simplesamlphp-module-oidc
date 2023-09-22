@@ -35,7 +35,7 @@ class LogoutTokenBuilderTest extends TestCase
     /**
      * @var mixed
      */
-    private $configurationServiceStub;
+    private $moduleConfigStub;
     /**
      * @var mixed
      */
@@ -55,11 +55,11 @@ class LogoutTokenBuilderTest extends TestCase
      */
     public function setUp(): void
     {
-        $this->configurationServiceStub = $this->createStub(\SimpleSAML\Module\oidc\ConfigurationService::class);
-        $this->configurationServiceStub->method('getSigner')->willReturn(self::$signerSha256);
-        $this->configurationServiceStub->method('getPrivateKeyPath')->willReturn(self::$privateKeyPath);
-        $this->configurationServiceStub->method('getCertPath')->willReturn(self::$publicKeyPath);
-        $this->configurationServiceStub->method('getSimpleSAMLSelfURLHost')->willReturn(self::$selfUrlHost);
+        $this->moduleConfigStub = $this->createStub(\SimpleSAML\Module\oidc\ModuleConfig::class);
+        $this->moduleConfigStub->method('getSigner')->willReturn(self::$signerSha256);
+        $this->moduleConfigStub->method('getPrivateKeyPath')->willReturn(self::$privateKeyPath);
+        $this->moduleConfigStub->method('getCertPath')->willReturn(self::$publicKeyPath);
+        $this->moduleConfigStub->method('getSimpleSAMLSelfURLHost')->willReturn(self::$selfUrlHost);
 
         $this->relyingPartyAssociationStub = $this->createStub(RelyingPartyAssociationInterface::class);
         $this->relyingPartyAssociationStub->method('getClientId')->willReturn(self::$clientId);
@@ -69,7 +69,7 @@ class LogoutTokenBuilderTest extends TestCase
             ->method('getBackChannelLogoutUri')
             ->willReturn(self::$backChannelLogoutUri);
 
-        $this->jsonWebTokenBuilderService = new JsonWebTokenBuilderService($this->configurationServiceStub);
+        $this->jsonWebTokenBuilderService = new JsonWebTokenBuilderService($this->moduleConfigStub);
     }
 
     /**
@@ -84,12 +84,12 @@ class LogoutTokenBuilderTest extends TestCase
 
         // Check token validity
         $jwtConfig = Configuration::forAsymmetricSigner(
-            $this->configurationServiceStub->getSigner(),
+            $this->moduleConfigStub->getSigner(),
             InMemory::file(
-                $this->configurationServiceStub->getPrivateKeyPath(),
-                $this->configurationServiceStub->getPrivateKeyPassPhrase() ?? ''
+                $this->moduleConfigStub->getPrivateKeyPath(),
+                $this->moduleConfigStub->getPrivateKeyPassPhrase() ?? ''
             ),
-            InMemory::file($this->configurationServiceStub->getCertPath())
+            InMemory::file($this->moduleConfigStub->getCertPath())
         );
 
         $parsedToken = $jwtConfig->parser()->parse($token);
@@ -101,8 +101,8 @@ class LogoutTokenBuilderTest extends TestCase
                 new PermittedFor(self::$clientId),
                 new RelatedTo(self::$userId),
                 new SignedWith(
-                    $this->configurationServiceStub->getSigner(),
-                    InMemory::file($this->configurationServiceStub->getCertPath())
+                    $this->moduleConfigStub->getSigner(),
+                    InMemory::file($this->moduleConfigStub->getCertPath())
                 )
             )
         );

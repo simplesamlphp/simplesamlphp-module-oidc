@@ -4,7 +4,7 @@ namespace SimpleSAML\Test\Module\oidc\Factories;
 
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
@@ -16,12 +16,12 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
     /**
      * @var \PHPUnit\Framework\MockObject\MockObject
      */
-    protected $configurationServiceMock;
+    protected $moduleConfigMock;
 
     protected function setUp(): void
     {
-        $this->configurationServiceMock = $this->createMock(ConfigurationService::class);
-        $this->configurationServiceMock
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->moduleConfigMock
             ->method('getOpenIDConnectConfiguration')
             ->willReturn(
                 Configuration::loadFromArray(
@@ -42,7 +42,7 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
                     ]
                 )
             );
-        $this->configurationServiceMock
+        $this->moduleConfigMock
             ->method('getOpenIDPrivateScopes')
             ->willReturn(
                 [
@@ -63,7 +63,7 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
 
     protected function prepareMockedInstance(): ClaimTranslatorExtractorFactory
     {
-        return new ClaimTranslatorExtractorFactory($this->configurationServiceMock);
+        return new ClaimTranslatorExtractorFactory($this->moduleConfigMock);
     }
 
     public function testCanCreateInstance(): void

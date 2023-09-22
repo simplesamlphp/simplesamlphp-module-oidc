@@ -19,7 +19,7 @@ namespace SimpleSAML\Module\oidc\Form;
 use Exception;
 use Nette\Forms\Form;
 use SimpleSAML\Auth\Source;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Form\Controls\CsrfProtection;
 use Traversable;
 
@@ -48,7 +48,7 @@ class ClientForm extends Form
     /**
      * @throws Exception
      */
-    public function __construct(private readonly ConfigurationService $configurationService)
+    public function __construct(private readonly ModuleConfig $moduleConfig)
     {
         parent::__construct();
 
@@ -248,7 +248,7 @@ class ClientForm extends Form
     {
         return array_map(
             fn(array $item): mixed => $item['description'],
-            $this->configurationService->getOpenIDScopes()
+            $this->moduleConfig->getOpenIDScopes()
         );
     }
 

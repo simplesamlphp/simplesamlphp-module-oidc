@@ -19,7 +19,7 @@ use Jose\Component\Core\JWK;
 use Jose\Component\Core\JWKSet;
 use Jose\Component\KeyManagement\JWKFactory;
 use SimpleSAML\Error\Exception;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
 
 class JsonWebKeySetService
@@ -29,9 +29,9 @@ class JsonWebKeySetService
     /**
      * @throws Exception
      */
-    public function __construct(ConfigurationService $configurationService)
+    public function __construct(ModuleConfig $moduleConfig)
     {
-        $publicKeyPath = $configurationService->getCertPath();
+        $publicKeyPath = $moduleConfig->getCertPath();
         if (!file_exists($publicKeyPath)) {
             throw new Exception("OpenId Connect certification file does not exists: $publicKeyPath.");
         }

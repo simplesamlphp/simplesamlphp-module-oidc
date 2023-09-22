@@ -10,16 +10,16 @@ use SimpleSAML\Module\oidc\Services\AuthProcService;
  */
 class AuthProcServiceTest extends TestCase
 {
-    protected \PHPUnit\Framework\MockObject\MockObject $configurationServiceMock;
+    protected \PHPUnit\Framework\MockObject\MockObject $moduleConfigMock;
 
     protected function setUp(): void
     {
-        $this->configurationServiceMock = $this->createMock(\SimpleSAML\Module\oidc\ConfigurationService::class);
+        $this->moduleConfigMock = $this->createMock(\SimpleSAML\Module\oidc\ModuleConfig::class);
     }
 
     public function prepareMockedInstance(): AuthProcService
     {
-        return new AuthProcService($this->configurationServiceMock);
+        return new AuthProcService($this->moduleConfigMock);
     }
 
     public function testItIsInitializable(): void
@@ -32,7 +32,7 @@ class AuthProcServiceTest extends TestCase
 
     public function testItLoadsConfiguredFilters(): void
     {
-        $this->configurationServiceMock->method('getAuthProcFilters')
+        $this->moduleConfigMock->method('getAuthProcFilters')
             ->willReturn(['\SimpleSAML\Module\core\Auth\Process\AttributeAdd',]);
 
         $authProcService = $this->prepareMockedInstance();
@@ -48,7 +48,7 @@ class AuthProcServiceTest extends TestCase
                 'newKey' => ['newValue']
             ],
         ];
-        $this->configurationServiceMock->method('getAuthProcFilters')->willReturn($sampleFilters);
+        $this->moduleConfigMock->method('getAuthProcFilters')->willReturn($sampleFilters);
 
         $state = ['Attributes' => ['existingKey' => ['existingValue']]];
 

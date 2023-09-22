@@ -21,7 +21,7 @@ use Lcobucci\JWT\Validation\Validator;
 use League\OAuth2\Server\CryptKey;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Entity\ScopeEntity;
@@ -50,7 +50,7 @@ class IdTokenResponseTest extends TestCase
     protected \PHPUnit\Framework\MockObject\MockObject $clientEntityMock;
     protected \PHPUnit\Framework\MockObject\MockObject $accessTokenEntityMock;
     protected \PHPUnit\Framework\MockObject\MockObject $identityProviderMock;
-    protected \PHPUnit\Framework\MockObject\MockObject $configurationServiceMock;
+    protected \PHPUnit\Framework\MockObject\MockObject $moduleConfigMock;
     protected \PHPUnit\Framework\MockObject\MockObject $sspConfigurationMock;
     protected CryptKey $privateKey;
     protected IdTokenBuilder $idTokenBuilder;
@@ -84,24 +84,24 @@ class IdTokenResponseTest extends TestCase
             ->with(self::SUBJECT)
             ->willReturn($this->userEntity);
 
-        $this->configurationServiceMock = $this->createMock(ConfigurationService::class);
-        $this->configurationServiceMock->method('getSigner')->willReturn(new Sha256());
-        $this->configurationServiceMock->method('getSimpleSAMLSelfURLHost')->willReturn(self::ISSUER);
-        $this->configurationServiceMock->method('getCertPath')
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->moduleConfigMock->method('getSigner')->willReturn(new Sha256());
+        $this->moduleConfigMock->method('getSimpleSAMLSelfURLHost')->willReturn(self::ISSUER);
+        $this->moduleConfigMock->method('getCertPath')
             ->willReturn($this->certFolder . '/oidc_module.crt');
-        $this->configurationServiceMock->method('getPrivateKeyPath')
+        $this->moduleConfigMock->method('getPrivateKeyPath')
             ->willReturn($this->certFolder . '/oidc_module.key');
-        $this->configurationServiceMock
+        $this->moduleConfigMock
             ->expects($this->atLeast(1))
             ->method('getPrivateKeyPassPhrase');
         $this->sspConfigurationMock = $this->createMock(Configuration::class);
-        $this->configurationServiceMock->method('getOpenIDConnectConfiguration')
+        $this->moduleConfigMock->method('getOpenIDConnectConfiguration')
             ->willReturn($this->sspConfigurationMock);
 
         $this->privateKey = new CryptKey($this->certFolder . '/oidc_module.key', null, false);
 
         $this->idTokenBuilder = new IdTokenBuilder(
-            new JsonWebTokenBuilderService($this->configurationServiceMock),
+            new JsonWebTokenBuilderService($this->moduleConfigMock),
             new ClaimTranslatorExtractor(self::USER_ID_ATTR)
         );
     }

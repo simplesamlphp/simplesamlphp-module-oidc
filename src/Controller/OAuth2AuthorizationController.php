@@ -22,7 +22,7 @@ use Laminas\Diactoros\ServerRequest;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ResponseInterface;
 use SimpleSAML\Error;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
@@ -35,7 +35,7 @@ class OAuth2AuthorizationController
     public function __construct(
         private readonly AuthenticationService $authenticationService,
         private readonly AuthorizationServer $authorizationServer,
-        private readonly ConfigurationService $configurationService,
+        private readonly ModuleConfig $moduleConfig,
         private readonly LoggerService $loggerService
     ) {
     }
@@ -96,12 +96,12 @@ class OAuth2AuthorizationController
             throw OidcServerException::serverError('isCookieBasedAuthn not set on authz request');
         }
 
-        $authSourceToAcrValuesMap = $this->configurationService->getAuthSourcesToAcrValuesMap();
+        $authSourceToAcrValuesMap = $this->moduleConfig->getAuthSourcesToAcrValuesMap();
 
         $availableAuthSourceAcrs = is_array($authSourceToAcrValuesMap[$authSourceId]) ?
             $authSourceToAcrValuesMap[$authSourceId] :
             [];
-        $forcedAcrForCookieAuthentication = $this->configurationService->getForcedAcrValueForCookieAuthentication();
+        $forcedAcrForCookieAuthentication = $this->moduleConfig->getForcedAcrValueForCookieAuthentication();
 
         if ($forcedAcrForCookieAuthentication !== null && $isCookieBasedAuthn) {
             $availableAuthSourceAcrs = [$forcedAcrForCookieAuthentication];

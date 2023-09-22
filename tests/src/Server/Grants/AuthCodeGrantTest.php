@@ -3,7 +3,7 @@
 namespace SimpleSAML\Test\Module\oidc\Server\Grants;
 
 use PHPUnit\Framework\TestCase;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
@@ -35,7 +35,7 @@ class AuthCodeGrantTest extends TestCase
     /**
      * @var \PHPUnit\Framework\MockObject\Stub
      */
-    protected $configurationServiceStub;
+    protected $moduleConfigStub;
 
     protected function setUp(): void
     {
@@ -44,7 +44,7 @@ class AuthCodeGrantTest extends TestCase
         $this->refreshTokenRepositoryStub = $this->createStub(RefreshTokenRepositoryInterface::class);
         $this->authCodeTtl = new \DateInterval('PT1M');
         $this->requestRulesManagerStub = $this->createStub(RequestRulesManager::class);
-        $this->configurationServiceStub = $this->createStub(ConfigurationService::class);
+        $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
     }
 
     public function testCanCreateInstance(): void
@@ -57,7 +57,7 @@ class AuthCodeGrantTest extends TestCase
                 $this->refreshTokenRepositoryStub,
                 $this->authCodeTtl,
                 $this->requestRulesManagerStub,
-                $this->configurationServiceStub
+                $this->moduleConfigStub
             )
         );
     }

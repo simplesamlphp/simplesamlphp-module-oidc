@@ -7,7 +7,7 @@ namespace SimpleSAML\Module\oidc\Services;
 use RuntimeException;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Error\Exception;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Utils\Attributes;
 use SimpleSAML\Utils\Auth;
@@ -27,13 +27,14 @@ class AuthContextService
      * AuthContextService constructor.
      */
     public function __construct(
-        private readonly ConfigurationService $configurationService,
+        private readonly ModuleConfig $moduleConfig,
         private readonly AuthSimpleFactory $authSimpleFactory
     ) {
     }
 
     public function isSspAdmin(): bool
     {
+        // TODO mivanci make bridge to SSP utility classes (search for SSP namespace through the codebase)
         return (new Auth())->isAdmin();
     }
 
@@ -44,7 +45,7 @@ class AuthContextService
     public function getAuthUserId(): string
     {
         $simple = $this->authenticate();
-        $userIdAttr = $this->configurationService->getOpenIDConnectConfiguration()->getString('useridattr');
+        $userIdAttr = $this->moduleConfig->getOpenIDConnectConfiguration()->getString('useridattr');
         return (string)(new Attributes())->getExpectedAttribute($simple->getAttributes(), $userIdAttr);
     }
 
@@ -57,7 +58,7 @@ class AuthContextService
     {
         $auth = $this->authenticate();
 
-        $permissions = $this->configurationService
+        $permissions = $this->moduleConfig
             ->getOpenIDConnectConfiguration()
             ->getOptionalConfigItem('permissions', null);
         /** @psalm-suppress DocblockTypeContradiction */

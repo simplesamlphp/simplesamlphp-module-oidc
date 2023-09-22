@@ -99,7 +99,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
 
         /** @var array $data */
         $data = current($rows);
-        $clientRepository = new ClientRepository($this->configurationService);
+        $clientRepository = new ClientRepository($this->moduleConfig);
         $data['client'] = $clientRepository->findById((string)$data['client_id']);
 
         return AccessTokenEntity::fromState($data);

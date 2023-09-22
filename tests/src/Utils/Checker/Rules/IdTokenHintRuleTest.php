@@ -10,7 +10,7 @@ use League\OAuth2\Server\CryptKey;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use ReflectionException;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Factories\CryptKeyFactory;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
@@ -26,7 +26,7 @@ class IdTokenHintRuleTest extends TestCase
 {
     protected $requestStub;
     protected $resultBagStub;
-    protected $configurationServiceStub;
+    protected $moduleConfigStub;
     protected $cryptKeyFactoryStub;
 
     protected static string $certFolder;
@@ -58,16 +58,16 @@ class IdTokenHintRuleTest extends TestCase
 
         $this->resultBagStub = $this->createStub(ResultBagInterface::class);
 
-        $this->configurationServiceStub = $this->createStub(ConfigurationService::class);
-        $this->configurationServiceStub->method('getSigner')->willReturn(new Sha256());
-        $this->configurationServiceStub->method('getSimpleSAMLSelfURLHost')->willReturn(self::$issuer);
+        $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
+        $this->moduleConfigStub->method('getSigner')->willReturn(new Sha256());
+        $this->moduleConfigStub->method('getSimpleSAMLSelfURLHost')->willReturn(self::$issuer);
 
         $this->cryptKeyFactoryStub = $this->createStub(CryptKeyFactory::class);
         $this->cryptKeyFactoryStub->method('buildPrivateKey')->willReturn(self::$privateKey);
         $this->cryptKeyFactoryStub->method('buildPublicKey')->willReturn(self::$publicKey);
 
         $this->jwtConfig = Configuration::forAsymmetricSigner(
-            $this->configurationServiceStub->getSigner(),
+            $this->moduleConfigStub->getSigner(),
             InMemory::plainText(self::$privateKey->getKeyContents()),
             InMemory::plainText(self::$publicKey->getKeyContents())
         );
@@ -78,7 +78,7 @@ class IdTokenHintRuleTest extends TestCase
     public function testConstruct(): void
     {
         $this->assertInstanceOf(IdTokenHintRule::class, new IdTokenHintRule(
-            $this->configurationServiceStub,
+            $this->moduleConfigStub,
             $this->cryptKeyFactoryStub
         ));
     }
@@ -89,7 +89,7 @@ class IdTokenHintRuleTest extends TestCase
      */
     public function testCheckRuleIsNullWhenParamNotSet(): void
     {
-        $rule = new IdTokenHintRule($this->configurationServiceStub, $this->cryptKeyFactoryStub);
+        $rule = new IdTokenHintRule($this->moduleConfigStub, $this->cryptKeyFactoryStub);
         $this->requestStub->method('getMethod')->willReturn('');
         $result = $rule->checkRule(
             $this->requestStub,
@@ -107,7 +107,7 @@ class IdTokenHintRuleTest extends TestCase
     {
         $this->requestStub->method('getMethod')->willReturn('GET');
         $this->requestStub->method('getQueryParams')->willReturn(['id_token_hint' => 'malformed']);
-        $rule = new IdTokenHintRule($this->configurationServiceStub, $this->cryptKeyFactoryStub);
+        $rule = new IdTokenHintRule($this->moduleConfigStub, $this->cryptKeyFactoryStub);
         $this->expectException(Throwable::class);
         $rule->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
     }
@@ -126,7 +126,7 @@ class IdTokenHintRuleTest extends TestCase
             'Ru7Q7rA';
 
         $this->requestStub->method('getQueryParams')->willReturn(['id_token_hint' => $invalidSignatureJwt]);
-        $rule = new IdTokenHintRule($this->configurationServiceStub, $this->cryptKeyFactoryStub);
+        $rule = new IdTokenHintRule($this->moduleConfigStub, $this->cryptKeyFactoryStub);
         $this->expectException(Throwable::class);
         $rule->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
     }
@@ -140,12 +140,12 @@ class IdTokenHintRuleTest extends TestCase
         $this->requestStub->method('getMethod')->willReturn('GET');
 
         $invalidIssuerJwt = $this->jwtConfig->builder()->issuedBy('invalid')->getToken(
-            $this->configurationServiceStub->getSigner(),
+            $this->moduleConfigStub->getSigner(),
             InMemory::plainText(self::$privateKey->getKeyContents())
         )->toString();
 
         $this->requestStub->method('getQueryParams')->willReturn(['id_token_hint' => $invalidIssuerJwt]);
-        $rule = new IdTokenHintRule($this->configurationServiceStub, $this->cryptKeyFactoryStub);
+        $rule = new IdTokenHintRule($this->moduleConfigStub, $this->cryptKeyFactoryStub);
         $this->expectException(Throwable::class);
         $rule->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
     }
@@ -160,12 +160,12 @@ class IdTokenHintRuleTest extends TestCase
         $this->requestStub->method('getMethod')->willReturn('GET');
 
         $idToken = $this->jwtConfig->builder()->issuedBy(self::$issuer)->getToken(
-            $this->configurationServiceStub->getSigner(),
+            $this->moduleConfigStub->getSigner(),
             InMemory::plainText(self::$privateKey->getKeyContents())
         )->toString();
 
         $this->requestStub->method('getQueryParams')->willReturn(['id_token_hint' => $idToken]);
-        $rule = new IdTokenHintRule($this->configurationServiceStub, $this->cryptKeyFactoryStub);
+        $rule = new IdTokenHintRule($this->moduleConfigStub, $this->cryptKeyFactoryStub);
         $result = $rule->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
             new Result(IdTokenHintRule::class);
 

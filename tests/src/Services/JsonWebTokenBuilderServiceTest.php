@@ -13,7 +13,7 @@ use Lcobucci\JWT\Validation\Constraint\SignedWith;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use PHPUnit\Framework\TestCase;
 use ReflectionException;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 
 /**
@@ -29,7 +29,7 @@ class JsonWebTokenBuilderServiceTest extends TestCase
     /**
      * @var mixed
      */
-    private $configurationServiceStub;
+    private $moduleConfigStub;
 
     public static function setUpBeforeClass(): void
     {
@@ -41,11 +41,11 @@ class JsonWebTokenBuilderServiceTest extends TestCase
 
     public function setUp(): void
     {
-        $this->configurationServiceStub = $this->createStub(ConfigurationService::class);
-        $this->configurationServiceStub->method('getSigner')->willReturn(self::$signerSha256);
-        $this->configurationServiceStub->method('getPrivateKeyPath')->willReturn(self::$privateKeyPath);
-        $this->configurationServiceStub->method('getCertPath')->willReturn(self::$publicKeyPath);
-        $this->configurationServiceStub->method('getSimpleSAMLSelfURLHost')->willReturn(self::$selfUrlHost);
+        $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
+        $this->moduleConfigStub->method('getSigner')->willReturn(self::$signerSha256);
+        $this->moduleConfigStub->method('getPrivateKeyPath')->willReturn(self::$privateKeyPath);
+        $this->moduleConfigStub->method('getCertPath')->willReturn(self::$publicKeyPath);
+        $this->moduleConfigStub->method('getSimpleSAMLSelfURLHost')->willReturn(self::$selfUrlHost);
     }
 
     /**
@@ -54,7 +54,7 @@ class JsonWebTokenBuilderServiceTest extends TestCase
      */
     public function testCanCreateBuilderInstance(): void
     {
-        $builderService = new JsonWebTokenBuilderService($this->configurationServiceStub);
+        $builderService = new JsonWebTokenBuilderService($this->moduleConfigStub);
 
         $this->assertInstanceOf(
             Builder::class,
@@ -69,7 +69,7 @@ class JsonWebTokenBuilderServiceTest extends TestCase
      */
     public function testCanGenerateSignedJwtToken(): void
     {
-        $builderService = new JsonWebTokenBuilderService($this->configurationServiceStub);
+        $builderService = new JsonWebTokenBuilderService($this->moduleConfigStub);
         $tokenBuilder = $builderService->getDefaultJwtTokenBuilder();
 
         $unencryptedToken = $builderService->getSignedJwtTokenFromBuilder($tokenBuilder);
@@ -81,12 +81,12 @@ class JsonWebTokenBuilderServiceTest extends TestCase
         $token = $unencryptedToken->toString();
 
         $jwtConfig = Configuration::forAsymmetricSigner(
-            $this->configurationServiceStub->getSigner(),
+            $this->moduleConfigStub->getSigner(),
             InMemory::file(
-                $this->configurationServiceStub->getPrivateKeyPath(),
-                $this->configurationServiceStub->getPrivateKeyPassPhrase() ?? ''
+                $this->moduleConfigStub->getPrivateKeyPath(),
+                $this->moduleConfigStub->getPrivateKeyPassPhrase() ?? ''
             ),
-            InMemory::file($this->configurationServiceStub->getCertPath())
+            InMemory::file($this->moduleConfigStub->getCertPath())
         );
 
         $parsedToken = $jwtConfig->parser()->parse($token);
@@ -96,8 +96,8 @@ class JsonWebTokenBuilderServiceTest extends TestCase
                 $parsedToken,
                 new IssuedBy(self::$selfUrlHost),
                 new SignedWith(
-                    $this->configurationServiceStub->getSigner(),
-                    InMemory::file($this->configurationServiceStub->getCertPath())
+                    $this->moduleConfigStub->getSigner(),
+                    InMemory::file($this->moduleConfigStub->getCertPath())
                 )
             )
         );
@@ -110,7 +110,7 @@ class JsonWebTokenBuilderServiceTest extends TestCase
     {
         $this->assertSame(
             self::$signerSha256,
-            (new JsonWebTokenBuilderService($this->configurationServiceStub))->getSigner()
+            (new JsonWebTokenBuilderService($this->moduleConfigStub))->getSigner()
         );
     }
 }

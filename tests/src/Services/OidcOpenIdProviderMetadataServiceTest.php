@@ -10,17 +10,17 @@ use SimpleSAML\Module\oidc\Services\OidcOpenIdProviderMetadataService;
  */
 class OidcOpenIdProviderMetadataServiceTest extends TestCase
 {
-    protected \PHPUnit\Framework\MockObject\MockObject $configurationServiceMock;
+    protected \PHPUnit\Framework\MockObject\MockObject $moduleConfigMock;
 
     public function setUp(): void
     {
-        $this->configurationServiceMock = $this->createMock(\SimpleSAML\Module\oidc\ConfigurationService::class);
+        $this->moduleConfigMock = $this->createMock(\SimpleSAML\Module\oidc\ModuleConfig::class);
 
-        $this->configurationServiceMock->expects($this->once())->method('getOpenIDScopes')
+        $this->moduleConfigMock->expects($this->once())->method('getOpenIDScopes')
             ->willReturn(['openid' => 'openid']);
-        $this->configurationServiceMock->expects($this->once())->method('getSimpleSAMLSelfURLHost')
+        $this->moduleConfigMock->expects($this->once())->method('getSimpleSAMLSelfURLHost')
             ->willReturn('http://localhost');
-        $this->configurationServiceMock->method('getOpenIdConnectModuleURL')
+        $this->moduleConfigMock->method('getOpenIdConnectModuleURL')
             ->willReturnCallback(function ($path) {
                 $paths = [
                     'authorize.php' => 'http://localhost/authorize.php',
@@ -32,12 +32,12 @@ class OidcOpenIdProviderMetadataServiceTest extends TestCase
 
                 return $paths[$path] ?? null;
             });
-        $this->configurationServiceMock->method('getAcrValuesSupported')->willReturn(['1']);
+        $this->moduleConfigMock->method('getAcrValuesSupported')->willReturn(['1']);
     }
 
     protected function prepareMockedInstance(): OidcOpenIdProviderMetadataService
     {
-        return new OidcOpenIdProviderMetadataService($this->configurationServiceMock);
+        return new OidcOpenIdProviderMetadataService($this->moduleConfigMock);
     }
 
     public function testItIsInitializable(): void

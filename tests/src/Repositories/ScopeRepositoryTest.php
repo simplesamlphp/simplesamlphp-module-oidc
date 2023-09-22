@@ -16,7 +16,7 @@ namespace SimpleSAML\Test\Module\oidc\Repositories;
 
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Entity\ScopeEntity;
 use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
@@ -44,7 +44,7 @@ class ScopeRepositoryTest extends TestCase
 
     public function testGetScopeEntityByIdentifier(): void
     {
-        $scopeRepository = new ScopeRepository(new ConfigurationService());
+        $scopeRepository = new ScopeRepository(new ModuleConfig());
 
         $scope = $scopeRepository->getScopeEntityByIdentifier('openid');
 
@@ -58,14 +58,14 @@ class ScopeRepositoryTest extends TestCase
 
     public function testGetUnknownScope(): void
     {
-        $scopeRepository = new ScopeRepository(new ConfigurationService());
+        $scopeRepository = new ScopeRepository(new ModuleConfig());
 
         $this->assertNull($scopeRepository->getScopeEntityByIdentifier('none'));
     }
 
     public function testFinalizeScopes(): void
     {
-        $scopeRepository = new ScopeRepository(new ConfigurationService());
+        $scopeRepository = new ScopeRepository(new ModuleConfig());
         $scopes = [
             ScopeEntity::fromData('openid'),
             ScopeEntity::fromData('basic'),

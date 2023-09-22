@@ -6,9 +6,9 @@ use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 
 /**
- * @covers \SimpleSAML\Module\oidc\ConfigurationService
+ * @covers \SimpleSAML\Module\oidc\ModuleConfig
  */
-class ConfigurationServiceTest extends TestCase
+class ModuleConfigTest extends TestCase
 {
     public function testSigningKeyNameCanBeCustomized(): void
     {
@@ -26,9 +26,9 @@ class ConfigurationServiceTest extends TestCase
             'module_oidc.php'
         );
         // Test default cert and pem
-        $service = new \SimpleSAML\Module\oidc\ConfigurationService();
-        $this->assertEquals($certDir . 'oidc_module.crt', $service->getCertPath());
-        $this->assertEquals($certDir . 'oidc_module.key', $service->getPrivateKeyPath());
+        $moduleConfig = new \SimpleSAML\Module\oidc\ModuleConfig();
+        $this->assertEquals($certDir . 'oidc_module.crt', $moduleConfig->getCertPath());
+        $this->assertEquals($certDir . 'oidc_module.key', $moduleConfig->getPrivateKeyPath());
 
         // Set customized
         Configuration::setPreLoadedConfig(
@@ -40,8 +40,8 @@ class ConfigurationServiceTest extends TestCase
             ),
             'module_oidc.php'
         );
-        $service = new \SimpleSAML\Module\oidc\ConfigurationService();
-        $this->assertEquals($certDir . 'myCertificate.crt', $service->getCertPath());
-        $this->assertEquals($certDir . 'myPrivateKey.key', $service->getPrivateKeyPath());
+        $moduleConfig = new \SimpleSAML\Module\oidc\ModuleConfig();
+        $this->assertEquals($certDir . 'myCertificate.crt', $moduleConfig->getCertPath());
+        $this->assertEquals($certDir . 'myPrivateKey.key', $moduleConfig->getPrivateKeyPath());
     }
 }

@@ -27,7 +27,7 @@ use SimpleSAML\Module;
 use SimpleSAML\Utils\Config;
 use SimpleSAML\Utils\HTTP;
 
-class ConfigurationService
+class ModuleConfig
 {
     protected static array $standardClaims = [
         'openid' => [

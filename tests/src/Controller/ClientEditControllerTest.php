@@ -7,7 +7,7 @@ use Laminas\Diactoros\ServerRequest;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\UriInterface;
 use SimpleSAML\Error\BadRequest;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Controller\ClientEditController;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
@@ -27,7 +27,7 @@ class ClientEditControllerTest extends TestCase
     /**
      * @var \PHPUnit\Framework\MockObject\MockObject
      */
-    protected $configurationServiceMock;
+    protected $moduleConfigMock;
     /**
      * @var \PHPUnit\Framework\MockObject\MockObject
      */
@@ -75,7 +75,7 @@ class ClientEditControllerTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->configurationServiceMock = $this->createMock(ConfigurationService::class);
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->clientRepositoryMock = $this->createMock(ClientRepository::class);
         $this->allowedOriginRepositoryMock = $this->createMock(AllowedOriginRepository::class);
         $this->templateFactoryMock = $this->createMock(TemplateFactory::class);
@@ -89,7 +89,7 @@ class ClientEditControllerTest extends TestCase
         $this->templateStub = $this->createStub(Template::class);
         $this->clientFormMock = $this->createMock(ClientForm::class);
 
-        $this->configurationServiceMock->method('getOpenIdConnectModuleURL')->willReturn('url');
+        $this->moduleConfigMock->method('getOpenIdConnectModuleURL')->willReturn('url');
         $this->uriStub->method('getPath')->willReturn('/');
         $this->serverRequestMock->method('getUri')->willReturn($this->uriStub);
         $this->serverRequestMock->method('withQueryParams')->willReturn($this->serverRequestMock);

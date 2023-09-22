@@ -17,11 +17,11 @@ namespace SimpleSAML\Module\oidc\Factories;
 
 use Nette\Forms\Form;
 use SimpleSAML\Error\Exception;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 
 class FormFactory
 {
-    public function __construct(private readonly ConfigurationService $configurationService)
+    public function __construct(private readonly ModuleConfig $moduleConfig)
     {
     }
 
@@ -39,6 +39,6 @@ class FormFactory
         }
 
         /** @psalm-suppress InvalidStringClass */
-        return new $classname($this->configurationService);
+        return new $classname($this->moduleConfig);
     }
 }

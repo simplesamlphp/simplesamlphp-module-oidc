@@ -15,6 +15,7 @@ return static function (RectorConfig $rectorConfig): void {
     ]);
 
     $rectorConfig->paths([
+        // TODO mivanci also go trough commented out paths...
         //__DIR__ . '/docker',
         //__DIR__ . '/hooks',
         //__DIR__ . '/public',

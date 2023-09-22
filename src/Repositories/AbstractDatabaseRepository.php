@@ -18,7 +18,7 @@ namespace SimpleSAML\Module\oidc\Repositories;
 use Exception;
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 
 abstract class AbstractDatabaseRepository
 {
@@ -30,8 +30,9 @@ abstract class AbstractDatabaseRepository
      * ClientRepository constructor.
      * @throws Exception
      */
-    public function __construct(protected ConfigurationService $configurationService)
+    public function __construct(protected ModuleConfig $moduleConfig)
     {
+        // TODO mivanci Why isn't moduleConfig used here?
         $this->config = Configuration::getOptionalConfig('module_oidc.php');
         $this->database = Database::getInstance();
     }

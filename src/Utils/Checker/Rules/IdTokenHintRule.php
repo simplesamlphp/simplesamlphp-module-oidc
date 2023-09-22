@@ -10,7 +10,7 @@ use Lcobucci\JWT\UnencryptedToken;
 use Lcobucci\JWT\Validation\Constraint\IssuedBy;
 use Lcobucci\JWT\Validation\Constraint\SignedWith;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Factories\CryptKeyFactory;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
@@ -22,7 +22,7 @@ use Throwable;
 class IdTokenHintRule extends AbstractRule
 {
     public function __construct(
-        protected ConfigurationService $configurationService,
+        protected ModuleConfig $moduleConfig,
         protected CryptKeyFactory $cryptKeyFactory
     ) {
     }
@@ -57,7 +57,7 @@ class IdTokenHintRule extends AbstractRule
         $publicKey = $this->cryptKeyFactory->buildPublicKey();
         /** @psalm-suppress ArgumentTypeCoercion */
         $jwtConfig = Configuration::forAsymmetricSigner(
-            $this->configurationService->getSigner(),
+            $this->moduleConfig->getSigner(),
             InMemory::plainText($privateKey->getKeyContents(), $privateKey->getPassPhrase() ?? ''),
             InMemory::plainText($publicKey->getKeyContents())
         );
@@ -69,12 +69,12 @@ class IdTokenHintRule extends AbstractRule
             /** @psalm-suppress ArgumentTypeCoercion */
             $jwtConfig->validator()->assert(
                 $idTokenHint,
-                new IssuedBy($this->configurationService->getSimpleSAMLSelfURLHost()),
+                new IssuedBy($this->moduleConfig->getSimpleSAMLSelfURLHost()),
                 // Note: although logout spec does not mention it, validating signature seems like an important check
                 // to make. However, checking the signature in a key roll-over scenario will fail for ID tokens
                 // signed with previous key...
                 new SignedWith(
-                    $this->configurationService->getSigner(),
+                    $this->moduleConfig->getSigner(),
                     InMemory::plainText($publicKey->getKeyContents())
                 )
             );

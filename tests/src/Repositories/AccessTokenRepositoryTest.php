@@ -16,7 +16,7 @@ namespace SimpleSAML\Test\Module\oidc\Repositories;
 
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Entity\ScopeEntity;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
@@ -53,14 +53,14 @@ class AccessTokenRepositoryTest extends TestCase
         Configuration::loadFromArray($config, '', 'simplesaml');
         (new DatabaseMigration())->migrate();
 
-        $configurationService = new ConfigurationService();
+        $moduleConfig = new ModuleConfig();
 
         $client = ClientRepositoryTest::getClient(self::CLIENT_ID);
-        (new ClientRepository($configurationService))->add($client);
+        (new ClientRepository($moduleConfig))->add($client);
         $user = UserEntity::fromData(self::USER_ID);
-        (new UserRepository($configurationService))->add($user);
+        (new UserRepository($moduleConfig))->add($user);
 
-        self::$repository = new AccessTokenRepository($configurationService);
+        self::$repository = new AccessTokenRepository($moduleConfig);
     }
 
     public function testGetTableName(): void

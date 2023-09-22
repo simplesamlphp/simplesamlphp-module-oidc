@@ -37,7 +37,7 @@ class ScopeRepository extends AbstractDatabaseRepository implements ScopeReposit
      */
     public function getScopeEntityByIdentifier($identifier)
     {
-        $scopes = $this->configurationService->getOpenIDScopes();
+        $scopes = $this->moduleConfig->getOpenIDScopes();
 
         if (false === \array_key_exists($identifier, $scopes)) {
             return null;

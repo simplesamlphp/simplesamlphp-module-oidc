@@ -17,7 +17,7 @@ namespace SimpleSAML\Test\Module\oidc\Repositories;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
@@ -47,9 +47,9 @@ class ClientRepositoryTest extends TestCase
         Configuration::loadFromArray($config, '', 'simplesaml');
         (new DatabaseMigration())->migrate();
 
-        $configurationService = new ConfigurationService();
+        $moduleConfig = new ModuleConfig();
 
-        self::$repository = new ClientRepository($configurationService);
+        self::$repository = new ClientRepository($moduleConfig);
     }
 
     public function tearDown(): void

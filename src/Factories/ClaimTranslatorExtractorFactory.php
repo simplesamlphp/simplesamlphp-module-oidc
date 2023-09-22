@@ -17,7 +17,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Factories;
 
 use Exception;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Entity\ClaimSetEntity;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
@@ -27,7 +27,7 @@ class ClaimTranslatorExtractorFactory
 
     protected const CONFIG_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED = 'are_multiple_claim_values_allowed';
 
-    public function __construct(private readonly ConfigurationService $configurationService)
+    public function __construct(private readonly ModuleConfig $moduleConfig)
     {
     }
 
@@ -36,10 +36,10 @@ class ClaimTranslatorExtractorFactory
      */
     public function build(): ClaimTranslatorExtractor
     {
-        $translatorTable = $this->configurationService->getOpenIDConnectConfiguration()
+        $translatorTable = $this->moduleConfig->getOpenIDConnectConfiguration()
             ->getOptionalArray('translate', []);
 
-        $privateScopes = $this->configurationService->getOpenIDPrivateScopes();
+        $privateScopes = $this->moduleConfig->getOpenIDPrivateScopes();
 
         $claimSet = [];
         $allowedMultipleValueClaims = [];
@@ -65,7 +65,7 @@ class ClaimTranslatorExtractorFactory
             }
         }
 
-        $userIdAttr = $this->configurationService->getOpenIDConnectConfiguration()->getString('useridattr');
+        $userIdAttr = $this->moduleConfig->getOpenIDConnectConfiguration()->getString('useridattr');
 
         return new ClaimTranslatorExtractor($userIdAttr, $claimSet, $translatorTable, $allowedMultipleValueClaims);
     }

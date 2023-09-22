@@ -6,7 +6,7 @@ use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Configuration;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
@@ -62,7 +62,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
     /**
      * @var \PHPUnit\Framework\MockObject\Stub
      */
-    protected $configurationServiceStub;
+    protected $moduleConfigStub;
     /**
      * @var \PHPUnit\Framework\MockObject\Stub
      */
@@ -89,7 +89,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
         $this->clientResultStub = $this->createStub(ResultInterface::class);
         $this->validScopesResultStub = $this->createStub(ResultInterface::class);
 
-        $this->configurationServiceStub = $this->createStub(ConfigurationService::class);
+        $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
         $this->openIdConfigurationStub = $this->createStub(Configuration::class);
     }
 
@@ -97,7 +97,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
     {
         $this->assertInstanceOf(
             ScopeOfflineAccessRule::class,
-            new ScopeOfflineAccessRule($this->configurationServiceStub)
+            new ScopeOfflineAccessRule($this->moduleConfigStub)
         );
     }
 
@@ -117,10 +117,10 @@ class ScopeOfflineAccessRuleTest extends TestCase
             );
 
         $this->openIdConfigurationStub->method('getBoolean')->willReturn(false);
-        $this->configurationServiceStub->method('getOpenIDConnectConfiguration')
+        $this->moduleConfigStub->method('getOpenIDConnectConfiguration')
             ->willReturn($this->openIdConfigurationStub);
 
-        $result = (new ScopeOfflineAccessRule($this->configurationServiceStub))
+        $result = (new ScopeOfflineAccessRule($this->moduleConfigStub))
             ->checkRule($this->serverRequestStub, $this->resultBagMock, $this->loggerServiceMock);
 
         $this->assertNotNull($result);
@@ -144,12 +144,12 @@ class ScopeOfflineAccessRuleTest extends TestCase
             );
 
         $this->openIdConfigurationStub->method('getBoolean')->willReturn(false);
-        $this->configurationServiceStub->method('getOpenIDConnectConfiguration')
+        $this->moduleConfigStub->method('getOpenIDConnectConfiguration')
             ->willReturn($this->openIdConfigurationStub);
 
         $this->expectException(OidcServerException::class);
 
-        (new ScopeOfflineAccessRule($this->configurationServiceStub))
+        (new ScopeOfflineAccessRule($this->moduleConfigStub))
             ->checkRule($this->serverRequestStub, $this->resultBagMock, $this->loggerServiceMock);
     }
 
@@ -170,10 +170,10 @@ class ScopeOfflineAccessRuleTest extends TestCase
             );
 
         $this->openIdConfigurationStub->method('getBoolean')->willReturn(false);
-        $this->configurationServiceStub->method('getOpenIDConnectConfiguration')
+        $this->moduleConfigStub->method('getOpenIDConnectConfiguration')
             ->willReturn($this->openIdConfigurationStub);
 
-        $result = (new ScopeOfflineAccessRule($this->configurationServiceStub))
+        $result = (new ScopeOfflineAccessRule($this->moduleConfigStub))
             ->checkRule($this->serverRequestStub, $this->resultBagMock, $this->loggerServiceMock);
 
         $this->assertNotNull($result);

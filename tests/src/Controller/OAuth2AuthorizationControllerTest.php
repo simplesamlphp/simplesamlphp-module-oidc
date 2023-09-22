@@ -7,7 +7,7 @@ use League\OAuth2\Server\Exception\OAuthServerException;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 use SimpleSAML\Error;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Controller\OAuth2AuthorizationController;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
@@ -32,7 +32,7 @@ class OAuth2AuthorizationControllerTest extends TestCase
     /**
      * @var mixed
      */
-    protected $configurationServiceStub;
+    protected $moduleConfigStub;
     /**
      * @var mixed
      */
@@ -64,7 +64,7 @@ class OAuth2AuthorizationControllerTest extends TestCase
     {
         $this->authenticationServiceStub = $this->createStub(AuthenticationService::class);
         $this->authorizationServerStub = $this->createStub(AuthorizationServer::class);
-        $this->configurationServiceStub = $this->createStub(ConfigurationService::class);
+        $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
 
         $this->authorizationRequestMock = $this->createMock(AuthorizationRequest::class);
@@ -94,7 +94,7 @@ class OAuth2AuthorizationControllerTest extends TestCase
         $controller = new OAuth2AuthorizationController(
             $this->authenticationServiceStub,
             $this->authorizationServerStub,
-            $this->configurationServiceStub,
+            $this->moduleConfigStub,
             $this->loggerServiceMock
         );
 
@@ -123,7 +123,7 @@ class OAuth2AuthorizationControllerTest extends TestCase
         (new OAuth2AuthorizationController(
             $this->authenticationServiceStub,
             $this->authorizationServerStub,
-            $this->configurationServiceStub,
+            $this->moduleConfigStub,
             $this->loggerServiceMock
         ))($this->serverRequestStub);
     }
@@ -152,7 +152,7 @@ class OAuth2AuthorizationControllerTest extends TestCase
         (new OAuth2AuthorizationController(
             $this->authenticationServiceStub,
             $this->authorizationServerStub,
-            $this->configurationServiceStub,
+            $this->moduleConfigStub,
             $this->loggerServiceMock
         ))($this->serverRequestStub);
     }
@@ -173,10 +173,10 @@ class OAuth2AuthorizationControllerTest extends TestCase
         $this->authorizationRequestMock->method('getAuthSourceId')->willReturn(self::$sampleAuthSourceId);
         $this->authorizationRequestMock->method('getIsCookieBasedAuthn')->willReturn(true);
 
-        $this->configurationServiceStub
+        $this->moduleConfigStub
             ->method('getAuthSourcesToAcrValuesMap')
             ->willReturn(self::$sampleAuthSourcesToAcrValuesMap);
-        $this->configurationServiceStub->method('getForcedAcrValueForCookieAuthentication')->willReturn('0');
+        $this->moduleConfigStub->method('getForcedAcrValueForCookieAuthentication')->willReturn('0');
 
         $this->authorizationServerStub
             ->method('validateAuthorizationRequest')
@@ -190,7 +190,7 @@ class OAuth2AuthorizationControllerTest extends TestCase
         (new OAuth2AuthorizationController(
             $this->authenticationServiceStub,
             $this->authorizationServerStub,
-            $this->configurationServiceStub,
+            $this->moduleConfigStub,
             $this->loggerServiceMock
         ))($this->serverRequestStub);
     }
@@ -212,7 +212,7 @@ class OAuth2AuthorizationControllerTest extends TestCase
         $this->authorizationRequestMock->method('getAuthSourceId')->willReturn(self::$sampleAuthSourceId);
         $this->authorizationRequestMock->method('getIsCookieBasedAuthn')->willReturn(false);
 
-        $this->configurationServiceStub
+        $this->moduleConfigStub
             ->method('getAuthSourcesToAcrValuesMap')
             ->willReturn(self::$sampleAuthSourcesToAcrValuesMap);
 
@@ -228,7 +228,7 @@ class OAuth2AuthorizationControllerTest extends TestCase
         (new OAuth2AuthorizationController(
             $this->authenticationServiceStub,
             $this->authorizationServerStub,
-            $this->configurationServiceStub,
+            $this->moduleConfigStub,
             $this->loggerServiceMock
         ))($this->serverRequestStub);
     }
@@ -249,7 +249,7 @@ class OAuth2AuthorizationControllerTest extends TestCase
         $this->authorizationRequestMock->method('getAuthSourceId')->willReturn(self::$sampleAuthSourceId);
         $this->authorizationRequestMock->method('getIsCookieBasedAuthn')->willReturn(false);
 
-        $this->configurationServiceStub
+        $this->moduleConfigStub
             ->method('getAuthSourcesToAcrValuesMap')
             ->willReturn(self::$sampleAuthSourcesToAcrValuesMap);
 
@@ -265,7 +265,7 @@ class OAuth2AuthorizationControllerTest extends TestCase
         (new OAuth2AuthorizationController(
             $this->authenticationServiceStub,
             $this->authorizationServerStub,
-            $this->configurationServiceStub,
+            $this->moduleConfigStub,
             $this->loggerServiceMock
         ))($this->serverRequestStub);
     }
@@ -287,7 +287,7 @@ class OAuth2AuthorizationControllerTest extends TestCase
         $this->authorizationRequestMock->method('getAuthSourceId')->willReturn(self::$sampleAuthSourceId);
         $this->authorizationRequestMock->method('getIsCookieBasedAuthn')->willReturn(false);
 
-        $this->configurationServiceStub
+        $this->moduleConfigStub
             ->method('getAuthSourcesToAcrValuesMap')
             ->willReturn(self::$sampleAuthSourcesToAcrValuesMap);
 
@@ -303,7 +303,7 @@ class OAuth2AuthorizationControllerTest extends TestCase
         (new OAuth2AuthorizationController(
             $this->authenticationServiceStub,
             $this->authorizationServerStub,
-            $this->configurationServiceStub,
+            $this->moduleConfigStub,
             $this->loggerServiceMock
         ))($this->serverRequestStub);
     }
@@ -325,7 +325,7 @@ class OAuth2AuthorizationControllerTest extends TestCase
         $this->authorizationRequestMock->method('getIsCookieBasedAuthn')->willReturn(false);
 
         $authSourcesToAcrValuesMap = [self::$sampleAuthSourceId => []];
-        $this->configurationServiceStub
+        $this->moduleConfigStub
             ->method('getAuthSourcesToAcrValuesMap')
             ->willReturn($authSourcesToAcrValuesMap);
 
@@ -342,7 +342,7 @@ class OAuth2AuthorizationControllerTest extends TestCase
         (new OAuth2AuthorizationController(
             $this->authenticationServiceStub,
             $this->authorizationServerStub,
-            $this->configurationServiceStub,
+            $this->moduleConfigStub,
             $this->loggerServiceMock
         ))($this->serverRequestStub);
     }

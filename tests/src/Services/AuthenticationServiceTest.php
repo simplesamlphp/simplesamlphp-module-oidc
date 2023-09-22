@@ -8,7 +8,7 @@ use PHPUnit\Framework\TestCase;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Auth\Source;
 use SimpleSAML\Error\Exception;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Entity\UserEntity;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
@@ -56,7 +56,7 @@ class AuthenticationServiceTest extends TestCase
     protected \PHPUnit\Framework\MockObject\MockObject $authSimpleMock;
     protected \PHPUnit\Framework\MockObject\MockObject $authProcServiceMock;
     protected \PHPUnit\Framework\MockObject\MockObject $clientRepositoryMock;
-    protected \PHPUnit\Framework\MockObject\MockObject $configurationServiceMock;
+    protected \PHPUnit\Framework\MockObject\MockObject $moduleConfigMock;
     protected \PHPUnit\Framework\MockObject\MockObject $oidcOpenIdProviderMetadataServiceMock;
     protected \PHPUnit\Framework\MockObject\MockObject $sessionServiceMock;
     protected \PHPUnit\Framework\MockObject\MockObject $authSourceMock;
@@ -72,7 +72,7 @@ class AuthenticationServiceTest extends TestCase
         $this->authSimpleMock = $this->createMock(Simple::class);
         $this->authProcServiceMock = $this->createMock(AuthProcService::class);
         $this->clientRepositoryMock = $this->createMock(ClientRepository::class);
-        $this->configurationServiceMock = $this->createMock(ConfigurationService::class);
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->oidcOpenIdProviderMetadataServiceMock = $this->createMock(OidcOpenIdProviderMetadataService::class);
         $this->sessionServiceMock = $this->createMock(SessionService::class);
         $this->claimTranslatorExtractorMock = $this->createMock(ClaimTranslatorExtractor::class);
@@ -95,7 +95,7 @@ class AuthenticationServiceTest extends TestCase
 
         $this->oidcOpenIdProviderMetadataServiceMock->method('getMetadata')->willReturn(self::OIDC_OP_METADATA);
 
-        $this->configurationServiceMock->method('getAuthProcFilters')->willReturn([]);
+        $this->moduleConfigMock->method('getAuthProcFilters')->willReturn([]);
 
         $this->sessionServiceMock->method('getCurrentSession')->willReturn($this->sessionMock);
     }

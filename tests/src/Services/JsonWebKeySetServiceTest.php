@@ -18,7 +18,7 @@ use Jose\Component\Core\JWKSet;
 use Jose\Component\KeyManagement\JWKFactory;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
 use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
 
@@ -83,7 +83,7 @@ class JsonWebKeySetServiceTest extends TestCase
         ]);
         $JWKSet = new JWKSet([$jwk]);
 
-        $jsonWebKeySetService = new JsonWebKeySetService(new ConfigurationService());
+        $jsonWebKeySetService = new JsonWebKeySetService(new ModuleConfig());
 
         $this->assertEquals($JWKSet->all(), $jsonWebKeySetService->keys());
     }
@@ -98,6 +98,6 @@ class JsonWebKeySetServiceTest extends TestCase
         ];
         Configuration::loadFromArray($config, '', 'simplesaml');
 
-        new JsonWebKeySetService(new ConfigurationService());
+        new JsonWebKeySetService(new ModuleConfig());
     }
 }

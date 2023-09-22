@@ -7,7 +7,7 @@ namespace SimpleSAML\Module\oidc\Services;
 use Exception;
 use SimpleSAML\Auth\ProcessingFilter;
 use SimpleSAML\Module;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 
 class AuthProcService
 {
@@ -23,7 +23,7 @@ class AuthProcService
      * @see \SimpleSAML\Auth\ProcessingChain for original implementation
      */
     public function __construct(
-        private readonly ConfigurationService $configurationService
+        private readonly ModuleConfig $moduleConfig
     ) {
         $this->loadFilters();
     }
@@ -34,7 +34,7 @@ class AuthProcService
      */
     private function loadFilters(): void
     {
-        $oidcAuthProcFilters = $this->configurationService->getAuthProcFilters();
+        $oidcAuthProcFilters = $this->moduleConfig->getAuthProcFilters();
         $this->filters = $this->parseFilterList($oidcAuthProcFilters);
     }
 

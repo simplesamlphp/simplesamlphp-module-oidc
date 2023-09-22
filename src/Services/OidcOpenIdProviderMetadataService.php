@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Services;
 
 use Exception;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 
 /**
  * OpenID Provider Metadata Service - provides information about OIDC authentication server.
@@ -21,7 +21,7 @@ class OidcOpenIdProviderMetadataService
      * @throws Exception
      */
     public function __construct(
-        private readonly ConfigurationService $configurationService
+        private readonly ModuleConfig $moduleConfig
     ) {
         $this->initMetadata();
     }
@@ -33,14 +33,14 @@ class OidcOpenIdProviderMetadataService
     private function initMetadata(): void
     {
         $this->metadata = [];
-        $this->metadata['issuer'] = $this->configurationService->getSimpleSAMLSelfURLHost();
+        $this->metadata['issuer'] = $this->moduleConfig->getSimpleSAMLSelfURLHost();
         $this->metadata['authorization_endpoint'] =
-            $this->configurationService->getOpenIdConnectModuleURL('authorize.php');
-        $this->metadata['token_endpoint'] = $this->configurationService->getOpenIdConnectModuleURL('token.php');
-        $this->metadata['userinfo_endpoint'] = $this->configurationService->getOpenIdConnectModuleURL('userinfo.php');
-        $this->metadata['end_session_endpoint'] = $this->configurationService->getOpenIdConnectModuleURL('logout.php');
-        $this->metadata['jwks_uri'] = $this->configurationService->getOpenIdConnectModuleURL('jwks.php');
-        $this->metadata['scopes_supported'] = array_keys($this->configurationService->getOpenIDScopes());
+            $this->moduleConfig->getOpenIdConnectModuleURL('authorize.php');
+        $this->metadata['token_endpoint'] = $this->moduleConfig->getOpenIdConnectModuleURL('token.php');
+        $this->metadata['userinfo_endpoint'] = $this->moduleConfig->getOpenIdConnectModuleURL('userinfo.php');
+        $this->metadata['end_session_endpoint'] = $this->moduleConfig->getOpenIdConnectModuleURL('logout.php');
+        $this->metadata['jwks_uri'] = $this->moduleConfig->getOpenIdConnectModuleURL('jwks.php');
+        $this->metadata['scopes_supported'] = array_keys($this->moduleConfig->getOpenIDScopes());
         $this->metadata['response_types_supported'] = ['code', 'token', 'id_token', 'id_token token'];
         $this->metadata['subject_types_supported'] = ['public'];
         $this->metadata['id_token_signing_alg_values_supported'] = ['RS256'];
@@ -49,7 +49,7 @@ class OidcOpenIdProviderMetadataService
         $this->metadata['request_parameter_supported'] = false;
         $this->metadata['grant_types_supported'] = ['authorization_code', 'refresh_token'];
         $this->metadata['claims_parameter_supported'] = true;
-        if (!(empty($acrValuesSupported = $this->configurationService->getAcrValuesSupported()))) {
+        if (!(empty($acrValuesSupported = $this->moduleConfig->getAcrValuesSupported()))) {
             $this->metadata['acr_values_supported'] = $acrValuesSupported;
         }
         $this->metadata['backchannel_logout_supported'] = true;

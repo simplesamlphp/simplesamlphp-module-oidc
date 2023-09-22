@@ -6,7 +6,7 @@ use PHPUnit\Framework\TestCase;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Configuration;
 use SimpleSAML\Error\Exception;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
 
@@ -21,7 +21,7 @@ class AuthContextServiceTest extends TestCase
     ];
     protected Configuration $permissions;
     protected \PHPUnit\Framework\MockObject\MockObject $oidcConfigurationMock;
-    protected \PHPUnit\Framework\MockObject\MockObject $configurationServiceMock;
+    protected \PHPUnit\Framework\MockObject\MockObject $moduleConfigMock;
     protected \PHPUnit\Framework\MockObject\MockObject $authSimpleService;
     protected \PHPUnit\Framework\MockObject\MockObject $authSimpleFactory;
 
@@ -38,8 +38,8 @@ class AuthContextServiceTest extends TestCase
 
         $this->oidcConfigurationMock = $this->createMock(Configuration::class);
 
-        $this->configurationServiceMock = $this->createMock(ConfigurationService::class);
-        $this->configurationServiceMock->method('getOpenIDConnectConfiguration')
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->moduleConfigMock->method('getOpenIDConnectConfiguration')
             ->willReturn($this->oidcConfigurationMock);
 
         $this->authSimpleService = $this->createMock(Simple::class);
@@ -51,7 +51,7 @@ class AuthContextServiceTest extends TestCase
     protected function prepareMockedInstance(): AuthContextService
     {
         return new AuthContextService(
-            $this->configurationServiceMock,
+            $this->moduleConfigMock,
             $this->authSimpleFactory
         );
     }

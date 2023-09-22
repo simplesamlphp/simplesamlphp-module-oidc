@@ -17,7 +17,7 @@ namespace SimpleSAML\Module\oidc\Factories;
 
 use Exception;
 use SimpleSAML\Auth\Simple;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
@@ -28,7 +28,7 @@ class AuthSimpleFactory
 
     public function __construct(
         ClientRepository $clientRepository,
-        private readonly ConfigurationService $configurationService
+        private readonly ModuleConfig $moduleConfig
     ) {
         $this->clientRepository = $clientRepository;
     }
@@ -68,6 +68,6 @@ class AuthSimpleFactory
      */
     public function getDefaultAuthSourceId(): string
     {
-        return $this->configurationService->getOpenIDConnectConfiguration()->getString('auth');
+        return $this->moduleConfig->getOpenIDConnectConfiguration()->getString('auth');
     }
 }

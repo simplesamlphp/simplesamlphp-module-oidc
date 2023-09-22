@@ -4,7 +4,7 @@ namespace SimpleSAML\Test\Module\oidc\Repositories;
 
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
@@ -27,9 +27,9 @@ class AllowedOriginRepositoryTest extends TestCase
     private static $repository;
 
     /**
-     * @var ConfigurationService
+     * @var ModuleConfig
      */
-    private static $configurationService;
+    private static $moduleConfig;
 
     public static function setUpBeforeClass(): void
     {
@@ -45,12 +45,12 @@ class AllowedOriginRepositoryTest extends TestCase
         Configuration::loadFromArray($config, '', 'simplesaml');
         (new DatabaseMigration())->migrate();
 
-        self::$configurationService = new ConfigurationService();
+        self::$moduleConfig = new ModuleConfig();
 
         $client = ClientRepositoryTest::getClient(self::CLIENT_ID);
-        (new ClientRepository(self::$configurationService))->add($client);
+        (new ClientRepository(self::$moduleConfig))->add($client);
 
-        self::$repository = new AllowedOriginRepository(self::$configurationService);
+        self::$repository = new AllowedOriginRepository(self::$moduleConfig);
     }
 
     public function tearDown(): void

@@ -24,7 +24,7 @@ use SimpleSAML\Configuration;
 use SimpleSAML\Database;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Metadata\MetaDataStorageHandler;
-use SimpleSAML\Module\oidc\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Factories\AuthorizationServerFactory;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory;
@@ -90,31 +90,31 @@ class Container implements ContainerInterface
         $simpleSAMLConfiguration = Configuration::getInstance();
         $oidcModuleConfiguration = Configuration::getConfig('module_oidc.php');
 
-        $configurationService = new ConfigurationService();
-        $this->services[ConfigurationService::class] = $configurationService;
+        $moduleConfig = new ModuleConfig();
+        $this->services[ModuleConfig::class] = $moduleConfig;
 
         $loggerService = new LoggerService();
         $this->services[LoggerService::class] = $loggerService;
 
-        $clientRepository = new ClientRepository($configurationService);
+        $clientRepository = new ClientRepository($moduleConfig);
         $this->services[ClientRepository::class] = $clientRepository;
 
-        $userRepository = new UserRepository($configurationService);
+        $userRepository = new UserRepository($moduleConfig);
         $this->services[UserRepository::class] = $userRepository;
 
-        $authCodeRepository = new AuthCodeRepository($configurationService);
+        $authCodeRepository = new AuthCodeRepository($moduleConfig);
         $this->services[AuthCodeRepository::class] = $authCodeRepository;
 
-        $refreshTokenRepository = new RefreshTokenRepository($configurationService);
+        $refreshTokenRepository = new RefreshTokenRepository($moduleConfig);
         $this->services[RefreshTokenRepository::class] = $refreshTokenRepository;
 
-        $accessTokenRepository = new AccessTokenRepository($configurationService);
+        $accessTokenRepository = new AccessTokenRepository($moduleConfig);
         $this->services[AccessTokenRepository::class] = $accessTokenRepository;
 
-        $scopeRepository = new ScopeRepository($configurationService);
+        $scopeRepository = new ScopeRepository($moduleConfig);
         $this->services[ScopeRepository::class] = $scopeRepository;
 
-        $allowedOriginRepository = new AllowedOriginRepository($configurationService);
+        $allowedOriginRepository = new AllowedOriginRepository($moduleConfig);
         $this->services[AllowedOriginRepository::class] = $allowedOriginRepository;
 
         $database = Database::getInstance();
@@ -126,16 +126,16 @@ class Container implements ContainerInterface
         $databaseLegacyOAuth2Import = new DatabaseLegacyOAuth2Import($clientRepository);
         $this->services[DatabaseLegacyOAuth2Import::class] = $databaseLegacyOAuth2Import;
 
-        $authSimpleFactory = new AuthSimpleFactory($clientRepository, $configurationService);
+        $authSimpleFactory = new AuthSimpleFactory($clientRepository, $moduleConfig);
         $this->services[AuthSimpleFactory::class] = $authSimpleFactory;
 
-        $authContextService = new AuthContextService($configurationService, $authSimpleFactory);
+        $authContextService = new AuthContextService($moduleConfig, $authSimpleFactory);
         $this->services[AuthContextService::class] = $authContextService;
 
-        $formFactory = new FormFactory($configurationService);
+        $formFactory = new FormFactory($moduleConfig);
         $this->services[FormFactory::class] = $formFactory;
 
-        $jsonWebKeySetService = new JsonWebKeySetService($configurationService);
+        $jsonWebKeySetService = new JsonWebKeySetService($moduleConfig);
         $this->services[JsonWebKeySetService::class] = $jsonWebKeySetService;
 
         $session = Session::getSessionFromRequest();
@@ -150,17 +150,17 @@ class Container implements ContainerInterface
         $templateFactory = new TemplateFactory($simpleSAMLConfiguration);
         $this->services[TemplateFactory::class] = $templateFactory;
 
-        $authProcService = new AuthProcService($configurationService);
+        $authProcService = new AuthProcService($moduleConfig);
         $this->services[AuthProcService::class] = $authProcService;
 
-        $oidcOpenIdProviderMetadataService = new OidcOpenIdProviderMetadataService($configurationService);
+        $oidcOpenIdProviderMetadataService = new OidcOpenIdProviderMetadataService($moduleConfig);
         $this->services[OidcOpenIdProviderMetadataService::class] = $oidcOpenIdProviderMetadataService;
 
         $metadataStorageHandler = MetaDataStorageHandler::getMetadataHandler();
         $this->services[MetaDataStorageHandler::class] = $metadataStorageHandler;
 
         $claimTranslatorExtractor = (new ClaimTranslatorExtractorFactory(
-            $configurationService
+            $moduleConfig
         ))->build();
         $this->services[ClaimTranslatorExtractor::class] = $claimTranslatorExtractor;
 
@@ -179,9 +179,9 @@ class Container implements ContainerInterface
         $codeChallengeVerifiersRepository = new CodeChallengeVerifiersRepository();
         $this->services[CodeChallengeVerifiersRepository::class] = $codeChallengeVerifiersRepository;
 
-        $publicKeyPath = $configurationService->getCertPath();
-        $privateKeyPath = $configurationService->getPrivateKeyPath();
-        $passPhrase = $configurationService->getPrivateKeyPassPhrase();
+        $publicKeyPath = $moduleConfig->getCertPath();
+        $privateKeyPath = $moduleConfig->getPrivateKeyPath();
+        $passPhrase = $moduleConfig->getPrivateKeyPassPhrase();
 
         $cryptKeyFactory = new CryptKeyFactory(
             $publicKeyPath,
@@ -204,7 +204,7 @@ class Container implements ContainerInterface
             new AddClaimsToIdTokenRule(),
             new RequiredNonceRule(),
             new ResponseTypeRule(),
-            new IdTokenHintRule($configurationService, $cryptKeyFactory),
+            new IdTokenHintRule($moduleConfig, $cryptKeyFactory),
             new PostLogoutRedirectUriRule($clientRepository),
             new UiLocalesRule(),
             new AcrValuesRule(),
@@ -214,19 +214,19 @@ class Container implements ContainerInterface
         $this->services[RequestRulesManager::class] = $requestRuleManager;
 
         $accessTokenDuration = new DateInterval(
-            $configurationService->getOpenIDConnectConfiguration()->getString('accessTokenDuration')
+            $moduleConfig->getOpenIDConnectConfiguration()->getString('accessTokenDuration')
         );
         $authCodeDuration = new DateInterval(
-            $configurationService->getOpenIDConnectConfiguration()->getString('authCodeDuration')
+            $moduleConfig->getOpenIDConnectConfiguration()->getString('authCodeDuration')
         );
         $refreshTokenDuration = new DateInterval(
-            $configurationService->getOpenIDConnectConfiguration()->getString('refreshTokenDuration')
+            $moduleConfig->getOpenIDConnectConfiguration()->getString('refreshTokenDuration')
         );
         $publicKey = $cryptKeyFactory->buildPublicKey();
         $privateKey = $cryptKeyFactory->buildPrivateKey();
         $encryptionKey = (new Config())->getSecretSalt();
 
-        $jsonWebTokenBuilderService = new JsonWebTokenBuilderService($configurationService);
+        $jsonWebTokenBuilderService = new JsonWebTokenBuilderService($moduleConfig);
         $this->services[JsonWebTokenBuilderService::class] = $jsonWebTokenBuilderService;
 
         $idTokenBuilder = new IdTokenBuilder($jsonWebTokenBuilderService, $claimTranslatorExtractor);
