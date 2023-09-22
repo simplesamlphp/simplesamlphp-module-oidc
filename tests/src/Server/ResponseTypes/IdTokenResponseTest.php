@@ -95,7 +95,7 @@ class IdTokenResponseTest extends TestCase
             ->expects($this->atLeast(1))
             ->method('getPrivateKeyPassPhrase');
         $this->sspConfigurationMock = $this->createMock(Configuration::class);
-        $this->moduleConfigMock->method('getOpenIDConnectConfiguration')
+        $this->moduleConfigMock->method('config')
             ->willReturn($this->sspConfigurationMock);
 
         $this->privateKey = new CryptKey($this->certFolder . '/oidc_module.key', null, false);

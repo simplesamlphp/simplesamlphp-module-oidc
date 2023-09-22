@@ -29,7 +29,13 @@ use SimpleSAML\Utils\HTTP;
 
 class ModuleConfig
 {
+    /**
+     * Default file name for module configuration. Can be overridden in constructor, for example, for testing purposes.
+     */
+    final public const DEFAULT_FILE_NAME = 'module_oidc.php';
+
     protected static array $standardClaims = [
+        // TODO mivanci Move registered scopes to enum?
         'openid' => [
             'description' => 'openid',
         ],
@@ -51,40 +57,59 @@ class ModuleConfig
     ];
 
     /**
-     * @throws ConfigurationError
+     * @var Configuration Module configuration instance created form module config file.
      */
-    public function __construct()
-    {
-        $this->validateConfiguration();
+    private Configuration $moduleConfig;
+    /**
+     * @var Configuration SimpleSAMLphp configuration instance.
+     */
+    private Configuration $sspConfig;
+
+    /**
+     * @throws Exception
+     */
+    public function __construct(
+        string $fileName = self::DEFAULT_FILE_NAME, // Primarily used for easy (unit) testing overrides.
+        array $overrides = [] // Primarily used for easy (unit) testing overrides.
+    ) {
+        $this->moduleConfig = Configuration::loadFromArray(
+            array_merge(Configuration::getConfig($fileName)->toArray(), $overrides)
+        );
+
+        $this->sspConfig = Configuration::getInstance();
+
+        $this->validate();
     }
 
     /**
      * @throws Exception
      */
-    public function getSimpleSAMLConfiguration(): Configuration
+    public function sspConfig(): Configuration
     {
-        return Configuration::getInstance();
+        return $this->sspConfig;
     }
 
     /**
      * @throws Exception
      */
-    public function getOpenIDConnectConfiguration(): Configuration
+    public function config(): Configuration
     {
-        return Configuration::getConfig('module_oidc.php');
+        return $this->moduleConfig;
     }
 
     public function getSimpleSAMLSelfURLHost(): string
     {
+        // TODO mivanci Create bridge to SSP utility classes
         return (new HTTP())->getSelfURLHost();
     }
 
     public function getOpenIdConnectModuleURL(string $path = null): string
     {
+        // TODO mivanci Create bridge to SSP utility classes
         $base = Module::getModuleURL('oidc');
 
         if ($path) {
-            $base .= "/{$path}";
+            $base .= "/$path";
         }
 
         return $base;
@@ -103,7 +128,7 @@ class ModuleConfig
      */
     public function getOpenIDPrivateScopes(): array
     {
-        return $this->getOpenIDConnectConfiguration()->getOptionalArray('scopes', []);
+        return $this->config()->getOptionalArray('scopes', []);
     }
 
     /**
@@ -112,7 +137,7 @@ class ModuleConfig
      *
      * @throws ConfigurationError
      */
-    private function validateConfiguration()
+    private function validate(): void
     {
         $privateScopes = $this->getOpenIDPrivateScopes();
         array_walk(
@@ -180,7 +205,7 @@ class ModuleConfig
     public function getSigner(): Signer
     {
         /** @psalm-var class-string $signerClassname */
-        $signerClassname = $this->getOpenIDConnectConfiguration()->getOptionalString('signer', Sha256::class);
+        $signerClassname = $this->config()->getOptionalString('signer', Sha256::class);
 
         $class = new ReflectionClass($signerClassname);
         $signer = $class->newInstance();
@@ -195,20 +220,21 @@ class ModuleConfig
     /**
      * Return the path to the public certificate
      * @return string The file system path
+     * @throws Exception
      */
     public function getCertPath(): string
     {
-        $certName = $this->getOpenIDConnectConfiguration()->getOptionalString('certificate', 'oidc_module.crt');
+        $certName = $this->config()->getOptionalString('certificate', 'oidc_module.crt');
         return (new Config())->getCertPath($certName);
     }
 
     /**
      * Get the path to the private key
-     * @return string
+     * @throws Exception
      */
     public function getPrivateKeyPath(): string
     {
-        $keyName = $this->getOpenIDConnectConfiguration()->getOptionalString('privatekey', 'oidc_module.key');
+        $keyName = $this->config()->getOptionalString('privatekey', 'oidc_module.key');
         return (new Config())->getCertPath($keyName);
     }
 
@@ -219,7 +245,7 @@ class ModuleConfig
      */
     public function getPrivateKeyPassPhrase(): ?string
     {
-        return $this->getOpenIDConnectConfiguration()->getOptionalString('pass_phrase', null);
+        return $this->config()->getOptionalString('pass_phrase', null);
     }
 
     /**
@@ -230,7 +256,7 @@ class ModuleConfig
      */
     public function getAuthProcFilters(): array
     {
-        return $this->getOpenIDConnectConfiguration()->getOptionalArray('authproc.oidc', []);
+        return $this->config()->getOptionalArray('authproc.oidc', []);
     }
 
     /**
@@ -241,7 +267,7 @@ class ModuleConfig
      */
     public function getAcrValuesSupported(): array
     {
-        return array_values($this->getOpenIDConnectConfiguration()->getOptionalArray('acrValuesSupported', []));
+        return array_values($this->config()->getOptionalArray('acrValuesSupported', []));
     }
 
     /**
@@ -252,7 +278,7 @@ class ModuleConfig
      */
     public function getAuthSourcesToAcrValuesMap(): array
     {
-        return $this->getOpenIDConnectConfiguration()->getOptionalArray('authSourcesToAcrValuesMap', []);
+        return $this->config()->getOptionalArray('authSourcesToAcrValuesMap', []);
     }
 
     /**
@@ -262,7 +288,7 @@ class ModuleConfig
     public function getForcedAcrValueForCookieAuthentication(): ?string
     {
         /** @psalm-suppress MixedAssignment */
-        $value = $this->getOpenIDConnectConfiguration()
+        $value = $this->config()
             ->getOptionalValue('forcedAcrValueForCookieAuthentication', null);
 
         if (is_null($value)) {

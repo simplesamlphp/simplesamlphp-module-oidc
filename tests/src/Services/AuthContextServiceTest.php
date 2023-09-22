@@ -39,7 +39,7 @@ class AuthContextServiceTest extends TestCase
         $this->oidcConfigurationMock = $this->createMock(Configuration::class);
 
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
-        $this->moduleConfigMock->method('getOpenIDConnectConfiguration')
+        $this->moduleConfigMock->method('config')
             ->willReturn($this->oidcConfigurationMock);
 
         $this->authSimpleService = $this->createMock(Simple::class);

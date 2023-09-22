@@ -45,7 +45,7 @@ class AuthContextService
     public function getAuthUserId(): string
     {
         $simple = $this->authenticate();
-        $userIdAttr = $this->moduleConfig->getOpenIDConnectConfiguration()->getString('useridattr');
+        $userIdAttr = $this->moduleConfig->config()->getString('useridattr');
         return (string)(new Attributes())->getExpectedAttribute($simple->getAttributes(), $userIdAttr);
     }
 
@@ -59,7 +59,7 @@ class AuthContextService
         $auth = $this->authenticate();
 
         $permissions = $this->moduleConfig
-            ->getOpenIDConnectConfiguration()
+            ->config()
             ->getOptionalConfigItem('permissions', null);
         /** @psalm-suppress DocblockTypeContradiction */
         if (is_null($permissions) || !$permissions->hasValue('attribute')) {

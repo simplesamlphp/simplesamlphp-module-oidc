@@ -13,30 +13,41 @@ declare(strict_types=1);
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
+use SimpleSAML\Module\oidc\ModuleConfig;
 
+/*
+ * Note: In v5 of this module, all config keys have been moved to constants for easier handling and verification.
+ * However, all the key values have been preserved from previous module versions.
+ */
 $config = [
-    // pagination
-    'items_per_page' => 20,
+    /**
+     * PKI (public / private key) related options.
+     */
+    // The private key passphrase (optional).
+    //ModuleConfig\PKI::OPTION_PRIVATE_KEY_PASSPHRASE => 'secret',
+    // The certificate and private key filenames for ID token signature handling, with given defaults.
+    ModuleConfig\PKI::OPTION_PRIVATE_KEY_FILENAME => ModuleConfig\PKI::DEFAULT_PRIVATE_KEY_FILENAME,
+    ModuleConfig\PKI::OPTION_CERTIFICATE_FILENAME => ModuleConfig\PKI::DEFAULT_CERTIFICATE_FILENAME,
 
-    // The private key passphrase (optional)
-    // 'pass_phrase' => 'secret',
-    // The cert and key for signing the ID token. Default names are oidc_module.key and oidc_module.crt
-    // 'privatekey' => 'oidc_module.key',
-    // 'certificate' => 'oidc_module.crt',
+    /**
+     * Token related options.
+     */
+    // Authorization code and tokens TTL (validity duration), with given examples. For duration format info, check
+    // https://www.php.net/manual/en/dateinterval.construct.php
+    ModuleConfig\Tokens::OPTION_AUTHORIZATION_CODE_TTL => 'PT10M', // 10 minutes
+    ModuleConfig\Tokens::OPTION_REFRESH_TOKEN_TTL => 'P1M', // 1 month
+    ModuleConfig\Tokens::OPTION_ACCESS_TOKEN_TTL => 'PT1H', // 1 hour,
 
-    // Tokens TTL
-    'authCodeDuration' => 'PT10M', // 10 minutes
-    'refreshTokenDuration' => 'P1M', // 1 month
-    'accessTokenDuration' => 'PT1H', // 1 hour,
+    // Token signer, with given default.
+    // See Lcobucci\JWT\Signer algorithms in https://github.com/lcobucci/jwt/tree/master/src/Signer
+    ModuleConfig\Tokens::OPTION_SIGNER => \Lcobucci\JWT\Signer\Rsa\Sha256::class,
+    //ModuleConfig\Tokens::OPTION_SIGNER => \Lcobucci\JWT\Signer\Hmac\Sha256::class,
+    //ModuleConfig\Tokens::OPTION_SIGNER => \Lcobucci\JWT\Signer\Ecdsa\Sha256::class,
 
+    // TODO mivanci continue with constants
     // Tag to run storage cleanup script using the cron module...
     'cron_tag' => 'hourly',
 
-    // Set token signer
-    // See Lcobucci\JWT\Signer algorithms in https://github.com/lcobucci/jwt/tree/master/src/Signer
-    'signer' => \Lcobucci\JWT\Signer\Rsa\Sha256::class,
-    // 'signer' => \Lcobucci\JWT\Signer\Hmac\Sha256::class,
-    // 'signer' => \Lcobucci\JWT\Signer\Ecdsa\Sha256::class,
 
     // The key id to use in the header. Default is a finger print of the public key
     // 'kid' => 'abcd',
@@ -67,7 +78,7 @@ $config = [
     ],
 
     // Settings regarding Authentication Processing Filters.
-    // Note: OIDC authN state array will not contain all of the keys which are available during SAML authN,
+    // Note: OIDC authN state array will not contain all the keys which are available during SAML authN,
     // like Service Provider metadata, etc.
     //
     // At the moment, the following SAML authN data will be available during OIDC authN in the sate array:
@@ -252,4 +263,9 @@ $config = [
     // the use of "level 0" is appropriate:
 //     'forcedAcrValueForCookieAuthentication' => '0',
     'forcedAcrValueForCookieAuthentication' => null,
+
+    /**
+     * Pagination related options.
+     */
+    ModuleConfig\Pagination::OPTION_ITEMS_PER_PAGE => 20,
 ];

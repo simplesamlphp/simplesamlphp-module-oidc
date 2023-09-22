@@ -117,7 +117,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
             );
 
         $this->openIdConfigurationStub->method('getBoolean')->willReturn(false);
-        $this->moduleConfigStub->method('getOpenIDConnectConfiguration')
+        $this->moduleConfigStub->method('config')
             ->willReturn($this->openIdConfigurationStub);
 
         $result = (new ScopeOfflineAccessRule($this->moduleConfigStub))
@@ -144,7 +144,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
             );
 
         $this->openIdConfigurationStub->method('getBoolean')->willReturn(false);
-        $this->moduleConfigStub->method('getOpenIDConnectConfiguration')
+        $this->moduleConfigStub->method('config')
             ->willReturn($this->openIdConfigurationStub);
 
         $this->expectException(OidcServerException::class);
@@ -170,7 +170,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
             );
 
         $this->openIdConfigurationStub->method('getBoolean')->willReturn(false);
-        $this->moduleConfigStub->method('getOpenIDConnectConfiguration')
+        $this->moduleConfigStub->method('config')
             ->willReturn($this->openIdConfigurationStub);
 
         $result = (new ScopeOfflineAccessRule($this->moduleConfigStub))

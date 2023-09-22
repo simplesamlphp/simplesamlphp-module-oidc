@@ -22,7 +22,7 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
     {
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock
-            ->method('getOpenIDConnectConfiguration')
+            ->method('config')
             ->willReturn(
                 Configuration::loadFromArray(
                     [

@@ -214,13 +214,13 @@ class Container implements ContainerInterface
         $this->services[RequestRulesManager::class] = $requestRuleManager;
 
         $accessTokenDuration = new DateInterval(
-            $moduleConfig->getOpenIDConnectConfiguration()->getString('accessTokenDuration')
+            $moduleConfig->config()->getString('accessTokenDuration')
         );
         $authCodeDuration = new DateInterval(
-            $moduleConfig->getOpenIDConnectConfiguration()->getString('authCodeDuration')
+            $moduleConfig->config()->getString('authCodeDuration')
         );
         $refreshTokenDuration = new DateInterval(
-            $moduleConfig->getOpenIDConnectConfiguration()->getString('refreshTokenDuration')
+            $moduleConfig->config()->getString('refreshTokenDuration')
         );
         $publicKey = $cryptKeyFactory->buildPublicKey();
         $privateKey = $cryptKeyFactory->buildPrivateKey();
