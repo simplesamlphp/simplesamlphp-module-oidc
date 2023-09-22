@@ -33,10 +33,10 @@ use Throwable;
 class OAuth2AuthorizationController
 {
     public function __construct(
-        private AuthenticationService $authenticationService,
-        private AuthorizationServer $authorizationServer,
-        private ConfigurationService $configurationService,
-        private LoggerService $loggerService
+        private readonly AuthenticationService $authenticationService,
+        private readonly AuthorizationServer $authorizationServer,
+        private readonly ConfigurationService $configurationService,
+        private readonly LoggerService $loggerService
     ) {
     }
 

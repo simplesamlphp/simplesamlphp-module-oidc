@@ -19,7 +19,6 @@ use SimpleSAML\Module\oidc\Utils\UniqueIdentifierGenerator;
 
 class JsonWebTokenBuilderService
 {
-    protected ConfigurationService $configurationService;
     protected Configuration $jwtConfig;
 
     /**
@@ -27,10 +26,8 @@ class JsonWebTokenBuilderService
      * @throws Exception
      */
     public function __construct(
-        ?ConfigurationService $configurationService = null
+        protected ConfigurationService $configurationService = new ConfigurationService()
     ) {
-        $this->configurationService = $configurationService ?? new ConfigurationService();
-
         $this->jwtConfig = Configuration::forAsymmetricSigner(
             $this->configurationService->getSigner(),
             InMemory::file(

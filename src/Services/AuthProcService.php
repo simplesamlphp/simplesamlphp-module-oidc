@@ -22,7 +22,7 @@ class AuthProcService
      * @see \SimpleSAML\Auth\ProcessingChain for original implementation
      */
     public function __construct(
-        private ConfigurationService $configurationService
+        private readonly ConfigurationService $configurationService
     ) {
         $this->loadFilters();
     }

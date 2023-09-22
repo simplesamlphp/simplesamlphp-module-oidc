@@ -34,11 +34,11 @@ use function PHPUnit\Framework\throwException;
 class OpenIdConnectUserInfoController
 {
     public function __construct(
-        private ResourceServer $resourceServer,
-        private AccessTokenRepository $accessTokenRepository,
-        private UserRepository $userRepository,
-        private AllowedOriginRepository $allowedOriginRepository,
-        private ClaimTranslatorExtractor $claimTranslatorExtractor
+        private readonly ResourceServer $resourceServer,
+        private readonly AccessTokenRepository $accessTokenRepository,
+        private readonly UserRepository $userRepository,
+        private readonly AllowedOriginRepository $allowedOriginRepository,
+        private readonly ClaimTranslatorExtractor $claimTranslatorExtractor
     ) {
     }
 

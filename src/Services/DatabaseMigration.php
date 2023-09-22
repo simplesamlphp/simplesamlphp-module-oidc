@@ -28,7 +28,7 @@ use SimpleSAML\Module\oidc\Store\SessionLogoutTicketStoreDb;
 
 class DatabaseMigration
 {
-    private Database $database;
+    private readonly Database $database;
 
     public function __construct(Database $database = null)
     {

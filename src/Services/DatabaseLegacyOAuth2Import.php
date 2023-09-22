@@ -24,7 +24,7 @@ use SimpleSAML\Module\oidc\Repositories\ClientRepository;
  */
 class DatabaseLegacyOAuth2Import
 {
-    public function __construct(private ClientRepository $clientRepository)
+    public function __construct(private readonly ClientRepository $clientRepository)
     {
     }
 

@@ -113,7 +113,7 @@ class ClaimTranslatorExtractor
     /**
      * From JSON Web Token Claims registry: https://www.iana.org/assignments/jwt/jwt.xhtml
      */
-    public const REGISTERED_CLAIMS = [
+    final public const REGISTERED_CLAIMS = [
         ...RegisteredClaims::ALL,
         'azp',
         'nonce',

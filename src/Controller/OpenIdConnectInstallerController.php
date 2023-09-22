@@ -28,10 +28,10 @@ use Laminas\Diactoros\ServerRequest;
 class OpenIdConnectInstallerController
 {
     public function __construct(
-        private TemplateFactory $templateFactory,
-        private SessionMessagesService $messages,
-        private DatabaseMigration $databaseMigration,
-        private DatabaseLegacyOAuth2Import $databaseLegacyOAuth2Import
+        private readonly TemplateFactory $templateFactory,
+        private readonly SessionMessagesService $messages,
+        private readonly DatabaseMigration $databaseMigration,
+        private readonly DatabaseLegacyOAuth2Import $databaseLegacyOAuth2Import
     ) {
     }
 

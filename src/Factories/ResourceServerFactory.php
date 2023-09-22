@@ -23,9 +23,9 @@ use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 class ResourceServerFactory
 {
     public function __construct(
-        private AccessTokenRepository $accessTokenRepository,
-        private CryptKey $publicKey,
-        private AuthorizationValidatorInterface $authorizationValidator
+        private readonly AccessTokenRepository $accessTokenRepository,
+        private readonly CryptKey $publicKey,
+        private readonly AuthorizationValidatorInterface $authorizationValidator
     ) {
     }
 

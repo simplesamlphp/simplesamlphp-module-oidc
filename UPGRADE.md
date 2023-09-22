@@ -1,5 +1,11 @@
 # Version 4 to 5
 
+## New features
+- TODO key rollover
+- TODO move away from SSP database as store; move to custom store interface
+- TODO implement store for different entities?: i.e. client data can use RDB like mysql, whilst short term data
+  like tokens can utilize faster stores like memcache, redis...
+
 ## Major impact changes
 - PHP version requirement was bumped to v8.1
 - TODO (currently dev-simplesamlphp-2.1) SimpleSAMLphp version requirement fixed to v2.1.* 
@@ -9,17 +15,19 @@
 - TODO move to SSP (symfony) routing
 
 ## Low impact changes
-- (internal) psalm error level set to 1
-- TODO move checkers to templates (generics) for proper type handling
+Below are some internal changes that should not have impact for the OIDC OP implementors. However, if you are using
+this module as a library or extending from it, you will probably encounter a breaking change, since a lot of code
+has been refactored:
+
+- psalm error level set to 1, which needed a fair amount of code adjustments
+- refactored to strict typing whenever possible (psalm can now infer types for >99% of the codebase)
+- refactored to PHP v8.* (up to PHP v8.1) code styling whenever possible, like using constructor property promotion, 
+match expressions, enums...
+- TODO move checkers to templates (generics) for proper static type handling
 - TODO move to SSP (symfony) container
 - TODO remove dependency on laminas/laminas-diactoros
 - TODO remove dependency on laminas/laminas-httphandlerrunner
-- (internal) removed dependency on steverhoades/oauth2-openid-connect-server (low maintenance)
-
-## New features
-- TODO key rollover
-- TODO implement store for different entities?: i.e. client data can use RDB like mysql, whilst short term data
-  like tokens can utilize faster stores like memcache, redis...
+- removed dependency on steverhoades/oauth2-openid-connect-server (low maintenance)
 
 # Version 3 to 4
 - PHP version requirement was bumped to v8.0 to enable updating important dependant packages like 'league/oauth2-server'

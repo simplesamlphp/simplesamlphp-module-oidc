@@ -8,7 +8,7 @@ use PDO;
 
 class AllowedOriginRepository extends AbstractDatabaseRepository
 {
-    public const TABLE_NAME = 'oidc_allowed_origin';
+    final public const TABLE_NAME = 'oidc_allowed_origin';
 
     public function getTableName(): string
     {

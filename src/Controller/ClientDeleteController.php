@@ -33,8 +33,8 @@ class ClientDeleteController
 
     public function __construct(
         ClientRepository $clientRepository,
-        private TemplateFactory $templateFactory,
-        private SessionMessagesService $messages,
+        private readonly TemplateFactory $templateFactory,
+        private readonly SessionMessagesService $messages,
         AuthContextService $authContextService
     ) {
         $this->clientRepository = $clientRepository;

@@ -19,16 +19,10 @@ use Throwable;
 
 class BackChannelLogoutHandler
 {
-    protected LogoutTokenBuilder $logoutTokenBuilder;
-
-    protected LoggerService $loggerService;
-
     public function __construct(
-        ?LogoutTokenBuilder $logoutTokenBuilder = null,
-        ?LoggerService $loggerService = null
+        protected LogoutTokenBuilder $logoutTokenBuilder = new LogoutTokenBuilder(),
+        protected LoggerService $loggerService = new LoggerService()
     ) {
-        $this->logoutTokenBuilder = $logoutTokenBuilder ?? new LogoutTokenBuilder();
-        $this->loggerService = $loggerService ?? new LoggerService();
     }
 
     /**

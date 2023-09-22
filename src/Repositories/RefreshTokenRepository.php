@@ -29,7 +29,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
 {
     use RevokeTokenByAuthCodeIdTrait;
 
-    public const TABLE_NAME = 'oidc_refresh_token';
+    final public const TABLE_NAME = 'oidc_refresh_token';
 
     /**
      * @return string

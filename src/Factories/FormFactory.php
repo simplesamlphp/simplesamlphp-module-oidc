@@ -21,7 +21,7 @@ use SimpleSAML\Module\oidc\Services\ConfigurationService;
 
 class FormFactory
 {
-    public function __construct(private ConfigurationService $configurationService)
+    public function __construct(private readonly ConfigurationService $configurationService)
     {
     }
 

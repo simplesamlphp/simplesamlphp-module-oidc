@@ -31,18 +31,18 @@ use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 class AuthorizationServerFactory
 {
     public function __construct(
-        private ClientRepository $clientRepository,
-        private AccessTokenRepository $accessTokenRepository,
-        private ScopeRepository $scopeRepository,
-        private AuthCodeGrant $authCodeGrant,
-        private OAuth2ImplicitGrant $oAuth2ImplicitGrant,
-        private ImplicitGrant $implicitGrant,
-        private RefreshTokenGrant $refreshTokenGrant,
-        private DateInterval $accessTokenDuration,
-        private IdTokenResponse $idTokenResponse,
-        private RequestRulesManager $requestRulesManager,
-        private CryptKey $privateKey,
-        private string $encryptionKey
+        private readonly ClientRepository $clientRepository,
+        private readonly AccessTokenRepository $accessTokenRepository,
+        private readonly ScopeRepository $scopeRepository,
+        private readonly AuthCodeGrant $authCodeGrant,
+        private readonly OAuth2ImplicitGrant $oAuth2ImplicitGrant,
+        private readonly ImplicitGrant $implicitGrant,
+        private readonly RefreshTokenGrant $refreshTokenGrant,
+        private readonly DateInterval $accessTokenDuration,
+        private readonly IdTokenResponse $idTokenResponse,
+        private readonly RequestRulesManager $requestRulesManager,
+        private readonly CryptKey $privateKey,
+        private readonly string $encryptionKey
     ) {
     }
 

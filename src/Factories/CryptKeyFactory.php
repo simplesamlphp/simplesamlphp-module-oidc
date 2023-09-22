@@ -9,9 +9,9 @@ use League\OAuth2\Server\CryptKey;
 class CryptKeyFactory
 {
     public function __construct(
-        private string $publicKeyPath,
-        private string $privateKeyPath,
-        private ?string $passPhrase = null
+        private readonly string $publicKeyPath,
+        private readonly string $privateKeyPath,
+        private readonly ?string $passPhrase = null
     ) {
     }
 

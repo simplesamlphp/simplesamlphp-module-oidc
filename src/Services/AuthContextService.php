@@ -20,14 +20,14 @@ class AuthContextService
     /**
      * Users with this permission can register,edit,etc. their own clients
      */
-    public const PERM_CLIENT = 'client';
+    final public const PERM_CLIENT = 'client';
 
     /**
      * AuthContextService constructor.
      */
     public function __construct(
-        private ConfigurationService $configurationService,
-        private AuthSimpleFactory $authSimpleFactory
+        private readonly ConfigurationService $configurationService,
+        private readonly AuthSimpleFactory $authSimpleFactory
     ) {
     }
 

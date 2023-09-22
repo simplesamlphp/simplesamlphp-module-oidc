@@ -68,7 +68,7 @@ class IdTokenResponse extends BearerTokenResponse implements
     protected $refreshToken;
 
     public function __construct(
-        private IdentityProviderInterface $identityProvider,
+        private readonly IdentityProviderInterface $identityProvider,
         protected IdTokenBuilder $idTokenBuilder,
         CryptKey $privateKey
     ) {

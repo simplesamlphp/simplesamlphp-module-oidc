@@ -24,7 +24,7 @@ use SimpleSAML\Utils\Config;
 
 class JsonWebKeySetService
 {
-    private JWKSet $jwkSet;
+    private readonly JWKSet $jwkSet;
 
     /**
      * @throws Exception

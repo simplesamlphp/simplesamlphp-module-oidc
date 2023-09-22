@@ -22,8 +22,8 @@ use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
 class RefreshTokenGrantFactory
 {
     public function __construct(
-        private RefreshTokenRepository $refreshTokenRepository,
-        private DateInterval $refreshTokenDuration
+        private readonly RefreshTokenRepository $refreshTokenRepository,
+        private readonly DateInterval $refreshTokenDuration
     ) {
     }
 

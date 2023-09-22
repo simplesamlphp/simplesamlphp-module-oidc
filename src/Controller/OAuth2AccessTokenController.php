@@ -22,7 +22,7 @@ use Laminas\Diactoros\ServerRequest;
 
 class OAuth2AccessTokenController
 {
-    public function __construct(private AuthorizationServer $authorizationServer)
+    public function __construct(private readonly AuthorizationServer $authorizationServer)
     {
     }
 

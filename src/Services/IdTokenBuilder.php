@@ -22,8 +22,8 @@ use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface
 class IdTokenBuilder
 {
     public function __construct(
-        private JsonWebTokenBuilderService $jsonWebTokenBuilderService,
-        private ClaimTranslatorExtractor $claimExtractor
+        private readonly JsonWebTokenBuilderService $jsonWebTokenBuilderService,
+        private readonly ClaimTranslatorExtractor $claimExtractor
     ) {
     }
 

@@ -21,7 +21,7 @@ use SimpleSAML\Session;
 
 class SessionMessagesService
 {
-    public function __construct(private Session $session)
+    public function __construct(private readonly Session $session)
     {
     }
 

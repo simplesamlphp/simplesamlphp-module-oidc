@@ -24,10 +24,10 @@ use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 class IdTokenResponseFactory
 {
     public function __construct(
-        private UserRepository $userRepository,
-        private IdTokenBuilder $idTokenBuilder,
-        private CryptKey $privateKey,
-        private string $encryptionKey
+        private readonly UserRepository $userRepository,
+        private readonly IdTokenBuilder $idTokenBuilder,
+        private readonly CryptKey $privateKey,
+        private readonly string $encryptionKey
     ) {
     }
 

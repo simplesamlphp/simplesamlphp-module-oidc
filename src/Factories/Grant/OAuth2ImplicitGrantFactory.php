@@ -22,8 +22,8 @@ use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 class OAuth2ImplicitGrantFactory
 {
     public function __construct(
-        private DateInterval $accessTokenDuration,
-        private RequestRulesManager $requestRulesManager
+        private readonly DateInterval $accessTokenDuration,
+        private readonly RequestRulesManager $requestRulesManager
     ) {
     }
 

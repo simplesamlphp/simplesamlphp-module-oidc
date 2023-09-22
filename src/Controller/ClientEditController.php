@@ -41,9 +41,9 @@ class ClientEditController
     public function __construct(
         ClientRepository $clientRepository,
         protected AllowedOriginRepository $allowedOriginRepository,
-        private TemplateFactory $templateFactory,
-        private FormFactory $formFactory,
-        private SessionMessagesService $messages,
+        private readonly TemplateFactory $templateFactory,
+        private readonly FormFactory $formFactory,
+        private readonly SessionMessagesService $messages,
         AuthContextService $authContextService
     ) {
         $this->clientRepository = $clientRepository;

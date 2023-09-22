@@ -41,14 +41,14 @@ class AuthenticationService
     private ?string $authSourceId = null;
 
     public function __construct(
-        private UserRepository $userRepository,
-        private AuthSimpleFactory $authSimpleFactory,
-        private AuthProcService $authProcService,
+        private readonly UserRepository $userRepository,
+        private readonly AuthSimpleFactory $authSimpleFactory,
+        private readonly AuthProcService $authProcService,
         ClientRepository $clientRepository,
-        private OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService,
-        private SessionService $sessionService,
-        private ClaimTranslatorExtractor $claimTranslatorExtractor,
-        private string $userIdAttr
+        private readonly OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService,
+        private readonly SessionService $sessionService,
+        private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
+        private readonly string $userIdAttr
     ) {
         $this->clientRepository = $clientRepository;
     }

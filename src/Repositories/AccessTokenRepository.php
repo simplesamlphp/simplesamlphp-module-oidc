@@ -30,7 +30,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
 {
     use RevokeTokenByAuthCodeIdTrait;
 
-    public const TABLE_NAME = 'oidc_access_token';
+    final public const TABLE_NAME = 'oidc_access_token';
 
     /**
      * {@inheritdoc}

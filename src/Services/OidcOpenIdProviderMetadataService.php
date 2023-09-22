@@ -20,7 +20,7 @@ class OidcOpenIdProviderMetadataService
      * @throws Exception
      */
     public function __construct(
-        private ConfigurationService $configurationService
+        private readonly ConfigurationService $configurationService
     ) {
         $this->initMetadata();
     }

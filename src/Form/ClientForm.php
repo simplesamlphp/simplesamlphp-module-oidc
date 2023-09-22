@@ -30,25 +30,25 @@ class ClientForm extends Form
     /**
      * RFC3986. AppendixB. Parsing a URI Reference with a Regular Expression.
      */
-    public const REGEX_URI = '/^[^:]+:\/\/?[^\s\/$.?#].[^\s]*$/';
+    final public const REGEX_URI = '/^[^:]+:\/\/?[^\s\/$.?#].[^\s]*$/';
 
     /**
      * Must have http:// or https:// scheme, and at least one 'domain.top-level-domain' pair, or more subdomains.
      * Top-level-domain may end with '.'.
      * No reserved chars allowed, meaning no userinfo, path, query or fragment components. May end with port number.
      */
-    public const REGEX_ALLOWED_ORIGIN_URL =
+    final public const REGEX_ALLOWED_ORIGIN_URL =
         "/^http(s?):\/\/[^\s\/!$&'()+,;=.?#@*:]+\.[^\s\/!$&'()+,;=.?#@*]+\.?(\.[^\s\/!$&'()+,;=?#@*:]+)*(:\d{1,5})?$/i";
 
     /**
      * URI which must contain https or http scheme, can contain path and query, and can't contain fragment.
      */
-    public const REGEX_HTTP_URI = '/^http(s?):\/\/[^\s\/$.?#][^\s#]*$/i';
+    final public const REGEX_HTTP_URI = '/^http(s?):\/\/[^\s\/$.?#][^\s#]*$/i';
 
     /**
      * @throws Exception
      */
-    public function __construct(private ConfigurationService $configurationService)
+    public function __construct(private readonly ConfigurationService $configurationService)
     {
         parent::__construct();
 
@@ -198,13 +198,13 @@ class ClientForm extends Form
         $this->getElementPrototype()->addAttributes(['class' => 'ui form']);
 
         /** @psalm-suppress InvalidPropertyAssignmentValue According to docs this is fine. */
-        $this->onValidate[] = [$this, 'validateRedirectUri'];
+        $this->onValidate[] = $this->validateRedirectUri(...);
         /** @psalm-suppress InvalidPropertyAssignmentValue According to docs this is fine. */
-        $this->onValidate[] = [$this, 'validateAllowedOrigin'];
+        $this->onValidate[] = $this->validateAllowedOrigin(...);
         /** @psalm-suppress InvalidPropertyAssignmentValue According to docs this is fine. */
-        $this->onValidate[] = [$this, 'validatePostLogoutRedirectUri'];
+        $this->onValidate[] = $this->validatePostLogoutRedirectUri(...);
         /** @psalm-suppress InvalidPropertyAssignmentValue According to docs this is fine. */
-        $this->onValidate[] = [$this, 'validateBackChannelLogoutUri'];
+        $this->onValidate[] = $this->validateBackChannelLogoutUri(...);
 
         $this->setMethod('POST');
         $this->addComponent(new CsrfProtection('{oidc:client:csrf_error}'), Form::PROTECTOR_ID);

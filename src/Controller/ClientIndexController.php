@@ -25,9 +25,9 @@ use SimpleSAML\Module\oidc\Services\AuthContextService;
 class ClientIndexController
 {
     public function __construct(
-        private ClientRepository $clientRepository,
-        private TemplateFactory $templateFactory,
-        private AuthContextService $authContextService
+        private readonly ClientRepository $clientRepository,
+        private readonly TemplateFactory $templateFactory,
+        private readonly AuthContextService $authContextService
     ) {
     }
 

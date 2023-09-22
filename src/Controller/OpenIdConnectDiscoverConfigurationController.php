@@ -21,7 +21,7 @@ use SimpleSAML\Module\oidc\Services\OidcOpenIdProviderMetadataService;
 
 class OpenIdConnectDiscoverConfigurationController
 {
-    public function __construct(private OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService)
+    public function __construct(private readonly OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService)
     {
     }
 

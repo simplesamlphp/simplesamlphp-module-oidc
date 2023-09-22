@@ -10,12 +10,9 @@ use stdClass;
 
 class LogoutTokenBuilder
 {
-    protected JsonWebTokenBuilderService $jsonWebTokenBuilderService;
-
     public function __construct(
-        ?JsonWebTokenBuilderService $jsonWebTokenBuilderService = null
+        protected JsonWebTokenBuilderService $jsonWebTokenBuilderService = new JsonWebTokenBuilderService()
     ) {
-        $this->jsonWebTokenBuilderService = $jsonWebTokenBuilderService ?? new JsonWebTokenBuilderService();
     }
 
     /**

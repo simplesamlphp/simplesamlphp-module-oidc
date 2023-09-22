@@ -29,8 +29,8 @@ class ClientShowController
 
     public function __construct(
         ClientRepository $clientRepository,
-        private AllowedOriginRepository $allowedOriginRepository,
-        private TemplateFactory $templateFactory,
+        private readonly AllowedOriginRepository $allowedOriginRepository,
+        private readonly TemplateFactory $templateFactory,
         AuthContextService $authContextService
     ) {
         $this->clientRepository = $clientRepository;

@@ -26,7 +26,7 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 class UserRepository extends AbstractDatabaseRepository implements UserRepositoryInterface, IdentityProviderInterface
 {
-    public const TABLE_NAME = 'oidc_user';
+    final public const TABLE_NAME = 'oidc_user';
 
     public function getTableName(): string
     {

@@ -23,7 +23,7 @@ use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
 
 class ClientRepository extends AbstractDatabaseRepository implements ClientRepositoryInterface
 {
-    public const TABLE_NAME = 'oidc_client';
+    final public const TABLE_NAME = 'oidc_client';
 
     public function getTableName(): string
     {

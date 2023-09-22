@@ -29,20 +29,17 @@ class RequestRulesManager
     /** @var array $data Which will be available during each check */
     protected array $data = [];
 
-    protected LoggerService $loggerService;
-
     /**
      * RequestRulesManager constructor.
      * @param RequestRuleInterface[] $rules
      */
-    public function __construct(array $rules = [], ?LoggerService $loggerService = null)
+    public function __construct(array $rules = [], protected LoggerService $loggerService = new LoggerService())
     {
         foreach ($rules as $rule) {
             $this->add($rule);
         }
 
         $this->resultBag = new ResultBag();
-        $this->loggerService = $loggerService ?? new LoggerService();
     }
 
     public function add(RequestRuleInterface $rule): void

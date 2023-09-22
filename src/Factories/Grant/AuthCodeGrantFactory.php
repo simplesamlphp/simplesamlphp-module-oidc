@@ -27,12 +27,12 @@ use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 class AuthCodeGrantFactory
 {
     public function __construct(
-        private AuthCodeRepository $authCodeRepository,
-        private AccessTokenRepository $accessTokenRepository,
-        private RefreshTokenRepository $refreshTokenRepository,
-        private DateInterval $refreshTokenDuration,
-        private DateInterval $authCodeDuration,
-        private RequestRulesManager $requestRulesManager
+        private readonly AuthCodeRepository $authCodeRepository,
+        private readonly AccessTokenRepository $accessTokenRepository,
+        private readonly RefreshTokenRepository $refreshTokenRepository,
+        private readonly DateInterval $refreshTokenDuration,
+        private readonly DateInterval $authCodeDuration,
+        private readonly RequestRulesManager $requestRulesManager
     ) {
     }
 

@@ -12,7 +12,7 @@ use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 class SessionLogoutTicketStoreDb implements SessionLogoutTicketStoreInterface
 {
-    public const TABLE_NAME = 'oidc_session_logout_ticket';
+    final public const TABLE_NAME = 'oidc_session_logout_ticket';
 
     protected Database $database;
 

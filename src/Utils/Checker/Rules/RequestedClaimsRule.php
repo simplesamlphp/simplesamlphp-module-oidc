@@ -15,7 +15,7 @@ use Throwable;
 
 class RequestedClaimsRule extends AbstractRule
 {
-    public function __construct(private ClaimTranslatorExtractor $claimExtractor)
+    public function __construct(private readonly ClaimTranslatorExtractor $claimExtractor)
     {
     }
 

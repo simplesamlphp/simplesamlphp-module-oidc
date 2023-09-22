@@ -20,7 +20,7 @@ use SimpleSAML\XHTML\Template;
 
 class TemplateFactory
 {
-    private Configuration $configuration;
+    private readonly Configuration $configuration;
 
     public function __construct(Configuration $configuration)
     {

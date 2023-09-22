@@ -34,12 +34,12 @@ use SimpleSAML\XHTML\Template;
 class ClientCreateController
 {
     public function __construct(
-        private ClientRepository $clientRepository,
-        private AllowedOriginRepository $allowedOriginRepository,
-        private TemplateFactory $templateFactory,
-        private FormFactory $formFactory,
-        private SessionMessagesService $messages,
-        private AuthContextService $authContextService
+        private readonly ClientRepository $clientRepository,
+        private readonly AllowedOriginRepository $allowedOriginRepository,
+        private readonly TemplateFactory $templateFactory,
+        private readonly FormFactory $formFactory,
+        private readonly SessionMessagesService $messages,
+        private readonly AuthContextService $authContextService
     ) {
     }
 

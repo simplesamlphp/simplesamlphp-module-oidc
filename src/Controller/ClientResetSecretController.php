@@ -33,7 +33,7 @@ class ClientResetSecretController
 
     public function __construct(
         ClientRepository $clientRepository,
-        private SessionMessagesService $messages,
+        private readonly SessionMessagesService $messages,
         AuthContextService $authContextService
     ) {
         $this->clientRepository = $clientRepository;

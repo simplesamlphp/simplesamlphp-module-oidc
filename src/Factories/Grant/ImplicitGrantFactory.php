@@ -24,10 +24,10 @@ use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 class ImplicitGrantFactory
 {
     public function __construct(
-        private IdTokenBuilder $idTokenBuilder,
-        private DateInterval $accessTokenDuration,
-        private RequestRulesManager $requestRulesManager,
-        private AccessTokenRepository $accessTokenRepository
+        private readonly IdTokenBuilder $idTokenBuilder,
+        private readonly DateInterval $accessTokenDuration,
+        private readonly RequestRulesManager $requestRulesManager,
+        private readonly AccessTokenRepository $accessTokenRepository
     ) {
     }
 

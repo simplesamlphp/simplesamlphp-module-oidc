@@ -20,8 +20,8 @@ use Throwable;
 class PromptRule extends AbstractRule
 {
     public function __construct(
-        private AuthSimpleFactory $authSimpleFactory,
-        private AuthenticationService $authenticationService
+        private readonly AuthSimpleFactory $authSimpleFactory,
+        private readonly AuthenticationService $authenticationService
     ) {
     }
 

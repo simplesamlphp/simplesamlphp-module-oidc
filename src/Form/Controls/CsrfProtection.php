@@ -27,7 +27,7 @@ class CsrfProtection extends BaseCsrfProtection
     /**
      * @psalm-suppress InvalidClassConstantType
      */
-    public const PROTECTION = 'SimpleSAML\Module\oidc\Form\Controls\CsrfProtection::validateCsrf';
+    final public const PROTECTION = 'SimpleSAML\Module\oidc\Form\Controls\CsrfProtection::validateCsrf';
 
     protected Session $sspSession;
 

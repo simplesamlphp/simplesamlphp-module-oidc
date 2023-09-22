@@ -27,7 +27,7 @@ class ClaimTranslatorExtractorFactory
 
     protected const CONFIG_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED = 'are_multiple_claim_values_allowed';
 
-    public function __construct(private ConfigurationService $configurationService)
+    public function __construct(private readonly ConfigurationService $configurationService)
     {
     }
 
