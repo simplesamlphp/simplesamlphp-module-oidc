@@ -1,27 +1,30 @@
 services:
-    # default configuration for services in *this* file
-    _defaults:
-        public: false
+  # default configuration for services in *this* file
+  _defaults:
+    public: false
 
-    SimpleSAML\Module\oidc\Services\:
-        resource: '../../src/Services/*'
-        exclude: '../../src/Services/{Container.php}'
+  SimpleSAML\Module\oidc\Services\:
+    resource: '../../src/Services/*'
+    exclude: '../../src/Services/{Container.php}'
 
-    SimpleSAML\Module\oidc\Repositories\:
-        resource: '../../src/Repositories/*'
-        exclude: '../../src/Repositories/{Interfaces}'
+  SimpleSAML\Module\oidc\Repositories\:
+    resource: '../../src/Repositories/*'
+    exclude: '../../src/Repositories/{Interfaces}'
 
-    SimpleSAML\Module\oidc\Factories\:
-        resource: '../../src/Factories/*'
+  SimpleSAML\Module\oidc\Factories\:
+    resource: '../../src/Factories/*'
 
-    SimpleSAML\Module\oidc\Store\:
-        resource: '../../src/Store/*'
+  SimpleSAML\Module\oidc\Store\:
+    resource: '../../src/Store/*'
 
-    SimpleSAML\Module\oidc\Server\AuthorizationServer:
-        class: SimpleSAML\Module\oidc\Server\AuthorizationServer
+  SimpleSAML\Module\oidc\Server\AuthorizationServer:
+    class: SimpleSAML\Module\oidc\Server\AuthorizationServer
 
-    League\OAuth2\Server\ResourceServer:
-        class: League\OAuth2\Server\ResourceServer
+  League\OAuth2\Server\ResourceServer:
+    class: League\OAuth2\Server\ResourceServer
 
-    SimpleSAML\Module\oidc\ClaimTranslatorExtractor:
-        class: SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor
+  SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor:
+    class: SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor
+
+  SimpleSAML\Module\oidc\ModuleConfig:
+    class: SimpleSAML\Module\oidc\ModuleConfig

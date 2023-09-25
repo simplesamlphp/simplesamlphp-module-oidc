@@ -8,6 +8,7 @@ use Lcobucci\JWT\Signer\Rsa\Sha256;
 use League\OAuth2\Server\CryptKey;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
@@ -44,8 +45,8 @@ class PostLogoutRedirectUriRuleTest extends TestCase
     public static function setUpBeforeClass(): void
     {
         self::$certFolder = dirname(__DIR__, 5) . '/docker/ssp/';
-        self::$privateKeyPath = self::$certFolder . 'oidc_module.key';
-        self::$publicKeyPath = self::$certFolder . 'oidc_module.crt';
+        self::$privateKeyPath = self::$certFolder . ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME;
+        self::$publicKeyPath = self::$certFolder . ModuleConfig::DEFAULT_PKI_CERTIFICATE_FILENAME;
         self::$privateKey = new CryptKey(self::$privateKeyPath, null, false);
         self::$publicKey = new CryptKey(self::$publicKeyPath, null, false);
     }

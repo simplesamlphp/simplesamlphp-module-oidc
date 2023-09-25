@@ -45,7 +45,7 @@ class AuthContextService
     public function getAuthUserId(): string
     {
         $simple = $this->authenticate();
-        $userIdAttr = $this->moduleConfig->config()->getString('useridattr');
+        $userIdAttr = $this->moduleConfig->config()->getString(ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE);
         return (string)(new Attributes())->getExpectedAttribute($simple->getAttributes(), $userIdAttr);
     }
 
@@ -60,7 +60,7 @@ class AuthContextService
 
         $permissions = $this->moduleConfig
             ->config()
-            ->getOptionalConfigItem('permissions', null);
+            ->getOptionalConfigItem(ModuleConfig::OPTION_ADMIN_UI_PERMISSIONS, null);
         /** @psalm-suppress DocblockTypeContradiction */
         if (is_null($permissions) || !$permissions->hasValue('attribute')) {
             throw new RuntimeException('Permissions not enabled');

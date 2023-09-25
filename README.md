@@ -110,7 +110,7 @@ However, you can add your own private scopes in the `module_oidc.php` config fil
 <?php
 
 $config = [
-    'scopes' => [
+    \SimpleSAML\Module\oidc\ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES => [
         'private' => [
             'description' => 'private scope',
             'claim_name_prefix' => '', // Optional prefix for claim names
@@ -132,7 +132,7 @@ You can change or extend this table in the `module_oidc.php` config file, for ex
 <?php
 
 $config = [
-    'translate' => [
+    \SimpleSAML\Module\oidc\ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE => [
         // Overwrite default translation
         'sub' => [
             'uid', // added
@@ -186,7 +186,7 @@ documentation](https://simplesamlphp.org/docs/stable/simplesamlphp-authproc).
 <?php
 
 $config = [
-    'authproc.oidc' => [
+    \SimpleSAML\Module\oidc\ModuleConfig::OPTION_AUTH_PROCESSING_FILTERS => [
         50 => [
             'class' => 'core:AttributeAdd',
             'groups' => ['users', 'members'],
@@ -207,8 +207,8 @@ eduPersonEntitlements from the `client` permission array.
 
 A permission can be disabled by commenting it out.
 
-```bash
-    'permissions' => [
+```php
+     \SimpleSAML\Module\oidc\ModuleConfig::OPTION_ADMIN_UI_PERMISSIONS => [
         // Attribute to inspect to determine user's permissions
         'attribute' => 'eduPersonEntitlement',
         // Which entitlements allow for registering, editing, delete a client. OIDC clients are owned by the creator

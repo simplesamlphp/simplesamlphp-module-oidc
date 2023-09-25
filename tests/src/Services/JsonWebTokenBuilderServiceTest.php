@@ -34,8 +34,8 @@ class JsonWebTokenBuilderServiceTest extends TestCase
     public static function setUpBeforeClass(): void
     {
         self::$certFolder = dirname(__DIR__, 3) . '/docker/ssp/';
-        self::$privateKeyPath = self::$certFolder . 'oidc_module.key';
-        self::$publicKeyPath = self::$certFolder . 'oidc_module.crt';
+        self::$privateKeyPath = self::$certFolder . ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME;
+        self::$publicKeyPath = self::$certFolder . ModuleConfig::DEFAULT_PKI_CERTIFICATE_FILENAME;
         self::$signerSha256 = new Sha256();
     }
 

@@ -4,9 +4,10 @@ namespace SimpleSAML\Test\Module\oidc;
 
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
+use SimpleSAML\Module\oidc\ModuleConfig;
 
 /**
- * @covers \SimpleSAML\Module\oidc\ModuleConfig
+ * @covers ModuleConfig
  */
 class ModuleConfigTest extends TestCase
 {
@@ -23,24 +24,27 @@ class ModuleConfigTest extends TestCase
         );
         Configuration::setPreLoadedConfig(
             Configuration::loadFromArray([]),
-            'module_oidc.php'
+            ModuleConfig::DEFAULT_FILE_NAME
         );
         // Test default cert and pem
-        $moduleConfig = new \SimpleSAML\Module\oidc\ModuleConfig();
-        $this->assertEquals($certDir . 'oidc_module.crt', $moduleConfig->getCertPath());
-        $this->assertEquals($certDir . 'oidc_module.key', $moduleConfig->getPrivateKeyPath());
+        $moduleConfig = new ModuleConfig();
+        $this->assertEquals($certDir . ModuleConfig::DEFAULT_PKI_CERTIFICATE_FILENAME, $moduleConfig->getCertPath());
+        $this->assertEquals(
+            $certDir . ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME,
+            $moduleConfig->getPrivateKeyPath()
+        );
 
         // Set customized
         Configuration::setPreLoadedConfig(
             Configuration::loadFromArray(
                 [
-                    'privatekey' => 'myPrivateKey.key',
-                    'certificate' => 'myCertificate.crt',
+                    ModuleConfig::OPTION_PKI_PRIVATE_KEY_FILENAME => 'myPrivateKey.key',
+                    ModuleConfig::OPTION_PKI_CERTIFICATE_FILENAME => 'myCertificate.crt',
                 ]
             ),
-            'module_oidc.php'
+            ModuleConfig::DEFAULT_FILE_NAME
         );
-        $moduleConfig = new \SimpleSAML\Module\oidc\ModuleConfig();
+        $moduleConfig = new ModuleConfig();
         $this->assertEquals($certDir . 'myCertificate.crt', $moduleConfig->getCertPath());
         $this->assertEquals($certDir . 'myPrivateKey.key', $moduleConfig->getPrivateKeyPath());
     }

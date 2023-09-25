@@ -26,8 +26,8 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
             ->willReturn(
                 Configuration::loadFromArray(
                     [
-                        'useridattr' => 'uid',
-                        'translate' => [
+                        ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE => 'uid',
+                        ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE => [
                             'testClaim' => ['attribute'],
                             'intClaim' => [
                                 'type' => 'int',

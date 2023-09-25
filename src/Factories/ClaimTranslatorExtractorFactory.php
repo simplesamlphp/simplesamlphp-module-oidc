@@ -37,7 +37,7 @@ class ClaimTranslatorExtractorFactory
     public function build(): ClaimTranslatorExtractor
     {
         $translatorTable = $this->moduleConfig->config()
-            ->getOptionalArray('translate', []);
+            ->getOptionalArray(ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE, []);
 
         $privateScopes = $this->moduleConfig->getOpenIDPrivateScopes();
 
@@ -65,7 +65,7 @@ class ClaimTranslatorExtractorFactory
             }
         }
 
-        $userIdAttr = $this->moduleConfig->config()->getString('useridattr');
+        $userIdAttr = $this->moduleConfig->config()->getString(ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE);
 
         return new ClaimTranslatorExtractor($userIdAttr, $claimSet, $translatorTable, $allowedMultipleValueClaims);
     }

@@ -32,8 +32,8 @@ abstract class AbstractDatabaseRepository
      */
     public function __construct(protected ModuleConfig $moduleConfig)
     {
-        // TODO mivanci Why isn't moduleConfig used here?
-        $this->config = Configuration::getOptionalConfig('module_oidc.php');
+        $this->config = $this->moduleConfig->config();
+        // TODO mivanci move to Doctrine DBAL stores
         $this->database = Database::getInstance();
     }
 

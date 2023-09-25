@@ -14,17 +14,21 @@ declare(strict_types=1);
  * file that was distributed with this source code.
  */
 
+use Psr\Container\ContainerExceptionInterface;
+use Psr\Container\NotFoundExceptionInterface;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 /**
- * @param array &$croninfo
- *
- * @return void
+ * @param array $croninfo
+ * @throws OidcServerException
+ * @throws ContainerExceptionInterface
+ * @throws NotFoundExceptionInterface
  */
-function oidc_hook_cron(array &$croninfo)
+function oidc_hook_cron(array &$croninfo): void
 {
     if (
         !array_key_exists('summary', $croninfo) ||
@@ -36,12 +40,12 @@ function oidc_hook_cron(array &$croninfo)
         throw OidcServerException::serverError('Invalid croninfo data: missing tag');
     }
 
-    $oidcConfig = \SimpleSAML\Configuration::getConfig('module_oidc.php');
+    $oidcConfig = (new ModuleConfig())->config();
 
-    if (null === $oidcConfig->getOptionalValue('cron_tag', null)) {
+    if (null === $oidcConfig->getOptionalValue(ModuleConfig::OPTION_CRON_TAG, null)) {
         return;
     }
-    if ($oidcConfig->getOptionalValue('cron_tag', null) !== $croninfo['tag']) {
+    if ($oidcConfig->getOptionalValue(ModuleConfig::OPTION_CRON_TAG, null) !== $croninfo['tag']) {
         return;
     }
 

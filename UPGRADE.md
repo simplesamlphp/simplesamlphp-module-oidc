@@ -14,8 +14,14 @@
 
 ## Medium impact changes
 - TODO move to SSP (symfony) routing
+- Module config options in file 'module_oidc.php' are now using constants for config keys. The values for constants are
+taken from the previous version of the module, so theoretically you don't have to rewrite your current config file,
+although it is recommended to do so.
 
 ## Low impact changes
+- Removed the 'kid' config option which was not utilized in the codebase (from v2 of the module, the 'kid' value is the
+fingerprint of the certificate).
+
 Below are some internal changes that should not have impact for the OIDC OP implementors. However, if you are using
 this module as a library or extending from it, you will probably encounter breaking changes, since a lot of code
 has been refactored:

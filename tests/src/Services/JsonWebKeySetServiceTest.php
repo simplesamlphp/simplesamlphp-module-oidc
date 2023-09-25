@@ -51,7 +51,7 @@ class JsonWebKeySetServiceTest extends TestCase
 
         Configuration::setPreLoadedConfig(
             Configuration::loadFromArray([]),
-            'module_oidc.php'
+            ModuleConfig::DEFAULT_FILE_NAME
         );
     }
 

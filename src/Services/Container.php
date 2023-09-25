@@ -88,7 +88,6 @@ class Container implements ContainerInterface
     public function __construct()
     {
         $simpleSAMLConfiguration = Configuration::getInstance();
-        $oidcModuleConfiguration = Configuration::getConfig('module_oidc.php');
 
         $moduleConfig = new ModuleConfig();
         $this->services[ModuleConfig::class] = $moduleConfig;
@@ -172,7 +171,7 @@ class Container implements ContainerInterface
             $oidcOpenIdProviderMetadataService,
             $sessionService,
             $claimTranslatorExtractor,
-            $oidcModuleConfiguration->getOptionalString('useridattr', 'uid')
+            $moduleConfig->config()->getOptionalString(ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE, 'uid')
         );
         $this->services[AuthenticationService::class] = $authenticationService;
 
@@ -214,13 +213,13 @@ class Container implements ContainerInterface
         $this->services[RequestRulesManager::class] = $requestRuleManager;
 
         $accessTokenDuration = new DateInterval(
-            $moduleConfig->config()->getString('accessTokenDuration')
+            $moduleConfig->config()->getString(ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_TTL)
         );
         $authCodeDuration = new DateInterval(
-            $moduleConfig->config()->getString('authCodeDuration')
+            $moduleConfig->config()->getString(ModuleConfig::OPTION_TOKEN_AUTHORIZATION_CODE_TTL)
         );
         $refreshTokenDuration = new DateInterval(
-            $moduleConfig->config()->getString('refreshTokenDuration')
+            $moduleConfig->config()->getString(ModuleConfig::OPTION_TOKEN_REFRESH_TOKEN_TTL)
         );
         $publicKey = $cryptKeyFactory->buildPublicKey();
         $privateKey = $cryptKeyFactory->buildPrivateKey();

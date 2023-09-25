@@ -68,6 +68,6 @@ class AuthSimpleFactory
      */
     public function getDefaultAuthSourceId(): string
     {
-        return $this->moduleConfig->config()->getString('auth');
+        return $this->moduleConfig->config()->getString(ModuleConfig::OPTION_AUTH_SOURCE);
     }
 }

@@ -67,7 +67,7 @@ class AuthContextServiceTest extends TestCase
     public function testItReturnsUsername(): void
     {
         $this->oidcConfigurationMock->method('getString')
-            ->with('useridattr')
+            ->with(ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE)
             ->willReturn('idAttribute');
         $this->authSimpleService->method('getAttributes')->willReturn(self::AUTHORIZED_USER);
 
@@ -80,10 +80,10 @@ class AuthContextServiceTest extends TestCase
     public function testItThrowsWhenNoUsername(): void
     {
         $this->oidcConfigurationMock->method('getOptionalConfigItem')
-            ->with('permissions', null)
+            ->with(ModuleConfig::OPTION_ADMIN_UI_PERMISSIONS, null)
             ->willReturn($this->permissions);
         $this->oidcConfigurationMock->method('getString')
-            ->with('useridattr')
+            ->with(ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE)
             ->willReturn('attributeNotSet');
         $this->authSimpleService->method('getAttributes')->willReturn(self::AUTHORIZED_USER);
 
@@ -94,7 +94,7 @@ class AuthContextServiceTest extends TestCase
     public function testPermissionsOk(): void
     {
         $this->oidcConfigurationMock->method('getOptionalConfigItem')
-            ->with('permissions', null)
+            ->with(ModuleConfig::OPTION_ADMIN_UI_PERMISSIONS, null)
             ->willReturn($this->permissions);
         $this->authSimpleService->method('getAttributes')->willReturn(self::AUTHORIZED_USER);
 
@@ -105,7 +105,7 @@ class AuthContextServiceTest extends TestCase
     public function testItThrowsIfNotAuthorizedForPermission(): void
     {
         $this->oidcConfigurationMock->method('getOptionalConfigItem')
-            ->with('permissions', null)
+            ->with(ModuleConfig::OPTION_ADMIN_UI_PERMISSIONS, null)
             ->willReturn($this->permissions);
         $this->expectException(\RuntimeException::class);
         $this->prepareMockedInstance()->requirePermission('no-match');
@@ -114,7 +114,7 @@ class AuthContextServiceTest extends TestCase
     public function testItThrowsForWrongEntitlements(): void
     {
         $this->oidcConfigurationMock->method('getOptionalConfigItem')
-            ->with('permissions', null)
+            ->with(ModuleConfig::OPTION_ADMIN_UI_PERMISSIONS, null)
             ->willReturn($this->permissions);
         $this->authSimpleService->method('getAttributes')
             ->willReturn(
@@ -131,7 +131,7 @@ class AuthContextServiceTest extends TestCase
     public function testItThrowsForNotHavingEntitlementAttribute(): void
     {
         $this->oidcConfigurationMock->method('getOptionalConfigItem')
-            ->with('permissions', null)
+            ->with(ModuleConfig::OPTION_ADMIN_UI_PERMISSIONS, null)
             ->willReturn($this->permissions);
         $this->authSimpleService->method('getAttributes')
             ->willReturn(
@@ -147,7 +147,7 @@ class AuthContextServiceTest extends TestCase
     public function testThrowsForNotHavingEnabledPermissions(): void
     {
         $this->oidcConfigurationMock->method('getOptionalConfigItem')
-            ->with('permissions', null)
+            ->with(ModuleConfig::OPTION_ADMIN_UI_PERMISSIONS, null)
             ->willReturn(Configuration::loadFromArray([]));
 
         $this->expectException(\RuntimeException::class);

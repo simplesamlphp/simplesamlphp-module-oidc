@@ -20,6 +20,7 @@ use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use SimpleSAML\Module\oidc\Entity\ClientEntity;
 use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\ModuleConfig;
 
 class ClientRepository extends AbstractDatabaseRepository implements ClientRepositoryInterface
 {
@@ -295,7 +296,8 @@ EOF
      */
     private function getItemsPerPage(): int
     {
-        return $this->config->getOptionalIntegerRange('items_per_page', 1, 100, 20);
+        return $this->config
+            ->getOptionalIntegerRange(ModuleConfig::OPTION_ADMIN_UI_PAGINATION_ITEMS_PER_PAGE, 1, 100, 20);
     }
 
     /**
