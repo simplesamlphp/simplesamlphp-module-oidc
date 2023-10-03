@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Repositories;
 
+use Exception;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -14,23 +17,20 @@ use SimpleSAML\Module\oidc\Services\DatabaseMigration;
  */
 class AllowedOriginRepositoryTest extends TestCase
 {
-    public const CLIENT_ID = 'some_client_id';
+    final public const CLIENT_ID = 'some_client_id';
 
-    public const ORIGINS = [
+    final public const ORIGINS = [
         'https://example.org',
         'https://sample.com',
     ];
 
-    /**
-     * @var AllowedOriginRepository
-     */
-    private static $repository;
+    private static AllowedOriginRepository $repository;
+
+    private static ModuleConfig $moduleConfig;
 
     /**
-     * @var ModuleConfig
+     * @throws Exception
      */
-    private static $moduleConfig;
-
     public static function setUpBeforeClass(): void
     {
         $config = [

@@ -16,19 +16,20 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controller\Traits;
 
+use JsonException;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Error\NotFound;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 trait GetClientFromRequestTrait
 {
     protected ClientRepository $clientRepository;
 
     /**
-     * @throws BadRequest
-     * @throws NotFound
+     * @throws BadRequest|NotFound|OidcServerException|JsonException
      */
     protected function getClientFromRequest(ServerRequestInterface $request): ClientEntityInterface
     {

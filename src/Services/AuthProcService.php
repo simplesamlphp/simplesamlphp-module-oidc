@@ -94,8 +94,6 @@ class AuthProcService
 
     /**
      * Process given state array.
-     *
-     * @return array
      */
     public function processState(array $state): array
     {

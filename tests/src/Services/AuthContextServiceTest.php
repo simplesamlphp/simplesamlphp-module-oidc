@@ -1,7 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Services;
 
+use PHPUnit\Framework\MockObject\MockObject;
+use RuntimeException;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Configuration;
@@ -15,16 +19,19 @@ use SimpleSAML\Module\oidc\Services\AuthContextService;
  */
 class AuthContextServiceTest extends TestCase
 {
-    public const AUTHORIZED_USER = [
+    final public const AUTHORIZED_USER = [
         'idAttribute' => ['myUsername'],
         'someEntitlement' => ['val1', 'val2', 'val3']
     ];
     protected Configuration $permissions;
-    protected \PHPUnit\Framework\MockObject\MockObject $oidcConfigurationMock;
-    protected \PHPUnit\Framework\MockObject\MockObject $moduleConfigMock;
-    protected \PHPUnit\Framework\MockObject\MockObject $authSimpleService;
-    protected \PHPUnit\Framework\MockObject\MockObject $authSimpleFactory;
+    protected MockObject $oidcConfigurationMock;
+    protected MockObject $moduleConfigMock;
+    protected MockObject $authSimpleService;
+    protected MockObject $authSimpleFactory;
 
+    /**
+     * @throws \PHPUnit\Framework\MockObject\Exception
+     */
     protected function setUp(): void
     {
         $this->permissions = Configuration::loadFromArray(
@@ -64,6 +71,9 @@ class AuthContextServiceTest extends TestCase
         );
     }
 
+    /**
+     * @throws Exception
+     */
     public function testItReturnsUsername(): void
     {
         $this->oidcConfigurationMock->method('getString')
@@ -91,6 +101,9 @@ class AuthContextServiceTest extends TestCase
         $this->prepareMockedInstance()->getAuthUserId();
     }
 
+    /**
+     * @throws \Exception
+     */
     public function testPermissionsOk(): void
     {
         $this->oidcConfigurationMock->method('getOptionalConfigItem')
@@ -102,15 +115,21 @@ class AuthContextServiceTest extends TestCase
         $this->expectNotToPerformAssertions();
     }
 
+    /**
+     * @throws \Exception
+     */
     public function testItThrowsIfNotAuthorizedForPermission(): void
     {
         $this->oidcConfigurationMock->method('getOptionalConfigItem')
             ->with(ModuleConfig::OPTION_ADMIN_UI_PERMISSIONS, null)
             ->willReturn($this->permissions);
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->prepareMockedInstance()->requirePermission('no-match');
     }
 
+    /**
+     * @throws \Exception
+     */
     public function testItThrowsForWrongEntitlements(): void
     {
         $this->oidcConfigurationMock->method('getOptionalConfigItem')
@@ -124,10 +143,13 @@ class AuthContextServiceTest extends TestCase
                 ]
             );
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->prepareMockedInstance()->requirePermission('client');
     }
 
+    /**
+     * @throws \Exception
+     */
     public function testItThrowsForNotHavingEntitlementAttribute(): void
     {
         $this->oidcConfigurationMock->method('getOptionalConfigItem')
@@ -140,17 +162,20 @@ class AuthContextServiceTest extends TestCase
                 ]
             );
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->prepareMockedInstance()->requirePermission('client');
     }
 
+    /**
+     * @throws \Exception
+     */
     public function testThrowsForNotHavingEnabledPermissions(): void
     {
         $this->oidcConfigurationMock->method('getOptionalConfigItem')
             ->with(ModuleConfig::OPTION_ADMIN_UI_PERMISSIONS, null)
             ->willReturn(Configuration::loadFromArray([]));
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->prepareMockedInstance()->requirePermission('client');
     }
 }

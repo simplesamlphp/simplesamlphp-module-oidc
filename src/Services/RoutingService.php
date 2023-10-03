@@ -38,7 +38,6 @@ use Throwable;
 class RoutingService
 {
     /**
-     * @return void
      * @throws BadRequest
      * @throws ContainerExceptionInterface
      * @throws Exception
@@ -84,7 +83,7 @@ class RoutingService
      * @throws ContainerExceptionInterface
      * @throws NotFoundExceptionInterface
      * @throws \Exception
-     * @psalm-suppress MixedArgument, MixedMethodCall, MixedAssignment
+     * @psalm-suppress MixedMethodCall, MixedAssignment
      */
     private static function callController(ContainerInterface $container, string $controllerClassname): void
     {
@@ -127,7 +126,6 @@ class RoutingService
     }
 
     /**
-     * @return object
      * @throws BadRequest
      * @throws ContainerExceptionInterface
      * @throws NotFoundExceptionInterface

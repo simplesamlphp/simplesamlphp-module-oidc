@@ -61,7 +61,7 @@ class AuthContextService
         $permissions = $this->moduleConfig
             ->config()
             ->getOptionalConfigItem(ModuleConfig::OPTION_ADMIN_UI_PERMISSIONS, null);
-        /** @psalm-suppress DocblockTypeContradiction */
+
         if (is_null($permissions) || !$permissions->hasValue('attribute')) {
             throw new RuntimeException('Permissions not enabled');
         }

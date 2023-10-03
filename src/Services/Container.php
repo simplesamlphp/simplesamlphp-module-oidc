@@ -24,7 +24,6 @@ use SimpleSAML\Configuration;
 use SimpleSAML\Database;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Metadata\MetaDataStorageHandler;
-use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Factories\AuthorizationServerFactory;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory;
@@ -37,6 +36,7 @@ use SimpleSAML\Module\oidc\Factories\Grant\RefreshTokenGrantFactory;
 use SimpleSAML\Module\oidc\Factories\IdTokenResponseFactory;
 use SimpleSAML\Module\oidc\Factories\ResourceServerFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
@@ -52,8 +52,8 @@ use SimpleSAML\Module\oidc\Server\Grants\OAuth2ImplicitGrant;
 use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
-use SimpleSAML\Module\oidc\Store\SessionLogoutTicketStoreBuilder;
-use SimpleSAML\Module\oidc\Store\SessionLogoutTicketStoreDb;
+use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
+use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\AcrValuesRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule;
@@ -152,8 +152,8 @@ class Container implements ContainerInterface
         $authProcService = new AuthProcService($moduleConfig);
         $this->services[AuthProcService::class] = $authProcService;
 
-        $oidcOpenIdProviderMetadataService = new OidcOpenIdProviderMetadataService($moduleConfig);
-        $this->services[OidcOpenIdProviderMetadataService::class] = $oidcOpenIdProviderMetadataService;
+        $oidcOpenIdProviderMetadataService = new OpMetadataService($moduleConfig);
+        $this->services[OpMetadataService::class] = $oidcOpenIdProviderMetadataService;
 
         $metadataStorageHandler = MetaDataStorageHandler::getMetadataHandler();
         $this->services[MetaDataStorageHandler::class] = $metadataStorageHandler;
@@ -234,11 +234,11 @@ class Container implements ContainerInterface
         $logoutTokenBuilder = new LogoutTokenBuilder($jsonWebTokenBuilderService);
         $this->services[LogoutTokenBuilder::class] = $logoutTokenBuilder;
 
-        $sessionLogoutTicketStoreDb = new SessionLogoutTicketStoreDb($database);
-        $this->services[SessionLogoutTicketStoreDb::class] = $sessionLogoutTicketStoreDb;
+        $sessionLogoutTicketStoreDb = new LogoutTicketStoreDb($database);
+        $this->services[LogoutTicketStoreDb::class] = $sessionLogoutTicketStoreDb;
 
-        $sessionLogoutTicketStoreBuilder = new SessionLogoutTicketStoreBuilder($sessionLogoutTicketStoreDb);
-        $this->services[SessionLogoutTicketStoreBuilder::class] = $sessionLogoutTicketStoreBuilder;
+        $sessionLogoutTicketStoreBuilder = new LogoutTicketStoreBuilder($sessionLogoutTicketStoreDb);
+        $this->services[LogoutTicketStoreBuilder::class] = $sessionLogoutTicketStoreBuilder;
 
         $idTokenResponseFactory = new IdTokenResponseFactory(
             $userRepository,

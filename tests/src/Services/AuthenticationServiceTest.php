@@ -1,22 +1,28 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Services;
 
+use PHPUnit\Framework\MockObject\MockObject;
 use Laminas\Diactoros\ServerRequest;
 use Laminas\Diactoros\Uri;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Auth\Source;
+use SimpleSAML\Error\AuthSource;
+use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Error\Exception;
+use SimpleSAML\Error\NotFound;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\Entity\ClientEntity;
-use SimpleSAML\Module\oidc\Entity\UserEntity;
+use SimpleSAML\Module\oidc\Entities\ClientEntity;
+use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\AuthProcService;
-use SimpleSAML\Module\oidc\Services\OidcOpenIdProviderMetadataService;
+use SimpleSAML\Module\oidc\Services\OpMetadataService;
 use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Session;
@@ -26,18 +32,18 @@ use SimpleSAML\Session;
  */
 class AuthenticationServiceTest extends TestCase
 {
-    public const AUTH_SOURCE = 'auth_source';
-    public const USER_ID_ATTR = 'uid';
-    public const USERNAME = 'username';
-    public const OIDC_OP_METADATA = ['issuer' => 'https://idp.example.org'];
-    public const USER_ENTITY_ATTRIBUTES = [
+    final public const AUTH_SOURCE = 'auth_source';
+    final public const USER_ID_ATTR = 'uid';
+    final public const USERNAME = 'username';
+    final public const OIDC_OP_METADATA = ['issuer' => 'https://idp.example.org'];
+    final public const USER_ENTITY_ATTRIBUTES = [
         self::USER_ID_ATTR => [self::USERNAME],
         'eduPersonTargetedId' => [self::USERNAME],
     ];
-    public const AUTH_DATA = ['Attributes' => self::USER_ENTITY_ATTRIBUTES];
-    public const CLIENT_ENTITY = ['id' => 'clientid', 'redirect_uri' => 'https://rp.example.org'];
-    public const AUTHZ_REQUEST_PARAMS = ['client_id' => 'clientid', 'redirect_uri' => 'https://rp.example.org'];
-    public const STATE = [
+    final public const AUTH_DATA = ['Attributes' => self::USER_ENTITY_ATTRIBUTES];
+    final public const CLIENT_ENTITY = ['id' => 'clientid', 'redirect_uri' => 'https://rp.example.org'];
+    final public const AUTHZ_REQUEST_PARAMS = ['client_id' => 'clientid', 'redirect_uri' => 'https://rp.example.org'];
+    final public const STATE = [
         'Attributes' => self::AUTH_DATA['Attributes'],
         'Oidc' => [
             'OpenIdProviderMetadata' => self::OIDC_OP_METADATA,
@@ -46,23 +52,26 @@ class AuthenticationServiceTest extends TestCase
         ],
     ];
 
-    public static $uri = 'https://some-server/authorize.php?abc=efg';
+    public static string $uri = 'https://some-server/authorize.php?abc=efg';
 
-    protected \PHPUnit\Framework\MockObject\MockObject $claimTranslatorExtractorMock;
-    protected \PHPUnit\Framework\MockObject\MockObject $serverRequestMock;
-    protected \PHPUnit\Framework\MockObject\MockObject $clientEntityMock;
-    protected \PHPUnit\Framework\MockObject\MockObject $userRepositoryMock;
-    protected \PHPUnit\Framework\MockObject\MockObject $authSimpleFactoryMock;
-    protected \PHPUnit\Framework\MockObject\MockObject $authSimpleMock;
-    protected \PHPUnit\Framework\MockObject\MockObject $authProcServiceMock;
-    protected \PHPUnit\Framework\MockObject\MockObject $clientRepositoryMock;
-    protected \PHPUnit\Framework\MockObject\MockObject $moduleConfigMock;
-    protected \PHPUnit\Framework\MockObject\MockObject $oidcOpenIdProviderMetadataServiceMock;
-    protected \PHPUnit\Framework\MockObject\MockObject $sessionServiceMock;
-    protected \PHPUnit\Framework\MockObject\MockObject $authSourceMock;
-    protected \PHPUnit\Framework\MockObject\MockObject $sessionMock;
-    protected \PHPUnit\Framework\MockObject\MockObject $userEntityMock;
+    protected MockObject $claimTranslatorExtractorMock;
+    protected MockObject $serverRequestMock;
+    protected MockObject $clientEntityMock;
+    protected MockObject $userRepositoryMock;
+    protected MockObject $authSimpleFactoryMock;
+    protected MockObject $authSimpleMock;
+    protected MockObject $authProcServiceMock;
+    protected MockObject $clientRepositoryMock;
+    protected MockObject $moduleConfigMock;
+    protected MockObject $oidcOpenIdProviderMetadataServiceMock;
+    protected MockObject $sessionServiceMock;
+    protected MockObject $authSourceMock;
+    protected MockObject $sessionMock;
+    protected MockObject $userEntityMock;
 
+    /**
+     * @throws \PHPUnit\Framework\MockObject\Exception
+     */
     protected function setUp(): void
     {
         $this->serverRequestMock = $this->createMock(ServerRequest::class);
@@ -73,7 +82,7 @@ class AuthenticationServiceTest extends TestCase
         $this->authProcServiceMock = $this->createMock(AuthProcService::class);
         $this->clientRepositoryMock = $this->createMock(ClientRepository::class);
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
-        $this->oidcOpenIdProviderMetadataServiceMock = $this->createMock(OidcOpenIdProviderMetadataService::class);
+        $this->oidcOpenIdProviderMetadataServiceMock = $this->createMock(OpMetadataService::class);
         $this->sessionServiceMock = $this->createMock(SessionService::class);
         $this->claimTranslatorExtractorMock = $this->createMock(ClaimTranslatorExtractor::class);
         $this->authSourceMock = $this->createMock(Source::class);
@@ -122,6 +131,12 @@ class AuthenticationServiceTest extends TestCase
         );
     }
 
+    /**
+     * @throws AuthSource
+     * @throws BadRequest
+     * @throws NotFound
+     * @throws Exception
+     */
     public function testItCreatesNewUser(): void
     {
         $clientId = 'client123';
@@ -158,6 +173,12 @@ class AuthenticationServiceTest extends TestCase
         );
     }
 
+    /**
+     * @throws AuthSource
+     * @throws BadRequest
+     * @throws NotFound
+     * @throws Exception
+     */
     public function testItReturnsAnUser(): void
     {
         $clientId = 'client123';
@@ -196,6 +217,11 @@ class AuthenticationServiceTest extends TestCase
         );
     }
 
+    /**
+     * @throws AuthSource
+     * @throws BadRequest
+     * @throws NotFound
+     */
     public function testItThrowsIfClaimsNotExist(): void
     {
         $this->authSourceMock->method('getAuthId')->willReturn('theAuthId');

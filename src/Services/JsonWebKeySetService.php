@@ -28,6 +28,7 @@ class JsonWebKeySetService
 
     /**
      * @throws Exception
+     * @throws \Exception
      */
     public function __construct(ModuleConfig $moduleConfig)
     {
@@ -50,7 +51,7 @@ class JsonWebKeySetService
     /**
      * @return JWK[]
      */
-    public function keys()
+    public function keys(): array
     {
         return $this->jwkSet->all();
     }

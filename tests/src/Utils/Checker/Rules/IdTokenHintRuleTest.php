@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
 use Lcobucci\JWT\Configuration;
@@ -7,6 +9,8 @@ use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
 use Lcobucci\JWT\UnencryptedToken;
 use League\OAuth2\Server\CryptKey;
+use PHPUnit\Framework\MockObject\Exception;
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use ReflectionException;
@@ -24,10 +28,10 @@ use Throwable;
  */
 class IdTokenHintRuleTest extends TestCase
 {
-    protected $requestStub;
-    protected $resultBagStub;
-    protected $moduleConfigStub;
-    protected $cryptKeyFactoryStub;
+    protected Stub $requestStub;
+    protected Stub $resultBagStub;
+    protected Stub $moduleConfigStub;
+    protected Stub $cryptKeyFactoryStub;
 
     protected static string $certFolder;
     protected static string $privateKeyPath;
@@ -38,7 +42,7 @@ class IdTokenHintRuleTest extends TestCase
     protected static string $issuer = 'https://example.org';
     private Configuration $jwtConfig;
 
-    protected $loggerServiceStub;
+    protected Stub $loggerServiceStub;
 
     public static function setUpBeforeClass(): void
     {
@@ -51,6 +55,7 @@ class IdTokenHintRuleTest extends TestCase
 
     /**
      * @throws ReflectionException
+     * @throws Exception
      */
     protected function setUp(): void
     {

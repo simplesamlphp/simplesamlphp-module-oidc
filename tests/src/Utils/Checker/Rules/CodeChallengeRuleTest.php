@@ -1,8 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
 use LogicException;
+use PHPUnit\Framework\MockObject\Exception;
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -22,14 +26,17 @@ use Throwable;
 class CodeChallengeRuleTest extends TestCase
 {
     protected CodeChallengeRule $rule;
-    protected $requestStub;
-    protected $resultBagStub;
+    protected Stub $requestStub;
+    protected Stub $resultBagStub;
     protected Result $redirectUriResult;
     protected Result $stateResult;
 
     protected string $codeChallenge = '123123123123123123123123123123123123123123123123123123123123';
-    protected $loggerServiceStub;
+    protected Stub $loggerServiceStub;
 
+    /**
+     * @throws Exception
+     */
     protected function setUp(): void
     {
         $this->rule = new CodeChallengeRule();
@@ -48,7 +55,7 @@ class CodeChallengeRuleTest extends TestCase
     {
         $resultBag = new ResultBag();
         $this->expectException(LogicException::class);
-        $this->rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, []);
+        $this->rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
     }
 
     /**
@@ -60,7 +67,7 @@ class CodeChallengeRuleTest extends TestCase
         $resultBag = new ResultBag();
         $resultBag->add($this->redirectUriResult);
         $this->expectException(LogicException::class);
-        $this->rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, []);
+        $this->rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
     }
 
     /**
@@ -71,7 +78,7 @@ class CodeChallengeRuleTest extends TestCase
         $resultBag = $this->prepareValidResultBag();
         $this->requestStub->method('getQueryParams')->willReturn([]);
         $this->expectException(OidcServerException::class);
-        $this->rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, []);
+        $this->rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
     }
 
     /**
@@ -82,7 +89,7 @@ class CodeChallengeRuleTest extends TestCase
         $resultBag = $this->prepareValidResultBag();
         $this->requestStub->method('getQueryParams')->willReturn(['code_challenge' => 'too-short']);
         $this->expectException(OidcServerException::class);
-        $this->rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, []);
+        $this->rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
     }
 
     /**
@@ -93,7 +100,7 @@ class CodeChallengeRuleTest extends TestCase
     {
         $resultBag = $this->prepareValidResultBag();
         $this->requestStub->method('getQueryParams')->willReturn(['code_challenge' => $this->codeChallenge]);
-        $result = $this->rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, []);
+        $result = $this->rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
 
         $this->assertInstanceOf(ResultInterface::class, $result);
         $this->assertSame($this->codeChallenge, $result->getValue());

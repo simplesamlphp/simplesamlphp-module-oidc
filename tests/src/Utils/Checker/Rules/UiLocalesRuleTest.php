@@ -1,7 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
+use PHPUnit\Framework\MockObject\Exception;
+use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
@@ -15,10 +19,13 @@ use PHPUnit\Framework\TestCase;
  */
 class UiLocalesRuleTest extends TestCase
 {
-    protected $requestStub;
-    protected $resultBagStub;
-    protected $loggerServiceStub;
+    protected Stub $requestStub;
+    protected Stub $resultBagStub;
+    protected Stub $loggerServiceStub;
 
+    /**
+     * @throws Exception
+     */
     protected function setUp(): void
     {
         $this->requestStub = $this->createStub(ServerRequestInterface::class);

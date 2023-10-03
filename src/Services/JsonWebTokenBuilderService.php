@@ -51,6 +51,9 @@ class JsonWebTokenBuilderService
             ->identifiedBy(UniqueIdentifierGenerator::hitMe());
     }
 
+    /**
+     * @throws Exception
+     */
     public function getSignedJwtTokenFromBuilder(Builder $builder): UnencryptedToken
     {
         $kid = FingerprintGenerator::forFile($this->moduleConfig->getCertPath());

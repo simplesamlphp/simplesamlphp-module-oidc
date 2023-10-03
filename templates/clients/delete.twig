@@ -21,12 +21,12 @@
     <form class="ui form attached fluid segment" method="post">
         <input type="hidden" name="secret" value="{{ client.secret }}">
         <div class="field">
-            <label>{{ '{oidc:client:name}'|trans }}</label>
-            <input readonly="readonly" type="text" value="{{ client.name }}">
+            <label for="clientName">{{ '{oidc:client:name}'|trans }}</label>
+            <input id="clientName" readonly="readonly" type="text" value="{{ client.name }}">
         </div>
         <div class="field">
-            <label>{{ '{oidc:client:description}'|trans }}</label>
-            <textarea readonly="readonly" rows="6">
+            <label for="clientDescription">{{ '{oidc:client:description}'|trans }}</label>
+            <textarea id="clientDescription" readonly="readonly" rows="6">
                 {{- client.description -}}
             </textarea>
         </div>

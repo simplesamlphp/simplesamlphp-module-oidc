@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -11,9 +13,9 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
 namespace SimpleSAML\Test\Module\oidc\Services;
 
+use Exception;
 use Jose\Component\Core\JWKSet;
 use Jose\Component\KeyManagement\JWKFactory;
 use PHPUnit\Framework\TestCase;
@@ -27,13 +29,11 @@ use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
  */
 class JsonWebKeySetServiceTest extends TestCase
 {
-    /**
-     * @var string
-     */
-    private static $pkGeneratePublic;
+    private static string $pkGeneratePublic;
 
     /**
      * @return void
+     * @throws Exception
      */
     public static function setUpBeforeClass(): void
     {
@@ -66,6 +66,7 @@ class JsonWebKeySetServiceTest extends TestCase
 
     /**
      * @return void
+     * @throws \SimpleSAML\Error\Exception
      */
     public function testKeys()
     {
@@ -88,9 +89,12 @@ class JsonWebKeySetServiceTest extends TestCase
         $this->assertEquals($JWKSet->all(), $jsonWebKeySetService->keys());
     }
 
+    /**
+     * @throws \SimpleSAML\Error\Exception
+     */
     public function testCertificationFileNotFound(): void
     {
-        $this->expectException(\Exception::class);
+        $this->expectException(Exception::class);
         $this->expectExceptionMessageMatches('/OpenId Connect certification file does not exists/');
 
         $config = [

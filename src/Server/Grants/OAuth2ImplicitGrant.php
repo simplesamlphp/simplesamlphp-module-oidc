@@ -17,7 +17,7 @@ use League\OAuth2\Server\Repositories\UserRepositoryInterface;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithCheckerResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
@@ -119,7 +119,7 @@ class OAuth2ImplicitGrant extends ImplicitGrant implements AuthorizationValidata
             ScopeRule::class,
         ];
 
-        // Since we have already validated redirect_uri and we have state, make it available for other checkers.
+        // Since we have already validated redirect_uri, and we have state, make it available for other checkers.
         $this->requestRulesManager->predefineResultBag($resultBag);
 
         /** @var string $redirectUri */

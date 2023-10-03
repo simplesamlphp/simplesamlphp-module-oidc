@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -11,14 +13,15 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
 namespace SimpleSAML\Test\Module\oidc\Repositories;
 
+use Exception;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\Entity\UserEntity;
+use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 
 /**
@@ -26,11 +29,11 @@ use SimpleSAML\Module\oidc\Services\DatabaseMigration;
  */
 class UserRepositoryTest extends TestCase
 {
-    /**
-     * @var UserRepository
-     */
-    protected static $repository;
+    protected static UserRepository $repository;
 
+    /**
+     * @throws Exception
+     */
     protected function setUp(): void
     {
         $config = [
@@ -55,6 +58,10 @@ class UserRepositoryTest extends TestCase
         $this->assertSame('phpunit_oidc_user', self::$repository->getTableName());
     }
 
+    /**
+     * @throws OidcServerException
+     * @throws Exception
+     */
     public function testAddAndFound(): void
     {
         self::$repository->add(UserEntity::fromData('uniqueid'));
@@ -64,6 +71,9 @@ class UserRepositoryTest extends TestCase
         $this->assertSame($user->getIdentifier(), 'uniqueid');
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testNotFound(): void
     {
         $user = self::$repository->getUserEntityByIdentifier('unknownid');
@@ -71,6 +81,10 @@ class UserRepositoryTest extends TestCase
         $this->assertNull($user);
     }
 
+    /**
+     * @throws OidcServerException
+     * @throws Exception
+     */
     public function testUpdate(): void
     {
         $user = self::$repository->getUserEntityByIdentifier('uniqueid');
@@ -81,6 +95,9 @@ class UserRepositoryTest extends TestCase
         $this->assertNotSame($user, $user2);
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testDelete(): void
     {
         $user = self::$repository->getUserEntityByIdentifier('uniqueid');

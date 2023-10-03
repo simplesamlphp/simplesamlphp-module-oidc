@@ -14,9 +14,9 @@ use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use RuntimeException;
-use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClaimSetInterface;
-use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
+use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClaimSetInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
 class IdTokenBuilder
@@ -147,7 +147,6 @@ class IdTokenBuilder
 
     /**
      * @param string $jwsAlgorithm JWS Algorithm designation (like RS256, RS384...)
-     * @return string
      */
     protected function generateAccessTokenHash(AccessTokenEntityInterface $accessToken, string $jwsAlgorithm): string
     {
@@ -164,7 +163,7 @@ class IdTokenBuilder
                                         EntityStringRepresentationInterface::class);
         }
 
-        // Try to use toString() so that it uses the string representation if it was already casted to string,
+        // Try to use toString() so that it uses the string representation if it was already cast to string,
         // otherwise, use the cast version.
         $accessTokenString = $accessToken->toString() ?? (string) $accessToken;
 

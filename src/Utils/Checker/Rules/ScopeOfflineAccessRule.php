@@ -6,7 +6,7 @@ namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;

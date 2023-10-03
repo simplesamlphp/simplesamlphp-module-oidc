@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Server\Grants;
 use Exception;
 use DateInterval;
 use DateTimeImmutable;
+use JsonException;
 use League\OAuth2\Server\CodeChallengeVerifiers\CodeChallengeVerifierInterface;
 use League\OAuth2\Server\CodeChallengeVerifiers\PlainVerifier;
 use League\OAuth2\Server\CodeChallengeVerifiers\S256Verifier;
@@ -27,10 +28,10 @@ use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Entity\Interfaces\AuthCodeEntityInterface;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
-use SimpleSAML\Module\oidc\Entity\Interfaces\RefreshTokenEntityInterface;
-use SimpleSAML\Module\oidc\Entity\UserEntity;
+use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
@@ -189,6 +190,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     /**
      * @inheritDoc
      * @throws OAuthServerException
+     * @throws JsonException
      */
     public function completeAuthorizationRequest(
         OAuth2AuthorizationRequest $authorizationRequest
@@ -203,9 +205,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     /**
      * This is reimplementation of OAuth2 completeAuthorizationRequest method with addition of nonce handling.
      *
-     * @return RedirectResponse
      * @throws OAuthServerException
      * @throws UniqueTokenIdentifierConstraintViolationException
+     * @throws JsonException
      */
     public function completeOidcAuthorizationRequest(
         AuthorizationRequest $authorizationRequest
@@ -273,8 +275,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
     /**
      * @param ScopeEntityInterface[] $scopes
-     * @param string|null $nonce
-     * @return AuthCodeEntityInterface
      * @throws OAuthServerException
      * @throws UniqueTokenIdentifierConstraintViolationException
      */
@@ -348,13 +348,16 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      * Reimplementation respondToAccessTokenRequest because of nonce feature.
      *
      * @param ServerRequestInterface $request
-     * @param ResponseTypeInterface  $responseType
-     * @param DateInterval           $accessTokenTTL
+     * @param ResponseTypeInterface $responseType
+     * @param DateInterval $accessTokenTTL
      *
      * @return ResponseTypeInterface
      *
      * TODO refactor to request checkers
-     *@throws OAuthServerException
+     * @throws OAuthServerException
+     * @throws JsonException
+     * @throws JsonException
+     * @throws JsonException
      *
      */
     public function respondToAccessTokenRequest(
@@ -596,7 +599,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             ScopeOfflineAccessRule::class,
         ];
 
-        // Since we have already validated redirect_uri and we have state, make it available for other checkers.
+        // Since we have already validated redirect_uri, and we have state, make it available for other checkers.
         $this->requestRulesManager->predefineResultBag($resultBag);
 
         /** @var string $redirectUri */

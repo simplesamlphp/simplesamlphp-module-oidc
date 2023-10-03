@@ -1,13 +1,17 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
 use League\OAuth2\Server\CryptKey;
+use PHPUnit\Framework\MockObject\Exception;
+use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -25,10 +29,10 @@ use Throwable;
  */
 class PostLogoutRedirectUriRuleTest extends TestCase
 {
-    protected $clientRepository;
-    protected $requestStub;
-    protected $resultBagStub;
-    protected $clientStub;
+    protected Stub $clientRepositoryStub;
+    protected Stub $requestStub;
+    protected Stub $resultBagStub;
+    protected Stub $clientStub;
 
     protected static string $certFolder;
     protected static string $privateKeyPath;
@@ -40,7 +44,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
     protected static string $issuer = 'https://example.org';
     private Configuration $jwtConfig;
 
-    protected $loggerServiceStub;
+    protected Stub $loggerServiceStub;
 
     public static function setUpBeforeClass(): void
     {
@@ -51,9 +55,12 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         self::$publicKey = new CryptKey(self::$publicKeyPath, null, false);
     }
 
+    /**
+     * @throws Exception
+     */
     protected function setUp(): void
     {
-        $this->clientRepository = $this->createStub(ClientRepository::class);
+        $this->clientRepositoryStub = $this->createStub(ClientRepository::class);
         $this->requestStub = $this->createStub(ServerRequestInterface::class);
         $this->requestStub->method('getMethod')->willReturn('GET');
         $this->resultBagStub = $this->createStub(ResultBagInterface::class);
@@ -74,7 +81,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
      */
     public function testCheckRuleReturnsNullIfNoParamSet(): void
     {
-        $result = (new PostLogoutRedirectUriRule($this->clientRepository))
+        $result = (new PostLogoutRedirectUriRule($this->clientRepositoryStub))
             ->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
                 (new Result(PostLogoutRedirectUriRule::class));
 
@@ -91,7 +98,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
 
         $this->expectException(Throwable::class);
 
-        (new PostLogoutRedirectUriRule($this->clientRepository))
+        (new PostLogoutRedirectUriRule($this->clientRepositoryStub))
             ->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
                 (new Result(PostLogoutRedirectUriRule::class));
     }
@@ -118,7 +125,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
 
         $this->expectException(Throwable::class);
 
-        (new PostLogoutRedirectUriRule($this->clientRepository))
+        (new PostLogoutRedirectUriRule($this->clientRepositoryStub))
             ->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
                 (new Result(PostLogoutRedirectUriRule::class));
     }
@@ -139,7 +146,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
                 InMemory::plainText(self::$privateKey->getKeyContents())
             );
 
-        $this->clientRepository->method('findById')->willReturn(null);
+        $this->clientRepositoryStub->method('findById')->willReturn(null);
 
         $this->resultBagStub->method('getOrFail')->willReturnOnConsecutiveCalls(
             new Result(StateRule::class),
@@ -148,7 +155,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
 
         $this->expectException(Throwable::class);
 
-        (new PostLogoutRedirectUriRule($this->clientRepository))
+        (new PostLogoutRedirectUriRule($this->clientRepositoryStub))
             ->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
                 (new Result(PostLogoutRedirectUriRule::class));
     }
@@ -173,7 +180,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
             'https://some-other-uri'
                                                                           ]);
 
-        $this->clientRepository->method('findById')->willReturn($this->clientStub);
+        $this->clientRepositoryStub->method('findById')->willReturn($this->clientStub);
 
         $this->resultBagStub->method('getOrFail')->willReturnOnConsecutiveCalls(
             new Result(StateRule::class),
@@ -182,7 +189,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
 
         $this->expectException(Throwable::class);
 
-        (new PostLogoutRedirectUriRule($this->clientRepository))
+        (new PostLogoutRedirectUriRule($this->clientRepositoryStub))
             ->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
                 (new Result(PostLogoutRedirectUriRule::class));
     }
@@ -208,14 +215,14 @@ class PostLogoutRedirectUriRuleTest extends TestCase
             self::$postLogoutRedirectUri
                                                                           ]);
 
-        $this->clientRepository->method('findById')->willReturn($this->clientStub);
+        $this->clientRepositoryStub->method('findById')->willReturn($this->clientStub);
 
         $this->resultBagStub->method('getOrFail')->willReturnOnConsecutiveCalls(
             new Result(StateRule::class),
             new Result(IdTokenHintRule::class, $jwt)
         );
 
-        $result = (new PostLogoutRedirectUriRule($this->clientRepository))
+        $result = (new PostLogoutRedirectUriRule($this->clientRepositoryStub))
             ->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
                     (new Result(PostLogoutRedirectUriRule::class));
 

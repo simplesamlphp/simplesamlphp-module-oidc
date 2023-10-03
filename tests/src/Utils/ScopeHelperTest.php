@@ -1,8 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Utils;
 
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
+use PHPUnit\Framework\MockObject\Exception;
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\ScopeHelper;
@@ -12,28 +16,28 @@ use SimpleSAML\Module\oidc\Utils\ScopeHelper;
  */
 class ScopeHelperTest extends TestCase
 {
-    /**
-     * @var ScopeEntityInterface|ScopeEntityInterface
-     */
-    protected $scopeEntityOpenId;
-    /**
-     * @var ScopeEntityInterface|ScopeEntityInterface
-     */
-    protected $scopeEntityProfile;
+    protected Stub $scopeEntityOpenIdStub;
+    protected Stub $scopeEntityProfileStub;
     protected array $scopeEntitiesArray;
 
+    /**
+     * @throws Exception
+     */
     protected function setUp(): void
     {
-        $this->scopeEntityOpenId = $this->createStub(ScopeEntityInterface::class);
-        $this->scopeEntityOpenId->method('getIdentifier')->willReturn('openid');
-        $this->scopeEntityProfile = $this->createStub(ScopeEntityInterface::class);
-        $this->scopeEntityProfile->method('getIdentifier')->willReturn('profile');
+        $this->scopeEntityOpenIdStub = $this->createStub(ScopeEntityInterface::class);
+        $this->scopeEntityOpenIdStub->method('getIdentifier')->willReturn('openid');
+        $this->scopeEntityProfileStub = $this->createStub(ScopeEntityInterface::class);
+        $this->scopeEntityProfileStub->method('getIdentifier')->willReturn('profile');
         $this->scopeEntitiesArray = [
-            $this->scopeEntityOpenId,
-            $this->scopeEntityProfile
+            $this->scopeEntityOpenIdStub,
+            $this->scopeEntityProfileStub
         ];
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testCanCheckScopeExistence(): void
     {
         $this->assertTrue(ScopeHelper::scopeExists($this->scopeEntitiesArray, 'openid'));

@@ -23,8 +23,8 @@ use SimpleSAML\Auth\State;
 use SimpleSAML\Error;
 use SimpleSAML\Module\oidc\Controller\LogoutController;
 use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
-use SimpleSAML\Module\oidc\Entity\UserEntity;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
@@ -45,7 +45,7 @@ class AuthenticationService
         private readonly AuthSimpleFactory $authSimpleFactory,
         private readonly AuthProcService $authProcService,
         ClientRepository $clientRepository,
-        private readonly OidcOpenIdProviderMetadataService $oidcOpenIdProviderMetadataService,
+        private readonly OpMetadataService $oidcOpenIdProviderMetadataService,
         private readonly SessionService $sessionService,
         private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
         private readonly string $userIdAttr
@@ -54,7 +54,6 @@ class AuthenticationService
     }
 
     /**
-     * @return UserEntity
      * @throws Error\Exception
      * @throws Error\AuthSource
      * @throws Error\BadRequest
@@ -120,9 +119,6 @@ class AuthenticationService
         return $user;
     }
 
-    /**
-     * @return array
-     */
     private function prepareStateArray(
         Simple $authSimple,
         ClientEntityInterface $client,

@@ -13,7 +13,7 @@ declare(strict_types=1);
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
+use Lcobucci\JWT\Signer\Rsa\Sha256;
 use SimpleSAML\Module\oidc\ModuleConfig;
 
 $config = [
@@ -23,7 +23,7 @@ $config = [
 
     ModuleConfig::OPTION_CRON_TAG => 'hourly',
 
-    ModuleConfig::OPTION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Rsa\Sha256::class,
+    ModuleConfig::OPTION_TOKEN_SIGNER => Sha256::class,
 
     ModuleConfig::OPTION_AUTH_SOURCE => 'default-sp',
 

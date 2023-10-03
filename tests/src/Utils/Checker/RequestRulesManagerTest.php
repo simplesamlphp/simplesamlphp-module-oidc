@@ -1,8 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker;
 
 use LogicException;
+use PHPUnit\Framework\MockObject\Exception;
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -20,20 +24,23 @@ class RequestRulesManagerTest extends TestCase
 {
     protected string $key = 'some-key';
     protected string $value = 'some-value';
-    protected $result;
-    protected $rule;
-    protected $request;
+    protected Stub $resultStub;
+    protected Stub $ruleStub;
+    protected Stub $request;
 
 
+    /**
+     * @throws Exception
+     */
     public function setUp(): void
     {
-        $this->result = $this->createStub(ResultInterface::class);
-        $this->result->method('getKey')->willReturn($this->key);
-        $this->result->method('getValue')->willReturn($this->value);
+        $this->resultStub = $this->createStub(ResultInterface::class);
+        $this->resultStub->method('getKey')->willReturn($this->key);
+        $this->resultStub->method('getValue')->willReturn($this->value);
 
-        $this->rule = $this->createStub(RequestRuleInterface::class);
-        $this->rule->method('getKey')->willReturn($this->key);
-        $this->rule->method('checkRule')->willReturn($this->result);
+        $this->ruleStub = $this->createStub(RequestRuleInterface::class);
+        $this->ruleStub->method('getKey')->willReturn($this->key);
+        $this->ruleStub->method('checkRule')->willReturn($this->resultStub);
 
 
         $this->request = $this->createStub(ServerRequestInterface::class);
@@ -47,6 +54,9 @@ class RequestRulesManagerTest extends TestCase
         return $requestRulesManager;
     }
 
+    /**
+     * @throws Exception
+     */
     public function testConstructWithRules(): void
     {
         $rules = [$this->createStub(RequestRuleInterface::class)];
@@ -56,13 +66,11 @@ class RequestRulesManagerTest extends TestCase
     /**
      * @depends testConstructWithoutRules
      *
-     * @param RequestRulesManager $requestRulesManager
-     * @return void
      * @throws OidcServerException
      */
     public function testAddAndCheck(RequestRulesManager $requestRulesManager): void
     {
-        $requestRulesManager->add($this->rule);
+        $requestRulesManager->add($this->ruleStub);
 
         $resultBag = $requestRulesManager->check($this->request, [$this->key]);
         $this->assertInstanceOf(ResultBagInterface::class, $resultBag);
@@ -73,8 +81,6 @@ class RequestRulesManagerTest extends TestCase
     /**
      * @depends testConstructWithoutRules
      *
-     * @param RequestRulesManager $requestRulesManager
-     * @return void
      * @throws OidcServerException
      */
     public function testCheckWithNonExistingRuleKeyThrows(RequestRulesManager $requestRulesManager): void
@@ -86,13 +92,11 @@ class RequestRulesManagerTest extends TestCase
     /**
      * @depends testConstructWithoutRules
      *
-     * @param RequestRulesManager $requestRulesManager
-     * @return void
      * @throws OidcServerException
      */
     public function testPredefineResult(RequestRulesManager $requestRulesManager): void
     {
-        $requestRulesManager->predefineResult($this->result);
+        $requestRulesManager->predefineResult($this->resultStub);
         $resultBag = $requestRulesManager->check($this->request, []);
 
         $this->assertInstanceOf(ResultBagInterface::class, $resultBag);
@@ -102,9 +106,8 @@ class RequestRulesManagerTest extends TestCase
     /**
      * @depends testConstructWithoutRules
      *
-     * @param RequestRulesManager $requestRulesManager
-     * @return void
      * @throws OidcServerException
+     * @throws Exception
      */
     public function testSetData(RequestRulesManager $requestRulesManager): void
     {

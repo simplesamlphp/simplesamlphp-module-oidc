@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -11,14 +13,18 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
 namespace SimpleSAML\Test\Module\oidc\Repositories;
 
+use DateTimeImmutable;
+use Exception;
+use JsonException;
+use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
+use SimpleSAML\Error\Error;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\Entity\ScopeEntity;
-use SimpleSAML\Module\oidc\Entity\UserEntity;
+use SimpleSAML\Module\oidc\Entities\ScopeEntity;
+use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
@@ -30,16 +36,16 @@ use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
  */
 class AuthCodeRepositoryTest extends TestCase
 {
-    public const CLIENT_ID = 'auth_code_client_id';
-    public const USER_ID = 'auth_code_user_id';
-    public const AUTH_CODE_ID = 'auth_code_id';
-    public const REDIRECT_URI = 'http://localhost/redirect';
+    final public const CLIENT_ID = 'auth_code_client_id';
+    final public const USER_ID = 'auth_code_user_id';
+    final public const AUTH_CODE_ID = 'auth_code_id';
+    final public const REDIRECT_URI = 'http://localhost/redirect';
+
+    protected static AuthCodeRepository $repository;
 
     /**
-     * @var AuthCodeRepository
+     * @throws Exception
      */
-    protected static $repository;
-
     public static function setUpBeforeClass(): void
     {
         $config = [
@@ -69,6 +75,13 @@ class AuthCodeRepositoryTest extends TestCase
         $this->assertSame('phpunit_oidc_auth_code', self::$repository->getTableName());
     }
 
+    /**
+     * @throws UniqueTokenIdentifierConstraintViolationException
+     * @throws Error
+     * @throws JsonException
+     * @throws Exception
+     * @throws Exception
+     */
     public function testAddAndFound(): void
     {
         $scopes = [
@@ -80,7 +93,7 @@ class AuthCodeRepositoryTest extends TestCase
         $authCode->setIdentifier(self::AUTH_CODE_ID);
         $authCode->setClient(ClientRepositoryTest::getClient(self::CLIENT_ID));
         $authCode->setUserIdentifier(self::USER_ID);
-        $authCode->setExpiryDateTime(\DateTimeImmutable::createFromMutable(TimestampGenerator::utc('yesterday')));
+        $authCode->setExpiryDateTime(DateTimeImmutable::createFromMutable(TimestampGenerator::utc('yesterday')));
         $authCode->setRedirectUri(self::REDIRECT_URI);
         foreach ($scopes as $scope) {
             $authCode->addScope($scope);
@@ -93,6 +106,9 @@ class AuthCodeRepositoryTest extends TestCase
         $this->assertEquals($authCode, $foundAuthCode);
     }
 
+    /**
+     * @throws Exception
+     */
     public function testAddAndNotFound(): void
     {
         $notFoundAuthCode = self::$repository->findById('nocode');
@@ -100,6 +116,10 @@ class AuthCodeRepositoryTest extends TestCase
         $this->assertNull($notFoundAuthCode);
     }
 
+    /**
+     * @throws JsonException
+     * @throws Exception
+     */
     public function testRevokeCode(): void
     {
         self::$repository->revokeAuthCode(self::AUTH_CODE_ID);
@@ -108,20 +128,26 @@ class AuthCodeRepositoryTest extends TestCase
         $this->assertTrue($isRevoked);
     }
 
+    /**
+     * @throws JsonException
+     */
     public function testErrorRevokeInvalidAuthCode(): void
     {
-        $this->expectException(\Exception::class);
+        $this->expectException(Exception::class);
 
         self::$repository->revokeAuthCode('nocode');
     }
 
     public function testErrorCheckIsRevokedInvalidAuthCode(): void
     {
-        $this->expectException(\Exception::class);
+        $this->expectException(Exception::class);
 
         self::$repository->isAuthCodeRevoked('nocode');
     }
 
+    /**
+     * @throws Exception
+     */
     public function testRemoveExpired(): void
     {
         self::$repository->removeExpired();

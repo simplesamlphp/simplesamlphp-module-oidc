@@ -15,13 +15,11 @@ interface ResultBagInterface
 
     /**
      * Get specific result or null if it doesn't exist.
-     * @return ResultInterface|null
      */
     public function get(string $key): ?ResultInterface;
 
     /**
      * Get specific result or fail if it doesn't exits.
-     * @return ResultInterface
      * @throws Throwable If result with specific key is not present.
      */
     public function getOrFail(string $key): ResultInterface;

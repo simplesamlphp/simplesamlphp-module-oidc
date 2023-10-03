@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Repositories\Interfaces;
 
 use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface as OAuth2RefreshTokenRepositoryInterface;
-use SimpleSAML\Module\oidc\Entity\Interfaces\RefreshTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 
 interface RefreshTokenRepositoryInterface extends OAuth2RefreshTokenRepositoryInterface
 {

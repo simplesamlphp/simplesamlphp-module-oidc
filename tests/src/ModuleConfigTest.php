@@ -1,16 +1,22 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc;
 
+use Exception;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\ModuleConfig;
 
 /**
- * @covers ModuleConfig
+ * @covers \SimpleSAML\Module\oidc\ModuleConfig
  */
 class ModuleConfigTest extends TestCase
 {
+    /**
+     * @throws Exception
+     */
     public function testSigningKeyNameCanBeCustomized(): void
     {
         $certDir = '/tmp/cert/';

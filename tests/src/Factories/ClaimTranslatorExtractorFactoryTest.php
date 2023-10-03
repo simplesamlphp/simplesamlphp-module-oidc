@@ -1,7 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Factories;
 
+use PHPUnit\Framework\MockObject\Exception;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -13,11 +17,11 @@ use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
  */
 class ClaimTranslatorExtractorFactoryTest extends TestCase
 {
-    /**
-     * @var \PHPUnit\Framework\MockObject\MockObject
-     */
-    protected $moduleConfigMock;
+    protected MockObject $moduleConfigMock;
 
+    /**
+     * @throws Exception
+     */
     protected function setUp(): void
     {
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
@@ -74,6 +78,9 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
         );
     }
 
+    /**
+     * @throws \Exception
+     */
     public function testCanBuildClaimTranslatorExtractor(): void
     {
         $this->assertInstanceOf(
@@ -82,6 +89,9 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
         );
     }
 
+    /**
+     * @throws \Exception
+     */
     public function testExtractor(): void
     {
         $claimTranslatorExtractor = $this->prepareMockedInstance()->build();

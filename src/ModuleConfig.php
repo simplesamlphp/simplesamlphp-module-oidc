@@ -80,11 +80,11 @@ class ModuleConfig
     /**
      * @var Configuration Module configuration instance created form module config file.
      */
-    private Configuration $moduleConfig;
+    private readonly Configuration $moduleConfig;
     /**
      * @var Configuration SimpleSAMLphp configuration instance.
      */
-    private Configuration $sspConfig;
+    private readonly Configuration $sspConfig;
 
     /**
      * @throws Exception

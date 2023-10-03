@@ -16,12 +16,13 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Repositories;
 
+use Exception;
 use JsonException;
 use League\OAuth2\Server\Entities\AuthCodeEntityInterface as OAuth2AuthCodeEntityInterface;
 use RuntimeException;
 use SimpleSAML\Error\Error;
-use SimpleSAML\Module\oidc\Entity\AuthCodeEntity;
-use SimpleSAML\Module\oidc\Entity\Interfaces\AuthCodeEntityInterface;
+use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
+use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
@@ -66,6 +67,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
 
     /**
      * Find Auth Code by id.
+     * @throws Exception
      */
     public function findById(string $codeId): ?AuthCodeEntityInterface
     {
@@ -90,6 +92,8 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
 
     /**
      * {@inheritdoc}
+     * @throws JsonException
+     * @throws Exception
      */
     public function revokeAuthCode($codeId): void
     {
@@ -105,6 +109,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
 
     /**
      * {@inheritdoc}
+     * @throws Exception
      */
     public function isAuthCodeRevoked($codeId): bool
     {
@@ -119,6 +124,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
 
     /**
      * Removes expired auth codes.
+     * @throws Exception
      */
     public function removeExpired(): void
     {
@@ -131,7 +137,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
     }
 
     /**
-     * @return void
+     * @throws JsonException
      */
     private function update(AuthCodeEntity $authCodeEntity): void
     {

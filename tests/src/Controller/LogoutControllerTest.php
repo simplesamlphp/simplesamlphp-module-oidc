@@ -1,26 +1,29 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Controller;
 
 use Exception;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpFoundation\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;
 use Lcobucci\JWT\Token\DataSet;
 use Lcobucci\JWT\UnencryptedToken;
+use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\Stub;
+use PHPUnit\Framework\TestCase;
 use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Module\oidc\Controller\LogoutController;
-use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
-use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\SessionService;
-use SimpleSAML\Module\oidc\Store\SessionLogoutTicketStoreBuilder;
-use SimpleSAML\Module\oidc\Store\SessionLogoutTicketStoreDb;
+use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
+use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
 use SimpleSAML\Session;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
 /**
@@ -28,72 +31,30 @@ use Throwable;
  */
 class LogoutControllerTest extends TestCase
 {
-    /**
-     * @var mixed
-     */
-    protected $authorizationServerStub;
-    /**
-     * @var mixed
-     */
-    protected $authenticationServiceStub;
-    /**
-     * @var mixed
-     */
-    protected $sessionServiceStub;
-    /**
-     * @var mixed
-     */
-    protected $sessionLogoutTicketStoreBuilderStub;
-    /**
-     * @var mixed
-     */
-    protected $serverRequestStub;
-    /**
-     * @var mixed
-     */
-    protected $idTokenHintStub;
-    /**
-     * @var mixed
-     */
-    protected $logoutRequestStub;
-    /**
-     * @var mixed
-     */
-    protected $dataSetStub;
-    /**
-     * @var mixed
-     */
-    protected $currentSessionMock;
-    /**
-     * @var mixed
-     */
-    protected $sessionMock;
-    /**
-     * @var DataSet
-     */
+    protected Stub $authorizationServerStub;
+    protected Stub $authenticationServiceStub;
+    protected Stub $sessionServiceStub;
+    protected Stub $sessionLogoutTicketStoreBuilderStub;
+    protected Stub $serverRequestStub;
+    protected Stub $idTokenHintStub;
+    protected Stub $logoutRequestStub;
+    protected Stub $dataSetStub;
+    protected MockObject $currentSessionMock;
+    protected MockObject $sessionMock;
     protected DataSet $dataSet;
-    /**
-     * @var mixed
-     */
-    protected $loggerServiceStub;
-    /**
-     * @var mixed
-     */
-    protected $sessionLogoutTicketStoreDbStub;
-    /**
-     * @var mixed
-     */
-    protected $loggerServiceMock;
-    /**
-     * @var mixed
-     */
-    protected $templateFactoryStub;
+    protected Stub $loggerServiceStub;
+    protected Stub $sessionLogoutTicketStoreDbStub;
+    protected MockObject $loggerServiceMock;
+    protected Stub $templateFactoryStub;
 
+    /**
+     * @throws \PHPUnit\Framework\MockObject\Exception
+     */
     public function setUp(): void
     {
         $this->authorizationServerStub = $this->createStub(AuthorizationServer::class);
         $this->sessionServiceStub = $this->createStub(SessionService::class);
-        $this->sessionLogoutTicketStoreBuilderStub = $this->createStub(SessionLogoutTicketStoreBuilder::class);
+        $this->sessionLogoutTicketStoreBuilderStub = $this->createStub(LogoutTicketStoreBuilder::class);
         $this->serverRequestStub = $this->createStub(ServerRequest::class);
         $this->currentSessionMock = $this->createMock(Session::class);
         $this->sessionMock = $this->createMock(Session::class);
@@ -101,7 +62,7 @@ class LogoutControllerTest extends TestCase
         $this->idTokenHintStub = $this->createStub(UnencryptedToken::class);
         $this->dataSet = new DataSet(['sid' => '123'], '');
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
-        $this->sessionLogoutTicketStoreDbStub = $this->createStub(SessionLogoutTicketStoreDb::class);
+        $this->sessionLogoutTicketStoreDbStub = $this->createStub(LogoutTicketStoreDb::class);
         $this->templateFactoryStub = $this->createStub(TemplateFactory::class);
     }
 
@@ -161,9 +122,7 @@ class LogoutControllerTest extends TestCase
 
         $this->sessionMock->expects($this->exactly(2))
             ->method('doLogout')
-            ->with($this->callback(function ($authId) {
-                return in_array($authId, ['authId1', 'authId2']);
-            }));
+            ->with($this->callback(fn($authId) => in_array($authId, ['authId1', 'authId2'])));
 
         (new LogoutController(
             $this->authorizationServerStub,
@@ -215,9 +174,7 @@ class LogoutControllerTest extends TestCase
 
         $this->currentSessionMock->expects($this->exactly(2))
             ->method('doLogout')
-            ->with($this->callback(function ($authId) {
-                return in_array($authId, ['authId1', 'authId2']);
-            }));
+            ->with($this->callback(fn($authId) => in_array($authId, ['authId1', 'authId2'])));
 
         $this->sessionServiceStub->method('getCurrentSession')->willReturn($this->currentSessionMock);
 
@@ -275,7 +232,7 @@ class LogoutControllerTest extends TestCase
         $this->assertInstanceOf(Response::class, $logoutController->__invoke($this->serverRequestStub));
     }
 
-    public function testLogoutHandler(): void
+    public function testLogoutHandler(): never
     {
         $this->markTestIncomplete();
     }

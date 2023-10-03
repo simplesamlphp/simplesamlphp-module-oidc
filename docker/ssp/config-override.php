@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 $config['module.enable']['exampleauth'] = true;
 $config['module.enable']['oidc'] = true;
 $config = [

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker;
 
 use PHPUnit\Framework\TestCase;
@@ -12,8 +14,8 @@ use SimpleSAML\Module\oidc\Utils\Checker\Result;
  */
 class ResultTest extends TestCase
 {
-    protected $key = 'some-key';
-    protected $value = 'some-value';
+    protected string $key = 'some-key';
+    protected string $value = 'some-value';
 
     public function testConstruct(): Result
     {
@@ -30,7 +32,6 @@ class ResultTest extends TestCase
     /**
      * @depends testConstruct
      *
-     * @return void
      */
     public function testGetKey(Result $result): void
     {
@@ -40,7 +41,6 @@ class ResultTest extends TestCase
     /**
      * @depends testConstruct
      *
-     * @return void
      */
     public function testGetValue(Result $result): void
     {
@@ -49,8 +49,6 @@ class ResultTest extends TestCase
 
     /**
      * @depends testConstruct
-     *
-     * @return void
      */
     public function testSetValue(Result $result): void
     {

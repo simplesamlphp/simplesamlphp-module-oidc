@@ -109,7 +109,7 @@ $config = [
 //            'description',
 //        ],
 //        'picture' => [
-//            // Empty. Previously 'jpegPhoto' however spec calls for a url to photo, not an actual photo.
+//            // Empty. Previously 'jpegPhoto' however spec calls for a URL to photo, not an actual photo.
 //        ],
 //        'website' => [
 //            // Empty
@@ -137,7 +137,7 @@ $config = [
 //            'type' => 'bool',
 //            'attributes' => [],
 //        ],
-//         // address is a json object. Set the 'formatted' sub claim to postalAddress
+//         // address is a json object. Set the 'formatted' sub-claim to postalAddress
 //        'address' => [
 //            'type' => 'json',
 //            'claims' => [

@@ -14,21 +14,18 @@ declare(strict_types=1);
  * file that was distributed with this source code.
  */
 
+use SimpleSAML\Module;
+use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\XHTML\Template;
 use SimpleSAML\Locale\Translate;
 
-/**
- * @param Template &$template
- *
- * @return void
- */
-function oidc_hook_federationpage(Template &$template)
+function oidc_hook_federationpage(Template $template): void
 {
-    $href = \SimpleSAML\Module::getModuleURL('oidc/admin-clients/index.php');
+    $href = Module::getModuleURL('oidc/admin-clients/index.php');
     $text = Translate::noop('OpenID Connect Registry');
 
-    if (! (new \SimpleSAML\Module\oidc\Services\DatabaseMigration())->isUpdated()) {
-        $href = \SimpleSAML\Module::getModuleURL('oidc/install.php');
+    if (! (new DatabaseMigration())->isUpdated()) {
+        $href = Module::getModuleURL('oidc/install.php');
         $text = Translate::noop('OpenID Connect Installation');
     }
 

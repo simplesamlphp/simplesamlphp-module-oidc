@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Server\ResponseTypes;
 
+use PHPUnit\Framework\MockObject\MockObject;
 use DateTimeImmutable;
 use Exception;
 use Laminas\Diactoros\Response;
@@ -20,12 +23,13 @@ use Lcobucci\JWT\Validation\Constraint\StrictValidAt;
 use Lcobucci\JWT\Validation\Validator;
 use League\OAuth2\Server\CryptKey;
 use PHPUnit\Framework\TestCase;
+use ReflectionException;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
-use SimpleSAML\Module\oidc\Entity\ClientEntity;
-use SimpleSAML\Module\oidc\Entity\ScopeEntity;
-use SimpleSAML\Module\oidc\Entity\UserEntity;
+use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entities\ClientEntity;
+use SimpleSAML\Module\oidc\Entities\ScopeEntity;
+use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\IdentityProviderInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
@@ -37,24 +41,29 @@ use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
  */
 class IdTokenResponseTest extends TestCase
 {
-    public const TOKEN_ID = 'tokenId';
-    public const ISSUER = 'someIssuer';
-    public const CLIENT_ID = 'clientId';
-    public const SUBJECT = 'userId';
-    public const KEY_ID = 'bafd184e90a88107054f4bc05f5e7a76';
-    public const USER_ID_ATTR = 'uid';
+    final public const TOKEN_ID = 'tokenId';
+    final public const ISSUER = 'someIssuer';
+    final public const CLIENT_ID = 'clientId';
+    final public const SUBJECT = 'userId';
+    final public const KEY_ID = 'bafd184e90a88107054f4bc05f5e7a76';
+    final public const USER_ID_ATTR = 'uid';
     protected string $certFolder;
     protected UserEntity $userEntity;
     protected array $scopes;
-    protected \DateTimeImmutable $expiration;
-    protected \PHPUnit\Framework\MockObject\MockObject $clientEntityMock;
-    protected \PHPUnit\Framework\MockObject\MockObject $accessTokenEntityMock;
-    protected \PHPUnit\Framework\MockObject\MockObject $identityProviderMock;
-    protected \PHPUnit\Framework\MockObject\MockObject $moduleConfigMock;
-    protected \PHPUnit\Framework\MockObject\MockObject $sspConfigurationMock;
+    protected DateTimeImmutable $expiration;
+    protected MockObject $clientEntityMock;
+    protected MockObject $accessTokenEntityMock;
+    protected MockObject $identityProviderMock;
+    protected MockObject $moduleConfigMock;
+    protected MockObject $sspConfigurationMock;
     protected CryptKey $privateKey;
     protected IdTokenBuilder $idTokenBuilder;
 
+    /**
+     * @throws \PHPUnit\Framework\MockObject\Exception
+     * @throws ReflectionException
+     * @throws Exception
+     */
     protected function setUp(): void
     {
         $this->certFolder = dirname(__DIR__, 4) . '/docker/ssp/';
@@ -66,7 +75,7 @@ class IdTokenResponseTest extends TestCase
             ScopeEntity::fromData('openid'),
             ScopeEntity::fromData('email'),
         ];
-        $this->expiration = (new \DateTimeImmutable())->setTimestamp(time() + 3600);
+        $this->expiration = (new DateTimeImmutable())->setTimestamp(time() + 3600);
 
         $this->clientEntityMock = $this->createMock(ClientEntity::class);
         $this->clientEntityMock->method('getIdentifier')->willReturn(self::CLIENT_ID);
@@ -130,6 +139,9 @@ class IdTokenResponseTest extends TestCase
         );
     }
 
+    /**
+     * @throws Exception
+     */
     public function testItCanGenerateResponse(): void
     {
         $this->accessTokenEntityMock->method('getRequestedClaims')->willReturn([]);
@@ -143,6 +155,9 @@ class IdTokenResponseTest extends TestCase
         $this->assertTrue($this->shouldHaveValidIdToken($body));
     }
 
+    /**
+     * @throws Exception
+     */
     public function testItCanGenerateResponseWithIndividualRequestedClaims(): void
     {
         $idTokenResponse = $this->prepareMockedInstance();
@@ -232,10 +247,7 @@ class IdTokenResponseTest extends TestCase
             );
         }
         $expectedClaimsKeys = array_keys($expectedClaims);
-        $expectedClaimsKeys = array_merge(
-            ['iss', 'iat', 'jti', 'aud', 'nbf', 'exp', 'sub', 'at_hash'],
-            $expectedClaimsKeys
-        );
+        $expectedClaimsKeys = ['iss', 'iat', 'jti', 'aud', 'nbf', 'exp', 'sub', 'at_hash', ...$expectedClaimsKeys];
         $claims = array_keys($token->claims()->all());
         if ($claims !== $expectedClaimsKeys) {
             throw new Exception(
@@ -256,7 +268,7 @@ class IdTokenResponseTest extends TestCase
         $dateWithNoMicroseconds = ['nbf', 'exp', 'iat'];
         foreach ($dateWithNoMicroseconds as $key) {
             /**
-             * @var DateTimeImmutable
+             * @var DateTimeImmutable $val
              */
             $val = $token->claims()->get($key);
             //Get format representing microseconds

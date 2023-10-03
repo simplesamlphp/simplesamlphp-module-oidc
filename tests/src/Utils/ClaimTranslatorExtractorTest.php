@@ -1,9 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Utils;
 
 use PHPUnit\Framework\TestCase;
-use SimpleSAML\Module\oidc\Entity\ClaimSetEntity;
+use SimpleSAML\Module\oidc\Entities\ClaimSetEntity;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Utils\Attributes;
 
@@ -13,8 +16,10 @@ use SimpleSAML\Utils\Attributes;
 class ClaimTranslatorExtractorTest extends TestCase
 {
     protected static string $userIdAttr = 'uid';
+
     /**
      * Test various type conversions work, including types in subobjects
+     * @throws OidcServerException
      */
     public function testTypeConversion(): void
     {
@@ -109,6 +114,7 @@ class ClaimTranslatorExtractorTest extends TestCase
 
     /**
      * Test that the default translator configuration sets address correctly.
+     * @throws OidcServerException
      */
     public function testDefaultTypeConversion(): void
     {
@@ -134,6 +140,7 @@ class ClaimTranslatorExtractorTest extends TestCase
 
     /**
      * Test we can set the non-string standard claims
+     * @throws OidcServerException
      */
     public function testStandardClaimTypesCanBeSet(): void
     {
@@ -186,6 +193,9 @@ class ClaimTranslatorExtractorTest extends TestCase
         $this->assertSame($expectedClaims, $releasedClaims);
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testInvalidTypeConversion(): void
     {
         $this->expectExceptionMessage("Cannot convert '7890F' to int");
@@ -201,6 +211,9 @@ class ClaimTranslatorExtractorTest extends TestCase
         $claimTranslator->extract(['typeConversion'], $userAttributes);
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testExtractRequestClaimsUserInfo(): void
     {
         $claimTranslator = new ClaimTranslatorExtractor(self::$userIdAttr);
@@ -214,6 +227,9 @@ class ClaimTranslatorExtractorTest extends TestCase
         $this->assertEquals(['name' => 'bob'], $claims);
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testExtractRequestClaimsIdToken(): void
     {
         $claimTranslator = new ClaimTranslatorExtractor(self::$userIdAttr);

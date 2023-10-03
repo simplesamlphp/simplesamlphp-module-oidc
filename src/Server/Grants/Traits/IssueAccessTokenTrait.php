@@ -12,7 +12,7 @@ use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use League\OAuth2\Server\Grant\AbstractGrant;
-use SimpleSAML\Module\oidc\Entity\Interfaces\AccessTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
@@ -37,11 +37,9 @@ trait IssueAccessTokenTrait
     /**
      * Issue an access token.
      *
-     * @param string|null            $userIdentifier
+     * @param string|null $userIdentifier
      * @param ScopeEntityInterface[] $scopes
-     * @param string|null $authCodeId
      * @param array|null $requestedClaims Any requested claims
-     * @return AccessTokenEntityInterface
      * @throws OAuthServerException
      * @throws UniqueTokenIdentifierConstraintViolationException
      */

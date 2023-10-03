@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use Exception;
+use JsonException;
 use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Grant\RefreshTokenGrant as OAuth2RefreshTokenGrant;
 use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
@@ -17,6 +18,8 @@ use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 use function is_null;
+use function json_decode;
+use function time;
 
 class RefreshTokenGrant extends OAuth2RefreshTokenGrant
 {
@@ -61,7 +64,11 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
      */
     protected $clientRepository;
 
-    protected function validateOldRefreshToken(ServerRequestInterface $request, $clientId)
+    /**
+     * @throws OidcServerException
+     * @throws JsonException
+     */
+    protected function validateOldRefreshToken(ServerRequestInterface $request, $clientId): array
     {
         $encryptedRefreshToken = $this->getRequestParameter('refresh_token', $request);
         if (is_null($encryptedRefreshToken)) {
@@ -75,7 +82,7 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
             throw OidcServerException::invalidRefreshToken('Cannot decrypt the refresh token', $e);
         }
 
-        $refreshTokenData = \json_decode($refreshToken, true, 512, JSON_THROW_ON_ERROR);
+        $refreshTokenData = json_decode($refreshToken, true, 512, JSON_THROW_ON_ERROR);
 
         if (! is_array($refreshTokenData)) {
             throw OidcServerException::invalidRefreshToken('Refresh token has unexpected type');
@@ -85,7 +92,7 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
             throw OidcServerException::invalidRefreshToken('Refresh token is not linked to client');
         }
 
-        if ($refreshTokenData['expire_time'] < \time()) {
+        if ($refreshTokenData['expire_time'] < time()) {
             throw OidcServerException::invalidRefreshToken('Refresh token has expired');
         }
 

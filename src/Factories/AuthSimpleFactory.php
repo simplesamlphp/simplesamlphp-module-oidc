@@ -19,7 +19,7 @@ use Exception;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 
 class AuthSimpleFactory

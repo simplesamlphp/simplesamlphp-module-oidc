@@ -26,19 +26,19 @@ class FormFactory
     }
 
     /**
-     * @param string $classname Form classname
+     * @param class-string $classname Form classname
      *
      * @throws \Exception
      *
      * @return mixed
      */
-    public function build(string $classname)
+    public function build(string $classname): mixed
     {
-        if (!class_exists($classname) && ($classname instanceof Form)) {
-            throw new Exception("Invalid form: {$classname}");
+        if (!is_a($classname, Form::class, true)) {
+            throw new Exception("Invalid form: $classname");
         }
 
-        /** @psalm-suppress InvalidStringClass */
+        /** @psalm-suppress UnsafeInstantiation */
         return new $classname($this->moduleConfig);
     }
 }

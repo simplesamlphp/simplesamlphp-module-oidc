@@ -7,7 +7,7 @@ namespace SimpleSAML\Module\oidc\Repositories\Interfaces;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface as OAuth2ScopeEntityInterface;
 use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface as OAuth2AccessTokenRepositoryInterface;
-use SimpleSAML\Module\oidc\Entity\Interfaces\AccessTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 
 interface AccessTokenRepositoryInterface extends OAuth2AccessTokenRepositoryInterface
 {

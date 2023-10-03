@@ -1,7 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
+use PHPUnit\Framework\MockObject\Exception;
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -16,8 +20,11 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
  */
 class StateRuleTest extends TestCase
 {
-    protected $loggerServiceStub;
+    protected Stub $loggerServiceStub;
 
+    /**
+     * @throws Exception
+     */
     public function setUp(): void
     {
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
@@ -31,6 +38,7 @@ class StateRuleTest extends TestCase
 
     /**
      * @throws OidcServerException
+     * @throws Exception
      */
     public function testCheckRuleGetMethod(): void
     {
@@ -52,6 +60,7 @@ class StateRuleTest extends TestCase
 
     /**
      * @throws OidcServerException
+     * @throws Exception
      */
     public function testCheckRulePostMethod(): void
     {
@@ -73,6 +82,7 @@ class StateRuleTest extends TestCase
 
     /**
      * @throws OidcServerException
+     * @throws Exception
      */
     public function testCheckRuleReturnsNullWhenMethodNotAllowed(): void
     {
@@ -85,7 +95,7 @@ class StateRuleTest extends TestCase
 
         $resultBag = new ResultBag();
         $rule = new StateRule();
-        $result = $rule->checkRule($request, $resultBag, $this->loggerServiceStub, [], false, ['GET']);
+        $result = $rule->checkRule($request, $resultBag, $this->loggerServiceStub);
 
         $this->assertInstanceOf(ResultInterface::class, $result);
         $this->assertNull($result->getValue());
@@ -93,6 +103,7 @@ class StateRuleTest extends TestCase
 
     /**
      * @throws OidcServerException
+     * @throws Exception
      */
     public function testCheckRuleReturnsNullWhenMethodNotSupported(): void
     {

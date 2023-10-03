@@ -25,8 +25,8 @@ namespace SimpleSAML\Module\oidc\Utils;
 use Lcobucci\JWT\Token\RegisteredClaims;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use RuntimeException;
-use SimpleSAML\Module\oidc\Entity\ClaimSetEntity;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClaimSetEntityInterface;
+use SimpleSAML\Module\oidc\Entities\ClaimSetEntity;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClaimSetEntityInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 class ClaimTranslatorExtractor
@@ -67,7 +67,7 @@ class ClaimTranslatorExtractor
             'description',
         ],
         'picture' => [
-            // Empty 'jpegPhoto', Previously 'jpegPhoto' however spec calls for a url to photo, not an actual photo.
+            // Empty 'jpegPhoto', Previously 'jpegPhoto' however spec calls for an url to photo, not an actual photo.
         ],
         'website' => [
             // Empty
@@ -285,7 +285,6 @@ class ClaimTranslatorExtractor
 
     /**
      * @param array<array-key, string|ScopeEntityInterface> $scopes
-     * @return array
      */
     public function extract(array $scopes, array $claims): array
     {
@@ -338,7 +337,6 @@ class ClaimTranslatorExtractor
      * Add any individually requested claims
      * @link https://openid.net/specs/openid-connect-core-1_0.html#IndividualClaimsRequests
      * @param array $requestedClaims keys are requested claims, value is array of additional info on the request
-     * @return array
      */
     private function extractAdditionalClaims(array $requestedClaims, array $claims): array
     {

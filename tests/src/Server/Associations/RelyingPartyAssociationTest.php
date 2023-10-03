@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Server\Associations;
 
 use SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation;

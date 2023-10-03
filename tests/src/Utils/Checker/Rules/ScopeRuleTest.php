@@ -1,12 +1,17 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
 use LogicException;
+use PHPUnit\Framework\MockObject\Builder\InvocationStubber;
+use PHPUnit\Framework\MockObject\Exception;
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Entity\ScopeEntity;
+use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
@@ -23,8 +28,8 @@ use Throwable;
  */
 class ScopeRuleTest extends TestCase
 {
-    protected $scopeRepositoryStub;
-    protected $resultBagStub;
+    protected Stub $scopeRepositoryStub;
+    protected Stub $resultBagStub;
     protected array $data = [
         'default_scope' => '',
         'scope_delimiter_string' => ' ',
@@ -36,10 +41,13 @@ class ScopeRuleTest extends TestCase
     protected Result $redirectUriResult;
     protected Result $stateResult;
 
-    protected $requestStub;
+    protected Stub $requestStub;
 
-    protected $loggerServiceStub;
+    protected Stub $loggerServiceStub;
 
+    /**
+     * @throws Exception
+     */
     protected function setUp(): void
     {
         $this->scopeRepositoryStub = $this->createStub(ScopeRepositoryInterface::class);
@@ -137,7 +145,7 @@ class ScopeRuleTest extends TestCase
         return $resultBag;
     }
 
-    protected function prepareValidScopeRepositoryStub()
+    protected function prepareValidScopeRepositoryStub(): InvocationStubber
     {
         return $this->scopeRepositoryStub
             ->method('getScopeEntityByIdentifier')

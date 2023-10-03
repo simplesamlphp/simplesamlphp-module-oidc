@@ -16,8 +16,10 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Services;
 
-use SimpleSAML\Module\oidc\Entity\ClientEntity;
+use JsonException;
+use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 /**
  * Class DatabaseLegacyOAuth2Import.
@@ -29,9 +31,8 @@ class DatabaseLegacyOAuth2Import
     }
 
     /**
-     * @psalm-suppress UndefinedClass, UndefinedMethod, MixedAssignment, MixedArrayAccess, MixedArgument
-     *
-     * @return void
+     * @psalm-suppress UndefinedClass, MixedAssignment, MixedArrayAccess, MixedArgument
+     * @throws OidcServerException|JsonException
      */
     public function import(): void
     {

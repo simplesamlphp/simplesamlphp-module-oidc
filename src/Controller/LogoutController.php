@@ -5,16 +5,17 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Controller;
 
 use Exception;
+use Laminas\Diactoros\ServerRequest;
 use SimpleSAML\Error\BadRequest;
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
-use Laminas\Diactoros\ServerRequest;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\LogoutHandlers\BackChannelLogoutHandler;
 use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\SessionService;
-use SimpleSAML\Module\oidc\Store\SessionLogoutTicketStoreBuilder;
+use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
 use SimpleSAML\Session;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,7 +26,7 @@ class LogoutController
     public function __construct(
         protected AuthorizationServer $authorizationServer,
         protected SessionService $sessionService,
-        protected SessionLogoutTicketStoreBuilder $sessionLogoutTicketStoreBuilder,
+        protected LogoutTicketStoreBuilder $sessionLogoutTicketStoreBuilder,
         protected LoggerService $loggerService,
         protected TemplateFactory $templateFactory
     ) {
@@ -63,7 +64,7 @@ class LogoutController
         }
 
         // Check if RP is requesting logout for session that previously existed (not this current session).
-        // Claim 'sid' from 'id_token_hint' logout parameter indicates for which session should logout be
+        // Claim 'sid' from 'id_token_hint' logout parameter indicates for which session should log out be
         // performed (sid is session ID used when ID token was issued during authn). If the requested
         // sid is different from the current session ID, try to find the requested session.
         if (
@@ -127,7 +128,7 @@ class LogoutController
 
         // Check for session logout tickets. If there are any, it means that the logout was initiated using OIDC RP
         // initiated flow for specific session (not current one).
-        $sessionLogoutTicketStore = SessionLogoutTicketStoreBuilder::getStaticInstance();
+        $sessionLogoutTicketStore = LogoutTicketStoreBuilder::getStaticInstance();
         $sessionLogoutTickets = $sessionLogoutTicketStore->getAll();
 
         if (! empty($sessionLogoutTickets)) {
@@ -167,6 +168,9 @@ class LogoutController
         (new BackChannelLogoutHandler())->handle($relyingPartyAssociations);
     }
 
+    /**
+     * @throws ConfigurationError
+     */
     protected function resolveResponse(LogoutRequest $logoutRequest, bool $wasLogoutActionCalled): Response
     {
         if (($postLogoutRedirectUri = $logoutRequest->getPostLogoutRedirectUri()) !== null) {

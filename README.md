@@ -243,9 +243,9 @@ form. Here are some sample configurations:
 
 ### With current git branch.
 
-To explore the module using docker run the below command. This will run an SSP image, with the current oidc module mounted
-in the container, along with some configuration files. Any code changes you make to your git checkout are "live" in
-the container, allowing you to test and iterate different things.
+To explore the module using docker run the below command. This will run an SSP image, with the current oidc module
+mounted in the container, along with some configuration files. Any code changes you make to your git checkout are
+"live" in the container, allowing you to test and iterate different things.
 
 ```
 GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)

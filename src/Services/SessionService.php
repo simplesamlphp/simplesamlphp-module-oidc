@@ -177,7 +177,6 @@ class SessionService
 
     /**
      * Helper method to get indication if logout was initiated using OIDC protocol for given session.
-     * @return bool
      */
     public static function getIsOidcInitiatedLogoutForSession(Session $session): bool
     {

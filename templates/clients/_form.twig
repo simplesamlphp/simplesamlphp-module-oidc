@@ -30,7 +30,10 @@
 
         <div class="field">
             <div class="ui checkbox">
-                <input name="is_enabled" id="frm-is_enabled" {% if form['is_enabled'].filled %}checked=""{% endif %} type="checkbox">
+                <input name="is_enabled"
+                       id="frm-is_enabled"
+                       {% if form['is_enabled'].filled %}checked=""{% endif %}
+                       type="checkbox">
 
                 <label for="frm-is_enabled">{{ '{oidc:client:is_enabled}'|trans }}</label>
             </div>
@@ -38,7 +41,10 @@
 
         <div class="field">
             <div class="ui checkbox">
-                <input name="is_confidential" id="frm-is_confidential" {% if form['is_confidential'].filled %}checked=""{% endif %} type="checkbox">
+                <input name="is_confidential"
+                       id="frm-is_confidential"
+                       {% if form['is_confidential'].filled %}checked=""{% endif %}
+                       type="checkbox">
 
                 <label for="frm-is_confidential">{{ '{oidc:client:is_confidential}'|trans }}</label>
                 <small class="helper">{{ '{oidc:client:is_confidential_help}'|trans }}</small>

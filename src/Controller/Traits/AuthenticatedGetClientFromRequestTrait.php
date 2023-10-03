@@ -16,12 +16,14 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controller\Traits;
 
+use JsonException;
 use SimpleSAML\Error\Exception;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Error\NotFound;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
 
 trait AuthenticatedGetClientFromRequestTrait
@@ -31,7 +33,7 @@ trait AuthenticatedGetClientFromRequestTrait
     private AuthContextService $authContextService;
 
     /**
-     * @throws BadRequest|NotFound|Exception
+     * @throws BadRequest|NotFound|Exception|OidcServerException|JsonException
      */
     protected function getClientFromRequest(ServerRequestInterface $request): ClientEntityInterface
     {

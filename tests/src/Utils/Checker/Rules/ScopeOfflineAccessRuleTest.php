@@ -1,73 +1,46 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
+use PHPUnit\Framework\MockObject\Exception;
+use PHPUnit\Framework\MockObject\Stub;
+use PHPUnit\Framework\MockObject\MockObject;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeOfflineAccessRule;
+use Throwable;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeOfflineAccessRule
  */
 class ScopeOfflineAccessRuleTest extends TestCase
 {
-    /**
-     * @var \PHPUnit\Framework\MockObject\Stub
-     */
-    protected $serverRequestStub;
-    /**
-     * @var \PHPUnit\Framework\MockObject\MockObject
-     */
-    protected $resultBagMock;
-    /**
-     * @var \PHPUnit\Framework\MockObject\MockObject
-     */
-    protected $loggerServiceMock;
-    /**
-     * @var \PHPUnit\Framework\MockObject\Stub
-     */
-    protected $clientStub;
-    /**
-     * @var \PHPUnit\Framework\MockObject\Stub
-     */
-    protected $scopeEntityOpenid;
-    /**
-     * @var \PHPUnit\Framework\MockObject\Stub
-     */
-    protected $scopeEntityOfflineAccess;
-    /**
-     * @var \PHPUnit\Framework\MockObject\Stub
-     */
-    protected $redirectUriResultStub;
-    /**
-     * @var \PHPUnit\Framework\MockObject\Stub
-     */
-    protected $stateResultStub;
-    /**
-     * @var \PHPUnit\Framework\MockObject\Stub
-     */
-    protected $clientResultStub;
-    /**
-     * @var \PHPUnit\Framework\MockObject\Stub
-     */
-    protected $validScopesResultStub;
-    /**
-     * @var \PHPUnit\Framework\MockObject\Stub
-     */
-    protected $moduleConfigStub;
-    /**
-     * @var \PHPUnit\Framework\MockObject\Stub
-     */
-    protected $openIdConfigurationStub;
+    protected Stub $serverRequestStub;
+    protected MockObject $resultBagMock;
+    protected MockObject $loggerServiceMock;
+    protected Stub $clientStub;
+    protected Stub $scopeEntityOpenid;
+    protected Stub $scopeEntityOfflineAccess;
+    protected Stub $redirectUriResultStub;
+    protected Stub $stateResultStub;
+    protected Stub $clientResultStub;
+    protected Stub $validScopesResultStub;
+    protected Stub $moduleConfigStub;
+    protected Stub $openIdConfigurationStub;
 
+    /**
+     * @throws Exception
+     */
     protected function setUp(): void
     {
         $this->serverRequestStub = $this->createStub(ServerRequestInterface::class);
@@ -97,10 +70,14 @@ class ScopeOfflineAccessRuleTest extends TestCase
     {
         $this->assertInstanceOf(
             ScopeOfflineAccessRule::class,
-            new ScopeOfflineAccessRule($this->moduleConfigStub)
+            new ScopeOfflineAccessRule()
         );
     }
 
+    /**
+     * @throws Throwable
+     * @throws OidcServerException
+     */
     public function testReturnsFalseWhenOfflineAccessScopeNotPresent(): void
     {
         $this->clientStub->method('getScopes')->willReturn(['openid']);
@@ -120,13 +97,16 @@ class ScopeOfflineAccessRuleTest extends TestCase
         $this->moduleConfigStub->method('config')
             ->willReturn($this->openIdConfigurationStub);
 
-        $result = (new ScopeOfflineAccessRule($this->moduleConfigStub))
+        $result = (new ScopeOfflineAccessRule())
             ->checkRule($this->serverRequestStub, $this->resultBagMock, $this->loggerServiceMock);
 
         $this->assertNotNull($result);
         $this->assertFalse($result->getValue());
     }
 
+    /**
+     * @throws Throwable
+     */
     public function testThrowsWhenClientDoesntHaveOfflineAccessScopeRegistered(): void
     {
         $this->clientStub->method('getScopes')->willReturn(['openid']);
@@ -149,10 +129,14 @@ class ScopeOfflineAccessRuleTest extends TestCase
 
         $this->expectException(OidcServerException::class);
 
-        (new ScopeOfflineAccessRule($this->moduleConfigStub))
+        (new ScopeOfflineAccessRule())
             ->checkRule($this->serverRequestStub, $this->resultBagMock, $this->loggerServiceMock);
     }
 
+    /**
+     * @throws Throwable
+     * @throws OidcServerException
+     */
     public function testReturnsTrueWhenClientDoesHaveOfflineAccessScopeRegistered(): void
     {
         $this->clientStub->method('getScopes')->willReturn(['openid', 'offline_access']);
@@ -173,7 +157,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
         $this->moduleConfigStub->method('config')
             ->willReturn($this->openIdConfigurationStub);
 
-        $result = (new ScopeOfflineAccessRule($this->moduleConfigStub))
+        $result = (new ScopeOfflineAccessRule())
             ->checkRule($this->serverRequestStub, $this->resultBagMock, $this->loggerServiceMock);
 
         $this->assertNotNull($result);

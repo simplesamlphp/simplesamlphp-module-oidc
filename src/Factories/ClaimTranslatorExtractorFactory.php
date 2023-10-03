@@ -18,7 +18,7 @@ namespace SimpleSAML\Module\oidc\Factories;
 
 use Exception;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\Entity\ClaimSetEntity;
+use SimpleSAML\Module\oidc\Entities\ClaimSetEntity;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
 class ClaimTranslatorExtractorFactory
@@ -125,6 +125,6 @@ class ClaimTranslatorExtractorFactory
     protected function doesScopeAllowMultipleClaimValues(array $scopeConfig): bool
     {
         return isset($scopeConfig[self::CONFIG_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED]) &&
-            boolval($scopeConfig[self::CONFIG_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED]);
+            $scopeConfig[self::CONFIG_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED];
     }
 }

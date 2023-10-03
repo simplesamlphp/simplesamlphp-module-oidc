@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker;
 
+use LogicException;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\Checker\ResultBag;
@@ -11,12 +14,12 @@ use SimpleSAML\Module\oidc\Utils\Checker\ResultBag;
  */
 class ResultBagTest extends TestCase
 {
-    protected $key = 'some-key';
-    protected $value = 'some-value';
+    protected string $key = 'some-key';
+    protected string $value = 'some-value';
 
-    protected $result;
+    protected Result $result;
 
-    protected $resultBag;
+    protected ResultBag $resultBag;
 
     protected function setUp(): void
     {
@@ -43,7 +46,7 @@ class ResultBagTest extends TestCase
     {
         $this->resultBag->add($this->result);
         $this->assertSame($this->result, $this->resultBag->getOrFail($this->key));
-        $this->expectException(\LogicException::class);
+        $this->expectException(LogicException::class);
         $this->resultBag->getOrFail('non-existent');
     }
 

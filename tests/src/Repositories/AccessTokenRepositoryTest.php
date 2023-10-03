@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -11,17 +13,22 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
 namespace SimpleSAML\Test\Module\oidc\Repositories;
 
+use DateTimeImmutable;
+use Exception;
+use JsonException;
+use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
+use SimpleSAML\Error\Error;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\Entity\ScopeEntity;
-use SimpleSAML\Module\oidc\Entity\UserEntity;
+use SimpleSAML\Module\oidc\Entities\ScopeEntity;
+use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
@@ -30,15 +37,15 @@ use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
  */
 class AccessTokenRepositoryTest extends TestCase
 {
-    public const CLIENT_ID = 'access_token_client_id';
-    public const USER_ID = 'access_token_user_id';
-    public const ACCESS_TOKEN_ID = 'access_token_id';
+    final public const CLIENT_ID = 'access_token_client_id';
+    final public const USER_ID = 'access_token_user_id';
+    final public const ACCESS_TOKEN_ID = 'access_token_id';
+
+    protected static AccessTokenRepository $repository;
 
     /**
-     * @var AccessTokenRepository
+     * @throws Exception
      */
-    protected static $repository;
-
     public static function setUpBeforeClass(): void
     {
         $config = [
@@ -68,6 +75,13 @@ class AccessTokenRepositoryTest extends TestCase
         $this->assertSame('phpunit_oidc_access_token', self::$repository->getTableName());
     }
 
+    /**
+     * @throws UniqueTokenIdentifierConstraintViolationException
+     * @throws Error
+     * @throws OidcServerException
+     * @throws JsonException
+     * @throws Exception
+     */
     public function testAddAndFound(): void
     {
         $scopes = [
@@ -80,7 +94,7 @@ class AccessTokenRepositoryTest extends TestCase
             self::USER_ID
         );
         $accessToken->setIdentifier(self::ACCESS_TOKEN_ID);
-        $accessToken->setExpiryDateTime(\DateTimeImmutable::createFromMutable(
+        $accessToken->setExpiryDateTime(DateTimeImmutable::createFromMutable(
             TimestampGenerator::utc('yesterday')
         ));
 
@@ -91,6 +105,9 @@ class AccessTokenRepositoryTest extends TestCase
         $this->assertEquals($accessToken, $foundAccessToken);
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testAddAndNotFound(): void
     {
         $notFoundAccessToken = self::$repository->findById('notoken');
@@ -98,6 +115,10 @@ class AccessTokenRepositoryTest extends TestCase
         $this->assertNull($notFoundAccessToken);
     }
 
+    /**
+     * @throws OidcServerException
+     * @throws JsonException
+     */
     public function testRevokeToken(): void
     {
         self::$repository->revokeAccessToken(self::ACCESS_TOKEN_ID);
@@ -106,20 +127,31 @@ class AccessTokenRepositoryTest extends TestCase
         $this->assertTrue($isRevoked);
     }
 
+    /**
+     * @throws OidcServerException
+     * @throws JsonException
+     */
     public function testErrorRevokeInvalidToken(): void
     {
-        $this->expectException(\Exception::class);
+        $this->expectException(Exception::class);
 
         self::$repository->revokeAccessToken('notoken');
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testErrorCheckIsRevokedInvalidToken(): void
     {
-        $this->expectException(\Exception::class);
+        $this->expectException(Exception::class);
 
         self::$repository->isAccessTokenRevoked('notoken');
     }
 
+    /**
+     * @throws OidcServerException
+     * @throws Exception
+     */
     public function testRemoveExpired(): void
     {
         self::$repository->removeExpired();

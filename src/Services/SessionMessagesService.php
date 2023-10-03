@@ -26,7 +26,6 @@ class SessionMessagesService
     }
 
     /**
-     * @return void
      * @throws Exception
      */
     public function addMessage(string $value): void

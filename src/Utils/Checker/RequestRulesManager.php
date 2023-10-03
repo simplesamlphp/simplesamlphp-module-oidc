@@ -52,7 +52,6 @@ class RequestRulesManager
      * @param bool $useFragmentInHttpErrorResponses Indicate that in case of HTTP error responses, params should be
      * returned in URI fragment instead of query.
      * @param string[] $allowedServerRequestMethods Indicate allowed HTTP methods used for request
-     * @return ResultBagInterface
      * @throws OidcServerException
      */
     public function check(
@@ -84,7 +83,7 @@ class RequestRulesManager
     }
 
     /**
-     * Predefine (add) the existing result so it can be used by other checkers during check.
+     * Predefine (add) the existing result, so it can be used by other checkers during check.
      */
     public function predefineResult(ResultInterface $result): void
     {

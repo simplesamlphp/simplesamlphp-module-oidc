@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Utils;
 
 use League\OAuth2\Server\Exception\OAuthServerException;

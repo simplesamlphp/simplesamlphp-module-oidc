@@ -1,8 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Server\RequestTypes;
 
 use Lcobucci\JWT\UnencryptedToken;
+use PHPUnit\Framework\MockObject\Exception;
+use PHPUnit\Framework\MockObject\Stub;
 use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
 use PHPUnit\Framework\TestCase;
 
@@ -11,12 +15,15 @@ use PHPUnit\Framework\TestCase;
  */
 class LogoutRequestTest extends TestCase
 {
-    protected $idTokenHintStub;
+    protected Stub $idTokenHintStub;
 
     protected static string $postLogoutRedirectUri = 'https://redirect.org/uri';
     protected static string $state = 'state123';
     protected static string $uiLocales = 'en';
 
+    /**
+     * @throws Exception
+     */
     protected function setUp(): void
     {
         $this->idTokenHintStub = $this->createStub(UnencryptedToken::class);

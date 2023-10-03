@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Services;
 
+use PHPUnit\Framework\MockObject\Stub;
 use Exception;
 use Lcobucci\JWT\Builder;
 use Lcobucci\JWT\Configuration;
@@ -29,7 +32,7 @@ class JsonWebTokenBuilderServiceTest extends TestCase
     /**
      * @var mixed
      */
-    private $moduleConfigStub;
+    private Stub $moduleConfigStub;
 
     public static function setUpBeforeClass(): void
     {
@@ -39,6 +42,9 @@ class JsonWebTokenBuilderServiceTest extends TestCase
         self::$signerSha256 = new Sha256();
     }
 
+    /**
+     * @throws \PHPUnit\Framework\MockObject\Exception
+     */
     public function setUp(): void
     {
         $this->moduleConfigStub = $this->createStub(ModuleConfig::class);

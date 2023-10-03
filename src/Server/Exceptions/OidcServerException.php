@@ -8,6 +8,9 @@ use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
 
+use function http_build_query;
+use function json_encode;
+
 class OidcServerException extends OAuthServerException
 {
     /**
@@ -45,7 +48,7 @@ class OidcServerException extends OAuthServerException
      * @param string $errorType Error type
      * @param int $httpStatusCode HTTP status code to send (default = 400)
      * @param null|string $hint A helper hint
-     * @param null|string $redirectUri A HTTP URI to redirect the user back to
+     * @param null|string $redirectUri An HTTP URI to redirect the user back to
      * @param Throwable|null $previous Previous exception
      * @param string|null $state
      */
@@ -106,7 +109,7 @@ class OidcServerException extends OAuthServerException
      * Invalid scope error.
      *
      * @param string $scope The bad scope
-     * @param string|null $redirectUri A HTTP URI to redirect the user back to
+     * @param string|null $redirectUri An HTTP URI to redirect the user back to
      * @param string|null $state
      * @param bool $useFragment Use URI fragment to return error parameters
      * @return static
@@ -308,7 +311,7 @@ class OidcServerException extends OAuthServerException
     }
 
     /**
-     * Generate a HTTP response.
+     * Generate an HTTP response.
      *
      * @param ResponseInterface $response
      * @param bool $useFragment True if errors should be in the URI fragment instead of query string. Note
@@ -336,14 +339,14 @@ class OidcServerException extends OAuthServerException
 
             $this->redirectUri .= (!str_contains($this->redirectUri, $paramSeparator)) ? $paramSeparator : '&';
 
-            return $response->withStatus(302)->withHeader('Location', $this->redirectUri . \http_build_query($payload));
+            return $response->withStatus(302)->withHeader('Location', $this->redirectUri . http_build_query($payload));
         }
 
         foreach ($headers as $header => $content) {
             $response = $response->withHeader($header, $content);
         }
 
-        $responseBody = \json_encode($payload, $jsonOptions) ?: 'JSON encoding of payload failed';
+        $responseBody = json_encode($payload, $jsonOptions) ?: 'JSON encoding of payload failed';
 
         $response->getBody()->write($responseBody);
 

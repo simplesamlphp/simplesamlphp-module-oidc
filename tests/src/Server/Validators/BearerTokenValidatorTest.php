@@ -1,20 +1,26 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Server\Validators;
 
+use JsonException;
 use Laminas\Diactoros\ServerRequest;
 use Laminas\Diactoros\StreamFactory;
 use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface as OAuth2AccessTokenRepositoryInterface;
+use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Configuration;
-use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
-use SimpleSAML\Module\oidc\Entity\ClientEntity;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entities\ClientEntity;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
+
+use function chmod;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator
@@ -23,71 +29,24 @@ use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
  */
 class BearerTokenValidatorTest extends TestCase
 {
-    /**
-     * @var BearerTokenValidator
-     */
-    protected $bearerTokenValidator;
+    protected BearerTokenValidator $bearerTokenValidator;
+    protected static string $privateKeyPath;
+    protected static CryptKey $privateCryptKey;
+    protected static ?string $privateKey = null;
+    protected static string $publicKey;
+    protected static CryptKey $publicCryptKey;
+    protected static string $publicKeyPath;
+    protected OAuth2AccessTokenRepositoryInterface $accessTokenRepositoryStub;
+    protected static array $accessTokenState;
+    protected static AccessTokenEntity $accessTokenEntity;
+    protected static string $accessToken;
+    protected static ClientEntityInterface $clientEntity;
+    protected ServerRequestInterface $serverRequest;
 
     /**
-     * @var string
+     * @throws Exception
+     * @throws \Exception
      */
-    protected static $privateKeyPath;
-
-    /**
-     * @var CryptKey
-     */
-    protected static $privateCryptKey;
-
-    /**
-     * @var string
-     */
-    protected static $privateKey;
-
-    /**
-     * @var string
-     */
-    protected static $publicKey;
-
-    /**
-     * @var CryptKey
-     */
-    protected static $publicCryptKey;
-
-    /**
-     * @var string
-     */
-    protected static $publicKeyPath;
-
-    /**
-     * @var OAuth2AccessTokenRepositoryInterface
-     */
-    protected $accessTokenRepositoryStub;
-
-    /**
-     * @var array
-     */
-    protected static $accessTokenState;
-
-    /**
-     * @var AccessTokenEntity
-     */
-    protected static $accessTokenEntity;
-
-    /**
-     * @var string
-     */
-    protected static $accessToken;
-
-    /**
-     * @var ClientEntityInterface
-     */
-    protected static $clientEntity;
-
-    /**
-     * @var ServerRequestInterface
-     */
-    protected $serverRequest;
-
     public function setUp(): void
     {
         $this->accessTokenRepositoryStub = $this->createStub(AccessTokenRepository::class);
@@ -95,6 +54,10 @@ class BearerTokenValidatorTest extends TestCase
         $this->bearerTokenValidator = new BearerTokenValidator($this->accessTokenRepositoryStub, self::$publicCryptKey);
     }
 
+    /**
+     * @throws OidcServerException
+     * @throws JsonException
+     */
     public static function setUpBeforeClass(): void
     {
         // To make lib/SimpleSAML/Utils/HTTP::getSelfURL() work...
@@ -125,8 +88,8 @@ class BearerTokenValidatorTest extends TestCase
 
         file_put_contents(self::$publicKeyPath, self::$publicKey);
         file_put_contents(self::$privateKeyPath, self::$privateKey);
-        \chmod(self::$publicKeyPath, 0600);
-        \chmod(self::$privateKeyPath, 0600);
+        chmod(self::$publicKeyPath, 0600);
+        chmod(self::$privateKeyPath, 0600);
 
         self::$publicCryptKey = new CryptKey(self::$publicKeyPath);
         self::$privateCryptKey = new CryptKey(self::$privateKeyPath);
@@ -173,6 +136,9 @@ class BearerTokenValidatorTest extends TestCase
         $this->bearerTokenValidator->validateAuthorization($this->serverRequest);
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testValidatesForAuthorizationHeader()
     {
         $serverRequest = $this->serverRequest->withAddedHeader('Authorization', 'Bearer ' . self::$accessToken);
@@ -185,6 +151,9 @@ class BearerTokenValidatorTest extends TestCase
         );
     }
 
+    /**
+     * @throws OidcServerException
+     */
     public function testValidatesForPostBodyParam()
     {
         $bodyArray = ['access_token' => self::$accessToken];
@@ -213,6 +182,10 @@ class BearerTokenValidatorTest extends TestCase
         $this->bearerTokenValidator->validateAuthorization($serverRequest);
     }
 
+    /**
+     * @throws OidcServerException
+     * @throws JsonException
+     */
     public function testThrowsForExpiredAccessToken()
     {
         $accessTokenState = self::$accessTokenState;
@@ -230,6 +203,9 @@ class BearerTokenValidatorTest extends TestCase
         $this->bearerTokenValidator->validateAuthorization($serverRequest);
     }
 
+    /**
+     * @throws OidcServerException|\Exception
+     */
     public function testThrowsForRevokedAccessToken()
     {
         $this->accessTokenRepositoryStub->method('isAccessTokenRevoked')->willReturn(true);
@@ -246,6 +222,10 @@ class BearerTokenValidatorTest extends TestCase
         $bearerTokenValidator->validateAuthorization($serverRequest);
     }
 
+    /**
+     * @throws OidcServerException
+     * @throws JsonException
+     */
     public function testThrowsForEmptyAccessTokenJti()
     {
         $accessTokenState = self::$accessTokenState;

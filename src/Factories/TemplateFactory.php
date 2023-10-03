@@ -16,6 +16,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Factories;
 
 use SimpleSAML\Configuration;
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\XHTML\Template;
 
 class TemplateFactory
@@ -31,6 +32,9 @@ class TemplateFactory
         $this->configuration = new Configuration($config, 'oidc');
     }
 
+    /**
+     * @throws ConfigurationError
+     */
     public function render(string $templateName, array $data = []): Template
     {
         $template = new Template($this->configuration, $templateName);

@@ -1,7 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Services;
 
+use PHPUnit\Framework\MockObject\Exception;
+use PHPUnit\Framework\MockObject\MockObject;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Session;
@@ -11,8 +15,11 @@ use SimpleSAML\Session;
  */
 class SessionMessagesServiceTest extends TestCase
 {
-    protected \PHPUnit\Framework\MockObject\MockObject $sessionMock;
+    protected MockObject $sessionMock;
 
+    /**
+     * @throws Exception
+     */
     protected function setUp(): void
     {
         $this->sessionMock = $this->createMock(Session::class);
@@ -31,6 +38,9 @@ class SessionMessagesServiceTest extends TestCase
         );
     }
 
+    /**
+     * @throws \Exception
+     */
     public function testItAddsMessage(): void
     {
         $this->sessionMock->expects($this->once())
@@ -54,9 +64,7 @@ class SessionMessagesServiceTest extends TestCase
 
         $this->sessionMock->expects($this->exactly(2))
             ->method('deleteData')
-            ->with($this->callback(function ($id) {
-                return ! in_array($id, ['msg1', 'msg2']);
-            }));
+            ->with($this->callback(fn($id) => ! in_array($id, ['msg1', 'msg2'])));
 
         $this->prepareMockedInstance()->getMessages();
     }

@@ -1,7 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
+use PHPUnit\Framework\MockObject\Exception;
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -15,7 +19,7 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\ResponseTypeRule;
  */
 class ResponseTypeRuleTest extends TestCase
 {
-    protected $requestStub;
+    protected Stub $requestStub;
 
     protected array $requestParams = [
         'client_id' => 'client123',
@@ -41,8 +45,11 @@ class ResponseTypeRuleTest extends TestCase
      */
     private ResultBag $resultBag;
 
-    protected $loggerServiceStub;
+    protected Stub $loggerServiceStub;
 
+    /**
+     * @throws Exception
+     */
     protected function setUp(): void
     {
         $this->requestStub = $this->createStub(ServerRequestInterface::class);

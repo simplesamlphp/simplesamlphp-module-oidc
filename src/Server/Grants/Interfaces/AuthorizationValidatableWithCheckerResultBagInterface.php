@@ -14,8 +14,6 @@ interface AuthorizationValidatableWithCheckerResultBagInterface
      * Validate authorization request using an existing ResultBag instance (with already validated checkers).
      * This is to evade usage of original validateAuthorizationRequest() method in which it is expected to
      * validate client and redirect_uri (which was already validated).
-     *
-     * @return OAuth2AuthorizationRequest
      */
     public function validateAuthorizationRequestWithCheckerResultBag(
         ServerRequestInterface $request,

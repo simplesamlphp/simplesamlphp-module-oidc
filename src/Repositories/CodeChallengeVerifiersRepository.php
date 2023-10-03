@@ -8,6 +8,9 @@ use League\OAuth2\Server\CodeChallengeVerifiers\CodeChallengeVerifierInterface;
 use League\OAuth2\Server\CodeChallengeVerifiers\PlainVerifier;
 use League\OAuth2\Server\CodeChallengeVerifiers\S256Verifier;
 
+use function hash_algos;
+use function in_array;
+
 class CodeChallengeVerifiersRepository
 {
     /**
@@ -17,7 +20,7 @@ class CodeChallengeVerifiersRepository
 
     public function __construct()
     {
-        if (\in_array('sha256', \hash_algos(), true)) {
+        if (in_array('sha256', hash_algos(), true)) {
             $s256Verifier = new S256Verifier();
             $this->codeChallengeVerifiers[$s256Verifier->getMethod()] = $s256Verifier;
         }

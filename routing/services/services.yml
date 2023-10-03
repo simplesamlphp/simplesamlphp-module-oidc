@@ -14,8 +14,8 @@ services:
   SimpleSAML\Module\oidc\Factories\:
     resource: '../../src/Factories/*'
 
-  SimpleSAML\Module\oidc\Store\:
-    resource: '../../src/Store/*'
+  SimpleSAML\Module\oidc\Stores\:
+    resource: '../../src/Stores/*'
 
   SimpleSAML\Module\oidc\Server\AuthorizationServer:
     class: SimpleSAML\Module\oidc\Server\AuthorizationServer

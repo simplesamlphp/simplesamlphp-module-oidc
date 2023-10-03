@@ -1,9 +1,9 @@
 # Version 4 to 5
 
 ## New features
+- TODO move away from SSP database as store; move to custom store interface
 - TODO key rollover
 - TODO token introspection
-- TODO move away from SSP database as store; move to custom store interface
 - TODO implement store for different entities?: i.e. client data can use RDB like mysql, whilst short term data
   like tokens can utilize faster stores like memcache, redis...
 

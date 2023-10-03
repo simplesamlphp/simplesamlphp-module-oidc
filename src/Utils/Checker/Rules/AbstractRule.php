@@ -20,7 +20,6 @@ abstract class AbstractRule implements RequestRuleInterface
 
     /**
      * @param string[] $allowedServerRequestMethods
-     * @return string|null
      */
     protected function getParamFromRequestBasedOnAllowedMethods(
         string $paramKey,

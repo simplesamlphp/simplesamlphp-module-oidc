@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Factories;
 
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
@@ -10,7 +12,7 @@ use PHPUnit\Framework\TestCase;
  */
 class AuthSimpleFactoryTest extends TestCase
 {
-    public function testIncomplete(): void
+    public function testIncomplete(): never
     {
         $this->markTestIncomplete();
     }

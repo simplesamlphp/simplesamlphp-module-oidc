@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -11,13 +13,13 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
 namespace SimpleSAML\Test\Module\oidc\Repositories;
 
+use Exception;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\Entity\ScopeEntity;
+use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 
@@ -42,6 +44,9 @@ class ScopeRepositoryTest extends TestCase
         (new DatabaseMigration())->migrate();
     }
 
+    /**
+     * @throws Exception
+     */
     public function testGetScopeEntityByIdentifier(): void
     {
         $scopeRepository = new ScopeRepository(new ModuleConfig());
@@ -56,6 +61,9 @@ class ScopeRepositoryTest extends TestCase
         $this->assertEquals($expected, $scope);
     }
 
+    /**
+     * @throws Exception
+     */
     public function testGetUnknownScope(): void
     {
         $scopeRepository = new ScopeRepository(new ModuleConfig());
@@ -63,6 +71,9 @@ class ScopeRepositoryTest extends TestCase
         $this->assertNull($scopeRepository->getScopeEntityByIdentifier('none'));
     }
 
+    /**
+     * @throws Exception
+     */
     public function testFinalizeScopes(): void
     {
         $scopeRepository = new ScopeRepository(new ModuleConfig());

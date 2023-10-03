@@ -11,7 +11,6 @@ class ScopeHelper
 {
     /**
      * @param ScopeEntityInterface[] $scopes
-     * @return bool
      * @throws OidcServerException
      */
     public static function scopeExists(array $scopes, string $scopeIdentifier): bool

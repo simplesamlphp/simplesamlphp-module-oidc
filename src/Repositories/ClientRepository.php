@@ -16,11 +16,13 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Repositories;
 
 use Exception;
+use JsonException;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
-use SimpleSAML\Module\oidc\Entity\ClientEntity;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entities\ClientEntity;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 class ClientRepository extends AbstractDatabaseRepository implements ClientRepositoryInterface
 {
@@ -34,6 +36,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
     /**
      * {@inheritdoc}
      * @throws OAuthServerException
+     * @throws JsonException
      */
     public function getClientEntity($clientIdentifier)
     {
@@ -53,6 +56,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
     /**
      * @inheritDoc
      * @throws OAuthServerException
+     * @throws JsonException
      */
     public function validateClient($clientIdentifier, $clientSecret, $grantType): bool
     {
@@ -69,6 +73,10 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         return true;
     }
 
+    /**
+     * @throws OidcServerException
+     * @throws JsonException
+     */
     public function findById(string $clientIdentifier, ?string $owner = null): ?ClientEntityInterface
     {
         /**
@@ -113,6 +121,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
     /**
      * @return ClientEntityInterface[]
+     * @throws OidcServerException|JsonException
      */
     public function findAll(?string $owner = null): array
     {
@@ -163,7 +172,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
             $owner
         );
         $stmt = $this->database->read(
-            $sqlQuery . " ORDER BY name ASC LIMIT {$limit} OFFSET {$offset}",
+            $sqlQuery . " ORDER BY name ASC LIMIT $limit OFFSET $offset",
             $params
         );
 
@@ -288,7 +297,7 @@ EOF
         );
         $stmt->execute();
 
-        return (int) $stmt->fetchColumn(0);
+        return (int) $stmt->fetchColumn();
     }
 
     /**
@@ -300,19 +309,13 @@ EOF
             ->getOptionalIntegerRange(ModuleConfig::OPTION_ADMIN_UI_PAGINATION_ITEMS_PER_PAGE, 1, 100, 20);
     }
 
-    /**
-     * @return int
-     */
     private function calculateNumOfPages(int $total, int $limit): int
     {
         $numPages = (int)ceil($total / $limit);
 
-        return $numPages < 1 ? 1 : $numPages;
+        return max($numPages, 1);
     }
 
-    /**
-     * @return int
-     */
     private function calculateCurrentPage(int $page, int $numPages): int
     {
         if ($page > $numPages) {
@@ -326,11 +329,7 @@ EOF
         return $page;
     }
 
-
-    /**
-     * @return float|int
-     */
-    private function calculateOffset(int $page, int $limit)
+    private function calculateOffset(int $page, int $limit): float|int
     {
         return ($page - 1) * $limit;
     }

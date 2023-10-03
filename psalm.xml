@@ -36,7 +36,7 @@
     </UnusedVariable>
     <InvalidClassConstantType>
       <errorLevel type="suppress">
-        <file name="src/Form/Controls/CsrfProtection.php" />
+        <file name="src/Forms/Controls/CsrfProtection.php" />
       </errorLevel>
     </InvalidClassConstantType>
 

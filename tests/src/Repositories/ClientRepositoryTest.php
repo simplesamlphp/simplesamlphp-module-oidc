@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -11,16 +13,18 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
 namespace SimpleSAML\Test\Module\oidc\Repositories;
 
+use Exception;
+use JsonException;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\Entity\ClientEntity;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entities\ClientEntity;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 
 /**
@@ -28,11 +32,11 @@ use SimpleSAML\Module\oidc\Services\DatabaseMigration;
  */
 class ClientRepositoryTest extends TestCase
 {
-    /**
-     * @var ClientRepository
-     */
-    protected static $repository;
+    protected static ClientRepository $repository;
 
+    /**
+     * @throws Exception
+     */
     public static function setUpBeforeClass(): void
     {
         $config = [
@@ -52,6 +56,10 @@ class ClientRepositoryTest extends TestCase
         self::$repository = new ClientRepository($moduleConfig);
     }
 
+    /**
+     * @throws OidcServerException
+     * @throws JsonException
+     */
     public function tearDown(): void
     {
         $clients = self::$repository->findAll();
@@ -66,6 +74,10 @@ class ClientRepositoryTest extends TestCase
         $this->assertSame('phpunit_oidc_client', self::$repository->getTableName());
     }
 
+    /**
+     * @throws OidcServerException
+     * @throws JsonException
+     */
     public function testAddAndFound(): void
     {
         $client = self::getClient('clientid');
@@ -75,6 +87,10 @@ class ClientRepositoryTest extends TestCase
         $this->assertEquals($client, $foundClient);
     }
 
+    /**
+     * @throws OAuthServerException
+     * @throws JsonException
+     */
     public function testGetClientEntity(): void
     {
         $client = self::getClient('clientid');
@@ -84,6 +100,9 @@ class ClientRepositoryTest extends TestCase
         $this->assertNotNull($client);
     }
 
+    /**
+     * @throws JsonException
+     */
     public function testGetDisabledClientEntity(): void
     {
         $this->expectException(OAuthServerException::class);
@@ -91,9 +110,13 @@ class ClientRepositoryTest extends TestCase
         $client = self::getClient('clientid', false);
         self::$repository->add($client);
 
-        $client = self::$repository->getClientEntity('clientid');
+        self::$repository->getClientEntity('clientid');
     }
 
+    /**
+     * @throws OAuthServerException
+     * @throws JsonException
+     */
     public function testNotFoundClient(): void
     {
         $client = self::$repository->getClientEntity('unknownid');
@@ -101,6 +124,10 @@ class ClientRepositoryTest extends TestCase
         $this->assertNull($client);
     }
 
+    /**
+     * @throws OAuthServerException
+     * @throws JsonException
+     */
     public function testValidateConfidentialClient(): void
     {
         $client = self::getClient('clientid', true, true);
@@ -110,15 +137,23 @@ class ClientRepositoryTest extends TestCase
         $this->assertTrue($validate);
     }
 
+    /**
+     * @throws OAuthServerException
+     * @throws JsonException
+     */
     public function testValidatePublicClient(): void
     {
-        $client = self::getClient('clientid', true);
+        $client = self::getClient('clientid');
         self::$repository->add($client);
 
         $validate = self::$repository->validateClient('clientid', null, null);
         $this->assertTrue($validate);
     }
 
+    /**
+     * @throws OAuthServerException
+     * @throws JsonException
+     */
     public function testNotValidateConfidentialClientWithWrongSecret()
     {
         $client = self::getClient('clientid', true, true);
@@ -128,12 +163,20 @@ class ClientRepositoryTest extends TestCase
         $this->assertFalse($validate);
     }
 
+    /**
+     * @throws OAuthServerException
+     * @throws JsonException
+     */
     public function testNotValidateWhenClientDoesNotExists()
     {
         $validate = self::$repository->validateClient('clientid', 'wrongclientsecret', null);
         $this->assertFalse($validate);
     }
 
+    /**
+     * @throws OidcServerException
+     * @throws JsonException
+     */
     public function testFindAll(): void
     {
         $client = self::getClient('clientid');
@@ -144,13 +187,16 @@ class ClientRepositoryTest extends TestCase
         $this->assertInstanceOf(ClientEntity::class, current($clients));
     }
 
+    /**
+     * @throws Exception
+     */
     public function testFindPaginated(): void
     {
         array_map(function ($i) {
             self::$repository->add(self::getClient('clientid' . $i));
         }, range(1, 21));
 
-        $clientPageOne = self::$repository->findPaginated(1);
+        $clientPageOne = self::$repository->findPaginated();
         self::assertCount(20, $clientPageOne['items']);
         self::assertEquals(2, $clientPageOne['numPages']);
         self::assertEquals(1, $clientPageOne['currentPage']);
@@ -160,6 +206,9 @@ class ClientRepositoryTest extends TestCase
         self::assertEquals(2, $clientPageTwo['currentPage']);
     }
 
+    /**
+     * @throws Exception
+     */
     public function testFindPageInRange(): void
     {
         array_map(function ($i) {
@@ -172,6 +221,9 @@ class ClientRepositoryTest extends TestCase
         self::assertEquals(2, $clientPageOne['currentPage']);
     }
 
+    /**
+     * @throws Exception
+     */
     public function testFindPaginationWithEmptyList()
     {
         $clientPageOne = self::$repository->findPaginated(0);
@@ -180,6 +232,10 @@ class ClientRepositoryTest extends TestCase
         self::assertCount(0, $clientPageOne['items']);
     }
 
+    /**
+     * @throws OidcServerException
+     * @throws JsonException
+     */
     public function testUpdate(): void
     {
         $client = self::getClient('clientid');
@@ -203,6 +259,10 @@ class ClientRepositoryTest extends TestCase
         $this->assertEquals($client, $foundClient);
     }
 
+    /**
+     * @throws OidcServerException
+     * @throws JsonException
+     */
     public function testDelete(): void
     {
         $client = self::getClient('clientid');
@@ -215,6 +275,12 @@ class ClientRepositoryTest extends TestCase
         $this->assertNull($foundClient);
     }
 
+    /**
+     * @throws JsonException
+     * @throws OidcServerException
+     * @throws Exception
+     * @throws Exception
+     */
     public function testCrudWithOwner(): void
     {
         $owner = 'homer@example.com';

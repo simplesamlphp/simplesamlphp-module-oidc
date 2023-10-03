@@ -1,7 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
+use PHPUnit\Framework\MockObject\Exception;
+use PHPUnit\Framework\MockObject\Stub;
 use LogicException;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -18,7 +22,7 @@ use Throwable;
  */
 class AddClaimsToIdTokenRuleTest extends TestCase
 {
-    protected $requestStub;
+    protected Stub $requestStub;
 
     protected array $requestParams = [
         'client_id' => 'client123',
@@ -42,8 +46,11 @@ class AddClaimsToIdTokenRuleTest extends TestCase
 
     private ResultBag $resultBag;
 
-    private $loggerServiceStub;
+    private Stub $loggerServiceStub;
 
+    /**
+     * @throws Exception
+     */
     protected function setUp(): void
     {
         $this->requestStub = $this->createStub(ServerRequestInterface::class);
@@ -54,6 +61,7 @@ class AddClaimsToIdTokenRuleTest extends TestCase
 
     /**
      * @dataProvider validResponseTypeProvider
+     * @throws Throwable
      */
     public function testAddClaimsToIdTokenRuleTest($responseType)
     {
@@ -74,6 +82,7 @@ class AddClaimsToIdTokenRuleTest extends TestCase
 
     /**
      * @dataProvider invalidResponseTypeProvider
+     * @throws Throwable
      */
     public function testDoNotAddClaimsToIdTokenRuleTest($responseType)
     {

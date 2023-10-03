@@ -16,13 +16,15 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Repositories;
 
+use Exception;
 use League\OAuth2\Server\Entities\RefreshTokenEntityInterface as OAuth2RefreshTokenEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use RuntimeException;
-use SimpleSAML\Module\oidc\Entity\Interfaces\RefreshTokenEntityInterface;
-use SimpleSAML\Module\oidc\Entity\RefreshTokenEntity;
+use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entities\RefreshTokenEntity;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 class RefreshTokenRepository extends AbstractDatabaseRepository implements RefreshTokenRepositoryInterface
@@ -71,6 +73,8 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
 
     /**
      * Find Refresh Token by id.
+     * @throws OidcServerException
+     * @throws Exception
      */
     public function findById(string $tokenId): ?RefreshTokenEntityInterface
     {
@@ -95,6 +99,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
 
     /**
      * {@inheritdoc}
+     * @throws OidcServerException
      */
     public function revokeRefreshToken($tokenId): void
     {
@@ -110,6 +115,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
 
     /**
      * {@inheritdoc}
+     * @throws OidcServerException
      */
     public function isRefreshTokenRevoked($tokenId): bool
     {
@@ -124,6 +130,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
 
     /**
      * Removes expired refresh tokens.
+     * @throws Exception
      */
     public function removeExpired(): void
     {

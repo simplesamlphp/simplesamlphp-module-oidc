@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Test\Module\oidc\Services;
 
+use PHPUnit\Framework\MockObject\Stub;
 use Exception;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Signer\Key\InMemory;
@@ -36,11 +39,11 @@ class LogoutTokenBuilderTest extends TestCase
     /**
      * @var mixed
      */
-    private $moduleConfigStub;
+    private Stub $moduleConfigStub;
     /**
      * @var mixed
      */
-    private $relyingPartyAssociationStub;
+    private Stub $relyingPartyAssociationStub;
     private JsonWebTokenBuilderService $jsonWebTokenBuilderService;
 
     public static function setUpBeforeClass(): void
@@ -53,10 +56,12 @@ class LogoutTokenBuilderTest extends TestCase
 
     /**
      * @throws ReflectionException
+     * @throws \PHPUnit\Framework\MockObject\Exception
+     * @throws \PHPUnit\Framework\MockObject\Exception
      */
     public function setUp(): void
     {
-        $this->moduleConfigStub = $this->createStub(\SimpleSAML\Module\oidc\ModuleConfig::class);
+        $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
         $this->moduleConfigStub->method('getSigner')->willReturn(self::$signerSha256);
         $this->moduleConfigStub->method('getPrivateKeyPath')->willReturn(self::$privateKeyPath);
         $this->moduleConfigStub->method('getCertPath')->willReturn(self::$publicKeyPath);
