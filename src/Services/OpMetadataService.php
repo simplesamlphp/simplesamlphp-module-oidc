@@ -35,7 +35,7 @@ class OpMetadataService
         $this->metadata = [];
         $this->metadata['issuer'] = $this->moduleConfig->getSimpleSAMLSelfURLHost();
         $this->metadata['authorization_endpoint'] =
-            $this->moduleConfig->getOpenIdConnectModuleURL('authorize.php');
+        $this->moduleConfig->getOpenIdConnectModuleURL('authorize.php');
         $this->metadata['token_endpoint'] = $this->moduleConfig->getOpenIdConnectModuleURL('token.php');
         $this->metadata['userinfo_endpoint'] = $this->moduleConfig->getOpenIdConnectModuleURL('userinfo.php');
         $this->metadata['end_session_endpoint'] = $this->moduleConfig->getOpenIdConnectModuleURL('logout.php');

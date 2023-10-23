@@ -47,7 +47,7 @@ abstract class AbstractRule implements RequestRuleInterface
         switch ($requestMethod) {
             case 'GET':
                 $param = isset($request->getQueryParams()[$paramKey]) ?
-                    (string)$request->getQueryParams()[$paramKey] : null;
+                (string)$request->getQueryParams()[$paramKey] : null;
                 break;
             case 'POST':
                 if (is_array($parsedBody = $request->getParsedBody())) {

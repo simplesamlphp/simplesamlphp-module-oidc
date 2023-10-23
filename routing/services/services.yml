@@ -1,7 +1,11 @@
 services:
   # default configuration for services in *this* file
   _defaults:
+    autowire: true
+    autoconfigure: true
     public: false
+    bind:
+      #Psr\Log\LoggerInterface: '@SimpleSAML\Module\oidc\Services\LoggerService'
 
   SimpleSAML\Module\oidc\Services\:
     resource: '../../src/Services/*'

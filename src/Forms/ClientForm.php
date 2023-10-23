@@ -38,7 +38,7 @@ class ClientForm extends Form
      * No reserved chars allowed, meaning no userinfo, path, query or fragment components. May end with port number.
      */
     final public const REGEX_ALLOWED_ORIGIN_URL =
-        "/^http(s?):\/\/[^\s\/!$&'()+,;=.?#@*:]+\.[^\s\/!$&'()+,;=.?#@*]+\.?(\.[^\s\/!$&'()+,;=?#@*:]+)*(:\d{1,5})?$/i";
+    "/^http(s?):\/\/[^\s\/!$&'()+,;=.?#@*:]+\.[^\s\/!$&'()+,;=.?#@*]+\.?(\.[^\s\/!$&'()+,;=?#@*:]+)*(:\d{1,5})?$/i";
 
     /**
      * URI which must contain https or http scheme, can contain path and query, and can't contain fragment.
@@ -136,7 +136,7 @@ class ClientForm extends Form
             $values['allowed_origin'] = [];
         }
         $values['post_logout_redirect_uri'] =
-            $this->convertTextToArrayWithLinesAsValues((string)$values['post_logout_redirect_uri']);
+        $this->convertTextToArrayWithLinesAsValues((string)$values['post_logout_redirect_uri']);
 
         $bclUri = trim((string)$values['backchannel_logout_uri']);
         $values['backchannel_logout_uri'] = empty($bclUri) ? null : $bclUri;

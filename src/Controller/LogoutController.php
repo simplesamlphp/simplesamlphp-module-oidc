@@ -59,8 +59,8 @@ class LogoutController
         $idTokenHint = $logoutRequest->getIdTokenHint();
         if ($idTokenHint !== null) {
             $sidClaim = empty($idTokenHint->claims()->get('sid')) ?
-                null :
-                (string)$idTokenHint->claims()->get('sid');
+            null :
+            (string)$idTokenHint->claims()->get('sid');
         }
 
         // Check if RP is requesting logout for session that previously existed (not this current session).

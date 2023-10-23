@@ -17,7 +17,7 @@ class SessionService
     final public const SESSION_DATA_ID_RP_ASSOCIATIONS = 'rp-associations';
 
     final public const SESSION_DATA_ID_IS_AUTHN_PERFORMED_IN_PREVIOUS_REQUEST =
-        'is-authn-performed-in-previous-request';
+    'is-authn-performed-in-previous-request';
 
     final public const SESSION_DATA_ID_IS_OIDC_INITIATED_LOGOUT = 'is-logout-handler-disabled';
 

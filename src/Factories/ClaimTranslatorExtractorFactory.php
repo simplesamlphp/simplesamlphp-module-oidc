@@ -115,8 +115,8 @@ class ClaimTranslatorExtractorFactory
     protected function isScopeClaimNamePrefixSet(array $scopeConfig): bool
     {
         return isset($scopeConfig[self::CONFIG_KEY_CLAIM_NAME_PREFIX]) &&
-            is_string($scopeConfig[self::CONFIG_KEY_CLAIM_NAME_PREFIX]) &&
-            !empty($scopeConfig[self::CONFIG_KEY_CLAIM_NAME_PREFIX]);
+        is_string($scopeConfig[self::CONFIG_KEY_CLAIM_NAME_PREFIX]) &&
+        !empty($scopeConfig[self::CONFIG_KEY_CLAIM_NAME_PREFIX]);
     }
 
     /**
@@ -125,6 +125,6 @@ class ClaimTranslatorExtractorFactory
     protected function doesScopeAllowMultipleClaimValues(array $scopeConfig): bool
     {
         return isset($scopeConfig[self::CONFIG_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED]) &&
-            $scopeConfig[self::CONFIG_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED];
+        $scopeConfig[self::CONFIG_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED];
     }
 }

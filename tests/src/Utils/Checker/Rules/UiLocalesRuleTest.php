@@ -44,7 +44,7 @@ class UiLocalesRuleTest extends TestCase
 
         $result = (new UiLocalesRule())
                 ->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
-                    new Result(UiLocalesRule::class);
+        new Result(UiLocalesRule::class);
 
         $this->assertEquals('en', $result->getValue());
     }
@@ -58,7 +58,7 @@ class UiLocalesRuleTest extends TestCase
 
         $result = (new UiLocalesRule())
                 ->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
-                    new Result(UiLocalesRule::class);
+        new Result(UiLocalesRule::class);
 
         $this->assertNull($result->getValue());
     }

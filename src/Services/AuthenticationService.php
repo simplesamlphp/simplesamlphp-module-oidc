@@ -26,6 +26,7 @@ use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation;
@@ -39,18 +40,25 @@ class AuthenticationService
      * ID of auth source used during authn.
      */
     private ?string $authSourceId = null;
+    private string $userIdAttr;
 
+    /**
+     * @throws Exception
+     */
     public function __construct(
         private readonly UserRepository $userRepository,
         private readonly AuthSimpleFactory $authSimpleFactory,
         private readonly AuthProcService $authProcService,
         ClientRepository $clientRepository,
-        private readonly OpMetadataService $oidcOpenIdProviderMetadataService,
+        private readonly OpMetadataService $opMetadataService,
         private readonly SessionService $sessionService,
         private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
-        private readonly string $userIdAttr
+        ModuleConfig $moduleConfig
     ) {
         $this->clientRepository = $clientRepository;
+        $this->userIdAttr = $moduleConfig
+            ->config()
+            ->getOptionalString(ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE, 'uid');
     }
 
     /**
@@ -127,7 +135,7 @@ class AuthenticationService
         $state = $authSimple->getAuthDataArray();
 
         $state['Oidc'] = [
-            'OpenIdProviderMetadata' => $this->oidcOpenIdProviderMetadataService->getMetadata(),
+            'OpenIdProviderMetadata' => $this->opMetadataService->getMetadata(),
             'RelyingPartyMetadata' => array_filter(
                 $client->toArray(),
                 fn(string $key) => $key !== 'secret',

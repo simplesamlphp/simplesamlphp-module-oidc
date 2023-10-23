@@ -89,7 +89,7 @@ class RequiredOpenIdScopeRuleTest extends TestCase
         $resultBag->add($this->scopeResult);
 
         $result = $rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub) ??
-            new Result(RequiredOpenIdScopeRule::class, null);
+        new Result(RequiredOpenIdScopeRule::class, null);
 
         $this->assertTrue($result->getValue());
     }

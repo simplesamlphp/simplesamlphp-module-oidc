@@ -153,8 +153,8 @@ class ClientEntity implements ClientEntityInterface
 
 
         $client->backChannelLogoutUri = empty($state['backchannel_logout_uri']) ?
-            null :
-            (string)$state['backchannel_logout_uri'];
+        null :
+        (string)$state['backchannel_logout_uri'];
 
         return $client;
     }

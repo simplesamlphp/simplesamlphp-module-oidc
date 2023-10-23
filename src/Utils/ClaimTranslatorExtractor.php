@@ -240,16 +240,16 @@ class ClaimTranslatorExtractor
             }
             // Look for attributes in the attribute key, if not set then assume to legacy style configuration
             $attributes = isset($mappingConfig['attributes']) && is_array($mappingConfig['attributes']) ?
-                $mappingConfig['attributes'] :
-                $mappingConfig;
+            $mappingConfig['attributes'] :
+            $mappingConfig;
 
             /** @var string $samlMatch */
             foreach ($attributes as $samlMatch) {
                 if (array_key_exists($samlMatch, $samlAttributes)) {
                     /** @psalm-suppress MixedAssignment, MixedArgument */
                     $values = in_array($claim, $this->allowedMultiValueClaims) ?
-                        $samlAttributes[$samlMatch] :
-                        current($samlAttributes[$samlMatch]);
+                    $samlAttributes[$samlMatch] :
+                    current($samlAttributes[$samlMatch]);
                     /** @psalm-suppress MixedAssignment */
                     $claims[$claim] = $this->convertType($type, $values);
                     break;

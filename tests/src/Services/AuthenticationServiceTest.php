@@ -119,7 +119,7 @@ class AuthenticationServiceTest extends TestCase
             $this->oidcOpenIdProviderMetadataServiceMock,
             $this->sessionServiceMock,
             $this->claimTranslatorExtractorMock,
-            self::USER_ID_ATTR
+            $this->moduleConfigMock
         );
     }
 

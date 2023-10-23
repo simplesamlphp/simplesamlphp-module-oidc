@@ -152,8 +152,8 @@ class Container implements ContainerInterface
         $authProcService = new AuthProcService($moduleConfig);
         $this->services[AuthProcService::class] = $authProcService;
 
-        $oidcOpenIdProviderMetadataService = new OpMetadataService($moduleConfig);
-        $this->services[OpMetadataService::class] = $oidcOpenIdProviderMetadataService;
+        $opMetadataService = new OpMetadataService($moduleConfig);
+        $this->services[OpMetadataService::class] = $opMetadataService;
 
         $metadataStorageHandler = MetaDataStorageHandler::getMetadataHandler();
         $this->services[MetaDataStorageHandler::class] = $metadataStorageHandler;
@@ -168,10 +168,10 @@ class Container implements ContainerInterface
             $authSimpleFactory,
             $authProcService,
             $clientRepository,
-            $oidcOpenIdProviderMetadataService,
+            $opMetadataService,
             $sessionService,
             $claimTranslatorExtractor,
-            $moduleConfig->config()->getOptionalString(ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE, 'uid')
+            $moduleConfig,
         );
         $this->services[AuthenticationService::class] = $authenticationService;
 

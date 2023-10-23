@@ -74,7 +74,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
         $responseType = explode(" ", $queryParams['response_type']);
 
         return in_array('id_token', $responseType, true) &&
-            ! in_array('code', $responseType, true); // ...avoid triggering hybrid flow
+        ! in_array('code', $responseType, true); // ...avoid triggering hybrid flow
     }
 
     /**
@@ -104,7 +104,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
         ResultBagInterface $resultBag
     ): OAuth2AuthorizationRequest {
         $oAuth2AuthorizationRequest =
-            parent::validateAuthorizationRequestWithCheckerResultBag($request, $resultBag);
+        parent::validateAuthorizationRequestWithCheckerResultBag($request, $resultBag);
 
         $rulesToExecute = [
             RequestParameterRule::class,

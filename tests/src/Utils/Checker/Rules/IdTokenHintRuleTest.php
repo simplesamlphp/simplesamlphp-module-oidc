@@ -124,11 +124,11 @@ class IdTokenHintRuleTest extends TestCase
     {
         $this->requestStub->method('getMethod')->willReturn('GET');
         $invalidSignatureJwt = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2V4YW1wbGUub3JnIiwic3ViIjo' .
-            'iMTIzNDU2Nzg5MCIsIm5hbWUiOiJKb2huIERvZSIsImlhdCI6MTUxNjIzOTAyMn0.JGJ_KSiXiRsgVc5nYFTSqbaeeM3UA5DGnOTaz3' .
-            'UqbyHM0ogO3rq_-8FwLRzGk-7942U6rQ1ARziLsYYsUtH7yaUTWi6xSvh_mJQuF8hl_X3OghJWeXWms42OjAkHXtB-H7LQ_bEQNV' .
-            'nF8XYLsq06MoHeHxAnDkVpVcZyDrmhauAqV1PTWsC9FMMKaxfoVsIbeQ0-PV_gAgzSK5-T0bliXPUdWFjvPXJ775jqqy4ZyNJYh' .
-            '1_rZ1WyOrJu7AHkT9R4FNQNCw40BRzfI3S_OYBNirKAh5G0sctNwEEaJL_a3lEwKYSC-d_sZ6WBvFP8B138b7T6nPzI71tvfXE' .
-            'Ru7Q7rA';
+        'iMTIzNDU2Nzg5MCIsIm5hbWUiOiJKb2huIERvZSIsImlhdCI6MTUxNjIzOTAyMn0.JGJ_KSiXiRsgVc5nYFTSqbaeeM3UA5DGnOTaz3' .
+        'UqbyHM0ogO3rq_-8FwLRzGk-7942U6rQ1ARziLsYYsUtH7yaUTWi6xSvh_mJQuF8hl_X3OghJWeXWms42OjAkHXtB-H7LQ_bEQNV' .
+        'nF8XYLsq06MoHeHxAnDkVpVcZyDrmhauAqV1PTWsC9FMMKaxfoVsIbeQ0-PV_gAgzSK5-T0bliXPUdWFjvPXJ775jqqy4ZyNJYh' .
+        '1_rZ1WyOrJu7AHkT9R4FNQNCw40BRzfI3S_OYBNirKAh5G0sctNwEEaJL_a3lEwKYSC-d_sZ6WBvFP8B138b7T6nPzI71tvfXE' .
+        'Ru7Q7rA';
 
         $this->requestStub->method('getQueryParams')->willReturn(['id_token_hint' => $invalidSignatureJwt]);
         $rule = new IdTokenHintRule($this->moduleConfigStub, $this->cryptKeyFactoryStub);
@@ -172,7 +172,7 @@ class IdTokenHintRuleTest extends TestCase
         $this->requestStub->method('getQueryParams')->willReturn(['id_token_hint' => $idToken]);
         $rule = new IdTokenHintRule($this->moduleConfigStub, $this->cryptKeyFactoryStub);
         $result = $rule->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
-            new Result(IdTokenHintRule::class);
+        new Result(IdTokenHintRule::class);
 
         $this->assertInstanceOf(UnencryptedToken::class, $result->getValue());
     }

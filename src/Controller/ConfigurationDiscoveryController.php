@@ -21,12 +21,12 @@ use SimpleSAML\Module\oidc\Services\OpMetadataService;
 
 class ConfigurationDiscoveryController
 {
-    public function __construct(private readonly OpMetadataService $oidcOpenIdProviderMetadataService)
+    public function __construct(private readonly OpMetadataService $opMetadataService)
     {
     }
 
     public function __invoke(): JsonResponse
     {
-        return new JsonResponse($this->oidcOpenIdProviderMetadataService->getMetadata());
+        return new JsonResponse($this->opMetadataService->getMetadata());
     }
 }

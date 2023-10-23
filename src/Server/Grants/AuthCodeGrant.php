@@ -170,8 +170,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
     protected function shouldCheckPkce(OAuth2ClientEntityInterface $client): bool
     {
-        return $this->requireCodeChallengeForPublicClients &&
-            ! $client->isConfidential();
+        return $this->requireCodeChallengeForPublicClients && !$client->isConfidential();
     }
 
     /**

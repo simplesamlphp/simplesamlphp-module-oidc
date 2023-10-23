@@ -99,8 +99,8 @@ class AuthorizationController
         $authSourceToAcrValuesMap = $this->moduleConfig->getAuthSourcesToAcrValuesMap();
 
         $availableAuthSourceAcrs = is_array($authSourceToAcrValuesMap[$authSourceId]) ?
-            $authSourceToAcrValuesMap[$authSourceId] :
-            [];
+        $authSourceToAcrValuesMap[$authSourceId] :
+        [];
         $forcedAcrForCookieAuthentication = $this->moduleConfig->getForcedAcrValueForCookieAuthentication();
 
         if ($forcedAcrForCookieAuthentication !== null && $isCookieBasedAuthn) {
@@ -108,12 +108,12 @@ class AuthorizationController
         }
 
         $isRequestedAcrEssential = empty($requestedAcrValues['essential']) ?
-            false :
-            boolval($requestedAcrValues['essential']);
+        false :
+        boolval($requestedAcrValues['essential']);
 
         $acrs = !empty($requestedAcrValues['values']) && is_array($requestedAcrValues['values']) ?
-            $requestedAcrValues['values'] :
-            [];
+        $requestedAcrValues['values'] :
+        [];
 
         $matchedAcrs = array_intersect($availableAuthSourceAcrs, $acrs);
 
