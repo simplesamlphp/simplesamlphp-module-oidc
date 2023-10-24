@@ -41,9 +41,13 @@ use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
  * @see https://github.com/steverhoades/oauth2-openid-connect-server/blob/master/src/IdTokenResponse.php
  */
 class IdTokenResponse extends BearerTokenResponse implements
+    // phpcs:ignore
     NonceResponseTypeInterface,
+    // phpcs:ignore
     AuthTimeResponseTypeInterface,
+    // phpcs:ignore
     AcrResponseTypeInterface,
+    // phpcs:ignore
     SessionIdResponseTypeInterface
 {
     protected ?string $nonce = null;

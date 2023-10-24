@@ -178,15 +178,7 @@ class Container implements ContainerInterface
         $codeChallengeVerifiersRepository = new CodeChallengeVerifiersRepository();
         $this->services[CodeChallengeVerifiersRepository::class] = $codeChallengeVerifiersRepository;
 
-        $publicKeyPath = $moduleConfig->getCertPath();
-        $privateKeyPath = $moduleConfig->getPrivateKeyPath();
-        $passPhrase = $moduleConfig->getPrivateKeyPassPhrase();
-
-        $cryptKeyFactory = new CryptKeyFactory(
-            $publicKeyPath,
-            $privateKeyPath,
-            $passPhrase
-        );
+        $cryptKeyFactory = new CryptKeyFactory($moduleConfig);
 
         $requestRules = [
             new StateRule(),

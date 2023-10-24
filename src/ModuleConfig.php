@@ -275,6 +275,12 @@ class ModuleConfig
         return (new Config())->getCertPath($keyName);
     }
 
+    public function getEncryptionKey(): string
+    {
+        // TODO mivanci move to bridge classes to SSP utils
+        return (new Config())->getSecretSalt();
+    }
+
     /**
      * Get the path to the private key
      * @return ?string

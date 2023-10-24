@@ -64,8 +64,11 @@ use SimpleSAML\Module\oidc\Utils\ScopeHelper;
 use Throwable;
 
 class AuthCodeGrant extends OAuth2AuthCodeGrant implements
+    // phpcs:ignore
     PkceEnabledGrantTypeInterface,
+    // phpcs:ignore
     OidcCapableGrantTypeInterface,
+    // phpcs:ignore
     AuthorizationValidatableWithCheckerResultBagInterface
 {
     use IssueAccessTokenTrait;
@@ -218,7 +221,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         }
 
         $finalRedirectUri = $authorizationRequest->getRedirectUri()
-            ?? $this->getClientRedirectUri($authorizationRequest);
+        ?? $this->getClientRedirectUri($authorizationRequest);
 
         if ($authorizationRequest->isAuthorizationApproved() !== true) {
             // The user denied the client, redirect them back with an error
@@ -448,8 +451,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         /** @var array $claims */
         $claims = property_exists($authCodePayload, 'claims') ?
-            json_decode(json_encode($authCodePayload->claims, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR)
-            : null;
+        json_decode(json_encode($authCodePayload->claims, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR)
+        : null;
 
         // Issue and persist new access token
         $accessToken = $this->issueAccessToken(

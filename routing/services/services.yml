@@ -6,6 +6,10 @@ services:
     public: false
     bind:
       #Psr\Log\LoggerInterface: '@SimpleSAML\Module\oidc\Services\LoggerService'
+      League\OAuth2\Server\Repositories\ClientRepositoryInterface: '@SimpleSAML\Module\oidc\Repositories\ClientRepository'
+      League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface: '@SimpleSAML\Module\oidc\Repositories\AccessTokenRepository'
+      League\OAuth2\Server\Repositories\ScopeRepositoryInterface: '@SimpleSAML\Module\oidc\Repositories\ScopeRepository'
+      League\OAuth2\Server\CryptKey|string $privateKey: '@oidc.key.private'
 
   SimpleSAML\Module\oidc\Services\:
     resource: '../../src/Services/*'
@@ -21,14 +25,16 @@ services:
   SimpleSAML\Module\oidc\Stores\:
     resource: '../../src/Stores/*'
 
+  League\OAuth2\Server\ResourceServer: ~
+
+  SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor: ~
+
+  SimpleSAML\Module\oidc\ModuleConfig: ~
+
+  oidc.key.private:
+    class: League\OAuth2\Server\CryptKey
+    factory: ['@SimpleSAML\Module\oidc\Factories\CryptKeyFactory', 'buildPrivateKey']
+
   SimpleSAML\Module\oidc\Server\AuthorizationServer:
-    class: SimpleSAML\Module\oidc\Server\AuthorizationServer
-
-  League\OAuth2\Server\ResourceServer:
-    class: League\OAuth2\Server\ResourceServer
-
-  SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor:
-    class: SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor
-
-  SimpleSAML\Module\oidc\ModuleConfig:
-    class: SimpleSAML\Module\oidc\ModuleConfig
+    arguments:
+      $encryptionKey: '@=service("SimpleSAML\\Module\\oidc\\ModuleConfig").getEncryptionKey()'
