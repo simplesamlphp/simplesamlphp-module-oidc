@@ -45,7 +45,7 @@ class AuthContextService
     public function getAuthUserId(): string
     {
         $simple = $this->authenticate();
-        $userIdAttr = $this->moduleConfig->config()->getString(ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE);
+        $userIdAttr = $this->moduleConfig->getUserIdentifierAttribute();
         return (string)(new Attributes())->getExpectedAttribute($simple->getAttributes(), $userIdAttr);
     }
 

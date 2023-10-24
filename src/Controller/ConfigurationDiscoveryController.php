@@ -16,8 +16,8 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controller;
 
-use Laminas\Diactoros\Response\JsonResponse;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
+use Symfony\Component\HttpFoundation\JsonResponse;
 
 class ConfigurationDiscoveryController
 {

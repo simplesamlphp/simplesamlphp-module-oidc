@@ -5,5 +5,5 @@
 #        controllerClassname: SimpleSAML\Module\oidc\Controller\Client\IndexController
 
 openid-configuration:
-  path: openid/configuration
+  path: openid-configuration
   controller: SimpleSAML\Module\oidc\Controller\ConfigurationDiscoveryController

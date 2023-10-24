@@ -10,6 +10,7 @@ services:
       League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface: '@SimpleSAML\Module\oidc\Repositories\AccessTokenRepository'
       League\OAuth2\Server\Repositories\ScopeRepositoryInterface: '@SimpleSAML\Module\oidc\Repositories\ScopeRepository'
       League\OAuth2\Server\CryptKey|string $privateKey: '@oidc.key.private'
+      League\OAuth2\Server\CryptKey|string $publicKey: '@oidc.key.public'
 
   SimpleSAML\Module\oidc\Services\:
     resource: '../../src/Services/*'
@@ -25,16 +26,29 @@ services:
   SimpleSAML\Module\oidc\Stores\:
     resource: '../../src/Stores/*'
 
-  League\OAuth2\Server\ResourceServer: ~
-
-  SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor: ~
-
   SimpleSAML\Module\oidc\ModuleConfig: ~
 
   oidc.key.private:
     class: League\OAuth2\Server\CryptKey
     factory: ['@SimpleSAML\Module\oidc\Factories\CryptKeyFactory', 'buildPrivateKey']
 
+  oidc.key.public:
+    class: League\OAuth2\Server\CryptKey
+    factory: ['@SimpleSAML\Module\oidc\Factories\CryptKeyFactory', 'buildPublicKey']
+
+  SimpleSAML\Module\oidc\Factories\ResourceServerFactory:
+    arguments:
+      $publicKey: '@oidc.key.public'
+
+  SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor:
+    arguments:
+      $userIdAttr: '@=service("SimpleSAML\\Module\\oidc\\ModuleConfig").getUserIdentifierAttribute()'
+
   SimpleSAML\Module\oidc\Server\AuthorizationServer:
     arguments:
       $encryptionKey: '@=service("SimpleSAML\\Module\\oidc\\ModuleConfig").getEncryptionKey()'
+
+  # OAuth2 Server
+  League\OAuth2\Server\ResourceServer:
+    arguments:
+      $publicKey: '@oidc.key.public'

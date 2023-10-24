@@ -65,7 +65,7 @@ class ClaimTranslatorExtractorFactory
             }
         }
 
-        $userIdAttr = $this->moduleConfig->config()->getString(ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE);
+        $userIdAttr = $this->moduleConfig->getUserIdentifierAttribute();
 
         return new ClaimTranslatorExtractor($userIdAttr, $claimSet, $translatorTable, $allowedMultipleValueClaims);
     }

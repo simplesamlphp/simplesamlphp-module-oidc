@@ -14,6 +14,7 @@
 
 ## Medium impact changes
 - TODO move to SSP (symfony) routing
+  - TODO handle CORS
 - Module config options in file 'module_oidc.php' are now using constants for config keys. The values for constants are
 taken from the previous version of the module, so theoretically you don't have to rewrite your current config file,
 although it is recommended to do so.

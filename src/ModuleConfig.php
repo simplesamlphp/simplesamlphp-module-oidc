@@ -340,4 +340,12 @@ class ModuleConfig
 
         return (string) $value;
     }
+
+    /**
+     * @throws Exception
+     */
+    public function getUserIdentifierAttribute(): string
+    {
+        return $this->config()->getString(ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE);
+    }
 }
