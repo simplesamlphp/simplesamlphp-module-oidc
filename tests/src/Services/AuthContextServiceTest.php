@@ -46,8 +46,7 @@ class AuthContextServiceTest extends TestCase
         $this->oidcConfigurationMock = $this->createMock(Configuration::class);
 
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
-        $this->moduleConfigMock->method('config')
-            ->willReturn($this->oidcConfigurationMock);
+        $this->moduleConfigMock->method('config')->willReturn($this->oidcConfigurationMock);
 
         $this->authSimpleService = $this->createMock(Simple::class);
 
@@ -76,9 +75,7 @@ class AuthContextServiceTest extends TestCase
      */
     public function testItReturnsUsername(): void
     {
-        $this->oidcConfigurationMock->method('getString')
-            ->with(ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE)
-            ->willReturn('idAttribute');
+        $this->moduleConfigMock->method('getUserIdentifierAttribute')->willReturn('idAttribute');
         $this->authSimpleService->method('getAttributes')->willReturn(self::AUTHORIZED_USER);
 
         $this->assertSame(

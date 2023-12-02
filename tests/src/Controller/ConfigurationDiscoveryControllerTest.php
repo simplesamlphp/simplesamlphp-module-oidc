@@ -60,7 +60,7 @@ class ConfigurationDiscoveryControllerTest extends TestCase
     public function testItReturnsOpenIdConnectConfiguration(): void
     {
         $this->assertSame(
-            $this->getStubbedInstance()->__invoke()->getPayload(),
+            json_decode($this->getStubbedInstance()->__invoke()->getContent(), true),
             self::OIDC_OP_METADATA
         );
     }

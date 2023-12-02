@@ -56,9 +56,7 @@ class AuthenticationService
         ModuleConfig $moduleConfig
     ) {
         $this->clientRepository = $clientRepository;
-        $this->userIdAttr = $moduleConfig
-            ->config()
-            ->getOptionalString(ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE, 'uid');
+        $this->userIdAttr = $moduleConfig->getUserIdentifierAttribute();
     }
 
     /**

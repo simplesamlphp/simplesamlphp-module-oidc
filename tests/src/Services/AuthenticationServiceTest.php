@@ -105,6 +105,7 @@ class AuthenticationServiceTest extends TestCase
         $this->oidcOpenIdProviderMetadataServiceMock->method('getMetadata')->willReturn(self::OIDC_OP_METADATA);
 
         $this->moduleConfigMock->method('getAuthProcFilters')->willReturn([]);
+        $this->moduleConfigMock->method('getUserIdentifierAttribute')->willReturn(self::USER_ID_ATTR);
 
         $this->sessionServiceMock->method('getCurrentSession')->willReturn($this->sessionMock);
     }
