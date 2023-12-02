@@ -39,7 +39,7 @@
         "friendsofphp/php-cs-fixer": "^3",
         "phpunit/phpunit": "^10",
         "rector/rector": "^0.18.3",
-        "simplesamlphp/simplesamlphp": "dev-simplesamlphp-2.1",
+        "simplesamlphp/simplesamlphp": "2.1.*",
         "simplesamlphp/simplesamlphp-test-framework": "^1.5",
         "squizlabs/php_codesniffer": "^3",
         "vimeo/psalm": "^5"

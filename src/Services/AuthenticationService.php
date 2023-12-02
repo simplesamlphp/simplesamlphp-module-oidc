@@ -136,13 +136,17 @@ class AuthenticationService
             'OpenIdProviderMetadata' => $this->opMetadataService->getMetadata(),
             'RelyingPartyMetadata' => array_filter(
                 $client->toArray(),
-                fn(string $key) => $key !== 'secret',
+                fn(/** @param array-key $key */ $key) => $key !== 'secret',
                 ARRAY_FILTER_USE_KEY
             ),
-            'AuthorizationRequestParameters' => array_filter($request->getQueryParams(), function (string $key) {
-                $relevantAuthzParams = ['response_type', 'client_id', 'redirect_uri', 'scope', 'code_challenge_method'];
-                return in_array($key, $relevantAuthzParams);
-            }, ARRAY_FILTER_USE_KEY),
+            'AuthorizationRequestParameters' => array_filter(
+                $request->getQueryParams(),
+                function (/** @param array-key $key */ $key) {
+                    $authzParams = ['response_type', 'client_id', 'redirect_uri', 'scope', 'code_challenge_method'];
+                    return in_array($key, $authzParams);
+                },
+                ARRAY_FILTER_USE_KEY
+            ),
         ];
 
         // Source and destination entity IDs, useful for e.g. F-ticks logging...

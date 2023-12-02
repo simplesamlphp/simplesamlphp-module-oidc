@@ -347,7 +347,7 @@ class ClaimTranslatorExtractor
 
         return array_filter(
             $translatedClaims,
-            fn(string $key) => array_key_exists($key, $requestedClaims),
+            fn(/** @param array-key $key */ $key) => array_key_exists($key, $requestedClaims),
             ARRAY_FILTER_USE_KEY
         );
     }
