@@ -1,3 +1,33 @@
+# Version 5 to 6
+
+## New features
+- TODO move away from SSP database as store; move to custom store interface
+- TODO key rollover
+- TODO token introspection
+- TODO implement store for different entities?: i.e. client data can use RDB like mysql, whilst short term data
+  like tokens can utilize faster stores like memcache, redis...
+- TODO move to SimpleSAMLphp ProcessingChain
+
+## Major impact changes
+- TODO move away from SSP database as store; move to custom store interface
+
+## Medium impact changes
+- TODO move to SSP (symfony) routing
+  - TODO handle CORS
+
+## Low impact changes
+
+Below are some internal changes that should not have impact for the OIDC OP implementors. However, if you are using
+this module as a library or extending from it, you will probably encounter breaking changes, since a lot of code
+has been refactored:
+
+- TODO upgrade to v5 of lcobucci/jwt https://github.com/lcobucci/jwt
+- TODO move checkers to templates (generics) for proper static type handling
+- TODO move to SSP (symfony) container
+- TODO remove dependency on laminas/laminas-diactoros
+- TODO remove dependency on laminas/laminas-httphandlerrunner
+- TODO create a bridge towards SSP utility classes, so they can be easily mocked
+
 # Version 4 to 5
 
 ## Major impact changes
