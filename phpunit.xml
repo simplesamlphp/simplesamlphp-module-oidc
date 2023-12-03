@@ -1,19 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         backupGlobals="false"
-         backupStaticAttributes="false"
          colors="true"
-         convertErrorsToExceptions="true"
-         convertNoticesToExceptions="true"
-         convertWarningsToExceptions="true"
-         processIsolation="false"
-         stopOnFailure="false"
          bootstrap="./tests/bootstrap.php"
-         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.3/phpunit.xsd">
-  <coverage processUncoveredFiles="true">
-    <include>
-      <directory>./src</directory>
-    </include>
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.3/phpunit.xsd"
+         cacheDirectory="./build/phpunit-cache"
+>
+  <coverage>
     <report>
       <clover outputFile="build/logs/clover.xml"/>
       <html outputDirectory="build/coverage/html"/>
@@ -30,4 +22,9 @@
   <php>
     <env name="SIMPLESAMLPHP_CONFIG_DIR" value="tests/config"/>
   </php>
+  <source>
+    <include>
+      <directory>./src</directory>
+    </include>
+  </source>
 </phpunit>

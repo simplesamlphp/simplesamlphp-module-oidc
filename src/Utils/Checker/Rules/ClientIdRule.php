@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
@@ -13,11 +15,8 @@ use SimpleSAML\Module\oidc\Utils\Checker\Result;
 
 class ClientIdRule extends AbstractRule
 {
-    protected ClientRepositoryInterface $clientRepository;
-
-    public function __construct(ClientRepositoryInterface $clientRepository)
+    public function __construct(protected ClientRepositoryInterface $clientRepository)
     {
-        $this->clientRepository = $clientRepository;
     }
 
     /**
@@ -31,6 +30,7 @@ class ClientIdRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = ['GET']
     ): ?ResultInterface {
+        /** @var ?string $clientId */
         $clientId = $request->getQueryParams()['client_id'] ?? $request->getServerParams()['PHP_AUTH_USER'] ?? null;
 
         if ($clientId === null) {

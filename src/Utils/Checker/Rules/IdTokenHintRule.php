@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use Lcobucci\JWT\Configuration;
@@ -8,9 +10,9 @@ use Lcobucci\JWT\UnencryptedToken;
 use Lcobucci\JWT\Validation\Constraint\IssuedBy;
 use Lcobucci\JWT\Validation\Constraint\SignedWith;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Factories\CryptKeyFactory;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
@@ -19,15 +21,10 @@ use Throwable;
 
 class IdTokenHintRule extends AbstractRule
 {
-    protected ConfigurationService $configurationService;
-    protected CryptKeyFactory $cryptKeyFactory;
-
     public function __construct(
-        ConfigurationService $configurationService,
-        CryptKeyFactory $cryptKeyFactory
+        protected ModuleConfig $moduleConfig,
+        protected CryptKeyFactory $cryptKeyFactory
     ) {
-        $this->configurationService = $configurationService;
-        $this->cryptKeyFactory = $cryptKeyFactory;
     }
 
     /**
@@ -60,7 +57,7 @@ class IdTokenHintRule extends AbstractRule
         $publicKey = $this->cryptKeyFactory->buildPublicKey();
         /** @psalm-suppress ArgumentTypeCoercion */
         $jwtConfig = Configuration::forAsymmetricSigner(
-            $this->configurationService->getSigner(),
+            $this->moduleConfig->getSigner(),
             InMemory::plainText($privateKey->getKeyContents(), $privateKey->getPassPhrase() ?? ''),
             InMemory::plainText($publicKey->getKeyContents())
         );
@@ -72,12 +69,12 @@ class IdTokenHintRule extends AbstractRule
             /** @psalm-suppress ArgumentTypeCoercion */
             $jwtConfig->validator()->assert(
                 $idTokenHint,
-                new IssuedBy($this->configurationService->getSimpleSAMLSelfURLHost()),
+                new IssuedBy($this->moduleConfig->getSimpleSAMLSelfURLHost()),
                 // Note: although logout spec does not mention it, validating signature seems like an important check
                 // to make. However, checking the signature in a key roll-over scenario will fail for ID tokens
                 // signed with previous key...
                 new SignedWith(
-                    $this->configurationService->getSigner(),
+                    $this->moduleConfig->getSigner(),
                     InMemory::plainText($publicKey->getKeyContents())
                 )
             );

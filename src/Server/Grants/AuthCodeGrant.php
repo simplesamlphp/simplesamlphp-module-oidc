@@ -1,30 +1,39 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Server\Grants;
 
+use Exception;
 use DateInterval;
 use DateTimeImmutable;
+use JsonException;
 use League\OAuth2\Server\CodeChallengeVerifiers\CodeChallengeVerifierInterface;
 use League\OAuth2\Server\CodeChallengeVerifiers\PlainVerifier;
 use League\OAuth2\Server\CodeChallengeVerifiers\S256Verifier;
+use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface as OAuth2AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
-use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use League\OAuth2\Server\Grant\AuthCodeGrant as OAuth2AuthCodeGrant;
 use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface as OAuth2AuthCodeRepositoryInterface;
+use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
+use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
+use League\OAuth2\Server\Repositories\UserRepositoryInterface;
 use League\OAuth2\Server\RequestEvent;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Entity\Interfaces\AuthCodeEntityInterface;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
-use SimpleSAML\Module\oidc\Entity\Interfaces\RefreshTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithCheckerResultBagInterface;
@@ -36,7 +45,6 @@ use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AcrResponseTypeInterf
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\SessionIdResponseTypeInterface;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Utils\Arr;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
@@ -53,12 +61,14 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeOfflineAccessRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
 use SimpleSAML\Module\oidc\Utils\ScopeHelper;
-use stdClass;
 use Throwable;
 
 class AuthCodeGrant extends OAuth2AuthCodeGrant implements
+    // phpcs:ignore
     PkceEnabledGrantTypeInterface,
+    // phpcs:ignore
     OidcCapableGrantTypeInterface,
+    // phpcs:ignore
     AuthorizationValidatableWithCheckerResultBagInterface
 {
     use IssueAccessTokenTrait;
@@ -70,25 +80,79 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      */
     protected array $codeChallengeVerifiers = [];
 
+    /**
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
     protected $authCodeRepository;
 
+    /**
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
     protected $accessTokenRepository;
 
+    /**
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
     protected $refreshTokenRepository;
-
-    private RequestRulesManager $requestRulesManager;
-
-    protected ConfigurationService $configurationService;
 
     protected bool $requireCodeChallengeForPublicClients = true;
 
+    /**
+     * @var bool
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $revokeRefreshTokens;
+
+    /**
+     * @var string
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $defaultScope;
+
+    /**
+     * @var UserRepositoryInterface
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $userRepository;
+
+    /**
+     * @var ScopeRepositoryInterface
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $scopeRepository;
+
+    /**
+     * @var ClientRepositoryInterface
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $clientRepository;
+
+    /**
+     * @var CryptKey
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $privateKey;
+
+    /**
+     * @psalm-type AuthCodePayloadObject = object{
+     *     scopes: null|string|array,
+     *     user_id: null|string,
+     *     code_challenge?: non-empty-string,
+     *     code_challenge_method?: non-empty-string,
+     *     auth_code_id: string,
+     *     nonce?: null|non-empty-string,
+     *     auth_time?: null|int,
+     *     acr?: null|string,
+     *     session_id?: null|string
+     * }
+     * @throws Exception
+     */
     public function __construct(
         OAuth2AuthCodeRepositoryInterface $authCodeRepository,
         AccessTokenRepositoryInterface $accessTokenRepository,
         RefreshTokenRepositoryInterface $refreshTokenRepository,
         DateInterval $authCodeTTL,
-        RequestRulesManager $requestRulesManager,
-        ConfigurationService $configurationService
+        protected RequestRulesManager $requestRulesManager
     ) {
         parent::__construct($authCodeRepository, $refreshTokenRepository, $authCodeTTL);
 
@@ -97,8 +161,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $this->setRefreshTokenRepository($refreshTokenRepository);
 
         $this->authCodeTTL = $authCodeTTL;
-        $this->requestRulesManager = $requestRulesManager;
-        $this->configurationService = $configurationService;
 
         if (in_array('sha256', hash_algos(), true)) {
             $s256Verifier = new S256Verifier();
@@ -109,34 +171,28 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $this->codeChallengeVerifiers[$plainVerifier->getMethod()] = $plainVerifier;
     }
 
-    /**
-     * @param OAuth2ClientEntityInterface $client
-     * @return bool
-     */
     protected function shouldCheckPkce(OAuth2ClientEntityInterface $client): bool
     {
-        return $this->requireCodeChallengeForPublicClients &&
-            ! $client->isConfidential();
+        return $this->requireCodeChallengeForPublicClients && !$client->isConfidential();
     }
 
     /**
      * Check if the authorization request is OIDC candidate (can respond with ID token).
-     *
-     * @param OAuth2AuthorizationRequest $authorizationRequest
-     * @return bool
      */
     public function isOidcCandidate(
         OAuth2AuthorizationRequest $authorizationRequest
     ): bool {
         // Check if the scopes contain 'oidc' scope
-        return (bool) Arr::find($authorizationRequest->getScopes(), function (ScopeEntityInterface $scope) {
-            return $scope->getIdentifier() === 'openid';
-        });
+        return (bool) Arr::find(
+            $authorizationRequest->getScopes(),
+            fn(ScopeEntityInterface $scope) => $scope->getIdentifier() === 'openid'
+        );
     }
 
     /**
      * @inheritDoc
      * @throws OAuthServerException
+     * @throws JsonException
      */
     public function completeAuthorizationRequest(
         OAuth2AuthorizationRequest $authorizationRequest
@@ -151,22 +207,21 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     /**
      * This is reimplementation of OAuth2 completeAuthorizationRequest method with addition of nonce handling.
      *
-     * @param AuthorizationRequest $authorizationRequest
-     * @return RedirectResponse
      * @throws OAuthServerException
      * @throws UniqueTokenIdentifierConstraintViolationException
+     * @throws JsonException
      */
     public function completeOidcAuthorizationRequest(
         AuthorizationRequest $authorizationRequest
     ): RedirectResponse {
         $user = $authorizationRequest->getUser();
-        if ($user instanceof UserEntityInterface === false) {
-            throw new LogicException('An instance of UserEntityInterface should be set on the ' .
+        if ($user instanceof UserEntity === false) {
+            throw new LogicException('An instance of UserEntity should be set on the ' .
                 'AuthorizationRequest');
         }
 
         $finalRedirectUri = $authorizationRequest->getRedirectUri()
-            ?? $this->getClientRedirectUri($authorizationRequest);
+        ?? $this->getClientRedirectUri($authorizationRequest);
 
         if ($authorizationRequest->isAuthorizationApproved() !== true) {
             // The user denied the client, redirect them back with an error
@@ -204,12 +259,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             'session_id'            => $authorizationRequest->getSessionId(),
         ];
 
-        $jsonPayload = json_encode($payload);
-
-        if ($jsonPayload === false) {
-            throw new LogicException('An error was encountered when JSON encoding the authorization ' .
-                'request response');
-        }
+        $jsonPayload = json_encode($payload, JSON_THROW_ON_ERROR);
 
         $response = new RedirectResponse();
         $response->setRedirectUri(
@@ -226,13 +276,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     }
 
     /**
-     * @param DateInterval $authCodeTTL
-     * @param OAuth2ClientEntityInterface $client
-     * @param string $userIdentifier
-     * @param string $redirectUri
-     * @param array $scopes
-     * @param string|null $nonce
-     * @return AuthCodeEntityInterface
+     * @param ScopeEntityInterface[] $scopes
      * @throws OAuthServerException
      * @throws UniqueTokenIdentifierConstraintViolationException
      */
@@ -244,10 +288,18 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         array $scopes = [],
         string $nonce = null
     ): AuthCodeEntityInterface {
-
         $maxGenerationAttempts = self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
 
+        if (! is_a($this->authCodeRepository, AuthCodeRepositoryInterface::class)) {
+            throw OidcServerException::serverError('Unexpected auth code repository entity type.');
+        }
+
         $authCode = $this->authCodeRepository->getNewAuthCode();
+
+        if (! is_a($authCode, AuthCodeEntityInterface::class)) {
+            throw OidcServerException::serverError('Unexpected auth code entity type.');
+        }
+
         $authCode->setExpiryDateTime((new DateTimeImmutable())->add($authCodeTTL));
         $authCode->setClient($client);
         $authCode->setUserIdentifier($userIdentifier);
@@ -298,37 +350,44 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      * Reimplementation respondToAccessTokenRequest because of nonce feature.
      *
      * @param ServerRequestInterface $request
-     * @param ResponseTypeInterface  $responseType
-     * @param DateInterval           $accessTokenTTL
-     *
-     * @throws OAuthServerException
+     * @param ResponseTypeInterface $responseType
+     * @param DateInterval $accessTokenTTL
      *
      * @return ResponseTypeInterface
      *
      * TODO refactor to request checkers
+     * @throws OAuthServerException
+     * @throws JsonException
+     * @throws JsonException
+     * @throws JsonException
+     *
      */
     public function respondToAccessTokenRequest(
         ServerRequestInterface $request,
         ResponseTypeInterface $responseType,
         DateInterval $accessTokenTTL
     ): ResponseTypeInterface {
-        list($clientId) = $this->getClientCredentials($request);
+        [$clientId] = $this->getClientCredentials($request);
 
-        $client = $this->getClientEntityOrFail($clientId, $request);
+        $client = $this->getClientEntityOrFail((string)$clientId, $request);
 
         // Only validate the client if it is confidential
         if ($client->isConfidential()) {
             $this->validateClient($request);
         }
 
-        $encryptedAuthCode = $this->getRequestParameter('code', $request, null);
+        $encryptedAuthCode = $this->getRequestParameter('code', $request);
 
         if ($encryptedAuthCode === null) {
             throw OAuthServerException::invalidRequest('code');
         }
 
         try {
-            $authCodePayload = json_decode($this->decrypt($encryptedAuthCode));
+            /**
+             * @noinspection PhpUndefinedClassInspection
+             * @psalm-var AuthCodePayloadObject $authCodePayload
+             */
+            $authCodePayload = json_decode($this->decrypt($encryptedAuthCode), null, 512, JSON_THROW_ON_ERROR);
 
             $this->validateAuthorizationCode($authCodePayload, $client, $request);
 
@@ -342,7 +401,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             throw OAuthServerException::invalidRequest('code', 'Cannot decrypt the authorization code', $e);
         }
 
-        $codeVerifier = $this->getRequestParameter('code_verifier', $request, null);
+        $codeVerifier = $this->getRequestParameter('code_verifier', $request);
 
         // If a code challenge isn't present but a code verifier is, reject the request to block PKCE downgrade attack
         if ($this->shouldCheckPkce($client) && empty($authCodePayload->code_challenge) && $codeVerifier !== null) {
@@ -383,16 +442,17 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                     throw OAuthServerException::serverError(
                         sprintf(
                             'Unsupported code challenge method `%s`',
-                            $authCodePayload->code_challenge_method
+                            ($authCodePayload->code_challenge_method ?? '')
                         )
                     );
                 }
             }
         }
 
+        /** @var array $claims */
         $claims = property_exists($authCodePayload, 'claims') ?
-            json_decode(json_encode($authCodePayload->claims), true)
-            : null;
+        json_decode(json_encode($authCodePayload->claims, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR)
+        : null;
 
         // Issue and persist new access token
         $accessToken = $this->issueAccessToken(
@@ -426,7 +486,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         if (
             $responseType instanceof AcrResponseTypeInterface &&
             property_exists($authCodePayload, 'acr') &&
-            $authCodePayload->acr !== null
+            ! empty($authCodePayload->acr)
         ) {
             $responseType->setAcr($authCodePayload->acr);
         }
@@ -434,7 +494,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         if (
             $responseType instanceof SessionIdResponseTypeInterface &&
             property_exists($authCodePayload, 'session_id') &&
-            $authCodePayload->session_id !== null
+            ! empty($authCodePayload->session_id)
         ) {
             $responseType->setSessionId($authCodePayload->session_id);
         }
@@ -449,6 +509,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                 $responseType->setRefreshToken($refreshToken);
             }
         }
+        if (! is_a($this->authCodeRepository, AuthCodeRepositoryInterface::class)) {
+            throw OidcServerException::serverError('Unexpected auth code repository entity type.');
+        }
 
         // Revoke used auth code
         $this->authCodeRepository->revokeAuthCode($authCodePayload->auth_code_id);
@@ -459,18 +522,36 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     /**
      * Reimplementation because of private parent access
      *
-     * @param stdClass $authCodePayload
+     * @param object $authCodePayload
      * @param OAuth2ClientEntityInterface $client
      * @param ServerRequestInterface $request
      * @throws OAuthServerException
+     * @throws OidcServerException
      */
     protected function validateAuthorizationCode(
-        stdClass $authCodePayload,
+        object $authCodePayload,
         OAuth2ClientEntityInterface $client,
         ServerRequestInterface $request
     ): void {
+        /**
+         * @noinspection PhpUndefinedClassInspection
+         * @psalm-var AuthCodePayloadObject $authCodePayload
+         */
+
         if (!property_exists($authCodePayload, 'auth_code_id')) {
             throw OAuthServerException::invalidRequest('code', 'Authorization code malformed');
+        }
+
+        if (! is_a($this->authCodeRepository, AuthCodeRepositoryInterface::class)) {
+            throw OidcServerException::serverError('Unexpected auth code repository entity type.');
+        }
+
+        if (! is_a($this->accessTokenRepository, AccessTokenRepositoryInterface::class)) {
+            throw OidcServerException::serverError('Unexpected access token repository entity type.');
+        }
+
+        if (! is_a($this->refreshTokenRepository, RefreshTokenRepositoryInterface::class)) {
+            throw OidcServerException::serverError('Unexpected refresh token repository entity type.');
         }
 
         if (time() > $authCodePayload->expire_time) {
@@ -489,13 +570,16 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         }
 
         // The redirect URI is required in this request
-        $redirectUri = $this->getRequestParameter('redirect_uri', $request, null);
+        $redirectUri = $this->getRequestParameter('redirect_uri', $request);
         if (empty($authCodePayload->redirect_uri) === false && $redirectUri === null) {
             throw OAuthServerException::invalidRequest('redirect_uri');
         }
 
         if ($authCodePayload->redirect_uri !== $redirectUri) {
-            throw OAuthServerException::invalidRequest('redirect_uri', 'Invalid redirect URI');
+            throw OAuthServerException::invalidRequest(
+                'redirect_uri',
+                'Invalid redirect URI or not the same as in authorization request'
+            );
         }
     }
 
@@ -517,7 +601,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             ScopeOfflineAccessRule::class,
         ];
 
-        // Since we have already validated redirect_uri and we have state, make it available for other checkers.
+        // Since we have already validated redirect_uri, and we have state, make it available for other checkers.
         $this->requestRulesManager->predefineResultBag($resultBag);
 
         /** @var string $redirectUri */
@@ -539,7 +623,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         $resultBag = $this->requestRulesManager->check($request, $rulesToExecute);
 
-        /** @var array $scopes */
+        /** @var ScopeEntityInterface[] $scopes */
         $scopes = $resultBag->getOrFail(ScopeRule::class)->getValue();
 
         $oAuth2AuthorizationRequest = new OAuth2AuthorizationRequest();
@@ -556,6 +640,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         if ($shouldCheckPkce) {
             /** @var string $codeChallenge */
             $codeChallenge = $resultBag->getOrFail(CodeChallengeRule::class)->getValue();
+            /** @var string $codeChallengeMethod */
             $codeChallengeMethod = $resultBag->getOrFail(CodeChallengeMethodRule::class)->getValue();
 
             $oAuth2AuthorizationRequest->setCodeChallenge($codeChallenge);
@@ -581,7 +666,11 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         $requestClaims = $resultBag->get(RequestedClaimsRule::class);
         if (null !== $requestClaims) {
-            $authorizationRequest->setClaims($requestClaims->getValue());
+            /** @var ?array $requestClaimValues */
+            $requestClaimValues = $requestClaims->getValue();
+            if (is_array($requestClaimValues)) {
+                $authorizationRequest->setClaims($requestClaimValues);
+            }
         }
 
         /** @var array|null $acrValues */
@@ -602,6 +691,10 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         OAuth2AccessTokenEntityInterface $accessToken,
         string $authCodeId = null
     ): ?RefreshTokenEntityInterface {
+        if (! is_a($this->refreshTokenRepository, RefreshTokenRepositoryInterface::class)) {
+            throw OidcServerException::serverError('Unexpected refresh token repository entity type.');
+        }
+
         $refreshToken = $this->refreshTokenRepository->getNewRefreshToken();
 
         if ($refreshToken === null) {

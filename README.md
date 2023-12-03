@@ -21,9 +21,14 @@ Currently supported flows are:
 
 | OIDC module | SimpleSAMLphp |  PHP   | Note                        |
 |:------------|:--------------|:------:|-----------------------------|
-| v4.\*       | v2.0.\*       | \>=8.0 | Recommended                 |
-| v3.\*       | v2.0.0        | \>=7.4 | Abandoned from August 2023. |
+| v5.\*       | v2.1.\*       | \>=8.1 | Recommended                 |
+| v4.\*       | v2.0.\*       | \>=8.0 |                             |
+| v3.\*       | v2.0.\*       | \>=7.4 | Abandoned from August 2023. |
 | v2.\*       | v1.19.\*      | \>=7.4 |                             |
+
+### Upgrading?
+
+If you are upgrading from a previous version, checkout the [upgrade guide](UPGRADE.md).
 
 ## Installation
 
@@ -95,10 +100,6 @@ If you use a passphrase, make sure to also configure it in the `module_oidc.php`
 In order to purge expired tokens, this module requires [cron module](https://simplesamlphp.org/docs/stable/cron:cron)
 to be enabled and configured.
 
-## Upgrading?
-
-If you are upgrading from a previous version, checkout the [upgrade guide](UPGRADE.md).
-
 ## Additional considerations
 ### Private scopes
 
@@ -109,7 +110,7 @@ However, you can add your own private scopes in the `module_oidc.php` config fil
 <?php
 
 $config = [
-    'scopes' => [
+    \SimpleSAML\Module\oidc\ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES => [
         'private' => [
             'description' => 'private scope',
             'claim_name_prefix' => '', // Optional prefix for claim names
@@ -131,7 +132,7 @@ You can change or extend this table in the `module_oidc.php` config file, for ex
 <?php
 
 $config = [
-    'translate' => [
+    \SimpleSAML\Module\oidc\ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE => [
         // Overwrite default translation
         'sub' => [
             'uid', // added
@@ -185,7 +186,7 @@ documentation](https://simplesamlphp.org/docs/stable/simplesamlphp-authproc).
 <?php
 
 $config = [
-    'authproc.oidc' => [
+    \SimpleSAML\Module\oidc\ModuleConfig::OPTION_AUTH_PROCESSING_FILTERS => [
         50 => [
             'class' => 'core:AttributeAdd',
             'groups' => ['users', 'members'],
@@ -206,8 +207,8 @@ eduPersonEntitlements from the `client` permission array.
 
 A permission can be disabled by commenting it out.
 
-```bash
-    'permissions' => [
+```php
+     \SimpleSAML\Module\oidc\ModuleConfig::OPTION_ADMIN_UI_PERMISSIONS => [
         // Attribute to inspect to determine user's permissions
         'attribute' => 'eduPersonEntitlement',
         // Which entitlements allow for registering, editing, delete a client. OIDC clients are owned by the creator
@@ -242,9 +243,9 @@ form. Here are some sample configurations:
 
 ### With current git branch.
 
-To explore the module using docker run the below command. This will run an SSP image, with the current oidc module mounted
-in the container, along with some configuration files. Any code changes you make to your git checkout are "live" in
-the container, allowing you to test and iterate different things.
+To explore the module using docker run the below command. This will run an SSP image, with the current oidc module
+mounted in the container, along with some configuration files. Any code changes you make to your git checkout are
+"live" in the container, allowing you to test and iterate different things.
 
 ```
 GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)

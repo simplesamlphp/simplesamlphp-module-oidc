@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
@@ -30,13 +32,14 @@ class RequestParameterRule extends AbstractRule
 
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
-        $state = $currentResultBag->get(StateRule::class);
+        /** @var ?string $stateValue */
+        $stateValue = ($currentResultBag->get(StateRule::class))?->getValue();
 
         throw OidcServerException::requestNotSupported(
             'request object not supported',
             $redirectUri,
             null,
-            $state ? $state->getValue() : null,
+            $stateValue,
             $useFragmentInHttpErrorResponses
         );
     }

@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
@@ -17,16 +19,10 @@ use Throwable;
 
 class PromptRule extends AbstractRule
 {
-    private AuthSimpleFactory $authSimpleFactory;
-
-    private AuthenticationService $authenticationService;
-
     public function __construct(
-        AuthSimpleFactory $authSimpleFactory,
-        AuthenticationService $authenticationService
+        private readonly AuthSimpleFactory $authSimpleFactory,
+        private readonly AuthenticationService $authenticationService
     ) {
-        $this->authSimpleFactory = $authSimpleFactory;
-        $this->authenticationService = $authenticationService;
     }
 
     /**
@@ -56,19 +52,21 @@ class PromptRule extends AbstractRule
             return null;
         }
 
-        $prompt = explode(" ", $queryParams['prompt']);
+        $prompt = explode(" ", (string)$queryParams['prompt']);
         if (count($prompt) > 1 && in_array('none', $prompt, true)) {
             throw OAuthServerException::invalidRequest('prompt', 'Invalid prompt parameter');
         }
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
+        /** @var ?string $state */
+        $state = $queryParams['state'] ?? null;
 
         if (in_array('none', $prompt, true) && !$authSimple->isAuthenticated()) {
             throw OidcServerException::loginRequired(
                 null,
                 $redirectUri,
                 null,
-                $queryParams['state'] ?? null,
+                $state,
                 $useFragmentInHttpErrorResponses
             );
         }

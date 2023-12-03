@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Services;
 
 use Exception;
@@ -8,21 +10,19 @@ use SimpleSAML\Session;
 
 class SessionService
 {
-    protected Session $session;
+    final public const SESSION_DATA_TYPE = 'oidc';
 
-    public const SESSION_DATA_TYPE = 'oidc';
+    final public const SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN = 'is-cookie-based-authn';
 
-    public const SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN = 'is-cookie-based-authn';
+    final public const SESSION_DATA_ID_RP_ASSOCIATIONS = 'rp-associations';
 
-    public const SESSION_DATA_ID_RP_ASSOCIATIONS = 'rp-associations';
+    final public const SESSION_DATA_ID_IS_AUTHN_PERFORMED_IN_PREVIOUS_REQUEST =
+    'is-authn-performed-in-previous-request';
 
-    public const SESSION_DATA_ID_IS_AUTHN_PERFORMED_IN_PREVIOUS_REQUEST = 'is-authn-performed-in-previous-request';
+    final public const SESSION_DATA_ID_IS_OIDC_INITIATED_LOGOUT = 'is-logout-handler-disabled';
 
-    public const SESSION_DATA_ID_IS_OIDC_INITIATED_LOGOUT = 'is-logout-handler-disabled';
-
-    public function __construct(Session $session)
+    public function __construct(protected Session $session)
     {
-        $this->session = $session;
     }
 
     public function getCurrentSession(): Session
@@ -50,10 +50,17 @@ class SessionService
 
     public function getIsCookieBasedAuthn(): ?bool
     {
-        return $this->session->getData(
+        /** @var ?bool $isCookieBasedAuthn */
+        $isCookieBasedAuthn = $this->session->getData(
             self::SESSION_DATA_TYPE,
             self::SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN
         );
+
+        if (is_bool($isCookieBasedAuthn)) {
+            return $isCookieBasedAuthn;
+        }
+
+        return null;
     }
 
     /**
@@ -61,7 +68,12 @@ class SessionService
      */
     public function addRelyingPartyAssociation(RelyingPartyAssociationInterface $association): void
     {
-        $associationId = hash('sha256', $association->getClientId() . $association->getSessionId());
+        $sessionId = $association->getSessionId();
+        if (empty($sessionId)) {
+            return;
+        }
+
+        $associationId = hash('sha256', $association->getClientId() . $sessionId);
         $associations = $this->getRelyingPartyAssociations();
 
         if (! array_key_exists($associationId, $associations)) {
@@ -81,9 +93,22 @@ class SessionService
         return self::getRelyingPartyAssociationsForSession($this->session);
     }
 
+    /**
+     * @return array<RelyingPartyAssociationInterface>
+     */
     public static function getRelyingPartyAssociationsForSession(Session $session): array
     {
-        return $session->getData(self::SESSION_DATA_TYPE, self::SESSION_DATA_ID_RP_ASSOCIATIONS) ?? [];
+        $relyingPartyAssociations = $session->getData(self::SESSION_DATA_TYPE, self::SESSION_DATA_ID_RP_ASSOCIATIONS);
+
+        if (!is_array($relyingPartyAssociations)) {
+            return [];
+        }
+
+        // Make sure we only have RelyingPartyAssociations here...
+        return array_filter(
+            $relyingPartyAssociations,
+            fn($value) => $value instanceof RelyingPartyAssociationInterface
+        );
     }
 
     /**
@@ -138,7 +163,6 @@ class SessionService
 
     /**
      * Set indication if logout was initiated using OIDC protocol.
-     * @param bool $isOidcInitiatedLogout
      * @throws Exception
      */
     public function setIsOidcInitiatedLogout(bool $isOidcInitiatedLogout): void
@@ -152,18 +176,7 @@ class SessionService
     }
 
     /**
-     * Get indication if logout was initiated using OIDC protocol.
-     * @return bool
-     */
-    public function getIsOidcInitiatedLogout(): bool
-    {
-        return self::getIsOidcInitiatedLogoutForSession($this->session);
-    }
-
-    /**
      * Helper method to get indication if logout was initiated using OIDC protocol for given session.
-     * @param Session $session
-     * @return bool
      */
     public static function getIsOidcInitiatedLogoutForSession(Session $session): bool
     {

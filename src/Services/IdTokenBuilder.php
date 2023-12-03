@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Services;
 
 use Base64Url\Base64Url;
@@ -10,24 +12,19 @@ use Lcobucci\JWT\Token\RegisteredClaims;
 use Lcobucci\JWT\UnencryptedToken;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
-use OpenIDConnectServer\Entities\ClaimSetInterface;
+use League\OAuth2\Server\Exception\OAuthServerException;
 use RuntimeException;
-use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
-use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
-use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
+use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClaimSetInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\EntityStringRepresentationInterface;
+use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
 class IdTokenBuilder
 {
-    private ClaimTranslatorExtractor $claimExtractor;
-
-    private JsonWebTokenBuilderService $jsonWebTokenBuilderService;
-
     public function __construct(
-        JsonWebTokenBuilderService $jsonWebTokenBuilderService,
-        ClaimTranslatorExtractor $claimExtractor
+        private readonly JsonWebTokenBuilderService $jsonWebTokenBuilderService,
+        private readonly ClaimTranslatorExtractor $claimExtractor
     ) {
-        $this->jsonWebTokenBuilderService = $jsonWebTokenBuilderService;
-        $this->claimExtractor = $claimExtractor;
     }
 
     /**
@@ -85,29 +82,42 @@ class IdTokenBuilder
         );
         $claims = array_merge($additionalClaims, $claims);
 
-
+        /**
+         * @var string $claimName
+         * @var  mixed $claimValue
+         */
         foreach ($claims as $claimName => $claimValue) {
             switch ($claimName) {
                 case RegisteredClaims::AUDIENCE:
-                    $builder->permittedFor($claimValue);
+                    if (is_array($claimValue)) {
+                        /** @psalm-suppress MixedAssignment */
+                        foreach ($claimValue as $aud) {
+                            $builder->permittedFor((string)$aud);
+                        }
+                    } else {
+                        $builder->permittedFor((string)$claimValue);
+                    }
                     break;
                 case RegisteredClaims::EXPIRATION_TIME:
-                    $builder->expiresAt(new DateTimeImmutable('@' . $claimValue));
+                    /** @noinspection PhpUnnecessaryStringCastInspection */
+                    $builder->expiresAt(new DateTimeImmutable('@' . (string)$claimValue));
                     break;
                 case RegisteredClaims::ID:
-                    $builder->identifiedBy($claimValue);
+                    $builder->identifiedBy((string)$claimValue);
                     break;
                 case RegisteredClaims::ISSUED_AT:
-                    $builder->issuedAt(new DateTimeImmutable('@' . $claimValue));
+                    /** @noinspection PhpUnnecessaryStringCastInspection */
+                    $builder->issuedAt(new DateTimeImmutable('@' . (string)$claimValue));
                     break;
                 case RegisteredClaims::ISSUER:
-                    $builder->issuedBy($claimValue);
+                    $builder->issuedBy((string)$claimValue);
                     break;
                 case RegisteredClaims::NOT_BEFORE:
-                    $builder->canOnlyBeUsedAfter(new DateTimeImmutable('@' . $claimValue));
+                    /** @noinspection PhpUnnecessaryStringCastInspection */
+                    $builder->canOnlyBeUsedAfter(new DateTimeImmutable('@' . (string)$claimValue));
                     break;
                 case RegisteredClaims::SUBJECT:
-                    $builder->relatedTo($claimValue);
+                    $builder->relatedTo((string)$claimValue);
                     break;
                 default:
                     if ($addClaimsFromScopes || array_key_exists($claimName, $additionalClaims)) {
@@ -119,6 +129,9 @@ class IdTokenBuilder
         return $this->jsonWebTokenBuilderService->getSignedJwtTokenFromBuilder($builder);
     }
 
+    /**
+     * @throws OAuthServerException
+     */
     protected function getBuilder(
         AccessTokenEntityInterface $accessToken,
         UserEntityInterface $userEntity
@@ -129,13 +142,11 @@ class IdTokenBuilder
             ->identifiedBy($accessToken->getIdentifier())
             ->canOnlyBeUsedAfter(new DateTimeImmutable('now'))
             ->expiresAt($accessToken->getExpiryDateTime())
-            ->relatedTo($userEntity->getIdentifier());
+            ->relatedTo((string)$userEntity->getIdentifier());
     }
 
     /**
-     * @param AccessTokenEntityInterface $accessToken
      * @param string $jwsAlgorithm JWS Algorithm designation (like RS256, RS384...)
-     * @return string
      */
     protected function generateAccessTokenHash(AccessTokenEntityInterface $accessToken, string $jwsAlgorithm): string
     {
@@ -152,8 +163,8 @@ class IdTokenBuilder
                                         EntityStringRepresentationInterface::class);
         }
 
-        // Try to use toString() so that it uses the string representation if it was already casted to string,
-        // otherwise, use the casted version.
+        // Try to use toString() so that it uses the string representation if it was already cast to string,
+        // otherwise, use the cast version.
         $accessTokenString = $accessToken->toString() ?? (string) $accessToken;
 
         $hashAlgorithm = 'sha' . $jwsAlgorithmBitLength;

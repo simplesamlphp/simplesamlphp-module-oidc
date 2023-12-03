@@ -16,8 +16,8 @@
     <form class="ui form attached fluid segment" method="post">
         {% if oauth2_enabled %}
         <div class="field">
-            <label>{{ '{oidc:install:oauth2}'|trans }}</label>
-            <input type="checkbox" value="{{ oauth2_enabled }}" name="oauth2_migrate">
+            <label for="oauth2Migrate">{{ '{oidc:install:oauth2}'|trans }}</label>
+            <input id="oauth2Migrate" type="checkbox" value="{{ oauth2_enabled }}" name="oauth2_migrate">
         </div>
         {% endif %}
         <input type="hidden" value="1" name="migrate"/>

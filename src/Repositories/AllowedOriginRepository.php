@@ -1,12 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Repositories;
 
 use PDO;
 
 class AllowedOriginRepository extends AbstractDatabaseRepository
 {
-    public const TABLE_NAME = 'oidc_allowed_origin';
+    final public const TABLE_NAME = 'oidc_allowed_origin';
 
     public function getTableName(): string
     {
@@ -14,7 +16,6 @@ class AllowedOriginRepository extends AbstractDatabaseRepository
     }
 
     /**
-     * @param string $clientId
      * @param string[] $origins
      */
     public function set(string $clientId, array $origins): void

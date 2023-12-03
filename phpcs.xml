@@ -6,6 +6,9 @@
         By default it is less stringent about long lines than other coding standards
     </description>
 
+    <config name="show_progress" value="1"/>
+    <config name="ignore_warnings_on_exit" value="0"/>
+
     <file>config-templates</file>
     <file>hooks</file>
     <file>src</file>
@@ -17,12 +20,14 @@
     <!--<exclude-pattern>*/other/*</exclude-pattern>-->
     <exclude-pattern>public/assets/*</exclude-pattern>
 
-    <!-- Exclude files with method names that we cannot immediately fix -->
-    <rule ref="PSR1.Methods.CamelCapsMethodName.NotCamelCaps">
-        <exclude-pattern>spec/*</exclude-pattern>
-    </rule>
-
     <!-- This is the rule we inherit from. If you want to exlude some specific rules, see the docs on how to do that -->
     <rule ref="PSR12"/>
+    <rule ref="Generic.PHP.RequireStrictTypes" />
+    <rule ref="Generic.WhiteSpace.ScopeIndent">
+        <properties>
+            <property name="exact" value="true" />
+        </properties>
+    </rule>
+    <rule ref="Squiz.NamingConventions.ValidVariableName.NotCamelCaps"/>
 </ruleset>
 

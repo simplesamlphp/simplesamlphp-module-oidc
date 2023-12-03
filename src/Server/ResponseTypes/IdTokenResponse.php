@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -15,18 +17,19 @@
 namespace SimpleSAML\Module\oidc\Server\ResponseTypes;
 
 use Exception;
+use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
+use League\OAuth2\Server\Entities\RefreshTokenEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
-use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\ResponseTypes\BearerTokenResponse;
-use OpenIDConnectServer\Repositories\IdentityProviderInterface;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\IdentityProviderInterface;
 use RuntimeException;
-use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AcrResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\SessionIdResponseTypeInterface;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 
 /**
@@ -38,17 +41,15 @@ use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
  * @see https://github.com/steverhoades/oauth2-openid-connect-server/blob/master/src/IdTokenResponse.php
  */
 class IdTokenResponse extends BearerTokenResponse implements
+    // phpcs:ignore
     NonceResponseTypeInterface,
+    // phpcs:ignore
     AuthTimeResponseTypeInterface,
+    // phpcs:ignore
     AcrResponseTypeInterface,
+    // phpcs:ignore
     SessionIdResponseTypeInterface
 {
-    private IdentityProviderInterface $identityProvider;
-
-    private ConfigurationService $configurationService;
-
-    protected IdTokenBuilder $idTokenBuilder;
-
     protected ?string $nonce = null;
 
     protected ?int $authTime = null;
@@ -57,14 +58,24 @@ class IdTokenResponse extends BearerTokenResponse implements
 
     protected ?string $sessionId = null;
 
+    /**
+     * @var AccessTokenEntityInterface
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $accessToken;
+
+    /**
+     * @var RefreshTokenEntityInterface
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $refreshToken;
+
     public function __construct(
-        IdentityProviderInterface $identityProvider,
-        ConfigurationService $configurationService,
-        IdTokenBuilder $idTokenBuilder
+        private readonly IdentityProviderInterface $identityProvider,
+        protected IdTokenBuilder $idTokenBuilder,
+        CryptKey $privateKey
     ) {
-        $this->identityProvider = $identityProvider;
-        $this->idTokenBuilder = $idTokenBuilder;
-        $this->configurationService = $configurationService;
+        $this->privateKey = $privateKey;
     }
 
     /**
@@ -82,8 +93,17 @@ class IdTokenResponse extends BearerTokenResponse implements
             throw new RuntimeException('AccessToken must be ' . AccessTokenEntity::class);
         }
 
-        /** @var UserEntityInterface $userEntity */
-        $userEntity = $this->identityProvider->getUserEntityByIdentifier($accessToken->getUserIdentifier());
+        $userIdentifier = $accessToken->getUserIdentifier();
+
+        if (empty($userIdentifier)) {
+            throw OidcServerException::accessDenied('No user identifier present in AccessToken.');
+        }
+
+        $userEntity = $this->identityProvider->getUserEntityByIdentifier((string)$userIdentifier);
+
+        if (empty($userEntity)) {
+            throw OidcServerException::accessDenied('No user available for provided user identifier.');
+        }
 
         $token = $this->idTokenBuilder->build(
             $userEntity,

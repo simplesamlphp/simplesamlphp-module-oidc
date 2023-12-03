@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
@@ -14,11 +16,8 @@ use Throwable;
 
 class ScopeRule extends AbstractRule
 {
-    protected ScopeRepositoryInterface $scopeRepository;
-
-    public function __construct(ScopeRepositoryInterface $scopeRepository)
+    public function __construct(protected ScopeRepositoryInterface $scopeRepository)
     {
-        $this->scopeRepository = $scopeRepository;
     }
 
     /**
@@ -43,7 +42,7 @@ class ScopeRule extends AbstractRule
         $scopeDelimiterString = $data['scope_delimiter_string'] ?? ' ';
 
         $scopes = $this->convertScopesQueryStringToArray(
-            $request->getQueryParams()['scope'] ?? $defaultScope,
+            (string)($request->getQueryParams()['scope'] ?? $defaultScope),
             $scopeDelimiterString
         );
 
@@ -65,9 +64,7 @@ class ScopeRule extends AbstractRule
     /**
      * Converts a scopes query string to an array to easily iterate for validation.
      *
-     * @param string $scopes
-     * @param string $scopeDelimiterString
-     * @return array
+     * @return string[]
      * @throws OidcServerException
      */
     protected function convertScopesQueryStringToArray(string $scopes, string $scopeDelimiterString): array
@@ -76,8 +73,6 @@ class ScopeRule extends AbstractRule
             throw OidcServerException::serverError('Scope delimiter string can not be empty.');
         }
 
-        return array_filter(explode($scopeDelimiterString, trim($scopes)), function ($scope) {
-            return !empty($scope);
-        });
+        return array_filter(explode($scopeDelimiterString, trim($scopes)), fn($scope) => !empty($scope));
     }
 }

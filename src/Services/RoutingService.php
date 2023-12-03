@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -19,7 +21,9 @@ use Laminas\Diactoros\Response\JsonResponse;
 use Laminas\Diactoros\ServerRequestFactory;
 use Laminas\HttpHandlerRunner\Emitter\SapiEmitter;
 use League\OAuth2\Server\Exception\OAuthServerException;
+use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\ContainerInterface;
+use Psr\Container\NotFoundExceptionInterface;
 use Psr\Http\Message\ResponseInterface;
 use ReflectionClass;
 use ReflectionException;
@@ -34,12 +38,17 @@ use Throwable;
 class RoutingService
 {
     /**
+     * @throws BadRequest
+     * @throws ContainerExceptionInterface
      * @throws Exception
-     *
-     * @return void
+     * @throws NotFoundExceptionInterface
+     * @throws ReflectionException
      */
-    public static function call(string $controllerClassname, bool $authenticated = true, bool $jsonResponse = false)
-    {
+    public static function call(
+        string $controllerClassname,
+        bool $authenticated = true,
+        bool $jsonResponse = false
+    ): void {
         if ($authenticated) {
             (new Auth())->requireAdmin();
         }
@@ -51,10 +60,14 @@ class RoutingService
     }
 
     /**
+     * @throws BadRequest
+     * @throws ContainerExceptionInterface
      * @throws Exception
+     * @throws NotFoundExceptionInterface
+     * @throws ReflectionException
      * @throws \Exception
      */
-    public static function callWithPermission(string $controllerClassname, string $permission)
+    public static function callWithPermission(string $controllerClassname, string $permission): void
     {
         $container = new Container();
         /** @var AuthContextService $authContext */
@@ -66,9 +79,13 @@ class RoutingService
     /**
      * @throws BadRequest
      * @throws Exception
+     * @throws ReflectionException
+     * @throws ContainerExceptionInterface
+     * @throws NotFoundExceptionInterface
      * @throws \Exception
+     * @psalm-suppress MixedMethodCall, MixedAssignment
      */
-    private static function callController($container, string $controllerClassname): void
+    private static function callController(ContainerInterface $container, string $controllerClassname): void
     {
         /** @var callable $controller */
         $controller = self::getController($controllerClassname, $container);
@@ -105,17 +122,20 @@ class RoutingService
             return;
         }
 
-        throw new Exception('Response type not supported: ' . get_class($response));
+        throw new Exception('Response type not supported: ' . $response::class);
     }
 
     /**
-     * @throws ReflectionException
      * @throws BadRequest
+     * @throws ContainerExceptionInterface
+     * @throws NotFoundExceptionInterface
+     * @throws ReflectionException
+     * @psalm-suppress MixedAssignment
      */
     protected static function getController(string $controllerClassname, ContainerInterface $container): object
     {
         if (!class_exists($controllerClassname)) {
-            throw new BadRequest("Controller does not exist: {$controllerClassname}");
+            throw new BadRequest("Controller does not exist: $controllerClassname");
         }
         $controllerReflectionClass = new ReflectionClass($controllerClassname);
 
@@ -144,12 +164,13 @@ class RoutingService
     /**
      * @return void
      */
-    protected static function enableJsonExceptionResponse()
+    protected static function enableJsonExceptionResponse(): void
     {
         set_exception_handler(function (Throwable $t) {
             if ($t instanceof Error) {
                 // Showing SSP Error will also use SSP logger to log it.
-                return $t->show();
+                $t->show();
+                return;
             } elseif ($t instanceof OAuthServerException) {
                 $response = $t->generateHttpResponse(new Response());
             } else {

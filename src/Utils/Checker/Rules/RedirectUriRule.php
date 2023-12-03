@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
@@ -40,15 +42,12 @@ class RedirectUriRule extends AbstractRule
             throw OidcServerException::invalidRequest('redirect_uri');
         }
 
-        /** @psalm-suppress PossiblyInvalidArgument */
-        if (
-            is_string($client->getRedirectUri()) &&
-            (strcmp($client->getRedirectUri(), $redirectUri) !== 0)
-        ) {
+        $clientRedirectUri = $client->getRedirectUri();
+        if (is_string($clientRedirectUri) && (strcmp($clientRedirectUri, $redirectUri) !== 0)) {
             throw OidcServerException::invalidClient($request);
         } elseif (
-            is_array($client->getRedirectUri()) &&
-            in_array($redirectUri, $client->getRedirectUri(), true) === false
+            is_array($clientRedirectUri) &&
+            in_array($redirectUri, $clientRedirectUri, true) === false
         ) {
             throw OidcServerException::invalidRequest('redirect_uri');
         }

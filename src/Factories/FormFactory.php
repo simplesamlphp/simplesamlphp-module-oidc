@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -11,39 +13,32 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
 namespace SimpleSAML\Module\oidc\Factories;
 
 use Nette\Forms\Form;
 use SimpleSAML\Error\Exception;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 
 class FormFactory
 {
-    /**
-     * @var \SimpleSAML\Module\oidc\Services\ConfigurationService
-     */
-    private $configurationService;
-
-    public function __construct(ConfigurationService $configurationService)
+    public function __construct(private readonly ModuleConfig $moduleConfig)
     {
-        $this->configurationService = $configurationService;
     }
 
     /**
-     * @param string $classname Form classname
+     * @param class-string $classname Form classname
      *
      * @throws \Exception
      *
      * @return mixed
      */
-    public function build(string $classname)
+    public function build(string $classname): mixed
     {
-        if (!class_exists($classname) && ($classname instanceof Form)) {
-            throw new Exception("Invalid form: {$classname}");
+        if (!is_a($classname, Form::class, true)) {
+            throw new Exception("Invalid form: $classname");
         }
 
-        /** @psalm-suppress InvalidStringClass */
-        return new $classname($this->configurationService);
+        /** @psalm-suppress UnsafeInstantiation */
+        return new $classname($this->moduleConfig);
     }
 }

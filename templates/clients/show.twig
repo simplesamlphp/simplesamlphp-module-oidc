@@ -38,14 +38,18 @@
         <tr>
             <td class="collapsing">{{ '{oidc:client:identifier}'|trans }}</td>
             <td>{{ client.identifier }}
-                <i data-clipboard-text="{{ client.identifier }}" data-html="{{ '{oidc:copy}'|trans }}" class="copy link icon"></i>
+                <i data-clipboard-text="{{ client.identifier }}"
+                   data-html="{{ '{oidc:copy}'|trans }}"
+                   class="copy link icon"></i>
             </td>
         </tr>
         <tr>
             <td class="collapsing">{{ '{oidc:client:secret}'|trans }}</td>
             <td>
                 {{ client.secret }}
-                <i data-clipboard-text="{{ client.secret }}" data-html="{{ '{oidc:copy}'|trans }}" class="copy link icon"></i>
+                <i data-clipboard-text="{{ client.secret }}"
+                   data-html="{{ '{oidc:copy}'|trans }}"
+                   class="copy link icon"></i>
             </td>
         </tr>
         <tr>

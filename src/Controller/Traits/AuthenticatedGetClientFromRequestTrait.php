@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -14,35 +16,31 @@
 
 namespace SimpleSAML\Module\oidc\Controller\Traits;
 
+use JsonException;
+use SimpleSAML\Error\Exception;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Error\NotFound;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
 
 trait AuthenticatedGetClientFromRequestTrait
 {
-    /**
-     * @var ClientRepository
-     */
-    protected $clientRepository;
+    protected ClientRepository $clientRepository;
+
+    private AuthContextService $authContextService;
 
     /**
-     * @var AuthContextService
-     */
-    private $authContextService;
-
-    /**
-     * @throws BadRequest
-     * @throws NotFound
+     * @throws BadRequest|NotFound|Exception|OidcServerException|JsonException
      */
     protected function getClientFromRequest(ServerRequestInterface $request): ClientEntityInterface
     {
         $params = $request->getQueryParams();
-        $clientId = $params['client_id'] ?? null;
+        $clientId = empty($params['client_id']) ? null : (string)$params['client_id'];
 
-        if (!$clientId) {
+        if (!is_string($clientId)) {
             throw new BadRequest('Client id is missing.');
         }
         $authedUser = null;

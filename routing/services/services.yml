@@ -1,27 +1,54 @@
 services:
-    # default configuration for services in *this* file
-    _defaults:
-        public: false
+  # default configuration for services in *this* file
+  _defaults:
+    autowire: true
+    autoconfigure: true
+    public: false
+    bind:
+      #Psr\Log\LoggerInterface: '@SimpleSAML\Module\oidc\Services\LoggerService'
+      League\OAuth2\Server\Repositories\ClientRepositoryInterface: '@SimpleSAML\Module\oidc\Repositories\ClientRepository'
+      League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface: '@SimpleSAML\Module\oidc\Repositories\AccessTokenRepository'
+      League\OAuth2\Server\Repositories\ScopeRepositoryInterface: '@SimpleSAML\Module\oidc\Repositories\ScopeRepository'
+      League\OAuth2\Server\CryptKey|string $privateKey: '@oidc.key.private'
+      League\OAuth2\Server\CryptKey|string $publicKey: '@oidc.key.public'
 
-    SimpleSAML\Module\oidc\Services\:
-        resource: '../../src/Services/*'
-        exclude: '../../src/Services/{Container.php}'
+  SimpleSAML\Module\oidc\Services\:
+    resource: '../../src/Services/*'
+    exclude: '../../src/Services/{Container.php}'
 
-    SimpleSAML\Module\oidc\Repositories\:
-        resource: '../../src/Repositories/*'
-        exclude: '../../src/Repositories/{Interfaces}'
+  SimpleSAML\Module\oidc\Repositories\:
+    resource: '../../src/Repositories/*'
+    exclude: '../../src/Repositories/{Interfaces}'
 
-    SimpleSAML\Module\oidc\Factories\:
-        resource: '../../src/Factories/*'
+  SimpleSAML\Module\oidc\Factories\:
+    resource: '../../src/Factories/*'
 
-    SimpleSAML\Module\oidc\Store\:
-        resource: '../../src/Store/*'
+  SimpleSAML\Module\oidc\Stores\:
+    resource: '../../src/Stores/*'
 
-    SimpleSAML\Module\oidc\Server\AuthorizationServer:
-        class: SimpleSAML\Module\oidc\Server\AuthorizationServer
+  SimpleSAML\Module\oidc\ModuleConfig: ~
 
-    League\OAuth2\Server\ResourceServer:
-        class: League\OAuth2\Server\ResourceServer
+  oidc.key.private:
+    class: League\OAuth2\Server\CryptKey
+    factory: ['@SimpleSAML\Module\oidc\Factories\CryptKeyFactory', 'buildPrivateKey']
 
-    SimpleSAML\Module\oidc\ClaimTranslatorExtractor:
-        class: SimpleSAML\Module\oidc\ClaimTranslatorExtractor
+  oidc.key.public:
+    class: League\OAuth2\Server\CryptKey
+    factory: ['@SimpleSAML\Module\oidc\Factories\CryptKeyFactory', 'buildPublicKey']
+
+  SimpleSAML\Module\oidc\Factories\ResourceServerFactory:
+    arguments:
+      $publicKey: '@oidc.key.public'
+
+  SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor:
+    arguments:
+      $userIdAttr: '@=service("SimpleSAML\\Module\\oidc\\ModuleConfig").getUserIdentifierAttribute()'
+
+  SimpleSAML\Module\oidc\Server\AuthorizationServer:
+    arguments:
+      $encryptionKey: '@=service("SimpleSAML\\Module\\oidc\\ModuleConfig").getEncryptionKey()'
+
+  # OAuth2 Server
+  League\OAuth2\Server\ResourceServer:
+    arguments:
+      $publicKey: '@oidc.key.public'

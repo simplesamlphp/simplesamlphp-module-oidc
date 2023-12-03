@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -14,16 +16,19 @@
 
 namespace SimpleSAML\Module\oidc\Repositories;
 
+use Exception;
+use JsonException;
 use League\OAuth2\Server\Entities\AuthCodeEntityInterface as OAuth2AuthCodeEntityInterface;
+use RuntimeException;
 use SimpleSAML\Error\Error;
-use SimpleSAML\Module\oidc\Entity\AuthCodeEntity;
-use SimpleSAML\Module\oidc\Entity\Interfaces\AuthCodeEntityInterface;
+use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
+use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeRepositoryInterface
 {
-    public const TABLE_NAME = 'oidc_auth_code';
+    final public const TABLE_NAME = 'oidc_auth_code';
 
     public function getTableName(): string
     {
@@ -40,8 +45,9 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
 
     /**
      * {@inheritdoc}
+     * @throws Error|JsonException
      */
-    public function persistNewAuthCode(OAuth2AuthCodeEntityInterface $authCodeEntity)
+    public function persistNewAuthCode(OAuth2AuthCodeEntityInterface $authCodeEntity): void
     {
         if (!$authCodeEntity instanceof AuthCodeEntity) {
             throw new Error('Invalid AuthCodeEntity');
@@ -61,6 +67,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
 
     /**
      * Find Auth Code by id.
+     * @throws Exception
      */
     public function findById(string $codeId): ?AuthCodeEntityInterface
     {
@@ -71,26 +78,29 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
             ]
         );
 
-        if (!$rows = $stmt->fetchAll()) {
+        if (empty($rows = $stmt->fetchAll())) {
             return null;
         }
 
+        /** @var array $data */
         $data = current($rows);
-        $clientRepository = new ClientRepository($this->configurationService);
-        $data['client'] = $clientRepository->findById($data['client_id']);
+        $clientRepository = new ClientRepository($this->moduleConfig);
+        $data['client'] = $clientRepository->findById((string)$data['client_id']);
 
         return AuthCodeEntity::fromState($data);
     }
 
     /**
      * {@inheritdoc}
+     * @throws JsonException
+     * @throws Exception
      */
-    public function revokeAuthCode($codeId)
+    public function revokeAuthCode($codeId): void
     {
         $authCode = $this->findById($codeId);
 
         if (!$authCode instanceof AuthCodeEntity) {
-            throw new \RuntimeException("AuthCode not found: {$codeId}");
+            throw new RuntimeException("AuthCode not found: $codeId");
         }
 
         $authCode->revoke();
@@ -99,13 +109,14 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
 
     /**
      * {@inheritdoc}
+     * @throws Exception
      */
     public function isAuthCodeRevoked($codeId): bool
     {
         $authCode = $this->findById($codeId);
 
         if (!$authCode instanceof AuthCodeEntity) {
-            throw new \RuntimeException("AuthCode not found: {$codeId}");
+            throw new RuntimeException("AuthCode not found: $codeId");
         }
 
         return $authCode->isRevoked();
@@ -113,6 +124,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
 
     /**
      * Removes expired auth codes.
+     * @throws Exception
      */
     public function removeExpired(): void
     {
@@ -125,9 +137,9 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
     }
 
     /**
-     * @return void
+     * @throws JsonException
      */
-    private function update(AuthCodeEntity $authCodeEntity)
+    private function update(AuthCodeEntity $authCodeEntity): void
     {
         $stmt = sprintf(
             <<<EOS

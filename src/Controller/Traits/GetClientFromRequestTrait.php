@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -14,29 +16,27 @@
 
 namespace SimpleSAML\Module\oidc\Controller\Traits;
 
+use JsonException;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Error\NotFound;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 trait GetClientFromRequestTrait
 {
-    /**
-     * @var ClientRepository
-     */
-    protected $clientRepository;
+    protected ClientRepository $clientRepository;
 
     /**
-     * @throws BadRequest
-     * @throws NotFound
+     * @throws BadRequest|NotFound|OidcServerException|JsonException
      */
     protected function getClientFromRequest(ServerRequestInterface $request): ClientEntityInterface
     {
         $params = $request->getQueryParams();
-        $clientId = $params['client_id'] ?? null;
+        $clientId = empty($params['client_id']) ? null : (string)$params['client_id'];
 
-        if (!$clientId) {
+        if (!is_string($clientId)) {
             throw new BadRequest('Client id is missing.');
         }
 

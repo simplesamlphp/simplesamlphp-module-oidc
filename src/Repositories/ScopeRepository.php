@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -11,50 +13,52 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
 namespace SimpleSAML\Module\oidc\Repositories;
 
+use Exception;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
-use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
-use SimpleSAML\Module\oidc\Entity\ClientEntity;
-use SimpleSAML\Module\oidc\Entity\ScopeEntity;
+use SimpleSAML\Module\oidc\Entities\ClientEntity;
+use SimpleSAML\Module\oidc\Entities\ScopeEntity;
+
+use function array_key_exists;
+use function in_array;
 
 class ScopeRepository extends AbstractDatabaseRepository implements ScopeRepositoryInterface
 {
-    /**
-     * {@inheritdoc}
-     */
-    public function getTableName()
+    public function getTableName(): ?string
     {
         return null;
     }
 
     /**
      * {@inheritdoc}
+     * @throws Exception
      */
-    public function getScopeEntityByIdentifier($identifier)
+    public function getScopeEntityByIdentifier($identifier): ScopeEntity|ScopeEntityInterface|null
     {
-        $scopes = $this->configurationService->getOpenIDScopes();
+        $scopes = $this->moduleConfig->getOpenIDScopes();
 
-        if (false === \array_key_exists($identifier, $scopes)) {
+        if (false === array_key_exists($identifier, $scopes)) {
             return null;
         }
 
+        /** @var array $scope */
         $scope = $scopes[$identifier];
+        /** @var ?string $description */
         $description = $scope['description'] ?? null;
+        /** @var ?string $icon */
         $icon = $scope['icon'] ?? null;
-        $attributes = $scope['attributes'] ?? [];
+        /** @var string[] $claims */
+        $claims = $scope['claims'] ?? [];
 
-        $scope = ScopeEntity::fromData(
+        return ScopeEntity::fromData(
             $identifier,
             $description,
             $icon,
-            $attributes
+            $claims
         );
-
-        return $scope;
     }
 
     /**
@@ -65,13 +69,14 @@ class ScopeRepository extends AbstractDatabaseRepository implements ScopeReposit
         $grantType,
         OAuth2ClientEntityInterface $clientEntity,
         $userIdentifier = null
-    ) {
+    ): array {
         if (!$clientEntity instanceof ClientEntity) {
             return [];
         }
 
-        return array_filter($scopes, function (ScopeEntityInterface $scope) use ($clientEntity) {
-            return \in_array($scope->getIdentifier(), $clientEntity->getScopes(), true);
-        });
+        return array_filter(
+            $scopes,
+            fn(ScopeEntityInterface $scope) => in_array($scope->getIdentifier(), $clientEntity->getScopes(), true)
+        );
     }
 }

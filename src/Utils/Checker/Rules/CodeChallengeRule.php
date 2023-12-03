@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
@@ -29,6 +31,7 @@ class CodeChallengeRule extends AbstractRule
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
+        /** @var ?string $codeChallenge */
         $codeChallenge = $request->getQueryParams()['code_challenge'] ?? null;
 
         if ($codeChallenge === null) {

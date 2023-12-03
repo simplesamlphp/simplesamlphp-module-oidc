@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Services;
 
 use DateTimeImmutable;
@@ -12,12 +14,12 @@ use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\UnencryptedToken;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use ReflectionException;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
 use SimpleSAML\Module\oidc\Utils\UniqueIdentifierGenerator;
 
 class JsonWebTokenBuilderService
 {
-    protected ConfigurationService $configurationService;
     protected Configuration $jwtConfig;
 
     /**
@@ -25,17 +27,15 @@ class JsonWebTokenBuilderService
      * @throws Exception
      */
     public function __construct(
-        ?ConfigurationService $configurationService = null
+        protected ModuleConfig $moduleConfig = new ModuleConfig()
     ) {
-        $this->configurationService = $configurationService ?? new ConfigurationService();
-
         $this->jwtConfig = Configuration::forAsymmetricSigner(
-            $this->configurationService->getSigner(),
+            $this->moduleConfig->getSigner(),
             InMemory::file(
-                $this->configurationService->getPrivateKeyPath(),
-                $this->configurationService->getPrivateKeyPassPhrase() ?? ''
+                $this->moduleConfig->getPrivateKeyPath(),
+                $this->moduleConfig->getPrivateKeyPassPhrase() ?? ''
             ),
-            InMemory::empty()
+            InMemory::plainText('empty', 'empty')
         );
     }
 
@@ -46,14 +46,17 @@ class JsonWebTokenBuilderService
     {
         // Ignore microseconds when handling dates.
         return $this->jwtConfig->builder(ChainedFormatter::withUnixTimestampDates())
-            ->issuedBy($this->configurationService->getSimpleSAMLSelfURLHost())
+            ->issuedBy($this->moduleConfig->getSimpleSAMLSelfURLHost())
             ->issuedAt(new DateTimeImmutable('now'))
             ->identifiedBy(UniqueIdentifierGenerator::hitMe());
     }
 
+    /**
+     * @throws Exception
+     */
     public function getSignedJwtTokenFromBuilder(Builder $builder): UnencryptedToken
     {
-        $kid = FingerprintGenerator::forFile($this->configurationService->getCertPath());
+        $kid = FingerprintGenerator::forFile($this->moduleConfig->getCertPath());
 
         return $builder->withHeader('kid', $kid)
             ->getToken(
@@ -67,6 +70,6 @@ class JsonWebTokenBuilderService
      */
     public function getSigner(): Signer
     {
-        return $this->configurationService->getSigner();
+        return $this->moduleConfig->getSigner();
     }
 }

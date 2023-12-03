@@ -1,8 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 $config = array(
 
-    // This is a authentication source which handles admin authentication.
+    // This is an authentication source which handles admin authentication.
     'admin' => array(
         'core:AdminPassword',
     ),

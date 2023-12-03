@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Server\Grants\Traits;
 
 use DateInterval;
@@ -10,9 +12,9 @@ use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use League\OAuth2\Server\Grant\AbstractGrant;
-use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
-use SimpleSAML\Module\oidc\Entity\Interfaces\AccessTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 /**
  * Trait IssueAccessTokenTrait
@@ -22,6 +24,9 @@ use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterfac
  */
 trait IssueAccessTokenTrait
 {
+    /**
+     * @psalm-suppress MissingPropertyType
+     */
     protected $accessTokenRepository;
 
     /**
@@ -32,13 +37,9 @@ trait IssueAccessTokenTrait
     /**
      * Issue an access token.
      *
-     * @param DateInterval           $accessTokenTTL
-     * @param ClientEntityInterface  $client
-     * @param string|null            $userIdentifier
+     * @param string|null $userIdentifier
      * @param ScopeEntityInterface[] $scopes
-     * @param string|null $authCodeId
      * @param array|null $requestedClaims Any requested claims
-     * @return AccessTokenEntityInterface
      * @throws OAuthServerException
      * @throws UniqueTokenIdentifierConstraintViolationException
      */
@@ -51,6 +52,13 @@ trait IssueAccessTokenTrait
         array $requestedClaims = null
     ): AccessTokenEntityInterface {
         $maxGenerationAttempts = AbstractGrant::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
+
+        /** Since we are using our own repository interface, check for proper type. */
+        if (! is_a($this->accessTokenRepository, AccessTokenRepositoryInterface::class)) {
+            throw OidcServerException::serverError(
+                'Access token repository does not implement ' . AccessTokenRepositoryInterface::class
+            );
+        }
 
         $accessToken = $this->accessTokenRepository->getNewToken(
             $client,
@@ -81,7 +89,6 @@ trait IssueAccessTokenTrait
      * Generate a new unique identifier.
      *
      * @param int $length
-     *
      * @throws OAuthServerException
      *
      * @return string

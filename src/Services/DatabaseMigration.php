@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -22,11 +24,11 @@ use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
-use SimpleSAML\Module\oidc\Store\SessionLogoutTicketStoreDb;
+use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
 
 class DatabaseMigration
 {
-    private Database $database;
+    private readonly Database $database;
 
     public function __construct(Database $database = null)
     {
@@ -51,11 +53,11 @@ class DatabaseMigration
     {
         $versionsTablename = $this->versionsTableName();
         $this->database->write(
-            "CREATE TABLE IF NOT EXISTS {$versionsTablename} (version VARCHAR(191) PRIMARY KEY NOT NULL)"
+            "CREATE TABLE IF NOT EXISTS $versionsTablename (version VARCHAR(191) PRIMARY KEY NOT NULL)"
         );
 
         return $this->database
-            ->read("SELECT version FROM ${versionsTablename}")
+            ->read("SELECT version FROM $versionsTablename")
             ->fetchAll(PDO::FETCH_COLUMN, 0);
     }
 
@@ -66,57 +68,57 @@ class DatabaseMigration
 
         if (!in_array('20180305180300', $versions, true)) {
             $this->version20180305180300();
-            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20180305180300')");
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20180305180300')");
         }
 
         if (!in_array('20180425203400', $versions, true)) {
             $this->version20180425203400();
-            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20180425203400')");
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20180425203400')");
         }
 
         if (!in_array('20200517071100', $versions, true)) {
             $this->version20200517071100();
-            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20200517071100')");
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20200517071100')");
         }
 
         if (!in_array('20200901163000', $versions, true)) {
             $this->version20200901163000();
-            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20200901163000')");
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20200901163000')");
         }
 
         if (!in_array('20210714113000', $versions, true)) {
             $this->version20210714113000();
-            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210714113000')");
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20210714113000')");
         }
 
         if (!in_array('20210823141300', $versions, true)) {
             $this->version20210823141300();
-            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210823141300')");
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20210823141300')");
         }
 
         if (!in_array('20210827111300', $versions, true)) {
             $this->version20210827111300();
-            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210827111300')");
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20210827111300')");
         }
 
         if (!in_array('20210902113500', $versions, true)) {
             $this->version20210902113500();
-            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210902113500')");
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20210902113500')");
         }
 
         if (!in_array('20210908143500', $versions, true)) {
             $this->version20210908143500();
-            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210908143500')");
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20210908143500')");
         }
 
         if (!in_array('20210916153400', $versions, true)) {
             $this->version20210916153400();
-            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210916153400')");
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20210916153400')");
         }
 
         if (!in_array('20210916173400', $versions, true)) {
             $this->version20210916173400();
-            $this->database->write("INSERT INTO ${versionsTablename} (version) VALUES ('20210916173400')");
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20210916173400')");
         }
     }
 
@@ -128,11 +130,11 @@ class DatabaseMigration
     /**
      * @return void
      */
-    private function version20180305180300()
+    private function version20180305180300(): void
     {
         $userTablename = $this->database->applyPrefix(UserRepository::TABLE_NAME);
         $this->database->write(<<< EOT
-        CREATE TABLE ${userTablename} (
+        CREATE TABLE $userTablename (
             id VARCHAR(191) PRIMARY KEY NOT NULL,
             claims TEXT,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -143,7 +145,7 @@ EOT
 
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
         $this->database->write(<<< EOT
-        CREATE TABLE ${clientTableName} (
+        CREATE TABLE $clientTableName (
             id VARCHAR(191) PRIMARY KEY NOT NULL,
             secret VARCHAR(255) NOT NULL,
             name VARCHAR(255) NOT NULL,
@@ -159,17 +161,17 @@ EOT
         $fkAccessTokenUser = $this->generateIdentifierName([$accessTokenTableName, 'user_id'], 'fk');
         $fkAccessTokenClient = $this->generateIdentifierName([$accessTokenTableName, 'client_id'], 'fk');
         $this->database->write(<<< EOT
-        CREATE TABLE ${accessTokenTableName} (
+        CREATE TABLE $accessTokenTableName (
             id VARCHAR(191) PRIMARY KEY NOT NULL,
             scopes TEXT,
             expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             user_id VARCHAR(191) NOT NULL,                          
             client_id VARCHAR(191) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
-            CONSTRAINT {$fkAccessTokenUser} FOREIGN KEY (user_id) 
-                REFERENCES ${userTablename} (id) ON DELETE CASCADE,                                 
-            CONSTRAINT {$fkAccessTokenClient} FOREIGN KEY (client_id) 
-                REFERENCES ${clientTableName} (id) ON DELETE CASCADE                                
+            CONSTRAINT $fkAccessTokenUser FOREIGN KEY (user_id) 
+                REFERENCES $userTablename (id) ON DELETE CASCADE,                                 
+            CONSTRAINT $fkAccessTokenClient FOREIGN KEY (client_id) 
+                REFERENCES $clientTableName (id) ON DELETE CASCADE                                
         )
 EOT
         );
@@ -177,13 +179,13 @@ EOT
         $refreshTokenTableName = $this->database->applyPrefix(RefreshTokenRepository::TABLE_NAME);
         $fkRefreshTokenAccessToken = $this->generateIdentifierName([$refreshTokenTableName, 'access_token_id'], 'fk');
         $this->database->write(<<< EOT
-        CREATE TABLE ${refreshTokenTableName} (
+        CREATE TABLE $refreshTokenTableName (
             id VARCHAR(191) PRIMARY KEY NOT NULL,          
             expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             access_token_id VARCHAR(191) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
-            CONSTRAINT {$fkRefreshTokenAccessToken} FOREIGN KEY (access_token_id)
-                REFERENCES ${accessTokenTableName} (id) ON DELETE CASCADE
+            CONSTRAINT $fkRefreshTokenAccessToken FOREIGN KEY (access_token_id)
+                REFERENCES $accessTokenTableName (id) ON DELETE CASCADE
         )
 EOT
         );
@@ -192,7 +194,7 @@ EOT
         $fkAuthCodeUser = $this->generateIdentifierName([$authCodeTableName, 'user_id'], 'fk');
         $fkAuthCodeClient = $this->generateIdentifierName([$authCodeTableName, 'client_id'], 'fk');
         $this->database->write(<<< EOT
-        CREATE TABLE ${authCodeTableName} (
+        CREATE TABLE $authCodeTableName (
             id VARCHAR(191) PRIMARY KEY NOT NULL,
             scopes TEXT,
             expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -200,10 +202,10 @@ EOT
             client_id VARCHAR(191) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
             redirect_uri TEXT NOT NULL,
-            CONSTRAINT {$fkAuthCodeUser} FOREIGN KEY (user_id)
-                REFERENCES ${userTablename} (id) ON DELETE CASCADE,                                 
-            CONSTRAINT {$fkAuthCodeClient} FOREIGN KEY (client_id)
-                REFERENCES ${clientTableName} (id) ON DELETE CASCADE                                            
+            CONSTRAINT $fkAuthCodeUser FOREIGN KEY (user_id)
+                REFERENCES $userTablename (id) ON DELETE CASCADE,                                 
+            CONSTRAINT $fkAuthCodeClient FOREIGN KEY (client_id)
+                REFERENCES $clientTableName (id) ON DELETE CASCADE                                            
         )
 EOT
         );
@@ -212,7 +214,7 @@ EOT
     /**
      * @return void
      */
-    private function version20180425203400()
+    private function version20180425203400(): void
     {
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
         $this->database->write(<<< EOT
@@ -222,7 +224,7 @@ EOT
         );
     }
 
-    private function version20200517071100()
+    private function version20200517071100(): void
     {
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
         $this->database->write(<<< EOT
@@ -255,7 +257,7 @@ EOT
     /**
      * Add auth_code_id column to access token and refresh token tables
      */
-    protected function version20210714113000()
+    protected function version20210714113000(): void
     {
         $tableName = $this->database->applyPrefix(AccessTokenRepository::TABLE_NAME);
         $this->database->write(<<< EOT
@@ -275,7 +277,7 @@ EOT
     /**
      * Add requested claims to authorization token
      */
-    protected function version20210823141300()
+    protected function version20210823141300(): void
     {
         $tableName = $this->database->applyPrefix(AccessTokenRepository::TABLE_NAME);
         $this->database->write(<<< EOT
@@ -296,12 +298,12 @@ EOT
         $fkAllowedOriginClient = $this->generateIdentifierName([$allowedOriginTableName, 'client_id'], 'fk');
 
         $this->database->write(<<< EOT
-        CREATE TABLE ${allowedOriginTableName} (
+        CREATE TABLE $allowedOriginTableName (
             client_id VARCHAR(191) NOT NULL,
             origin VARCHAR(191) NOT NULL,
-            CONSTRAINT {$pkAllowedOriginClient} PRIMARY KEY (client_id, origin),
-            CONSTRAINT {$fkAllowedOriginClient} FOREIGN KEY (client_id)
-                REFERENCES ${clientTableName} (id) ON DELETE CASCADE
+            CONSTRAINT $pkAllowedOriginClient PRIMARY KEY (client_id, origin),
+            CONSTRAINT $fkAllowedOriginClient FOREIGN KEY (client_id)
+                REFERENCES $clientTableName (id) ON DELETE CASCADE
         )
 EOT
         );
@@ -323,7 +325,7 @@ EOT
     /**
      * Add backchannel_logout_uri to client
      */
-    protected function version20210916153400()
+    protected function version20210916153400(): void
     {
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
         $this->database->write(<<< EOT
@@ -336,12 +338,12 @@ EOT
     /**
      * Add logout_ticket table
      */
-    protected function version20210916173400()
+    protected function version20210916173400(): void
     {
-        $tableName = $this->database->applyPrefix(SessionLogoutTicketStoreDb::TABLE_NAME);
+        $tableName = $this->database->applyPrefix(LogoutTicketStoreDb::TABLE_NAME);
         $this->database->write(
             <<< EOT
-        CREATE TABLE ${tableName} (
+        CREATE TABLE $tableName (
             sid VARCHAR(191) NOT NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
@@ -349,12 +351,13 @@ EOT
         );
     }
 
+    /**
+     * @param string[] $columnNames
+     */
     private function generateIdentifierName(array $columnNames, string $prefix = '', int $maxSize = 30): string
     {
-        $hash = implode('', array_map(function ($column) {
-            return dechex(crc32($column));
-        }, $columnNames));
+        $hash = implode('', array_map(fn($column) => dechex(crc32($column)), $columnNames));
 
-        return mb_strtoupper(mb_substr("{$prefix}_{$hash}", 0, $maxSize));
+        return mb_strtoupper(mb_substr("{$prefix}_$hash", 0, $maxSize));
     }
 }

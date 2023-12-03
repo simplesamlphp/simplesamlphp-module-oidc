@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils\Checker;
 
 use LogicException;
@@ -22,25 +24,22 @@ class RequestRulesManager
     /**
      * @var ResultBagInterface $resultBag
      */
-    protected $resultBag;
+    protected ResultBagInterface $resultBag;
 
     /** @var array $data Which will be available during each check */
     protected array $data = [];
-
-    protected LoggerService $loggerService;
 
     /**
      * RequestRulesManager constructor.
      * @param RequestRuleInterface[] $rules
      */
-    public function __construct(array $rules = [], ?LoggerService $loggerService = null)
+    public function __construct(array $rules = [], protected LoggerService $loggerService = new LoggerService())
     {
         foreach ($rules as $rule) {
             $this->add($rule);
         }
 
         $this->resultBag = new ResultBag();
-        $this->loggerService = $loggerService ?? new LoggerService();
     }
 
     public function add(RequestRuleInterface $rule): void
@@ -49,12 +48,10 @@ class RequestRulesManager
     }
 
     /**
-     * @param ServerRequestInterface $request
-     * @param array $ruleKeysToExecute
+     * @param class-string[] $ruleKeysToExecute
      * @param bool $useFragmentInHttpErrorResponses Indicate that in case of HTTP error responses, params should be
      * returned in URI fragment instead of query.
-     * @param array $allowedServerRequestMethods Indicate allowed HTTP methods used for request
-     * @return ResultBagInterface
+     * @param string[] $allowedServerRequestMethods Indicate allowed HTTP methods used for request
      * @throws OidcServerException
      */
     public function check(
@@ -86,8 +83,7 @@ class RequestRulesManager
     }
 
     /**
-     * Predefine (add) the existing result so it can be used by other checkers during check.
-     * @param ResultInterface $result
+     * Predefine (add) the existing result, so it can be used by other checkers during check.
      */
     public function predefineResult(ResultInterface $result): void
     {
@@ -96,7 +92,6 @@ class RequestRulesManager
 
     /**
      * Predefine existing ResultBag so that it can be used by other checkers during check.
-     * @param ResultBagInterface $resultBag
      */
     public function predefineResultBag(ResultBagInterface $resultBag): void
     {
@@ -105,10 +100,8 @@ class RequestRulesManager
 
     /**
      * Set data which will be available in each check, using key value pair
-     * @param string $key
-     * @param mixed $value
      */
-    public function setData(string $key, $value): void
+    public function setData(string $key, mixed $value): void
     {
         $this->data[$key] = $value;
     }

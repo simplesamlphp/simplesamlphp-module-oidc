@@ -1,23 +1,23 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Services;
 
+use Exception;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use SimpleSAML\Module\oidc\Server\Associations\Interfaces\RelyingPartyAssociationInterface;
 use stdClass;
 
 class LogoutTokenBuilder
 {
-    protected JsonWebTokenBuilderService $jsonWebTokenBuilderService;
-
     public function __construct(
-        ?JsonWebTokenBuilderService $jsonWebTokenBuilderService = null
+        protected JsonWebTokenBuilderService $jsonWebTokenBuilderService = new JsonWebTokenBuilderService()
     ) {
-        $this->jsonWebTokenBuilderService = $jsonWebTokenBuilderService ?? new JsonWebTokenBuilderService();
     }
 
     /**
-     * @throws OAuthServerException
+     * @throws OAuthServerException|Exception
      */
     public function forRelyingPartyAssociation(RelyingPartyAssociationInterface $relyingPartyAssociation): string
     {

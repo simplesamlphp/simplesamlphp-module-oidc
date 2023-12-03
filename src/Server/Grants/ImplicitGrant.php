@@ -1,9 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use DateInterval;
-use League\OAuth2\Server\Entities\UserEntityInterface;
+use Exception;
+use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
@@ -12,8 +15,9 @@ use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
 use RuntimeException;
-use SimpleSAML\Module\oidc\Entity\AccessTokenEntity;
-use SimpleSAML\Module\oidc\Entity\Interfaces\EntityStringRepresentationInterface;
+use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entities\Interfaces\EntityStringRepresentationInterface;
+use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
@@ -36,18 +40,21 @@ class ImplicitGrant extends OAuth2ImplicitGrant
 {
     use IssueAccessTokenTrait;
 
-    protected IdTokenBuilder $idTokenBuilder;
+    /**
+     * @var CryptKey
+     * @psalm-suppress PropertyNotSetInConstructor
+     */
+    protected $privateKey;
 
     public function __construct(
-        IdTokenBuilder $idTokenBuilder,
+        protected IdTokenBuilder $idTokenBuilder,
         DateInterval $accessTokenTTL,
         AccessTokenRepositoryInterface $accessTokenRepository,
-        $queryDelimiter = '#',
+        string $queryDelimiter = '#',
         RequestRulesManager $requestRulesManager = null
     ) {
         parent::__construct($accessTokenTTL, $queryDelimiter, $requestRulesManager);
         $this->accessTokenRepository = $accessTokenRepository;
-        $this->idTokenBuilder = $idTokenBuilder;
     }
 
     /**
@@ -56,14 +63,18 @@ class ImplicitGrant extends OAuth2ImplicitGrant
     public function canRespondToAuthorizationRequest(ServerRequestInterface $request): bool
     {
         $queryParams = $request->getQueryParams();
-        if (!isset($queryParams['response_type']) || !isset($queryParams['client_id'])) {
+        if (
+            !isset($queryParams['response_type']) ||
+            !is_string($queryParams['response_type']) ||
+            !isset($queryParams['client_id'])
+        ) {
             return false;
         }
 
         $responseType = explode(" ", $queryParams['response_type']);
 
         return in_array('id_token', $responseType, true) &&
-            ! in_array('code', $responseType, true); // ...avoid triggering hybrid flow
+        ! in_array('code', $responseType, true); // ...avoid triggering hybrid flow
     }
 
     /**
@@ -93,7 +104,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
         ResultBagInterface $resultBag
     ): OAuth2AuthorizationRequest {
         $oAuth2AuthorizationRequest =
-            parent::validateAuthorizationRequestWithCheckerResultBag($request, $resultBag);
+        parent::validateAuthorizationRequestWithCheckerResultBag($request, $resultBag);
 
         $rulesToExecute = [
             RequestParameterRule::class,
@@ -114,7 +125,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
         $authorizationRequest = AuthorizationRequest::fromOAuth2AuthorizationRequest($oAuth2AuthorizationRequest);
 
         // nonce existence is validated using a rule, so we can get it from there.
-        $authorizationRequest->setNonce($resultBag->getOrFail(RequiredNonceRule::class)->getValue());
+        $authorizationRequest->setNonce((string)$resultBag->getOrFail(RequiredNonceRule::class)->getValue());
 
         $maxAge = $resultBag->get(MaxAgeRule::class);
         if (null !== $maxAge) {
@@ -123,8 +134,13 @@ class ImplicitGrant extends OAuth2ImplicitGrant
 
         $requestClaims = $resultBag->get(RequestedClaimsRule::class);
         if (null !== $requestClaims) {
-            $authorizationRequest->setClaims($requestClaims->getValue());
+            /** @var ?array $requestClaimValues */
+            $requestClaimValues = $requestClaims->getValue();
+            if (is_array($requestClaimValues)) {
+                $authorizationRequest->setClaims($requestClaimValues);
+            }
         }
+        /** @var bool $addClaimsToIdToken */
         $addClaimsToIdToken = ($resultBag->getOrFail(AddClaimsToIdTokenRule::class))->getValue();
         $authorizationRequest->setAddClaimsToIdToken($addClaimsToIdToken);
 
@@ -143,12 +159,13 @@ class ImplicitGrant extends OAuth2ImplicitGrant
      * @throws UniqueTokenIdentifierConstraintViolationException
      * @throws OAuthServerException
      * @throws OidcServerException
+     * @throws Exception
      */
     private function completeOidcAuthorizationRequest(AuthorizationRequest $authorizationRequest): ResponseTypeInterface
     {
         $user = $authorizationRequest->getUser();
 
-        if ($user instanceof UserEntityInterface === false) {
+        if ($user instanceof UserEntity === false) {
             throw new LogicException('An instance of UserEntityInterface should be set on the AuthorizationRequest');
         }
 

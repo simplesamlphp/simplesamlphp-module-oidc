@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -11,42 +13,29 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
 namespace SimpleSAML\Module\oidc\Repositories;
 
+use Exception;
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
 
 abstract class AbstractDatabaseRepository
 {
-    /**
-     * @var \SimpleSAML\Configuration
-     */
-    protected $config;
+    protected Configuration $config;
 
-    /**
-     * @var \SimpleSAML\Database
-     */
-    protected $database;
-
-    /**
-     * @var \SimpleSAML\Module\oidc\Services\ConfigurationService
-     */
-    protected $configurationService;
+    protected Database $database;
 
     /**
      * ClientRepository constructor.
+     * @throws Exception
      */
-    public function __construct(ConfigurationService $configurationService)
+    public function __construct(protected ModuleConfig $moduleConfig)
     {
-        $this->config = Configuration::getOptionalConfig('module_oidc.php');
+        $this->config = $this->moduleConfig->config();
+        // TODO mivanci move to Doctrine DBAL stores
         $this->database = Database::getInstance();
-        $this->configurationService = $configurationService;
     }
 
-    /**
-     * @return string|null
-     */
-    abstract public function getTableName();
+    abstract public function getTableName(): ?string;
 }

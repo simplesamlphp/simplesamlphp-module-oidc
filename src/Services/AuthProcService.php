@@ -1,43 +1,40 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Services;
 
+use Exception;
 use SimpleSAML\Auth\ProcessingFilter;
 use SimpleSAML\Module;
+use SimpleSAML\Module\oidc\ModuleConfig;
 
 class AuthProcService
 {
     /**
-     * @var ConfigurationService
+     * @var ProcessingFilter[] Filters to be applied to OIDC state.
      */
-    private $configurationService;
-
-    /**
-     * @var array Filters to be applied to OIDC state.
-     */
-    private $filters = [];
+    private array $filters = [];
 
     /**
      * AuthProcService constructor.
-     * @param ConfigurationService $configurationService
      *
-     * @throws \Exception
+     * @throws Exception
      * @see \SimpleSAML\Auth\ProcessingChain for original implementation
      */
     public function __construct(
-        ConfigurationService $configurationService
+        private readonly ModuleConfig $moduleConfig
     ) {
-        $this->configurationService = $configurationService;
         $this->loadFilters();
     }
 
     /**
      * Load filters defined in configuration.
-     * @throws \Exception
+     * @throws Exception
      */
     private function loadFilters(): void
     {
-        $oidcAuthProcFilters = $this->configurationService->getAuthProcFilters();
+        $oidcAuthProcFilters = $this->moduleConfig->getAuthProcFilters();
         $this->filters = $this->parseFilterList($oidcAuthProcFilters);
     }
 
@@ -46,8 +43,8 @@ class AuthProcService
      * @see \SimpleSAML\Auth\ProcessingChain::parseFilterList for original implementation
      *
      * @param array $filterSrc Array with filter configuration.
-     * @return array  Array of ProcessingFilter objects.
-     * @throws \Exception
+     * @return array<ProcessingFilter>  Array of ProcessingFilter objects.
+     * @throws Exception
      */
     private function parseFilterList(array $filterSrc): array
     {
@@ -59,25 +56,35 @@ class AuthProcService
             }
 
             if (!is_array($filterConfig)) {
-                throw new \Exception('Invalid authentication processing filter configuration: ' .
+                throw new Exception('Invalid authentication processing filter configuration: ' .
                                      'One of the filters wasn\'t a string or an array.');
             }
 
             if (!array_key_exists('class', $filterConfig)) {
-                throw new \Exception('Authentication processing filter without name given.');
+                throw new Exception('Authentication processing filter without name given.');
+            }
+
+            if (!is_string($filterConfig['class'])) {
+                throw new Exception('Invalid class value for authentication processing filter configuration.');
             }
 
             $className = Module::resolveClass(
                 $filterConfig['class'],
                 'Auth\Process',
-                '\SimpleSAML\Auth\ProcessingFilter'
+                '\\' . ProcessingFilter::class
             );
+
+            if (!is_a($className, ProcessingFilter::class, true)) {
+                throw new Exception(
+                    'Authentication processing filter class configuration is not ProcessingFilter instance.'
+                );
+            }
 
             $filterConfig['%priority'] = $priority;
             unset($filterConfig['class']);
 
             /**
-             * @psalm-suppress InvalidStringClass
+             * @psalm-suppress UnsafeInstantiation
              */
             $parsedFilters[] = new $className($filterConfig, null);
         }
@@ -87,9 +94,6 @@ class AuthProcService
 
     /**
      * Process given state array.
-     *
-     * @param array $state
-     * @return array
      */
     public function processState(array $state): array
     {

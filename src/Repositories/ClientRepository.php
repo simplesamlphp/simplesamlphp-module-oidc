@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -11,22 +13,21 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
 namespace SimpleSAML\Module\oidc\Repositories;
 
 use Exception;
+use JsonException;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
-use SimpleSAML\Module\oidc\Entity\ClientEntity;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entities\ClientEntity;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 class ClientRepository extends AbstractDatabaseRepository implements ClientRepositoryInterface
 {
-    public const TABLE_NAME = 'oidc_client';
+    final public const TABLE_NAME = 'oidc_client';
 
-    /**
-     * @return string
-     */
     public function getTableName(): string
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
@@ -35,6 +36,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
     /**
      * {@inheritdoc}
      * @throws OAuthServerException
+     * @throws JsonException
      */
     public function getClientEntity($clientIdentifier)
     {
@@ -54,6 +56,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
     /**
      * @inheritDoc
      * @throws OAuthServerException
+     * @throws JsonException
      */
     public function validateClient($clientIdentifier, $clientSecret, $grantType): bool
     {
@@ -71,26 +74,36 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
     }
 
     /**
-     * @param string $clientIdentifier
-     * @param ?string $owner restrict lookup to this owner
-     * @return ClientEntityInterface|null
+     * @throws OidcServerException
+     * @throws JsonException
      */
     public function findById(string $clientIdentifier, ?string $owner = null): ?ClientEntityInterface
     {
-        list($query, $params) = $this->addOwnerWhereClause(
+        /**
+         * @var string $query
+         * @var array $params
+         */
+        [$query, $params] = $this->addOwnerWhereClause(
             "SELECT * FROM {$this->getTableName()} WHERE id = :id",
             [
                 'id' => $clientIdentifier,
             ],
             $owner
         );
+
         $stmt = $this->database->read($query, $params);
 
-        if (!$rows = $stmt->fetchAll()) {
+        if (empty($rows = $stmt->fetchAll())) {
             return null;
         }
 
-        return ClientEntity::fromState(current($rows));
+        $row = current($rows);
+
+        if (!is_array($row)) {
+            return null;
+        }
+
+        return ClientEntity::fromState($row);
     }
 
     private function addOwnerWhereClause(string $query, array $params, ?string $owner = null): array
@@ -108,10 +121,15 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
     /**
      * @return ClientEntityInterface[]
+     * @throws OidcServerException|JsonException
      */
     public function findAll(?string $owner = null): array
     {
-        list($query, $params) = $this->addOwnerWhereClause(
+        /**
+         * @var string $query
+         * @var array $params
+         */
+        [$query, $params] = $this->addOwnerWhereClause(
             "SELECT * FROM {$this->getTableName()}",
             [],
             $owner
@@ -123,6 +141,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
         $clients = [];
 
+        /** @var array $state */
         foreach ($stmt->fetchAll() as $state) {
             $clients[] = ClientEntity::fromState($state);
         }
@@ -131,9 +150,6 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
     }
 
     /**
-     * @param int $page
-     * @param string $query
-     * @param string|null $owner
      * @return array{numPages: int, currentPage: int, items: ClientEntityInterface[]}
      * @throws Exception
      */
@@ -145,19 +161,22 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         $numPages = $this->calculateNumOfPages($total, $limit);
         $page = $this->calculateCurrentPage($page, $numPages);
         $offset = $this->calculateOffset($page, $limit);
-        list($sqlQuery, $params) = $this->addOwnerWhereClause(
+
+        /**
+         * @var string $sqlQuery
+         * @var array $params
+         */
+        [$sqlQuery, $params] = $this->addOwnerWhereClause(
             "SELECT * FROM {$this->getTableName()} WHERE name LIKE :name",
             ['name' => '%' . $query . '%'],
             $owner
         );
         $stmt = $this->database->read(
-            $sqlQuery . " ORDER BY name ASC LIMIT {$limit} OFFSET {$offset}",
+            $sqlQuery . " ORDER BY name ASC LIMIT $limit OFFSET $offset",
             $params
         );
 
-        $clients = array_map(function ($state) {
-            return ClientEntity::fromState($state);
-        }, $stmt->fetchAll());
+        $clients = array_map(fn(array $state) => ClientEntity::fromState($state), $stmt->fetchAll());
 
         return [
             'numPages' => $numPages,
@@ -210,7 +229,11 @@ EOS
 
     public function delete(ClientEntityInterface $client, ?string $owner = null): void
     {
-        list($sqlQuery, $params) = $this->addOwnerWhereClause(
+        /**
+         * @var string $sqlQuery
+         * @var array $params
+         */
+        [$sqlQuery, $params] = $this->addOwnerWhereClause(
             "DELETE FROM {$this->getTableName()} WHERE id = :id",
             [
                 'id' => $client->getIdentifier(),
@@ -241,7 +264,12 @@ EOF
             ,
             $this->getTableName()
         );
-        list($sqlQuery, $params) = $this->addOwnerWhereClause(
+
+        /**
+         * @var string $sqlQuery
+         * @var array $params
+         */
+        [$sqlQuery, $params] = $this->addOwnerWhereClause(
             $stmt,
             $client->getState(),
             $owner
@@ -254,7 +282,11 @@ EOF
 
     private function count(string $query, ?string $owner): int
     {
-        list($sqlQuery, $params) = $this->addOwnerWhereClause(
+        /**
+         * @var string $sqlQuery
+         * @var array $params
+         */
+        [$sqlQuery, $params] = $this->addOwnerWhereClause(
             "SELECT COUNT(id) FROM {$this->getTableName()} WHERE name LIKE :name",
             ['name' => '%' . $query . '%'],
             $owner
@@ -265,7 +297,7 @@ EOF
         );
         $stmt->execute();
 
-        return (int) $stmt->fetchColumn(0);
+        return (int) $stmt->fetchColumn();
     }
 
     /**
@@ -273,26 +305,17 @@ EOF
      */
     private function getItemsPerPage(): int
     {
-        return $this->config->getOptionalIntegerRange('items_per_page', 1, 100, 20);
+        return $this->config
+            ->getOptionalIntegerRange(ModuleConfig::OPTION_ADMIN_UI_PAGINATION_ITEMS_PER_PAGE, 1, 100, 20);
     }
 
-    /**
-     * @param int $total
-     * @param int $limit
-     * @return int
-     */
     private function calculateNumOfPages(int $total, int $limit): int
     {
         $numPages = (int)ceil($total / $limit);
 
-        return $numPages < 1 ? 1 : $numPages;
+        return max($numPages, 1);
     }
 
-    /**
-     * @param int $page
-     * @param int $numPages
-     * @return int
-     */
     private function calculateCurrentPage(int $page, int $numPages): int
     {
         if ($page > $numPages) {
@@ -306,13 +329,7 @@ EOF
         return $page;
     }
 
-
-    /**
-     * @param int $page
-     * @param int $limit
-     * @return float|int
-     */
-    private function calculateOffset(int $page, int $limit)
+    private function calculateOffset(int $page, int $limit): float|int
     {
         return ($page - 1) * $limit;
     }

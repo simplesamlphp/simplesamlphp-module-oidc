@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -14,19 +16,22 @@
 
 namespace SimpleSAML\Module\oidc\Repositories;
 
+use Exception;
 use League\OAuth2\Server\Entities\RefreshTokenEntityInterface as OAuth2RefreshTokenEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
-use SimpleSAML\Module\oidc\Entity\Interfaces\RefreshTokenEntityInterface;
-use SimpleSAML\Module\oidc\Entity\RefreshTokenEntity;
+use RuntimeException;
+use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entities\RefreshTokenEntity;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 class RefreshTokenRepository extends AbstractDatabaseRepository implements RefreshTokenRepositoryInterface
 {
     use RevokeTokenByAuthCodeIdTrait;
 
-    public const TABLE_NAME = 'oidc_refresh_token';
+    final public const TABLE_NAME = 'oidc_refresh_token';
 
     /**
      * @return string
@@ -68,6 +73,8 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
 
     /**
      * Find Refresh Token by id.
+     * @throws OidcServerException
+     * @throws Exception
      */
     public function findById(string $tokenId): ?RefreshTokenEntityInterface
     {
@@ -78,26 +85,28 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
             ]
         );
 
-        if (!$rows = $stmt->fetchAll()) {
+        if (empty($rows = $stmt->fetchAll())) {
             return null;
         }
 
+        /** @var array $data */
         $data = current($rows);
-        $accessTokenRepository = new AccessTokenRepository($this->configurationService);
-        $data['access_token'] = ($accessTokenRepository)->findById($data['access_token_id']);
+        $accessTokenRepository = new AccessTokenRepository($this->moduleConfig);
+        $data['access_token'] = $accessTokenRepository->findById((string)$data['access_token_id']);
 
         return RefreshTokenEntity::fromState($data);
     }
 
     /**
      * {@inheritdoc}
+     * @throws OidcServerException
      */
-    public function revokeRefreshToken($tokenId)
+    public function revokeRefreshToken($tokenId): void
     {
         $refreshToken = $this->findById($tokenId);
 
         if (!$refreshToken) {
-            throw new \RuntimeException("RefreshToken not found: {$tokenId}");
+            throw new RuntimeException("RefreshToken not found: $tokenId");
         }
 
         $refreshToken->revoke();
@@ -106,13 +115,14 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
 
     /**
      * {@inheritdoc}
+     * @throws OidcServerException
      */
-    public function isRefreshTokenRevoked($tokenId)
+    public function isRefreshTokenRevoked($tokenId): bool
     {
         $refreshToken = $this->findById($tokenId);
 
         if (!$refreshToken) {
-            throw new \RuntimeException("RefreshToken not found: {$tokenId}");
+            throw new RuntimeException("RefreshToken not found: $tokenId");
         }
 
         return $refreshToken->isRevoked();
@@ -120,6 +130,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
 
     /**
      * Removes expired refresh tokens.
+     * @throws Exception
      */
     public function removeExpired(): void
     {

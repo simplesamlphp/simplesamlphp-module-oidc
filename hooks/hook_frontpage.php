@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -12,21 +14,20 @@
  * file that was distributed with this source code.
  */
 
-/**
- * @param array &$links
- *
- * @return void
- */
-function oidc_hook_frontpage(&$links)
-{
-    assert('is_array($links)');
-    assert('array_key_exists("links", $links)');
+use SimpleSAML\Module;
+use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 
-    $isUpdated = (new \SimpleSAML\Module\oidc\Services\DatabaseMigration())->isUpdated();
+function oidc_hook_frontpage(array &$links): void
+{
+    if (!is_array($links['federation'])) {
+        $links['federation'] = [];
+    }
+
+    $isUpdated = (new DatabaseMigration())->isUpdated();
 
     if (!$isUpdated) {
         $links['federation']['oidcregistry'] = [
-            'href' => \SimpleSAML\Module::getModuleURL('oidc/install.php'),
+            'href' => Module::getModuleURL('oidc/install.php'),
             'text' => [
                 'en' => 'OpenID Connect Installation',
                 'es' => 'Instalación de OpenID Connect',
@@ -43,7 +44,7 @@ function oidc_hook_frontpage(&$links)
     }
 
     $links['federation']['oidcregistry'] = [
-        'href' => \SimpleSAML\Module::getModuleURL('oidc/admin-clients/index.php'),
+        'href' => Module::getModuleURL('oidc/admin-clients/index.php'),
         'text' => [
             'en' => 'OpenID Connect Client Registry',
             'es' => 'Registro de clientes OpenID Connect',

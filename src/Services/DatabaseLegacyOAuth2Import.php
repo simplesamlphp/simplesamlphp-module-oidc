@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -14,30 +16,25 @@
 
 namespace SimpleSAML\Module\oidc\Services;
 
-use SimpleSAML\Module\oidc\Entity\ClientEntity;
+use JsonException;
+use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 /**
  * Class DatabaseLegacyOAuth2Import.
  */
 class DatabaseLegacyOAuth2Import
 {
-    /**
-     * @var \SimpleSAML\Module\oidc\Repositories\ClientRepository
-     */
-    private $clientRepository;
-
-    public function __construct(ClientRepository $clientRepository)
+    public function __construct(private readonly ClientRepository $clientRepository)
     {
-        $this->clientRepository = $clientRepository;
     }
 
     /**
-     * @psalm-suppress UndefinedClass UndefinedMethod
-     *
-     * @return void
+     * @psalm-suppress UndefinedClass, MixedAssignment, MixedArrayAccess, MixedArgument
+     * @throws OidcServerException|JsonException
      */
-    public function import()
+    public function import(): void
     {
         if (!class_exists('\SimpleSAML\Modules\OAuth2\Repositories\ClientRepository')) {
             return;

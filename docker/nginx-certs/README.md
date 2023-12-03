@@ -1,5 +1,4 @@
-Every 90 days these certificates expire.
-The upstream project/container will refresh its certs occassionaly and we
+Every 90 days these certificates expire. The upstream project/container will refresh its certs occasionally, and we
 can sync them here.
 
 ```bash

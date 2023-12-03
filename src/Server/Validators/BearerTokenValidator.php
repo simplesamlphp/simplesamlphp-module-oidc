@@ -1,8 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Server\Validators;
 
+use DateInterval;
 use DateTimeZone;
+use Exception;
 use Lcobucci\Clock\SystemClock;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Signer\Key\InMemory;
@@ -18,17 +22,23 @@ use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface as OAuth2Ac
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
+use function count;
+use function date_default_timezone_get;
+use function is_array;
+use function preg_replace;
+use function trim;
+
 class BearerTokenValidator extends OAuth2BearerTokenValidator
 {
     /**
      * @var Configuration
      */
-    protected $jwtConfiguration;
+    protected Configuration $jwtConfiguration;
 
     /**
      * @var OAuth2AccessTokenRepositoryInterface
      */
-    protected $accessTokenRepository;
+    protected OAuth2AccessTokenRepositoryInterface $accessTokenRepository;
 
     /**
      * @var CryptKey
@@ -37,19 +47,27 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
 
     /**
      * @param AccessTokenRepositoryInterface $accessTokenRepository
+     * @param CryptKey $publicKey
+     * @param DateInterval|null $jwtValidAtDateLeeway
+     * @throws Exception
      */
-    public function __construct(AccessTokenRepositoryInterface $accessTokenRepository)
-    {
-        parent::__construct($accessTokenRepository);
+    public function __construct(
+        AccessTokenRepositoryInterface $accessTokenRepository,
+        CryptKey $publicKey,
+        DateInterval $jwtValidAtDateLeeway = null
+    ) {
+        parent::__construct($accessTokenRepository, $jwtValidAtDateLeeway);
         $this->accessTokenRepository = $accessTokenRepository;
+        $this->setPublicKey($publicKey);
     }
 
     /**
      * Set the public key
      *
      * @param CryptKey $key
+     * @throws Exception
      */
-    public function setPublicKey(CryptKey $key)
+    public function setPublicKey(CryptKey $key): void
     {
         $this->publicKey = $key;
 
@@ -58,17 +76,18 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
 
     /**
      * Initialise the JWT configuration.
+     * @throws Exception
      */
-    protected function initJwtConfiguration()
+    protected function initJwtConfiguration(): void
     {
         $this->jwtConfiguration = Configuration::forSymmetricSigner(
             new Sha256(),
-            InMemory::empty()
+            InMemory::plainText('empty', 'empty')
         );
 
         /** @psalm-suppress ArgumentTypeCoercion */
         $this->jwtConfiguration->setValidationConstraints(
-            new StrictValidAt(new SystemClock(new DateTimeZone(\date_default_timezone_get()))),
+            new StrictValidAt(new SystemClock(new DateTimeZone(date_default_timezone_get()))),
             new SignedWith(
                 new Sha256(),
                 InMemory::plainText($this->publicKey->getKeyContents(), $this->publicKey->getPassPhrase() ?? '')
@@ -86,16 +105,17 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
 
         if ($request->hasHeader('authorization')) {
             $header = $request->getHeader('authorization');
-            $jwt = \trim((string) \preg_replace('/^\s*Bearer\s/', '', $header[0]));
+            $jwt = trim((string) preg_replace('/^\s*Bearer\s/', '', $header[0]));
         } elseif (
             strcasecmp($request->getMethod(), 'POST') === 0 &&
             is_array($parsedBody = $request->getParsedBody()) &&
-            isset($parsedBody['access_token'])
+            isset($parsedBody['access_token']) &&
+            is_string($parsedBody['access_token'])
         ) {
             $jwt = $parsedBody['access_token'];
         }
 
-        if ($jwt === null) {
+        if (!is_string($jwt)) {
             throw OidcServerException::accessDenied('Missing Authorization header or access_token request body param.');
         }
 
@@ -111,14 +131,14 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
             // Attempt to validate the JWT
             $constraints = $this->jwtConfiguration->validationConstraints();
             $this->jwtConfiguration->validator()->assert($token, ...$constraints);
-        } catch (RequiredConstraintsViolated $exception) {
+        } catch (RequiredConstraintsViolated) {
             throw OidcServerException::accessDenied('Access token could not be verified');
         }
 
         $claims = $token->claims();
 
-        if (is_null($jti = $claims->get('jti')) || empty($jti)) {
-            throw OidcServerException::accessDenied('Access token malformed (jti missing)');
+        if (is_null($jti = $claims->get('jti')) || empty($jti) || !is_string($jti)) {
+            throw OidcServerException::accessDenied('Access token malformed (jti missing or unexpected type)');
         }
 
         // Check if token has been revoked
@@ -140,9 +160,22 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
      * @param mixed $aud
      *
      * @return array|string
+     * @throws OidcServerException
      */
-    protected function convertSingleRecordAudToString($aud)
+    protected function convertSingleRecordAudToString(mixed $aud): array|string
     {
-        return \is_array($aud) && \count($aud) === 1 ? $aud[0] : $aud;
+        if (is_string($aud)) {
+            return $aud;
+        }
+
+        if (is_array($aud) && !empty($aud)) {
+            if (count($aud) === 1) {
+                return (string)$aud[0];
+            } else {
+                return $aud;
+            }
+        }
+
+        throw OidcServerException::accessDenied('Unexpected sub claim value.');
     }
 }

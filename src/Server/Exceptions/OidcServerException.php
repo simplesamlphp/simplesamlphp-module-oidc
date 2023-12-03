@@ -1,37 +1,44 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Server\Exceptions;
 
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
 
+use function http_build_query;
+use function json_encode;
+
 class OidcServerException extends OAuthServerException
 {
     /**
      * @var array
      */
-    protected $payload;
+    protected array $payload;
 
     /**
      * @var int
+     * @psalm-suppress PossiblyUnusedProperty Property is private in parent.
      */
-    protected $httpStatusCode;
+    protected int $httpStatusCode;
 
     /**
      * @var string
+     * @psalm-suppress PossiblyUnusedProperty Property is private in parent.
      */
-    protected $errorType;
+    protected string $errorType;
 
     /**
      * @var null|string
      */
-    protected $redirectUri;
+    protected ?string $redirectUri;
 
     /**
      * @var bool
      */
-    protected $useFragmentInHttpResponses = false;
+    protected bool $useFragmentInHttpResponses = false;
 
     /**
      * Throw a new exception.
@@ -41,7 +48,7 @@ class OidcServerException extends OAuthServerException
      * @param string $errorType Error type
      * @param int $httpStatusCode HTTP status code to send (default = 400)
      * @param null|string $hint A helper hint
-     * @param null|string $redirectUri A HTTP URI to redirect the user back to
+     * @param null|string $redirectUri An HTTP URI to redirect the user back to
      * @param Throwable|null $previous Previous exception
      * @param string|null $state
      */
@@ -102,7 +109,7 @@ class OidcServerException extends OAuthServerException
      * Invalid scope error.
      *
      * @param string $scope The bad scope
-     * @param string|null $redirectUri A HTTP URI to redirect the user back to
+     * @param string|null $redirectUri An HTTP URI to redirect the user back to
      * @param string|null $state
      * @param bool $useFragment Use URI fragment to return error parameters
      * @return static
@@ -226,13 +233,13 @@ class OidcServerException extends OAuthServerException
     /**
      * Invalid refresh token.
      *
-     * @param null|string $hint
-     * @param Throwable   $previous
+     * @param string|null $hint
+     * @param Throwable|null $previous
      *
      * @return self
      * @psalm-suppress LessSpecificImplementedReturnType
      */
-    public static function invalidRefreshToken($hint = null, Throwable $previous = null)
+    public static function invalidRefreshToken($hint = null, Throwable $previous = null): OidcServerException
     {
         return new self('The refresh token is invalid.', 8, 'invalid_grant', 400, $hint, null, $previous);
     }
@@ -252,7 +259,7 @@ class OidcServerException extends OAuthServerException
      *
      * @param array $payload
      */
-    public function setPayload(array $payload)
+    public function setPayload(array $payload): void
     {
         $this->payload = $payload;
     }
@@ -304,7 +311,7 @@ class OidcServerException extends OAuthServerException
     }
 
     /**
-     * Generate a HTTP response.
+     * Generate an HTTP response.
      *
      * @param ResponseInterface $response
      * @param bool $useFragment True if errors should be in the URI fragment instead of query string. Note
@@ -318,6 +325,7 @@ class OidcServerException extends OAuthServerException
         $useFragment = false,
         $jsonOptions = 0
     ): ResponseInterface {
+        /** @var array<string,string> $headers */
         $headers = $this->getHttpHeaders();
 
         $payload = $this->getPayload();
@@ -329,16 +337,16 @@ class OidcServerException extends OAuthServerException
                 $paramSeparator = '#';
             }
 
-            $this->redirectUri .= (\strstr($this->redirectUri, $paramSeparator) === false) ? $paramSeparator : '&';
+            $this->redirectUri .= (!str_contains($this->redirectUri, $paramSeparator)) ? $paramSeparator : '&';
 
-            return $response->withStatus(302)->withHeader('Location', $this->redirectUri . \http_build_query($payload));
+            return $response->withStatus(302)->withHeader('Location', $this->redirectUri . http_build_query($payload));
         }
 
         foreach ($headers as $header => $content) {
             $response = $response->withHeader($header, $content);
         }
 
-        $responseBody = \json_encode($payload, $jsonOptions) ?: 'JSON encoding of payload failed';
+        $responseBody = json_encode($payload, $jsonOptions) ?: 'JSON encoding of payload failed';
 
         $response->getBody()->write($responseBody);
 

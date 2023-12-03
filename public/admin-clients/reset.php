@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -12,7 +14,7 @@
  * file that was distributed with this source code.
  */
 
-use SimpleSAML\Module\oidc\Controller\ClientResetSecretController;
+use SimpleSAML\Module\oidc\Controller\Client\ResetSecretController;
 use SimpleSAML\Module\oidc\Services\RoutingService;
 
-RoutingService::call(ClientResetSecretController::class);
+RoutingService::call(ResetSecretController::class);

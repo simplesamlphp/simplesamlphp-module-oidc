@@ -1,16 +1,21 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils\Checker;
 
+use LogicException;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
+
+use function sprintf;
 
 class ResultBag implements ResultBagInterface
 {
     /**
      * @var ResultInterface[] $results
      */
-    protected $results = [];
+    protected array $results = [];
 
     /**
      * @param ResultInterface $result
@@ -26,11 +31,7 @@ class ResultBag implements ResultBagInterface
      */
     public function get(string $key): ?ResultInterface
     {
-        if (isset($this->results[$key])) {
-            return $this->results[$key];
-        }
-
-        return null;
+        return $this->results[$key] ?? null;
     }
 
     /**
@@ -42,7 +43,7 @@ class ResultBag implements ResultBagInterface
         $result = $this->get($key);
 
         if ($result === null) {
-            throw new \LogicException(\sprintf('Checker error: expected existing result, but none found (%s)', $key));
+            throw new LogicException(sprintf('Checker error: expected existing result, but none found (%s)', $key));
         }
 
         return $result;

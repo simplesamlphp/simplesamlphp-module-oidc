@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -12,46 +14,63 @@
  * file that was distributed with this source code.
  */
 
+use Psr\Container\ContainerExceptionInterface;
+use Psr\Container\NotFoundExceptionInterface;
+use SimpleSAML\Logger;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Services\Container;
 
 /**
- * @param array &$croninfo
- *
- * @return void
+ * @param array $croninfo
+ * @throws OidcServerException
+ * @throws ContainerExceptionInterface
+ * @throws NotFoundExceptionInterface
+ * @throws Exception
  */
-function oidc_hook_cron(&$croninfo)
+function oidc_hook_cron(array &$croninfo): void
 {
-    assert('is_array($croninfo)');
-    assert('array_key_exists("summary", $croninfo)');
-    assert('array_key_exists("tag", $croninfo)');
-
-    $oidcConfig = \SimpleSAML\Configuration::getConfig('module_oidc.php');
-
-    if (null === $oidcConfig->getOptionalValue('cron_tag', null)) {
-        return;
+    if (
+        !array_key_exists('summary', $croninfo) ||
+        !is_array($croninfo['summary'])
+    ) {
+        $croninfo['summary'] = [];
     }
-    if ($oidcConfig->getOptionalValue('cron_tag', null) !== $croninfo['tag']) {
-        return;
+    if (!array_key_exists('tag', $croninfo)) {
+        throw OidcServerException::serverError('Invalid croninfo data: missing tag');
     }
 
-    $container = new \SimpleSAML\Module\oidc\Services\Container();
+    $oidcConfig = (new ModuleConfig())->config();
+
+    if (null === $oidcConfig->getOptionalValue(ModuleConfig::OPTION_CRON_TAG, null)) {
+        return;
+    }
+    if ($oidcConfig->getOptionalValue(ModuleConfig::OPTION_CRON_TAG, null) !== $croninfo['tag']) {
+        return;
+    }
+
+    $container = new Container();
 
     try {
+        /** @var AccessTokenRepository $accessTokenRepository */
         $accessTokenRepository = $container->get(AccessTokenRepository::class);
         $accessTokenRepository->removeExpired();
 
+        /** @var AuthCodeRepository $authTokenRepository */
         $authTokenRepository = $container->get(AuthCodeRepository::class);
         $authTokenRepository->removeExpired();
 
+        /** @var RefreshTokenRepository $refreshTokenRepository */
         $refreshTokenRepository = $container->get(RefreshTokenRepository::class);
         $refreshTokenRepository->removeExpired();
 
         $croninfo['summary'][] = 'Module `oidc` clean up. Removed expired entries from storage.';
     } catch (Exception $e) {
         $message = 'Module `oidc` clean up cron script failed: ' . $e->getMessage();
-        \SimpleSAML\Logger::warning($message);
+        Logger::warning($message);
         $croninfo['summary'][] = $message;
     }
 }

@@ -1,9 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
@@ -17,16 +19,10 @@ use Throwable;
 
 class MaxAgeRule extends AbstractRule
 {
-    private AuthSimpleFactory $authSimpleFactory;
-
-    private AuthenticationService $authenticationService;
-
     public function __construct(
-        AuthSimpleFactory $authSimpleFactory,
-        AuthenticationService $authenticationService
+        private readonly AuthSimpleFactory $authSimpleFactory,
+        private readonly AuthenticationService $authenticationService
     ) {
-        $this->authSimpleFactory = $authSimpleFactory;
-        $this->authenticationService = $authenticationService;
     }
 
     /**
@@ -58,6 +54,8 @@ class MaxAgeRule extends AbstractRule
 
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
+        /** @var ?string $state */
+        $state = $queryParams['state'] ?? null;
 
         if (false === filter_var($queryParams['max_age'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]])) {
             throw OidcServerException::invalidRequest(
@@ -65,7 +63,7 @@ class MaxAgeRule extends AbstractRule
                 'max_age must be a valid integer',
                 null,
                 $redirectUri,
-                $queryParams['state'] ?? null,
+                $state,
                 $useFragmentInHttpErrorResponses
             );
         }

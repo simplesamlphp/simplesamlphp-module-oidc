@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils;
 
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
@@ -9,8 +11,6 @@ class ScopeHelper
 {
     /**
      * @param ScopeEntityInterface[] $scopes
-     * @param string $scopeIdentifier
-     * @return bool
      * @throws OidcServerException
      */
     public static function scopeExists(array $scopes, string $scopeIdentifier): bool

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -14,22 +16,19 @@
 
 namespace SimpleSAML\Module\oidc\Services;
 
+use Exception;
 use SimpleSAML\Session;
 
 class SessionMessagesService
 {
-    /** @var \SimpleSAML\Session */
-    private $session;
-
-    public function __construct(Session $session)
+    public function __construct(private readonly Session $session)
     {
-        $this->session = $session;
     }
 
     /**
-     * @return void
+     * @throws Exception
      */
-    public function addMessage(string $value)
+    public function addMessage(string $value): void
     {
         $this->session->setData('message', uniqid(), $value);
     }
@@ -37,11 +36,12 @@ class SessionMessagesService
     /**
      * @return array
      */
-    public function getMessages()
+    public function getMessages(): array
     {
+        /** @var array<string,string> $messages */
         $messages = $this->session->getDataOfType('message');
 
-        foreach ($messages as $key => $message) {
+        foreach (array_keys($messages) as $key) {
             $this->session->deleteData('message', $key);
         }
 

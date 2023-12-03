@@ -1,7 +1,31 @@
+# Version 4 to 5
+
+## Major impact changes
+- PHP version requirement was bumped to v8.1
+
+## Medium impact changes
+- Module config options in file 'module_oidc.php' are now using constants for config keys. The values for constants are
+taken from the previous version of the module, so theoretically you don't have to rewrite your current config file,
+although it is recommended to do so.
+
+## Low impact changes
+- Removed the 'kid' config option which was not utilized in the codebase (from v2 of the module, the 'kid' value is the
+fingerprint of the certificate).
+
+Below are some internal changes that should not have impact for the OIDC OP implementors. However, if you are using
+this module as a library or extending from it, you will probably encounter breaking changes, since a lot of code
+has been refactored:
+
+- psalm error level set to 1, which needed a fair amount of code adjustments
+- refactored to strict typing whenever possible (psalm can now infer types for >99% of the codebase)
+- refactored to PHP v8.* (up to PHP v8.1) code styling whenever possible, like using constructor property promotion, 
+match expressions...
+- removed dependency on steverhoades/oauth2-openid-connect-server (low maintenance)
+
 # Version 3 to 4
 - PHP version requirement was bumped to v8.0 to enable updating important dependant packages like 'league/oauth2-server'
   which has already moved to PHPv8 between their minor releases.
-- SimpleSAMLphp version fixed to v2.0.*
+- SimpleSAMLphp version requirement fixed to v2.0.*
 
 # Version 2 to 3
  - Module code was refactored to make it compatible with SimpleSAMLphp v2

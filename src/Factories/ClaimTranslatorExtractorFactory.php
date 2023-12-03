@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
  * This file is part of the simplesamlphp-module-oidc.
  *
@@ -15,44 +17,42 @@
 namespace SimpleSAML\Module\oidc\Factories;
 
 use Exception;
-use OpenIDConnectServer\Entities\ClaimSetEntity;
-use OpenIDConnectServer\Exception\InvalidArgumentException;
-use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
-use SimpleSAML\Module\oidc\Services\ConfigurationService;
+use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Entities\ClaimSetEntity;
+use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
 class ClaimTranslatorExtractorFactory
 {
-    private ConfigurationService $configurationService;
-
     protected const CONFIG_KEY_CLAIM_NAME_PREFIX = 'claim_name_prefix';
 
     protected const CONFIG_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED = 'are_multiple_claim_values_allowed';
 
-    public function __construct(
-        ConfigurationService $configurationService
-    ) {
-        $this->configurationService = $configurationService;
+    public function __construct(private readonly ModuleConfig $moduleConfig)
+    {
     }
 
     /**
-     * @throws InvalidArgumentException
      * @throws Exception
      */
     public function build(): ClaimTranslatorExtractor
     {
-        $translatorTable = $this->configurationService->getOpenIDConnectConfiguration()
-            ->getOptionalArray('translate', []);
+        $translatorTable = $this->moduleConfig->config()
+            ->getOptionalArray(ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE, []);
 
-        $privateScopes = $this->configurationService->getOpenIDPrivateScopes();
+        $privateScopes = $this->moduleConfig->getOpenIDPrivateScopes();
 
         $claimSet = [];
         $allowedMultipleValueClaims = [];
 
+        /**
+         * @var string $scopeName
+         * @var array $scopeConfig
+         */
         foreach ($privateScopes as $scopeName => $scopeConfig) {
-            $claims = $scopeConfig['claims'] ?? [];
+            $claims = is_array($scopeConfig['claims']) ? $scopeConfig['claims'] : [];
 
             if ($this->isScopeClaimNamePrefixSet($scopeConfig)) {
-                $prefix = $scopeConfig[self::CONFIG_KEY_CLAIM_NAME_PREFIX];
+                $prefix = (string)($scopeConfig[self::CONFIG_KEY_CLAIM_NAME_PREFIX] ?? '');
 
                 $translatorTable = $this->applyPrefixToTranslatorTableKeys($translatorTable, $claims, $prefix);
                 $claims = $this->applyPrefixToClaimNames($claims, $prefix);
@@ -65,7 +65,7 @@ class ClaimTranslatorExtractorFactory
             }
         }
 
-        $userIdAttr = $this->configurationService->getOpenIDConnectConfiguration()->getString('useridattr');
+        $userIdAttr = $this->moduleConfig->getUserIdentifierAttribute();
 
         return new ClaimTranslatorExtractor($userIdAttr, $claimSet, $translatorTable, $allowedMultipleValueClaims);
     }
@@ -80,6 +80,10 @@ class ClaimTranslatorExtractorFactory
      */
     protected function applyPrefixToTranslatorTableKeys(array $translatorTable, array $claims, string $prefix): array
     {
+        /**
+         * @var string $claimKey
+         * @var array $mapping
+         */
         foreach ($translatorTable as $claimKey => $mapping) {
             if (in_array($claimKey, $claims)) {
                 $prefixedClaimKey = $prefix . $claimKey;
@@ -98,7 +102,7 @@ class ClaimTranslatorExtractorFactory
      */
     protected function applyPrefixToClaimNames(array $claims, string $prefix): array
     {
-        array_walk($claims, function (&$value, $key, $prefix) {
+        array_walk($claims, function (string &$value, mixed $key, string $prefix) {
             $value = $prefix . $value;
         }, $prefix);
 
@@ -107,24 +111,20 @@ class ClaimTranslatorExtractorFactory
 
     /**
      * Check if the scope has a claim name prefix set
-     * @param array $scopeConfig
-     * @return bool
      */
     protected function isScopeClaimNamePrefixSet(array $scopeConfig): bool
     {
         return isset($scopeConfig[self::CONFIG_KEY_CLAIM_NAME_PREFIX]) &&
-            is_string($scopeConfig[self::CONFIG_KEY_CLAIM_NAME_PREFIX]) &&
-            !empty($scopeConfig[self::CONFIG_KEY_CLAIM_NAME_PREFIX]);
+        is_string($scopeConfig[self::CONFIG_KEY_CLAIM_NAME_PREFIX]) &&
+        !empty($scopeConfig[self::CONFIG_KEY_CLAIM_NAME_PREFIX]);
     }
 
     /**
      * Check if the scope allows claims to have multiple values.
-     * @param array $scopeConfig
-     * @return bool
      */
     protected function doesScopeAllowMultipleClaimValues(array $scopeConfig): bool
     {
         return isset($scopeConfig[self::CONFIG_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED]) &&
-            boolval($scopeConfig[self::CONFIG_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED]);
+        $scopeConfig[self::CONFIG_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED];
     }
 }

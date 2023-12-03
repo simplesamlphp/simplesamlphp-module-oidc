@@ -1,24 +1,22 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
-use OpenIDConnectServer\ClaimExtractor;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\ClaimTranslatorExtractor;
-use SimpleSAML\Module\oidc\Entity\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
+use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use Throwable;
 
 class RequestedClaimsRule extends AbstractRule
 {
-    private ClaimExtractor $claimExtractor;
-
-    public function __construct(ClaimExtractor $claimExtractor)
+    public function __construct(private readonly ClaimTranslatorExtractor $claimExtractor)
     {
-        $this->claimExtractor = $claimExtractor;
     }
 
 
@@ -33,11 +31,13 @@ class RequestedClaimsRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = ['GET']
     ): ?ResultInterface {
+        /** @var ?string $claimsParam */
         $claimsParam = $request->getQueryParams()['claims'] ?? null;
         if ($claimsParam === null) {
             return null;
         }
-        $claims = json_decode($claimsParam, true);
+        /** @var ?array $claims */
+        $claims = json_decode($claimsParam, true, 512, JSON_THROW_ON_ERROR);
         if (is_null($claims)) {
             return null;
         }
@@ -60,7 +60,7 @@ class RequestedClaimsRule extends AbstractRule
         return new Result($this->getKey(), $claims);
     }
 
-    private function filterUnauthorizedClaims(array &$requestClaims, string $key, array $authorized)
+    private function filterUnauthorizedClaims(array &$requestClaims, string $key, array $authorized): void
     {
         if (!array_key_exists($key, $requestClaims)) {
             return;
@@ -72,9 +72,7 @@ class RequestedClaimsRule extends AbstractRule
         }
         $requestClaims[$key] = array_filter(
             $requested,
-            function ($key) use ($authorized) {
-                return in_array($key, $authorized);
-            },
+            fn($key) => in_array($key, $authorized),
             ARRAY_FILTER_USE_KEY
         );
     }
