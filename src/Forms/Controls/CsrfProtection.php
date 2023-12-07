@@ -24,7 +24,7 @@ use SimpleSAML\Session;
 
 class CsrfProtection extends BaseCsrfProtection
 {
-    final public const PROTECTION = 'SimpleSAML\Module\oidc\Form\Controls\CsrfProtection::validateCsrf';
+    final public const PROTECTION = [\SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection::class, 'validateCsrf'];
 
     protected Session $sspSession;
 
