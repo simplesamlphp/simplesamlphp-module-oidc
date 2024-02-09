@@ -21,6 +21,7 @@ use Nette\Forms\Controls\CsrfProtection as BaseCsrfProtection;
 use Nette\InvalidStateException;
 use Nette\Utils\Random;
 use SimpleSAML\Session;
+use Stringable;
 
 class CsrfProtection extends BaseCsrfProtection
 {
@@ -32,7 +33,7 @@ class CsrfProtection extends BaseCsrfProtection
     /**
      * @throws Exception
      */
-    public function __construct(object|string $errorMessage)
+    public function __construct(string|Stringable|null $errorMessage)
     {
         // Instead of calling CsrfProtection parent class constructor, go to it's parent (HiddenField), and call
         // its constructor. This is to avoid setting a Nette session in CsrfProtection parent, and use the SSP one.

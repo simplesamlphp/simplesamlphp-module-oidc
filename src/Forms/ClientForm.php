@@ -17,12 +17,16 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Forms;
 
 use Exception;
+use Nette\Forms\Container;
 use Nette\Forms\Form;
 use SimpleSAML\Auth\Source;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
 use Traversable;
 
+/**
+ * @psalm-suppress PropertyNotSetInConstructor Raised for $httpRequest which is marked as internal, so won't handle.
+ */
 class ClientForm extends Form
 {
     protected const TYPE_ARRAY = 'array';
@@ -123,7 +127,7 @@ class ClientForm extends Form
         }
     }
 
-    public function getValues($returnType = null, ?array $controls = null): array
+    public function getValues(string|object|bool|null $returnType = null, ?array $controls = null): array
     {
         /** @var array $values */
         $values = parent::getValues(self::TYPE_ARRAY);
@@ -157,7 +161,7 @@ class ClientForm extends Form
     /**
      * @throws Exception
      */
-    public function setDefaults($data, bool $erase = false): ClientForm
+    public function setDefaults(object|array $data, bool $erase = false): static
     {
         if (! is_array($data)) {
             if ($data instanceof Traversable) {
@@ -187,7 +191,9 @@ class ClientForm extends Form
         $scopes = is_array($data['scopes']) ? $data['scopes'] : [];
         $data['scopes'] = array_intersect($scopes, array_keys($this->getScopes()));
 
-        return parent::setDefaults($data, $erase);
+        parent::setDefaults($data, $erase);
+
+        return $this;
     }
 
     /**
@@ -203,7 +209,7 @@ class ClientForm extends Form
         $this->onValidate[] = $this->validateBackChannelLogoutUri(...);
 
         $this->setMethod('POST');
-        $this->addComponent(new CsrfProtection('{oidc:client:csrf_error}'), Form::PROTECTOR_ID);
+        $this->addComponent(new CsrfProtection('{oidc:client:csrf_error}'), Form::ProtectorId);
 
         $this->addText('name', '{oidc:client:name}')
             ->setMaxLength(255)
