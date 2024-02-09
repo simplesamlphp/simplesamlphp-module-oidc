@@ -60,6 +60,10 @@ The module comes with some default SQL migrations which set up needed tables in 
 open the _Federation_ tab from your _SimpleSAMLphp_ installation and select the option _OpenID Connect Installation_
 inside the _Tools_ section. Once there, all you need to do is press the _Install_ button and the schema will be created.
 
+Alternatively, in case of automatic / scripted deployments, you can run the 'install.php' script from the command line:
+
+    php modules/oidc/bin/install.php
+
 ### Relying Party (RP) Administration
 
 The module lets you manage (create, read, update and delete) approved RPs from the module user interface itself.
