@@ -197,7 +197,7 @@ class ClaimTranslatorExtractor
     {
         $scope = $claimSet->getScope();
 
-        if (in_array($scope, $this->protectedClaims) && !empty($this->claimSets[$scope])) {
+        if (in_array($scope, $this->protectedClaims) && isset($this->claimSets[$scope])) {
             throw OidcServerException::serverError(
                 sprintf("%s is a protected scope and is pre-defined by the OpenID Connect specification.", $scope)
             );

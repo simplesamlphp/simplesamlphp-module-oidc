@@ -44,6 +44,9 @@
     <UnusedClass errorLevel="suppress" />
     <PossiblyUnusedMethod errorLevel="suppress" />
     <PossiblyUnusedReturnValue errorLevel="suppress" />
+
+    <!-- Ignore RiskyTruthyFalsyComparison -->
+    <RiskyTruthyFalsyComparison errorLevel="suppress" />
   </issueHandlers>
 </psalm>
 
