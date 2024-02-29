@@ -119,6 +119,14 @@ Client ID and secret will be generated, and can be seen after the client creatio
 In order to purge expired tokens, this module requires [cron module](https://simplesamlphp.org/docs/stable/cron:cron)
 to be enabled and configured.
 
+### Endpoint locations
+
+Once you deployed the module, you will need the exact endpoint urls the module provides to configure the relying parties. You can visit the discovery endpoint to learn this information:
+
+`<basepath>/module.php/oidc/openid-configuration.php`
+
+This endpoint can be used to set up a `.well-known` URL (see below). 
+
 ## Additional considerations
 ### Private scopes
 
