@@ -27,13 +27,11 @@ class CsrfProtection extends BaseCsrfProtection
 {
     final public const PROTECTION = [\SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection::class, 'validateCsrf'];
 
-    protected Session $sspSession;
-
     /** @noinspection PhpMissingParentConstructorInspection */
     /**
      * @throws Exception
      */
-    public function __construct(string|Stringable|null $errorMessage)
+    public function __construct(string|Stringable|null $errorMessage, protected Session $sspSession)
     {
         // Instead of calling CsrfProtection parent class constructor, go to it's parent (HiddenField), and call
         // its constructor. This is to avoid setting a Nette session in CsrfProtection parent, and use the SSP one.
@@ -52,8 +50,6 @@ class CsrfProtection extends BaseCsrfProtection
         $this->setOmitted()
             ->setRequired()
             ->addRule(self::PROTECTION, $errorMessage);
-
-        $this->sspSession = Session::getSessionFromRequest();
     }
 
     /**

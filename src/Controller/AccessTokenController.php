@@ -15,16 +15,22 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Module\oidc\Controller;
 
-use League\OAuth2\Server\Exception\OAuthServerException;
-use Psr\Http\Message\ResponseInterface;
-use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use Laminas\Diactoros\Response;
 use Laminas\Diactoros\ServerRequest;
+use League\OAuth2\Server\Exception\OAuthServerException;
+use Psr\Http\Message\ResponseInterface;
+use SimpleSAML\Module\oidc\Controller\Traits\RequestTrait;
+use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
+use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 
 class AccessTokenController
 {
-    public function __construct(private readonly AuthorizationServer $authorizationServer)
-    {
+    use RequestTrait;
+
+    public function __construct(
+        private readonly AuthorizationServer $authorizationServer,
+        private readonly AllowedOriginRepository $allowedOriginRepository
+    ) {
     }
 
     /**
@@ -32,6 +38,11 @@ class AccessTokenController
      */
     public function __invoke(ServerRequest $request): ResponseInterface
     {
+        // Check if this is actually a CORS preflight request...
+        if (strtoupper($request->getMethod()) === 'OPTIONS') {
+            return $this->handleCors($request);
+        }
+
         return $this->authorizationServer->respondToAccessTokenRequest($request, new Response());
     }
 }

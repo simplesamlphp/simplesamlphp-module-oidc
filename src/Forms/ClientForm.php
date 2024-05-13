@@ -20,8 +20,9 @@ use Exception;
 use Nette\Forms\Container;
 use Nette\Forms\Form;
 use SimpleSAML\Auth\Source;
-use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
+use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Session;
 use Traversable;
 
 /**
@@ -37,12 +38,14 @@ class ClientForm extends Form
     final public const REGEX_URI = '/^[^:]+:\/\/?[^\s\/$.?#].[^\s]*$/';
 
     /**
-     * Must have http:// or https:// scheme, and at least one 'domain.top-level-domain' pair, or more subdomains.
-     * Top-level-domain may end with '.'.
-     * No reserved chars allowed, meaning no userinfo, path, query or fragment components. May end with port number.
+     * Must have:
+     * - http:// or https:// scheme
+     * - at least one 'domain, or more subdomains, or a domain with a wild card for subdomains
+     * - no reserved chars allowed, meaning no userinfo, path, query or fragment components
+     * - may end with port number
      */
     final public const REGEX_ALLOWED_ORIGIN_URL =
-    "/^http(s?):\/\/[^\s\/!$&'()+,;=.?#@*:]+\.[^\s\/!$&'()+,;=.?#@*]+\.?(\.[^\s\/!$&'()+,;=?#@*:]+)*(:\d{1,5})?$/i";
+    "/^http(s?):\/\/(\*\.[^\s\/!$&'()+,;=.?#@*:]+\.)?[^\s\/!$&'()+,;=.?#@*:]+(\.[^\s\/!$&'()+,;=.?#@*:]+)*\.?(:\d{1,5})?$/i";
 
     /**
      * URI which must contain https or http scheme, can contain path and query, and can't contain fragment.
@@ -52,7 +55,7 @@ class ClientForm extends Form
     /**
      * @throws Exception
      */
-    public function __construct(private readonly ModuleConfig $moduleConfig)
+    public function __construct(private readonly ModuleConfig $moduleConfig,  protected Session $sspSession)
     {
         parent::__construct();
 
@@ -209,7 +212,10 @@ class ClientForm extends Form
         $this->onValidate[] = $this->validateBackChannelLogoutUri(...);
 
         $this->setMethod('POST');
-        $this->addComponent(new CsrfProtection('{oidc:client:csrf_error}'), Form::ProtectorId);
+        $this->addComponent(
+            new CsrfProtection('{oidc:client:csrf_error}', $this->sspSession),
+            Form::ProtectorId
+        );
 
         $this->addText('name', '{oidc:client:name}')
             ->setMaxLength(255)
