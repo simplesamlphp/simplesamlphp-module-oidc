@@ -48,6 +48,9 @@ class EditControllerTest extends TestCase
      */
     protected function setUp(): void
     {
+        // The REQUEST_URI is required either to create the session or to get the selfUrl
+        $_SERVER['REQUEST_URI'] = '/dummy';
+
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->clientRepositoryMock = $this->createMock(ClientRepository::class);
         $this->allowedOriginRepositoryMock = $this->createMock(AllowedOriginRepository::class);

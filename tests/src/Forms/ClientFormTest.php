@@ -26,7 +26,6 @@ class ClientFormTest extends TestCase
 
         // The REQUEST_URI is required to create the session
         $_SERVER['REQUEST_URI'] = '/dummy';
-        $_SERVER['REQUEST_METHOD'] = 'GET';
         $this->session = Session::getSessionFromRequest();
     }
 

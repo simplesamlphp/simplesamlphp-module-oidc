@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Controller;
 
+use Laminas\Diactoros\Response;
+use Laminas\Diactoros\ServerRequest;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\MockObject;
-use Laminas\Diactoros\Response;
-use Laminas\Diactoros\ServerRequest;
-use SimpleSAML\Module\oidc\Controller\AccessTokenController;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\Controller\AccessTokenController;
+use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 
 /**
@@ -19,6 +20,7 @@ use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 class AccessTokenControllerTest extends TestCase
 {
     protected MockObject $authorizationServerMock;
+    protected MockObject $allowedOriginRepository;
     protected MockObject $serverRequestMock;
     protected MockObject $responseMock;
 
@@ -28,7 +30,7 @@ class AccessTokenControllerTest extends TestCase
     protected function setUp(): void
     {
         $this->authorizationServerMock = $this->createMock(AuthorizationServer::class);
-
+        $this->allowedOriginRepository = $this->createMock(AllowedOriginRepository::class);
         $this->serverRequestMock = $this->createMock(ServerRequest::class);
         $this->responseMock = $this->createMock(Response::class);
     }
@@ -37,7 +39,10 @@ class AccessTokenControllerTest extends TestCase
     {
         $this->assertInstanceOf(
             AccessTokenController::class,
-            new AccessTokenController($this->authorizationServerMock)
+            new AccessTokenController(
+                $this->authorizationServerMock,
+                $this->allowedOriginRepository
+            )
         );
     }
 
@@ -54,7 +59,10 @@ class AccessTokenControllerTest extends TestCase
 
         $this->assertSame(
             $this->responseMock,
-            (new AccessTokenController($this->authorizationServerMock))->__invoke($this->serverRequestMock)
+            (new AccessTokenController(
+                $this->authorizationServerMock,
+                $this->allowedOriginRepository
+            ))->__invoke($this->serverRequestMock)
         );
     }
 }
