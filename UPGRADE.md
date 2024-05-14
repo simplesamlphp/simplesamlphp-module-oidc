@@ -21,6 +21,7 @@ Below are some internal changes that should not have impact for the OIDC OP impl
 this module as a library or extending from it, you will probably encounter breaking changes, since a lot of code
 has been refactored:
 
+- TODO upgrade to v9 of oauth2-server https://github.com/thephpleague/oauth2-server/releases/tag/9.0.0
 - TODO upgrade to v5 of lcobucci/jwt https://github.com/lcobucci/jwt
 - TODO move checkers to templates (generics) for proper static type handling
 - TODO move to SSP (symfony) container
