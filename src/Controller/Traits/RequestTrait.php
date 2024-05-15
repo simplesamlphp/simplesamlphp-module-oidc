@@ -22,7 +22,6 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 trait RequestTrait
 {
-
     /**
      * Handle CORS 'preflight' requests by checking if 'origin' is registered as allowed to make HTTP CORS requests,
      * typically initiated in browser by JavaScript clients.

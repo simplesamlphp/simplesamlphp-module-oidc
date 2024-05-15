@@ -131,14 +131,14 @@ class Container implements ContainerInterface
         $authContextService = new AuthContextService($moduleConfig, $authSimpleFactory);
         $this->services[AuthContextService::class] = $authContextService;
 
-        $formFactory = new FormFactory($moduleConfig);
+        $session = Session::getSessionFromRequest();
+        $this->services[Session::class] = $session;
+
+        $formFactory = new FormFactory($moduleConfig, $session);
         $this->services[FormFactory::class] = $formFactory;
 
         $jsonWebKeySetService = new JsonWebKeySetService($moduleConfig);
         $this->services[JsonWebKeySetService::class] = $jsonWebKeySetService;
-
-        $session = Session::getSessionFromRequest();
-        $this->services[Session::class] = $session;
 
         $sessionService = new SessionService($session);
         $this->services[SessionService::class] = $sessionService;

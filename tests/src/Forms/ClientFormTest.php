@@ -15,7 +15,6 @@ use SimpleSAML\Session;
  */
 class ClientFormTest extends TestCase
 {
-
     /** @var \SimpleSAML\Session */
     protected Session $session;
     /**

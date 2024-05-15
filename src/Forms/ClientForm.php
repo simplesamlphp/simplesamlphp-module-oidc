@@ -45,7 +45,8 @@ class ClientForm extends Form
      * - may end with port number
      */
     final public const REGEX_ALLOWED_ORIGIN_URL =
-    "/^http(s?):\/\/(\*\.[^\s\/!$&'()+,;=.?#@*:]+\.)?[^\s\/!$&'()+,;=.?#@*:]+(\.[^\s\/!$&'()+,;=.?#@*:]+)*\.?(:\d{1,5})?$/i";
+    "/^http(s?):\/\/(\*\.[^\s\/!$&'()+,;=.?#@*:]+\.)"
+    . "?[^\s\/!$&'()+,;=.?#@*:]+(\.[^\s\/!$&'()+,;=.?#@*:]+)*\.?(:\d{1,5})?$/i";
 
     /**
      * URI which must contain https or http scheme, can contain path and query, and can't contain fragment.
@@ -55,7 +56,7 @@ class ClientForm extends Form
     /**
      * @throws Exception
      */
-    public function __construct(private readonly ModuleConfig $moduleConfig,  protected Session $sspSession)
+    public function __construct(private readonly ModuleConfig $moduleConfig, protected Session $sspSession)
     {
         parent::__construct();
 
