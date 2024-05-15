@@ -5,27 +5,27 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\Forms;
 
 use PHPUnit\Framework\TestCase;
-use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Forms\ClientForm;
+use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Session;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Forms\ClientForm
  */
 class ClientFormTest extends TestCase
 {
-    /** @var \SimpleSAML\Session */
-    protected Session $session;
+    /** @var CsrfProtection */
+    protected CsrfProtection $csrfProtection;
     /**
      */
     public function setUp(): void
     {
         parent::setUp();
 
-        // The REQUEST_URI is required to create the session
-        $_SERVER['REQUEST_URI'] = '/dummy';
-        $this->session = Session::getSessionFromRequest();
+        $_SERVER['REQUEST_URI'] = '/';
+        $this->csrfProtection =  $this->getMockBuilder(CsrfProtection::class)
+            ->disableOriginalConstructor()
+            ->getMock();
     }
 
     public static function validateOriginProvider(): array
@@ -66,7 +66,7 @@ class ClientFormTest extends TestCase
      */
     public function testValidateOrigin(string $value, bool $isValid): void
     {
-        $clientForm = new ClientForm(new ModuleConfig(), $this->session);
+        $clientForm = new ClientForm(new ModuleConfig(), $this->csrfProtection);
         $clientForm->setValues(['allowed_origin' => $value]);
         $clientForm->validateAllowedOrigin($clientForm);
 

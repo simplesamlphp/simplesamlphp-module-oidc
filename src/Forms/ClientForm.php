@@ -17,12 +17,10 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Forms;
 
 use Exception;
-use Nette\Forms\Container;
 use Nette\Forms\Form;
 use SimpleSAML\Auth\Source;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Session;
 use Traversable;
 
 /**
@@ -56,7 +54,7 @@ class ClientForm extends Form
     /**
      * @throws Exception
      */
-    public function __construct(private readonly ModuleConfig $moduleConfig, protected Session $sspSession)
+    public function __construct(private readonly ModuleConfig $moduleConfig, protected CsrfProtection $csrProtection)
     {
         parent::__construct();
 
@@ -213,10 +211,7 @@ class ClientForm extends Form
         $this->onValidate[] = $this->validateBackChannelLogoutUri(...);
 
         $this->setMethod('POST');
-        $this->addComponent(
-            new CsrfProtection('{oidc:client:csrf_error}', $this->sspSession),
-            Form::ProtectorId
-        );
+        $this->addComponent($this->csrProtection, Form::ProtectorId);
 
         $this->addText('name', '{oidc:client:name}')
             ->setMaxLength(255)
