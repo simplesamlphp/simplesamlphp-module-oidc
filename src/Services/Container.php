@@ -135,8 +135,8 @@ class Container implements ContainerInterface
         $session = Session::getSessionFromRequest();
         $this->services[Session::class] = $session;
 
-        $csrProtection = new CsrfProtection('{oidc:client:csrf_error}', $session);
-        $formFactory = new FormFactory($moduleConfig, $csrProtection);
+        $csrfProtection = new CsrfProtection('{oidc:client:csrf_error}', $session);
+        $formFactory = new FormFactory($moduleConfig, $csrfProtection);
         $this->services[FormFactory::class] = $formFactory;
 
         $jsonWebKeySetService = new JsonWebKeySetService($moduleConfig);

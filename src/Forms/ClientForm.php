@@ -43,7 +43,7 @@ class ClientForm extends Form
      * - may end with port number
      */
     final public const REGEX_ALLOWED_ORIGIN_URL =
-    "/^http(s?):\/\/(\*\.[^\s\/!$&'()+,;=.?#@*:]+\.)"
+    "/^http(s?):\/\/([^\s\/!$&'()+,;=.?#@*:]+\.)"
     . "?[^\s\/!$&'()+,;=.?#@*:]+(\.[^\s\/!$&'()+,;=.?#@*:]+)*\.?(:\d{1,5})?$/i";
 
     /**
@@ -54,7 +54,7 @@ class ClientForm extends Form
     /**
      * @throws Exception
      */
-    public function __construct(private readonly ModuleConfig $moduleConfig, protected CsrfProtection $csrProtection)
+    public function __construct(private readonly ModuleConfig $moduleConfig, protected CsrfProtection $csrfProtection)
     {
         parent::__construct();
 
@@ -211,7 +211,7 @@ class ClientForm extends Form
         $this->onValidate[] = $this->validateBackChannelLogoutUri(...);
 
         $this->setMethod('POST');
-        $this->addComponent($this->csrProtection, Form::ProtectorId);
+        $this->addComponent($this->csrfProtection, Form::ProtectorId);
 
         $this->addText('name', '{oidc:client:name}')
             ->setMaxLength(255)

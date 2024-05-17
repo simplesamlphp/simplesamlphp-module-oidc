@@ -10,9 +10,11 @@ use League\OAuth2\Server\Exception\OAuthServerException;
 use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Error\UserNotFound;
 use SimpleSAML\Module\oidc\Controller\AccessTokenController;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Controller\AccessTokenController
@@ -64,5 +66,25 @@ class AccessTokenControllerTest extends TestCase
                 $this->allowedOriginRepository
             ))->__invoke($this->serverRequestMock)
         );
+    }
+
+    /**
+     * @throws OAuthServerException
+     */
+    public function testItThrowsIfOriginHeaderNotAvailable(): void
+    {
+        $this->serverRequestMock->expects($this->once())->method('getMethod')->willReturn('OPTIONS');
+        $this->serverRequestMock->expects($this->once())->method('getHeaderLine')->willReturn('');
+
+        $this->expectException(OidcServerException::class);
+        $this->prepareMockedInstance()->__invoke($this->serverRequestMock);
+    }
+
+    /**
+     * @return AccessTokenController
+     */
+    protected function prepareMockedInstance(): AccessTokenController
+    {
+        return new AccessTokenController($this->authorizationServerMock, $this->allowedOriginRepository);
     }
 }

@@ -23,7 +23,7 @@ use SimpleSAML\Session;
 
 class FormFactory
 {
-    public function __construct(private readonly ModuleConfig $moduleConfig, protected CsrfProtection $csrProtection)
+    public function __construct(private readonly ModuleConfig $moduleConfig, protected CsrfProtection $csrfProtection)
     {
     }
 
@@ -41,6 +41,6 @@ class FormFactory
         }
 
         /** @psalm-suppress UnsafeInstantiation */
-        return new $classname($this->moduleConfig, $this->csrProtection);
+        return new $classname($this->moduleConfig, $this->csrfProtection);
     }
 }

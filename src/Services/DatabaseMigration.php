@@ -218,7 +218,7 @@ EOT
     {
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
         $this->database->write(<<< EOT
-        ALTER TABLE {$clientTableName}
+        ALTER TABLE ${clientTableName}
             ADD is_enabled BOOLEAN NOT NULL DEFAULT true
 EOT
         );
@@ -228,7 +228,7 @@ EOT
     {
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
         $this->database->write(<<< EOT
-        ALTER TABLE {$clientTableName}
+        ALTER TABLE ${clientTableName}
             ADD is_confidential BOOLEAN NOT NULL DEFAULT false 
 EOT
         );
@@ -238,7 +238,7 @@ EOT
     {
         $clientTableName = $this->database->applyPrefix(AuthCodeRepository::TABLE_NAME);
         $this->database->write(<<< EOT
-        ALTER TABLE {$clientTableName}
+        ALTER TABLE ${clientTableName}
             ADD nonce TEXT NULL 
 EOT
         );
@@ -248,7 +248,7 @@ EOT
     {
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
         $this->database->write(<<< EOT
-        ALTER TABLE {$clientTableName}
+        ALTER TABLE ${clientTableName}
             ADD owner VARCHAR(191) NULL 
 EOT
         );
@@ -261,14 +261,14 @@ EOT
     {
         $tableName = $this->database->applyPrefix(AccessTokenRepository::TABLE_NAME);
         $this->database->write(<<< EOT
-        ALTER TABLE {$tableName}
+        ALTER TABLE ${tableName}
             ADD auth_code_id VARCHAR(191) NULL 
 EOT
         );
 
         $tableName = $this->database->applyPrefix(RefreshTokenRepository::TABLE_NAME);
         $this->database->write(<<< EOT
-        ALTER TABLE {$tableName}
+        ALTER TABLE ${tableName}
             ADD auth_code_id VARCHAR(191) NULL 
 EOT
         );
@@ -281,7 +281,7 @@ EOT
     {
         $tableName = $this->database->applyPrefix(AccessTokenRepository::TABLE_NAME);
         $this->database->write(<<< EOT
-        ALTER TABLE {$tableName}
+        ALTER TABLE ${tableName}
             ADD requested_claims TEXT NULL 
 EOT
         );
@@ -316,7 +316,7 @@ EOT
     {
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
         $this->database->write(<<< EOT
-        ALTER TABLE {$clientTableName}
+        ALTER TABLE ${clientTableName}
             ADD post_logout_redirect_uri TEXT NULL 
 EOT
         );
@@ -329,7 +329,7 @@ EOT
     {
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
         $this->database->write(<<< EOT
-        ALTER TABLE {$clientTableName}
+        ALTER TABLE ${clientTableName}
             ADD backchannel_logout_uri TEXT NULL 
 EOT
         );
