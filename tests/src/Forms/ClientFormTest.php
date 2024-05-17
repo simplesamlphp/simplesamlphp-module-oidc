@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\Forms;
 
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Forms\ClientForm;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -21,8 +22,7 @@ class ClientFormTest extends TestCase
     public function setUp(): void
     {
         parent::setUp();
-
-        $_SERVER['REQUEST_URI'] = '/';
+        Configuration::clearInternalState();
         $this->csrfProtection =  $this->getMockBuilder(CsrfProtection::class)
             ->disableOriginalConstructor()
             ->getMock();
@@ -66,7 +66,7 @@ class ClientFormTest extends TestCase
      */
     public function testValidateOrigin(string $value, bool $isValid): void
     {
-        $clientForm = new ClientForm(new ModuleConfig(), $this->csrfProtection);
+        $clientForm = new ClientForm($this->createMock(ModuleConfig::class), $this->csrfProtection);
         $clientForm->setValues(['allowed_origin' => $value]);
         $clientForm->validateAllowedOrigin($clientForm);
 
