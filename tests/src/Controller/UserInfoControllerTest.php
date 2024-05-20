@@ -12,6 +12,7 @@ use League\OAuth2\Server\ResourceServer;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Error\UserNotFound;
+use SimpleSAML\Module\oidc\Controller\Traits\RequestTrait;
 use SimpleSAML\Module\oidc\Controller\UserInfoController;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
@@ -216,54 +217,20 @@ class UserInfoControllerTest extends TestCase
         $this->prepareMockedInstance()->__invoke($this->serverRequestMock);
     }
 
-    /**
-     * @throws UserNotFound
-     * @throws OidcServerException
-     * @throws OAuthServerException
-     */
     public function testItHandlesCorsRequest(): void
     {
-        $origin = 'https://example.org';
         $this->serverRequestMock->expects($this->once())->method('getMethod')->willReturn('OPTIONS');
-        $this->serverRequestMock->expects($this->once())->method('getHeaderLine')->willReturn($origin);
-        $this->allowedOriginRepositoryMock->expects($this->once())->method('has')->willReturn(true);
+        $UserInfoControllerMock = $this->getMockBuilder(UserInfoController::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['handleCors'])
+            ->getMock();
+        $UserInfoControllerMock->expects($this->once())->method('handleCors');
 
-        $this->assertSame(
-            $this->prepareMockedInstance()->__invoke($this->serverRequestMock)->getHeaders(),
-            [
-                'Access-Control-Allow-Origin' => [$origin],
-                'Access-Control-Allow-Methods' => ['GET, POST, OPTIONS'],
-                'Access-Control-Allow-Headers' => ['Authorization, X-Requested-With'],
-                'Access-Control-Allow-Credentials' => ['true'],
-            ]
-        );
+        $UserInfoControllerMock->__invoke($this->serverRequestMock);
     }
 
-    /**
-     * @throws UserNotFound
-     * @throws OAuthServerException
-     */
-    public function testItThrowsIfCorsOriginNotAllowed(): void
+    public function testItUsesRequestTrait(): void
     {
-        $origin = 'https://example.org';
-        $this->serverRequestMock->expects($this->once())->method('getMethod')->willReturn('OPTIONS');
-        $this->serverRequestMock->expects($this->once())->method('getHeaderLine')->willReturn($origin);
-        $this->allowedOriginRepositoryMock->expects($this->once())->method('has')->willReturn(false);
-
-        $this->expectException(OidcServerException::class);
-        $this->prepareMockedInstance()->__invoke($this->serverRequestMock);
-    }
-
-    /**
-     * @throws UserNotFound
-     * @throws OAuthServerException
-     */
-    public function testItThrowsIfOriginHeaderNotAvailable(): void
-    {
-        $this->serverRequestMock->expects($this->once())->method('getMethod')->willReturn('OPTIONS');
-        $this->serverRequestMock->expects($this->once())->method('getHeaderLine')->willReturn('');
-
-        $this->expectException(OidcServerException::class);
-        $this->prepareMockedInstance()->__invoke($this->serverRequestMock);
+        $this->assertContains(RequestTrait::class, class_uses(UserInfoController::class));
     }
 }

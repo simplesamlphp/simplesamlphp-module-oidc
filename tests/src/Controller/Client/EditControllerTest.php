@@ -48,9 +48,6 @@ class EditControllerTest extends TestCase
      */
     protected function setUp(): void
     {
-        // The REQUEST_URI is required either to create the session or to get the selfUrl
-        $_SERVER['REQUEST_URI'] = '/';
-
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->clientRepositoryMock = $this->createMock(ClientRepository::class);
         $this->allowedOriginRepositoryMock = $this->createMock(AllowedOriginRepository::class);
@@ -69,6 +66,13 @@ class EditControllerTest extends TestCase
         $this->uriStub->method('getPath')->willReturn('/');
         $this->serverRequestMock->method('getUri')->willReturn($this->uriStub);
         $this->serverRequestMock->method('withQueryParams')->willReturn($this->serverRequestMock);
+    }
+
+    public static function setUpBeforeClass(): void
+    {
+        // To make lib/SimpleSAML/Utils/HTTP::getSelfURL() work...
+        global $_SERVER;
+        $_SERVER['REQUEST_URI'] = '';
     }
 
     protected function getStubbedInstance(): EditController

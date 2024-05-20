@@ -36,11 +36,9 @@ class ClientForm extends Form
     final public const REGEX_URI = '/^[^:]+:\/\/?[^\s\/$.?#].[^\s]*$/';
 
     /**
-     * Must have:
-     * - http:// or https:// scheme
-     * - at least one 'domain, or more subdomains, or a domain with a wild card for subdomains
-     * - no reserved chars allowed, meaning no userinfo, path, query or fragment components
-     * - may end with port number
+     * Must have http:// or https:// scheme, and at least one 'domain.top-level-domain' pair, or more subdomains.
+     * Top-level-domain may end with '.'.
+     * No reserved chars allowed, meaning no userinfo, path, query or fragment components. May end with port number.
      */
     final public const REGEX_ALLOWED_ORIGIN_URL =
     "/^http(s?):\/\/([^\s\/!$&'()+,;=.?#@*:]+\.)"

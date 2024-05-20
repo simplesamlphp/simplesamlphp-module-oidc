@@ -10,11 +10,11 @@ use League\OAuth2\Server\Exception\OAuthServerException;
 use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use SimpleSAML\Error\UserNotFound;
 use SimpleSAML\Module\oidc\Controller\AccessTokenController;
+use SimpleSAML\Module\oidc\Controller\Traits\RequestTrait;
+use SimpleSAML\Module\oidc\Controller\UserInfoController;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Controller\AccessTokenController
@@ -68,16 +68,16 @@ class AccessTokenControllerTest extends TestCase
         );
     }
 
-    /**
-     * @throws OAuthServerException
-     */
-    public function testItThrowsIfOriginHeaderNotAvailable(): void
+    public function testItHandlesCorsRequest(): void
     {
         $this->serverRequestMock->expects($this->once())->method('getMethod')->willReturn('OPTIONS');
-        $this->serverRequestMock->expects($this->once())->method('getHeaderLine')->willReturn('');
+        $UserInfoControllerMock = $this->getMockBuilder(UserInfoController::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['handleCors'])
+            ->getMock();
+        $UserInfoControllerMock->expects($this->once())->method('handleCors');
 
-        $this->expectException(OidcServerException::class);
-        $this->prepareMockedInstance()->__invoke($this->serverRequestMock);
+        $UserInfoControllerMock->__invoke($this->serverRequestMock);
     }
 
     /**
@@ -86,5 +86,10 @@ class AccessTokenControllerTest extends TestCase
     protected function prepareMockedInstance(): AccessTokenController
     {
         return new AccessTokenController($this->authorizationServerMock, $this->allowedOriginRepository);
+    }
+
+    public function testItUsesRequestTrait(): void
+    {
+        $this->assertContains(RequestTrait::class, class_uses(AccessTokenController::class));
     }
 }

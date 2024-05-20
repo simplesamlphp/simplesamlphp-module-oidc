@@ -75,7 +75,10 @@ class ClientFormTest extends TestCase
             ['https://developer.mozilla.org:80', true],
             ['http://attacker.bar/test.php', false],
             ['https://cors-test.codehappy.dev', true],
-            ['https://cors-test.codehappy.dev:8080', true],
+            ['http://80.345.28.123', true],
+            ['https://127.0.0.1:8080', true],
+            ['https://127.0.0.1:8080/path', false],
+            ['https://user:pass@127.0.0.1:8080/path', false],
         ];
     }
 
