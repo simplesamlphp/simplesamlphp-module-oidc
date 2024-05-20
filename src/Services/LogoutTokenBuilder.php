@@ -18,6 +18,7 @@ class LogoutTokenBuilder
 
     /**
      * @throws OAuthServerException|Exception
+     * @psalm-suppress ArgumentTypeCoercion
      */
     public function forRelyingPartyAssociation(RelyingPartyAssociationInterface $relyingPartyAssociation): string
     {

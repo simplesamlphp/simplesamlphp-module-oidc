@@ -62,6 +62,16 @@ class IdTokenHintRule extends AbstractRule
             InMemory::plainText($publicKey->getKeyContents())
         );
 
+        if (empty($idTokenHintParam)) {
+            throw OidcServerException::invalidRequest(
+                'id_token_hint',
+                'Received empty id_token_hint',
+                null,
+                null,
+                $state
+            );
+        }
+
         try {
             /** @var UnencryptedToken $idTokenHint */
             $idTokenHint = $jwtConfig->parser()->parse($idTokenHintParam);

@@ -29,6 +29,7 @@ class IdTokenBuilder
 
     /**
      * @throws Exception
+     * @psalm-suppress ArgumentTypeCoercion
      */
     public function build(
         UserEntityInterface $userEntity,
@@ -136,6 +137,7 @@ class IdTokenBuilder
         AccessTokenEntityInterface $accessToken,
         UserEntityInterface $userEntity
     ): Builder {
+        /** @psalm-suppress ArgumentTypeCoercion */
         return $this->jsonWebTokenBuilderService
             ->getDefaultJwtTokenBuilder()
             ->permittedFor($accessToken->getClient()->getIdentifier())

@@ -25,6 +25,8 @@ class JsonWebTokenBuilderService
     /**
      * @throws ReflectionException
      * @throws Exception
+     *
+     * @psalm-suppress ArgumentTypeCoercion
      */
     public function __construct(
         protected ModuleConfig $moduleConfig = new ModuleConfig()
@@ -44,6 +46,7 @@ class JsonWebTokenBuilderService
      */
     public function getDefaultJwtTokenBuilder(): Builder
     {
+        /** @psalm-suppress ArgumentTypeCoercion */
         // Ignore microseconds when handling dates.
         return $this->jwtConfig->builder(ChainedFormatter::withUnixTimestampDates())
             ->issuedBy($this->moduleConfig->getSimpleSAMLSelfURLHost())
