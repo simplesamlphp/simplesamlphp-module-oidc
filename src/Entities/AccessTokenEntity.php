@@ -201,7 +201,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
     protected function convertToJWT(): Token
     {
         $jwtBuilderService = new JsonWebTokenBuilderService();
-
+        /** @psalm-suppress ArgumentTypeCoercion */
         $jwtBuilder = $jwtBuilderService->getDefaultJwtTokenBuilder()
             ->permittedFor($this->getClient()->getIdentifier())
             ->identifiedBy((string)$this->getIdentifier())

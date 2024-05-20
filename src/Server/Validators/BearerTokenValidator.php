@@ -115,7 +115,7 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
             $jwt = $parsedBody['access_token'];
         }
 
-        if (!is_string($jwt)) {
+        if (!is_string($jwt) || empty($jwt)) {
             throw OidcServerException::accessDenied('Missing Authorization header or access_token request body param.');
         }
 
