@@ -556,7 +556,7 @@
                                     "xpath",
                                     "//*",
                                     10,
-                                    "Token signer mismatch",
+                                    "The JWT string is missing the Signature part",
                                     "update-image-placeholder"
                                 ]
                             ]

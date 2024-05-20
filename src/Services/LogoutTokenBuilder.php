@@ -18,6 +18,7 @@ class LogoutTokenBuilder
 
     /**
      * @throws OAuthServerException|Exception
+     * @psalm-suppress ArgumentTypeCoercion
      */
     public function forRelyingPartyAssociation(RelyingPartyAssociationInterface $relyingPartyAssociation): string
     {
@@ -30,7 +31,7 @@ class LogoutTokenBuilder
         ;
 
         if ($relyingPartyAssociation->getSessionId() !== null) {
-            $logoutTokenBuilder->withClaim('sid', $relyingPartyAssociation->getSessionId());
+            $logoutTokenBuilder = $logoutTokenBuilder->withClaim('sid', $relyingPartyAssociation->getSessionId());
         }
 
         return $this->jsonWebTokenBuilderService->getSignedJwtTokenFromBuilder($logoutTokenBuilder)->toString();
