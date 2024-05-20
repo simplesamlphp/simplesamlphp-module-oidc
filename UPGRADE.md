@@ -7,6 +7,8 @@
 - TODO implement store for different entities?: i.e. client data can use RDB like mysql, whilst short term data
   like tokens can utilize faster stores like memcache, redis...
 - TODO move to SimpleSAMLphp ProcessingChain
+- TODO OpenID Federation capabilities
+  - [ ] Expose OP configuration entity statement (statement about itself)
 
 ## Major impact changes
 - TODO move away from SSP database as store; move to custom store interface

@@ -7,3 +7,9 @@
 openid-configuration:
   path: openid-configuration
   controller: SimpleSAML\Module\oidc\Controller\ConfigurationDiscoveryController
+
+# Federation related routes
+# https://openid.net/specs/openid-federation-1_0.html#name-federation-entity-configura
+openid-federation-entity-statement-configuration:
+  path: openid-federation
+  controller: SimpleSAML\Module\oidc\Controller\Federation\EntityStatementController::configuration
