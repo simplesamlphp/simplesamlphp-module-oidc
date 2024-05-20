@@ -27,12 +27,13 @@ class RequestTraitTest extends TestCase
     public function setUp(): void
     {
         $this->allowedOriginRepositoryMock = $this->createMock(AllowedOriginRepository::class);
-        $this->prepareMockedInstance = new class($this->allowedOriginRepositoryMock) {
+        $this->prepareMockedInstance = new class ($this->allowedOriginRepositoryMock) {
+            use RequestTrait;
+
             public function __construct(
                 public AllowedOriginRepository $allowedOriginRepository
             ) {
             }
-            use RequestTrait;
 
             public function handleCorsWrapper(ServerRequest $request): Response
             {

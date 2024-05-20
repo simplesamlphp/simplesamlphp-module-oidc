@@ -71,13 +71,13 @@ class AccessTokenControllerTest extends TestCase
     public function testItHandlesCorsRequest(): void
     {
         $this->serverRequestMock->expects($this->once())->method('getMethod')->willReturn('OPTIONS');
-        $UserInfoControllerMock = $this->getMockBuilder(UserInfoController::class)
+        $userInfoControllerMock = $this->getMockBuilder(UserInfoController::class)
             ->disableOriginalConstructor()
             ->onlyMethods(['handleCors'])
             ->getMock();
-        $UserInfoControllerMock->expects($this->once())->method('handleCors');
+        $userInfoControllerMock->expects($this->once())->method('handleCors');
 
-        $UserInfoControllerMock->__invoke($this->serverRequestMock);
+        $userInfoControllerMock->__invoke($this->serverRequestMock);
     }
 
     /**
