@@ -48,15 +48,15 @@ class IdTokenBuilder
         $builder = $this->getBuilder($accessToken, $userEntity);
 
         if (null !== $nonce) {
-            $builder->withClaim('nonce', $nonce);
+            $builder = $builder->withClaim('nonce', $nonce);
         }
 
         if (null !== $authTime) {
-            $builder->withClaim('auth_time', $authTime);
+            $builder = $builder->withClaim('auth_time', $authTime);
         }
 
         if ($addAccessTokenHash) {
-            $builder->withClaim(
+            $builder = $builder->withClaim(
                 'at_hash',
                 $this->generateAccessTokenHash(
                     $accessToken,
@@ -66,11 +66,11 @@ class IdTokenBuilder
         }
 
         if (null !== $acr) {
-            $builder->withClaim('acr', $acr);
+            $builder = $builder->withClaim('acr', $acr);
         }
 
         if (null !== $sessionId) {
-            $builder->withClaim('sid', $sessionId);
+            $builder = $builder->withClaim('sid', $sessionId);
         }
 
         // Need a claim factory here to reduce the number of claims by provided scope.
@@ -92,36 +92,36 @@ class IdTokenBuilder
                     if (is_array($claimValue)) {
                         /** @psalm-suppress MixedAssignment */
                         foreach ($claimValue as $aud) {
-                            $builder->permittedFor((string)$aud);
+                            $builder = $builder->permittedFor((string)$aud);
                         }
                     } else {
-                        $builder->permittedFor((string)$claimValue);
+                        $builder = $builder->permittedFor((string)$claimValue);
                     }
                     break;
                 case RegisteredClaims::EXPIRATION_TIME:
                     /** @noinspection PhpUnnecessaryStringCastInspection */
-                    $builder->expiresAt(new DateTimeImmutable('@' . (string)$claimValue));
+                    $builder = $builder->expiresAt(new DateTimeImmutable('@' . (string)$claimValue));
                     break;
                 case RegisteredClaims::ID:
-                    $builder->identifiedBy((string)$claimValue);
+                    $builder = $builder->identifiedBy((string)$claimValue);
                     break;
                 case RegisteredClaims::ISSUED_AT:
                     /** @noinspection PhpUnnecessaryStringCastInspection */
-                    $builder->issuedAt(new DateTimeImmutable('@' . (string)$claimValue));
+                    $builder = $builder->issuedAt(new DateTimeImmutable('@' . (string)$claimValue));
                     break;
                 case RegisteredClaims::ISSUER:
-                    $builder->issuedBy((string)$claimValue);
+                    $builder = $builder->issuedBy((string)$claimValue);
                     break;
                 case RegisteredClaims::NOT_BEFORE:
                     /** @noinspection PhpUnnecessaryStringCastInspection */
-                    $builder->canOnlyBeUsedAfter(new DateTimeImmutable('@' . (string)$claimValue));
+                    $builder = $builder->canOnlyBeUsedAfter(new DateTimeImmutable('@' . (string)$claimValue));
                     break;
                 case RegisteredClaims::SUBJECT:
-                    $builder->relatedTo((string)$claimValue);
+                    $builder = $builder->relatedTo((string)$claimValue);
                     break;
                 default:
                     if ($addClaimsFromScopes || array_key_exists($claimName, $additionalClaims)) {
-                        $builder->withClaim($claimName, $claimValue);
+                        $builder = $builder->withClaim($claimName, $claimValue);
                     }
             }
         }

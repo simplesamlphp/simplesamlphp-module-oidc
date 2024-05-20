@@ -30,7 +30,7 @@ class LogoutTokenBuilder
         ;
 
         if ($relyingPartyAssociation->getSessionId() !== null) {
-            $logoutTokenBuilder->withClaim('sid', $relyingPartyAssociation->getSessionId());
+            $logoutTokenBuilder = $logoutTokenBuilder->withClaim('sid', $relyingPartyAssociation->getSessionId());
         }
 
         return $this->jsonWebTokenBuilderService->getSignedJwtTokenFromBuilder($logoutTokenBuilder)->toString();
