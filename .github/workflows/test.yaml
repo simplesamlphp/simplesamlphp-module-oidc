@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php-versions: ["8.1", "8.2"]
+        php-versions: ["8.1", "8.2", "8.3"]
 
     steps:
       - name: Setup PHP, with composer and extensions
@@ -45,7 +45,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          key: "${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}"
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Validate composer.json and composer.lock
@@ -93,10 +93,10 @@ jobs:
         run: echo "::set-output name=dir::$(composer config cache-files-dir)"
 
       - name: Cache composer dependencies
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          key: "${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}"
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Install Composer dependencies
@@ -137,7 +137,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          key: "${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}"
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Install Composer dependencies
@@ -169,7 +169,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          key: "${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}"
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Install Composer dependencies
