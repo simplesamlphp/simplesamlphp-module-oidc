@@ -58,6 +58,9 @@ $config = [
     //ModuleConfig::OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME =>
     //    ModuleConfig::DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME,
 
+    // Federation token signer, with given default.
+    //ModuleConfig::OPTION_FEDERATION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Rsa\Sha256::class,
+
     /**
      * Authentication related options.
      */

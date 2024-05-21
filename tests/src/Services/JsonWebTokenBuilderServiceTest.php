@@ -78,7 +78,7 @@ class JsonWebTokenBuilderServiceTest extends TestCase
         $builderService = new JsonWebTokenBuilderService($this->moduleConfigStub);
         $tokenBuilder = $builderService->getProtocolJwtBuilder();
 
-        $unencryptedToken = $builderService->getSignedJwtTokenFromBuilder($tokenBuilder);
+        $unencryptedToken = $builderService->getSignedProtocolJwt($tokenBuilder);
 
         $this->assertInstanceOf(UnencryptedToken::class, $unencryptedToken);
         $this->assertSame(self::$selfUrlHost, $unencryptedToken->claims()->get('iss'));
@@ -116,7 +116,7 @@ class JsonWebTokenBuilderServiceTest extends TestCase
     {
         $this->assertSame(
             self::$signerSha256,
-            (new JsonWebTokenBuilderService($this->moduleConfigStub))->getSigner()
+            (new JsonWebTokenBuilderService($this->moduleConfigStub))->getProtocolSigner()
         );
     }
 }

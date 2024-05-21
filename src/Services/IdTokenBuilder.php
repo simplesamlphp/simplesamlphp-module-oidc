@@ -61,7 +61,7 @@ class IdTokenBuilder
                 'at_hash',
                 $this->generateAccessTokenHash(
                     $accessToken,
-                    $this->jsonWebTokenBuilderService->getSigner()->algorithmId()
+                    $this->jsonWebTokenBuilderService->getProtocolSigner()->algorithmId()
                 )
             );
         }
@@ -127,7 +127,7 @@ class IdTokenBuilder
             }
         }
 
-        return $this->jsonWebTokenBuilderService->getSignedJwtTokenFromBuilder($builder);
+        return $this->jsonWebTokenBuilderService->getSignedProtocolJwt($builder);
     }
 
     /**

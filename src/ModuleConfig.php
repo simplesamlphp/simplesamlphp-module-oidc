@@ -387,4 +387,19 @@ class ModuleConfig
     {
         return $this->config()->getOptionalString(self::OPTION_PKI_FEDERATION_PRIVATE_KEY_PASSPHRASE, null);
     }
+
+    /**
+     * Return the path to the federation public certificate
+     * @return ?string The file system path or null if not set.
+     * @throws Exception
+     */
+    public function getFederationCertPath(): ?string
+    {
+        $certName = $this->config()->getOptionalString(
+            self::OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME,
+            null
+        );
+
+        return is_null($certName) ? null : (new Config())->getCertPath($certName);
+    }
 }

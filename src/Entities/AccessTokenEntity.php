@@ -211,6 +211,6 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
             ->relatedTo((string) $this->getUserIdentifier())
             ->withClaim('scopes', $this->getScopes());
 
-        return $jwtBuilderService->getSignedJwtTokenFromBuilder($jwtBuilder);
+        return $jwtBuilderService->getSignedProtocolJwt($jwtBuilder);
     }
 }

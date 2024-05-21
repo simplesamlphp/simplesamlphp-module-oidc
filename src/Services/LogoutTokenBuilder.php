@@ -34,6 +34,6 @@ class LogoutTokenBuilder
             $logoutTokenBuilder = $logoutTokenBuilder->withClaim('sid', $relyingPartyAssociation->getSessionId());
         }
 
-        return $this->jsonWebTokenBuilderService->getSignedJwtTokenFromBuilder($logoutTokenBuilder)->toString();
+        return $this->jsonWebTokenBuilderService->getSignedProtocolJwt($logoutTokenBuilder)->toString();
     }
 }
