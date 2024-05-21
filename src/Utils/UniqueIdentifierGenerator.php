@@ -13,7 +13,7 @@ class UniqueIdentifierGenerator
     /**
      * Generate a new unique identifier.
      *
-     * @throws OAuthServerException
+     * @throws OidcServerException
      */
     public static function hitMe(int $length = 40): string
     {

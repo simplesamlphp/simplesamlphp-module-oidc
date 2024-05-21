@@ -23,7 +23,7 @@ class LogoutTokenBuilder
     public function forRelyingPartyAssociation(RelyingPartyAssociationInterface $relyingPartyAssociation): string
     {
         $logoutTokenBuilder = $this->jsonWebTokenBuilderService
-            ->getDefaultJwtTokenBuilder()
+            ->getProtocolJwtBuilder()
             ->withHeader('typ', 'logout+jwt')
             ->permittedFor($relyingPartyAssociation->getClientId())
             ->relatedTo($relyingPartyAssociation->getUserId())

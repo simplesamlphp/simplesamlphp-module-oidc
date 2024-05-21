@@ -139,7 +139,7 @@ class IdTokenBuilder
     ): Builder {
         /** @psalm-suppress ArgumentTypeCoercion */
         return $this->jsonWebTokenBuilderService
-            ->getDefaultJwtTokenBuilder()
+            ->getProtocolJwtBuilder()
             ->permittedFor($accessToken->getClient()->getIdentifier())
             ->identifiedBy($accessToken->getIdentifier())
             ->canOnlyBeUsedAfter(new DateTimeImmutable('now'))

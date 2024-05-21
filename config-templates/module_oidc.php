@@ -21,11 +21,12 @@ use SimpleSAML\Module\oidc\ModuleConfig;
  */
 $config = [
     /**
-     * PKI (public / private key) related options.
+     * PKI (public / private key) related options related to OIDC protocol. These keys will be used, for example, to
+     * sign ID Token JWT.
      */
     // The private key passphrase (optional).
     //ModuleConfig::OPTION_PKI_PRIVATE_KEY_PASSPHRASE => 'secret',
-    // The certificate and private key filenames for ID token signature handling, with given defaults.
+    // The certificate and private key filenames, with given defaults.
     ModuleConfig::OPTION_PKI_PRIVATE_KEY_FILENAME => ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME,
     ModuleConfig::OPTION_PKI_CERTIFICATE_FILENAME => ModuleConfig::DEFAULT_PKI_CERTIFICATE_FILENAME,
 
@@ -43,6 +44,19 @@ $config = [
     ModuleConfig::OPTION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Rsa\Sha256::class,
     //ModuleConfig::OPTION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Hmac\Sha256::class,
     //ModuleConfig::OPTION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Ecdsa\Sha256::class,
+
+    /**
+     * (optional) PKI options related to OpenID Federation. These keys will be used, for example, to sign federation
+     * entity statements. Note that these keys SHOULD NOT be the same as the ones used in OIDC protocol itself.
+     * If these are not set, OpenID federation capabilities will be disabled.
+     */
+    // The federation private key passphrase (optional).
+    //ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_PASSPHRASE => 'secret',
+    // The federation certificate and private key filenames, with given defaults.
+    //ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME =>
+    //    ModuleConfig::DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
+    //ModuleConfig::OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME =>
+    //    ModuleConfig::DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME,
 
     /**
      * Authentication related options.

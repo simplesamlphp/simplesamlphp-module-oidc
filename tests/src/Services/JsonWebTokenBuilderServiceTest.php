@@ -64,7 +64,7 @@ class JsonWebTokenBuilderServiceTest extends TestCase
 
         $this->assertInstanceOf(
             Builder::class,
-            $builderService->getDefaultJwtTokenBuilder()
+            $builderService->getProtocolJwtBuilder()
         );
     }
 
@@ -76,7 +76,7 @@ class JsonWebTokenBuilderServiceTest extends TestCase
     public function testCanGenerateSignedJwtToken(): void
     {
         $builderService = new JsonWebTokenBuilderService($this->moduleConfigStub);
-        $tokenBuilder = $builderService->getDefaultJwtTokenBuilder();
+        $tokenBuilder = $builderService->getProtocolJwtBuilder();
 
         $unencryptedToken = $builderService->getSignedJwtTokenFromBuilder($tokenBuilder);
 

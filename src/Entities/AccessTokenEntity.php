@@ -202,7 +202,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
     {
         $jwtBuilderService = new JsonWebTokenBuilderService();
         /** @psalm-suppress ArgumentTypeCoercion */
-        $jwtBuilder = $jwtBuilderService->getDefaultJwtTokenBuilder()
+        $jwtBuilder = $jwtBuilderService->getProtocolJwtBuilder()
             ->permittedFor($this->getClient()->getIdentifier())
             ->identifiedBy((string)$this->getIdentifier())
             ->issuedAt(new DateTimeImmutable())

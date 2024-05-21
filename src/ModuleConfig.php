@@ -54,6 +54,12 @@ class ModuleConfig
     final public const OPTION_CRON_TAG = 'cron_tag';
     final public const OPTION_ADMIN_UI_PERMISSIONS = 'permissions';
     final public const OPTION_ADMIN_UI_PAGINATION_ITEMS_PER_PAGE = 'items_per_page';
+    final public const OPTION_FEDERATION_TOKEN_SIGNER = 'federation_token_signer';
+    final public const OPTION_PKI_FEDERATION_PRIVATE_KEY_PASSPHRASE = 'federation_private_key_passphrase';
+    final public const OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME = 'federation_private_key_filename';
+    final public const DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME = 'oidc_module_federation.key';
+    final public const OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME = 'federation_certificate_filename';
+    final public const DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME = 'oidc_module_federation.crt';
 
     protected static array $standardClaims = [
         // TODO mivanci Move registered scopes to enum?
@@ -237,7 +243,16 @@ class ModuleConfig
             Sha256::class
         );
 
-        $class = new ReflectionClass($signerClassname);
+        return $this->instantiateSigner($signerClassname);
+    }
+
+    /**
+     * @throws ReflectionException
+     * @param class-string $className
+     */
+    protected function instantiateSigner(string $className): Signer
+    {
+        $class = new ReflectionClass($className);
         $signer = $class->newInstance();
 
         if (!$signer instanceof Signer) {
@@ -347,5 +362,29 @@ class ModuleConfig
     public function getUserIdentifierAttribute(): string
     {
         return $this->config()->getString(ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE);
+    }
+
+    public function getFederationSigner(): ?Signer
+    {
+        /** @psalm-var ?class-string $signerClassname */
+        $signerClassname = $this->config()->getOptionalString(self::OPTION_FEDERATION_TOKEN_SIGNER, null);
+
+        return is_null($signerClassname) ? null : $this->instantiateSigner($signerClassname);
+    }
+
+    public function getFederationPrivateKeyPath(): ?string
+    {
+        $keyName = $this->config()->getOptionalString(
+            self::OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
+            null
+        );
+
+        // TODO mivanci move to bridge classes to SSP utils
+        return is_null($keyName) ? null : (new Config())->getCertPath($keyName);
+    }
+
+    public function getFederationPrivateKeyPassPhrase(): ?string
+    {
+        return $this->config()->getOptionalString(self::OPTION_PKI_FEDERATION_PRIVATE_KEY_PASSPHRASE, null);
     }
 }

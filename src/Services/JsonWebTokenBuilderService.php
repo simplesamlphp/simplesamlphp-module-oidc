@@ -15,12 +15,21 @@ use Lcobucci\JWT\UnencryptedToken;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use ReflectionException;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
 use SimpleSAML\Module\oidc\Utils\UniqueIdentifierGenerator;
 
 class JsonWebTokenBuilderService
 {
+    /**
+     * @var Configuration Token configuration related to OIDC protocol.
+     */
     protected Configuration $jwtConfig;
+
+    /**
+     * @var ?Configuration Token configuration related to OpenID Federation.
+     */
+    protected ?Configuration $federationJwtConfig = null;
 
     /**
      * @throws ReflectionException
@@ -39,16 +48,50 @@ class JsonWebTokenBuilderService
             ),
             InMemory::plainText('empty', 'empty')
         );
+
+        if (
+            ($federationSigner = $this->moduleConfig->getFederationSigner()) &&
+            ($federationPrivateKeyPath = $this->moduleConfig->getFederationPrivateKeyPath())
+        ) {
+            $this->federationJwtConfig = Configuration::forAsymmetricSigner(
+                $federationSigner,
+                InMemory::file(
+                    $federationPrivateKeyPath,
+                    $this->moduleConfig->getFederationPrivateKeyPassPhrase() ?? ''
+                ),
+                InMemory::plainText('empty', 'empty')
+            );
+        }
     }
 
     /**
-     * @throws OAuthServerException
+     * @throws OidcServerException
      */
-    public function getDefaultJwtTokenBuilder(): Builder
+    public function getProtocolJwtBuilder(): Builder
+    {
+        return $this->getDefaultJwtBuilder($this->jwtConfig);
+    }
+
+    /**
+     * @throws OidcServerException
+     */
+    public function getFederationJwtBuilder(): Builder
+    {
+        if (is_null($this->federationJwtConfig)) {
+            throw OidcServerException::serverError('Federation JWT PKI configuration is not set.');
+        }
+
+        return $this->getDefaultJwtBuilder($this->federationJwtConfig);
+    }
+
+    /**
+     * @throws OidcServerException
+     */
+    public function getDefaultJwtBuilder(Configuration $configuration): Builder
     {
         /** @psalm-suppress ArgumentTypeCoercion */
         // Ignore microseconds when handling dates.
-        return $this->jwtConfig->builder(ChainedFormatter::withUnixTimestampDates())
+        return $configuration->builder(ChainedFormatter::withUnixTimestampDates())
             ->issuedBy($this->moduleConfig->getSimpleSAMLSelfURLHost())
             ->issuedAt(new DateTimeImmutable('now'))
             ->identifiedBy(UniqueIdentifierGenerator::hitMe());
