@@ -43,12 +43,12 @@ class UserEntityTest extends TestCase
     {
         $this->assertInstanceOf(
             UserEntity::class,
-            $this->prepareMockedInstance()
+            $this->prepareMockedInstance(),
         );
 
         $this->assertInstanceOf(
             UserEntity::class,
-            UserEntity::fromData('id')
+            UserEntity::fromData('id'),
         );
     }
 
@@ -80,7 +80,7 @@ class UserEntityTest extends TestCase
                 'claims' => json_encode([]),
                 'updated_at' => '1970-01-01 00:00:00',
                 'created_at' => '1970-01-01 00:00:00',
-            ]
+            ],
         );
     }
 }

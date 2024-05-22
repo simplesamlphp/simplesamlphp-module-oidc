@@ -101,7 +101,7 @@ class BearerTokenValidatorTest extends TestCase
             'desc1',
             ['redirect-uri'],
             ['openid'],
-            true
+            true,
         );
 
         self::$accessTokenState = [
@@ -111,7 +111,7 @@ class BearerTokenValidatorTest extends TestCase
             'user_id' => 'user123',
             'client' => self::$clientEntity,
             'is_revoked' => false,
-            'auth_code_id' => 'authCode123'
+            'auth_code_id' => 'authCode123',
         ];
 
         self::$accessTokenEntity = AccessTokenEntity::fromState(self::$accessTokenState);
@@ -147,7 +147,7 @@ class BearerTokenValidatorTest extends TestCase
 
         $this->assertSame(
             self::$accessTokenState['id'],
-            $validatedServerRequest->getAttribute('oauth_access_token_id')
+            $validatedServerRequest->getAttribute('oauth_access_token_id'),
         );
     }
 
@@ -169,7 +169,7 @@ class BearerTokenValidatorTest extends TestCase
 
         $this->assertSame(
             self::$accessTokenState['id'],
-            $validatedServerRequest->getAttribute('oauth_access_token_id')
+            $validatedServerRequest->getAttribute('oauth_access_token_id'),
         );
     }
 

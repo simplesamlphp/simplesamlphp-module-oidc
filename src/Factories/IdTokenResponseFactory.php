@@ -27,7 +27,7 @@ class IdTokenResponseFactory
         private readonly UserRepository $userRepository,
         private readonly IdTokenBuilder $idTokenBuilder,
         private readonly CryptKey $privateKey,
-        private readonly string $encryptionKey
+        private readonly string $encryptionKey,
     ) {
     }
 
@@ -36,7 +36,7 @@ class IdTokenResponseFactory
         $idTokenResponse = new IdTokenResponse(
             $this->userRepository,
             $this->idTokenBuilder,
-            $this->privateKey
+            $this->privateKey,
         );
         $idTokenResponse->setEncryptionKey($this->encryptionKey);
 

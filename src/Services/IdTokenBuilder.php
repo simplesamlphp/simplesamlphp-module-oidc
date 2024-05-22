@@ -23,7 +23,7 @@ class IdTokenBuilder
 {
     public function __construct(
         private readonly JsonWebTokenBuilderService $jsonWebTokenBuilderService,
-        private readonly ClaimTranslatorExtractor $claimExtractor
+        private readonly ClaimTranslatorExtractor $claimExtractor,
     ) {
     }
 
@@ -38,7 +38,7 @@ class IdTokenBuilder
         ?string $nonce,
         ?int $authTime,
         ?string $acr,
-        ?string $sessionId
+        ?string $sessionId,
     ): UnencryptedToken {
         if (false === is_a($userEntity, ClaimSetInterface::class)) {
             throw new RuntimeException('UserEntity must implement ClaimSetInterface');
@@ -60,8 +60,8 @@ class IdTokenBuilder
                 'at_hash',
                 $this->generateAccessTokenHash(
                     $accessToken,
-                    $this->jsonWebTokenBuilderService->getSigner()->algorithmId()
-                )
+                    $this->jsonWebTokenBuilderService->getSigner()->algorithmId(),
+                ),
             );
         }
 
@@ -78,7 +78,7 @@ class IdTokenBuilder
         $requestedClaims =  $accessToken->getRequestedClaims();
         $additionalClaims = $this->claimExtractor->extractAdditionalIdTokenClaims(
             $requestedClaims,
-            $userEntity->getClaims()
+            $userEntity->getClaims(),
         );
         $claims = array_merge($additionalClaims, $claims);
 
@@ -134,7 +134,7 @@ class IdTokenBuilder
      */
     protected function getBuilder(
         AccessTokenEntityInterface $accessToken,
-        UserEntityInterface $userEntity
+        UserEntityInterface $userEntity,
     ): Builder {
         return $this->jsonWebTokenBuilderService
             ->getDefaultJwtTokenBuilder()
@@ -154,7 +154,7 @@ class IdTokenBuilder
 
         $jwsAlgorithmBitLength = (int) substr($jwsAlgorithm, 2);
 
-        if (! in_array($jwsAlgorithmBitLength, $validBitLengths, true)) {
+        if (!in_array($jwsAlgorithmBitLength, $validBitLengths, true)) {
             throw new RuntimeException(sprintf('JWS algorithm not supported (%s)', $jwsAlgorithm));
         }
 
@@ -176,11 +176,11 @@ class IdTokenBuilder
                 hash(
                     $hashAlgorithm,
                     $accessTokenString,
-                    true
+                    true,
                 ),
                 0,
-                $hashByteLength
-            )
+                $hashByteLength,
+            ),
         );
     }
 }

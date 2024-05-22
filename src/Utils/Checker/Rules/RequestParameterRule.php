@@ -23,7 +23,7 @@ class RequestParameterRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = ['GET']
+        array $allowedServerRequestMethods = ['GET'],
     ): ?ResultInterface {
         $queryParams = $request->getQueryParams();
         if (!array_key_exists('request', $queryParams)) {
@@ -40,7 +40,7 @@ class RequestParameterRule extends AbstractRule
             $redirectUri,
             null,
             $stateValue,
-            $useFragmentInHttpErrorResponses
+            $useFragmentInHttpErrorResponses,
         );
     }
 }

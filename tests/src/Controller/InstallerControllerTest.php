@@ -48,7 +48,7 @@ class InstallerControllerTest extends TestCase
             $this->templateFactoryMock,
             $this->sessionMessagesService,
             $this->databaseMigrationMock,
-            $this->databaseLegacyOAuth2ImportMock
+            $this->databaseLegacyOAuth2ImportMock,
         );
     }
 
@@ -56,7 +56,7 @@ class InstallerControllerTest extends TestCase
     {
         $this->assertInstanceOf(
             InstallerController::class,
-            $this->createStubbedInstance()
+            $this->createStubbedInstance(),
         );
     }
 
@@ -72,7 +72,7 @@ class InstallerControllerTest extends TestCase
 
         $this->assertInstanceOf(
             RedirectResponse::class,
-            $this->createStubbedInstance()->__invoke($this->serverRequestMock)
+            $this->createStubbedInstance()->__invoke($this->serverRequestMock),
         );
     }
 
@@ -91,7 +91,7 @@ class InstallerControllerTest extends TestCase
 
         $this->assertSame(
             $this->templateMock,
-            $this->createStubbedInstance()->__invoke($this->serverRequestMock)
+            $this->createStubbedInstance()->__invoke($this->serverRequestMock),
         );
     }
 
@@ -111,7 +111,7 @@ class InstallerControllerTest extends TestCase
 
         $this->assertSame(
             $this->templateMock,
-            $this->createStubbedInstance()->__invoke($this->serverRequestMock)
+            $this->createStubbedInstance()->__invoke($this->serverRequestMock),
         );
     }
 
@@ -128,7 +128,7 @@ class InstallerControllerTest extends TestCase
 
         $this->assertInstanceOf(
             RedirectResponse::class,
-            $this->createStubbedInstance()->__invoke($this->serverRequestMock)
+            $this->createStubbedInstance()->__invoke($this->serverRequestMock),
         );
     }
 
@@ -149,13 +149,13 @@ class InstallerControllerTest extends TestCase
             ->method('addMessage')
             ->with(
                 $this->callback(
-                    fn($message) => in_array($message, ['{oidc:install:finished}', '{oidc:import:finished}'])
-                )
+                    fn($message) => in_array($message, ['{oidc:install:finished}', '{oidc:import:finished}']),
+                ),
             );
 
         $this->assertInstanceOf(
             RedirectResponse::class,
-            $this->createStubbedInstance()->__invoke($this->serverRequestMock)
+            $this->createStubbedInstance()->__invoke($this->serverRequestMock),
         );
     }
 }

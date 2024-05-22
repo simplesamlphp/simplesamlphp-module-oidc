@@ -63,7 +63,7 @@ class ShowControllerTest extends TestCase
             $this->clientRepositoryMock,
             $this->allowedOriginRepositoryMock,
             $this->templateFactoryMock,
-            $this->authContextServiceMock
+            $this->authContextServiceMock,
         );
     }
 
@@ -71,7 +71,7 @@ class ShowControllerTest extends TestCase
     {
         $this->assertInstanceOf(
             ShowController::class,
-            $this->getStubbedInstance()
+            $this->getStubbedInstance(),
         );
     }
 
@@ -104,13 +104,13 @@ class ShowControllerTest extends TestCase
                 'oidc:clients/show.twig',
                 [
                     'client' => $this->clientEntityMock,
-                    'allowedOrigins' => []
-                ]
+                    'allowedOrigins' => [],
+                ],
             )->willReturn($this->templateMock);
 
         $this->assertSame(
             $this->templateMock,
-            $this->getStubbedInstance()->__invoke($this->serverRequestMock)
+            $this->getStubbedInstance()->__invoke($this->serverRequestMock),
         );
     }
 

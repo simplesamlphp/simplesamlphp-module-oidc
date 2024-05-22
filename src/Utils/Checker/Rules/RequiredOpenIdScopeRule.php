@@ -25,7 +25,7 @@ class RequiredOpenIdScopeRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = ['GET']
+        array $allowedServerRequestMethods = ['GET'],
     ): ?ResultInterface {
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
@@ -36,7 +36,7 @@ class RequiredOpenIdScopeRule extends AbstractRule
 
         $isOpenIdScopePresent = (bool) array_filter(
             $validScopes,
-            fn($scopeEntity) => $scopeEntity->getIdentifier() === 'openid'
+            fn($scopeEntity) => $scopeEntity->getIdentifier() === 'openid',
         );
 
         if (! $isOpenIdScopePresent) {
@@ -46,7 +46,7 @@ class RequiredOpenIdScopeRule extends AbstractRule
                 null,
                 $redirectUri,
                 $state,
-                $useFragmentInHttpErrorResponses
+                $useFragmentInHttpErrorResponses,
             );
         }
 

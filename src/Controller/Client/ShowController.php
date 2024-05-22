@@ -36,7 +36,7 @@ class ShowController
         ClientRepository $clientRepository,
         private readonly AllowedOriginRepository $allowedOriginRepository,
         private readonly TemplateFactory $templateFactory,
-        AuthContextService $authContextService
+        AuthContextService $authContextService,
     ) {
         $this->clientRepository = $clientRepository;
         $this->authContextService = $authContextService;
@@ -52,7 +52,7 @@ class ShowController
 
         return $this->templateFactory->render('oidc:clients/show.twig', [
             'client' => $client,
-            'allowedOrigins' => $allowedOrigins
+            'allowedOrigins' => $allowedOrigins,
         ]);
     }
 }

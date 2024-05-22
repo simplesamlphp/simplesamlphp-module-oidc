@@ -24,20 +24,20 @@ class ModuleConfigTest extends TestCase
         Configuration::setPreLoadedConfig(
             Configuration::loadFromArray(
                 [
-                    'certdir' => $certDir
-                ]
-            )
+                    'certdir' => $certDir,
+                ],
+            ),
         );
         Configuration::setPreLoadedConfig(
             Configuration::loadFromArray([]),
-            ModuleConfig::DEFAULT_FILE_NAME
+            ModuleConfig::DEFAULT_FILE_NAME,
         );
         // Test default cert and pem
         $moduleConfig = new ModuleConfig();
         $this->assertEquals($certDir . ModuleConfig::DEFAULT_PKI_CERTIFICATE_FILENAME, $moduleConfig->getCertPath());
         $this->assertEquals(
             $certDir . ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME,
-            $moduleConfig->getPrivateKeyPath()
+            $moduleConfig->getPrivateKeyPath(),
         );
 
         // Set customized
@@ -46,9 +46,9 @@ class ModuleConfigTest extends TestCase
                 [
                     ModuleConfig::OPTION_PKI_PRIVATE_KEY_FILENAME => 'myPrivateKey.key',
                     ModuleConfig::OPTION_PKI_CERTIFICATE_FILENAME => 'myCertificate.crt',
-                ]
+                ],
             ),
-            ModuleConfig::DEFAULT_FILE_NAME
+            ModuleConfig::DEFAULT_FILE_NAME,
         );
         $moduleConfig = new ModuleConfig();
         $this->assertEquals($certDir . 'myCertificate.crt', $moduleConfig->getCertPath());

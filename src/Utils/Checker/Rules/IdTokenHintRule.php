@@ -23,7 +23,7 @@ class IdTokenHintRule extends AbstractRule
 {
     public function __construct(
         protected ModuleConfig $moduleConfig,
-        protected CryptKeyFactory $cryptKeyFactory
+        protected CryptKeyFactory $cryptKeyFactory,
     ) {
     }
 
@@ -37,7 +37,7 @@ class IdTokenHintRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = ['GET']
+        array $allowedServerRequestMethods = ['GET'],
     ): ?ResultInterface {
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
@@ -46,7 +46,7 @@ class IdTokenHintRule extends AbstractRule
             'id_token_hint',
             $request,
             $loggerService,
-            $allowedServerRequestMethods
+            $allowedServerRequestMethods,
         );
 
         if ($idTokenHintParam === null) {
@@ -59,7 +59,7 @@ class IdTokenHintRule extends AbstractRule
         $jwtConfig = Configuration::forAsymmetricSigner(
             $this->moduleConfig->getSigner(),
             InMemory::plainText($privateKey->getKeyContents(), $privateKey->getPassPhrase() ?? ''),
-            InMemory::plainText($publicKey->getKeyContents())
+            InMemory::plainText($publicKey->getKeyContents()),
         );
 
         try {
@@ -75,8 +75,8 @@ class IdTokenHintRule extends AbstractRule
                 // signed with previous key...
                 new SignedWith(
                     $this->moduleConfig->getSigner(),
-                    InMemory::plainText($publicKey->getKeyContents())
-                )
+                    InMemory::plainText($publicKey->getKeyContents()),
+                ),
             );
         } catch (Throwable $exception) {
             throw OidcServerException::invalidRequest('id_token_hint', $exception->getMessage(), null, null, $state);

@@ -51,12 +51,12 @@ class ClientEntityTest extends TestCase
     {
         $this->assertInstanceOf(
             ClientEntity::class,
-            $this->prepareMockedInstance()
+            $this->prepareMockedInstance(),
         );
 
         $this->assertInstanceOf(
             ClientEntity::class,
-            ClientEntity::fromData('id', 'secret', 'name', 'description', ['redirectUri'], [], true)
+            ClientEntity::fromData('id', 'secret', 'name', 'description', ['redirectUri'], [], true),
         );
     }
 
@@ -120,7 +120,7 @@ class ClientEntityTest extends TestCase
                 'owner' => 'user@test.com',
                 'post_logout_redirect_uri' => json_encode([]),
                 'backchannel_logout_uri' => null,
-            ]
+            ],
         );
     }
 
@@ -145,7 +145,7 @@ class ClientEntityTest extends TestCase
                 'owner' => 'user@test.com',
                 'post_logout_redirect_uri' => [],
                 'backchannel_logout_uri' => null,
-            ]
+            ],
         );
     }
 }

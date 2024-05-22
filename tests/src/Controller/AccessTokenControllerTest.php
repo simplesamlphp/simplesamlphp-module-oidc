@@ -37,7 +37,7 @@ class AccessTokenControllerTest extends TestCase
     {
         $this->assertInstanceOf(
             AccessTokenController::class,
-            new AccessTokenController($this->authorizationServerMock)
+            new AccessTokenController($this->authorizationServerMock),
         );
     }
 
@@ -54,7 +54,7 @@ class AccessTokenControllerTest extends TestCase
 
         $this->assertSame(
             $this->responseMock,
-            (new AccessTokenController($this->authorizationServerMock))->__invoke($this->serverRequestMock)
+            (new AccessTokenController($this->authorizationServerMock))->__invoke($this->serverRequestMock),
         );
     }
 }

@@ -41,7 +41,7 @@ class AuthProcServiceTest extends TestCase
     {
         $this->assertInstanceOf(
             AuthProcService::class,
-            $this->prepareMockedInstance()
+            $this->prepareMockedInstance(),
         );
     }
 
@@ -66,7 +66,7 @@ class AuthProcServiceTest extends TestCase
         $sampleFilters = [
             50 => [
                 'class' => '\\' . AttributeAdd::class,
-                'newKey' => ['newValue']
+                'newKey' => ['newValue'],
             ],
         ];
         $this->moduleConfigMock->method('getAuthProcFilters')->willReturn($sampleFilters);

@@ -31,12 +31,12 @@ class LogoutTicketStoreDb implements LogoutTicketStoreInterface
     {
         $stmt = sprintf(
             "INSERT INTO %s (sid) VALUES (:sid)",
-            $this->getTableName()
+            $this->getTableName(),
         );
 
         $this->database->write(
             $stmt,
-            ['sid' => $sid]
+            ['sid' => $sid],
         );
     }
 
@@ -49,7 +49,7 @@ class LogoutTicketStoreDb implements LogoutTicketStoreInterface
 
         $this->database->write(
             "DELETE FROM {$this->getTableName()} WHERE sid = :sid",
-            ['sid' => $sid,]
+            ['sid' => $sid],
         );
     }
 
@@ -101,7 +101,7 @@ class LogoutTicketStoreDb implements LogoutTicketStoreInterface
                 'expiration' => TimestampGenerator::utc()
                     ->sub(new DateInterval('PT' . $this->ttl . 'S'))
                     ->format('Y-m-d H:i:s'),
-            ]
+            ],
         );
     }
     /**

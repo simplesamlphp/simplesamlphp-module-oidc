@@ -91,11 +91,11 @@ class AccessTokenRepositoryTest extends TestCase
         $accessToken = self::$repository->getNewToken(
             ClientRepositoryTest::getClient(self::CLIENT_ID),
             $scopes,
-            self::USER_ID
+            self::USER_ID,
         );
         $accessToken->setIdentifier(self::ACCESS_TOKEN_ID);
         $accessToken->setExpiryDateTime(DateTimeImmutable::createFromMutable(
-            TimestampGenerator::utc('yesterday')
+            TimestampGenerator::utc('yesterday'),
         ));
 
         self::$repository->persistNewAccessToken($accessToken);

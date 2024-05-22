@@ -35,16 +35,16 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
                             'testClaim' => ['attribute'],
                             'intClaim' => [
                                 'type' => 'int',
-                                'intAttribute'
+                                'intAttribute',
                             ],
                             'testClaim2' => ['attribute2'],
                             'boolClaim' => [
                                 'type' => 'bool',
-                                'attributes' => ['boolAttribute']
+                                'attributes' => ['boolAttribute'],
                             ],
-                        ]
-                    ]
-                )
+                        ],
+                    ],
+                ),
             );
         $this->moduleConfigMock
             ->method('getOpenIDPrivateScopes')
@@ -61,7 +61,7 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
                         'claims' => ['testClaim3', 'boolClaim'],
                         'are_multiple_claim_values_allowed' => true,
                     ],
-                ]
+                ],
             );
     }
 
@@ -74,7 +74,7 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
     {
         $this->assertInstanceOf(
             ClaimTranslatorExtractorFactory::class,
-            $this->prepareMockedInstance()
+            $this->prepareMockedInstance(),
         );
     }
 
@@ -85,7 +85,7 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
     {
         $this->assertInstanceOf(
             ClaimTranslatorExtractor::class,
-            $this->prepareMockedInstance()->build()
+            $this->prepareMockedInstance()->build(),
         );
     }
 
@@ -98,7 +98,7 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
 
         $this->assertSame(
             $claimTranslatorExtractor->getClaimSet('customScope2')->getClaims(),
-            ['myprefix_testClaim2', 'myprefix_boolClaim']
+            ['myprefix_testClaim2', 'myprefix_boolClaim'],
         );
 
         $claimData = $claimTranslatorExtractor->extract(
@@ -108,8 +108,8 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
                 'attribute' => ['val1'],
                 'intAttribute' => ['56789'],
                 'boolAttribute' => ['yes'],
-                'attribute2' => ['val2']
-            ]
+                'attribute2' => ['val2'],
+            ],
         );
 
         $this->assertSame(
@@ -120,7 +120,7 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
                 'intClaim' => 56789,
                 'myprefix_testClaim2' => "val2",
                 'myprefix_boolClaim' => true,
-            ]
+            ],
         );
     }
 }

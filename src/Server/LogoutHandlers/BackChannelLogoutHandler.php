@@ -21,7 +21,7 @@ class BackChannelLogoutHandler
 {
     public function __construct(
         protected LogoutTokenBuilder $logoutTokenBuilder = new LogoutTokenBuilder(),
-        protected LoggerService $loggerService = new LoggerService()
+        protected LoggerService $loggerService = new LoggerService(),
     ) {
     }
 
@@ -75,7 +75,7 @@ class BackChannelLogoutHandler
                 $index++;
 
                 $query = http_build_query(
-                    ['logout_token' => $this->logoutTokenBuilder->forRelyingPartyAssociation($association)]
+                    ['logout_token' => $this->logoutTokenBuilder->forRelyingPartyAssociation($association)],
                 );
 
                 /** @psalm-suppress PossiblyNullArgument We have checked for nulls... */
@@ -83,7 +83,7 @@ class BackChannelLogoutHandler
                     'POST',
                     $association->getBackChannelLogoutUri(),
                     ['Content-Type' => 'application/x-www-form-urlencoded'],
-                    $query
+                    $query,
                 );
             }
         }

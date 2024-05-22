@@ -21,7 +21,7 @@ class AuthContextServiceTest extends TestCase
 {
     final public const AUTHORIZED_USER = [
         'idAttribute' => ['myUsername'],
-        'someEntitlement' => ['val1', 'val2', 'val3']
+        'someEntitlement' => ['val1', 'val2', 'val3'],
     ];
     protected Configuration $permissions;
     protected MockObject $oidcConfigurationMock;
@@ -40,7 +40,7 @@ class AuthContextServiceTest extends TestCase
                 'attribute' => 'someEntitlement',
                 // Entitlements allow for registering, editing, delete a client. OIDC clients are owned by the creator
                 'client' => ['val2'],
-            ]
+            ],
         );
 
         $this->oidcConfigurationMock = $this->createMock(Configuration::class);
@@ -58,7 +58,7 @@ class AuthContextServiceTest extends TestCase
     {
         return new AuthContextService(
             $this->moduleConfigMock,
-            $this->authSimpleFactory
+            $this->authSimpleFactory,
         );
     }
 
@@ -66,7 +66,7 @@ class AuthContextServiceTest extends TestCase
     {
         $this->assertInstanceOf(
             AuthContextService::class,
-            $this->prepareMockedInstance()
+            $this->prepareMockedInstance(),
         );
     }
 
@@ -80,7 +80,7 @@ class AuthContextServiceTest extends TestCase
 
         $this->assertSame(
             $this->prepareMockedInstance()->getAuthUserId(),
-            'myUsername'
+            'myUsername',
         );
     }
 
@@ -136,8 +136,8 @@ class AuthContextServiceTest extends TestCase
             ->willReturn(
                 [
                     'idAttribute' => ['myUsername'],
-                    'someEntitlement' =>  ['otherEntitlement']
-                ]
+                    'someEntitlement' =>  ['otherEntitlement'],
+                ],
             );
 
         $this->expectException(RuntimeException::class);
@@ -156,7 +156,7 @@ class AuthContextServiceTest extends TestCase
             ->willReturn(
                 [
                     'idAttribute' => ['myUsername'],
-                ]
+                ],
             );
 
         $this->expectException(RuntimeException::class);

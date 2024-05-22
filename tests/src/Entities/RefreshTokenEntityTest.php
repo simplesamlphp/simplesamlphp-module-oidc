@@ -53,7 +53,7 @@ class RefreshTokenEntityTest extends TestCase
     {
         $this->assertInstanceOf(
             RefreshTokenEntity::class,
-            $this->prepareMockedInstance()
+            $this->prepareMockedInstance(),
         );
     }
 
@@ -70,7 +70,7 @@ class RefreshTokenEntityTest extends TestCase
                 'access_token_id' => 'access_token_id',
                 'is_revoked' => 0,
                 'auth_code_id' => '123',
-            ]
+            ],
         );
     }
 }

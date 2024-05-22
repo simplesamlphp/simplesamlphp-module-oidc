@@ -88,7 +88,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
             [
                 'id' => $clientIdentifier,
             ],
-            $owner
+            $owner,
         );
 
         $stmt = $this->database->read($query, $params);
@@ -132,11 +132,11 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         [$query, $params] = $this->addOwnerWhereClause(
             "SELECT * FROM {$this->getTableName()}",
             [],
-            $owner
+            $owner,
         );
         $stmt = $this->database->read(
             "$query ORDER BY name ASC",
-            $params
+            $params,
         );
 
         $clients = [];
@@ -169,11 +169,11 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         [$sqlQuery, $params] = $this->addOwnerWhereClause(
             "SELECT * FROM {$this->getTableName()} WHERE name LIKE :name",
             ['name' => '%' . $query . '%'],
-            $owner
+            $owner,
         );
         $stmt = $this->database->read(
             $sqlQuery . " ORDER BY name ASC LIMIT $limit OFFSET $offset",
-            $params
+            $params,
         );
 
         $clients = array_map(fn(array $state) => ClientEntity::fromState($state), $stmt->fetchAll());
@@ -181,7 +181,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         return [
             'numPages' => $numPages,
             'currentPage' => $page,
-            'items' => $clients
+            'items' => $clients,
         ];
     }
 
@@ -219,11 +219,11 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
             )
 EOS
             ,
-            $this->getTableName()
+            $this->getTableName(),
         );
         $this->database->write(
             $stmt,
-            $client->getState()
+            $client->getState(),
         );
     }
 
@@ -238,7 +238,7 @@ EOS
             [
                 'id' => $client->getIdentifier(),
             ],
-            $owner
+            $owner,
         );
         $this->database->write($sqlQuery, $params);
     }
@@ -247,7 +247,7 @@ EOS
     {
         $stmt = sprintf(
             <<<EOF
-            UPDATE %s SET 
+            UPDATE %s SET
                 secret = :secret,
                 name = :name,
                 description = :description,
@@ -262,7 +262,7 @@ EOS
             WHERE id = :id
 EOF
             ,
-            $this->getTableName()
+            $this->getTableName(),
         );
 
         /**
@@ -272,11 +272,11 @@ EOF
         [$sqlQuery, $params] = $this->addOwnerWhereClause(
             $stmt,
             $client->getState(),
-            $owner
+            $owner,
         );
         $this->database->write(
             $sqlQuery,
-            $params
+            $params,
         );
     }
 
@@ -289,11 +289,11 @@ EOF
         [$sqlQuery, $params] = $this->addOwnerWhereClause(
             "SELECT COUNT(id) FROM {$this->getTableName()} WHERE name LIKE :name",
             ['name' => '%' . $query . '%'],
-            $owner
+            $owner,
         );
         $stmt = $this->database->read(
             $sqlQuery,
-            $params
+            $params,
         );
         $stmt->execute();
 

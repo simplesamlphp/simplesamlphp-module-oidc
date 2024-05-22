@@ -35,7 +35,7 @@ class AuthCodeEntityTest extends TestCase
             'client' => $this->clientEntityMock,
             'is_revoked' => false,
             'redirect_uri' => 'https://localhost/redirect',
-            'nonce' => 'nonce'
+            'nonce' => 'nonce',
         ];
     }
 
@@ -57,7 +57,7 @@ class AuthCodeEntityTest extends TestCase
     {
         $this->assertInstanceOf(
             AuthCodeEntity::class,
-            $this->prepareMockedInstance()
+            $this->prepareMockedInstance(),
         );
     }
 
@@ -78,7 +78,7 @@ class AuthCodeEntityTest extends TestCase
                 'is_revoked' => 0,
                 'redirect_uri' => 'https://localhost/redirect',
                 'nonce' => 'nonce',
-            ]
+            ],
         );
     }
 

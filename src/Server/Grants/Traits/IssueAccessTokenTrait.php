@@ -49,14 +49,14 @@ trait IssueAccessTokenTrait
         $userIdentifier = null,
         array $scopes = [],
         string $authCodeId = null,
-        array $requestedClaims = null
+        array $requestedClaims = null,
     ): AccessTokenEntityInterface {
         $maxGenerationAttempts = AbstractGrant::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
 
         /** Since we are using our own repository interface, check for proper type. */
         if (! is_a($this->accessTokenRepository, AccessTokenRepositoryInterface::class)) {
             throw OidcServerException::serverError(
-                'Access token repository does not implement ' . AccessTokenRepositoryInterface::class
+                'Access token repository does not implement ' . AccessTokenRepositoryInterface::class,
             );
         }
 
@@ -65,7 +65,7 @@ trait IssueAccessTokenTrait
             $scopes,
             $userIdentifier,
             $authCodeId,
-            $requestedClaims
+            $requestedClaims,
         );
         $accessToken->setExpiryDateTime((new DateTimeImmutable())->add($accessTokenTTL));
         $accessToken->setPrivateKey($this->privateKey);

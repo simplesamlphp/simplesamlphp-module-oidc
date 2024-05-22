@@ -51,7 +51,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
         DateInterval $accessTokenTTL,
         AccessTokenRepositoryInterface $accessTokenRepository,
         string $queryDelimiter = '#',
-        RequestRulesManager $requestRulesManager = null
+        RequestRulesManager $requestRulesManager = null,
     ) {
         parent::__construct($accessTokenTTL, $queryDelimiter, $requestRulesManager);
         $this->accessTokenRepository = $accessTokenRepository;
@@ -86,7 +86,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
      * @throws UniqueTokenIdentifierConstraintViolationException
      */
     public function completeAuthorizationRequest(
-        OAuth2AuthorizationRequest $authorizationRequest
+        OAuth2AuthorizationRequest $authorizationRequest,
     ): ResponseTypeInterface {
         if ($authorizationRequest instanceof AuthorizationRequest) {
             return $this->completeOidcAuthorizationRequest($authorizationRequest);
@@ -101,7 +101,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
      */
     public function validateAuthorizationRequestWithCheckerResultBag(
         ServerRequestInterface $request,
-        ResultBagInterface $resultBag
+        ResultBagInterface $resultBag,
     ): OAuth2AuthorizationRequest {
         $oAuth2AuthorizationRequest =
         parent::validateAuthorizationRequestWithCheckerResultBag($request, $resultBag);
@@ -115,7 +115,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             AddClaimsToIdTokenRule::class,
             RequiredNonceRule::class,
             RequestedClaimsRule::class,
-            AcrValuesRule::class
+            AcrValuesRule::class,
         ];
 
         $this->requestRulesManager->predefineResultBag($resultBag);
@@ -177,7 +177,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
                 $redirectUrl,
                 null,
                 $authorizationRequest->getState(),
-                $this->shouldUseFragment()
+                $this->shouldUseFragment(),
             );
         }
 
@@ -186,7 +186,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             $authorizationRequest->getScopes(),
             $this->getIdentifier(),
             $authorizationRequest->getClient(),
-            $user->getIdentifier()
+            $user->getIdentifier(),
         );
 
         $responseParams = [
@@ -199,7 +199,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             $user->getIdentifier(),
             $finalizedScopes,
             null,
-            $authorizationRequest->getClaims()
+            $authorizationRequest->getClaims(),
         );
 
         if ($accessToken instanceof EntityStringRepresentationInterface === false) {
@@ -226,7 +226,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             $authorizationRequest->getNonce(),
             $authorizationRequest->getAuthTime(),
             $authorizationRequest->getAcr(),
-            $authorizationRequest->getSessionId()
+            $authorizationRequest->getSessionId(),
         );
 
         $responseParams['id_token'] = $idToken->toString();
@@ -237,8 +237,8 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             $this->makeRedirectUri(
                 $redirectUrl,
                 $responseParams,
-                $this->queryDelimiter
-            )
+                $this->queryDelimiter,
+            ),
         );
 
         return $response;

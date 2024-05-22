@@ -250,7 +250,7 @@ class ClientRepositoryTest extends TestCase
             ['openid'],
             true,
             false,
-            'admin'
+            'admin',
         );
 
         self::$repository->update($client);
@@ -332,7 +332,7 @@ class ClientRepositoryTest extends TestCase
         string $id,
         bool $enabled = true,
         bool $confidential = false,
-        ?string $owner = null
+        ?string $owner = null,
     ): ClientEntityInterface {
         return ClientEntity::fromData(
             $id,
@@ -344,7 +344,7 @@ class ClientRepositoryTest extends TestCase
             $enabled,
             $confidential,
             'admin',
-            $owner
+            $owner,
         );
     }
 }

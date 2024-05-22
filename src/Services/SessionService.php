@@ -44,7 +44,7 @@ class SessionService
             self::SESSION_DATA_TYPE,
             self::SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN,
             $isCookieBasedAuthn,
-            Session::DATA_TIMEOUT_SESSION_END
+            Session::DATA_TIMEOUT_SESSION_END,
         );
     }
 
@@ -53,7 +53,7 @@ class SessionService
         /** @var ?bool $isCookieBasedAuthn */
         $isCookieBasedAuthn = $this->session->getData(
             self::SESSION_DATA_TYPE,
-            self::SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN
+            self::SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN,
         );
 
         if (is_bool($isCookieBasedAuthn)) {
@@ -84,7 +84,7 @@ class SessionService
             self::SESSION_DATA_TYPE,
             self::SESSION_DATA_ID_RP_ASSOCIATIONS,
             $associations,
-            Session::DATA_TIMEOUT_SESSION_END
+            Session::DATA_TIMEOUT_SESSION_END,
         );
     }
 
@@ -107,7 +107,7 @@ class SessionService
         // Make sure we only have RelyingPartyAssociations here...
         return array_filter(
             $relyingPartyAssociations,
-            fn($value) => $value instanceof RelyingPartyAssociationInterface
+            fn($value) => $value instanceof RelyingPartyAssociationInterface,
         );
     }
 
@@ -128,7 +128,7 @@ class SessionService
             self::SESSION_DATA_TYPE,
             self::SESSION_DATA_ID_RP_ASSOCIATIONS,
             [],
-            Session::DATA_TIMEOUT_SESSION_END
+            Session::DATA_TIMEOUT_SESSION_END,
         );
     }
 
@@ -141,7 +141,7 @@ class SessionService
             self::SESSION_DATA_TYPE,
             self::SESSION_DATA_ID_IS_AUTHN_PERFORMED_IN_PREVIOUS_REQUEST,
             $isAuthnPerformedInPreviousRequest,
-            Session::DATA_TIMEOUT_SESSION_END
+            Session::DATA_TIMEOUT_SESSION_END,
         );
     }
 
@@ -171,7 +171,7 @@ class SessionService
             self::SESSION_DATA_TYPE,
             self::SESSION_DATA_ID_IS_OIDC_INITIATED_LOGOUT,
             $isOidcInitiatedLogout,
-            Session::DATA_TIMEOUT_SESSION_END
+            Session::DATA_TIMEOUT_SESSION_END,
         );
     }
 

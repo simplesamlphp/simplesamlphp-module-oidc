@@ -24,7 +24,7 @@ class RequiredNonceRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = ['GET']
+        array $allowedServerRequestMethods = ['GET'],
     ): ?ResultInterface {
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
@@ -41,7 +41,7 @@ class RequiredNonceRule extends AbstractRule
                 null,
                 $redirectUri,
                 $state,
-                $useFragmentInHttpErrorResponses
+                $useFragmentInHttpErrorResponses,
             );
         }
 

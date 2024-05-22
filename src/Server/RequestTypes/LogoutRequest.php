@@ -31,7 +31,7 @@ class LogoutRequest
          * End-User's preferred languages and scripts for the user interface, represented as a space-separated list of
          * BCP47 [RFC5646] language tag values, ordered by preference.
          */
-        protected ?string $uiLocales = null
+        protected ?string $uiLocales = null,
     ) {
     }
 

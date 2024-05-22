@@ -86,7 +86,7 @@ class ClientEntity implements ClientEntityInterface
         ?string $authSource = null,
         ?string $owner = null,
         array $postLogoutRedirectUri = [],
-        ?string $backChannelLogoutUri = null
+        ?string $backChannelLogoutUri = null,
     ): ClientEntityInterface {
         $client = new self();
 
@@ -147,7 +147,7 @@ class ClientEntity implements ClientEntityInterface
             (string)($state['post_logout_redirect_uri'] ?? "[]"),
             true,
             512,
-            JSON_THROW_ON_ERROR
+            JSON_THROW_ON_ERROR,
         );
         $client->postLogoutRedirectUri = $postLogoutRedirectUris;
 

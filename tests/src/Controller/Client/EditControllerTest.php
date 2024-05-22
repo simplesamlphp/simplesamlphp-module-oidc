@@ -76,7 +76,7 @@ class EditControllerTest extends TestCase
             $this->templateFactoryMock,
             $this->formFactoryMock,
             $this->sessionMessageServiceMock,
-            $this->authContextServiceMock
+            $this->authContextServiceMock,
         );
     }
 
@@ -84,7 +84,7 @@ class EditControllerTest extends TestCase
     {
         $this->assertInstanceOf(
             EditController::class,
-            $this->getStubbedInstance()
+            $this->getStubbedInstance(),
         );
     }
 
@@ -130,12 +130,12 @@ class EditControllerTest extends TestCase
                 'regexUri' => ClientForm::REGEX_URI,
                 'regexAllowedOriginUrl' => ClientForm::REGEX_ALLOWED_ORIGIN_URL,
                 'regexHttpUri' => ClientForm::REGEX_HTTP_URI,
-            ]
+            ],
         )->willReturn($this->templateStub);
 
         $this->assertSame(
             ($this->getStubbedInstance())->__invoke($this->serverRequestMock),
-            $this->templateStub
+            $this->templateStub,
         );
     }
 
@@ -194,7 +194,7 @@ class EditControllerTest extends TestCase
                 'allowed_origin' => [],
                 'post_logout_redirect_uri' => [],
                 'backchannel_logout_uri' => null,
-            ]
+            ],
         );
 
         $this->formFactoryMock->expects($this->once())->method('build')->willReturn($this->clientFormMock);
@@ -212,7 +212,7 @@ class EditControllerTest extends TestCase
                 'auth_source',
                 'existingOwner',
             ),
-            null
+            null,
         );
 
         $this->allowedOriginRepositoryMock->expects($this->once())->method('set')->with('clientid', []);
@@ -221,7 +221,7 @@ class EditControllerTest extends TestCase
 
         $this->assertInstanceOf(
             RedirectResponse::class,
-            ($this->getStubbedInstance())->__invoke($this->serverRequestMock)
+            ($this->getStubbedInstance())->__invoke($this->serverRequestMock),
         );
     }
 
@@ -280,7 +280,7 @@ class EditControllerTest extends TestCase
                 'allowed_origin' => [],
                 'post_logout_redirect_uri' => [],
                 'backchannel_logout_uri' => null,
-            ]
+            ],
         );
 
         $this->formFactoryMock->expects($this->once())->method('build')->willReturn($this->clientFormMock);
@@ -298,7 +298,7 @@ class EditControllerTest extends TestCase
                 'auth_source',
                 'existingOwner',
             ),
-            'authedUserId'
+            'authedUserId',
         );
 
         $this->allowedOriginRepositoryMock->expects($this->once())->method('get')->with('clientid')
@@ -309,7 +309,7 @@ class EditControllerTest extends TestCase
 
         $this->assertInstanceOf(
             RedirectResponse::class,
-            ($this->getStubbedInstance())->__invoke($this->serverRequestMock)
+            ($this->getStubbedInstance())->__invoke($this->serverRequestMock),
         );
     }
 
