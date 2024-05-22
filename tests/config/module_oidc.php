@@ -17,6 +17,8 @@ use Lcobucci\JWT\Signer\Rsa\Sha256;
 use SimpleSAML\Module\oidc\ModuleConfig;
 
 $config = [
+    ModuleConfig::OPTION_ISSUER => 'http://test.issuer',
+
     ModuleConfig::OPTION_TOKEN_AUTHORIZATION_CODE_TTL => 'PT10M',
     ModuleConfig::OPTION_TOKEN_REFRESH_TOKEN_TTL => 'P1M',
     ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_TTL => 'PT1H',

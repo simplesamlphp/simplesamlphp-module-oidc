@@ -41,10 +41,10 @@ class JsonWebTokenBuilderService
         protected ModuleConfig $moduleConfig = new ModuleConfig(),
     ) {
         $this->protocolJwtConfig = Configuration::forAsymmetricSigner(
-            $this->moduleConfig->getSigner(),
+            $this->moduleConfig->getProtocolSigner(),
             InMemory::file(
-                $this->moduleConfig->getPrivateKeyPath(),
-                $this->moduleConfig->getPrivateKeyPassPhrase() ?? ''
+                $this->moduleConfig->getProtocolPrivateKeyPath(),
+                $this->moduleConfig->getProtocolPrivateKeyPassPhrase() ?? ''
             ),
             InMemory::plainText('empty', 'empty')
         );
@@ -113,7 +113,7 @@ class JsonWebTokenBuilderService
     public function getSignedProtocolJwt(Builder $builder): UnencryptedToken
     {
         $headers = [
-            ClaimNamesEnum::KeyId->value => FingerprintGenerator::forFile($this->moduleConfig->getCertPath()),
+            ClaimNamesEnum::KeyId->value => FingerprintGenerator::forFile($this->moduleConfig->getProtocolCertPath()),
         ];
 
         return $this->getSignedJwt($builder, $this->protocolJwtConfig, $headers);
@@ -162,6 +162,6 @@ class JsonWebTokenBuilderService
      */
     public function getProtocolSigner(): Signer
     {
-        return $this->moduleConfig->getSigner();
+        return $this->moduleConfig->getProtocolSigner();
     }
 }

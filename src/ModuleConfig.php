@@ -31,6 +31,8 @@ use SimpleSAML\Utils\HTTP;
 
 class ModuleConfig
 {
+    final public const MODULE_NAME = 'oidc';
+
     /**
      * Default file name for module configuration. Can be overridden in constructor, for example, for testing purposes.
      */
@@ -102,13 +104,14 @@ class ModuleConfig
      */
     public function __construct(
         string $fileName = self::DEFAULT_FILE_NAME, // Primarily used for easy (unit) testing overrides.
-        array $overrides = [] // Primarily used for easy (unit) testing overrides.
+        array $overrides = [], // Primarily used for easy (unit) testing overrides.
+        Configuration $sspConfig = null, // Primarily used for easy (unit) testing overrides.
     ) {
         $this->moduleConfig = Configuration::loadFromArray(
             array_merge(Configuration::getConfig($fileName)->toArray(), $overrides)
         );
 
-        $this->sspConfig = Configuration::getInstance();
+        $this->sspConfig = $sspConfig ?? Configuration::getInstance();
 
         $this->validate();
     }
@@ -143,10 +146,10 @@ class ModuleConfig
         return $issuer;
     }
 
-    public function getOpenIdConnectModuleURL(string $path = null): string
+    public function getModuleUrl(string $path = null): string
     {
         // TODO mivanci Create bridge to SSP utility classes
-        $base = Module::getModuleURL('oidc');
+        $base = Module::getModuleURL(self::MODULE_NAME);
 
         if ($path) {
             $base .= "/$path";
@@ -245,10 +248,12 @@ class ModuleConfig
     }
 
     /**
+     * Get signer for OIDC protocol.
+     *
      * @throws ReflectionException
      * @throws Exception
      */
-    public function getSigner(): Signer
+    public function getProtocolSigner(): Signer
     {
         /** @psalm-var class-string $signerClassname */
         $signerClassname = $this->config()->getOptionalString(
@@ -276,11 +281,11 @@ class ModuleConfig
     }
 
     /**
-     * Return the path to the public certificate
+     * Get the path to the public certificate used in OIDC protocol.
      * @return string The file system path
      * @throws Exception
      */
-    public function getCertPath(): string
+    public function getProtocolCertPath(): string
     {
         $certName = $this->config()->getOptionalString(
             self::OPTION_PKI_CERTIFICATE_FILENAME,
@@ -290,10 +295,10 @@ class ModuleConfig
     }
 
     /**
-     * Get the path to the private key
+     * Get the path to the private key used in OIDC protocol.
      * @throws Exception
      */
-    public function getPrivateKeyPath(): string
+    public function getProtocolPrivateKeyPath(): string
     {
         $keyName = $this->config()->getOptionalString(
             self::OPTION_PKI_PRIVATE_KEY_FILENAME,
@@ -303,18 +308,12 @@ class ModuleConfig
         return (new Config())->getCertPath($keyName);
     }
 
-    public function getEncryptionKey(): string
-    {
-        // TODO mivanci move to bridge classes to SSP utils
-        return (new Config())->getSecretSalt();
-    }
-
     /**
-     * Get the path to the private key
+     * Get the OIDC protocol private key passphrase.
      * @return ?string
      * @throws Exception
      */
-    public function getPrivateKeyPassPhrase(): ?string
+    public function getProtocolPrivateKeyPassPhrase(): ?string
     {
         return $this->config()->getOptionalString(self::OPTION_PKI_PRIVATE_KEY_PASSPHRASE, null);
     }

@@ -94,15 +94,15 @@ class IdTokenResponseTest extends TestCase
             ->willReturn($this->userEntity);
 
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
-        $this->moduleConfigMock->method('getSigner')->willReturn(new Sha256());
+        $this->moduleConfigMock->method('getProtocolSigner')->willReturn(new Sha256());
         $this->moduleConfigMock->method('getIssuer')->willReturn(self::ISSUER);
-        $this->moduleConfigMock->method('getCertPath')
+        $this->moduleConfigMock->method('getProtocolCertPath')
             ->willReturn($this->certFolder . '/oidc_module.crt');
-        $this->moduleConfigMock->method('getPrivateKeyPath')
+        $this->moduleConfigMock->method('getProtocolPrivateKeyPath')
             ->willReturn($this->certFolder . '/oidc_module.key');
         $this->moduleConfigMock
             ->expects($this->atLeast(1))
-            ->method('getPrivateKeyPassPhrase');
+            ->method('getProtocolPrivateKeyPassPhrase');
         $this->sspConfigurationMock = $this->createMock(Configuration::class);
         $this->moduleConfigMock->method('config')
             ->willReturn($this->sspConfigurationMock);

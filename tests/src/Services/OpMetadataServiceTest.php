@@ -31,7 +31,7 @@ class OpMetadataServiceTest extends TestCase
             ->willReturn(['openid' => 'openid']);
         $this->moduleConfigMock->expects($this->once())->method('getIssuer')
             ->willReturn('http://localhost');
-        $this->moduleConfigMock->method('getOpenIdConnectModuleURL')
+        $this->moduleConfigMock->method('getModuleUrl')
             ->willReturnCallback(function ($path) {
                 $paths = [
                     'authorize.php' => 'http://localhost/authorize.php',
@@ -47,7 +47,7 @@ class OpMetadataServiceTest extends TestCase
 
         $signer = $this->createMock(Rsa::class);
         $signer->method('algorithmId')->willReturn('RS256');
-        $this->moduleConfigMock->method('getSigner')->willReturn($signer);
+        $this->moduleConfigMock->method('getProtocolSigner')->willReturn($signer);
     }
 
     /**

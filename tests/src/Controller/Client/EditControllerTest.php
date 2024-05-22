@@ -62,7 +62,7 @@ class EditControllerTest extends TestCase
         $this->templateStub = $this->createStub(Template::class);
         $this->clientFormMock = $this->createMock(ClientForm::class);
 
-        $this->moduleConfigMock->method('getOpenIdConnectModuleURL')->willReturn('url');
+        $this->moduleConfigMock->method('getModuleUrl')->willReturn('url');
         $this->uriStub->method('getPath')->willReturn('/');
         $this->serverRequestMock->method('getUri')->willReturn($this->uriStub);
         $this->serverRequestMock->method('withQueryParams')->willReturn($this->serverRequestMock);

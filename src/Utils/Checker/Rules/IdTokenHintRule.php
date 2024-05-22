@@ -57,7 +57,7 @@ class IdTokenHintRule extends AbstractRule
         $publicKey = $this->cryptKeyFactory->buildPublicKey();
         /** @psalm-suppress ArgumentTypeCoercion */
         $jwtConfig = Configuration::forAsymmetricSigner(
-            $this->moduleConfig->getSigner(),
+            $this->moduleConfig->getProtocolSigner(),
             InMemory::plainText($privateKey->getKeyContents(), $privateKey->getPassPhrase() ?? ''),
             InMemory::plainText($publicKey->getKeyContents())
         );
@@ -84,7 +84,7 @@ class IdTokenHintRule extends AbstractRule
                 // to make. However, checking the signature in a key roll-over scenario will fail for ID tokens
                 // signed with previous key...
                 new SignedWith(
-                    $this->moduleConfig->getSigner(),
+                    $this->moduleConfig->getProtocolSigner(),
                     InMemory::plainText($publicKey->getKeyContents())
                 )
             );

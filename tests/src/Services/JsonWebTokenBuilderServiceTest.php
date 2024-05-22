@@ -48,9 +48,9 @@ class JsonWebTokenBuilderServiceTest extends TestCase
     public function setUp(): void
     {
         $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
-        $this->moduleConfigStub->method('getSigner')->willReturn(self::$signerSha256);
-        $this->moduleConfigStub->method('getPrivateKeyPath')->willReturn(self::$privateKeyPath);
-        $this->moduleConfigStub->method('getCertPath')->willReturn(self::$publicKeyPath);
+        $this->moduleConfigStub->method('getProtocolSigner')->willReturn(self::$signerSha256);
+        $this->moduleConfigStub->method('getProtocolPrivateKeyPath')->willReturn(self::$privateKeyPath);
+        $this->moduleConfigStub->method('getProtocolCertPath')->willReturn(self::$publicKeyPath);
         $this->moduleConfigStub->method('getIssuer')->willReturn(self::$selfUrlHost);
     }
 
@@ -87,12 +87,12 @@ class JsonWebTokenBuilderServiceTest extends TestCase
         $token = $unencryptedToken->toString();
 
         $jwtConfig = Configuration::forAsymmetricSigner(
-            $this->moduleConfigStub->getSigner(),
+            $this->moduleConfigStub->getProtocolSigner(),
             InMemory::file(
-                $this->moduleConfigStub->getPrivateKeyPath(),
-                $this->moduleConfigStub->getPrivateKeyPassPhrase() ?? ''
+                $this->moduleConfigStub->getProtocolPrivateKeyPath(),
+                $this->moduleConfigStub->getProtocolPrivateKeyPassPhrase() ?? ''
             ),
-            InMemory::file($this->moduleConfigStub->getCertPath())
+            InMemory::file($this->moduleConfigStub->getProtocolCertPath())
         );
 
         $parsedToken = $jwtConfig->parser()->parse($token);
@@ -102,8 +102,8 @@ class JsonWebTokenBuilderServiceTest extends TestCase
                 $parsedToken,
                 new IssuedBy(self::$selfUrlHost),
                 new SignedWith(
-                    $this->moduleConfigStub->getSigner(),
-                    InMemory::file($this->moduleConfigStub->getCertPath())
+                    $this->moduleConfigStub->getProtocolSigner(),
+                    InMemory::file($this->moduleConfigStub->getProtocolCertPath())
                 )
             )
         );

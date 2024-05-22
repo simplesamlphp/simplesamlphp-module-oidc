@@ -39,7 +39,7 @@ class JsonWebKeySetService
      */
     public function __construct(ModuleConfig $moduleConfig)
     {
-        $publicKeyPath = $moduleConfig->getCertPath();
+        $publicKeyPath = $moduleConfig->getProtocolCertPath();
         if (!file_exists($publicKeyPath)) {
             throw new Exception("OIDC protocol public key file does not exists: $publicKeyPath.");
         }
@@ -47,7 +47,7 @@ class JsonWebKeySetService
         $jwk = JWKFactory::createFromKeyFile($publicKeyPath, null, [
             ClaimNamesEnum::KeyId->value => FingerprintGenerator::forFile($publicKeyPath),
             ClaimNamesEnum::PublicKeyUse->value => PublicKeyUseEnum::Signature->value,
-            ClaimNamesEnum::Algorithm->value => $moduleConfig->getSigner()->algorithmId(),
+            ClaimNamesEnum::Algorithm->value => $moduleConfig->getProtocolSigner()->algorithmId(),
         ]);
 
         $this->protocolJwkSet = new JWKSet([$jwk]);
