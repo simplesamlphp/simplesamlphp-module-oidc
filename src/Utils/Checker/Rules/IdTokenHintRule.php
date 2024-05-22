@@ -79,7 +79,7 @@ class IdTokenHintRule extends AbstractRule
             /** @psalm-suppress ArgumentTypeCoercion */
             $jwtConfig->validator()->assert(
                 $idTokenHint,
-                new IssuedBy($this->moduleConfig->getSimpleSAMLSelfURLHost()),
+                new IssuedBy($this->moduleConfig->getIssuer()),
                 // Note: although logout spec does not mention it, validating signature seems like an important check
                 // to make. However, checking the signature in a key roll-over scenario will fail for ID tokens
                 // signed with previous key...

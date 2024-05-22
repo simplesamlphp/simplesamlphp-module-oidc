@@ -13,7 +13,7 @@ use Lcobucci\JWT\Signer;
 use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\UnencryptedToken;
 use ReflectionException;
-use SimpleSAML\Module\oidc\Codebooks\JwtClaimsEnum;
+use SimpleSAML\Module\oidc\Codebooks\ClaimNamesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
@@ -100,7 +100,7 @@ class JsonWebTokenBuilderService
         /** @psalm-suppress ArgumentTypeCoercion */
         // Ignore microseconds when handling dates.
         return $configuration->builder(ChainedFormatter::withUnixTimestampDates())
-            ->issuedBy($this->moduleConfig->getSimpleSAMLSelfURLHost())
+            ->issuedBy($this->moduleConfig->getIssuer())
             ->issuedAt(new DateTimeImmutable('now'))
             ->identifiedBy(UniqueIdentifierGenerator::hitMe());
     }
@@ -113,7 +113,7 @@ class JsonWebTokenBuilderService
     public function getSignedProtocolJwt(Builder $builder): UnencryptedToken
     {
         $headers = [
-            JwtClaimsEnum::KeyID->value => FingerprintGenerator::forFile($this->moduleConfig->getCertPath()),
+            ClaimNamesEnum::KeyId->value => FingerprintGenerator::forFile($this->moduleConfig->getCertPath()),
         ];
 
         return $this->getSignedJwt($builder, $this->protocolJwtConfig, $headers);
@@ -131,7 +131,7 @@ class JsonWebTokenBuilderService
         }
 
         $headers = [
-            JwtClaimsEnum::KeyID->value => FingerprintGenerator::forFile($federationCertPath),
+            ClaimNamesEnum::KeyId->value => FingerprintGenerator::forFile($federationCertPath),
         ];
 
         return $this->getSignedJwt($builder, $this->protocolJwtConfig, $headers);

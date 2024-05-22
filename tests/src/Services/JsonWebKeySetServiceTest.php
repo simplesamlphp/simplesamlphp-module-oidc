@@ -86,7 +86,7 @@ class JsonWebKeySetServiceTest extends TestCase
 
         $jsonWebKeySetService = new JsonWebKeySetService(new ModuleConfig());
 
-        $this->assertEquals($JWKSet->all(), $jsonWebKeySetService->keys());
+        $this->assertEquals($JWKSet->all(), $jsonWebKeySetService->protocolKeys());
     }
 
     /**
@@ -95,7 +95,7 @@ class JsonWebKeySetServiceTest extends TestCase
     public function testCertificationFileNotFound(): void
     {
         $this->expectException(Exception::class);
-        $this->expectExceptionMessageMatches('/OpenId Connect certification file does not exists/');
+        $this->expectExceptionMessageMatches('/OIDC protocol public key file does not exists/');
 
         $config = [
             'certdir' => __DIR__,

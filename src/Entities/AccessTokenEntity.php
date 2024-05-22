@@ -117,6 +117,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
 
         $accessToken->identifier = $state['id'];
         $accessToken->scopes = $scopes;
+        // TODO mivanci move to new 'utcImmutable' method in TimestampGenerator.
         $accessToken->expiryDateTime = DateTimeImmutable::createFromMutable(
             TimestampGenerator::utc($state['expires_at'])
         );

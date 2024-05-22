@@ -65,7 +65,7 @@ class IdTokenHintRuleTest extends TestCase
 
         $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
         $this->moduleConfigStub->method('getSigner')->willReturn(new Sha256());
-        $this->moduleConfigStub->method('getSimpleSAMLSelfURLHost')->willReturn(self::$issuer);
+        $this->moduleConfigStub->method('getIssuer')->willReturn(self::$issuer);
 
         $this->cryptKeyFactoryStub = $this->createStub(CryptKeyFactory::class);
         $this->cryptKeyFactoryStub->method('buildPrivateKey')->willReturn(self::$privateKey);

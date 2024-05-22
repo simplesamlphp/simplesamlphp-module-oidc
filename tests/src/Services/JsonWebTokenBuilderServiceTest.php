@@ -51,7 +51,7 @@ class JsonWebTokenBuilderServiceTest extends TestCase
         $this->moduleConfigStub->method('getSigner')->willReturn(self::$signerSha256);
         $this->moduleConfigStub->method('getPrivateKeyPath')->willReturn(self::$privateKeyPath);
         $this->moduleConfigStub->method('getCertPath')->willReturn(self::$publicKeyPath);
-        $this->moduleConfigStub->method('getSimpleSAMLSelfURLHost')->willReturn(self::$selfUrlHost);
+        $this->moduleConfigStub->method('getIssuer')->willReturn(self::$selfUrlHost);
     }
 
     /**

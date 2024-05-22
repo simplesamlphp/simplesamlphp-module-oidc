@@ -28,7 +28,7 @@ class JwksController
     public function __invoke(): JsonResponse
     {
         return new JsonResponse([
-            'keys' => array_values($this->jsonWebKeySetService->keys()),
+            'keys' => array_values($this->jsonWebKeySetService->protocolKeys()),
         ]);
     }
 }

@@ -65,7 +65,7 @@ class LogoutTokenBuilderTest extends TestCase
         $this->moduleConfigStub->method('getSigner')->willReturn(self::$signerSha256);
         $this->moduleConfigStub->method('getPrivateKeyPath')->willReturn(self::$privateKeyPath);
         $this->moduleConfigStub->method('getCertPath')->willReturn(self::$publicKeyPath);
-        $this->moduleConfigStub->method('getSimpleSAMLSelfURLHost')->willReturn(self::$selfUrlHost);
+        $this->moduleConfigStub->method('getIssuer')->willReturn(self::$selfUrlHost);
 
         $this->relyingPartyAssociationStub = $this->createStub(RelyingPartyAssociationInterface::class);
         $this->relyingPartyAssociationStub->method('getClientId')->willReturn(self::$clientId);

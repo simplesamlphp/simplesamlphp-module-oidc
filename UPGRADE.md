@@ -10,6 +10,15 @@
 - TODO OpenID Federation capabilities
   - [ ] Expose OP configuration entity statement (statement about itself)
 
+## New configuration options
+- (optional) Issuer - you can now override the issuer (OP identifier). If not set, it falls back to current scheme, host
+and optionally a port (as in all previous module versions).
+- (optional) OpenID Federation related options (needed if federation capabilities are to be used):
+  - PKI keys - federation keys used for example to sign federation entity statements. These keys should be different
+  from the ones used with OIDC protocol itself
+  - signer algorithm
+  - entity statement duration 
+
 ## Major impact changes
 - TODO move away from SSP database as store; move to custom store interface
 

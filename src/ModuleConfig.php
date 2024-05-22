@@ -16,6 +16,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc;
 
+use DateInterval;
 use Exception;
 use Lcobucci\JWT\Signer;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
@@ -24,6 +25,7 @@ use ReflectionException;
 use SimpleSAML\Configuration;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Utils\Config;
 use SimpleSAML\Utils\HTTP;
 
@@ -60,6 +62,9 @@ class ModuleConfig
     final public const DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME = 'oidc_module_federation.key';
     final public const OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME = 'federation_certificate_filename';
     final public const DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME = 'oidc_module_federation.crt';
+    final public const OPTION_ISSUER = 'issuer';
+    final public const OPTION_FEDERATION_ENTITY_STATEMENT_DURATION = 'federation_entity_statement_duration';
+    final public const OPTION_FEDERATION_AUTHORITY_HINTS = 'federation_authority_hints';
 
     protected static array $standardClaims = [
         // TODO mivanci Move registered scopes to enum?
@@ -124,10 +129,18 @@ class ModuleConfig
         return $this->moduleConfig;
     }
 
-    public function getSimpleSAMLSelfURLHost(): string
+    /**
+     * @throws OidcServerException
+     * @return non-empty-string
+     */
+    public function getIssuer(): string
     {
         // TODO mivanci Create bridge to SSP utility classes
-        return (new HTTP())->getSelfURLHost();
+        $issuer = $this->config()->getOptionalString(self::OPTION_ISSUER, null) ?? (new HTTP())->getSelfURLHost();
+        if (empty($issuer)) {
+            throw OidcServerException::serverError('Issuer can not be empty.');
+        }
+        return $issuer;
     }
 
     public function getOpenIdConnectModuleURL(string $path = null): string
@@ -401,5 +414,28 @@ class ModuleConfig
         );
 
         return is_null($certName) ? null : (new Config())->getCertPath($certName);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function getFederationEntityStatementDuration(): DateInterval
+    {
+        return new DateInterval(
+            $this->config()->getOptionalString(
+                self::OPTION_FEDERATION_ENTITY_STATEMENT_DURATION,
+                null
+            ) ?? 'P1D'
+        );
+    }
+
+    public function getFederationAuthorityHints(): ?array
+    {
+        $authorityHints = $this->config()->getOptionalArray(
+            self::OPTION_FEDERATION_AUTHORITY_HINTS,
+            null
+        );
+
+        return empty($authorityHints) ? null : $authorityHints;
     }
 }

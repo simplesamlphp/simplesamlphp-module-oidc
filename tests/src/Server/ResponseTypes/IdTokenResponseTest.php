@@ -95,7 +95,7 @@ class IdTokenResponseTest extends TestCase
 
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock->method('getSigner')->willReturn(new Sha256());
-        $this->moduleConfigMock->method('getSimpleSAMLSelfURLHost')->willReturn(self::ISSUER);
+        $this->moduleConfigMock->method('getIssuer')->willReturn(self::ISSUER);
         $this->moduleConfigMock->method('getCertPath')
             ->willReturn($this->certFolder . '/oidc_module.crt');
         $this->moduleConfigMock->method('getPrivateKeyPath')
