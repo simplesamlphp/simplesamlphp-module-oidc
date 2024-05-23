@@ -20,6 +20,7 @@ and optionally a port (as in all previous module versions).
   - entity statement duration 
 
 ## Major impact changes
+- PHP version requirement was bumped to v8.2
 - TODO move away from SSP database as store; move to custom store interface
 
 ## Medium impact changes
