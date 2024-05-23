@@ -120,7 +120,7 @@ class AuthenticationServiceTest extends TestCase
             $this->oidcOpenIdProviderMetadataServiceMock,
             $this->sessionServiceMock,
             $this->claimTranslatorExtractorMock,
-            $this->moduleConfigMock
+            $this->moduleConfigMock,
         );
     }
 
@@ -128,7 +128,7 @@ class AuthenticationServiceTest extends TestCase
     {
         $this->assertInstanceOf(
             AuthenticationService::class,
-            $this->prepareMockedInstance()
+            $this->prepareMockedInstance(),
         );
     }
 
@@ -166,11 +166,11 @@ class AuthenticationServiceTest extends TestCase
 
         $this->assertSame(
             $userEntity->getIdentifier(),
-            self::USERNAME
+            self::USERNAME,
         );
         $this->assertSame(
             $userEntity->getClaims(),
-            self::USER_ENTITY_ATTRIBUTES
+            self::USER_ENTITY_ATTRIBUTES,
         );
     }
 
@@ -214,7 +214,7 @@ class AuthenticationServiceTest extends TestCase
 
         $this->assertSame(
             $this->prepareMockedInstance()->getAuthenticateUser($this->serverRequestMock),
-            $this->userEntityMock
+            $this->userEntityMock,
         );
     }
 

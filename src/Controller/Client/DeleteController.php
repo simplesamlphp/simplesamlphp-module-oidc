@@ -40,7 +40,7 @@ class DeleteController
         ClientRepository $clientRepository,
         private readonly TemplateFactory $templateFactory,
         private readonly SessionMessagesService $messages,
-        AuthContextService $authContextService
+        AuthContextService $authContextService,
     ) {
         $this->clientRepository = $clientRepository;
         $this->authContextService = $authContextService;

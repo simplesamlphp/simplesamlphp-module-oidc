@@ -74,7 +74,7 @@ class IdTokenHintRuleTest extends TestCase
         $this->jwtConfig = Configuration::forAsymmetricSigner(
             $this->moduleConfigStub->getProtocolSigner(),
             InMemory::plainText(self::$privateKey->getKeyContents()),
-            InMemory::plainText(self::$publicKey->getKeyContents())
+            InMemory::plainText(self::$publicKey->getKeyContents()),
         );
 
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
@@ -84,7 +84,7 @@ class IdTokenHintRuleTest extends TestCase
     {
         $this->assertInstanceOf(IdTokenHintRule::class, new IdTokenHintRule(
             $this->moduleConfigStub,
-            $this->cryptKeyFactoryStub
+            $this->cryptKeyFactoryStub,
         ));
     }
 
@@ -99,7 +99,7 @@ class IdTokenHintRuleTest extends TestCase
         $result = $rule->checkRule(
             $this->requestStub,
             $this->resultBagStub,
-            $this->loggerServiceStub
+            $this->loggerServiceStub,
         ) ?? new Result(IdTokenHintRule::class);
 
         $this->assertNull($result->getValue());
@@ -146,7 +146,7 @@ class IdTokenHintRuleTest extends TestCase
 
         $invalidIssuerJwt = $this->jwtConfig->builder()->issuedBy('invalid')->getToken(
             $this->moduleConfigStub->getProtocolSigner(),
-            InMemory::plainText(self::$privateKey->getKeyContents())
+            InMemory::plainText(self::$privateKey->getKeyContents()),
         )->toString();
 
         $this->requestStub->method('getQueryParams')->willReturn(['id_token_hint' => $invalidIssuerJwt]);
@@ -166,7 +166,7 @@ class IdTokenHintRuleTest extends TestCase
 
         $idToken = $this->jwtConfig->builder()->issuedBy(self::$issuer)->getToken(
             $this->moduleConfigStub->getProtocolSigner(),
-            InMemory::plainText(self::$privateKey->getKeyContents())
+            InMemory::plainText(self::$privateKey->getKeyContents()),
         )->toString();
 
         $this->requestStub->method('getQueryParams')->willReturn(['id_token_hint' => $idToken]);

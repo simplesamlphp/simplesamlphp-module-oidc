@@ -69,7 +69,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         $this->jwtConfig = Configuration::forAsymmetricSigner(
             new Sha256(),
             InMemory::plainText(self::$privateKey->getKeyContents()),
-            InMemory::plainText(self::$publicKey->getKeyContents())
+            InMemory::plainText(self::$publicKey->getKeyContents()),
         );
 
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
@@ -114,13 +114,13 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         $jwt = $this->jwtConfig->builder()->issuedBy(self::$issuer)
             ->getToken(
                 new Sha256(),
-                InMemory::plainText(self::$privateKey->getKeyContents())
+                InMemory::plainText(self::$privateKey->getKeyContents()),
             );
 
 
         $this->resultBagStub->method('getOrFail')->willReturnOnConsecutiveCalls(
             new Result(StateRule::class),
-            new Result(IdTokenHintRule::class, $jwt)
+            new Result(IdTokenHintRule::class, $jwt),
         );
 
         $this->expectException(Throwable::class);
@@ -143,14 +143,14 @@ class PostLogoutRedirectUriRuleTest extends TestCase
             ->permittedFor('invalid-client-id')
             ->getToken(
                 new Sha256(),
-                InMemory::plainText(self::$privateKey->getKeyContents())
+                InMemory::plainText(self::$privateKey->getKeyContents()),
             );
 
         $this->clientRepositoryStub->method('findById')->willReturn(null);
 
         $this->resultBagStub->method('getOrFail')->willReturnOnConsecutiveCalls(
             new Result(StateRule::class),
-            new Result(IdTokenHintRule::class, $jwt)
+            new Result(IdTokenHintRule::class, $jwt),
         );
 
         $this->expectException(Throwable::class);
@@ -173,18 +173,18 @@ class PostLogoutRedirectUriRuleTest extends TestCase
             ->permittedFor('client-id')
             ->getToken(
                 new Sha256(),
-                InMemory::plainText(self::$privateKey->getKeyContents())
+                InMemory::plainText(self::$privateKey->getKeyContents()),
             );
 
         $this->clientStub->method('getPostLogoutRedirectUri')->willReturn([
-            'https://some-other-uri'
-                                                                          ]);
+            'https://some-other-uri',
+        ]);
 
         $this->clientRepositoryStub->method('findById')->willReturn($this->clientStub);
 
         $this->resultBagStub->method('getOrFail')->willReturnOnConsecutiveCalls(
             new Result(StateRule::class),
-            new Result(IdTokenHintRule::class, $jwt)
+            new Result(IdTokenHintRule::class, $jwt),
         );
 
         $this->expectException(Throwable::class);
@@ -208,18 +208,18 @@ class PostLogoutRedirectUriRuleTest extends TestCase
             ->permittedFor('client-id')
             ->getToken(
                 new Sha256(),
-                InMemory::plainText(self::$privateKey->getKeyContents())
+                InMemory::plainText(self::$privateKey->getKeyContents()),
             );
 
         $this->clientStub->method('getPostLogoutRedirectUri')->willReturn([
-            self::$postLogoutRedirectUri
-                                                                          ]);
+            self::$postLogoutRedirectUri,
+        ]);
 
         $this->clientRepositoryStub->method('findById')->willReturn($this->clientStub);
 
         $this->resultBagStub->method('getOrFail')->willReturnOnConsecutiveCalls(
             new Result(StateRule::class),
-            new Result(IdTokenHintRule::class, $jwt)
+            new Result(IdTokenHintRule::class, $jwt),
         );
 
         $result = (new PostLogoutRedirectUriRule($this->clientRepositoryStub))

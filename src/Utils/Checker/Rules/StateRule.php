@@ -21,13 +21,13 @@ class StateRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = ['GET']
+        array $allowedServerRequestMethods = ['GET'],
     ): ?ResultInterface {
         $state = $this->getParamFromRequestBasedOnAllowedMethods(
             'state',
             $request,
             $loggerService,
-            $allowedServerRequestMethods
+            $allowedServerRequestMethods,
         );
 
         return new Result($this->getKey(), $state);

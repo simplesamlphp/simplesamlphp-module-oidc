@@ -60,7 +60,7 @@ class OidcServerException extends OAuthServerException
         string $hint = null,
         string $redirectUri = null,
         Throwable $previous = null,
-        string $state = null
+        string $state = null,
     ) {
         parent::__construct($message, $code, $errorType, $httpStatusCode, $hint, $redirectUri, $previous);
 
@@ -95,7 +95,7 @@ class OidcServerException extends OAuthServerException
     public static function unsupportedResponseType(
         string $redirectUri = null,
         string $state = null,
-        bool $useFragment = false
+        bool $useFragment = false,
     ): OidcServerException {
         $errorMessage = 'The response type is not supported by the authorization server.';
         $hint = 'Check that all required parameters have been provided';
@@ -118,7 +118,7 @@ class OidcServerException extends OAuthServerException
         $scope,
         $redirectUri = null,
         string $state = null,
-        bool $useFragment = false
+        bool $useFragment = false,
     ): OidcServerException {
         // OAuthServerException correctly implements this error, however, it misses state parameter.
         $e = parent::invalidScope($scope, $redirectUri);
@@ -145,7 +145,7 @@ class OidcServerException extends OAuthServerException
         Throwable $previous = null,
         string $redirectUri = null,
         string $state = null,
-        bool $useFragment = false
+        bool $useFragment = false,
     ): OidcServerException {
         $e = parent::invalidRequest($parameter, $hint, $previous);
         // OAuthServerException misses the ability to set redirectUri for invalid requests, as well as state.
@@ -169,7 +169,7 @@ class OidcServerException extends OAuthServerException
         $redirectUri = null,
         Throwable $previous = null,
         string $state = null,
-        bool $useFragment = false
+        bool $useFragment = false,
     ): OidcServerException {
         $e = parent::accessDenied($hint, $redirectUri, $previous);
         $e->setState($state);
@@ -194,7 +194,7 @@ class OidcServerException extends OAuthServerException
         string $redirectUri = null,
         Throwable $previous = null,
         string $state = null,
-        bool $useFragment = false
+        bool $useFragment = false,
     ): OidcServerException {
         $errorMessage = "End-User is not already authenticated.";
 
@@ -220,7 +220,7 @@ class OidcServerException extends OAuthServerException
         string $redirectUri = null,
         Throwable $previous = null,
         string $state = null,
-        bool $useFragment = false
+        bool $useFragment = false,
     ): OidcServerException {
         $errorMessage = "Request object not supported.";
 
@@ -323,7 +323,7 @@ class OidcServerException extends OAuthServerException
     public function generateHttpResponse(
         ResponseInterface $response,
         $useFragment = false,
-        $jsonOptions = 0
+        $jsonOptions = 0,
     ): ResponseInterface {
         /** @var array<string,string> $headers */
         $headers = $this->getHttpHeaders();

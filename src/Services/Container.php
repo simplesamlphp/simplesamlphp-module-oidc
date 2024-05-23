@@ -159,7 +159,7 @@ class Container implements ContainerInterface
         $this->services[MetaDataStorageHandler::class] = $metadataStorageHandler;
 
         $claimTranslatorExtractor = (new ClaimTranslatorExtractorFactory(
-            $moduleConfig
+            $moduleConfig,
         ))->build();
         $this->services[ClaimTranslatorExtractor::class] = $claimTranslatorExtractor;
 
@@ -205,13 +205,13 @@ class Container implements ContainerInterface
         $this->services[RequestRulesManager::class] = $requestRuleManager;
 
         $accessTokenDuration = new DateInterval(
-            $moduleConfig->config()->getString(ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_TTL)
+            $moduleConfig->config()->getString(ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_TTL),
         );
         $authCodeDuration = new DateInterval(
-            $moduleConfig->config()->getString(ModuleConfig::OPTION_TOKEN_AUTHORIZATION_CODE_TTL)
+            $moduleConfig->config()->getString(ModuleConfig::OPTION_TOKEN_AUTHORIZATION_CODE_TTL),
         );
         $refreshTokenDuration = new DateInterval(
-            $moduleConfig->config()->getString(ModuleConfig::OPTION_TOKEN_REFRESH_TOKEN_TTL)
+            $moduleConfig->config()->getString(ModuleConfig::OPTION_TOKEN_REFRESH_TOKEN_TTL),
         );
         $publicKey = $cryptKeyFactory->buildPublicKey();
         $privateKey = $cryptKeyFactory->buildPrivateKey();
@@ -236,7 +236,7 @@ class Container implements ContainerInterface
             $userRepository,
             $this->services[IdTokenBuilder::class],
             $privateKey,
-            $encryptionKey
+            $encryptionKey,
         );
         $this->services[IdTokenResponse::class] = $idTokenResponseFactory->build();
 
@@ -257,13 +257,13 @@ class Container implements ContainerInterface
             $this->services[IdTokenBuilder::class],
             $accessTokenDuration,
             $requestRuleManager,
-            $accessTokenRepository
+            $accessTokenRepository,
         );
         $this->services[ImplicitGrant::class] = $implicitGrantFactory->build();
 
         $refreshTokenGrantFactory = new RefreshTokenGrantFactory(
             $refreshTokenRepository,
-            $refreshTokenDuration
+            $refreshTokenDuration,
         );
         $this->services[RefreshTokenGrant::class] = $refreshTokenGrantFactory->build();
 
@@ -279,7 +279,7 @@ class Container implements ContainerInterface
             $this->services[IdTokenResponse::class],
             $requestRuleManager,
             $privateKey,
-            $encryptionKey
+            $encryptionKey,
         );
         $this->services[AuthorizationServer::class] = $authorizationServerFactory->build();
 
@@ -289,7 +289,7 @@ class Container implements ContainerInterface
         $resourceServerFactory = new ResourceServerFactory(
             $accessTokenRepository,
             $publicKey,
-            $bearerTokenValidator
+            $bearerTokenValidator,
         );
         $this->services[ResourceServer::class] = $resourceServerFactory->build();
     }

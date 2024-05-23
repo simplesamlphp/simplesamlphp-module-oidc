@@ -26,7 +26,7 @@ class RedirectUriRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = ['GET']
+        array $allowedServerRequestMethods = ['GET'],
     ): ?ResultInterface {
         $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
         if (! $client instanceof ClientEntityInterface) {

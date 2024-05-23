@@ -98,7 +98,7 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
 
         if (
             $this->refreshTokenRepository->isRefreshTokenRevoked(
-                (string)$refreshTokenData['refresh_token_id']
+                (string)$refreshTokenData['refresh_token_id'],
             ) === true
         ) {
             throw OidcServerException::invalidRefreshToken('Refresh token has been revoked');

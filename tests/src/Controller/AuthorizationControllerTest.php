@@ -81,7 +81,7 @@ class AuthorizationControllerTest extends TestCase
             $this->authenticationServiceStub,
             $this->authorizationServerStub,
             $this->moduleConfigStub,
-            $this->loggerServiceMock
+            $this->loggerServiceMock,
         );
 
         $this->assertInstanceOf(ResponseInterface::class, $controller($this->serverRequestStub));
@@ -111,7 +111,7 @@ class AuthorizationControllerTest extends TestCase
             $this->authenticationServiceStub,
             $this->authorizationServerStub,
             $this->moduleConfigStub,
-            $this->loggerServiceMock
+            $this->loggerServiceMock,
         ))($this->serverRequestStub);
     }
 
@@ -141,7 +141,7 @@ class AuthorizationControllerTest extends TestCase
             $this->authenticationServiceStub,
             $this->authorizationServerStub,
             $this->moduleConfigStub,
-            $this->loggerServiceMock
+            $this->loggerServiceMock,
         ))($this->serverRequestStub);
     }
 
@@ -180,7 +180,7 @@ class AuthorizationControllerTest extends TestCase
             $this->authenticationServiceStub,
             $this->authorizationServerStub,
             $this->moduleConfigStub,
-            $this->loggerServiceMock
+            $this->loggerServiceMock,
         ))($this->serverRequestStub);
     }
 
@@ -219,7 +219,7 @@ class AuthorizationControllerTest extends TestCase
             $this->authenticationServiceStub,
             $this->authorizationServerStub,
             $this->moduleConfigStub,
-            $this->loggerServiceMock
+            $this->loggerServiceMock,
         ))($this->serverRequestStub);
     }
 
@@ -257,7 +257,7 @@ class AuthorizationControllerTest extends TestCase
             $this->authenticationServiceStub,
             $this->authorizationServerStub,
             $this->moduleConfigStub,
-            $this->loggerServiceMock
+            $this->loggerServiceMock,
         ))($this->serverRequestStub);
     }
 
@@ -296,7 +296,7 @@ class AuthorizationControllerTest extends TestCase
             $this->authenticationServiceStub,
             $this->authorizationServerStub,
             $this->moduleConfigStub,
-            $this->loggerServiceMock
+            $this->loggerServiceMock,
         ))($this->serverRequestStub);
     }
 
@@ -336,7 +336,7 @@ class AuthorizationControllerTest extends TestCase
             $this->authenticationServiceStub,
             $this->authorizationServerStub,
             $this->moduleConfigStub,
-            $this->loggerServiceMock
+            $this->loggerServiceMock,
         ))($this->serverRequestStub);
     }
 }

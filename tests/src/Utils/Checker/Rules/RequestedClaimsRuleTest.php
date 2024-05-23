@@ -63,17 +63,17 @@ class RequestedClaimsRuleTest extends TestCase
                 "name" => null,
                 "email" => [
                     "essential" => true,
-                    "extras_stuff_not_in_spec" => "should be ignored"
-                ]
+                    "extras_stuff_not_in_spec" => "should be ignored",
+                ],
             ],
             "id_token" => [
                 'name' => [
-                    "essential" => true
-                ]
+                    "essential" => true,
+                ],
             ],
             "additional_stuff" => [
-                "should be ignored"
-            ]
+                "should be ignored",
+            ],
         ];
         $requestedClaims = $expectedClaims;
         // Add some claims the client is not authorized for
@@ -81,8 +81,8 @@ class RequestedClaimsRuleTest extends TestCase
         $requestedClaims['id_token']['secret_password'] = null;
         $this->requestStub->method('getQueryParams')->willReturn([
             'claims' => json_encode($requestedClaims),
-            'client_id' => 'abc'
-                                                             ]);
+            'client_id' => 'abc',
+        ]);
 
         $rule = new RequestedClaimsRule(new ClaimTranslatorExtractor(self::$userIdAttr));
         $result = $rule->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
@@ -98,14 +98,14 @@ class RequestedClaimsRuleTest extends TestCase
     {
         $expectedClaims = [
             "additional_stuff" => [
-                "should be ignored"
-            ]
+                "should be ignored",
+            ],
         ];
         $requestedClaims = $expectedClaims;
         $this->requestStub->method('getQueryParams')->willReturn([
-                                                                 'claims' => json_encode($requestedClaims),
-                                                                 'client_id' => 'abc'
-                                                             ]);
+            'claims' => json_encode($requestedClaims),
+            'client_id' => 'abc',
+        ]);
 
         $rule = new RequestedClaimsRule(new ClaimTranslatorExtractor(self::$userIdAttr));
         $result = $rule->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);

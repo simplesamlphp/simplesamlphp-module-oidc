@@ -48,7 +48,7 @@ class ConfigurationDiscoveryControllerTest extends TestCase
     {
         $this->assertInstanceOf(
             ConfigurationDiscoveryController::class,
-            new ConfigurationDiscoveryController($this->oidcOpenIdProviderMetadataServiceMock)
+            new ConfigurationDiscoveryController($this->oidcOpenIdProviderMetadataServiceMock),
         );
     }
 
@@ -61,7 +61,7 @@ class ConfigurationDiscoveryControllerTest extends TestCase
     {
         $this->assertSame(
             json_decode($this->getStubbedInstance()->__invoke()->getContent(), true),
-            self::OIDC_OP_METADATA
+            self::OIDC_OP_METADATA,
         );
     }
 }

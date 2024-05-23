@@ -70,7 +70,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
     {
         $this->assertInstanceOf(
             ScopeOfflineAccessRule::class,
-            new ScopeOfflineAccessRule()
+            new ScopeOfflineAccessRule(),
         );
     }
 
@@ -90,7 +90,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
                 $this->redirectUriResultStub,
                 $this->stateResultStub,
                 $this->clientResultStub,
-                $this->validScopesResultStub
+                $this->validScopesResultStub,
             );
 
         $this->openIdConfigurationStub->method('getBoolean')->willReturn(false);
@@ -120,7 +120,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
                 $this->redirectUriResultStub,
                 $this->stateResultStub,
                 $this->clientResultStub,
-                $this->validScopesResultStub
+                $this->validScopesResultStub,
             );
 
         $this->openIdConfigurationStub->method('getBoolean')->willReturn(false);
@@ -150,7 +150,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
                 $this->redirectUriResultStub,
                 $this->stateResultStub,
                 $this->clientResultStub,
-                $this->validScopesResultStub
+                $this->validScopesResultStub,
             );
 
         $this->openIdConfigurationStub->method('getBoolean')->willReturn(false);

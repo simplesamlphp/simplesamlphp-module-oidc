@@ -53,7 +53,7 @@ class AuthCodeGrantTest extends TestCase
                 $this->refreshTokenRepositoryStub,
                 $this->authCodeTtl,
                 $this->requestRulesManagerStub,
-            )
+            ),
         );
     }
 }

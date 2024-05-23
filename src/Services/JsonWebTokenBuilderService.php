@@ -44,9 +44,9 @@ class JsonWebTokenBuilderService
             $this->moduleConfig->getProtocolSigner(),
             InMemory::file(
                 $this->moduleConfig->getProtocolPrivateKeyPath(),
-                $this->moduleConfig->getProtocolPrivateKeyPassPhrase() ?? ''
+                $this->moduleConfig->getProtocolPrivateKeyPassPhrase() ?? '',
             ),
-            InMemory::plainText('empty', 'empty')
+            InMemory::plainText('empty', 'empty'),
         );
 
         // According to OpenID Federation specification, we need to use different signing keys for federation related
@@ -60,9 +60,9 @@ class JsonWebTokenBuilderService
                 $federationSigner,
                 InMemory::file(
                     $federationPrivateKeyPath,
-                    $this->moduleConfig->getFederationPrivateKeyPassPhrase() ?? ''
+                    $this->moduleConfig->getFederationPrivateKeyPassPhrase() ?? '',
                 ),
-                InMemory::plainText('empty', 'empty')
+                InMemory::plainText('empty', 'empty'),
             );
         }
     }

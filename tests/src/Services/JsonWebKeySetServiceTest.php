@@ -51,7 +51,7 @@ class JsonWebKeySetServiceTest extends TestCase
 
         Configuration::setPreLoadedConfig(
             Configuration::loadFromArray([]),
-            ModuleConfig::DEFAULT_FILE_NAME
+            ModuleConfig::DEFAULT_FILE_NAME,
         );
     }
 

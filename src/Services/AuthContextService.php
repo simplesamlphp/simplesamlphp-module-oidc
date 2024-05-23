@@ -28,7 +28,7 @@ class AuthContextService
      */
     public function __construct(
         private readonly ModuleConfig $moduleConfig,
-        private readonly AuthSimpleFactory $authSimpleFactory
+        private readonly AuthSimpleFactory $authSimpleFactory,
     ) {
     }
 

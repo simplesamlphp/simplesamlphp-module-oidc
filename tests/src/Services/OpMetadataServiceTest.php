@@ -63,7 +63,7 @@ class OpMetadataServiceTest extends TestCase
     {
         $this->assertInstanceOf(
             OpMetadataService::class,
-            $this->prepareMockedInstance()
+            $this->prepareMockedInstance(),
         );
     }
 
@@ -93,7 +93,7 @@ class OpMetadataServiceTest extends TestCase
                 'backchannel_logout_supported' => true,
                 'backchannel_logout_session_supported' => true,
             ],
-            $this->prepareMockedInstance()->getMetadata()
+            $this->prepareMockedInstance()->getMetadata(),
         );
     }
 }

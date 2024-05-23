@@ -108,11 +108,11 @@ class ModuleConfigTest extends TestCase
         // Test default cert and pem
         $this->assertStringContainsString(
             ModuleConfig::DEFAULT_PKI_CERTIFICATE_FILENAME,
-            $this->mock()->getProtocolCertPath()
+            $this->mock()->getProtocolCertPath(),
         );
         $this->assertStringContainsString(
             ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME,
-            $this->mock()->getProtocolPrivateKeyPath()
+            $this->mock()->getProtocolPrivateKeyPath(),
         );
 
         // Set customized
@@ -192,12 +192,12 @@ class ModuleConfigTest extends TestCase
         $this->assertInstanceOf(Signer::class, $this->mock()->getFederationSigner());
         $this->assertStringContainsString(
             ModuleConfig::DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
-            $this->mock()->getFederationPrivateKeyPath()
+            $this->mock()->getFederationPrivateKeyPath(),
         );
         $this->assertNotEmpty($this->mock()->getFederationPrivateKeyPassPhrase());
         $this->assertStringContainsString(
             ModuleConfig::DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME,
-            $this->mock()->getFederationCertPath()
+            $this->mock()->getFederationCertPath(),
         );
         $this->assertNotEmpty($this->mock()->getFederationEntityStatementDuration());
         $this->assertNotEmpty($this->mock()->getFederationAuthorityHints());
@@ -208,7 +208,7 @@ class ModuleConfigTest extends TestCase
         $this->overrides[ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES] = [
             'openid' => [
                 'description' => 'openid',
-            ]
+            ],
         ];
 
         $this->expectException(ConfigurationError::class);

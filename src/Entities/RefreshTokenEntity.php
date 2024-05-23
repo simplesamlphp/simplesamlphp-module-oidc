@@ -52,7 +52,7 @@ class RefreshTokenEntity implements RefreshTokenEntityInterface
 
         $refreshToken->identifier = $state['id'];
         $refreshToken->expiryDateTime = DateTimeImmutable::createFromMutable(
-            TimestampGenerator::utc($state['expires_at'])
+            TimestampGenerator::utc($state['expires_at']),
         );
         $refreshToken->accessToken = $state['access_token'];
         $refreshToken->isRevoked = (bool) $state['is_revoked'];

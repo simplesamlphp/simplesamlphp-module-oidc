@@ -25,7 +25,7 @@ class ResourceServerFactory
     public function __construct(
         private readonly AccessTokenRepository $accessTokenRepository,
         private readonly CryptKey $publicKey,
-        private readonly AuthorizationValidatorInterface $authorizationValidator
+        private readonly AuthorizationValidatorInterface $authorizationValidator,
     ) {
     }
 
@@ -34,7 +34,7 @@ class ResourceServerFactory
         return new ResourceServer(
             $this->accessTokenRepository,
             $this->publicKey,
-            $this->authorizationValidator
+            $this->authorizationValidator,
         );
     }
 }

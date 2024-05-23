@@ -82,7 +82,7 @@ class AccessTokenEntityTest extends TestCase
             'client' => $this->clientEntityStub,
             'is_revoked' => $this->isRevoked,
             'auth_code_id' => $this->authCodeId,
-            'requested_claims' => json_encode($this->requestedClaims, JSON_THROW_ON_ERROR)
+            'requested_claims' => json_encode($this->requestedClaims, JSON_THROW_ON_ERROR),
         ];
     }
 
@@ -104,8 +104,8 @@ class AccessTokenEntityTest extends TestCase
                 $this->scopes,
                 $this->userId,
                 $this->authCodeId,
-                $this->requestedClaims
-            )
+                $this->requestedClaims,
+            ),
         );
     }
 

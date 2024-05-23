@@ -23,7 +23,7 @@ class RefreshTokenGrantFactory
 {
     public function __construct(
         private readonly RefreshTokenRepository $refreshTokenRepository,
-        private readonly DateInterval $refreshTokenDuration
+        private readonly DateInterval $refreshTokenDuration,
     ) {
     }
 

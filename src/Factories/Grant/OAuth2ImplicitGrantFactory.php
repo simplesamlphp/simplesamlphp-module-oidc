@@ -23,7 +23,7 @@ class OAuth2ImplicitGrantFactory
 {
     public function __construct(
         private readonly DateInterval $accessTokenDuration,
-        private readonly RequestRulesManager $requestRulesManager
+        private readonly RequestRulesManager $requestRulesManager,
     ) {
     }
 

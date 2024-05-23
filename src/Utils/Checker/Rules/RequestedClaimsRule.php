@@ -29,7 +29,7 @@ class RequestedClaimsRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = ['GET']
+        array $allowedServerRequestMethods = ['GET'],
     ): ?ResultInterface {
         /** @var ?string $claimsParam */
         $claimsParam = $request->getQueryParams()['claims'] ?? null;
@@ -73,7 +73,7 @@ class RequestedClaimsRule extends AbstractRule
         $requestClaims[$key] = array_filter(
             $requested,
             fn($key) => in_array($key, $authorized),
-            ARRAY_FILTER_USE_KEY
+            ARRAY_FILTER_USE_KEY,
         );
     }
 }

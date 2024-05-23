@@ -28,7 +28,7 @@ class AuthSimpleFactory
 
     public function __construct(
         ClientRepository $clientRepository,
-        private readonly ModuleConfig $moduleConfig
+        private readonly ModuleConfig $moduleConfig,
     ) {
         $this->clientRepository = $clientRepository;
     }

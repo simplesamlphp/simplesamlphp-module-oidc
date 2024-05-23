@@ -62,12 +62,12 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         $stmt = sprintf(
             "INSERT INTO %s (id, expires_at, access_token_id, is_revoked, auth_code_id) "
                 . "VALUES (:id, :expires_at, :access_token_id, :is_revoked, :auth_code_id)",
-            $this->getTableName()
+            $this->getTableName(),
         );
 
         $this->database->write(
             $stmt,
-            $refreshTokenEntity->getState()
+            $refreshTokenEntity->getState(),
         );
     }
 
@@ -82,7 +82,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
             "SELECT * FROM {$this->getTableName()} WHERE id = :id",
             [
                 'id' => $tokenId,
-            ]
+            ],
         );
 
         if (empty($rows = $stmt->fetchAll())) {
@@ -138,7 +138,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
             "DELETE FROM {$this->getTableName()} WHERE expires_at < :now",
             [
                 'now' => TimestampGenerator::utc()->format('Y-m-d H:i:s'),
-            ]
+            ],
         );
     }
 
@@ -147,12 +147,12 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         $stmt = sprintf(
             "UPDATE %s SET expires_at = :expires_at, access_token_id = :access_token_id, is_revoked = :is_revoked, "
                 . "auth_code_id = :auth_code_id WHERE id = :id",
-            $this->getTableName()
+            $this->getTableName(),
         );
 
         $this->database->write(
             $stmt,
-            $refreshTokenEntity->getState()
+            $refreshTokenEntity->getState(),
         );
     }
 }

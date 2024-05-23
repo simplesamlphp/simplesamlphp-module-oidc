@@ -49,7 +49,7 @@ class AllowedOriginRepository extends AbstractDatabaseRepository
     {
         $this->database->write(
             "DELETE FROM {$this->getTableName()} WHERE client_id = :client_id",
-            ['client_id' => $clientId]
+            ['client_id' => $clientId],
         );
     }
 
@@ -57,7 +57,7 @@ class AllowedOriginRepository extends AbstractDatabaseRepository
     {
         $stmt = $this->database->read(
             "SELECT origin FROM {$this->getTableName()} WHERE client_id = :client_id",
-            ['client_id' => $clientId]
+            ['client_id' => $clientId],
         );
 
         return $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
@@ -67,7 +67,7 @@ class AllowedOriginRepository extends AbstractDatabaseRepository
     {
         $stmt = $this->database->read(
             "SELECT origin FROM {$this->getTableName()} WHERE origin = :origin LIMIT 1",
-            ['origin' => $origin]
+            ['origin' => $origin],
         );
 
         return (bool) count($stmt->fetchAll(PDO::FETCH_COLUMN, 0));

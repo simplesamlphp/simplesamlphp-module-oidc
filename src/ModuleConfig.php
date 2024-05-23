@@ -109,7 +109,7 @@ class ModuleConfig
         private readonly SspBridge $sspBridge = new SspBridge(),
     ) {
         $this->moduleConfig = Configuration::loadFromArray(
-            array_merge(Configuration::getConfig($fileName)->toArray(), $overrides)
+            array_merge(Configuration::getConfig($fileName)->toArray(), $overrides),
         );
 
         $this->sspConfig = $sspConfig ?? Configuration::getInstance();
@@ -193,16 +193,16 @@ class ModuleConfig
                 if (in_array($name, array_keys(self::$standardScopes), true)) {
                     throw new ConfigurationError(
                         'Can not overwrite protected scope: ' . $name,
-                        self::DEFAULT_FILE_NAME
+                        self::DEFAULT_FILE_NAME,
                     );
                 }
                 if (!array_key_exists('description', $scope)) {
                     throw new ConfigurationError(
                         'Scope [' . $name . '] description not defined',
-                        self::DEFAULT_FILE_NAME
+                        self::DEFAULT_FILE_NAME,
                     );
                 }
-            }
+            },
         );
 
         $acrValuesSupported = $this->getAcrValuesSupported();
@@ -259,7 +259,7 @@ class ModuleConfig
         /** @psalm-var class-string $signerClassname */
         $signerClassname = $this->config()->getOptionalString(
             self::OPTION_TOKEN_SIGNER,
-            Sha256::class
+            Sha256::class,
         );
 
         return $this->instantiateSigner($signerClassname);
@@ -291,7 +291,7 @@ class ModuleConfig
     {
         $certName = $this->config()->getOptionalString(
             self::OPTION_PKI_CERTIFICATE_FILENAME,
-            self::DEFAULT_PKI_CERTIFICATE_FILENAME
+            self::DEFAULT_PKI_CERTIFICATE_FILENAME,
         );
         return $this->sspBridge->utils()->config()->getCertPath($certName);
     }
@@ -304,7 +304,7 @@ class ModuleConfig
     {
         $keyName = $this->config()->getOptionalString(
             self::OPTION_PKI_PRIVATE_KEY_FILENAME,
-            self::DEFAULT_PKI_PRIVATE_KEY_FILENAME
+            self::DEFAULT_PKI_PRIVATE_KEY_FILENAME,
         );
         return $this->sspBridge->utils()->config()->getCertPath($keyName);
     }
@@ -393,7 +393,7 @@ class ModuleConfig
     {
         $keyName = $this->config()->getOptionalString(
             self::OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
-            null
+            null,
         );
 
         return is_null($keyName) ? null : $this->sspBridge->utils()->config()->getCertPath($keyName);
@@ -413,7 +413,7 @@ class ModuleConfig
     {
         $certName = $this->config()->getOptionalString(
             self::OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME,
-            null
+            null,
         );
 
         return is_null($certName) ? null : $this->sspBridge->utils()->config()->getCertPath($certName);
@@ -427,8 +427,8 @@ class ModuleConfig
         return new DateInterval(
             $this->config()->getOptionalString(
                 self::OPTION_FEDERATION_ENTITY_STATEMENT_DURATION,
-                null
-            ) ?? 'P1D'
+                null,
+            ) ?? 'P1D',
         );
     }
 
@@ -436,7 +436,7 @@ class ModuleConfig
     {
         $authorityHints = $this->config()->getOptionalArray(
             self::OPTION_FEDERATION_AUTHORITY_HINTS,
-            null
+            null,
         );
 
         return empty($authorityHints) ? null : $authorityHints;

@@ -82,7 +82,7 @@ class BackChannelLogoutHandlerTest extends TestCase
         ?string $clientId = null,
         ?string $userId = null,
         ?string $sessionId = null,
-        ?string $backChannelLogoutUri = null
+        ?string $backChannelLogoutUri = null,
     ): RelyingPartyAssociation {
         $id = substr((string) hrtime(true), -4);
 
@@ -90,7 +90,7 @@ class BackChannelLogoutHandlerTest extends TestCase
             $clientId ?? 'client' . $id,
             $userId ?? 'user' . $id,
             $sessionId ?? 'session' . $id,
-            $backChannelLogoutUri ?? 'https://example.org/logout/' . $id
+            $backChannelLogoutUri ?? 'https://example.org/logout/' . $id,
         );
     }
 }

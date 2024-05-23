@@ -50,7 +50,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         CryptKey|string $privateKey,
         Key|string $encryptionKey,
         ResponseTypeInterface $responseType = null,
-        RequestRulesManager $requestRulesManager = null
+        RequestRulesManager $requestRulesManager = null,
     ) {
         parent::__construct(
             $clientRepository,
@@ -58,7 +58,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
             $scopeRepository,
             $privateKey,
             $encryptionKey,
-            $responseType
+            $responseType,
         );
 
         $this->clientRepository = $clientRepository;
@@ -78,7 +78,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         $rulesToExecute = [
             StateRule::class,
             ClientIdRule::class,
-            RedirectUriRule::class
+            RedirectUriRule::class,
         ];
 
         try {

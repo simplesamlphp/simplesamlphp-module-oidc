@@ -45,7 +45,7 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     protected ?string $sessionId = null;
 
     public static function fromOAuth2AuthorizationRequest(
-        OAuth2AuthorizationRequest $oAuth2authorizationRequest
+        OAuth2AuthorizationRequest $oAuth2authorizationRequest,
     ): AuthorizationRequest {
         $authorizationRequest = new self();
 

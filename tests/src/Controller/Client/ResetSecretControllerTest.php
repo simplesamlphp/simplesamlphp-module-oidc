@@ -49,15 +49,15 @@ class ResetSecretControllerTest extends TestCase
         return new ResetSecretController(
             $this->clientRepositoryMock,
             $this->sessionMessagesServiceMock,
-            $this->authContextServiceMock
+            $this->authContextServiceMock,
         );
     }
 
     public function testCanInstantiate(): void
     {
         $this->assertInstanceOf(
-            \SimpleSAML\Module\oidc\Controller\Client\ResetSecretController::class,
-            $this->prepareStubbedInstance()
+            ResetSecretController::class,
+            $this->prepareStubbedInstance(),
         );
     }
 
@@ -203,7 +203,7 @@ class ResetSecretControllerTest extends TestCase
 
         $this->assertInstanceOf(
             RedirectResponse::class,
-            $this->prepareStubbedInstance()->__invoke($this->serverRequestMock)
+            $this->prepareStubbedInstance()->__invoke($this->serverRequestMock),
         );
     }
 }

@@ -58,7 +58,7 @@ class RequestRulesManager
         ServerRequestInterface $request,
         array $ruleKeysToExecute,
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = ['GET']
+        array $allowedServerRequestMethods = ['GET'],
     ): ResultBagInterface {
         foreach ($ruleKeysToExecute as $ruleKey) {
             if (! isset($this->rules[$ruleKey])) {
@@ -71,7 +71,7 @@ class RequestRulesManager
                 $this->loggerService,
                 $this->data,
                 $useFragmentInHttpErrorResponses,
-                $allowedServerRequestMethods
+                $allowedServerRequestMethods,
             );
 
             if ($result !== null) {

@@ -36,10 +36,10 @@ class EntityStatementController
             ->withHeader(ClaimNamesEnum::Type->value, TypeEnum::EntityStatementJwt->value)
             ->relatedTo($this->moduleConfig->getIssuer()) // This is entity configuration (statement about itself).
             ->expiresAt(
-                (TimestampGenerator::utcImmutable())->add($this->moduleConfig->getFederationEntityStatementDuration())
+                (TimestampGenerator::utcImmutable())->add($this->moduleConfig->getFederationEntityStatementDuration()),
             )->withClaim(
                 ClaimNamesEnum::JsonWebKeySet->value,
-                ['keys' => array_values($this->jsonWebKeySetService->federationKeys()),]
+                ['keys' => array_values($this->jsonWebKeySetService->federationKeys()),],
             )
             ->withClaim(
                 ClaimNamesEnum::Metadata->value,

@@ -34,7 +34,7 @@ class SessionMessagesServiceTest extends TestCase
     {
         $this->assertInstanceOf(
             SessionMessagesService::class,
-            $this->prepareMockedInstance()
+            $this->prepareMockedInstance(),
         );
     }
 
@@ -59,7 +59,7 @@ class SessionMessagesServiceTest extends TestCase
                 [
                     'msg1' => 'Message one.',
                     'msg2' => 'Message two.',
-                ]
+                ],
             );
 
         $this->sessionMock->expects($this->exactly(2))

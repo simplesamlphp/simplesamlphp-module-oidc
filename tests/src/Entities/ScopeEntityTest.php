@@ -13,7 +13,7 @@ class ScopeEntityTest extends TestCase
         string $id = 'id',
         string $description = 'description',
         string $icon = 'icon',
-        array $attributes = ['attrid' => 'attrval']
+        array $attributes = ['attrid' => 'attrval'],
     ): ScopeEntity {
         return ScopeEntity::fromData($id, $description, $icon, $attributes);
     }
@@ -22,7 +22,7 @@ class ScopeEntityTest extends TestCase
     {
         $this->assertInstanceOf(
             ScopeEntity::class,
-            $this->prepareMockedInstance()
+            $this->prepareMockedInstance(),
         );
     }
 

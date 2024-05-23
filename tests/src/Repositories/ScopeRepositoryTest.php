@@ -55,7 +55,7 @@ class ScopeRepositoryTest extends TestCase
 
         $expected = ScopeEntity::fromData(
             'openid',
-            'openid'
+            'openid',
         );
 
         $this->assertEquals($expected, $scope);

@@ -10,7 +10,7 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 class CryptKeyFactory
 {
     public function __construct(
-        private readonly ModuleConfig $moduleConfig
+        private readonly ModuleConfig $moduleConfig,
     ) {
     }
 
@@ -21,7 +21,7 @@ class CryptKeyFactory
     {
         return new CryptKey(
             $this->moduleConfig->getProtocolPrivateKeyPath(),
-            $this->moduleConfig->getProtocolPrivateKeyPassPhrase()
+            $this->moduleConfig->getProtocolPrivateKeyPassPhrase(),
         );
     }
 

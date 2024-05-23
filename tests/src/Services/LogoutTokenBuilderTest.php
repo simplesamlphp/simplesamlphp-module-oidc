@@ -93,9 +93,9 @@ class LogoutTokenBuilderTest extends TestCase
             $this->moduleConfigStub->getProtocolSigner(),
             InMemory::file(
                 $this->moduleConfigStub->getProtocolPrivateKeyPath(),
-                $this->moduleConfigStub->getProtocolPrivateKeyPassPhrase() ?? ''
+                $this->moduleConfigStub->getProtocolPrivateKeyPassPhrase() ?? '',
             ),
-            InMemory::file($this->moduleConfigStub->getProtocolCertPath())
+            InMemory::file($this->moduleConfigStub->getProtocolCertPath()),
         );
 
         $parsedToken = $jwtConfig->parser()->parse($token);
@@ -108,9 +108,9 @@ class LogoutTokenBuilderTest extends TestCase
                 new RelatedTo(self::$userId),
                 new SignedWith(
                     $this->moduleConfigStub->getProtocolSigner(),
-                    InMemory::file($this->moduleConfigStub->getProtocolCertPath())
-                )
-            )
+                    InMemory::file($this->moduleConfigStub->getProtocolCertPath()),
+                ),
+            ),
         );
 
         $this->assertTrue($parsedToken->headers()->has('typ'));

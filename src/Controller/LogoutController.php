@@ -28,7 +28,7 @@ class LogoutController
         protected SessionService $sessionService,
         protected LogoutTicketStoreBuilder $sessionLogoutTicketStoreBuilder,
         protected LoggerService $loggerService,
-        protected TemplateFactory $templateFactory
+        protected TemplateFactory $templateFactory,
     ) {
     }
 
@@ -87,7 +87,7 @@ class LogoutController
                 }
             } catch (Throwable $exception) {
                 $this->loggerService->warning(
-                    sprintf('Logout: could not get session with ID %s, error: %s', $sidClaim, $exception->getMessage())
+                    sprintf('Logout: could not get session with ID %s, error: %s', $sidClaim, $exception->getMessage()),
                 );
             }
         }
@@ -131,8 +131,8 @@ class LogoutController
         $sessionLogoutTicketStore = LogoutTicketStoreBuilder::getStaticInstance();
         $sessionLogoutTickets = $sessionLogoutTicketStore->getAll();
 
-        if (! empty($sessionLogoutTickets)) {
-            //  TODO low mivanci This could brake since interface does not mandate type. Move to strong typing.
+        if (!empty($sessionLogoutTickets)) {
+            // TODO low mivanci This could brake since interface does not mandate type. Move to strong typing.
             /** @var array $sessionLogoutTicket */
             foreach ($sessionLogoutTickets as $sessionLogoutTicket) {
                 $sid = (string)$sessionLogoutTicket['sid'];
@@ -144,7 +144,7 @@ class LogoutController
                     if (($sessionLogoutTicketSession = Session::getSession($sid)) !== null) {
                         $relyingPartyAssociations = array_merge(
                             $relyingPartyAssociations,
-                            SessionService::getRelyingPartyAssociationsForSession($sessionLogoutTicketSession)
+                            SessionService::getRelyingPartyAssociationsForSession($sessionLogoutTicketSession),
                         );
 
                         SessionService::clearRelyingPartyAssociationsForSession($sessionLogoutTicketSession);
@@ -154,14 +154,14 @@ class LogoutController
                         sprintf(
                             'Session Ticket Logout: could not get session with ID %s, error: %s',
                             $sid,
-                            $exception->getMessage()
-                        )
+                            $exception->getMessage(),
+                        ),
                     );
                 }
             }
 
             $sessionLogoutTicketStore->deleteMultiple(
-                array_map(fn(array $slt): string => (string)$slt['sid'], $sessionLogoutTickets)
+                array_map(fn(array $slt): string => (string)$slt['sid'], $sessionLogoutTickets),
             );
         }
 
@@ -183,7 +183,7 @@ class LogoutController
         }
 
         return $this->templateFactory->render('oidc:/logout.twig', [
-            'wasLogoutActionCalled' => $wasLogoutActionCalled
+            'wasLogoutActionCalled' => $wasLogoutActionCalled,
         ]);
     }
 }

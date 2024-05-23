@@ -53,7 +53,7 @@ class AuthenticationService
         private readonly OpMetadataService $opMetadataService,
         private readonly SessionService $sessionService,
         private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
-        ModuleConfig $moduleConfig
+        ModuleConfig $moduleConfig,
     ) {
         $this->clientRepository = $clientRepository;
         $this->userIdAttr = $moduleConfig->getUserIdentifierAttribute();
@@ -69,7 +69,7 @@ class AuthenticationService
     public function getAuthenticateUser(
         ServerRequestInterface $request,
         array $loginParams = [],
-        bool $forceAuthn = false
+        bool $forceAuthn = false,
     ): UserEntity {
         $oidcClient = $this->getClientFromRequest($request);
         $authSimple = $this->authSimpleFactory->build($oidcClient);
@@ -87,7 +87,7 @@ class AuthenticationService
             $this->sessionService->registerLogoutHandler(
                 $this->authSourceId,
                 LogoutController::class,
-                'logoutHandler'
+                'logoutHandler',
             );
         } else {
             $this->sessionService->setIsCookieBasedAuthn(true);
@@ -105,7 +105,7 @@ class AuthenticationService
         if (!array_key_exists($this->userIdAttr, $claims) || !is_array($claims[$this->userIdAttr])) {
             $attr = implode(', ', array_keys($claims));
             throw new Error\Exception(
-                'Attribute `useridattr` doesn\'t exists in claims. Available attributes are: ' . $attr
+                'Attribute `useridattr` doesn\'t exists in claims. Available attributes are: ' . $attr,
             );
         }
 
@@ -128,7 +128,7 @@ class AuthenticationService
     private function prepareStateArray(
         Simple $authSimple,
         ClientEntityInterface $client,
-        ServerRequestInterface $request
+        ServerRequestInterface $request,
     ): array {
         $state = $authSimple->getAuthDataArray();
 
@@ -137,7 +137,7 @@ class AuthenticationService
             'RelyingPartyMetadata' => array_filter(
                 $client->toArray(),
                 fn(/** @param array-key $key */ $key) => $key !== 'secret',
-                ARRAY_FILTER_USE_KEY
+                ARRAY_FILTER_USE_KEY,
             ),
             'AuthorizationRequestParameters' => array_filter(
                 $request->getQueryParams(),
@@ -145,7 +145,7 @@ class AuthenticationService
                     $authzParams = ['response_type', 'client_id', 'redirect_uri', 'scope', 'code_challenge_method'];
                     return in_array($key, $authzParams);
                 },
-                ARRAY_FILTER_USE_KEY
+                ARRAY_FILTER_USE_KEY,
             ),
         ];
 
@@ -187,8 +187,8 @@ class AuthenticationService
                 $oidcClient->getIdentifier(),
                 (string)($claims['sub'] ?? $user->getIdentifier()),
                 $this->getSessionId(),
-                $oidcClient->getBackChannelLogoutUri()
-            )
+                $oidcClient->getBackChannelLogoutUri(),
+            ),
         );
     }
 }

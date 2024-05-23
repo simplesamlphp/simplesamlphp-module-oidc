@@ -76,7 +76,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         array $scopes,
         int|string $userIdentifier = null,
         string $authCodeId = null,
-        array $requestedClaims = null
+        array $requestedClaims = null,
     ): self {
         $accessToken = new self();
 
@@ -119,7 +119,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         $accessToken->scopes = $scopes;
         // TODO mivanci move to new 'utcImmutable' method in TimestampGenerator.
         $accessToken->expiryDateTime = DateTimeImmutable::createFromMutable(
-            TimestampGenerator::utc($state['expires_at'])
+            TimestampGenerator::utc($state['expires_at']),
         );
         $accessToken->userIdentifier = empty($state['user_id']) ? null : (string)$state['user_id'];
         $accessToken->client = $state['client'];
@@ -130,7 +130,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
             empty($state['requested_claims']) ? '[]' : (string)$state['requested_claims'],
             true,
             512,
-            JSON_THROW_ON_ERROR
+            JSON_THROW_ON_ERROR,
         );
         if (!is_array($stateRequestedClaims)) {
             throw OidcServerException::serverError('Invalid Access Token Entity state: requested claims');
@@ -168,7 +168,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
             'client_id' => $this->getClient()->getIdentifier(),
             'is_revoked' => (int) $this->isRevoked(),
             'auth_code_id' => $this->getAuthCodeId(),
-            'requested_claims' => json_encode($this->requestedClaims, JSON_THROW_ON_ERROR)
+            'requested_claims' => json_encode($this->requestedClaims, JSON_THROW_ON_ERROR),
         ];
     }
 
