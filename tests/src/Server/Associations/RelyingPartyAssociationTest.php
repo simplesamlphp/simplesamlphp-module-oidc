@@ -23,7 +23,7 @@ class RelyingPartyAssociationTest extends TestCase
             $this->clientId,
             $this->userId,
             $this->sessionId,
-            $this->backChannelLogoutUri
+            $this->backChannelLogoutUri,
         );
 
         $this->assertEquals($this->clientId, $rpAssociation->getClientId());

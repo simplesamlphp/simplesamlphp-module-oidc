@@ -34,7 +34,7 @@ class InstallerController
         private readonly TemplateFactory $templateFactory,
         private readonly SessionMessagesService $messages,
         private readonly DatabaseMigration $databaseMigration,
-        private readonly DatabaseLegacyOAuth2Import $databaseLegacyOAuth2Import
+        private readonly DatabaseLegacyOAuth2Import $databaseLegacyOAuth2Import,
     ) {
     }
 

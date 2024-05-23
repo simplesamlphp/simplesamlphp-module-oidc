@@ -32,7 +32,7 @@ class JwksControllerTest extends TestCase
     {
         $this->assertInstanceOf(
             JwksController::class,
-            new JwksController($this->jsonWebKeySetServiceMock)
+            new JwksController($this->jsonWebKeySetServiceMock),
         );
     }
 
@@ -53,8 +53,7 @@ class JwksControllerTest extends TestCase
 
         $this->assertSame(
             ['keys' => $keys],
-            (new JwksController($this->jsonWebKeySetServiceMock))->__invoke()
-                ->getPayload()
+            (new JwksController($this->jsonWebKeySetServiceMock))->__invoke()->getPayload(),
         );
     }
 }

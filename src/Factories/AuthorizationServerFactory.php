@@ -42,7 +42,7 @@ class AuthorizationServerFactory
         private readonly IdTokenResponse $idTokenResponse,
         private readonly RequestRulesManager $requestRulesManager,
         private readonly CryptKey $privateKey,
-        private readonly string $encryptionKey
+        private readonly string $encryptionKey,
     ) {
     }
 
@@ -55,27 +55,27 @@ class AuthorizationServerFactory
             $this->privateKey,
             $this->encryptionKey,
             $this->idTokenResponse,
-            $this->requestRulesManager
+            $this->requestRulesManager,
         );
 
         $authorizationServer->enableGrantType(
             $this->authCodeGrant,
-            $this->accessTokenDuration
+            $this->accessTokenDuration,
         );
 
         $authorizationServer->enableGrantType(
             $this->oAuth2ImplicitGrant,
-            $this->accessTokenDuration
+            $this->accessTokenDuration,
         );
 
         $authorizationServer->enableGrantType(
             $this->implicitGrant,
-            $this->accessTokenDuration
+            $this->accessTokenDuration,
         );
 
         $authorizationServer->enableGrantType(
             $this->refreshTokenGrant,
-            $this->accessTokenDuration
+            $this->accessTokenDuration,
         );
 
         return $authorizationServer;

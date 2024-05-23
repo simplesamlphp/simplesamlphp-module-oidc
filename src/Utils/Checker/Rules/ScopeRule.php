@@ -30,7 +30,7 @@ class ScopeRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = ['GET']
+        array $allowedServerRequestMethods = ['GET'],
     ): ?ResultInterface {
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
@@ -43,7 +43,7 @@ class ScopeRule extends AbstractRule
 
         $scopes = $this->convertScopesQueryStringToArray(
             (string)($request->getQueryParams()['scope'] ?? $defaultScope),
-            $scopeDelimiterString
+            $scopeDelimiterString,
         );
 
         $validScopes = [];

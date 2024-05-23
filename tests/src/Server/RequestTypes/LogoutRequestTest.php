@@ -46,7 +46,7 @@ class LogoutRequestTest extends TestCase
             $this->idTokenHintStub,
             self::$postLogoutRedirectUri,
             self::$state,
-            self::$uiLocales
+            self::$uiLocales,
         );
 
         $this->assertInstanceOf(LogoutRequest::class, $logoutRequest);

@@ -64,7 +64,7 @@ class JsonWebTokenBuilderServiceTest extends TestCase
 
         $this->assertInstanceOf(
             Builder::class,
-            $builderService->getDefaultJwtTokenBuilder()
+            $builderService->getDefaultJwtTokenBuilder(),
         );
     }
 
@@ -90,9 +90,9 @@ class JsonWebTokenBuilderServiceTest extends TestCase
             $this->moduleConfigStub->getSigner(),
             InMemory::file(
                 $this->moduleConfigStub->getPrivateKeyPath(),
-                $this->moduleConfigStub->getPrivateKeyPassPhrase() ?? ''
+                $this->moduleConfigStub->getPrivateKeyPassPhrase() ?? '',
             ),
-            InMemory::file($this->moduleConfigStub->getCertPath())
+            InMemory::file($this->moduleConfigStub->getCertPath()),
         );
 
         $parsedToken = $jwtConfig->parser()->parse($token);
@@ -103,9 +103,9 @@ class JsonWebTokenBuilderServiceTest extends TestCase
                 new IssuedBy(self::$selfUrlHost),
                 new SignedWith(
                     $this->moduleConfigStub->getSigner(),
-                    InMemory::file($this->moduleConfigStub->getCertPath())
-                )
-            )
+                    InMemory::file($this->moduleConfigStub->getCertPath()),
+                ),
+            ),
         );
     }
 
@@ -116,7 +116,7 @@ class JsonWebTokenBuilderServiceTest extends TestCase
     {
         $this->assertSame(
             self::$signerSha256,
-            (new JsonWebTokenBuilderService($this->moduleConfigStub))->getSigner()
+            (new JsonWebTokenBuilderService($this->moduleConfigStub))->getSigner(),
         );
     }
 }

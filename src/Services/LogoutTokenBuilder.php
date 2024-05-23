@@ -12,7 +12,7 @@ use stdClass;
 class LogoutTokenBuilder
 {
     public function __construct(
-        protected JsonWebTokenBuilderService $jsonWebTokenBuilderService = new JsonWebTokenBuilderService()
+        protected JsonWebTokenBuilderService $jsonWebTokenBuilderService = new JsonWebTokenBuilderService(),
     ) {
     }
 

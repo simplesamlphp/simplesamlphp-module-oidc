@@ -35,7 +35,7 @@ class ResetSecretController
     public function __construct(
         ClientRepository $clientRepository,
         private readonly SessionMessagesService $messages,
-        AuthContextService $authContextService
+        AuthContextService $authContextService,
     ) {
         $this->clientRepository = $clientRepository;
         $this->authContextService = $authContextService;
@@ -69,7 +69,7 @@ class ResetSecretController
         }
 
         return new RedirectResponse(
-            (new HTTP())->addURLParameters('show.php', ['client_id' => $client->getIdentifier()])
+            (new HTTP())->addURLParameters('show.php', ['client_id' => $client->getIdentifier()]),
         );
     }
 }

@@ -54,7 +54,7 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
     public function __construct(
         AccessTokenRepositoryInterface $accessTokenRepository,
         CryptKey $publicKey,
-        DateInterval $jwtValidAtDateLeeway = null
+        DateInterval $jwtValidAtDateLeeway = null,
     ) {
         parent::__construct($accessTokenRepository, $jwtValidAtDateLeeway);
         $this->accessTokenRepository = $accessTokenRepository;
@@ -82,7 +82,7 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
     {
         $this->jwtConfiguration = Configuration::forSymmetricSigner(
             new Sha256(),
-            InMemory::plainText('empty', 'empty')
+            InMemory::plainText('empty', 'empty'),
         );
 
         /** @psalm-suppress ArgumentTypeCoercion */
@@ -90,8 +90,8 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
             new StrictValidAt(new SystemClock(new DateTimeZone(date_default_timezone_get()))),
             new SignedWith(
                 new Sha256(),
-                InMemory::plainText($this->publicKey->getKeyContents(), $this->publicKey->getPassPhrase() ?? '')
-            )
+                InMemory::plainText($this->publicKey->getKeyContents(), $this->publicKey->getPassPhrase() ?? ''),
+            ),
         );
     }
 

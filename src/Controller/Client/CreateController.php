@@ -39,7 +39,7 @@ class CreateController
         private readonly TemplateFactory $templateFactory,
         private readonly FormFactory $formFactory,
         private readonly SessionMessagesService $messages,
-        private readonly AuthContextService $authContextService
+        private readonly AuthContextService $authContextService,
     ) {
     }
 
@@ -95,7 +95,7 @@ class CreateController
                 empty($client['auth_source']) ? null : (string)$client['auth_source'],
                 empty($client['owner']) ? null : (string)$client['owner'],
                 $postLogoutRedirectUris,
-                empty($client['backchannel_logout_uri']) ? null : (string)$client['backchannel_logout_uri']
+                empty($client['backchannel_logout_uri']) ? null : (string)$client['backchannel_logout_uri'],
             ));
 
             // Also persist allowed origins for this client.

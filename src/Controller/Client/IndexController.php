@@ -28,7 +28,7 @@ class IndexController
     public function __construct(
         private readonly ClientRepository $clientRepository,
         private readonly TemplateFactory $templateFactory,
-        private readonly AuthContextService $authContextService
+        private readonly AuthContextService $authContextService,
     ) {
     }
 

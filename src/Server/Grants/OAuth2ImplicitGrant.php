@@ -94,7 +94,7 @@ class OAuth2ImplicitGrant extends ImplicitGrant implements AuthorizationValidata
     public function __construct(
         DateInterval $accessTokenTTL,
         string $queryDelimiter = '#',
-        RequestRulesManager $requestRulesManager = null
+        RequestRulesManager $requestRulesManager = null,
     ) {
         parent::__construct($accessTokenTTL, $queryDelimiter);
 
@@ -113,7 +113,7 @@ class OAuth2ImplicitGrant extends ImplicitGrant implements AuthorizationValidata
      */
     public function validateAuthorizationRequestWithCheckerResultBag(
         ServerRequestInterface $request,
-        ResultBagInterface $resultBag
+        ResultBagInterface $resultBag,
     ): OAuth2AuthorizationRequest {
         $rulesToExecute = [
             ScopeRule::class,

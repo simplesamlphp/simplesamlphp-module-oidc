@@ -17,6 +17,6 @@ interface AuthorizationValidatableWithCheckerResultBagInterface
      */
     public function validateAuthorizationRequestWithCheckerResultBag(
         ServerRequestInterface $request,
-        ResultBagInterface $resultBag
+        ResultBagInterface $resultBag,
     ): OAuth2AuthorizationRequest;
 }

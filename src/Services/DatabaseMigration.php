@@ -53,7 +53,7 @@ class DatabaseMigration
     {
         $versionsTablename = $this->versionsTableName();
         $this->database->write(
-            "CREATE TABLE IF NOT EXISTS $versionsTablename (version VARCHAR(191) PRIMARY KEY NOT NULL)"
+            "CREATE TABLE IF NOT EXISTS $versionsTablename (version VARCHAR(191) PRIMARY KEY NOT NULL)",
         );
 
         return $this->database
@@ -141,7 +141,7 @@ class DatabaseMigration
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
 EOT
-        );
+        ,);
 
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
         $this->database->write(<<< EOT
@@ -155,7 +155,7 @@ EOT
             scopes TEXT NOT NULL
         )
 EOT
-        );
+        ,);
 
         $accessTokenTableName = $this->database->applyPrefix(AccessTokenRepository::TABLE_NAME);
         $fkAccessTokenUser = $this->generateIdentifierName([$accessTokenTableName, 'user_id'], 'fk');
@@ -165,22 +165,22 @@ EOT
             id VARCHAR(191) PRIMARY KEY NOT NULL,
             scopes TEXT,
             expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            user_id VARCHAR(191) NOT NULL,                          
+            user_id VARCHAR(191) NOT NULL,
             client_id VARCHAR(191) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
-            CONSTRAINT $fkAccessTokenUser FOREIGN KEY (user_id) 
-                REFERENCES $userTablename (id) ON DELETE CASCADE,                                 
-            CONSTRAINT $fkAccessTokenClient FOREIGN KEY (client_id) 
-                REFERENCES $clientTableName (id) ON DELETE CASCADE                                
+            CONSTRAINT $fkAccessTokenUser FOREIGN KEY (user_id)
+                REFERENCES $userTablename (id) ON DELETE CASCADE,
+            CONSTRAINT $fkAccessTokenClient FOREIGN KEY (client_id)
+                REFERENCES $clientTableName (id) ON DELETE CASCADE
         )
 EOT
-        );
+        ,);
 
         $refreshTokenTableName = $this->database->applyPrefix(RefreshTokenRepository::TABLE_NAME);
         $fkRefreshTokenAccessToken = $this->generateIdentifierName([$refreshTokenTableName, 'access_token_id'], 'fk');
         $this->database->write(<<< EOT
         CREATE TABLE $refreshTokenTableName (
-            id VARCHAR(191) PRIMARY KEY NOT NULL,          
+            id VARCHAR(191) PRIMARY KEY NOT NULL,
             expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             access_token_id VARCHAR(191) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
@@ -188,7 +188,7 @@ EOT
                 REFERENCES $accessTokenTableName (id) ON DELETE CASCADE
         )
 EOT
-        );
+        ,);
 
         $authCodeTableName = $this->database->applyPrefix(AuthCodeRepository::TABLE_NAME);
         $fkAuthCodeUser = $this->generateIdentifierName([$authCodeTableName, 'user_id'], 'fk');
@@ -198,17 +198,17 @@ EOT
             id VARCHAR(191) PRIMARY KEY NOT NULL,
             scopes TEXT,
             expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            user_id VARCHAR(191) NOT NULL,                          
+            user_id VARCHAR(191) NOT NULL,
             client_id VARCHAR(191) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
             redirect_uri TEXT NOT NULL,
             CONSTRAINT $fkAuthCodeUser FOREIGN KEY (user_id)
-                REFERENCES $userTablename (id) ON DELETE CASCADE,                                 
+                REFERENCES $userTablename (id) ON DELETE CASCADE,
             CONSTRAINT $fkAuthCodeClient FOREIGN KEY (client_id)
-                REFERENCES $clientTableName (id) ON DELETE CASCADE                                            
+                REFERENCES $clientTableName (id) ON DELETE CASCADE
         )
 EOT
-        );
+        ,);
     }
 
     /**
@@ -221,7 +221,7 @@ EOT
         ALTER TABLE {$clientTableName}
             ADD is_enabled BOOLEAN NOT NULL DEFAULT true
 EOT
-        );
+        ,);
     }
 
     private function version20200517071100(): void
@@ -229,9 +229,9 @@ EOT
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
         $this->database->write(<<< EOT
         ALTER TABLE {$clientTableName}
-            ADD is_confidential BOOLEAN NOT NULL DEFAULT false 
+            ADD is_confidential BOOLEAN NOT NULL DEFAULT false
 EOT
-        );
+        ,);
     }
 
     private function version20200901163000(): void
@@ -239,9 +239,9 @@ EOT
         $clientTableName = $this->database->applyPrefix(AuthCodeRepository::TABLE_NAME);
         $this->database->write(<<< EOT
         ALTER TABLE {$clientTableName}
-            ADD nonce TEXT NULL 
+            ADD nonce TEXT NULL
 EOT
-        );
+        ,);
     }
 
     private function version20210902113500(): void
@@ -249,9 +249,9 @@ EOT
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
         $this->database->write(<<< EOT
         ALTER TABLE {$clientTableName}
-            ADD owner VARCHAR(191) NULL 
+            ADD owner VARCHAR(191) NULL
 EOT
-        );
+        ,);
     }
 
     /**
@@ -262,16 +262,16 @@ EOT
         $tableName = $this->database->applyPrefix(AccessTokenRepository::TABLE_NAME);
         $this->database->write(<<< EOT
         ALTER TABLE {$tableName}
-            ADD auth_code_id VARCHAR(191) NULL 
+            ADD auth_code_id VARCHAR(191) NULL
 EOT
-        );
+        ,);
 
         $tableName = $this->database->applyPrefix(RefreshTokenRepository::TABLE_NAME);
         $this->database->write(<<< EOT
         ALTER TABLE {$tableName}
-            ADD auth_code_id VARCHAR(191) NULL 
+            ADD auth_code_id VARCHAR(191) NULL
 EOT
-        );
+        ,);
     }
 
     /**
@@ -282,9 +282,9 @@ EOT
         $tableName = $this->database->applyPrefix(AccessTokenRepository::TABLE_NAME);
         $this->database->write(<<< EOT
         ALTER TABLE {$tableName}
-            ADD requested_claims TEXT NULL 
+            ADD requested_claims TEXT NULL
 EOT
-        );
+        ,);
     }
 
     /**
@@ -306,7 +306,7 @@ EOT
                 REFERENCES $clientTableName (id) ON DELETE CASCADE
         )
 EOT
-        );
+        ,);
     }
 
     /**
@@ -317,9 +317,9 @@ EOT
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
         $this->database->write(<<< EOT
         ALTER TABLE {$clientTableName}
-            ADD post_logout_redirect_uri TEXT NULL 
+            ADD post_logout_redirect_uri TEXT NULL
 EOT
-        );
+        ,);
     }
 
     /**
@@ -330,9 +330,9 @@ EOT
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
         $this->database->write(<<< EOT
         ALTER TABLE {$clientTableName}
-            ADD backchannel_logout_uri TEXT NULL 
+            ADD backchannel_logout_uri TEXT NULL
 EOT
-        );
+        ,);
     }
 
     /**
@@ -341,14 +341,13 @@ EOT
     protected function version20210916173400(): void
     {
         $tableName = $this->database->applyPrefix(LogoutTicketStoreDb::TABLE_NAME);
-        $this->database->write(
-            <<< EOT
+        $this->database->write(<<< EOT
         CREATE TABLE $tableName (
             sid VARCHAR(191) NOT NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
 EOT
-        );
+        ,);
     }
 
     /**

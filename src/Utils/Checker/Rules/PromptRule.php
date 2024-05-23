@@ -21,7 +21,7 @@ class PromptRule extends AbstractRule
 {
     public function __construct(
         private readonly AuthSimpleFactory $authSimpleFactory,
-        private readonly AuthenticationService $authenticationService
+        private readonly AuthenticationService $authenticationService,
     ) {
     }
 
@@ -40,7 +40,7 @@ class PromptRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = ['GET']
+        array $allowedServerRequestMethods = ['GET'],
     ): ?ResultInterface {
         /** @var ClientEntityInterface $client */
         $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
@@ -67,7 +67,7 @@ class PromptRule extends AbstractRule
                 $redirectUri,
                 null,
                 $state,
-                $useFragmentInHttpErrorResponses
+                $useFragmentInHttpErrorResponses,
             );
         }
 

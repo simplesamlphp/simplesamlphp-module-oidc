@@ -54,28 +54,6 @@ you have at least the following parameters set:
     'database.username' => 'user',
     'database.password' => 'password',
 
-### Run database migrations
-
-The module comes with some default SQL migrations which set up needed tables in the configured database. To run them,
-open the _Federation_ tab from your _SimpleSAMLphp_ installation and select the option _OpenID Connect Installation_
-inside the _Tools_ section. Once there, all you need to do is press the _Install_ button and the schema will be created.
-
-Alternatively, in case of automatic / scripted deployments, you can run the 'install.php' script from the command line:
-
-    php modules/oidc/bin/install.php
-
-### Relying Party (RP) Administration
-
-The module lets you manage (create, read, update and delete) approved RPs from the module user interface itself.
-
-Once the database schema has been created, you can open the _Federation_ tab from your _SimpleSAMLphp_ installation
-and select the option _OpenID Connect Client Registry_ inside the _Tools_ section.
-
-Note that clients can be marked as confidential or public. If the client is not marked as confidential (it is public),
-and is using Authorization Code flow, it will have to provide PKCE parameters during the flow.
-
-Client ID and secret will be generated, and can be seen after the client creation by clicking on the 'show' button.
-
 ### Create RSA key pair
 
 During the authentication flow, generated ID Token and Access Token will be in a form of signed JSON Web token (JWS).
@@ -99,10 +77,55 @@ or use your passphrase if provided on private key generation:
 
 If you use a passphrase, make sure to also configure it in the `module_oidc.php` config file.
 
+### Enabling the module
+
+At this point we can enable the module by adding `'oidc' => true` to the list of enabled modules in the main simplesamlphp configuration file, `config/config.php`. 
+
+    'module.enable' => [
+        'exampleauth' => false,
+        'core' => true,
+        'admin' => true,
+        'saml' => true,
+        // enable oidc module
+        'oidc' => true
+    ],
+
+This is required the enable the module on the _Federation_ tab in the admin web interface, which can be used in the next two steps to finalize the installation.
+
+### Run database migrations
+
+The module comes with some default SQL migrations which set up needed tables in the configured database. To run them,
+open the _Federation_ tab from your _SimpleSAMLphp_ installation and select the option _OpenID Connect Installation_
+inside the _Tools_ section. Once there, all you need to do is press the _Install_ button and the schema will be created.
+
+Alternatively, in case of automatic / scripted deployments, you can run the 'install.php' script from the command line:
+
+    php modules/oidc/bin/install.php
+
+### Relying Party (RP) Administration
+
+The module lets you manage (create, read, update and delete) approved RPs from the module user interface itself.
+
+Once the database schema has been created, you can open the _Federation_ tab from your _SimpleSAMLphp_ installation
+and select the option _OpenID Connect Client Registry_ inside the _Tools_ section.
+
+Note that clients can be marked as confidential or public. If the client is not marked as confidential (it is public),
+and is using Authorization Code flow, it will have to provide PKCE parameters during the flow.
+
+Client ID and secret will be generated, and can be seen after the client creation by clicking on the 'show' button.
+
 ### Cron hook
 
 In order to purge expired tokens, this module requires [cron module](https://simplesamlphp.org/docs/stable/cron:cron)
 to be enabled and configured.
+
+### Endpoint locations
+
+Once you deployed the module, you will need the exact endpoint urls the module provides to configure the relying parties. You can visit the discovery endpoint to learn this information:
+
+`<basepath>/module.php/oidc/openid-configuration.php`
+
+This endpoint can be used to set up a `.well-known` URL (see below). 
 
 ## Additional considerations
 ### Private scopes

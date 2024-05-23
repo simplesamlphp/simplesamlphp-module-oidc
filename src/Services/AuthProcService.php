@@ -23,7 +23,7 @@ class AuthProcService
      * @see \SimpleSAML\Auth\ProcessingChain for original implementation
      */
     public function __construct(
-        private readonly ModuleConfig $moduleConfig
+        private readonly ModuleConfig $moduleConfig,
     ) {
         $this->loadFilters();
     }
@@ -71,12 +71,12 @@ class AuthProcService
             $className = Module::resolveClass(
                 $filterConfig['class'],
                 'Auth\Process',
-                '\\' . ProcessingFilter::class
+                '\\' . ProcessingFilter::class,
             );
 
             if (!is_a($className, ProcessingFilter::class, true)) {
                 throw new Exception(
-                    'Authentication processing filter class configuration is not ProcessingFilter instance.'
+                    'Authentication processing filter class configuration is not ProcessingFilter instance.',
                 );
             }
 

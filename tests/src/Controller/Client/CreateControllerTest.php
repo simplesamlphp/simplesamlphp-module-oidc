@@ -67,7 +67,7 @@ class CreateControllerTest extends TestCase
             $this->templateFactoryMock,
             $this->formFactoryMock,
             $this->sessionMessageServiceMock,
-            $this->authContextServiceMock
+            $this->authContextServiceMock,
         );
     }
 
@@ -134,7 +134,7 @@ class CreateControllerTest extends TestCase
                      'allowed_origin' => [],
                      'post_logout_redirect_uri' => [],
                      'backchannel_logout_uri' => null,
-                 ]
+                 ],
             );
 
         $this->formFactoryMock
@@ -192,7 +192,7 @@ class CreateControllerTest extends TestCase
                     'allowed_origin' => [],
                     'post_logout_redirect_uri' => [],
                     'backchannel_logout_uri' => null,
-                ]
+                ],
             );
 
         $this->formFactoryMock

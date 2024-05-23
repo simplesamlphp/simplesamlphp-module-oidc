@@ -85,19 +85,19 @@ class ClaimTranslatorExtractor
             'preferredLanguage',
         ],
         'updated_at' => [
-            'type' => 'int'
+            'type' => 'int',
         ],
         'email' => [
             'mail',
         ],
         'email_verified' => [
-            'type' => 'bool'
+            'type' => 'bool',
         ],
         'address' => [
             'type' => 'json',
             'claims' => [
                 'formatted' => ['postalAddress'],
-            ]
+            ],
         ],
         'phone_number' => [
             'mobile',
@@ -105,7 +105,7 @@ class ClaimTranslatorExtractor
             'homePhone',
         ],
         'phone_number_verified' => [
-            'type' => 'bool'
+            'type' => 'bool',
             // Empty
         ],
     ];
@@ -135,7 +135,7 @@ class ClaimTranslatorExtractor
         string $userIdAttr,
         array $claimSets = [],
         array $translationTable = [],
-        protected array $allowedMultiValueClaims = []
+        protected array $allowedMultiValueClaims = [],
     ) {
         // By default, add the userIdAttribute as one of the attribute for 'sub' claim.
         /** @psalm-suppress MixedArgument */
@@ -164,25 +164,25 @@ class ClaimTranslatorExtractor
                 'birthdate',
                 'zoneinfo',
                 'locale',
-                'updated_at'
-            ])
+                'updated_at',
+            ]),
         );
         $this->addClaimSet(
             new ClaimSetEntity('email', [
                 'email',
-                'email_verified'
-            ])
+                'email_verified',
+            ]),
         );
         $this->addClaimSet(
             new ClaimSetEntity('address', [
-                'address'
-            ])
+                'address',
+            ]),
         );
         $this->addClaimSet(
             new ClaimSetEntity('phone', [
                 'phone_number',
-                'phone_number_verified'
-            ])
+                'phone_number_verified',
+            ]),
         );
 
         foreach ($claimSets as $claimSet) {
@@ -199,7 +199,7 @@ class ClaimTranslatorExtractor
 
         if (in_array($scope, $this->protectedClaims) && isset($this->claimSets[$scope])) {
             throw OidcServerException::serverError(
-                sprintf("%s is a protected scope and is pre-defined by the OpenID Connect specification.", $scope)
+                sprintf("%s is a protected scope and is pre-defined by the OpenID Connect specification.", $scope),
             );
         }
 
@@ -310,7 +310,7 @@ class ClaimTranslatorExtractor
             $data = array_filter(
                 $claims,
                 fn($key) => in_array($key, $intersected),
-                ARRAY_FILTER_USE_KEY
+                ARRAY_FILTER_USE_KEY,
             );
 
             $claimData = array_merge($claimData, $data);
@@ -348,7 +348,7 @@ class ClaimTranslatorExtractor
         return array_filter(
             $translatedClaims,
             fn(/** @param array-key $key */ $key) => array_key_exists($key, $requestedClaims),
-            ARRAY_FILTER_USE_KEY
+            ARRAY_FILTER_USE_KEY,
         );
     }
 }

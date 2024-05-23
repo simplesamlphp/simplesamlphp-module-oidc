@@ -32,7 +32,7 @@ class AuthCodeGrantFactory
         private readonly RefreshTokenRepository $refreshTokenRepository,
         private readonly DateInterval $refreshTokenDuration,
         private readonly DateInterval $authCodeDuration,
-        private readonly RequestRulesManager $requestRulesManager
+        private readonly RequestRulesManager $requestRulesManager,
     ) {
     }
 
@@ -46,7 +46,7 @@ class AuthCodeGrantFactory
             $this->accessTokenRepository,
             $this->refreshTokenRepository,
             $this->authCodeDuration,
-            $this->requestRulesManager
+            $this->requestRulesManager,
         );
         $authCodeGrant->setRefreshTokenTTL($this->refreshTokenDuration);
 

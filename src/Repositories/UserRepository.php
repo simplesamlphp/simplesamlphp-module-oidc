@@ -45,7 +45,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
             "SELECT * FROM {$this->getTableName()} WHERE id = :id",
             [
                 'id' => $identifier,
-            ]
+            ],
         );
 
         if (empty($rows = $stmt->fetchAll())) {
@@ -69,7 +69,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
         $username,
         $password,
         $grantType,
-        OAuth2ClientEntityInterface $clientEntity
+        OAuth2ClientEntityInterface $clientEntity,
     ): ?UserEntityInterface {
         throw new Exception('Not supported');
     }
@@ -78,11 +78,11 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
     {
         $stmt = sprintf(
             "INSERT INTO %s (id, claims, updated_at, created_at) VALUES (:id, :claims, :updated_at, :created_at)",
-            $this->getTableName()
+            $this->getTableName(),
         );
         $this->database->write(
             $stmt,
-            $userEntity->getState()
+            $userEntity->getState(),
         );
     }
 
@@ -92,7 +92,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
             "DELETE FROM {$this->getTableName()} WHERE id = :id",
             [
                 'id' => $user->getIdentifier(),
-            ]
+            ],
         );
     }
 
@@ -100,12 +100,12 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
     {
         $stmt = sprintf(
             "UPDATE %s SET claims = :claims, updated_at = :updated_at, created_at = :created_at WHERE id = :id",
-            $this->getTableName()
+            $this->getTableName(),
         );
 
         $this->database->write(
             $stmt,
-            $user->getState()
+            $user->getState(),
         );
     }
 }

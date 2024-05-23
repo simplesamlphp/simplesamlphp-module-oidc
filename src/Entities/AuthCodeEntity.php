@@ -63,13 +63,13 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
              * @return ScopeEntity
              */
             fn(string $scope) => ScopeEntity::fromData($scope),
-            $stateScopes
+            $stateScopes,
         );
 
         $authCode->identifier = $state['id'];
         $authCode->scopes = $scopes;
         $authCode->expiryDateTime = DateTimeImmutable::createFromMutable(
-            TimestampGenerator::utc($state['expires_at'])
+            TimestampGenerator::utc($state['expires_at']),
         );
         $authCode->userIdentifier = empty($state['user_id']) ? null : (string)$state['user_id'];
         $authCode->client = $state['client'];

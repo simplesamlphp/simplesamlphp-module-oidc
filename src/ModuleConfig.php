@@ -91,10 +91,10 @@ class ModuleConfig
      */
     public function __construct(
         string $fileName = self::DEFAULT_FILE_NAME, // Primarily used for easy (unit) testing overrides.
-        array $overrides = [] // Primarily used for easy (unit) testing overrides.
+        array $overrides = [], // Primarily used for easy (unit) testing overrides.
     ) {
         $this->moduleConfig = Configuration::loadFromArray(
-            array_merge(Configuration::getConfig($fileName)->toArray(), $overrides)
+            array_merge(Configuration::getConfig($fileName)->toArray(), $overrides),
         );
 
         $this->sspConfig = Configuration::getInstance();
@@ -170,16 +170,16 @@ class ModuleConfig
                 if (in_array($name, array_keys(self::$standardClaims), true)) {
                     throw new ConfigurationError(
                         'Can not overwrite protected scope: ' . $name,
-                        self::DEFAULT_FILE_NAME
+                        self::DEFAULT_FILE_NAME,
                     );
                 }
                 if (!array_key_exists('description', $scope)) {
                     throw new ConfigurationError(
                         'Scope [' . $name . '] description not defined',
-                        self::DEFAULT_FILE_NAME
+                        self::DEFAULT_FILE_NAME,
                     );
                 }
-            }
+            },
         );
 
         $acrValuesSupported = $this->getAcrValuesSupported();
@@ -234,7 +234,7 @@ class ModuleConfig
         /** @psalm-var class-string $signerClassname */
         $signerClassname = $this->config()->getOptionalString(
             self::OPTION_TOKEN_SIGNER,
-            Sha256::class
+            Sha256::class,
         );
 
         $class = new ReflectionClass($signerClassname);
@@ -256,7 +256,7 @@ class ModuleConfig
     {
         $certName = $this->config()->getOptionalString(
             self::OPTION_PKI_CERTIFICATE_FILENAME,
-            self::DEFAULT_PKI_CERTIFICATE_FILENAME
+            self::DEFAULT_PKI_CERTIFICATE_FILENAME,
         );
         return (new Config())->getCertPath($certName);
     }
@@ -269,7 +269,7 @@ class ModuleConfig
     {
         $keyName = $this->config()->getOptionalString(
             self::OPTION_PKI_PRIVATE_KEY_FILENAME,
-            self::DEFAULT_PKI_PRIVATE_KEY_FILENAME
+            self::DEFAULT_PKI_PRIVATE_KEY_FILENAME,
         );
         // TODO mivanci move to bridge classes to SSP utils
         return (new Config())->getCertPath($keyName);

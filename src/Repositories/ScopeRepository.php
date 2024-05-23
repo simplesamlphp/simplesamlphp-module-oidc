@@ -57,7 +57,7 @@ class ScopeRepository extends AbstractDatabaseRepository implements ScopeReposit
             $identifier,
             $description,
             $icon,
-            $claims
+            $claims,
         );
     }
 
@@ -68,7 +68,7 @@ class ScopeRepository extends AbstractDatabaseRepository implements ScopeReposit
         array $scopes,
         $grantType,
         OAuth2ClientEntityInterface $clientEntity,
-        $userIdentifier = null
+        $userIdentifier = null,
     ): array {
         if (!$clientEntity instanceof ClientEntity) {
             return [];
@@ -76,7 +76,7 @@ class ScopeRepository extends AbstractDatabaseRepository implements ScopeReposit
 
         return array_filter(
             $scopes,
-            fn(ScopeEntityInterface $scope) => in_array($scope->getIdentifier(), $clientEntity->getScopes(), true)
+            fn(ScopeEntityInterface $scope) => in_array($scope->getIdentifier(), $clientEntity->getScopes(), true),
         );
     }
 }

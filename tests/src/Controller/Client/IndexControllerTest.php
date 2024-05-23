@@ -52,7 +52,7 @@ class IndexControllerTest extends TestCase
         return new IndexController(
             $this->clientRepositoryMock,
             $this->templateFactoryMock,
-            $this->authContextServiceMock
+            $this->authContextServiceMock,
         );
     }
 
@@ -72,8 +72,8 @@ class IndexControllerTest extends TestCase
                 [
                     'items' => [],
                     'numPages' => 1,
-                    'currentPage' => 1
-                ]
+                    'currentPage' => 1,
+                ],
             );
 
         $this->templateFactoryMock->expects($this->once())->method('render')->with(
@@ -83,7 +83,7 @@ class IndexControllerTest extends TestCase
                 'numPages' => 1,
                 'currentPage' => 1,
                 'query' => '',
-            ]
+            ],
         )->willReturn($this->templateStub);
 
         $this->assertSame($this->templateStub, ($this->getStubbedInstance())->__invoke($this->serverRequestMock));

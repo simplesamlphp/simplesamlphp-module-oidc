@@ -29,7 +29,7 @@ class CodeChallengeMethodRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = ['GET']
+        array $allowedServerRequestMethods = ['GET'],
     ): ?ResultInterface {
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
@@ -45,12 +45,12 @@ class CodeChallengeMethodRule extends AbstractRule
                 'code_challenge_method',
                 'Code challenge method must be one of ' . implode(', ', array_map(
                     fn($method) => '`' . $method . '`',
-                    array_keys($codeChallengeVerifiers)
+                    array_keys($codeChallengeVerifiers),
                 )),
                 null,
                 $redirectUri,
                 $state,
-                $useFragmentInHttpErrorResponses
+                $useFragmentInHttpErrorResponses,
             );
         }
 

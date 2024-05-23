@@ -44,7 +44,7 @@ class AcrValuesRuleTest extends TestCase
         $result = (new AcrValuesRule())->checkRule(
             $this->requestStub,
             $this->resultBagStub,
-            $this->loggerServiceStub
+            $this->loggerServiceStub,
         ) ?? new Result(AcrValuesRule::class, null);
         $this->assertNull($result->getValue());
     }
@@ -61,7 +61,7 @@ class AcrValuesRuleTest extends TestCase
         $result = (new AcrValuesRule())->checkRule(
             $this->requestStub,
             $this->resultBagStub,
-            $this->loggerServiceStub
+            $this->loggerServiceStub,
         ) ?? new Result(AcrValuesRule::class, null);
 
         $this->assertSame(['1', '0'], $result->getValue()['values']);
@@ -78,7 +78,7 @@ class AcrValuesRuleTest extends TestCase
         $result = (new AcrValuesRule())->checkRule(
             $this->requestStub,
             $this->resultBagStub,
-            $this->loggerServiceStub
+            $this->loggerServiceStub,
         ) ?? new Result(AcrValuesRule::class, null);
 
         $this->assertSame(['1', '0'], $result->getValue()['values']);

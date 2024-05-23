@@ -69,7 +69,7 @@ class IdTokenResponseTest extends TestCase
         $this->certFolder = dirname(__DIR__, 4) . '/docker/ssp/';
         $this->userEntity = UserEntity::fromData(self::SUBJECT, [
             'cn'  => ['Homer Simpson'],
-            'mail' => ['myEmail@example.com']
+            'mail' => ['myEmail@example.com'],
         ]);
         $this->scopes = [
             ScopeEntity::fromData('openid'),
@@ -111,7 +111,7 @@ class IdTokenResponseTest extends TestCase
 
         $this->idTokenBuilder = new IdTokenBuilder(
             new JsonWebTokenBuilderService($this->moduleConfigMock),
-            new ClaimTranslatorExtractor(self::USER_ID_ATTR)
+            new ClaimTranslatorExtractor(self::USER_ID_ATTR),
         );
     }
 
@@ -135,7 +135,7 @@ class IdTokenResponseTest extends TestCase
     {
         $this->assertInstanceOf(
             IdTokenResponse::class,
-            $this->prepareMockedInstance()
+            $this->prepareMockedInstance(),
         );
     }
 
@@ -168,17 +168,17 @@ class IdTokenResponseTest extends TestCase
                     "id_token" => [
                         "name" => [
                             "essential" => true,
-                        ]
+                        ],
                     ],
                     "userinfo" => [
                         "email" => [
                             "essential" => true,
-                        ]
-                    ]
-                ]
+                        ],
+                    ],
+                ],
             );
         $this->accessTokenEntityMock->method('getScopes')->willReturn(
-            [ScopeEntity::fromData('openid'),]
+            [ScopeEntity::fromData('openid')],
         );
         $idTokenResponse->setAccessToken($this->accessTokenEntityMock);
         $response = $idTokenResponse->generateHttpResponse(new Response());
@@ -192,7 +192,7 @@ class IdTokenResponseTest extends TestCase
     {
         $this->accessTokenEntityMock->method('getRequestedClaims')->willReturn([]);
         $this->accessTokenEntityMock->method('getScopes')->willReturn(
-            [ScopeEntity::fromData('profile'),]
+            [ScopeEntity::fromData('profile')],
         );
         $idTokenResponse = $this->prepareMockedInstance();
         $idTokenResponse->setAccessToken($this->accessTokenEntityMock);
@@ -219,7 +219,7 @@ class IdTokenResponseTest extends TestCase
         if ($responseKeys !== array_flip($expectedResponseFields)) {
             throw new Exception(
                 'missing expected keys. Got ' . var_export(array_keys($result), true)
-                . ' need ' . var_export($expectedResponseFields, true)
+                . ' need ' . var_export($expectedResponseFields, true),
             );
         }
 
@@ -237,13 +237,13 @@ class IdTokenResponseTest extends TestCase
             new StrictValidAt(SystemClock::fromUTC()),
             new SignedWith(
                 new Sha256(),
-                InMemory::plainText(file_get_contents($this->certFolder . '/oidc_module.crt'))
-            )
+                InMemory::plainText(file_get_contents($this->certFolder . '/oidc_module.crt')),
+            ),
         );
 
         if ($token->headers()->get('kid') !== self::KEY_ID) {
             throw new Exception(
-                'Wrong key id. Expected ' . self::KEY_ID . ' was ' . $token->headers()->get('kid')
+                'Wrong key id. Expected ' . self::KEY_ID . ' was ' . $token->headers()->get('kid'),
             );
         }
         $expectedClaimsKeys = array_keys($expectedClaims);
@@ -252,7 +252,7 @@ class IdTokenResponseTest extends TestCase
         if ($claims !== $expectedClaimsKeys) {
             throw new Exception(
                 'missing expected claim. Got ' . var_export($claims, true)
-                . ' need ' . var_export($expectedClaimsKeys, true)
+                . ' need ' . var_export($expectedClaimsKeys, true),
             );
         }
         foreach ($expectedClaims as $claim => $value) {
@@ -260,7 +260,7 @@ class IdTokenResponseTest extends TestCase
             if ($value !== $valFromToken) {
                 throw new Exception(
                     'Expected claim value ' . var_export($value, true)
-                    . ' got ' . var_export($valFromToken, true)
+                    . ' got ' . var_export($valFromToken, true),
                 );
             }
         }

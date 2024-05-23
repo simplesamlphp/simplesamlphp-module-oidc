@@ -21,7 +21,7 @@ class OpMetadataService
      * @throws Exception
      */
     public function __construct(
-        private readonly ModuleConfig $moduleConfig
+        private readonly ModuleConfig $moduleConfig,
     ) {
         $this->initMetadata();
     }

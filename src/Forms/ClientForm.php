@@ -68,7 +68,7 @@ class ClientForm extends Form
         $this->validateByMatchingRegex(
             $redirectUris,
             self::REGEX_URI,
-            'Invalid URI: '
+            'Invalid URI: ',
         );
     }
 
@@ -81,7 +81,7 @@ class ClientForm extends Form
         $this->validateByMatchingRegex(
             $allowedOrigins,
             self::REGEX_ALLOWED_ORIGIN_URL,
-            'Invalid allowed origin: '
+            'Invalid allowed origin: ',
         );
     }
 
@@ -94,7 +94,7 @@ class ClientForm extends Form
         $this->validateByMatchingRegex(
             $postLogoutRedirectUris,
             self::REGEX_URI,
-            'Invalid post-logout redirect URI: '
+            'Invalid post-logout redirect URI: ',
         );
     }
 
@@ -106,7 +106,7 @@ class ClientForm extends Form
             $this->validateByMatchingRegex(
                 [$bclUri],
                 self::REGEX_HTTP_URI,
-                'Invalid back-channel logout URI: '
+                'Invalid back-channel logout URI: ',
             );
         }
     }
@@ -118,7 +118,7 @@ class ClientForm extends Form
     protected function validateByMatchingRegex(
         array $values,
         string $regex,
-        string $messagePrefix = 'Invalid value: '
+        string $messagePrefix = 'Invalid value: ',
     ): void {
         foreach ($values as $value) {
             if (!preg_match($regex, $value)) {
@@ -151,8 +151,8 @@ class ClientForm extends Form
         $values['scopes'] = array_unique(
             array_merge(
                 $scopes,
-                ['openid']
-            )
+                ['openid'],
+            ),
         );
 
         return $values;
@@ -250,7 +250,7 @@ class ClientForm extends Form
     {
         return array_map(
             fn(array $item): mixed => $item['description'],
-            $this->moduleConfig->getOpenIDScopes()
+            $this->moduleConfig->getOpenIDScopes(),
         );
     }
 
@@ -261,7 +261,7 @@ class ClientForm extends Form
     {
         return array_filter(
             preg_split("/[\t\r\n]+/", $text),
-            fn(string $line): bool => !empty(trim($line))
+            fn(string $line): bool => !empty(trim($line)),
         );
     }
 }
