@@ -144,7 +144,7 @@ class ShowControllerTest extends TestCase
             ->with('clientid')
             ->willReturn(null);
 
-        $this->expectException(NotFound::class);
+        $this->expectException(OidcServerException::class);
         $this->getStubbedInstance()->__invoke($this->serverRequestMock);
     }
 }
