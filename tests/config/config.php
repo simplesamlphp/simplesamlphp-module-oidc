@@ -4,6 +4,8 @@
  * The configuration of SimpleSAMLphp
  */
 
+declare(strict_types=1);
+
 $httpUtils = new \SimpleSAML\Utils\HTTP();
 
 $config = [
@@ -58,7 +60,7 @@ $config = [
     /*
      * The following settings are *filesystem paths* which define where
      * SimpleSAMLphp can find or write the following things:
-     * - 'cachedir': Where SimpleSAMLphp can write its cache. 
+     * - 'cachedir': Where SimpleSAMLphp can write its cache.
      * - 'loggingdir': Where to write logs. MUST be set to NULL when using a logging
      *                 handler other than `file`.
      * - 'datadir': Storage of general data.
@@ -85,7 +87,7 @@ $config = [
      * qualified path to a file containing the certificate or key in PEM
      * format, such as 'cert.pem' or '/path/to/cert.pem'. If the path is
      * relative, it will be searched for in the directory defined by the
-     * 'certdir' parameter below. When 'certdir' is specified as a relative
+     * '' parameter below. When 'certdir' is specified as a relative
      * path, it will be interpreted as relative to the SimpleSAMLphp root
      * directory. Note that locations with no prefix included will be treated
      * as file locations.
@@ -277,6 +279,7 @@ $config = [
      * Whenever you change any of these headers, make sure to validate your config by running your
      * hostname through a security-test like https://en.internet.nl
     'headers.security' => [
+        // phpcs:ignore
         'Content-Security-Policy' => "default-src 'none'; frame-ancestors 'self'; object-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'",
         'X-Frame-Options' => 'SAMEORIGIN',
         'X-Content-Type-Options' => 'nosniff',

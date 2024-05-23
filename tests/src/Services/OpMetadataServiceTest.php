@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Services;
 
-use Jose\Component\Signature\Algorithm\RS256;
 use Lcobucci\JWT\Signer\Rsa;
-use Lcobucci\JWT\Signer\Rsa\Sha256;
 use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\MockObject;
 use SimpleSAML\Module\oidc\ModuleConfig;

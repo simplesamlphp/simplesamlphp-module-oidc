@@ -43,7 +43,9 @@ class OpMetadataService
         $this->metadata['scopes_supported'] = array_keys($this->moduleConfig->getOpenIDScopes());
         $this->metadata['response_types_supported'] = ['code', 'token', 'id_token', 'id_token token'];
         $this->metadata['subject_types_supported'] = ['public'];
-        $this->metadata['id_token_signing_alg_values_supported'] = [$this->moduleConfig->getProtocolSigner()->algorithmId()];
+        $this->metadata['id_token_signing_alg_values_supported'] = [
+            $this->moduleConfig->getProtocolSigner()->algorithmId()
+        ];
         $this->metadata['code_challenge_methods_supported'] = ['plain', 'S256'];
         $this->metadata['token_endpoint_auth_methods_supported'] = ['client_secret_post', 'client_secret_basic'];
         $this->metadata['request_parameter_supported'] = false;

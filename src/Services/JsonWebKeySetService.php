@@ -15,7 +15,6 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Module\oidc\Services;
 
-use Jose\Component\Console\PublicKeyCommand;
 use Jose\Component\Core\JWK;
 use Jose\Component\Core\JWKSet;
 use Jose\Component\KeyManagement\JWKFactory;

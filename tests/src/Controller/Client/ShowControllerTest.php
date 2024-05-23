@@ -50,13 +50,6 @@ class ShowControllerTest extends TestCase
         $this->templateMock = $this->createMock(Template::class);
     }
 
-    public static function setUpBeforeClass(): void
-    {
-        // To make lib/SimpleSAML/Utils/HTTP::getSelfURL() work...
-        global $_SERVER;
-        $_SERVER['REQUEST_URI'] = '';
-    }
-
     protected function getStubbedInstance(): ShowController
     {
         return new ShowController(

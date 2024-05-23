@@ -44,13 +44,6 @@ class ResetSecretControllerTest extends TestCase
         $this->clientEntityMock = $this->createMock(ClientEntity::class);
     }
 
-    public static function setUpBeforeClass(): void
-    {
-        // To make lib/SimpleSAML/Utils/HTTP::getSelfURL() work...
-        global $_SERVER;
-        $_SERVER['REQUEST_URI'] = '';
-    }
-
     protected function prepareStubbedInstance(): \SimpleSAML\Module\oidc\Controller\Client\ResetSecretController
     {
         return new ResetSecretController(

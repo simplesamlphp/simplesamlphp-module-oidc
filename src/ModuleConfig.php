@@ -22,12 +22,11 @@ use Lcobucci\JWT\Signer;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
 use ReflectionClass;
 use ReflectionException;
+use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Configuration;
 use SimpleSAML\Error\ConfigurationError;
-use SimpleSAML\Module;
+use SimpleSAML\Module\oidc\Codebooks\ScopesEnum;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\Utils\Config;
-use SimpleSAML\Utils\HTTP;
 
 class ModuleConfig
 {
@@ -68,25 +67,26 @@ class ModuleConfig
     final public const OPTION_FEDERATION_ENTITY_STATEMENT_DURATION = 'federation_entity_statement_duration';
     final public const OPTION_FEDERATION_AUTHORITY_HINTS = 'federation_authority_hints';
 
-    protected static array $standardClaims = [
-        // TODO mivanci Move registered scopes to enum?
-        'openid' => [
-            'description' => 'openid',
+    protected const KEY_DESCRIPTION = 'description';
+
+    protected static array $standardScopes = [
+        ScopesEnum::OpenId->value => [
+            self::KEY_DESCRIPTION => 'openid',
         ],
-        'offline_access' => [
-            'description' => 'offline_access',
+        ScopesEnum::OfflineAccess->value => [
+            self::KEY_DESCRIPTION => 'offline_access',
         ],
-        'profile' => [
-            'description' => 'profile',
+        ScopesEnum::Profile->value => [
+            self::KEY_DESCRIPTION => 'profile',
         ],
-        'email' => [
-            'description' => 'email',
+        ScopesEnum::Email->value => [
+            self::KEY_DESCRIPTION => 'email',
         ],
-        'address' => [
-            'description' => 'address',
+        ScopesEnum::Address->value => [
+            self::KEY_DESCRIPTION => 'address',
         ],
-        'phone' => [
-            'description' => 'phone',
+        ScopesEnum::Phone->value => [
+            self::KEY_DESCRIPTION => 'phone',
         ],
     ];
 
@@ -105,7 +105,8 @@ class ModuleConfig
     public function __construct(
         string $fileName = self::DEFAULT_FILE_NAME, // Primarily used for easy (unit) testing overrides.
         array $overrides = [], // Primarily used for easy (unit) testing overrides.
-        Configuration $sspConfig = null, // Primarily used for easy (unit) testing overrides.
+        Configuration $sspConfig = null,
+        private readonly SspBridge $sspBridge = new SspBridge(),
     ) {
         $this->moduleConfig = Configuration::loadFromArray(
             array_merge(Configuration::getConfig($fileName)->toArray(), $overrides)
@@ -117,7 +118,7 @@ class ModuleConfig
     }
 
     /**
-     * @throws Exception
+     * Get SimpleSAMLphp Configuration (config.php) instance.
      */
     public function sspConfig(): Configuration
     {
@@ -125,7 +126,7 @@ class ModuleConfig
     }
 
     /**
-     * @throws Exception
+     * Get module config Configuration instance.
      */
     public function config(): Configuration
     {
@@ -138,8 +139,9 @@ class ModuleConfig
      */
     public function getIssuer(): string
     {
-        // TODO mivanci Create bridge to SSP utility classes
-        $issuer = $this->config()->getOptionalString(self::OPTION_ISSUER, null) ?? (new HTTP())->getSelfURLHost();
+        $issuer = $this->config()->getOptionalString(self::OPTION_ISSUER, null) ??
+        $this->sspBridge->utils()->http()->getSelfURLHost();
+
         if (empty($issuer)) {
             throw OidcServerException::serverError('Issuer can not be empty.');
         }
@@ -148,8 +150,7 @@ class ModuleConfig
 
     public function getModuleUrl(string $path = null): string
     {
-        // TODO mivanci Create bridge to SSP utility classes
-        $base = Module::getModuleURL(self::MODULE_NAME);
+        $base = $this->sspBridge->module()->getModuleURL(self::MODULE_NAME);
 
         if ($path) {
             $base .= "/$path";
@@ -163,7 +164,7 @@ class ModuleConfig
      */
     public function getOpenIDScopes(): array
     {
-        return array_merge(self::$standardClaims, $this->getOpenIDPrivateScopes());
+        return array_merge(self::$standardScopes, $this->getOpenIDPrivateScopes());
     }
 
     /**
@@ -189,7 +190,7 @@ class ModuleConfig
              * @throws ConfigurationError
              */
             function (array $scope, string $name): void {
-                if (in_array($name, array_keys(self::$standardClaims), true)) {
+                if (in_array($name, array_keys(self::$standardScopes), true)) {
                     throw new ConfigurationError(
                         'Can not overwrite protected scope: ' . $name,
                         self::DEFAULT_FILE_NAME
@@ -265,8 +266,9 @@ class ModuleConfig
     }
 
     /**
-     * @throws ReflectionException
      * @param class-string $className
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws ReflectionException
      */
     protected function instantiateSigner(string $className): Signer
     {
@@ -274,7 +276,7 @@ class ModuleConfig
         $signer = $class->newInstance();
 
         if (!$signer instanceof Signer) {
-            return new Sha256();
+            throw new ConfigurationError(sprintf('Unsupported signer class provided (%s).', $className));
         }
 
         return $signer;
@@ -291,7 +293,7 @@ class ModuleConfig
             self::OPTION_PKI_CERTIFICATE_FILENAME,
             self::DEFAULT_PKI_CERTIFICATE_FILENAME
         );
-        return (new Config())->getCertPath($certName);
+        return $this->sspBridge->utils()->config()->getCertPath($certName);
     }
 
     /**
@@ -304,8 +306,7 @@ class ModuleConfig
             self::OPTION_PKI_PRIVATE_KEY_FILENAME,
             self::DEFAULT_PKI_PRIVATE_KEY_FILENAME
         );
-        // TODO mivanci move to bridge classes to SSP utils
-        return (new Config())->getCertPath($keyName);
+        return $this->sspBridge->utils()->config()->getCertPath($keyName);
     }
 
     /**
@@ -376,6 +377,10 @@ class ModuleConfig
         return $this->config()->getString(ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE);
     }
 
+    /**
+     * @throws \ReflectionException
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
     public function getFederationSigner(): ?Signer
     {
         /** @psalm-var ?class-string $signerClassname */
@@ -391,8 +396,7 @@ class ModuleConfig
             null
         );
 
-        // TODO mivanci move to bridge classes to SSP utils
-        return is_null($keyName) ? null : (new Config())->getCertPath($keyName);
+        return is_null($keyName) ? null : $this->sspBridge->utils()->config()->getCertPath($keyName);
     }
 
     public function getFederationPrivateKeyPassPhrase(): ?string
@@ -412,7 +416,7 @@ class ModuleConfig
             null
         );
 
-        return is_null($certName) ? null : (new Config())->getCertPath($certName);
+        return is_null($certName) ? null : $this->sspBridge->utils()->config()->getCertPath($certName);
     }
 
     /**

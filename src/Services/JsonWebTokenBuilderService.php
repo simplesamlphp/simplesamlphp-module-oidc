@@ -53,7 +53,8 @@ class JsonWebTokenBuilderService
         // functions. Since we won't force OP implementor to enable federation support, this part is optional.
         if (
             ($federationSigner = $this->moduleConfig->getFederationSigner()) &&
-            ($federationPrivateKeyPath = $this->moduleConfig->getFederationPrivateKeyPath())
+            ($federationPrivateKeyPath = $this->moduleConfig->getFederationPrivateKeyPath()) &&
+            file_exists($federationPrivateKeyPath)
         ) {
             $this->federationJwtConfig = Configuration::forAsymmetricSigner(
                 $federationSigner,
