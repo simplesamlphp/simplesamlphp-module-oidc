@@ -68,7 +68,7 @@ class IdTokenHintRule extends AbstractRule
                 'Received empty id_token_hint',
                 null,
                 null,
-                $state
+                $state,
             );
         }
 
