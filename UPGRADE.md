@@ -17,10 +17,12 @@ and optionally a port (as in all previous module versions).
   - PKI keys - federation keys used for example to sign federation entity statements. These keys should be different
   from the ones used with OIDC protocol itself
   - signer algorithm
-  - entity statement duration 
+  - entity statement duration
+  - authority hints
 
 ## Major impact changes
 - PHP version requirement was bumped to v8.2
+- SimpleSAMLphp version requirement was bumped to v2.2
 - TODO move away from SSP database as store; move to custom store interface
 
 ## Medium impact changes
