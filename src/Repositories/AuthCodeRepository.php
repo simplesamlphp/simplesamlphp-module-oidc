@@ -56,12 +56,12 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
         $stmt = sprintf(
             "INSERT INTO %s (id, scopes, expires_at, user_id, client_id, is_revoked, redirect_uri, nonce) "
                 . "VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked, :redirect_uri, :nonce)",
-            $this->getTableName()
+            $this->getTableName(),
         );
 
         $this->database->write(
             $stmt,
-            $authCodeEntity->getState()
+            $authCodeEntity->getState(),
         );
     }
 
@@ -75,7 +75,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
             "SELECT * FROM {$this->getTableName()} WHERE id = :id",
             [
                 'id' => $codeId,
-            ]
+            ],
         );
 
         if (empty($rows = $stmt->fetchAll())) {
@@ -132,7 +132,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
             "DELETE FROM {$this->getTableName()} WHERE expires_at < :now",
             [
                 'now' => TimestampGenerator::utc()->format('Y-m-d H:i:s'),
-            ]
+            ],
         );
     }
 
@@ -143,8 +143,8 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
     {
         $stmt = sprintf(
             <<<EOS
-            UPDATE %s 
-            SET 
+            UPDATE %s
+            SET
                 scopes = :scopes,
                 expires_at = :expires_at,
                 user_id = :user_id,
@@ -155,12 +155,12 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
             WHERE id = :id
 EOS
             ,
-            $this->getTableName()
+            $this->getTableName(),
         );
 
         $this->database->write(
             $stmt,
-            $authCodeEntity->getState()
+            $authCodeEntity->getState(),
         );
     }
 }

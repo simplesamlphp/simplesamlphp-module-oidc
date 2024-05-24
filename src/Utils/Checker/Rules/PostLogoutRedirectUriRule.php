@@ -30,7 +30,7 @@ class PostLogoutRedirectUriRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = ['GET']
+        array $allowedServerRequestMethods = ['GET'],
     ): ?ResultInterface {
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
@@ -42,7 +42,7 @@ class PostLogoutRedirectUriRule extends AbstractRule
             'post_logout_redirect_uri',
             $request,
             $loggerService,
-            $allowedServerRequestMethods
+            $allowedServerRequestMethods,
         );
 
         $result = new Result($this->getKey(), $postLogoutRedirectUri);
@@ -82,7 +82,7 @@ class PostLogoutRedirectUriRule extends AbstractRule
                 'post_logout_redirect_uri not registered',
                 null,
                 null,
-                $state
+                $state,
             );
         }
 

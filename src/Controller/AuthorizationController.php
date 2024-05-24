@@ -36,7 +36,7 @@ class AuthorizationController
         private readonly AuthenticationService $authenticationService,
         private readonly AuthorizationServer $authorizationServer,
         private readonly ModuleConfig $moduleConfig,
-        private readonly LoggerService $loggerService
+        private readonly LoggerService $loggerService,
     ) {
     }
 
@@ -139,7 +139,7 @@ class AuthorizationController
         $message = sprintf(
             'No ACRs configured for current auth source, whilst specification mandates one. ' .
             'Falling back to generic ACR (%s).',
-            $genericAcr
+            $genericAcr,
         );
         $this->loggerService->warning($message);
         $authorizationRequest->setAcr($genericAcr);

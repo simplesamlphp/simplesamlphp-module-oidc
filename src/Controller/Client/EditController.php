@@ -44,7 +44,7 @@ class EditController
         private readonly TemplateFactory $templateFactory,
         private readonly FormFactory $formFactory,
         private readonly SessionMessagesService $messages,
-        AuthContextService $authContextService
+        AuthContextService $authContextService,
     ) {
         $this->clientRepository = $clientRepository;
         $this->authContextService = $authContextService;
@@ -102,7 +102,7 @@ class EditController
                 empty($data['auth_source']) ? null : (string)$data['auth_source'],
                 $client->getOwner(),
                 $postLogoutRedirectUris,
-                empty($data['backchannel_logout_uri']) ? null : (string)$data['backchannel_logout_uri']
+                empty($data['backchannel_logout_uri']) ? null : (string)$data['backchannel_logout_uri'],
             ), $authedUser);
 
             // Also persist allowed origins for this client.
@@ -111,7 +111,7 @@ class EditController
             $this->messages->addMessage('{oidc:client:updated}');
 
             return new RedirectResponse(
-                (new HTTP())->addURLParameters('show.php', ['client_id' => $client->getIdentifier()])
+                (new HTTP())->addURLParameters('show.php', ['client_id' => $client->getIdentifier()]),
             );
         }
 
@@ -119,7 +119,7 @@ class EditController
             'form' => $form,
             'regexUri' => ClientForm::REGEX_URI,
             'regexAllowedOriginUrl' => ClientForm::REGEX_ALLOWED_ORIGIN_URL,
-            'regexHttpUri' => ClientForm::REGEX_HTTP_URI
+            'regexHttpUri' => ClientForm::REGEX_HTTP_URI,
         ]);
     }
 }

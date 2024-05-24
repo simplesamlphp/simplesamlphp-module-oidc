@@ -22,7 +22,14 @@
 
     <!-- This is the rule we inherit from. If you want to exlude some specific rules, see the docs on how to do that -->
     <rule ref="PSR12"/>
-    <rule ref="Generic.PHP.RequireStrictTypes" />
+    <!-- <rule ref="vendor/simplesamlphp/simplesamlphp-test-framework/phpcs-simplesamlphp.xml"/> -->
+
+    <!-- Enforce the use of trailing commas -->
+    <rule ref="SlevomatCodingStandard.Arrays.TrailingArrayComma" />
+    <rule ref="SlevomatCodingStandard.Functions.RequireTrailingCommaInCall" />
+    <rule ref="SlevomatCodingStandard.Functions.RequireTrailingCommaInClosureUse" />
+    <rule ref="SlevomatCodingStandard.Functions.RequireTrailingCommaInDeclaration" />
+
     <rule ref="Generic.WhiteSpace.ScopeIndent">
         <properties>
             <property name="exact" value="true" />

@@ -48,7 +48,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         array $scopes,
         $userIdentifier = null,
         string $authCodeId = null,
-        array $requestedClaims = null
+        array $requestedClaims = null,
     ): AccessTokenEntityInterface {
         if (!is_null($userIdentifier)) {
             $userIdentifier = (string)$userIdentifier;
@@ -73,12 +73,12 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         $stmt = sprintf(
             "INSERT INTO %s (id, scopes, expires_at, user_id, client_id, is_revoked, auth_code_id, requested_claims) "
             . "VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked, :auth_code_id, :requested_claims)",
-            $this->getTableName()
+            $this->getTableName(),
         );
 
         $this->database->write(
             $stmt,
-            $accessTokenEntity->getState()
+            $accessTokenEntity->getState(),
         );
     }
 
@@ -93,7 +93,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
             "SELECT * FROM {$this->getTableName()} WHERE id = :id",
             [
                 'id' => $tokenId,
-            ]
+            ],
         );
 
         if (empty($rows = $stmt->fetchAll())) {
@@ -158,7 +158,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
                 )",
             [
                 'now' => TimestampGenerator::utc()->format('Y-m-d H:i:s'),
-            ]
+            ],
         );
     }
 
@@ -171,12 +171,12 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
             "UPDATE %s SET scopes = :scopes, expires_at = :expires_at, user_id = :user_id, "
                 . "client_id = :client_id, is_revoked = :is_revoked, auth_code_id = :auth_code_id, "
                 . "requested_claims = :requested_claims WHERE id = :id",
-            $this->getTableName()
+            $this->getTableName(),
         );
 
         $this->database->write(
             $stmt,
-            $accessTokenEntity->getState()
+            $accessTokenEntity->getState(),
         );
     }
 }

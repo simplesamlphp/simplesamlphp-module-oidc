@@ -22,7 +22,7 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
         bool $isEnabled,
         bool $isConfidential = false,
         ?string $authSource = null,
-        ?string $owner = null
+        ?string $owner = null,
     ): self;
 
     public function toArray(): array;

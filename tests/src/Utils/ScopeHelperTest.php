@@ -31,7 +31,7 @@ class ScopeHelperTest extends TestCase
         $this->scopeEntityProfileStub->method('getIdentifier')->willReturn('profile');
         $this->scopeEntitiesArray = [
             $this->scopeEntityOpenIdStub,
-            $this->scopeEntityProfileStub
+            $this->scopeEntityProfileStub,
         ];
     }
 

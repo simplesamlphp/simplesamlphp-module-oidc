@@ -25,7 +25,7 @@ abstract class AbstractRule implements RequestRuleInterface
         string $paramKey,
         ServerRequestInterface $request,
         LoggerService $loggerService,
-        array $allowedServerRequestMethods = ['GET']
+        array $allowedServerRequestMethods = ['GET'],
     ): ?string {
         // Make sure the case is compatible...
         $allowedServerRequestMethods = array_map('strtoupper', $allowedServerRequestMethods);
@@ -36,8 +36,8 @@ abstract class AbstractRule implements RequestRuleInterface
                 sprintf(
                     'Method %s not allowed for intended request. Allowed methods were %s.',
                     $requestMethod,
-                    implode(', ', $allowedServerRequestMethods)
-                )
+                    implode(', ', $allowedServerRequestMethods),
+                ),
             );
             return null;
         }
@@ -58,8 +58,8 @@ abstract class AbstractRule implements RequestRuleInterface
                 $loggerService->warning(
                     sprintf(
                         'Request method %s is not supported.',
-                        $requestMethod
-                    )
+                        $requestMethod,
+                    ),
                 );
         }
 

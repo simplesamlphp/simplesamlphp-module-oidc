@@ -57,7 +57,7 @@ class DatabaseLegacyOAuth2Import
                 $client['scopes'],
                 true,
                 false,
-                $client['auth_source']
+                $client['auth_source'],
             ));
         }
     }

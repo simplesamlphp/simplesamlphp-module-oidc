@@ -15,7 +15,7 @@ class RelyingPartyAssociation implements RelyingPartyAssociationInterface
         /**
          * Registered back-channel logout URI for the client.
          */
-        protected ?string $backChannelLogoutUri = null
+        protected ?string $backChannelLogoutUri = null,
     ) {
     }
 

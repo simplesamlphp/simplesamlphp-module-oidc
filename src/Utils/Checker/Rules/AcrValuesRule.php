@@ -21,7 +21,7 @@ class AcrValuesRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = ['GET']
+        array $allowedServerRequestMethods = ['GET'],
     ): ?ResultInterface {
         $acrValues = [
             'essential' => false,
@@ -49,7 +49,7 @@ class AcrValuesRule extends AbstractRule
             $acrValues['values'] = array_merge(
                 isset($requestedAcrClaim['value']) ? [$requestedAcrClaim['value']] : [],
                 isset($requestedAcrClaim['values']) && is_array($requestedAcrClaim['values']) ?
-                    $requestedAcrClaim['values'] : []
+                    $requestedAcrClaim['values'] : [],
             );
         }
 

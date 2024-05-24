@@ -43,8 +43,8 @@ class AccessTokenControllerTest extends TestCase
             AccessTokenController::class,
             new AccessTokenController(
                 $this->authorizationServerMock,
-                $this->allowedOriginRepository
-            )
+                $this->allowedOriginRepository,
+            ),
         );
     }
 
@@ -63,8 +63,8 @@ class AccessTokenControllerTest extends TestCase
             $this->responseMock,
             (new AccessTokenController(
                 $this->authorizationServerMock,
-                $this->allowedOriginRepository
-            ))->__invoke($this->serverRequestMock)
+                $this->allowedOriginRepository,
+            ))->__invoke($this->serverRequestMock),
         );
     }
 

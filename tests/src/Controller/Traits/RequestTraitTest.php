@@ -31,7 +31,7 @@ class RequestTraitTest extends TestCase
             use RequestTrait;
 
             public function __construct(
-                public AllowedOriginRepository $allowedOriginRepository
+                public AllowedOriginRepository $allowedOriginRepository,
             ) {
             }
 
@@ -85,7 +85,7 @@ class RequestTraitTest extends TestCase
                 'Access-Control-Allow-Methods' => ['GET, POST, OPTIONS'],
                 'Access-Control-Allow-Headers' => ['Authorization, X-Requested-With'],
                 'Access-Control-Allow-Credentials' => ['true'],
-            ]
+            ],
         );
     }
 }

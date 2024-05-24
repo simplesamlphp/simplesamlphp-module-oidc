@@ -22,7 +22,7 @@ class ResponseTypeRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = ['GET']
+        array $allowedServerRequestMethods = ['GET'],
     ): ?ResultInterface {
         $queryParams = $request->getQueryParams();
 

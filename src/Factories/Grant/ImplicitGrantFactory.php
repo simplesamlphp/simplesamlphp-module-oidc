@@ -27,7 +27,7 @@ class ImplicitGrantFactory
         private readonly IdTokenBuilder $idTokenBuilder,
         private readonly DateInterval $accessTokenDuration,
         private readonly RequestRulesManager $requestRulesManager,
-        private readonly AccessTokenRepository $accessTokenRepository
+        private readonly AccessTokenRepository $accessTokenRepository,
     ) {
     }
 
@@ -38,7 +38,7 @@ class ImplicitGrantFactory
             $this->accessTokenDuration,
             $this->accessTokenRepository,
             '#',
-            $this->requestRulesManager
+            $this->requestRulesManager,
         );
     }
 }

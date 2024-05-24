@@ -40,7 +40,7 @@ class UserInfoController
         private readonly AccessTokenRepository $accessTokenRepository,
         private readonly UserRepository $userRepository,
         private readonly AllowedOriginRepository $allowedOriginRepository,
-        private readonly ClaimTranslatorExtractor $claimTranslatorExtractor
+        private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
     ) {
     }
 
@@ -73,7 +73,7 @@ class UserInfoController
         $requestedClaims =  $accessToken->getRequestedClaims();
         $additionalClaims = $this->claimTranslatorExtractor->extractAdditionalUserInfoClaims(
             $requestedClaims,
-            $user->getClaims()
+            $user->getClaims(),
         );
         $claims = array_merge($additionalClaims, $claims);
 

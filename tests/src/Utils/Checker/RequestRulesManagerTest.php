@@ -121,7 +121,7 @@ class RequestRulesManagerTest extends TestCase
                 $this->identicalTo($this->request),
                 $this->isInstanceOf(ResultBagInterface::class),
                 $this->isInstanceOf(LoggerService::class),
-                $this->arrayHasKey($this->key)
+                $this->arrayHasKey($this->key),
             );
 
         $requestRulesManager->add($ruleMock);

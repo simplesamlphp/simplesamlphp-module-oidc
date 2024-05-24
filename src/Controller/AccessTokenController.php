@@ -29,7 +29,7 @@ class AccessTokenController
 
     public function __construct(
         private readonly AuthorizationServer $authorizationServer,
-        private readonly AllowedOriginRepository $allowedOriginRepository
+        private readonly AllowedOriginRepository $allowedOriginRepository,
     ) {
     }
 

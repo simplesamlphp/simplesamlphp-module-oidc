@@ -31,6 +31,6 @@ interface AccessTokenRepositoryInterface extends OAuth2AccessTokenRepositoryInte
         array $scopes,
         $userIdentifier = null,
         string $authCodeId = null,
-        array $requestedClaims = null
+        array $requestedClaims = null,
     ): AccessTokenEntityInterface;
 }

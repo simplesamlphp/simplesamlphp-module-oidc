@@ -29,15 +29,15 @@ class JsonWebTokenBuilderService
      * @psalm-suppress ArgumentTypeCoercion
      */
     public function __construct(
-        protected ModuleConfig $moduleConfig = new ModuleConfig()
+        protected ModuleConfig $moduleConfig = new ModuleConfig(),
     ) {
         $this->jwtConfig = Configuration::forAsymmetricSigner(
             $this->moduleConfig->getSigner(),
             InMemory::file(
                 $this->moduleConfig->getPrivateKeyPath(),
-                $this->moduleConfig->getPrivateKeyPassPhrase() ?? ''
+                $this->moduleConfig->getPrivateKeyPassPhrase() ?? '',
             ),
-            InMemory::plainText('empty', 'empty')
+            InMemory::plainText('empty', 'empty'),
         );
     }
 
@@ -64,7 +64,7 @@ class JsonWebTokenBuilderService
         return $builder->withHeader('kid', $kid)
             ->getToken(
                 $this->jwtConfig->signer(),
-                $this->jwtConfig->signingKey()
+                $this->jwtConfig->signingKey(),
             );
     }
 

@@ -21,13 +21,13 @@ class UiLocalesRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = ['GET']
+        array $allowedServerRequestMethods = ['GET'],
     ): ?ResultInterface {
         return new Result($this->getKey(), $this->getParamFromRequestBasedOnAllowedMethods(
             'ui_locales',
             $request,
             $loggerService,
-            $allowedServerRequestMethods
+            $allowedServerRequestMethods,
         ));
     }
 }

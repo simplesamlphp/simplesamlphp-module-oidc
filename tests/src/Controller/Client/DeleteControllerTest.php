@@ -60,7 +60,7 @@ class DeleteControllerTest extends TestCase
             $this->clientRepositoryMock,
             $this->templateFactoryMock,
             $this->sessionMessageServiceMock,
-            $this->authContextServiceMock
+            $this->authContextServiceMock,
         );
     }
 
@@ -158,7 +158,7 @@ class DeleteControllerTest extends TestCase
 
         $this->assertInstanceOf(
             RedirectResponse::class,
-            ($this->getStubbedInstance())->__invoke($this->serverRequestMock)
+            ($this->getStubbedInstance())->__invoke($this->serverRequestMock),
         );
     }
 
@@ -184,7 +184,7 @@ class DeleteControllerTest extends TestCase
 
         $this->assertInstanceOf(
             RedirectResponse::class,
-            ($this->getStubbedInstance())->__invoke($this->serverRequestMock)
+            ($this->getStubbedInstance())->__invoke($this->serverRequestMock),
         );
     }
 }

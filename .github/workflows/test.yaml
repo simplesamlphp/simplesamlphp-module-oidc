@@ -35,16 +35,16 @@ jobs:
           git config --global core.autocrlf false
           git config --global core.eol lf
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Get composer cache directory
         id: composer-cache
-        run: echo "::set-output name=dir::$(composer config cache-files-dir)"
+        run: echo COMPOSER_CACHE="$(composer config cache-files-dir)" >> "$GITHUB_ENV"
 
       - name: Cache composer dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
-          path: ${{ steps.composer-cache.outputs.dir }}
+          path: $COMPOSER_CACHE
           key: "${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}"
           restore-keys: ${{ runner.os }}-composer-
 
@@ -66,7 +66,7 @@ jobs:
 
       - name: Save coverage data
         if: ${{ matrix.php-versions == '8.1' }}
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v4
         with:
           name: build-data
           path: ${{ github.workspace }}/build
@@ -86,16 +86,16 @@ jobs:
       - name: Setup problem matchers for PHP
         run: echo "::add-matcher::${{ runner.tool_cache }}/php.json"
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Get composer cache directory
         id: composer-cache
-        run: echo "::set-output name=dir::$(composer config cache-files-dir)"
+        run: echo COMPOSER_CACHE="$(composer config cache-files-dir)" >> "$GITHUB_ENV"
 
       - name: Cache composer dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
-          path: ${{ steps.composer-cache.outputs.dir }}
+          path: $COMPOSER_CACHE
           key: "${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}"
           restore-keys: ${{ runner.os }}-composer-
 
@@ -103,13 +103,13 @@ jobs:
         run: composer install --no-progress --prefer-dist --optimize-autoloader
 
       - name: Security check for locked dependencies
-        uses: symfonycorp/security-checker-action@v3
+        uses: symfonycorp/security-checker-action@v5
 
       - name: Update Composer dependencies
         run: composer update --no-progress --prefer-dist --optimize-autoloader
 
       - name: Security check for updated dependencies
-        uses: symfonycorp/security-checker-action@v3
+        uses: symfonycorp/security-checker-action@v5
 
   sanity-check:
     name: Sanity checks
@@ -127,16 +127,16 @@ jobs:
       - name: Setup problem matchers for PHP
         run: echo "::add-matcher::${{ runner.tool_cache }}/php.json"
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Get composer cache directory
         id: composer-cache
-        run: echo "::set-output name=dir::$(composer config cache-files-dir)"
+        run: echo COMPOSER_CACHE="$(composer config cache-files-dir)" >> "$GITHUB_ENV"
 
       - name: Cache composer dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
-          path: ${{ steps.composer-cache.outputs.dir }}
+          path: $COMPOSER_CACHE
           key: "${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}"
           restore-keys: ${{ runner.os }}-composer-
 
@@ -159,29 +159,33 @@ jobs:
       - name: Setup problem matchers for PHP
         run: echo "::add-matcher::${{ runner.tool_cache }}/php.json"
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Get composer cache directory
         id: composer-cache
-        run: echo "::set-output name=dir::$(composer config cache-files-dir)"
+        run: echo COMPOSER_CACHE="$(composer config cache-files-dir)" >> "$GITHUB_ENV"
 
       - name: Cache composer dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
-          path: ${{ steps.composer-cache.outputs.dir }}
+          path: $COMPOSER_CACHE
           key: "${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}"
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Install Composer dependencies
         run: composer install --no-progress --prefer-dist --optimize-autoloader
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: build-data
           path: ${{ github.workspace }}/build
 
       - name: Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
+          verbose: true
 
       - name: PHP Code Sniffer
         if: always()
@@ -197,7 +201,7 @@ jobs:
       SUITE_BASE_URL: https://localhost.emobix.co.uk:8443
       VERSION: release-v4.1.45
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           path: main
       - name: Setup Python Dependencies

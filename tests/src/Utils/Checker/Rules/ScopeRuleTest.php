@@ -105,8 +105,8 @@ class ScopeRuleTest extends TestCase
             ->willReturn(
                 $this->onConsecutiveCalls(
                     $this->scopeEntities['openid'],
-                    $this->scopeEntities['profile']
-                )
+                    $this->scopeEntities['profile'],
+                ),
             );
 
         $result = (new ScopeRule($this->scopeRepositoryStub))
@@ -128,8 +128,8 @@ class ScopeRuleTest extends TestCase
             ->method('getScopeEntityByIdentifier')
             ->willReturn(
                 $this->onConsecutiveCalls(
-                    'invalid-scope-entity'
-                )
+                    'invalid-scope-entity',
+                ),
             );
 
         $this->expectException(OidcServerException::class);
@@ -152,8 +152,8 @@ class ScopeRuleTest extends TestCase
             ->willReturn(
                 $this->onConsecutiveCalls(
                     $this->scopeEntities['openid'],
-                    $this->scopeEntities['profile']
-                )
+                    $this->scopeEntities['profile'],
+                ),
             );
     }
 }

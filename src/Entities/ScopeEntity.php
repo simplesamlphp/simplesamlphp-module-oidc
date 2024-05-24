@@ -52,7 +52,7 @@ class ScopeEntity implements ScopeEntityInterface
         string $identifier,
         string $description = null,
         string $icon = null,
-        array $claims = []
+        array $claims = [],
     ): self {
         $scope = new self();
 

@@ -21,7 +21,7 @@ class MaxAgeRule extends AbstractRule
 {
     public function __construct(
         private readonly AuthSimpleFactory $authSimpleFactory,
-        private readonly AuthenticationService $authenticationService
+        private readonly AuthenticationService $authenticationService,
     ) {
     }
 
@@ -39,7 +39,7 @@ class MaxAgeRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = ['GET']
+        array $allowedServerRequestMethods = ['GET'],
     ): ?ResultInterface {
         $queryParams = $request->getQueryParams();
 
@@ -64,7 +64,7 @@ class MaxAgeRule extends AbstractRule
                 null,
                 $redirectUri,
                 $state,
-                $useFragmentInHttpErrorResponses
+                $useFragmentInHttpErrorResponses,
             );
         }
 

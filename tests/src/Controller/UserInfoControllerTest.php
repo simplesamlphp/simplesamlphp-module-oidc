@@ -61,7 +61,7 @@ class UserInfoControllerTest extends TestCase
             $this->accessTokenRepositoryMock,
             $this->userRepositoryMock,
             $this->allowedOriginRepositoryMock,
-            $this->claimTranslatorExtractorMock
+            $this->claimTranslatorExtractorMock,
         );
     }
 
@@ -69,7 +69,7 @@ class UserInfoControllerTest extends TestCase
     {
         $this->assertInstanceOf(
             UserInfoController::class,
-            $this->prepareMockedInstance()
+            $this->prepareMockedInstance(),
         );
     }
 
@@ -87,7 +87,7 @@ class UserInfoControllerTest extends TestCase
             ->willReturnCallback(function ($argument) {
                 $argumentValueMap = [
                     'oauth_access_token_id' => 'tokenid',
-                    'oauth_scopes' => ['openid', 'email']
+                    'oauth_scopes' => ['openid', 'email'],
                 ];
 
                 if (array_key_exists($argument, $argumentValueMap)) {
@@ -134,7 +134,7 @@ class UserInfoControllerTest extends TestCase
 
         $this->assertSame(
             ['email' => 'userid@localhost.localdomain'],
-            $this->prepareMockedInstance()->__invoke($this->serverRequestMock)->getPayload()
+            $this->prepareMockedInstance()->__invoke($this->serverRequestMock)->getPayload(),
         );
     }
 
@@ -151,7 +151,7 @@ class UserInfoControllerTest extends TestCase
             ->willReturnCallback(function ($argument) {
                 $argumentValueMap = [
                     'oauth_access_token_id' => 'tokenid',
-                    'oauth_scopes' => ['openid', 'email']
+                    'oauth_scopes' => ['openid', 'email'],
                 ];
 
                 if (array_key_exists($argument, $argumentValueMap)) {
@@ -186,7 +186,7 @@ class UserInfoControllerTest extends TestCase
             ->willReturnCallback(function ($argument) {
                 $argumentValueMap = [
                     'oauth_access_token_id' => 'tokenid',
-                    'oauth_scopes' => ['openid', 'email']
+                    'oauth_scopes' => ['openid', 'email'],
                 ];
 
                 if (array_key_exists($argument, $argumentValueMap)) {

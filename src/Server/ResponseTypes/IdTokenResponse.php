@@ -73,7 +73,7 @@ class IdTokenResponse extends BearerTokenResponse implements
     public function __construct(
         private readonly IdentityProviderInterface $identityProvider,
         protected IdTokenBuilder $idTokenBuilder,
-        CryptKey $privateKey
+        CryptKey $privateKey,
     ) {
         $this->privateKey = $privateKey;
     }
@@ -113,7 +113,7 @@ class IdTokenResponse extends BearerTokenResponse implements
             $this->getNonce(),
             $this->getAuthTime(),
             $this->getAcr(),
-            $this->getSessionId()
+            $this->getSessionId(),
         );
 
         return [
