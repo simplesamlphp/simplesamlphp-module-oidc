@@ -16,19 +16,23 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc;
 
+use DateInterval;
 use Exception;
 use Lcobucci\JWT\Signer;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
 use ReflectionClass;
 use ReflectionException;
+use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Configuration;
 use SimpleSAML\Error\ConfigurationError;
-use SimpleSAML\Module;
-use SimpleSAML\Utils\Config;
-use SimpleSAML\Utils\HTTP;
+use SimpleSAML\Module\oidc\Codebooks\ScopesEnum;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 class ModuleConfig
 {
+    final public const MODULE_NAME = 'oidc';
+    protected const KEY_DESCRIPTION = 'description';
+
     /**
      * Default file name for module configuration. Can be overridden in constructor, for example, for testing purposes.
      */
@@ -54,26 +58,39 @@ class ModuleConfig
     final public const OPTION_CRON_TAG = 'cron_tag';
     final public const OPTION_ADMIN_UI_PERMISSIONS = 'permissions';
     final public const OPTION_ADMIN_UI_PAGINATION_ITEMS_PER_PAGE = 'items_per_page';
+    final public const OPTION_FEDERATION_TOKEN_SIGNER = 'federation_token_signer';
+    final public const OPTION_PKI_FEDERATION_PRIVATE_KEY_PASSPHRASE = 'federation_private_key_passphrase';
+    final public const OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME = 'federation_private_key_filename';
+    final public const DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME = 'oidc_module_federation.key';
+    final public const OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME = 'federation_certificate_filename';
+    final public const DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME = 'oidc_module_federation.crt';
+    final public const OPTION_ISSUER = 'issuer';
+    final public const OPTION_FEDERATION_ENTITY_STATEMENT_DURATION = 'federation_entity_statement_duration';
+    final public const OPTION_FEDERATION_AUTHORITY_HINTS = 'federation_authority_hints';
+    final public const OPTION_ORGANIZATION_NAME = 'organization_name';
+    final public const OPTION_CONTACTS = 'contacts';
+    final public const OPTION_LOGO_URI = 'logo_uri';
+    final public const OPTION_POLICY_URI = 'policy_uri';
+    final public const OPTION_HOMEPAGE_URI = 'homepage_uri';
 
-    protected static array $standardClaims = [
-        // TODO mivanci Move registered scopes to enum?
-        'openid' => [
-            'description' => 'openid',
+    protected static array $standardScopes = [
+        ScopesEnum::OpenId->value => [
+            self::KEY_DESCRIPTION => 'openid',
         ],
-        'offline_access' => [
-            'description' => 'offline_access',
+        ScopesEnum::OfflineAccess->value => [
+            self::KEY_DESCRIPTION => 'offline_access',
         ],
-        'profile' => [
-            'description' => 'profile',
+        ScopesEnum::Profile->value => [
+            self::KEY_DESCRIPTION => 'profile',
         ],
-        'email' => [
-            'description' => 'email',
+        ScopesEnum::Email->value => [
+            self::KEY_DESCRIPTION => 'email',
         ],
-        'address' => [
-            'description' => 'address',
+        ScopesEnum::Address->value => [
+            self::KEY_DESCRIPTION => 'address',
         ],
-        'phone' => [
-            'description' => 'phone',
+        ScopesEnum::Phone->value => [
+            self::KEY_DESCRIPTION => 'phone',
         ],
     ];
 
@@ -92,18 +109,20 @@ class ModuleConfig
     public function __construct(
         string $fileName = self::DEFAULT_FILE_NAME, // Primarily used for easy (unit) testing overrides.
         array $overrides = [], // Primarily used for easy (unit) testing overrides.
+        Configuration $sspConfig = null,
+        private readonly SspBridge $sspBridge = new SspBridge(),
     ) {
         $this->moduleConfig = Configuration::loadFromArray(
             array_merge(Configuration::getConfig($fileName)->toArray(), $overrides),
         );
 
-        $this->sspConfig = Configuration::getInstance();
+        $this->sspConfig = $sspConfig ?? Configuration::getInstance();
 
         $this->validate();
     }
 
     /**
-     * @throws Exception
+     * Get SimpleSAMLphp Configuration (config.php) instance.
      */
     public function sspConfig(): Configuration
     {
@@ -111,23 +130,31 @@ class ModuleConfig
     }
 
     /**
-     * @throws Exception
+     * Get module config Configuration instance.
      */
     public function config(): Configuration
     {
         return $this->moduleConfig;
     }
 
-    public function getSimpleSAMLSelfURLHost(): string
+    /**
+     * @throws OidcServerException
+     * @return non-empty-string
+     */
+    public function getIssuer(): string
     {
-        // TODO mivanci Create bridge to SSP utility classes
-        return (new HTTP())->getSelfURLHost();
+        $issuer = $this->config()->getOptionalString(self::OPTION_ISSUER, null) ??
+        $this->sspBridge->utils()->http()->getSelfURLHost();
+
+        if (empty($issuer)) {
+            throw OidcServerException::serverError('Issuer can not be empty.');
+        }
+        return $issuer;
     }
 
-    public function getOpenIdConnectModuleURL(string $path = null): string
+    public function getModuleUrl(string $path = null): string
     {
-        // TODO mivanci Create bridge to SSP utility classes
-        $base = Module::getModuleURL('oidc');
+        $base = $this->sspBridge->module()->getModuleURL(self::MODULE_NAME);
 
         if ($path) {
             $base .= "/$path";
@@ -141,7 +168,7 @@ class ModuleConfig
      */
     public function getOpenIDScopes(): array
     {
-        return array_merge(self::$standardClaims, $this->getOpenIDPrivateScopes());
+        return array_merge(self::$standardScopes, $this->getOpenIDPrivateScopes());
     }
 
     /**
@@ -167,7 +194,7 @@ class ModuleConfig
              * @throws ConfigurationError
              */
             function (array $scope, string $name): void {
-                if (in_array($name, array_keys(self::$standardClaims), true)) {
+                if (in_array($name, array_keys(self::$standardScopes), true)) {
                     throw new ConfigurationError(
                         'Can not overwrite protected scope: ' . $name,
                         self::DEFAULT_FILE_NAME,
@@ -226,10 +253,12 @@ class ModuleConfig
     }
 
     /**
+     * Get signer for OIDC protocol.
+     *
      * @throws ReflectionException
      * @throws Exception
      */
-    public function getSigner(): Signer
+    public function getProtocolSigner(): Signer
     {
         /** @psalm-var class-string $signerClassname */
         $signerClassname = $this->config()->getOptionalString(
@@ -237,56 +266,59 @@ class ModuleConfig
             Sha256::class,
         );
 
-        $class = new ReflectionClass($signerClassname);
+        return $this->instantiateSigner($signerClassname);
+    }
+
+    /**
+     * @param class-string $className
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws ReflectionException
+     */
+    protected function instantiateSigner(string $className): Signer
+    {
+        $class = new ReflectionClass($className);
         $signer = $class->newInstance();
 
         if (!$signer instanceof Signer) {
-            return new Sha256();
+            throw new ConfigurationError(sprintf('Unsupported signer class provided (%s).', $className));
         }
 
         return $signer;
     }
 
     /**
-     * Return the path to the public certificate
+     * Get the path to the public certificate used in OIDC protocol.
      * @return string The file system path
      * @throws Exception
      */
-    public function getCertPath(): string
+    public function getProtocolCertPath(): string
     {
         $certName = $this->config()->getOptionalString(
             self::OPTION_PKI_CERTIFICATE_FILENAME,
             self::DEFAULT_PKI_CERTIFICATE_FILENAME,
         );
-        return (new Config())->getCertPath($certName);
+        return $this->sspBridge->utils()->config()->getCertPath($certName);
     }
 
     /**
-     * Get the path to the private key
+     * Get the path to the private key used in OIDC protocol.
      * @throws Exception
      */
-    public function getPrivateKeyPath(): string
+    public function getProtocolPrivateKeyPath(): string
     {
         $keyName = $this->config()->getOptionalString(
             self::OPTION_PKI_PRIVATE_KEY_FILENAME,
             self::DEFAULT_PKI_PRIVATE_KEY_FILENAME,
         );
-        // TODO mivanci move to bridge classes to SSP utils
-        return (new Config())->getCertPath($keyName);
-    }
-
-    public function getEncryptionKey(): string
-    {
-        // TODO mivanci move to bridge classes to SSP utils
-        return (new Config())->getSecretSalt();
+        return $this->sspBridge->utils()->config()->getCertPath($keyName);
     }
 
     /**
-     * Get the path to the private key
+     * Get the OIDC protocol private key passphrase.
      * @return ?string
      * @throws Exception
      */
-    public function getPrivateKeyPassPhrase(): ?string
+    public function getProtocolPrivateKeyPassPhrase(): ?string
     {
         return $this->config()->getOptionalString(self::OPTION_PKI_PRIVATE_KEY_PASSPHRASE, null);
     }
@@ -347,5 +379,110 @@ class ModuleConfig
     public function getUserIdentifierAttribute(): string
     {
         return $this->config()->getString(ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE);
+    }
+
+    /**
+     * @throws \ReflectionException
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getFederationSigner(): ?Signer
+    {
+        /** @psalm-var ?class-string $signerClassname */
+        $signerClassname = $this->config()->getOptionalString(self::OPTION_FEDERATION_TOKEN_SIGNER, null);
+
+        return is_null($signerClassname) ? null : $this->instantiateSigner($signerClassname);
+    }
+
+    public function getFederationPrivateKeyPath(): ?string
+    {
+        $keyName = $this->config()->getOptionalString(
+            self::OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
+            null,
+        );
+
+        return is_null($keyName) ? null : $this->sspBridge->utils()->config()->getCertPath($keyName);
+    }
+
+    public function getFederationPrivateKeyPassPhrase(): ?string
+    {
+        return $this->config()->getOptionalString(self::OPTION_PKI_FEDERATION_PRIVATE_KEY_PASSPHRASE, null);
+    }
+
+    /**
+     * Return the path to the federation public certificate
+     * @return ?string The file system path or null if not set.
+     * @throws Exception
+     */
+    public function getFederationCertPath(): ?string
+    {
+        $certName = $this->config()->getOptionalString(
+            self::OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME,
+            null,
+        );
+
+        return is_null($certName) ? null : $this->sspBridge->utils()->config()->getCertPath($certName);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function getFederationEntityStatementDuration(): DateInterval
+    {
+        return new DateInterval(
+            $this->config()->getOptionalString(
+                self::OPTION_FEDERATION_ENTITY_STATEMENT_DURATION,
+                null,
+            ) ?? 'P1D',
+        );
+    }
+
+    public function getFederationAuthorityHints(): ?array
+    {
+        $authorityHints = $this->config()->getOptionalArray(
+            self::OPTION_FEDERATION_AUTHORITY_HINTS,
+            null,
+        );
+
+        return empty($authorityHints) ? null : $authorityHints;
+    }
+
+    public function getOrganizationName(): ?string
+    {
+        return $this->config()->getOptionalString(
+            self::OPTION_ORGANIZATION_NAME,
+            null,
+        );
+    }
+
+    public function getContacts(): ?array
+    {
+        return $this->config()->getOptionalArray(
+            self::OPTION_CONTACTS,
+            null,
+        );
+    }
+
+    public function getLogoUri(): ?string
+    {
+        return $this->config()->getOptionalString(
+            self::OPTION_LOGO_URI,
+            null,
+        );
+    }
+
+    public function getPolicyUri(): ?string
+    {
+        return $this->config()->getOptionalString(
+            self::OPTION_POLICY_URI,
+            null,
+        );
+    }
+
+    public function getHomepageUri(): ?string
+    {
+        return $this->config()->getOptionalString(
+            self::OPTION_HOMEPAGE_URI,
+            null,
+        );
     }
 }

@@ -49,7 +49,7 @@ trait AuthenticatedGetClientFromRequestTrait
         }
         $client = $this->clientRepository->findById($clientId, $authedUser);
         if (!$client) {
-            throw new NotFound('Client not found.');
+            throw OidcServerException::invalidClient($request);
         }
 
         return $client;

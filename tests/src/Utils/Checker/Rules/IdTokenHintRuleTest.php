@@ -64,15 +64,15 @@ class IdTokenHintRuleTest extends TestCase
         $this->resultBagStub = $this->createStub(ResultBagInterface::class);
 
         $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
-        $this->moduleConfigStub->method('getSigner')->willReturn(new Sha256());
-        $this->moduleConfigStub->method('getSimpleSAMLSelfURLHost')->willReturn(self::$issuer);
+        $this->moduleConfigStub->method('getProtocolSigner')->willReturn(new Sha256());
+        $this->moduleConfigStub->method('getIssuer')->willReturn(self::$issuer);
 
         $this->cryptKeyFactoryStub = $this->createStub(CryptKeyFactory::class);
         $this->cryptKeyFactoryStub->method('buildPrivateKey')->willReturn(self::$privateKey);
         $this->cryptKeyFactoryStub->method('buildPublicKey')->willReturn(self::$publicKey);
 
         $this->jwtConfig = Configuration::forAsymmetricSigner(
-            $this->moduleConfigStub->getSigner(),
+            $this->moduleConfigStub->getProtocolSigner(),
             InMemory::plainText(self::$privateKey->getKeyContents()),
             InMemory::plainText(self::$publicKey->getKeyContents()),
         );
@@ -145,7 +145,7 @@ class IdTokenHintRuleTest extends TestCase
         $this->requestStub->method('getMethod')->willReturn('GET');
 
         $invalidIssuerJwt = $this->jwtConfig->builder()->issuedBy('invalid')->getToken(
-            $this->moduleConfigStub->getSigner(),
+            $this->moduleConfigStub->getProtocolSigner(),
             InMemory::plainText(self::$privateKey->getKeyContents()),
         )->toString();
 
@@ -165,7 +165,7 @@ class IdTokenHintRuleTest extends TestCase
         $this->requestStub->method('getMethod')->willReturn('GET');
 
         $idToken = $this->jwtConfig->builder()->issuedBy(self::$issuer)->getToken(
-            $this->moduleConfigStub->getSigner(),
+            $this->moduleConfigStub->getProtocolSigner(),
             InMemory::plainText(self::$privateKey->getKeyContents()),
         )->toString();
 

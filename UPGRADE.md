@@ -7,8 +7,26 @@
 - TODO implement store for different entities?: i.e. client data can use RDB like mysql, whilst short term data
   like tokens can utilize faster stores like memcache, redis...
 - TODO move to SimpleSAMLphp ProcessingChain
+- TODO OpenID Federation capabilities
+  - [ ] Expose OP configuration entity statement (statement about itself)
+
+## New configuration options
+- (optional) Issuer - you can now override the issuer (OP identifier). If not set, it falls back to current scheme, host
+and optionally a port (as in all previous module versions).
+- (optional) OpenID Federation related options (needed if federation capabilities are to be used):
+  - PKI keys - federation keys used for example to sign federation entity statements
+  - signer algorithm
+  - entity statement duration
+  - authority hints
+  - organization name
+  - contacts
+  - logo URI
+  - policy URI
+  - homepage URI
 
 ## Major impact changes
+- PHP version requirement was bumped to v8.2
+- SimpleSAMLphp version requirement was bumped to v2.2
 - TODO move away from SSP database as store; move to custom store interface
 
 ## Medium impact changes

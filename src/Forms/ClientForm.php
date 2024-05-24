@@ -17,7 +17,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Forms;
 
 use Exception;
-use Nette\Forms\Container;
 use Nette\Forms\Form;
 use SimpleSAML\Auth\Source;
 use SimpleSAML\Module\oidc\ModuleConfig;

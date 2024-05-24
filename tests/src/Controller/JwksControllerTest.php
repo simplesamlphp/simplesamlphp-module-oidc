@@ -49,7 +49,7 @@ class JwksControllerTest extends TestCase
             ],
         ];
 
-        $this->jsonWebKeySetServiceMock->expects($this->once())->method('keys')->willReturn($keys);
+        $this->jsonWebKeySetServiceMock->expects($this->once())->method('protocolKeys')->willReturn($keys);
 
         $this->assertSame(
             ['keys' => $keys],

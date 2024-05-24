@@ -117,6 +117,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
 
         $accessToken->identifier = $state['id'];
         $accessToken->scopes = $scopes;
+        // TODO mivanci move to new 'utcImmutable' method in TimestampGenerator.
         $accessToken->expiryDateTime = DateTimeImmutable::createFromMutable(
             TimestampGenerator::utc($state['expires_at']),
         );
@@ -202,7 +203,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
     {
         $jwtBuilderService = new JsonWebTokenBuilderService();
         /** @psalm-suppress ArgumentTypeCoercion */
-        $jwtBuilder = $jwtBuilderService->getDefaultJwtTokenBuilder()
+        $jwtBuilder = $jwtBuilderService->getProtocolJwtBuilder()
             ->permittedFor($this->getClient()->getIdentifier())
             ->identifiedBy((string)$this->getIdentifier())
             ->issuedAt(new DateTimeImmutable())
@@ -211,6 +212,6 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
             ->relatedTo((string) $this->getUserIdentifier())
             ->withClaim('scopes', $this->getScopes());
 
-        return $jwtBuilderService->getSignedJwtTokenFromBuilder($jwtBuilder);
+        return $jwtBuilderService->getSignedProtocolJwt($jwtBuilder);
     }
 }

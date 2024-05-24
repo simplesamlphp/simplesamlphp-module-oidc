@@ -14,6 +14,7 @@ use SimpleSAML\Error\NotFound;
 use SimpleSAML\Module\oidc\Controller\Client\ResetSecretController;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 
@@ -41,13 +42,6 @@ class ResetSecretControllerTest extends TestCase
 
         $this->serverRequestMock = $this->createMock(ServerRequest::class);
         $this->clientEntityMock = $this->createMock(ClientEntity::class);
-    }
-
-    public static function setUpBeforeClass(): void
-    {
-        // To make lib/SimpleSAML/Utils/HTTP::getSelfURL() work...
-        global $_SERVER;
-        $_SERVER['REQUEST_URI'] = '';
     }
 
     protected function prepareStubbedInstance(): \SimpleSAML\Module\oidc\Controller\Client\ResetSecretController
@@ -91,7 +85,7 @@ class ResetSecretControllerTest extends TestCase
             ->with('clientid')
             ->willReturn(null);
 
-        $this->expectException(NotFound::class);
+        $this->expectException(OidcServerException::class);
         $this->prepareStubbedInstance()->__invoke($this->serverRequestMock);
     }
 

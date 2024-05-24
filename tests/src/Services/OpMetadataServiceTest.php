@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Services;
 
+use Lcobucci\JWT\Signer\Rsa;
 use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\MockObject;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -26,9 +27,9 @@ class OpMetadataServiceTest extends TestCase
 
         $this->moduleConfigMock->expects($this->once())->method('getOpenIDScopes')
             ->willReturn(['openid' => 'openid']);
-        $this->moduleConfigMock->expects($this->once())->method('getSimpleSAMLSelfURLHost')
+        $this->moduleConfigMock->expects($this->once())->method('getIssuer')
             ->willReturn('http://localhost');
-        $this->moduleConfigMock->method('getOpenIdConnectModuleURL')
+        $this->moduleConfigMock->method('getModuleUrl')
             ->willReturnCallback(function ($path) {
                 $paths = [
                     'authorize.php' => 'http://localhost/authorize.php',
@@ -41,6 +42,10 @@ class OpMetadataServiceTest extends TestCase
                 return $paths[$path] ?? null;
             });
         $this->moduleConfigMock->method('getAcrValuesSupported')->willReturn(['1']);
+
+        $signer = $this->createMock(Rsa::class);
+        $signer->method('algorithmId')->willReturn('RS256');
+        $this->moduleConfigMock->method('getProtocolSigner')->willReturn($signer);
     }
 
     /**

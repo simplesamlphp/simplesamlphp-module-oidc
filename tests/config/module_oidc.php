@@ -17,6 +17,8 @@ use Lcobucci\JWT\Signer\Rsa\Sha256;
 use SimpleSAML\Module\oidc\ModuleConfig;
 
 $config = [
+    ModuleConfig::OPTION_ISSUER => 'http://test.issuer',
+
     ModuleConfig::OPTION_TOKEN_AUTHORIZATION_CODE_TTL => 'PT10M',
     ModuleConfig::OPTION_TOKEN_REFRESH_TOKEN_TTL => 'P1M',
     ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_TTL => 'PT1H',
@@ -41,4 +43,21 @@ $config = [
     ],
 
     ModuleConfig::OPTION_AUTH_FORCED_ACR_VALUE_FOR_COOKIE_AUTHENTICATION => null,
+
+    ModuleConfig::OPTION_FEDERATION_TOKEN_SIGNER => Sha256::class,
+    ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME =>
+        ModuleConfig::DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
+    ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_PASSPHRASE => 'abc123',
+    ModuleConfig::OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME =>
+        ModuleConfig::DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME,
+    ModuleConfig::OPTION_FEDERATION_AUTHORITY_HINTS => [
+        'abc123',
+    ],
+    ModuleConfig::OPTION_ORGANIZATION_NAME => 'Foo corp',
+    ModuleConfig::OPTION_CONTACTS => [
+        'John Doe jdoe@example.org',
+    ],
+    ModuleConfig::OPTION_LOGO_URI => 'https://example.org/logo',
+    ModuleConfig::OPTION_POLICY_URI => 'https://example.org/policy',
+    ModuleConfig::OPTION_HOMEPAGE_URI => 'https://example.org',
 ];
