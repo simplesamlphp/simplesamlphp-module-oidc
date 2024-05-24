@@ -21,11 +21,21 @@ use SimpleSAML\Module\oidc\ModuleConfig;
  */
 $config = [
     /**
-     * PKI (public / private key) related options.
+     * (optional) Issuer (OP) identifier which will be used as an issuer (iss) claim in tokens. If not set, it will
+     * fall back to current HTTP scheme, host and port number if no standard port is used.
+     * Description of issuer from OIDC Core specification: "Verifiable Identifier for an Issuer. An Issuer Identifier
+     * is a case-sensitive URL using the https scheme that contains scheme, host, and optionally, port number and
+     * path components and no query or fragment components."
      */
-    // The private key passphrase (optional).
+    //ModuleConfig::OPTION_ISSUER => 'https://op.example.org',
+
+    /**
+     * PKI (public / private key) settings related to OIDC protocol. These keys will be used, for example, to
+     * sign ID Token JWT.
+     */
+    // (optional) The private key passphrase.
     //ModuleConfig::OPTION_PKI_PRIVATE_KEY_PASSPHRASE => 'secret',
-    // The certificate and private key filenames for ID token signature handling, with given defaults.
+    // The certificate and private key filenames, with given defaults.
     ModuleConfig::OPTION_PKI_PRIVATE_KEY_FILENAME => ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME,
     ModuleConfig::OPTION_PKI_CERTIFICATE_FILENAME => ModuleConfig::DEFAULT_PKI_CERTIFICATE_FILENAME,
 
@@ -263,4 +273,45 @@ $config = [
 
     // Pagination options.
     ModuleConfig::OPTION_ADMIN_UI_PAGINATION_ITEMS_PER_PAGE => 20,
+
+    /**
+     * (optional) OpenID Federation related options. If these are not set, OpenID Federation capabilities will be
+     * disabled.
+     */
+
+    /**
+     * PKI settings related to OpenID Federation. These keys will be used, for example, to sign federation
+     * entity statements. Note that these keys SHOULD NOT be the same as the ones used in OIDC protocol itself.
+     */
+    // The federation private key passphrase (optional).
+    //ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_PASSPHRASE => 'secret',
+    // The federation certificate and private key filenames, with given defaults.
+    //ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME =>
+    //    ModuleConfig::DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
+    //ModuleConfig::OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME =>
+    //    ModuleConfig::DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME,
+
+    // Federation token signer, with given default.
+    //ModuleConfig::OPTION_FEDERATION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Rsa\Sha256::class,
+
+    // Federation entity statement duration which determines the Expiration Time (exp) claim set in entity
+    // statement JWTs. If not set, default of 1 day will be used. For duration format info, check
+    // https://www.php.net/manual/en/dateinterval.construct.php
+    //ModuleConfig::OPTION_FEDERATION_ENTITY_STATEMENT_DURATION => 'P1D', // 1 day
+
+    // Federation authority hints. An array of strings representing the Entity Identifiers of Intermediate Entities
+    // or Trust Anchors. Required if this entity has a Superior entity above it.
+    ModuleConfig::OPTION_FEDERATION_AUTHORITY_HINTS => [
+        //'https://edugain.org/federation',
+    ],
+
+    // Common federation entity parameters:
+    // https://openid.net/specs/openid-federation-1_0.html#name-common-metadata-parameters
+    ModuleConfig::OPTION_ORGANIZATION_NAME => null,
+    ModuleConfig::OPTION_CONTACTS => [
+        // 'John Doe jdoe@example.org',
+    ],
+    ModuleConfig::OPTION_LOGO_URI => null,
+    ModuleConfig::OPTION_POLICY_URI => null,
+    ModuleConfig::OPTION_HOMEPAGE_URI => null,
 ];

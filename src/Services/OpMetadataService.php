@@ -33,17 +33,19 @@ class OpMetadataService
     private function initMetadata(): void
     {
         $this->metadata = [];
-        $this->metadata['issuer'] = $this->moduleConfig->getSimpleSAMLSelfURLHost();
+        $this->metadata['issuer'] = $this->moduleConfig->getIssuer();
         $this->metadata['authorization_endpoint'] =
-        $this->moduleConfig->getOpenIdConnectModuleURL('authorize.php');
-        $this->metadata['token_endpoint'] = $this->moduleConfig->getOpenIdConnectModuleURL('token.php');
-        $this->metadata['userinfo_endpoint'] = $this->moduleConfig->getOpenIdConnectModuleURL('userinfo.php');
-        $this->metadata['end_session_endpoint'] = $this->moduleConfig->getOpenIdConnectModuleURL('logout.php');
-        $this->metadata['jwks_uri'] = $this->moduleConfig->getOpenIdConnectModuleURL('jwks.php');
+        $this->moduleConfig->getModuleUrl('authorize.php');
+        $this->metadata['token_endpoint'] = $this->moduleConfig->getModuleUrl('token.php');
+        $this->metadata['userinfo_endpoint'] = $this->moduleConfig->getModuleUrl('userinfo.php');
+        $this->metadata['end_session_endpoint'] = $this->moduleConfig->getModuleUrl('logout.php');
+        $this->metadata['jwks_uri'] = $this->moduleConfig->getModuleUrl('jwks.php');
         $this->metadata['scopes_supported'] = array_keys($this->moduleConfig->getOpenIDScopes());
         $this->metadata['response_types_supported'] = ['code', 'token', 'id_token', 'id_token token'];
         $this->metadata['subject_types_supported'] = ['public'];
-        $this->metadata['id_token_signing_alg_values_supported'] = ['RS256'];
+        $this->metadata['id_token_signing_alg_values_supported'] = [
+            $this->moduleConfig->getProtocolSigner()->algorithmId(),
+        ];
         $this->metadata['code_challenge_methods_supported'] = ['plain', 'S256'];
         $this->metadata['token_endpoint_auth_methods_supported'] = ['client_secret_post', 'client_secret_basic'];
         $this->metadata['request_parameter_supported'] = false;

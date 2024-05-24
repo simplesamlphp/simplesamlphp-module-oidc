@@ -21,7 +21,8 @@ Currently supported flows are:
 
 | OIDC module | SimpleSAMLphp |  PHP   | Note                        |
 |:------------|:--------------|:------:|-----------------------------|
-| v5.\*       | v2.1.\*       | \>=8.1 | Recommended                 |
+| v6.\*       | v2.2.\*       | \>=8.2 | Recommended                 |
+| v5.\*       | v2.1.\*       | \>=8.1 |                             |
 | v4.\*       | v2.0.\*       | \>=8.0 |                             |
 | v3.\*       | v2.0.\*       | \>=7.4 | Abandoned from August 2023. |
 | v2.\*       | v1.19.\*      | \>=7.4 |                             |

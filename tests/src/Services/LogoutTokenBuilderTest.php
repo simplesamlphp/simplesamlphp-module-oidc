@@ -62,10 +62,10 @@ class LogoutTokenBuilderTest extends TestCase
     public function setUp(): void
     {
         $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
-        $this->moduleConfigStub->method('getSigner')->willReturn(self::$signerSha256);
-        $this->moduleConfigStub->method('getPrivateKeyPath')->willReturn(self::$privateKeyPath);
-        $this->moduleConfigStub->method('getCertPath')->willReturn(self::$publicKeyPath);
-        $this->moduleConfigStub->method('getSimpleSAMLSelfURLHost')->willReturn(self::$selfUrlHost);
+        $this->moduleConfigStub->method('getProtocolSigner')->willReturn(self::$signerSha256);
+        $this->moduleConfigStub->method('getProtocolPrivateKeyPath')->willReturn(self::$privateKeyPath);
+        $this->moduleConfigStub->method('getProtocolCertPath')->willReturn(self::$publicKeyPath);
+        $this->moduleConfigStub->method('getIssuer')->willReturn(self::$selfUrlHost);
 
         $this->relyingPartyAssociationStub = $this->createStub(RelyingPartyAssociationInterface::class);
         $this->relyingPartyAssociationStub->method('getClientId')->willReturn(self::$clientId);
@@ -90,12 +90,12 @@ class LogoutTokenBuilderTest extends TestCase
 
         // Check token validity
         $jwtConfig = Configuration::forAsymmetricSigner(
-            $this->moduleConfigStub->getSigner(),
+            $this->moduleConfigStub->getProtocolSigner(),
             InMemory::file(
-                $this->moduleConfigStub->getPrivateKeyPath(),
-                $this->moduleConfigStub->getPrivateKeyPassPhrase() ?? '',
+                $this->moduleConfigStub->getProtocolPrivateKeyPath(),
+                $this->moduleConfigStub->getProtocolPrivateKeyPassPhrase() ?? '',
             ),
-            InMemory::file($this->moduleConfigStub->getCertPath()),
+            InMemory::file($this->moduleConfigStub->getProtocolCertPath()),
         );
 
         $parsedToken = $jwtConfig->parser()->parse($token);
@@ -107,8 +107,8 @@ class LogoutTokenBuilderTest extends TestCase
                 new PermittedFor(self::$clientId),
                 new RelatedTo(self::$userId),
                 new SignedWith(
-                    $this->moduleConfigStub->getSigner(),
-                    InMemory::file($this->moduleConfigStub->getCertPath()),
+                    $this->moduleConfigStub->getProtocolSigner(),
+                    InMemory::file($this->moduleConfigStub->getProtocolCertPath()),
                 ),
             ),
         );

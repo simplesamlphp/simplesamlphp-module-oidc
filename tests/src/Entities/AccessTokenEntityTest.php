@@ -47,13 +47,6 @@ class AccessTokenEntityTest extends TestCase
      */
     protected ScopeEntity $scopeEntityProfile;
 
-    public static function setUpBeforeClass(): void
-    {
-        // To make lib/SimpleSAML/Utils/HTTP::getSelfURL() work...
-        global $_SERVER;
-        $_SERVER['REQUEST_URI'] = '';
-    }
-
     /**
      * @throws Exception
      * @throws JsonException
