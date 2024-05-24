@@ -27,6 +27,7 @@ services:
     resource: '../../src/Stores/*'
 
   SimpleSAML\Module\oidc\ModuleConfig: ~
+  SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection: ~
 
   oidc.key.private:
     class: League\OAuth2\Server\CryptKey

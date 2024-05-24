@@ -68,6 +68,13 @@ class EditControllerTest extends TestCase
         $this->serverRequestMock->method('withQueryParams')->willReturn($this->serverRequestMock);
     }
 
+    public static function setUpBeforeClass(): void
+    {
+        // To make lib/SimpleSAML/Utils/HTTP::getSelfURL() work...
+        global $_SERVER;
+        $_SERVER['REQUEST_URI'] = '';
+    }
+
     protected function getStubbedInstance(): EditController
     {
         return new EditController(

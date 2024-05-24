@@ -18,10 +18,12 @@ namespace SimpleSAML\Module\oidc\Factories;
 use Nette\Forms\Form;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
+use SimpleSAML\Session;
 
 class FormFactory
 {
-    public function __construct(private readonly ModuleConfig $moduleConfig)
+    public function __construct(private readonly ModuleConfig $moduleConfig, protected CsrfProtection $csrfProtection)
     {
     }
 
@@ -39,6 +41,6 @@ class FormFactory
         }
 
         /** @psalm-suppress UnsafeInstantiation */
-        return new $classname($this->moduleConfig);
+        return new $classname($this->moduleConfig, $this->csrfProtection);
     }
 }

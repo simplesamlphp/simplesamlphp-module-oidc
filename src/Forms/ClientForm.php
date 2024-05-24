@@ -19,8 +19,8 @@ namespace SimpleSAML\Module\oidc\Forms;
 use Exception;
 use Nette\Forms\Form;
 use SimpleSAML\Auth\Source;
-use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use Traversable;
 
 /**
@@ -41,7 +41,8 @@ class ClientForm extends Form
      * No reserved chars allowed, meaning no userinfo, path, query or fragment components. May end with port number.
      */
     final public const REGEX_ALLOWED_ORIGIN_URL =
-    "/^http(s?):\/\/[^\s\/!$&'()+,;=.?#@*:]+\.[^\s\/!$&'()+,;=.?#@*]+\.?(\.[^\s\/!$&'()+,;=?#@*:]+)*(:\d{1,5})?$/i";
+    "/^http(s?):\/\/([^\s\/!$&'()+,;=.?#@*:]+\.)"
+    . "?[^\s\/!$&'()+,;=.?#@*:]+(\.[^\s\/!$&'()+,;=.?#@*:]+)*\.?(:\d{1,5})?$/i";
 
     /**
      * URI which must contain https or http scheme, can contain path and query, and can't contain fragment.
@@ -51,7 +52,7 @@ class ClientForm extends Form
     /**
      * @throws Exception
      */
-    public function __construct(private readonly ModuleConfig $moduleConfig)
+    public function __construct(private readonly ModuleConfig $moduleConfig, protected CsrfProtection $csrfProtection)
     {
         parent::__construct();
 
@@ -208,7 +209,7 @@ class ClientForm extends Form
         $this->onValidate[] = $this->validateBackChannelLogoutUri(...);
 
         $this->setMethod('POST');
-        $this->addComponent(new CsrfProtection('{oidc:client:csrf_error}'), Form::ProtectorId);
+        $this->addComponent($this->csrfProtection, Form::ProtectorId);
 
         $this->addText('name', '{oidc:client:name}')
             ->setMaxLength(255)
