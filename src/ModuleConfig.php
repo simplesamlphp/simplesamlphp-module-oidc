@@ -31,6 +31,7 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 class ModuleConfig
 {
     final public const MODULE_NAME = 'oidc';
+    protected const KEY_DESCRIPTION = 'description';
 
     /**
      * Default file name for module configuration. Can be overridden in constructor, for example, for testing purposes.
@@ -66,8 +67,11 @@ class ModuleConfig
     final public const OPTION_ISSUER = 'issuer';
     final public const OPTION_FEDERATION_ENTITY_STATEMENT_DURATION = 'federation_entity_statement_duration';
     final public const OPTION_FEDERATION_AUTHORITY_HINTS = 'federation_authority_hints';
-
-    protected const KEY_DESCRIPTION = 'description';
+    final public const OPTION_ORGANIZATION_NAME = 'organization_name';
+    final public const OPTION_CONTACTS = 'contacts';
+    final public const OPTION_LOGO_URI = 'logo_uri';
+    final public const OPTION_POLICY_URI = 'policy_uri';
+    final public const OPTION_HOMEPAGE_URI = 'homepage_uri';
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
@@ -440,5 +444,45 @@ class ModuleConfig
         );
 
         return empty($authorityHints) ? null : $authorityHints;
+    }
+
+    public function getOrganizationName(): ?string
+    {
+        return $this->config()->getOptionalString(
+            self::OPTION_ORGANIZATION_NAME,
+            null,
+        );
+    }
+
+    public function getContacts(): ?array
+    {
+        return $this->config()->getOptionalArray(
+            self::OPTION_CONTACTS,
+            null,
+        );
+    }
+
+    public function getLogoUri(): ?string
+    {
+        return $this->config()->getOptionalString(
+            self::OPTION_LOGO_URI,
+            null,
+        );
+    }
+
+    public function getPolicyUri(): ?string
+    {
+        return $this->config()->getOptionalString(
+            self::OPTION_POLICY_URI,
+            null,
+        );
+    }
+
+    public function getHomepageUri(): ?string
+    {
+        return $this->config()->getOptionalString(
+            self::OPTION_HOMEPAGE_URI,
+            null,
+        );
     }
 }

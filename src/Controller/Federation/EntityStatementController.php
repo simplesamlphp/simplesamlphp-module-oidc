@@ -45,6 +45,29 @@ class EntityStatementController
                 ClaimNamesEnum::Metadata->value,
                 [
                     EntityTypeEnum::FederationEntity->value => [
+                        // Common https://openid.net/specs/openid-federation-1_0.html#name-common-metadata-parameters
+                        ...(array_filter(
+                            [
+                                ClaimNamesEnum::OrganizationName->value => $this->moduleConfig->getOrganizationName(),
+                                ClaimNamesEnum::Contacts->value => $this->moduleConfig->getContacts(),
+                                ClaimNamesEnum::LogoUri->value => $this->moduleConfig->getLogoUri(),
+                                ClaimNamesEnum::PolicyUri->value => $this->moduleConfig->getPolicyUri(),
+                                ClaimNamesEnum::HomepageUri->value => $this->moduleConfig->getHomepageUri(),
+                            ],
+                        )),
+                        // TODO mivanci Add when ready. Use ClaimsEnum for keys.
+                        // https://openid.net/specs/openid-federation-1_0.html#name-federation-entity
+                        //'federation_fetch_endpoint',
+                        //'federation_list_endpoint',
+                        //'federation_resolve_endpoint',
+                        //'federation_trust_mark_status_endpoint',
+                        //'federation_trust_mark_list_endpoint',
+                        //'federation_trust_mark_endpoint',
+                        //'federation_historical_keys_endpoint',
+                        // Common https://openid.net/specs/openid-federation-1_0.html#name-common-metadata-parameters
+                        //'signed_jwks_uri',
+                        //'jwks_uri',
+                        //'jwks',
                     ],
                     // TODO mivanci expand OP metadata with federation related claims.
                     EntityTypeEnum::OpenIdProvider->value => $this->opMetadataService->getMetadata(),
@@ -57,6 +80,21 @@ class EntityStatementController
         ) {
             $builder = $builder->withClaim(ClaimNamesEnum::AuthorityHints->value, $authorityHints);
         }
+
+        // TODO mivanci Add remaining claims when ready.
+        // * crit
+        // * trust_marks
+        // * trust_mark_issuers
+        // * source_endpoint
+
+        // Note: claims which should only be present in Trust Anchors
+        // * trust_mark_owners
+
+
+        // Note: claims which must not be present in entity configuration:
+        // * metadata_policy
+        // * constraints
+        // * metadata_policy_crit
 
         $jws = $this->jsonWebTokenBuilderService->getSignedFederationJwt($builder);
         return new Response($jws->toString());

@@ -304,4 +304,14 @@ $config = [
     ModuleConfig::OPTION_FEDERATION_AUTHORITY_HINTS => [
         //'https://edugain.org/federation',
     ],
+
+    // Common federation entity parameters:
+    // https://openid.net/specs/openid-federation-1_0.html#name-common-metadata-parameters
+    ModuleConfig::OPTION_ORGANIZATION_NAME => null,
+    ModuleConfig::OPTION_CONTACTS => [
+        // 'John Doe jdoe@example.org',
+    ],
+    ModuleConfig::OPTION_LOGO_URI => null,
+    ModuleConfig::OPTION_POLICY_URI => null,
+    ModuleConfig::OPTION_HOMEPAGE_URI => null,
 ];

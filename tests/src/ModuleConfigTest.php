@@ -201,6 +201,11 @@ class ModuleConfigTest extends TestCase
         );
         $this->assertNotEmpty($this->mock()->getFederationEntityStatementDuration());
         $this->assertNotEmpty($this->mock()->getFederationAuthorityHints());
+        $this->assertNotEmpty($this->mock()->getOrganizationName());
+        $this->assertNotEmpty($this->mock()->getContacts());
+        $this->assertNotEmpty($this->mock()->getLogoUri());
+        $this->assertNotEmpty($this->mock()->getPolicyUri());
+        $this->assertNotEmpty($this->mock()->getHomepageUri());
     }
 
     public function testThrowsIfTryingToOverrideProtectedScopes(): void

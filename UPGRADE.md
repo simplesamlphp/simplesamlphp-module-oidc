@@ -14,11 +14,15 @@
 - (optional) Issuer - you can now override the issuer (OP identifier). If not set, it falls back to current scheme, host
 and optionally a port (as in all previous module versions).
 - (optional) OpenID Federation related options (needed if federation capabilities are to be used):
-  - PKI keys - federation keys used for example to sign federation entity statements. These keys should be different
-  from the ones used with OIDC protocol itself
+  - PKI keys - federation keys used for example to sign federation entity statements
   - signer algorithm
   - entity statement duration
   - authority hints
+  - organization name
+  - contacts
+  - logo URI
+  - policy URI
+  - homepage URI
 
 ## Major impact changes
 - PHP version requirement was bumped to v8.2

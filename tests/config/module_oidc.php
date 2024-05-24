@@ -53,4 +53,11 @@ $config = [
     ModuleConfig::OPTION_FEDERATION_AUTHORITY_HINTS => [
         'abc123',
     ],
+    ModuleConfig::OPTION_ORGANIZATION_NAME => 'Foo corp',
+    ModuleConfig::OPTION_CONTACTS => [
+        'John Doe jdoe@example.org',
+    ],
+    ModuleConfig::OPTION_LOGO_URI => 'https://example.org/logo',
+    ModuleConfig::OPTION_POLICY_URI => 'https://example.org/policy',
+    ModuleConfig::OPTION_HOMEPAGE_URI => 'https://example.org',
 ];
