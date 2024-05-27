@@ -14,7 +14,7 @@ use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 /**
- * @covers \SimpleSAML\Module\oidc\Controller\Traits\RequestTraitTest
+ * @covers \SimpleSAML\Module\oidc\Controller\Traits\RequestTrait
  */
 class RequestTraitTest extends TestCase
 {
