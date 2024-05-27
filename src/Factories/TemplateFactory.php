@@ -25,11 +25,7 @@ class TemplateFactory
 
     public function __construct(Configuration $configuration)
     {
-        $config = $configuration->toArray();
-        // TODO mivanci check if this is really necessary anymore
-        $config['usenewui'] = true;
-
-        $this->configuration = new Configuration($config, 'oidc');
+        $this->configuration = new Configuration($configuration->toArray(), 'oidc');
     }
 
     /**
