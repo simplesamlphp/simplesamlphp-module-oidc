@@ -16,8 +16,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Repositories;
 
-use Exception;
-use JsonException;
 use League\OAuth2\Server\Entities\AuthCodeEntityInterface as OAuth2AuthCodeEntityInterface;
 use RuntimeException;
 use SimpleSAML\Error\Error;
@@ -36,7 +34,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
     }
 
     /**
-     * @return AuthCodeEntityInterface
+     * @return \SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface
      */
     public function getNewAuthCode(): AuthCodeEntityInterface
     {
@@ -45,7 +43,8 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
 
     /**
      * {@inheritdoc}
-     * @throws Error|JsonException
+     * @throws \JsonException
+     * @throws \SimpleSAML\Error\Error
      */
     public function persistNewAuthCode(OAuth2AuthCodeEntityInterface $authCodeEntity): void
     {
@@ -67,7 +66,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
 
     /**
      * Find Auth Code by id.
-     * @throws Exception
+     * @throws \Exception
      */
     public function findById(string $codeId): ?AuthCodeEntityInterface
     {
@@ -92,8 +91,8 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
 
     /**
      * {@inheritdoc}
-     * @throws JsonException
-     * @throws Exception
+     * @throws \Exception
+     * @throws \JsonException
      */
     public function revokeAuthCode($codeId): void
     {
@@ -109,7 +108,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
 
     /**
      * {@inheritdoc}
-     * @throws Exception
+     * @throws \Exception
      */
     public function isAuthCodeRevoked($codeId): bool
     {
@@ -124,7 +123,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
 
     /**
      * Removes expired auth codes.
-     * @throws Exception
+     * @throws \Exception
      */
     public function removeExpired(): void
     {
@@ -137,7 +136,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
     }
 
     /**
-     * @throws JsonException
+     * @throws \JsonException
      */
     private function update(AuthCodeEntity $authCodeEntity): void
     {

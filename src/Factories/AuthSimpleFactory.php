@@ -13,13 +13,13 @@ declare(strict_types=1);
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
+
 namespace SimpleSAML\Module\oidc\Factories;
 
-use Exception;
 use SimpleSAML\Auth\Simple;
-use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 
 class AuthSimpleFactory
@@ -35,7 +35,7 @@ class AuthSimpleFactory
 
     /**
      * @codeCoverageIgnore
-     * @throws Exception
+     * @throws \Exception
      */
     public function build(ClientEntityInterface $clientEntity): Simple
     {
@@ -46,7 +46,7 @@ class AuthSimpleFactory
 
     /**
      * @return Simple The default authsource
-     * @throws Exception
+     * @throws \Exception
      */
     public function getDefaultAuthSource(): Simple
     {
@@ -56,7 +56,7 @@ class AuthSimpleFactory
     /**
      * Get auth source defined on the client. If not set on the client, get the default auth source defined in config.
      *
-     * @throws Exception
+     * @throws \Exception
      */
     public function resolveAuthSourceId(ClientEntityInterface $client): string
     {
@@ -64,7 +64,7 @@ class AuthSimpleFactory
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function getDefaultAuthSourceId(): string
     {

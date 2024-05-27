@@ -15,10 +15,9 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Module\oidc\Services;
 
-use Jose\Component\Core\JWK;
 use Jose\Component\Core\JWKSet;
 use Jose\Component\KeyManagement\JWKFactory;
-use SimpleSAML\Error\Exception;
+use SimpleSAML\Error;
 use SimpleSAML\Module\oidc\Codebooks\ClaimNamesEnum;
 use SimpleSAML\Module\oidc\Codebooks\ClaimValues\PublicKeyUseEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -33,14 +32,14 @@ class JsonWebKeySetService
     private ?JWKSet $federationJwkSet = null;
 
     /**
-     * @throws Exception
+     * @throws \SimpleSAML\Error\Exception
      * @throws \Exception
      */
     public function __construct(ModuleConfig $moduleConfig)
     {
         $publicKeyPath = $moduleConfig->getProtocolCertPath();
         if (!file_exists($publicKeyPath)) {
-            throw new Exception("OIDC protocol public key file does not exists: $publicKeyPath.");
+            throw new Error\Exception("OIDC protocol public key file does not exists: $publicKeyPath.");
         }
 
         $jwk = JWKFactory::createFromKeyFile($publicKeyPath, null, [
@@ -67,7 +66,7 @@ class JsonWebKeySetService
     }
 
     /**
-     * @return JWK[]
+     * @return \Jose\Component\Core\JWK[]
      */
     public function protocolKeys(): array
     {
@@ -75,7 +74,7 @@ class JsonWebKeySetService
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function federationKeys(): array
     {

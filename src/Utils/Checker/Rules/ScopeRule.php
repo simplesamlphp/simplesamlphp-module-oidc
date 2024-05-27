@@ -12,7 +12,6 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
-use Throwable;
 
 class ScopeRule extends AbstractRule
 {
@@ -22,7 +21,7 @@ class ScopeRule extends AbstractRule
 
     /**
      * @inheritDoc
-     * @throws Throwable
+     * @throws \Throwable
      */
     public function checkRule(
         ServerRequestInterface $request,
@@ -65,7 +64,7 @@ class ScopeRule extends AbstractRule
      * Converts a scopes query string to an array to easily iterate for validation.
      *
      * @return string[]
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     protected function convertScopesQueryStringToArray(string $scopes, string $scopeDelimiterString): array
     {

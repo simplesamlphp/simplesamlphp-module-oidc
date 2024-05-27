@@ -49,7 +49,7 @@ class OidcServerException extends OAuthServerException
      * @param int $httpStatusCode HTTP status code to send (default = 400)
      * @param null|string $hint A helper hint
      * @param null|string $redirectUri An HTTP URI to redirect the user back to
-     * @param Throwable|null $previous Previous exception
+     * @param \Throwable|null $previous Previous exception
      * @param string|null $state
      */
     public function __construct(
@@ -133,7 +133,7 @@ class OidcServerException extends OAuthServerException
      *
      * @param string $parameter
      * @param string|null $hint
-     * @param Throwable|null $previous
+     * @param \Throwable|null $previous
      * @param string|null $redirectUri
      * @param string|null $state
      * @param bool $useFragment Use URI fragment to return error parameters
@@ -159,7 +159,7 @@ class OidcServerException extends OAuthServerException
     /**
      * @param string|null $hint
      * @param string|null $redirectUri
-     * @param Throwable|null $previous
+     * @param \Throwable|null $previous
      * @param string|null $state
      * @param bool $useFragment Use URI fragment to return error parameters
      * @return static
@@ -183,7 +183,7 @@ class OidcServerException extends OAuthServerException
      *
      * @param string|null $hint
      * @param string|null $redirectUri
-     * @param Throwable|null $previous
+     * @param \Throwable|null $previous
      * @param string|null $state
      * @param bool $useFragment Use URI fragment to return error parameters
      *
@@ -209,7 +209,7 @@ class OidcServerException extends OAuthServerException
      *
      * @param string|null $hint
      * @param string|null $redirectUri
-     * @param Throwable|null $previous
+     * @param \Throwable|null $previous
      * @param string|null $state
      * @param bool $useFragment Use URI fragment to return error parameters
      *
@@ -234,7 +234,7 @@ class OidcServerException extends OAuthServerException
      * Invalid refresh token.
      *
      * @param string|null $hint
-     * @param Throwable|null $previous
+     * @param \Throwable|null $previous
      *
      * @return self
      * @psalm-suppress LessSpecificImplementedReturnType
@@ -313,12 +313,12 @@ class OidcServerException extends OAuthServerException
     /**
      * Generate an HTTP response.
      *
-     * @param ResponseInterface $response
+     * @param \Psr\Http\Message\ResponseInterface $response
      * @param bool $useFragment True if errors should be in the URI fragment instead of query string. Note
-     * that this can also be set using useFragmentInHttpResponses().
+     *   that this can also be set using useFragmentInHttpResponses().
      * @param int $jsonOptions options passed to json_encode
      *
-     * @return ResponseInterface
+     * @return \Psr\Http\Message\ResponseInterface
      */
     public function generateHttpResponse(
         ResponseInterface $response,

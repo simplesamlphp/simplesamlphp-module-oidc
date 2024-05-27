@@ -16,11 +16,8 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controller\Traits;
 
-use JsonException;
-use SimpleSAML\Error\Exception;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Error\BadRequest;
-use SimpleSAML\Error\NotFound;
+use SimpleSAML\Error;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -33,7 +30,11 @@ trait AuthenticatedGetClientFromRequestTrait
     private AuthContextService $authContextService;
 
     /**
-     * @throws BadRequest|NotFound|Exception|OidcServerException|JsonException
+     * @throws \JsonException
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     protected function getClientFromRequest(ServerRequestInterface $request): ClientEntityInterface
     {
@@ -41,7 +42,7 @@ trait AuthenticatedGetClientFromRequestTrait
         $clientId = empty($params['client_id']) ? null : (string)$params['client_id'];
 
         if (!is_string($clientId)) {
-            throw new BadRequest('Client id is missing.');
+            throw new Error\BadRequest('Client id is missing.');
         }
         $authedUser = null;
         if (!$this->authContextService->isSspAdmin()) {

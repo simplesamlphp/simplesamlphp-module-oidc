@@ -6,7 +6,6 @@ namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
@@ -14,8 +13,6 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Utils\HTTP;
-use SimpleSAML\Error;
-use Throwable;
 
 class PromptRule extends AbstractRule
 {
@@ -26,13 +23,13 @@ class PromptRule extends AbstractRule
     }
 
     /**
-     * @throws Error\AuthSource
-     * @throws Error\BadRequest
-     * @throws Error\Exception
-     * @throws OAuthServerException
-     * @throws Throwable
-     * @throws OidcServerException
-     * @throws Error\NotFound
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \SimpleSAML\Error\AuthSource
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \Throwable
      */
     public function checkRule(
         ServerRequestInterface $request,
@@ -42,7 +39,7 @@ class PromptRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = ['GET'],
     ): ?ResultInterface {
-        /** @var ClientEntityInterface $client */
+        /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
 
         $authSimple = $this->authSimpleFactory->build($client);

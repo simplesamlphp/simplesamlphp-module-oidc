@@ -13,13 +13,13 @@ declare(strict_types=1);
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
+
 namespace SimpleSAML\Module\oidc\Factories;
 
 use Nette\Forms\Form;
 use SimpleSAML\Error\Exception;
-use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
-use SimpleSAML\Session;
+use SimpleSAML\Module\oidc\ModuleConfig;
 
 class FormFactory
 {
@@ -30,7 +30,7 @@ class FormFactory
     /**
      * @param class-string $classname Form classname
      *
-     * @throws \Exception
+     * @throws \SimpleSAML\Error\Exception
      *
      * @return mixed
      */

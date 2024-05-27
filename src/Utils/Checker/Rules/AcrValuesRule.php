@@ -29,7 +29,7 @@ class AcrValuesRule extends AbstractRule
         ];
 
         // Check if RequestedClaims rule contains acr
-        /** @var Result $requestedClaimsResult  */
+        /** @var \SimpleSAML\Module\oidc\Utils\Checker\Result $requestedClaimsResult  */
         if (($requestedClaimsResult = $currentResultBag->get(RequestedClaimsRule::class)) !== null) {
             // Format: https://openid.net/specs/openid-connect-core-1_0.html#IndividualClaimsRequests
             /**

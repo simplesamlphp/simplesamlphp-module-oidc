@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Bridges\SspBridge;
 
+use SimpleSAML\Module as SspModule;
+
 class Module
 {
     public function getModuleUrl(string $resource, array $parameters = []): string
     {
-        return \SimpleSAML\Module::getModuleURL($resource, $parameters);
+        return SspModule::getModuleURL($resource, $parameters);
     }
 }

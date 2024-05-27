@@ -16,10 +16,9 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Services;
 
-use JsonException;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Modules\OAuth2\Repositories\ClientRepository as OAuth2ClientRepository;
 
 /**
  * Class DatabaseLegacyOAuth2Import.
@@ -32,15 +31,16 @@ class DatabaseLegacyOAuth2Import
 
     /**
      * @psalm-suppress UndefinedClass, MixedAssignment, MixedArrayAccess, MixedArgument
-     * @throws OidcServerException|JsonException
+     * @throws \JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function import(): void
     {
-        if (!class_exists('\SimpleSAML\Modules\OAuth2\Repositories\ClientRepository')) {
+        if (!class_exists(ClientRepository::class)) {
             return;
         }
 
-        $oauth2ClientRepository = new \SimpleSAML\Modules\OAuth2\Repositories\ClientRepository();
+        $oauth2ClientRepository = new OAuth2ClientRepository();
         $clients = $oauth2ClientRepository->findAll();
 
         foreach ($clients as $client) {

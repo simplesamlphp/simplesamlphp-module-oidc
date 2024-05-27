@@ -5,14 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use Exception;
-use JsonException;
-use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Grant\RefreshTokenGrant as OAuth2RefreshTokenGrant;
-use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
-use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface;
-use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
-use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
-use League\OAuth2\Server\Repositories\UserRepositoryInterface;
 use League\OAuth2\Server\RequestEvent;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -23,50 +16,33 @@ use function time;
 
 class RefreshTokenGrant extends OAuth2RefreshTokenGrant
 {
-    /**
-     * @var bool
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
+    /** @psalm-suppress PropertyNotSetInConstructor */
     protected $revokeRefreshTokens;
-    /**
-     * @var string
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
+
+    /** @psalm-suppress PropertyNotSetInConstructor */
     protected $defaultScope;
-    /**
-     * @var CryptKey
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
+
+    /** @psalm-suppress PropertyNotSetInConstructor */
     protected $privateKey;
-    /**
-     * @var UserRepositoryInterface
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
+
+    /** @psalm-suppress PropertyNotSetInConstructor */
     protected $userRepository;
-    /**
-     * @var AuthCodeRepositoryInterface
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
+
+    /** @psalm-suppress PropertyNotSetInConstructor */
     protected $authCodeRepository;
-    /**
-     * @var ScopeRepositoryInterface
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
+
+    /** @psalm-suppress PropertyNotSetInConstructor */
     protected $scopeRepository;
-    /**
-     * @var AccessTokenRepositoryInterface
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
+
+    /** @psalm-suppress PropertyNotSetInConstructor */
     protected $accessTokenRepository;
-    /**
-     * @var ClientRepositoryInterface
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
+
+    /** @psalm-suppress PropertyNotSetInConstructor */
     protected $clientRepository;
 
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     protected function validateOldRefreshToken(ServerRequestInterface $request, $clientId): array
     {

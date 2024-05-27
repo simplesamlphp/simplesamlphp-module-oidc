@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
@@ -14,8 +13,6 @@ use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Utils\HTTP;
-use SimpleSAML\Error;
-use Throwable;
 
 class MaxAgeRule extends AbstractRule
 {
@@ -26,12 +23,12 @@ class MaxAgeRule extends AbstractRule
     }
 
     /**
-     * @throws Error\AuthSource
-     * @throws Throwable
-     * @throws Error\BadRequest
-     * @throws OidcServerException
-     * @throws Error\NotFound
-     * @throws Error\Exception
+     * @throws \SimpleSAML\Error\AuthSource
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \Throwable
      */
     public function checkRule(
         ServerRequestInterface $request,
@@ -43,7 +40,7 @@ class MaxAgeRule extends AbstractRule
     ): ?ResultInterface {
         $queryParams = $request->getQueryParams();
 
-        /** @var ClientEntityInterface $client */
+        /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
 
         $authSimple = $this->authSimpleFactory->build($client);

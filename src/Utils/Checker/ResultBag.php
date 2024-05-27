@@ -13,12 +13,12 @@ use function sprintf;
 class ResultBag implements ResultBagInterface
 {
     /**
-     * @var ResultInterface[] $results
+     * @var \SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface[] $results
      */
     protected array $results = [];
 
     /**
-     * @param ResultInterface $result
+     * @param \SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface $result
      */
     public function add(ResultInterface $result): void
     {
@@ -27,7 +27,7 @@ class ResultBag implements ResultBagInterface
 
     /**
      * @param string $key
-     * @return ResultInterface|null
+     * @return \SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface|null
      */
     public function get(string $key): ?ResultInterface
     {
@@ -36,7 +36,7 @@ class ResultBag implements ResultBagInterface
 
     /**
      * @param string $key
-     * @return ResultInterface
+     * @return \SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface
      */
     public function getOrFail(string $key): ResultInterface
     {
@@ -50,7 +50,7 @@ class ResultBag implements ResultBagInterface
     }
 
     /**
-     * @return ResultInterface[]
+     * @return \SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface[]
      */
     public function getAll(): array
     {

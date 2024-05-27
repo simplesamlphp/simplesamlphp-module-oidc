@@ -16,9 +16,8 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Factories;
 
-use Exception;
-use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Entities\ClaimSetEntity;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
 class ClaimTranslatorExtractorFactory
@@ -32,7 +31,7 @@ class ClaimTranslatorExtractorFactory
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function build(): ClaimTranslatorExtractor
     {

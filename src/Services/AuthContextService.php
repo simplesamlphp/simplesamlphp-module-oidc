@@ -6,9 +6,8 @@ namespace SimpleSAML\Module\oidc\Services;
 
 use RuntimeException;
 use SimpleSAML\Auth\Simple;
-use SimpleSAML\Error\Exception;
-use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Utils\Attributes;
 use SimpleSAML\Utils\Auth;
 
@@ -39,7 +38,7 @@ class AuthContextService
     }
 
     /**
-     * @throws Exception
+     * @throws \SimpleSAML\Error\Exception
      * @throws \Exception
      */
     public function getAuthUserId(): string

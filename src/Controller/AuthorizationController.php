@@ -16,19 +16,15 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controller;
 
-use Exception;
 use Laminas\Diactoros\Response;
 use Laminas\Diactoros\ServerRequest;
-use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ResponseInterface;
-use SimpleSAML\Error;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use Throwable;
 
 class AuthorizationController
 {
@@ -41,12 +37,13 @@ class AuthorizationController
     }
 
     /**
-     * @throws Error\AuthSource
-     * @throws Error\BadRequest
-     * @throws Error\NotFound
-     * @throws Error\Exception
-     * @throws OAuthServerException
-     * @throws Exception|Throwable
+     * @throws \Exception
+     * @throws \SimpleSAML\Error\AuthSource
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \Throwable
      */
     public function __invoke(ServerRequest $request): ResponseInterface
     {
@@ -71,7 +68,8 @@ class AuthorizationController
     /**
      * Validate authorization request after the authn has been performed. For example, check if the
      * ACR claim has been requested and that authn performed satisfies it.
-     * @throws Exception
+     *
+     * @throws \Exception
      */
     protected function validatePostAuthnAuthorizationRequest(AuthorizationRequest $authorizationRequest): void
     {
@@ -79,7 +77,7 @@ class AuthorizationController
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function validateAcr(AuthorizationRequest $authorizationRequest): void
     {

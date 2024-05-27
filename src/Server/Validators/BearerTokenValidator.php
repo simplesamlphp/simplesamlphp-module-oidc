@@ -6,12 +6,10 @@ namespace SimpleSAML\Module\oidc\Server\Validators;
 
 use DateInterval;
 use DateTimeZone;
-use Exception;
 use Lcobucci\Clock\SystemClock;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
-use Lcobucci\JWT\Token\Plain;
 use Lcobucci\JWT\Validation\Constraint\SignedWith;
 use Lcobucci\JWT\Validation\Constraint\StrictValidAt;
 use Lcobucci\JWT\Validation\RequiredConstraintsViolated;
@@ -30,26 +28,20 @@ use function trim;
 
 class BearerTokenValidator extends OAuth2BearerTokenValidator
 {
-    /**
-     * @var Configuration
-     */
+    /** @var \Lcobucci\JWT\Configuration */
     protected Configuration $jwtConfiguration;
 
-    /**
-     * @var OAuth2AccessTokenRepositoryInterface
-     */
+    /** @var \League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface */
     protected OAuth2AccessTokenRepositoryInterface $accessTokenRepository;
 
-    /**
-     * @var CryptKey
-     */
+    /** @var \League\OAuth2\Server\CryptKey */
     protected $publicKey;
 
     /**
-     * @param AccessTokenRepositoryInterface $accessTokenRepository
-     * @param CryptKey $publicKey
-     * @param DateInterval|null $jwtValidAtDateLeeway
-     * @throws Exception
+     * @param \League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface $accessTokenRepository
+     * @param \League\OAuth2\Server\CryptKey $publicKey
+     * @param \DateInterval|null $jwtValidAtDateLeeway
+     * @throws \Exception
      */
     public function __construct(
         AccessTokenRepositoryInterface $accessTokenRepository,
@@ -64,8 +56,8 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
     /**
      * Set the public key
      *
-     * @param CryptKey $key
-     * @throws Exception
+     * @param \League\OAuth2\Server\CryptKey $key
+     * @throws \Exception
      */
     public function setPublicKey(CryptKey $key): void
     {
@@ -76,7 +68,7 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
 
     /**
      * Initialise the JWT configuration.
-     * @throws Exception
+     * @throws \Exception
      */
     protected function initJwtConfiguration(): void
     {
@@ -97,7 +89,7 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
 
     /**
      * {@inheritdoc}
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function validateAuthorization(ServerRequestInterface $request): ServerRequestInterface
     {
@@ -121,7 +113,7 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
 
         try {
             // Attempt to parse the JWT
-            /** @var Plain $token */
+            /** @var \Lcobucci\JWT\Token\Plain $token */
             $token = $this->jwtConfiguration->parser()->parse($jwt);
         } catch (\Lcobucci\JWT\Exception $exception) {
             throw OidcServerException::accessDenied($exception->getMessage(), null, $exception);
@@ -160,7 +152,7 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
      * @param mixed $aud
      *
      * @return array|string
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     protected function convertSingleRecordAudToString(mixed $aud): array|string
     {

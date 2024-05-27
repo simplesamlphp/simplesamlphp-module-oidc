@@ -15,16 +15,15 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Module\oidc\Controller;
 
-use Exception;
-use SimpleSAML\XHTML\Template;
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequest;
 use SimpleSAML\Module;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Services\DatabaseLegacyOAuth2Import;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\Utils\HTTP;
-use Laminas\Diactoros\Response\RedirectResponse;
-use Laminas\Diactoros\ServerRequest;
+use SimpleSAML\XHTML\Template;
 
 use function in_array;
 
@@ -39,7 +38,7 @@ class InstallerController
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function __invoke(ServerRequest $request): Template|RedirectResponse
     {

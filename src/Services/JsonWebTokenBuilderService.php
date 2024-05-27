@@ -5,14 +5,12 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Services;
 
 use DateTimeImmutable;
-use Exception;
 use Lcobucci\JWT\Builder;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Encoding\ChainedFormatter;
 use Lcobucci\JWT\Signer;
 use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\UnencryptedToken;
-use ReflectionException;
 use SimpleSAML\Module\oidc\Codebooks\ClaimNamesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -22,18 +20,18 @@ use SimpleSAML\Module\oidc\Utils\UniqueIdentifierGenerator;
 class JsonWebTokenBuilderService
 {
     /**
-     * @var Configuration Token configuration related to OIDC protocol.
+     * @var \Lcobucci\JWT\Configuration Token configuration related to OIDC protocol.
      */
     protected Configuration $protocolJwtConfig;
 
     /**
-     * @var ?Configuration Token configuration related to OpenID Federation.
+     * @var \Lcobucci\JWT\Configuration|null Token configuration related to OpenID Federation.
      */
     protected ?Configuration $federationJwtConfig = null;
 
     /**
-     * @throws ReflectionException
-     * @throws Exception
+     * @throws \ReflectionException
+     * @throws \Exception
      *
      * @psalm-suppress ArgumentTypeCoercion
      */
@@ -70,7 +68,7 @@ class JsonWebTokenBuilderService
     /**
      * Get JWT Builder which uses OIDC protocol related signing configuration.
      *
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function getProtocolJwtBuilder(): Builder
     {
@@ -80,7 +78,7 @@ class JsonWebTokenBuilderService
     /**
      * Get JWT Builder which uses OpenID Federation related signing configuration.
      *
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function getFederationJwtBuilder(): Builder
     {
@@ -109,7 +107,7 @@ class JsonWebTokenBuilderService
     /**
      * Get signed JWT using the OIDC protocol JWT signing configuration.
      *
-     * @throws Exception
+     * @throws \Exception
      */
     public function getSignedProtocolJwt(Builder $builder): UnencryptedToken
     {
@@ -123,7 +121,7 @@ class JsonWebTokenBuilderService
     /**
      * Get signed JWT using the OpenID Federation JWT signing configuration.
      *
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function getSignedFederationJwt(Builder $builder): UnencryptedToken
     {
@@ -159,7 +157,7 @@ class JsonWebTokenBuilderService
     }
 
     /**
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     public function getProtocolSigner(): Signer
     {

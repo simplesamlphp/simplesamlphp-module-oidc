@@ -6,12 +6,11 @@ namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Signer\Key\InMemory;
-use Lcobucci\JWT\UnencryptedToken;
 use Lcobucci\JWT\Validation\Constraint\IssuedBy;
 use Lcobucci\JWT\Validation\Constraint\SignedWith;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Factories\CryptKeyFactory;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
@@ -29,7 +28,7 @@ class IdTokenHintRule extends AbstractRule
 
     /**
      * @inheritDoc
-     * @throws Throwable
+     * @throws \Throwable
      */
     public function checkRule(
         ServerRequestInterface $request,
@@ -73,7 +72,7 @@ class IdTokenHintRule extends AbstractRule
         }
 
         try {
-            /** @var UnencryptedToken $idTokenHint */
+            /** @var \Lcobucci\JWT\UnencryptedToken $idTokenHint */
             $idTokenHint = $jwtConfig->parser()->parse($idTokenHintParam);
 
             /** @psalm-suppress ArgumentTypeCoercion */

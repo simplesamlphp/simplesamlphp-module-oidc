@@ -129,7 +129,7 @@ class ClaimTranslatorExtractor
      * ClaimTranslatorExtractor constructor.
      *
      * @param ClaimSetEntity[] $claimSets
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function __construct(
         string $userIdAttr,
@@ -191,7 +191,7 @@ class ClaimTranslatorExtractor
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function addClaimSet(ClaimSetEntityInterface $claimSet): self
     {
@@ -284,7 +284,7 @@ class ClaimTranslatorExtractor
     }
 
     /**
-     * @param array<array-key, string|ScopeEntityInterface> $scopes
+     * @param array<array-key, string|\League\OAuth2\Server\Entities\ScopeEntityInterface> $scopes
      */
     public function extract(array $scopes, array $claims): array
     {

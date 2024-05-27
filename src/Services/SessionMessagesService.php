@@ -16,7 +16,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Services;
 
-use Exception;
 use SimpleSAML\Session;
 
 class SessionMessagesService
@@ -26,7 +25,7 @@ class SessionMessagesService
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function addMessage(string $value): void
     {

@@ -17,7 +17,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Entities;
 
 use DateTime;
-use Exception;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClaimSetInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\MementoInterface;
@@ -54,7 +53,7 @@ class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInter
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public static function fromData(string $identifier, array $claims = []): self
     {
@@ -69,9 +68,8 @@ class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInter
     }
 
     /**
-     * @throws OidcServerException
-     * @throws Exception
-     * @throws Exception
+     * @throws \Exception
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public static function fromState(array $state): self
     {
@@ -123,7 +121,7 @@ class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInter
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function setClaims(array $claims): self
     {

@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Utils\Checker\Interfaces;
 
-use Throwable;
-
 interface ResultBagInterface
 {
     /**
@@ -20,13 +18,13 @@ interface ResultBagInterface
 
     /**
      * Get specific result or fail if it doesn't exits.
-     * @throws Throwable If result with specific key is not present.
+     * @throws \Throwable If result with specific key is not present.
      */
     public function getOrFail(string $key): ResultInterface;
 
     /**
      * Get all results.
-     * @return ResultInterface[]
+     * @return \SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface[]
      */
     public function getAll(): array;
 

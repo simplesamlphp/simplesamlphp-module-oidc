@@ -4,13 +4,9 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controller;
 
-use Exception;
 use Laminas\Diactoros\ServerRequest;
-use SimpleSAML\Error\BadRequest;
-use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\LogoutHandlers\BackChannelLogoutHandler;
 use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
 use SimpleSAML\Module\oidc\Services\LoggerService;
@@ -33,9 +29,9 @@ class LogoutController
     }
 
     /**
-     * @throws BadRequest
-     * @throws OidcServerException
-     * @throws Throwable
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \Throwable
      */
     public function __invoke(ServerRequest $request): Response
     {
@@ -93,7 +89,7 @@ class LogoutController
         }
 
         $currentSessionValidAuthorities = $this->sessionService->getCurrentSession()->getAuthorities();
-        if (! empty($currentSessionValidAuthorities)) {
+        if (!empty($currentSessionValidAuthorities)) {
             $wasLogoutActionCalled = true;
             // Initiate logout for every valid auth source for the current session.
             foreach ($this->sessionService->getCurrentSession()->getAuthorities() as $authSourceId) {
@@ -110,7 +106,7 @@ class LogoutController
 
     /**
      * Logout handler function registered using Session::registerLogoutHandler() during authn.
-     * @throws Exception
+     * @throws \Exception
      */
     public static function logoutHandler(): void
     {
@@ -119,7 +115,7 @@ class LogoutController
         // Only run this handler if logout was initiated using OIDC protocol. This is important since this
         // logout handler will (currently) also be called in re-authentication cases.
         // https://groups.google.com/g/simplesamlphp/c/-uhiVE8TaF4
-        if (! SessionService::getIsOidcInitiatedLogoutForSession($session)) {
+        if (!SessionService::getIsOidcInitiatedLogoutForSession($session)) {
             return;
         }
 
@@ -169,7 +165,7 @@ class LogoutController
     }
 
     /**
-     * @throws ConfigurationError
+     * @throws \SimpleSAML\Error\ConfigurationError
      */
     protected function resolveResponse(LogoutRequest $logoutRequest, bool $wasLogoutActionCalled): Response
     {

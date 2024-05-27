@@ -16,17 +16,12 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controller\Client;
 
-use JsonException;
 use Laminas\Diactoros\Response\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;
-use SimpleSAML\Error\BadRequest;
-use SimpleSAML\Error\ConfigurationError;
-use SimpleSAML\Error\Exception;
-use SimpleSAML\Error\NotFound;
+use SimpleSAML\Error;
 use SimpleSAML\Module\oidc\Controller\Traits\AuthenticatedGetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\Utils\HTTP;
@@ -47,8 +42,13 @@ class DeleteController
     }
 
     /**
-     * @throws ConfigurationError|BadRequest|NotFound|Exception|OidcServerException|JsonException
      * @throws \Exception
+     * @throws \JsonException
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function __invoke(ServerRequest $request): Template|RedirectResponse
     {
@@ -58,11 +58,11 @@ class DeleteController
         $authedUser = $this->authContextService->isSspAdmin() ? null : $this->authContextService->getAuthUserId();
         if ('POST' === mb_strtoupper($request->getMethod())) {
             if (!$clientSecret) {
-                throw new BadRequest('Client secret is missing.');
+                throw new Error\BadRequest('Client secret is missing.');
             }
 
             if ($clientSecret !== $client->getSecret()) {
-                throw new BadRequest('Client secret is invalid.');
+                throw new Error\BadRequest('Client secret is invalid.');
             }
 
             $this->clientRepository->delete($client, $authedUser);

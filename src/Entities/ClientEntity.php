@@ -16,10 +16,9 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Entities;
 
-use JsonException;
-use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use League\OAuth2\Server\Entities\Traits\ClientTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 /**
@@ -72,7 +71,7 @@ class ClientEntity implements ClientEntityInterface
      * @param string|null $owner
      * @param string[] $postLogoutRedirectUri
      * @param string|null $backChannelLogoutUri
-     * @return ClientEntityInterface
+     * @return \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface
      */
     public static function fromData(
         string $id,
@@ -107,8 +106,8 @@ class ClientEntity implements ClientEntityInterface
     }
 
     /**
-     * @throws JsonException
-     * @throws OidcServerException
+     * @throws \JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public static function fromState(array $state): self
     {
@@ -161,9 +160,7 @@ class ClientEntity implements ClientEntityInterface
 
     /**
      * {@inheritdoc}
-     * @throws JsonException
-     * @throws JsonException
-     * @throws JsonException
+     * @throws \JsonException
      */
     public function getState(): array
     {

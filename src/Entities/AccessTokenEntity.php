@@ -16,17 +16,12 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Entities;
 
-use Exception;
-use JsonException;
-use Stringable;
 use DateTimeImmutable;
 use Lcobucci\JWT\Token;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
-use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Entities\Traits\AccessTokenTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\TokenEntityTrait;
-use League\OAuth2\Server\Exception\OAuthServerException;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\EntityStringRepresentationInterface;
@@ -35,6 +30,7 @@ use SimpleSAML\Module\oidc\Entities\Traits\RevokeTokenTrait;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
+use Stringable;
 
 /**
  * @psalm-suppress PropertyNotSetInConstructor
@@ -69,7 +65,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
     /**
      * Create new Access Token from data.
      *
-     * @param ScopeEntityInterface[] $scopes
+     * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
      */
     public static function fromData(
         OAuth2ClientEntityInterface $clientEntity,
@@ -92,7 +88,9 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
     }
 
     /**
-     * @throws OidcServerException|JsonException|Exception
+     * @throws \Exception
+     * @throws \JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public static function fromState(array $state): self
     {
@@ -155,8 +153,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
 
     /**
      * {@inheritdoc}
-     * @throws JsonException
-     * @throws JsonException
+     * @throws \JsonException
      */
     public function getState(): array
     {
@@ -175,7 +172,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
     /**
      * Generate string representation, save it in a field, and return it.
      * @return string
-     * @throws OAuthServerException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
     public function __toString(): string
     {
@@ -195,9 +192,9 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
      * Implemented instead of original AccessTokenTrait::convertToJWT() method in order to remove microseconds from
      * timestamps and to add claims like iss, etc., by using our own JWT builder service.
      *
-     * @return Token
-     * @throws OAuthServerException
-     * @throws Exception
+     * @return \Lcobucci\JWT\Token
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \Exception
      */
     protected function convertToJWT(): Token
     {

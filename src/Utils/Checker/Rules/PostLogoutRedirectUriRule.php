@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
-use Lcobucci\JWT\UnencryptedToken;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -12,7 +11,6 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
-use Throwable;
 
 class PostLogoutRedirectUriRule extends AbstractRule
 {
@@ -22,7 +20,7 @@ class PostLogoutRedirectUriRule extends AbstractRule
 
     /**
      * @inheritDoc
-     * @throws Throwable
+     * @throws \Throwable
      */
     public function checkRule(
         ServerRequestInterface $request,
@@ -35,7 +33,7 @@ class PostLogoutRedirectUriRule extends AbstractRule
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
-        /** @var UnencryptedToken|null $idTokenHint */
+        /** @var \Lcobucci\JWT\UnencryptedToken|null $idTokenHint */
         $idTokenHint = $currentResultBag->getOrFail(IdTokenHintRule::class)->getValue();
 
         $postLogoutRedirectUri = $this->getParamFromRequestBasedOnAllowedMethods(

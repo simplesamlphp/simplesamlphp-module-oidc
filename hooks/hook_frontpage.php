@@ -17,6 +17,8 @@ declare(strict_types=1);
 use SimpleSAML\Module;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 
+/**
+ */
 function oidc_hook_frontpage(array &$links): void
 {
     if (!is_array($links['federation'])) {

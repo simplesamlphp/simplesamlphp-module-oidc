@@ -17,7 +17,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Entities;
 
 use DateTimeImmutable;
-use Exception;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\RefreshTokenTrait;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
@@ -35,8 +34,8 @@ class RefreshTokenEntity implements RefreshTokenEntityInterface
     use AssociateWithAuthCodeTrait;
 
     /**
-     * @throws OidcServerException
-     * @throws Exception
+     * @throws \Exception
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public static function fromState(array $state): RefreshTokenEntityInterface
     {

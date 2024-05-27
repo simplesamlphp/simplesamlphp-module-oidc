@@ -16,8 +16,8 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controller;
 
-use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
 use Laminas\Diactoros\Response\JsonResponse;
+use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
 
 class JwksController
 {
