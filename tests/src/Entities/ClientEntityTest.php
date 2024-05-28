@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Entities;
 
-use JsonException;
-use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use PHPUnit\Framework\TestCase;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Entities\ClientEntity;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Entities\ClientEntity
@@ -34,8 +32,8 @@ class ClientEntityTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
      */
     public function prepareMockedInstance(array $state = null): ClientEntity
     {
@@ -44,8 +42,8 @@ class ClientEntityTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
      */
     public function testItIsInitializable(): void
     {
@@ -61,8 +59,8 @@ class ClientEntityTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
      */
     public function testCanGetProperties(): void
     {
@@ -88,8 +86,8 @@ class ClientEntityTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
      */
     public function testCanChangeSecret(): void
     {
@@ -100,8 +98,8 @@ class ClientEntityTest extends TestCase
     }
 
     /**
-     * @throws JsonException
-     * @throws OidcServerException
+     * @throws \JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCanGetState(): void
     {
@@ -125,8 +123,8 @@ class ClientEntityTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
      */
     public function testCanExportAsArray(): void
     {

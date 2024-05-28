@@ -31,7 +31,6 @@ class ResultTest extends TestCase
 
     /**
      * @depends testConstruct
-     *
      */
     public function testGetKey(Result $result): void
     {

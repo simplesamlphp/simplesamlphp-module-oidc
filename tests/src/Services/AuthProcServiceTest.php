@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Services;
 
-use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\MockObject;
-use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\core\Auth\Process\AttributeAdd;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\core\Auth\Process\AttributeAdd;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\AuthProcService;
 
 /**
@@ -19,7 +18,7 @@ class AuthProcServiceTest extends TestCase
     protected MockObject $moduleConfigMock;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function setUp(): void
     {

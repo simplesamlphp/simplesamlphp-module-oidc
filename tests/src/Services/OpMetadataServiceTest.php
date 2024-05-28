@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\Services;
 
 use Lcobucci\JWT\Signer\Rsa;
-use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\MockObject;
-use SimpleSAML\Module\oidc\ModuleConfig;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
 
 /**
@@ -19,7 +18,7 @@ class OpMetadataServiceTest extends TestCase
     protected MockObject $moduleConfigMock;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function setUp(): void
     {

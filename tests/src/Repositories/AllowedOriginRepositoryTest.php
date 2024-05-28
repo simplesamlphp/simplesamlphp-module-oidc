@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Repositories;
 
-use Exception;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -29,7 +28,7 @@ class AllowedOriginRepositoryTest extends TestCase
     private static ModuleConfig $moduleConfig;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public static function setUpBeforeClass(): void
     {

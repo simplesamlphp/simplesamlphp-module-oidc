@@ -5,11 +5,9 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker;
 
 use LogicException;
-use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\RequestRuleInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
@@ -30,7 +28,7 @@ class RequestRulesManagerTest extends TestCase
 
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function setUp(): void
     {
@@ -55,7 +53,7 @@ class RequestRulesManagerTest extends TestCase
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function testConstructWithRules(): void
     {
@@ -66,7 +64,7 @@ class RequestRulesManagerTest extends TestCase
     /**
      * @depends testConstructWithoutRules
      *
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testAddAndCheck(RequestRulesManager $requestRulesManager): void
     {
@@ -81,7 +79,7 @@ class RequestRulesManagerTest extends TestCase
     /**
      * @depends testConstructWithoutRules
      *
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCheckWithNonExistingRuleKeyThrows(RequestRulesManager $requestRulesManager): void
     {
@@ -92,7 +90,7 @@ class RequestRulesManagerTest extends TestCase
     /**
      * @depends testConstructWithoutRules
      *
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testPredefineResult(RequestRulesManager $requestRulesManager): void
     {
@@ -106,8 +104,8 @@ class RequestRulesManagerTest extends TestCase
     /**
      * @depends testConstructWithoutRules
      *
-     * @throws OidcServerException
-     * @throws Exception
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \Exception
      */
     public function testSetData(RequestRulesManager $requestRulesManager): void
     {

@@ -7,7 +7,6 @@ namespace SimpleSAML\Test\Module\oidc\Forms;
 use Laminas\Diactoros\ServerRequest;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
-use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
@@ -20,17 +19,17 @@ use SimpleSAML\Module\oidc\ModuleConfig;
  */
 class ClientFormTest extends TestCase
 {
-    /** @var MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected MockObject $csrfProtection;
 
-    /** @var MockObject */
+    /** @var \PHPUnit\Framework\MockObject\MockObject */
     protected MockObject $moduleConfig;
 
-    /** @var MockObject  */
+    /** @var \PHPUnit\Framework\MockObject\MockObject  */
     protected MockObject $serverRequestMock;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function setUp(): void
     {
@@ -102,7 +101,7 @@ class ClientFormTest extends TestCase
     }
 
     /**
-     * @return ClientForm
+     * @return \SimpleSAML\Module\oidc\Forms\ClientForm
      * @throws \Exception
      */
     protected function prepareMockedInstance(): ClientForm

@@ -15,11 +15,10 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Test\Module\oidc\Repositories;
 
-use Exception;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
-use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 
@@ -45,7 +44,7 @@ class ScopeRepositoryTest extends TestCase
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function testGetScopeEntityByIdentifier(): void
     {
@@ -62,7 +61,7 @@ class ScopeRepositoryTest extends TestCase
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function testGetUnknownScope(): void
     {
@@ -72,7 +71,7 @@ class ScopeRepositoryTest extends TestCase
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function testFinalizeScopes(): void
     {

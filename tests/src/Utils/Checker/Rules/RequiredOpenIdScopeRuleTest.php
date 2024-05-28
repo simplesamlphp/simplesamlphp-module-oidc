@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
 use LogicException;
-use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -18,7 +17,6 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
-use Throwable;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredOpenIdScopeRule
@@ -36,7 +34,7 @@ class RequiredOpenIdScopeRuleTest extends TestCase
     protected Stub $loggerServiceStub;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function setUp(): void
     {
@@ -52,8 +50,8 @@ class RequiredOpenIdScopeRuleTest extends TestCase
     }
 
     /**
-     * @throws Throwable
-     * @throws OidcServerException
+     * @throws \Throwable
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCheckRuleRedirectUriDependency(): void
     {
@@ -64,8 +62,8 @@ class RequiredOpenIdScopeRuleTest extends TestCase
     }
 
     /**
-     * @throws Throwable
-     * @throws OidcServerException
+     * @throws \Throwable
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCheckRuleStateDependency(): void
     {
@@ -77,8 +75,8 @@ class RequiredOpenIdScopeRuleTest extends TestCase
     }
 
     /**
-     * @throws Throwable
-     * @throws OidcServerException
+     * @throws \Throwable
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCheckRulePassesWhenOpenIdScopeIsPresent()
     {
@@ -95,7 +93,7 @@ class RequiredOpenIdScopeRuleTest extends TestCase
     }
 
     /**
-     * @throws Throwable
+     * @throws \Throwable
      */
     public function testCheckRuleThrowsWhenOpenIdScopeIsNotPresent()
     {

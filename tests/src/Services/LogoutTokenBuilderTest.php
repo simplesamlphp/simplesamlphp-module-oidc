@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Services;
 
-use PHPUnit\Framework\MockObject\Stub;
-use Exception;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
@@ -13,8 +11,8 @@ use Lcobucci\JWT\Validation\Constraint\IssuedBy;
 use Lcobucci\JWT\Validation\Constraint\PermittedFor;
 use Lcobucci\JWT\Validation\Constraint\RelatedTo;
 use Lcobucci\JWT\Validation\Constraint\SignedWith;
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
-use ReflectionException;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Associations\Interfaces\RelyingPartyAssociationInterface;
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
@@ -36,10 +34,12 @@ class LogoutTokenBuilderTest extends TestCase
     private static string $sessionId = 'session123';
     private static string $backChannelLogoutUri = 'https//some-host.org/logout';
     private static string $logoutTokenType = 'logout+jwt';
+
     /**
      * @var mixed
      */
     private Stub $moduleConfigStub;
+
     /**
      * @var mixed
      */
@@ -55,7 +55,7 @@ class LogoutTokenBuilderTest extends TestCase
     }
 
     /**
-     * @throws ReflectionException
+     * @throws \ReflectionException
      * @throws \PHPUnit\Framework\MockObject\Exception
      * @throws \PHPUnit\Framework\MockObject\Exception
      */
@@ -79,8 +79,8 @@ class LogoutTokenBuilderTest extends TestCase
     }
 
     /**
-     * @throws ReflectionException
-     * @throws Exception
+     * @throws \ReflectionException
+     * @throws \Exception
      */
     public function testCanGenerateSignedTokenForRelyingPartyAssociation(): void
     {

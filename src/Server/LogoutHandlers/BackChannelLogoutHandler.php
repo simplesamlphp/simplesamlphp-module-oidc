@@ -24,7 +24,8 @@ class BackChannelLogoutHandler
     }
 
     /**
-     * @param \SimpleSAML\Module\oidc\Server\Associations\Interfaces\RelyingPartyAssociationInterface[] $relyingPartyAssociations
+     * @param \SimpleSAML\Module\oidc\Server\Associations\Interfaces\RelyingPartyAssociationInterface[]
+     *   $relyingPartyAssociations
      * @param \GuzzleHttp\HandlerStack|null $handlerStack For easier testing
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
@@ -58,7 +59,8 @@ class BackChannelLogoutHandler
     }
 
     /**
-     * @param \SimpleSAML\Module\oidc\Server\Associations\Interfaces\RelyingPartyAssociationInterface[] $relyingPartyAssociations
+     * @param \SimpleSAML\Module\oidc\Server\Associations\Interfaces\RelyingPartyAssociationInterface[]
+     *   $relyingPartyAssociations
      * @return \Generator
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */

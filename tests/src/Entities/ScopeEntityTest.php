@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Entities;
 
-use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 
 class ScopeEntityTest extends TestCase
 {

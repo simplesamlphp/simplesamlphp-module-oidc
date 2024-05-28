@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Utils;
 
-use League\OAuth2\Server\Exception\OAuthServerException;
-use SimpleSAML\Module\oidc\Utils\UniqueIdentifierGenerator;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\Utils\UniqueIdentifierGenerator;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Utils\UniqueIdentifierGenerator
@@ -14,7 +13,7 @@ use PHPUnit\Framework\TestCase;
 class UniqueIdentifierGeneratorTest extends TestCase
 {
     /**
-     * @throws OAuthServerException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
     public function testDifferentIdentifiersCanBeGenerated(): void
     {

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
-use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -27,7 +26,7 @@ class ClientIdRuleTest extends TestCase
     protected Stub $loggerServiceStub;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function setUp(): void
     {
@@ -66,8 +65,8 @@ class ClientIdRuleTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws Exception
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \Exception
      */
     public function testCheckRuleForValidClientId(): void
     {

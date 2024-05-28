@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Services;
 
-use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\MockObject;
-use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\Session;
 
 /**
@@ -18,7 +17,7 @@ class SessionMessagesServiceTest extends TestCase
     protected MockObject $sessionMock;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function setUp(): void
     {

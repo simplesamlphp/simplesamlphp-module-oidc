@@ -16,22 +16,16 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\Repositories;
 
 use DateTimeImmutable;
-use Exception;
-use JsonException;
-use League\OAuth2\Server\Exception\OAuthServerException;
-use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
-use RuntimeException;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use SimpleSAML\Configuration;
-use SimpleSAML\Error\Error;
-use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
@@ -48,10 +42,10 @@ class RefreshTokenRepositoryTest extends TestCase
     protected static RefreshTokenRepository $repository;
 
     /**
-     * @throws UniqueTokenIdentifierConstraintViolationException
-     * @throws Error
-     * @throws JsonException
-     * @throws Exception
+     * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
+     * @throws \SimpleSAML\Error\Error
+     * @throws \JsonException
+     * @throws \Exception
      */
     public static function setUpBeforeClass(): void
     {
@@ -88,11 +82,10 @@ class RefreshTokenRepositoryTest extends TestCase
     }
 
     /**
-     * @throws UniqueTokenIdentifierConstraintViolationException
-     * @throws OidcServerException
-     * @throws OAuthServerException
-     * @throws Exception
-     * @throws Exception
+     * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \Exception
      */
     public function testAddAndFound(): void
     {
@@ -112,7 +105,7 @@ class RefreshTokenRepositoryTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testAddAndNotFound(): void
     {
@@ -122,7 +115,7 @@ class RefreshTokenRepositoryTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testRevokeToken(): void
     {
@@ -133,7 +126,7 @@ class RefreshTokenRepositoryTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testErrorRevokeInvalidToken(): void
     {
@@ -143,7 +136,7 @@ class RefreshTokenRepositoryTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testErrorCheckIsRevokedInvalidToken(): void
     {
@@ -153,8 +146,8 @@ class RefreshTokenRepositoryTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws Exception
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \Exception
      */
     public function testRemoveExpired(): void
     {

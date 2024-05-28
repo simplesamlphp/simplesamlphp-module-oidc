@@ -15,7 +15,6 @@ use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Module\oidc\Controller\LogoutController;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\SessionService;
@@ -24,7 +23,6 @@ use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
 use SimpleSAML\Session;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
-use Throwable;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Controller\LogoutController
@@ -81,8 +79,8 @@ class LogoutControllerTest extends TestCase
     }
 
     /**
-     * @throws Throwable
-     * @throws OidcServerException
+     * @throws \Throwable
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testInvokeThrowsForInvalidLogoutRequest(): void
     {
@@ -103,9 +101,9 @@ class LogoutControllerTest extends TestCase
     }
 
     /**
-     * @throws Throwable
-     * @throws BadRequest
-     * @throws OidcServerException
+     * @throws \Throwable
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCallLogoutForSessionIdInIdTokenHint(): void
     {
@@ -134,9 +132,9 @@ class LogoutControllerTest extends TestCase
     }
 
     /**
-     * @throws Throwable
-     * @throws BadRequest
-     * @throws OidcServerException
+     * @throws \Throwable
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testLogsIfSessionFromIdTokenHintNotFound(): void
     {
@@ -164,9 +162,9 @@ class LogoutControllerTest extends TestCase
     }
 
     /**
-     * @throws Throwable
-     * @throws BadRequest
-     * @throws OidcServerException
+     * @throws \Throwable
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testLogoutCalledOnCurrentSession(): void
     {
@@ -188,9 +186,9 @@ class LogoutControllerTest extends TestCase
     }
 
     /**
-     * @throws Throwable
-     * @throws BadRequest
-     * @throws OidcServerException
+     * @throws \Throwable
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testReturnsRedirectResponseIfPostLogoutRedirectUriIsSet(): void
     {
@@ -212,9 +210,9 @@ class LogoutControllerTest extends TestCase
     }
 
     /**
-     * @throws Throwable
-     * @throws BadRequest
-     * @throws OidcServerException
+     * @throws \Throwable
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testReturnsResponse(): void
     {

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Server\RequestTypes;
 
-use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use PHPUnit\Framework\TestCase;
 
 /**

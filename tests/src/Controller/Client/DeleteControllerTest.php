@@ -4,22 +4,17 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Controller\Client;
 
-use JsonException;
 use Laminas\Diactoros\Response\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;
-use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\UriInterface;
 use SimpleSAML\Error\BadRequest;
-use SimpleSAML\Error\ConfigurationError;
-use SimpleSAML\Error\NotFound;
 use SimpleSAML\Module\oidc\Controller\Client\DeleteController;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\XHTML\Template;
@@ -39,7 +34,7 @@ class DeleteControllerTest extends TestCase
     protected Stub $templateStub;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function setUp(): void
     {
@@ -71,7 +66,12 @@ class DeleteControllerTest extends TestCase
     }
 
     /**
-     * @throws ConfigurationError|BadRequest|NotFound|\SimpleSAML\Error\Exception|OidcServerException|JsonException
+     * @throws \JsonException
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testItAsksConfirmationBeforeDeletingClient(): void
     {
@@ -91,7 +91,12 @@ class DeleteControllerTest extends TestCase
     }
 
     /**
-     * @throws ConfigurationError|BadRequest|NotFound|\SimpleSAML\Error\Exception|OidcServerException|JsonException
+     * @throws \JsonException
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testThrowsIfIdNotFoundInDeleteAction(): void
     {
@@ -103,7 +108,12 @@ class DeleteControllerTest extends TestCase
     }
 
     /**
-     * @throws ConfigurationError|BadRequest|NotFound|\SimpleSAML\Error\Exception|OidcServerException|JsonException
+     * @throws \JsonException
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testThrowsIfSecretNotFoundInDeleteAction(): void
     {
@@ -120,7 +130,12 @@ class DeleteControllerTest extends TestCase
     }
 
     /**
-     * @throws ConfigurationError|BadRequest|NotFound|\SimpleSAML\Error\Exception|OidcServerException|JsonException
+     * @throws \JsonException
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testThrowsIfSecretIsInvalidInDeleteAction(): void
     {
@@ -139,7 +154,12 @@ class DeleteControllerTest extends TestCase
     }
 
     /**
-     * @throws ConfigurationError|BadRequest|NotFound|\SimpleSAML\Error\Exception|OidcServerException|JsonException
+     * @throws \JsonException
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testItDeletesClient(): void
     {
@@ -163,7 +183,12 @@ class DeleteControllerTest extends TestCase
     }
 
     /**
-     * @throws ConfigurationError|BadRequest|NotFound|\SimpleSAML\Error\Exception|OidcServerException|JsonException
+     * @throws \JsonException
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testItDeletesClientWithOwner(): void
     {

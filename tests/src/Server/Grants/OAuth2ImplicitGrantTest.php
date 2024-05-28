@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Server\Grants;
 
-use SimpleSAML\Module\oidc\Server\Grants\OAuth2ImplicitGrant;
 use PHPUnit\Framework\TestCase;
 
 /**

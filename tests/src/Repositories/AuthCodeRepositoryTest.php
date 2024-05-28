@@ -17,14 +17,11 @@ namespace SimpleSAML\Test\Module\oidc\Repositories;
 
 use DateTimeImmutable;
 use Exception;
-use JsonException;
-use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
-use SimpleSAML\Error\Error;
-use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
@@ -44,7 +41,7 @@ class AuthCodeRepositoryTest extends TestCase
     protected static AuthCodeRepository $repository;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public static function setUpBeforeClass(): void
     {
@@ -76,11 +73,10 @@ class AuthCodeRepositoryTest extends TestCase
     }
 
     /**
-     * @throws UniqueTokenIdentifierConstraintViolationException
-     * @throws Error
-     * @throws JsonException
-     * @throws Exception
-     * @throws Exception
+     * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
+     * @throws \SimpleSAML\Error\Error
+     * @throws \JsonException
+     * @throws \Exception
      */
     public function testAddAndFound(): void
     {
@@ -107,7 +103,7 @@ class AuthCodeRepositoryTest extends TestCase
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function testAddAndNotFound(): void
     {
@@ -117,8 +113,8 @@ class AuthCodeRepositoryTest extends TestCase
     }
 
     /**
-     * @throws JsonException
-     * @throws Exception
+     * @throws \JsonException
+     * @throws \Exception
      */
     public function testRevokeCode(): void
     {
@@ -129,7 +125,7 @@ class AuthCodeRepositoryTest extends TestCase
     }
 
     /**
-     * @throws JsonException
+     * @throws \JsonException
      */
     public function testErrorRevokeInvalidAuthCode(): void
     {
@@ -146,7 +142,7 @@ class AuthCodeRepositoryTest extends TestCase
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function testRemoveExpired(): void
     {

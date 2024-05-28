@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Entities;
 
-use Exception;
-use SimpleSAML\Module\oidc\Entities\UserEntity;
 use PHPUnit\Framework\TestCase;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Entities\UserEntity;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Entities\UserEntity
@@ -27,7 +25,7 @@ class UserEntityTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     protected function prepareMockedInstance(array $state = null): UserEntity
     {
@@ -36,8 +34,8 @@ class UserEntityTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws Exception
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \Exception
      */
     public function testItIsInitializable(): void
     {
@@ -53,8 +51,8 @@ class UserEntityTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws Exception
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \Exception
      */
     public function testCanGetProperties(): void
     {
@@ -69,7 +67,7 @@ class UserEntityTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCanGetState(): void
     {

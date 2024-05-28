@@ -4,21 +4,19 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
-use PHPUnit\Framework\MockObject\Exception;
-use PHPUnit\Framework\MockObject\Stub;
-use PHPUnit\Framework\MockObject\MockObject;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
+use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Configuration;
-use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeOfflineAccessRule;
-use Throwable;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeOfflineAccessRule
@@ -39,7 +37,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
     protected Stub $openIdConfigurationStub;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function setUp(): void
     {
@@ -75,8 +73,8 @@ class ScopeOfflineAccessRuleTest extends TestCase
     }
 
     /**
-     * @throws Throwable
-     * @throws OidcServerException
+     * @throws \Throwable
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testReturnsFalseWhenOfflineAccessScopeNotPresent(): void
     {
@@ -105,7 +103,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
     }
 
     /**
-     * @throws Throwable
+     * @throws \Throwable
      */
     public function testThrowsWhenClientDoesntHaveOfflineAccessScopeRegistered(): void
     {
@@ -134,8 +132,8 @@ class ScopeOfflineAccessRuleTest extends TestCase
     }
 
     /**
-     * @throws Throwable
-     * @throws OidcServerException
+     * @throws \Throwable
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testReturnsTrueWhenClientDoesHaveOfflineAccessScopeRegistered(): void
     {

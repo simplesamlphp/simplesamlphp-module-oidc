@@ -4,20 +4,17 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Services;
 
-use PHPUnit\Framework\MockObject\MockObject;
 use Laminas\Diactoros\ServerRequest;
 use Laminas\Diactoros\Uri;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Auth\Source;
-use SimpleSAML\Error\AuthSource;
-use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Error\Exception;
-use SimpleSAML\Error\NotFound;
-use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
@@ -133,10 +130,10 @@ class AuthenticationServiceTest extends TestCase
     }
 
     /**
-     * @throws AuthSource
-     * @throws BadRequest
-     * @throws NotFound
-     * @throws Exception
+     * @throws \SimpleSAML\Error\AuthSource
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Error\Exception
      */
     public function testItCreatesNewUser(): void
     {
@@ -175,10 +172,10 @@ class AuthenticationServiceTest extends TestCase
     }
 
     /**
-     * @throws AuthSource
-     * @throws BadRequest
-     * @throws NotFound
-     * @throws Exception
+     * @throws \SimpleSAML\Error\AuthSource
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Error\Exception
      */
     public function testItReturnsAnUser(): void
     {
@@ -219,9 +216,9 @@ class AuthenticationServiceTest extends TestCase
     }
 
     /**
-     * @throws AuthSource
-     * @throws BadRequest
-     * @throws NotFound
+     * @throws \SimpleSAML\Error\AuthSource
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\NotFound
      */
     public function testItThrowsIfClaimsNotExist(): void
     {

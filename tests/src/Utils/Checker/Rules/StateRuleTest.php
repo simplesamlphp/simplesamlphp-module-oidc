@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
-use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\ResultBag;
@@ -23,7 +21,7 @@ class StateRuleTest extends TestCase
     protected Stub $loggerServiceStub;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function setUp(): void
     {
@@ -37,8 +35,8 @@ class StateRuleTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws Exception
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \Exception
      */
     public function testCheckRuleGetMethod(): void
     {
@@ -59,8 +57,8 @@ class StateRuleTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws Exception
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \Exception
      */
     public function testCheckRulePostMethod(): void
     {
@@ -81,8 +79,8 @@ class StateRuleTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws Exception
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \Exception
      */
     public function testCheckRuleReturnsNullWhenMethodNotAllowed(): void
     {
@@ -102,8 +100,8 @@ class StateRuleTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws Exception
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \Exception
      */
     public function testCheckRuleReturnsNullWhenMethodNotSupported(): void
     {

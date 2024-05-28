@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc;
 
-use Exception;
 use Lcobucci\JWT\Signer;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -17,6 +16,7 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Utils\Config;
 use SimpleSAML\Utils\HTTP;
+use stdClass;
 
 #[CoversClass(ModuleConfig::class)]
 class ModuleConfigTest extends TestCase
@@ -101,7 +101,7 @@ class ModuleConfigTest extends TestCase
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function testSigningKeyNameCanBeCustomized(): void
     {
@@ -276,7 +276,7 @@ class ModuleConfigTest extends TestCase
 
     public function testThrowsIfInvalidSignerProvided(): void
     {
-        $this->overrides[ModuleConfig::OPTION_TOKEN_SIGNER] = \stdClass::class;
+        $this->overrides[ModuleConfig::OPTION_TOKEN_SIGNER] = stdClass::class;
         $this->expectException(ConfigurationError::class);
         $this->mock()->getProtocolSigner();
     }

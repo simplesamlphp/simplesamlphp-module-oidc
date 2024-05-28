@@ -6,7 +6,6 @@ namespace SimpleSAML\Test\Module\oidc\Utils;
 
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Entities\ClaimSetEntity;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Utils\Attributes;
 
@@ -19,7 +18,7 @@ class ClaimTranslatorExtractorTest extends TestCase
 
     /**
      * Test various type conversions work, including types in subobjects
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testTypeConversion(): void
     {
@@ -114,7 +113,7 @@ class ClaimTranslatorExtractorTest extends TestCase
 
     /**
      * Test that the default translator configuration sets address correctly.
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testDefaultTypeConversion(): void
     {
@@ -140,7 +139,7 @@ class ClaimTranslatorExtractorTest extends TestCase
 
     /**
      * Test we can set the non-string standard claims
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testStandardClaimTypesCanBeSet(): void
     {
@@ -194,7 +193,7 @@ class ClaimTranslatorExtractorTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testInvalidTypeConversion(): void
     {
@@ -212,7 +211,7 @@ class ClaimTranslatorExtractorTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testExtractRequestClaimsUserInfo(): void
     {
@@ -228,7 +227,7 @@ class ClaimTranslatorExtractorTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testExtractRequestClaimsIdToken(): void
     {

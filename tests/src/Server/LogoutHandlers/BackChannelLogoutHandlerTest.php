@@ -4,15 +4,13 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Server\LogoutHandlers;
 
-use League\OAuth2\Server\Exception\OAuthServerException;
-use PHPUnit\Framework\MockObject\Exception;
-use PHPUnit\Framework\MockObject\MockObject;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
+use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation;
 use SimpleSAML\Module\oidc\Server\LogoutHandlers\BackChannelLogoutHandler;
-use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\LogoutTokenBuilder;
 
@@ -33,7 +31,7 @@ class BackChannelLogoutHandlerTest extends TestCase
     private array $sampleRelyingPartyAssociation = [];
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function setUp(): void
     {
@@ -44,7 +42,7 @@ class BackChannelLogoutHandlerTest extends TestCase
     }
 
     /**
-     * @throws OAuthServerException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
     public function testLogsErrorForInvalidUri(): void
     {
@@ -59,7 +57,7 @@ class BackChannelLogoutHandlerTest extends TestCase
     }
 
     /**
-     * @throws OAuthServerException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
     public function testLogsNoticeForSuccessfulResponse(): void
     {

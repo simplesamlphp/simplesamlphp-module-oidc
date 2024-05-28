@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Entities;
 
-use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\RefreshTokenEntity;
-use PHPUnit\Framework\TestCase;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Entities\RefreshTokenEntity
@@ -21,7 +19,7 @@ class RefreshTokenEntityTest extends TestCase
     protected array $state;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function setUp(): void
     {
@@ -38,7 +36,7 @@ class RefreshTokenEntityTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     protected function prepareMockedInstance(array $state = null): RefreshTokenEntityInterface
     {
@@ -47,7 +45,7 @@ class RefreshTokenEntityTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testItIsInitializable(): void
     {
@@ -58,7 +56,7 @@ class RefreshTokenEntityTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCanGetState(): void
     {

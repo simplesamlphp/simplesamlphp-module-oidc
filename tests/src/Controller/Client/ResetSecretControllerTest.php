@@ -9,8 +9,6 @@ use Laminas\Diactoros\ServerRequest;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Error\BadRequest;
-use SimpleSAML\Error\Exception;
-use SimpleSAML\Error\NotFound;
 use SimpleSAML\Module\oidc\Controller\Client\ResetSecretController;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
@@ -62,8 +60,8 @@ class ResetSecretControllerTest extends TestCase
     }
 
     /**
-     * @throws Exception
-     * @throws NotFound
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\NotFound
      */
     public function testItThrowsIdNotFoundExceptionInResetSecretAction(): void
     {
@@ -73,8 +71,8 @@ class ResetSecretControllerTest extends TestCase
     }
 
     /**
-     * @throws BadRequest
-     * @throws Exception
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\Exception
      */
     public function testItThrowsClientNotFoundExceptionInResetSecretAction(): void
     {
@@ -90,8 +88,8 @@ class ResetSecretControllerTest extends TestCase
     }
 
     /**
-     * @throws Exception
-     * @throws NotFound
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\NotFound
      */
     public function testThrowsSecretNotFoundExceptionInResetSecretAction(): void
     {
@@ -111,8 +109,8 @@ class ResetSecretControllerTest extends TestCase
     }
 
     /**
-     * @throws Exception
-     * @throws NotFound
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\NotFound
      */
     public function testThrowsSecretInvalidExceptionInResetSecretAction(): void
     {
@@ -138,9 +136,9 @@ class ResetSecretControllerTest extends TestCase
     }
 
     /**
-     * @throws BadRequest
-     * @throws Exception
-     * @throws NotFound
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\NotFound
      */
     public function testItResetSecretsClient(): void
     {
@@ -177,9 +175,9 @@ class ResetSecretControllerTest extends TestCase
     }
 
     /**
-     * @throws BadRequest
-     * @throws Exception
-     * @throws NotFound
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\NotFound
      */
     public function testItSendBackToShowClientIfNotPostMethodInResetAction(): void
     {

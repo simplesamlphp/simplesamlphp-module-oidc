@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Services;
 
-use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use PHPUnit\Framework\TestCase;
 
 /**

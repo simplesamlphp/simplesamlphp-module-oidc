@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Services;
 
-use PHPUnit\Framework\MockObject\Stub;
-use Exception;
 use Lcobucci\JWT\Builder;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Signer\Key\InMemory;
@@ -13,9 +11,8 @@ use Lcobucci\JWT\Signer\Rsa\Sha256;
 use Lcobucci\JWT\UnencryptedToken;
 use Lcobucci\JWT\Validation\Constraint\IssuedBy;
 use Lcobucci\JWT\Validation\Constraint\SignedWith;
-use League\OAuth2\Server\Exception\OAuthServerException;
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
-use ReflectionException;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 
@@ -29,6 +26,7 @@ class JsonWebTokenBuilderServiceTest extends TestCase
     private static string $publicKeyPath;
     private static Sha256 $signerSha256;
     private static string $selfUrlHost = 'https://example.org';
+
     /**
      * @var mixed
      */
@@ -55,8 +53,8 @@ class JsonWebTokenBuilderServiceTest extends TestCase
     }
 
     /**
-     * @throws ReflectionException
-     * @throws OAuthServerException
+     * @throws \ReflectionException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
     public function testCanCreateBuilderInstance(): void
     {
@@ -69,9 +67,9 @@ class JsonWebTokenBuilderServiceTest extends TestCase
     }
 
     /**
-     * @throws ReflectionException
-     * @throws OAuthServerException
-     * @throws Exception
+     * @throws \ReflectionException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \Exception
      */
     public function testCanGenerateSignedJwtToken(): void
     {
@@ -110,7 +108,7 @@ class JsonWebTokenBuilderServiceTest extends TestCase
     }
 
     /**
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     public function testCanReturnCurrentSigner(): void
     {
