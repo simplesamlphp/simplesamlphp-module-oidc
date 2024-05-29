@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Controller;
 
-use League\OAuth2\Server\Exception\OAuthServerException;
-use PHPUnit\Framework\MockObject\Exception;
-use PHPUnit\Framework\MockObject\MockObject;
 use Laminas\Diactoros\ServerRequest;
 use League\OAuth2\Server\ResourceServer;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Error\UserNotFound;
@@ -19,7 +17,6 @@ use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
 /**
@@ -38,7 +35,7 @@ class UserInfoControllerTest extends TestCase
     protected MockObject $userEntityMock;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function setUp(): void
     {
@@ -74,9 +71,9 @@ class UserInfoControllerTest extends TestCase
     }
 
     /**
-     * @throws UserNotFound
-     * @throws OidcServerException
-     * @throws OAuthServerException
+     * @throws \SimpleSAML\Error\UserNotFound
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
     public function testItReturnsUserClaims(): void
     {
@@ -139,8 +136,8 @@ class UserInfoControllerTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws OAuthServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
     public function testItThrowsIfAccessTokenNotFound(): void
     {
@@ -174,8 +171,8 @@ class UserInfoControllerTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws OAuthServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
     public function testItThrowsIfUserNotFound(): void
     {

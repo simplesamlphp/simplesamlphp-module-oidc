@@ -13,10 +13,10 @@ declare(strict_types=1);
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
+
 namespace SimpleSAML\Module\oidc\Factories;
 
 use SimpleSAML\Configuration;
-use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\XHTML\Template;
 
 class TemplateFactory
@@ -29,7 +29,7 @@ class TemplateFactory
     }
 
     /**
-     * @throws ConfigurationError
+     * @throws \SimpleSAML\Error\ConfigurationError
      */
     public function render(string $templateName, array $data = []): Template
     {

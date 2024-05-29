@@ -7,7 +7,6 @@ namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
 use LogicException;
 use PHPUnit\Framework\MockObject\Builder\InvocationStubber;
-use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -21,7 +20,6 @@ use SimpleSAML\Module\oidc\Utils\Checker\ResultBag;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
-use Throwable;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule
@@ -46,7 +44,7 @@ class ScopeRuleTest extends TestCase
     protected Stub $loggerServiceStub;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function setUp(): void
     {
@@ -68,8 +66,8 @@ class ScopeRuleTest extends TestCase
     }
 
     /**
-     * @throws Throwable
-     * @throws OidcServerException
+     * @throws \Throwable
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCheckRuleRedirectUriDependency(): void
     {
@@ -80,8 +78,8 @@ class ScopeRuleTest extends TestCase
     }
 
     /**
-     * @throws Throwable
-     * @throws OidcServerException
+     * @throws \Throwable
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCheckRuleStateDependency(): void
     {
@@ -93,8 +91,8 @@ class ScopeRuleTest extends TestCase
     }
 
     /**
-     * @throws Throwable
-     * @throws OidcServerException
+     * @throws \Throwable
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testValidScopes(): void
     {
@@ -118,7 +116,7 @@ class ScopeRuleTest extends TestCase
     }
 
     /**
-     * @throws Throwable
+     * @throws \Throwable
      */
     public function testInvalidScopeThrows(): void
     {

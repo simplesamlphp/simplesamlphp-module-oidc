@@ -6,8 +6,6 @@ namespace SimpleSAML\Test\Module\oidc\Controller;
 
 use Laminas\Diactoros\Response;
 use Laminas\Diactoros\ServerRequest;
-use League\OAuth2\Server\Exception\OAuthServerException;
-use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Controller\AccessTokenController;
@@ -27,7 +25,7 @@ class AccessTokenControllerTest extends TestCase
     protected MockObject $responseMock;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function setUp(): void
     {
@@ -49,7 +47,7 @@ class AccessTokenControllerTest extends TestCase
     }
 
     /**
-     * @throws OAuthServerException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
     public function testItRespondsToAccessTokenRequest(): void
     {
@@ -81,7 +79,7 @@ class AccessTokenControllerTest extends TestCase
     }
 
     /**
-     * @return AccessTokenController
+     * @return \SimpleSAML\Module\oidc\Controller\AccessTokenController
      */
     protected function prepareMockedInstance(): AccessTokenController
     {

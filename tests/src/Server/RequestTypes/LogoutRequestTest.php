@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\Server\RequestTypes;
 
 use Lcobucci\JWT\UnencryptedToken;
-use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\Stub;
-use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest
@@ -22,7 +21,7 @@ class LogoutRequestTest extends TestCase
     protected static string $uiLocales = 'en';
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function setUp(): void
     {

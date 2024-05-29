@@ -17,7 +17,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Controller\Client;
 
 use Laminas\Diactoros\Response\RedirectResponse;
-use SimpleSAML\Error\Exception;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
@@ -44,8 +43,9 @@ class CreateController
     }
 
     /**
-     * @return RedirectResponse|Template
-     * @throws Exception
+     * @return \Laminas\Diactoros\Response\RedirectResponse|\SimpleSAML\XHTML\Template
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \Exception
      */
     public function __invoke(): Template|RedirectResponse

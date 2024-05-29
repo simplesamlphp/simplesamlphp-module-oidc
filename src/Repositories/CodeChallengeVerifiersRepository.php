@@ -14,7 +14,7 @@ use function in_array;
 class CodeChallengeVerifiersRepository
 {
     /**
-     * @var CodeChallengeVerifierInterface[]
+     * @var \League\OAuth2\Server\CodeChallengeVerifiers\CodeChallengeVerifierInterface[]
      */
     protected array $codeChallengeVerifiers = [];
 
@@ -30,7 +30,7 @@ class CodeChallengeVerifiersRepository
     }
 
     /**
-     * @return CodeChallengeVerifierInterface[]
+     * @return \League\OAuth2\Server\CodeChallengeVerifiers\CodeChallengeVerifierInterface[]
      */
     public function getAll(): array
     {
@@ -38,7 +38,8 @@ class CodeChallengeVerifiersRepository
     }
 
     /**
-     * @return CodeChallengeVerifierInterface|null Verifier for the method or null if not supported.
+     * @return \League\OAuth2\Server\CodeChallengeVerifiers\CodeChallengeVerifierInterface|null
+     *   Verifier for the method or null if not supported.
      */
     public function get(string $method): ?CodeChallengeVerifierInterface
     {

@@ -6,10 +6,7 @@ namespace SimpleSAML\Module\oidc\Server\Grants\Traits;
 
 use DateInterval;
 use DateTimeImmutable;
-use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Entities\ClientEntityInterface;
-use League\OAuth2\Server\Entities\ScopeEntityInterface;
-use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use League\OAuth2\Server\Grant\AbstractGrant;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
@@ -30,7 +27,7 @@ trait IssueAccessTokenTrait
     protected $accessTokenRepository;
 
     /**
-     * @var CryptKey
+     * @var \League\OAuth2\Server\CryptKey
      */
     protected $privateKey;
 
@@ -38,10 +35,10 @@ trait IssueAccessTokenTrait
      * Issue an access token.
      *
      * @param string|null $userIdentifier
-     * @param ScopeEntityInterface[] $scopes
+     * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
      * @param array|null $requestedClaims Any requested claims
-     * @throws OAuthServerException
-     * @throws UniqueTokenIdentifierConstraintViolationException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
      */
     protected function issueAccessToken(
         DateInterval $accessTokenTTL,
@@ -89,7 +86,7 @@ trait IssueAccessTokenTrait
      * Generate a new unique identifier.
      *
      * @param int $length
-     * @throws OAuthServerException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
      *
      * @return string
      */

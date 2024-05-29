@@ -4,16 +4,14 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
-use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\Stub;
+use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\AcrValuesRule;
-use PHPUnit\Framework\TestCase;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Utils\Checker\Rules\AcrValuesRule
@@ -26,7 +24,7 @@ class AcrValuesRuleTest extends TestCase
     protected Stub $loggerServiceStub;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function setUp(): void
     {
@@ -37,7 +35,7 @@ class AcrValuesRuleTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testNoAcrIsSetIfAcrValuesNotRequested(): void
     {
@@ -50,7 +48,7 @@ class AcrValuesRuleTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testPopulatesAcrValuesFromClaimsParameter(): void
     {
@@ -69,7 +67,7 @@ class AcrValuesRuleTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testPopulatesAcrValuesFromAcrValuesRequestParameter(): void
     {

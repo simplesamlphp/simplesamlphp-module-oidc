@@ -16,8 +16,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Repositories;
 
-use Exception;
-use JsonException;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface as OAuth2AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use RuntimeException;
@@ -26,7 +24,6 @@ use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 class AccessTokenRepository extends AbstractDatabaseRepository implements AccessTokenRepositoryInterface
@@ -61,8 +58,8 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
 
     /**
      * {@inheritdoc}
-     * @throws Error
-     * @throws JsonException
+     * @throws \JsonException
+     * @throws \SimpleSAML\Error\Error
      */
     public function persistNewAccessToken(OAuth2AccessTokenEntityInterface $accessTokenEntity): void
     {
@@ -84,8 +81,8 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
 
     /**
      * Find Access Token by id.
-     * @throws Exception
-     * @throws OidcServerException
+     * @throws \Exception
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function findById(string $tokenId): ?AccessTokenEntity
     {
@@ -110,8 +107,8 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
 
     /**
      * {@inheritdoc}
-     * @throws JsonException
-     * @throws OidcServerException
+     * @throws \JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function revokeAccessToken($tokenId): void
     {
@@ -127,7 +124,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
 
     /**
      * {@inheritdoc}
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function isAccessTokenRevoked($tokenId): bool
     {
@@ -142,7 +139,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
 
     /**
      * Removes expired access tokens.
-     * @throws Exception
+     * @throws \Exception
      */
     public function removeExpired(): void
     {
@@ -163,7 +160,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
     }
 
     /**
-     * @throws JsonException
+     * @throws \JsonException
      */
     private function update(AccessTokenEntity $accessTokenEntity): void
     {

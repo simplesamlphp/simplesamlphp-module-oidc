@@ -12,7 +12,6 @@ use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\UriInterface;
 use SimpleSAML\Error\BadRequest;
-use SimpleSAML\Error\NotFound;
 use SimpleSAML\Module\oidc\Controller\Client\EditController;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
@@ -96,9 +95,9 @@ class EditControllerTest extends TestCase
     }
 
     /**
-     * @throws BadRequest
+     * @throws \SimpleSAML\Error\BadRequest
      * @throws \SimpleSAML\Error\Exception
-     * @throws NotFound
+     * @throws \SimpleSAML\Error\NotFound
      */
     public function testItShowsEditClientForm(): void
     {
@@ -147,9 +146,9 @@ class EditControllerTest extends TestCase
     }
 
     /**
-     * @throws BadRequest
+     * @throws \SimpleSAML\Error\BadRequest
      * @throws \SimpleSAML\Error\Exception
-     * @throws NotFound
+     * @throws \SimpleSAML\Error\NotFound
      */
     public function testItUpdatesClientFromEditClientFormData(): void
     {
@@ -233,9 +232,9 @@ class EditControllerTest extends TestCase
     }
 
     /**
-     * @throws BadRequest
+     * @throws \SimpleSAML\Error\BadRequest
      * @throws \SimpleSAML\Error\Exception
-     * @throws NotFound
+     * @throws \SimpleSAML\Error\NotFound
      */
     public function testItSendsOwnerArgToRepoOnUpdate(): void
     {
@@ -322,7 +321,7 @@ class EditControllerTest extends TestCase
 
     /**
      * @throws \SimpleSAML\Error\Exception
-     * @throws NotFound
+     * @throws \SimpleSAML\Error\NotFound
      */
     public function testThrowsIdNotFoundExceptionInEditAction(): void
     {
@@ -334,9 +333,9 @@ class EditControllerTest extends TestCase
     }
 
     /**
-     * @throws BadRequest
+     * @throws \SimpleSAML\Error\BadRequest
      * @throws \SimpleSAML\Error\Exception
-     * @throws NotFound
+     * @throws \SimpleSAML\Error\NotFound
      */
     public function testThrowsClientNotFoundExceptionInEditAction(): void
     {

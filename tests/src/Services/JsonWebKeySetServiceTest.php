@@ -33,7 +33,7 @@ class JsonWebKeySetServiceTest extends TestCase
 
     /**
      * @return void
-     * @throws Exception
+     * @throws \Exception
      */
     public static function setUpBeforeClass(): void
     {

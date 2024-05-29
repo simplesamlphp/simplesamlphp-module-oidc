@@ -8,7 +8,6 @@ use SimpleSAML\Module\oidc\Codebooks\ClaimNamesEnum;
 use SimpleSAML\Module\oidc\Codebooks\ClaimValues\TypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\EntityTypeEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
@@ -27,8 +26,8 @@ class EntityStatementController
 
     /**
      * Return the JWS with the OP configuration statement.
-     * @return Response
-     * @throws OidcServerException
+     * @return \Symfony\Component\HttpFoundation\Response
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function configuration(): Response
     {

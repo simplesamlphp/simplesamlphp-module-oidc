@@ -16,17 +16,15 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Entities;
 
 use DateTimeImmutable;
-use Exception;
-use JsonException;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\TokenEntityTrait;
+use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\MementoInterface;
 use SimpleSAML\Module\oidc\Entities\Traits\OidcAuthCodeTrait;
 use SimpleSAML\Module\oidc\Entities\Traits\RevokeTokenTrait;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
-use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
 
 class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
 {
@@ -36,8 +34,9 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
     use RevokeTokenTrait;
 
     /**
-     * @throws OidcServerException|JsonException
-     * @throws Exception
+     * @throws \Exception
+     * @throws \JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public static function fromState(array $state): self
     {
@@ -81,7 +80,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
     }
 
     /**
-     * @throws JsonException
+     * @throws \JsonException
      */
     public function getState(): array
     {

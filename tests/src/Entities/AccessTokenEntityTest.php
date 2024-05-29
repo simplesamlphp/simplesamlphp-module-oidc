@@ -4,14 +4,11 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Entities;
 
-use JsonException;
-use PHPUnit\Framework\MockObject\Exception;
+use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
-use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Entities\AccessTokenEntity
@@ -33,23 +30,23 @@ class AccessTokenEntityTest extends TestCase
 
 
     /**
-     * @var ClientEntity
+     * @var \SimpleSAML\Module\oidc\Entities\ClientEntity
      */
     protected ClientEntity $clientEntityStub;
 
     /**
-     * @var ScopeEntity
+     * @var \SimpleSAML\Module\oidc\Entities\ScopeEntity
      */
     protected ScopeEntity $scopeEntityOpenId;
 
     /**
-     * @var ScopeEntity
+     * @var \SimpleSAML\Module\oidc\Entities\ScopeEntity
      */
     protected ScopeEntity $scopeEntityProfile;
 
     /**
-     * @throws Exception
-     * @throws JsonException
+     * @throws \Exception
+     * @throws \JsonException
      */
     protected function setUp(): void
     {
@@ -87,8 +84,8 @@ class AccessTokenEntityTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
      */
     public function testCanCreateInstanceFromState(): void
     {
@@ -110,8 +107,8 @@ class AccessTokenEntityTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
      */
     public function testHasProperState(): void
     {
@@ -125,8 +122,8 @@ class AccessTokenEntityTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
      */
     public function testHasImmutableStringRepresentation(): void
     {

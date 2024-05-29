@@ -13,18 +13,19 @@ declare(strict_types=1);
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
+
 namespace SimpleSAML\Module\oidc\Factories;
 
 use DateInterval;
-use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use League\OAuth2\Server\CryptKey;
-use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
-use SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant;
-use SimpleSAML\Module\oidc\Server\Grants\OAuth2ImplicitGrant;
 use League\OAuth2\Server\Grant\RefreshTokenGrant;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
+use SimpleSAML\Module\oidc\Server\AuthorizationServer;
+use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
+use SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant;
+use SimpleSAML\Module\oidc\Server\Grants\OAuth2ImplicitGrant;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 

@@ -6,7 +6,6 @@ namespace SimpleSAML\Test\Module\oidc\Controller\Traits;
 
 use Laminas\Diactoros\Response;
 use Laminas\Diactoros\ServerRequest;
-use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Controller\Traits\RequestTrait;
@@ -45,7 +44,7 @@ class RequestTraitTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testItThrowsIfOriginHeaderNotAvailable(): void
     {
@@ -56,7 +55,7 @@ class RequestTraitTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testItThrowsIfOriginHeaderNotAllowed(): void
     {

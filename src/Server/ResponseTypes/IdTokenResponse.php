@@ -16,15 +16,12 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Server\ResponseTypes;
 
-use Exception;
 use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
-use League\OAuth2\Server\Entities\RefreshTokenEntityInterface;
-use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\ResponseTypes\BearerTokenResponse;
-use SimpleSAML\Module\oidc\Repositories\Interfaces\IdentityProviderInterface;
 use RuntimeException;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\IdentityProviderInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AcrResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
@@ -59,13 +56,13 @@ class IdTokenResponse extends BearerTokenResponse implements
     protected ?string $sessionId = null;
 
     /**
-     * @var AccessTokenEntityInterface
+     * @var \League\OAuth2\Server\Entities\AccessTokenEntityInterface
      * @psalm-suppress PropertyNotSetInConstructor
      */
     protected $accessToken;
 
     /**
-     * @var RefreshTokenEntityInterface
+     * @var \League\OAuth2\Server\Entities\RefreshTokenEntityInterface
      * @psalm-suppress PropertyNotSetInConstructor
      */
     protected $refreshToken;
@@ -79,9 +76,9 @@ class IdTokenResponse extends BearerTokenResponse implements
     }
 
     /**
-     * @param AccessTokenEntityInterface $accessToken
+     * @param \League\OAuth2\Server\Entities\AccessTokenEntityInterface $accessToken
      * @return array
-     * @throws Exception
+     * @throws \Exception
      */
     protected function getExtraParams(AccessTokenEntityInterface $accessToken): array
     {
@@ -122,7 +119,7 @@ class IdTokenResponse extends BearerTokenResponse implements
     }
 
     /**
-     * @param ScopeEntityInterface[] $scopes
+     * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
      *
      * @return bool
      */

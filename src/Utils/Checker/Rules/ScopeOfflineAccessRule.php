@@ -4,22 +4,19 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
-use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\ScopeHelper;
-use Throwable;
 
 class ScopeOfflineAccessRule extends AbstractRule
 {
     /**
      * @inheritDoc
-     * @throws Throwable
+     * @throws \Throwable
      */
     public function checkRule(
         ServerRequestInterface $request,
@@ -33,9 +30,9 @@ class ScopeOfflineAccessRule extends AbstractRule
         $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
-        /** @var ClientEntityInterface $client */
+        /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
-        /** @var ScopeEntityInterface[] $validScopes */
+        /** @var \League\OAuth2\Server\Entities\ScopeEntityInterface[] $validScopes */
         $validScopes = $currentResultBag->getOrFail(ScopeRule::class)->getValue();
 
         // Check if offline_access scope is used. If not, we don't have to check anything else.

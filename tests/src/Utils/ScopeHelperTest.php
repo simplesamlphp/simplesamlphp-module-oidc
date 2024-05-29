@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\Utils;
 
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
-use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -21,7 +20,7 @@ class ScopeHelperTest extends TestCase
     protected array $scopeEntitiesArray;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function setUp(): void
     {
@@ -36,7 +35,7 @@ class ScopeHelperTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCanCheckScopeExistence(): void
     {

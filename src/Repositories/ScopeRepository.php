@@ -15,7 +15,6 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Module\oidc\Repositories;
 
-use Exception;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
@@ -34,7 +33,7 @@ class ScopeRepository extends AbstractDatabaseRepository implements ScopeReposit
 
     /**
      * {@inheritdoc}
-     * @throws Exception
+     * @throws \Exception
      */
     public function getScopeEntityByIdentifier($identifier): ScopeEntity|ScopeEntityInterface|null
     {

@@ -17,7 +17,6 @@ namespace SimpleSAML\Module\oidc\Controller;
 
 use Laminas\Diactoros\Response;
 use Laminas\Diactoros\ServerRequest;
-use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ResponseInterface;
 use SimpleSAML\Module\oidc\Controller\Traits\RequestTrait;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
@@ -34,7 +33,7 @@ class AccessTokenController
     }
 
     /**
-     * @throws OAuthServerException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
     public function __invoke(ServerRequest $request): ResponseInterface
     {

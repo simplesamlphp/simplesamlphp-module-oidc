@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Server\ResponseTypes;
 
-use PHPUnit\Framework\MockObject\MockObject;
 use DateTimeImmutable;
 use Exception;
 use Laminas\Diactoros\Response;
@@ -13,7 +12,6 @@ use Lcobucci\JWT\Encoding\JoseEncoder;
 use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
 use Lcobucci\JWT\Token\Parser;
-use Lcobucci\JWT\Token\Plain;
 use Lcobucci\JWT\Validation\Constraint\IdentifiedBy;
 use Lcobucci\JWT\Validation\Constraint\IssuedBy;
 use Lcobucci\JWT\Validation\Constraint\PermittedFor;
@@ -22,14 +20,14 @@ use Lcobucci\JWT\Validation\Constraint\SignedWith;
 use Lcobucci\JWT\Validation\Constraint\StrictValidAt;
 use Lcobucci\JWT\Validation\Validator;
 use League\OAuth2\Server\CryptKey;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use ReflectionException;
 use SimpleSAML\Configuration;
-use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\IdentityProviderInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
@@ -61,8 +59,8 @@ class IdTokenResponseTest extends TestCase
 
     /**
      * @throws \PHPUnit\Framework\MockObject\Exception
-     * @throws ReflectionException
-     * @throws Exception
+     * @throws \ReflectionException
+     * @throws \Exception
      */
     protected function setUp(): void
     {
@@ -140,7 +138,7 @@ class IdTokenResponseTest extends TestCase
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function testItCanGenerateResponse(): void
     {
@@ -156,7 +154,7 @@ class IdTokenResponseTest extends TestCase
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function testItCanGenerateResponseWithIndividualRequestedClaims(): void
     {
@@ -205,7 +203,7 @@ class IdTokenResponseTest extends TestCase
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function shouldHaveValidIdToken(string $body, $expectedClaims = []): bool
     {

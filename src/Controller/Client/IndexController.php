@@ -17,7 +17,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Controller\Client;
 
 use Laminas\Diactoros\ServerRequest;
-use SimpleSAML\Error\Exception;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
@@ -33,8 +32,8 @@ class IndexController
     }
 
     /**
-     * @throws Exception
      * @throws \Exception
+     * @throws \SimpleSAML\Error\Exception
      */
     public function __invoke(ServerRequest $request): Template
     {

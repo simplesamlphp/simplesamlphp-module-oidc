@@ -16,20 +16,20 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controller\Traits;
 
-use JsonException;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Error\BadRequest;
-use SimpleSAML\Error\NotFound;
+use SimpleSAML\Error;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 trait GetClientFromRequestTrait
 {
     protected ClientRepository $clientRepository;
 
     /**
-     * @throws BadRequest|NotFound|OidcServerException|JsonException
+     * @throws \JsonException
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     protected function getClientFromRequest(ServerRequestInterface $request): ClientEntityInterface
     {
@@ -37,12 +37,12 @@ trait GetClientFromRequestTrait
         $clientId = empty($params['client_id']) ? null : (string)$params['client_id'];
 
         if (!is_string($clientId)) {
-            throw new BadRequest('Client id is missing.');
+            throw new Error\BadRequest('Client id is missing.');
         }
 
         $client = $this->clientRepository->findById($clientId);
         if (!$client) {
-            throw new NotFound('Client not found.');
+            throw new Error\NotFound('Client not found.');
         }
 
         return $client;

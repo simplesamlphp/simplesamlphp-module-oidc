@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Server\Associations;
 
-use SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation

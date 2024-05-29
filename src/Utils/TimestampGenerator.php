@@ -18,12 +18,11 @@ namespace SimpleSAML\Module\oidc\Utils;
 use DateTime;
 use DateTimeImmutable;
 use DateTimeZone;
-use Exception;
 
 class TimestampGenerator
 {
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public static function utc(string $time = 'now'): DateTime
     {
@@ -31,7 +30,7 @@ class TimestampGenerator
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public static function utcImmutable(string $time = 'now'): DateTimeImmutable
     {

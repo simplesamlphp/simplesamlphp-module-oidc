@@ -6,13 +6,11 @@ namespace SimpleSAML\Module\oidc\Services;
 
 use Base64Url\Base64Url;
 use DateTimeImmutable;
-use Exception;
 use Lcobucci\JWT\Builder;
 use Lcobucci\JWT\Token\RegisteredClaims;
 use Lcobucci\JWT\UnencryptedToken;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
-use League\OAuth2\Server\Exception\OAuthServerException;
 use RuntimeException;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClaimSetInterface;
@@ -28,7 +26,7 @@ class IdTokenBuilder
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      * @psalm-suppress ArgumentTypeCoercion
      */
     public function build(
@@ -131,7 +129,7 @@ class IdTokenBuilder
     }
 
     /**
-     * @throws OAuthServerException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
     protected function getBuilder(
         AccessTokenEntityInterface $accessToken,

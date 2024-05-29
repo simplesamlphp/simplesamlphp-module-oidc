@@ -17,18 +17,14 @@ namespace SimpleSAML\Test\Module\oidc\Repositories;
 
 use DateTimeImmutable;
 use Exception;
-use JsonException;
-use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
-use SimpleSAML\Error\Error;
-use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
@@ -44,7 +40,7 @@ class AccessTokenRepositoryTest extends TestCase
     protected static AccessTokenRepository $repository;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public static function setUpBeforeClass(): void
     {
@@ -76,11 +72,11 @@ class AccessTokenRepositoryTest extends TestCase
     }
 
     /**
-     * @throws UniqueTokenIdentifierConstraintViolationException
-     * @throws Error
-     * @throws OidcServerException
-     * @throws JsonException
-     * @throws Exception
+     * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
+     * @throws \SimpleSAML\Error\Error
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
+     * @throws \Exception
      */
     public function testAddAndFound(): void
     {
@@ -106,7 +102,7 @@ class AccessTokenRepositoryTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testAddAndNotFound(): void
     {
@@ -116,8 +112,8 @@ class AccessTokenRepositoryTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
      */
     public function testRevokeToken(): void
     {
@@ -128,8 +124,8 @@ class AccessTokenRepositoryTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
      */
     public function testErrorRevokeInvalidToken(): void
     {
@@ -139,7 +135,7 @@ class AccessTokenRepositoryTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testErrorCheckIsRevokedInvalidToken(): void
     {
@@ -149,8 +145,8 @@ class AccessTokenRepositoryTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws Exception
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \Exception
      */
     public function testRemoveExpired(): void
     {

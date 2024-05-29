@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Controller;
 
-use PHPUnit\Framework\MockObject\Exception;
-use PHPUnit\Framework\MockObject\MockObject;
 use Laminas\Diactoros\Response\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;
-use SimpleSAML\Module\oidc\Controller\InstallerController;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\Controller\InstallerController;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Services\DatabaseLegacyOAuth2Import;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
@@ -29,7 +28,7 @@ class InstallerControllerTest extends TestCase
     protected MockObject $templateMock;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function setUp(): void
     {

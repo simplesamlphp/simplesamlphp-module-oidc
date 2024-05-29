@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Stores\Session;
 
-use Exception;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
@@ -31,7 +30,7 @@ class LogoutTicketStoreDbTest extends TestCase
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function testCanAddAndDeleteTickets(): void
     {
@@ -48,7 +47,7 @@ class LogoutTicketStoreDbTest extends TestCase
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function testCanDeleteMultipleTickets(): void
     {
@@ -77,7 +76,7 @@ class LogoutTicketStoreDbTest extends TestCase
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function testCanDeleteExpiredTickets(): void
     {

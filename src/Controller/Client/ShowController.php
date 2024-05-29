@@ -15,16 +15,11 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Module\oidc\Controller\Client;
 
-use JsonException;
 use Laminas\Diactoros\ServerRequest;
-use SimpleSAML\Error\BadRequest;
-use SimpleSAML\Error\Exception;
-use SimpleSAML\Error\NotFound;
 use SimpleSAML\Module\oidc\Controller\Traits\AuthenticatedGetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\XHTML\Template;
 
@@ -43,7 +38,11 @@ class ShowController
     }
 
     /**
-     * @throws BadRequest|Exception|NotFound|OidcServerException|JsonException
+     * @throws \JsonException
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function __invoke(ServerRequest $request): Template
     {

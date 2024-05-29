@@ -10,8 +10,8 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 class ScopeHelper
 {
     /**
-     * @param ScopeEntityInterface[] $scopes
-     * @throws OidcServerException
+     * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public static function scopeExists(array $scopes, string $scopeIdentifier): bool
     {

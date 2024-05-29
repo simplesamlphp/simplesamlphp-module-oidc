@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Entities;
 
-use JsonException;
-use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\MockObject;
-use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Entities\AuthCodeEntity
@@ -21,7 +18,7 @@ class AuthCodeEntityTest extends TestCase
     protected array $state;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function setUp(): void
     {
@@ -40,8 +37,8 @@ class AuthCodeEntityTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
      */
     protected function prepareMockedInstance(array $state = null): AuthCodeEntity
     {
@@ -50,8 +47,8 @@ class AuthCodeEntityTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
      */
     public function testItIsInitializable(): void
     {
@@ -62,8 +59,8 @@ class AuthCodeEntityTest extends TestCase
     }
 
     /**
-     * @throws JsonException
-     * @throws OidcServerException
+     * @throws \JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCanGetState(): void
     {
@@ -83,8 +80,8 @@ class AuthCodeEntityTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
      */
     public function testCanSetNonce(): void
     {
@@ -95,8 +92,8 @@ class AuthCodeEntityTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
      */
     public function testCanBeRevoked(): void
     {

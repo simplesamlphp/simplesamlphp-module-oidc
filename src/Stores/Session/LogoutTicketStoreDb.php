@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Stores\Session;
 
 use DateInterval;
-use Exception;
 use PDO;
 use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
@@ -41,7 +40,7 @@ class LogoutTicketStoreDb implements LogoutTicketStoreInterface
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function delete(string $sid): void
     {
@@ -55,7 +54,7 @@ class LogoutTicketStoreDb implements LogoutTicketStoreInterface
 
     /**
      * @inheritDoc
-     * @throws Exception
+     * @throws \Exception
      */
     public function deleteMultiple(array $sids): void
     {
@@ -82,7 +81,7 @@ class LogoutTicketStoreDb implements LogoutTicketStoreInterface
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function getAll(): array
     {
@@ -91,7 +90,7 @@ class LogoutTicketStoreDb implements LogoutTicketStoreInterface
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function deleteExpired(): void
     {

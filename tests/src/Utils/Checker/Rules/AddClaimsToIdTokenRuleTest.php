@@ -4,18 +4,15 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
-use PHPUnit\Framework\MockObject\Exception;
-use PHPUnit\Framework\MockObject\Stub;
 use LogicException;
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\Checker\ResultBag;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ResponseTypeRule;
-use Throwable;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule
@@ -49,7 +46,7 @@ class AddClaimsToIdTokenRuleTest extends TestCase
     private Stub $loggerServiceStub;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function setUp(): void
     {
@@ -61,7 +58,7 @@ class AddClaimsToIdTokenRuleTest extends TestCase
 
     /**
      * @dataProvider validResponseTypeProvider
-     * @throws Throwable
+     * @throws \Throwable
      */
     public function testAddClaimsToIdTokenRuleTest($responseType)
     {
@@ -82,7 +79,7 @@ class AddClaimsToIdTokenRuleTest extends TestCase
 
     /**
      * @dataProvider invalidResponseTypeProvider
-     * @throws Throwable
+     * @throws \Throwable
      */
     public function testDoNotAddClaimsToIdTokenRuleTest($responseType)
     {
@@ -108,8 +105,8 @@ class AddClaimsToIdTokenRuleTest extends TestCase
     }
 
     /**
-     * @throws Throwable
-     * @throws OidcServerException
+     * @throws \Throwable
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testAddClaimsToIdTokenRuleThrowsWithNoResponseTypeParamTest()
     {

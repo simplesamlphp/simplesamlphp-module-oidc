@@ -14,11 +14,14 @@ declare(strict_types=1);
  * file that was distributed with this source code.
  */
 
+use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\XHTML\Template;
-use SimpleSAML\Locale\Translate;
 
+/**
+ * @param \SimpleSAML\XHTML\Template $template
+ */
 function oidc_hook_federationpage(Template $template): void
 {
     $href = Module::getModuleURL('oidc/admin-clients/index.php');

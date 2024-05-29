@@ -18,9 +18,6 @@ namespace SimpleSAML\Module\oidc\Controller\Client;
 
 use Laminas\Diactoros\Response\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;
-use SimpleSAML\Error\BadRequest;
-use SimpleSAML\Error\Exception;
-use SimpleSAML\Error\NotFound;
 use SimpleSAML\Module\oidc\Controller\Traits\AuthenticatedGetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
@@ -51,7 +48,10 @@ class EditController
     }
 
     /**
-     * @throws BadRequest|Exception|NotFound|\Exception
+     * @throws \Exception
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\NotFound
      */
     public function __invoke(ServerRequest $request): Template|RedirectResponse
     {

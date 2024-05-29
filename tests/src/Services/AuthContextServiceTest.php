@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\Services;
 
 use PHPUnit\Framework\MockObject\MockObject;
-use RuntimeException;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Configuration;
 use SimpleSAML\Error\Exception;
-use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
 
 /**
@@ -71,7 +71,7 @@ class AuthContextServiceTest extends TestCase
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function testItReturnsUsername(): void
     {

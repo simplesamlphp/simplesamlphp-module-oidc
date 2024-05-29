@@ -15,16 +15,13 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Test\Module\oidc\Repositories;
 
-use Exception;
-use JsonException;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
-use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 
 /**
@@ -35,7 +32,7 @@ class ClientRepositoryTest extends TestCase
     protected static ClientRepository $repository;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public static function setUpBeforeClass(): void
     {
@@ -57,8 +54,8 @@ class ClientRepositoryTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
      */
     public function tearDown(): void
     {
@@ -75,8 +72,8 @@ class ClientRepositoryTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
      */
     public function testAddAndFound(): void
     {
@@ -88,8 +85,8 @@ class ClientRepositoryTest extends TestCase
     }
 
     /**
-     * @throws OAuthServerException
-     * @throws JsonException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \JsonException
      */
     public function testGetClientEntity(): void
     {
@@ -101,7 +98,7 @@ class ClientRepositoryTest extends TestCase
     }
 
     /**
-     * @throws JsonException
+     * @throws \JsonException
      */
     public function testGetDisabledClientEntity(): void
     {
@@ -114,8 +111,8 @@ class ClientRepositoryTest extends TestCase
     }
 
     /**
-     * @throws OAuthServerException
-     * @throws JsonException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \JsonException
      */
     public function testNotFoundClient(): void
     {
@@ -125,8 +122,8 @@ class ClientRepositoryTest extends TestCase
     }
 
     /**
-     * @throws OAuthServerException
-     * @throws JsonException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \JsonException
      */
     public function testValidateConfidentialClient(): void
     {
@@ -138,8 +135,8 @@ class ClientRepositoryTest extends TestCase
     }
 
     /**
-     * @throws OAuthServerException
-     * @throws JsonException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \JsonException
      */
     public function testValidatePublicClient(): void
     {
@@ -151,8 +148,8 @@ class ClientRepositoryTest extends TestCase
     }
 
     /**
-     * @throws OAuthServerException
-     * @throws JsonException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \JsonException
      */
     public function testNotValidateConfidentialClientWithWrongSecret()
     {
@@ -164,8 +161,8 @@ class ClientRepositoryTest extends TestCase
     }
 
     /**
-     * @throws OAuthServerException
-     * @throws JsonException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \JsonException
      */
     public function testNotValidateWhenClientDoesNotExists()
     {
@@ -174,8 +171,8 @@ class ClientRepositoryTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
      */
     public function testFindAll(): void
     {
@@ -188,7 +185,7 @@ class ClientRepositoryTest extends TestCase
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function testFindPaginated(): void
     {
@@ -207,7 +204,7 @@ class ClientRepositoryTest extends TestCase
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function testFindPageInRange(): void
     {
@@ -222,7 +219,7 @@ class ClientRepositoryTest extends TestCase
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function testFindPaginationWithEmptyList()
     {
@@ -233,8 +230,8 @@ class ClientRepositoryTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
      */
     public function testUpdate(): void
     {
@@ -260,8 +257,8 @@ class ClientRepositoryTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
      */
     public function testDelete(): void
     {
@@ -276,10 +273,9 @@ class ClientRepositoryTest extends TestCase
     }
 
     /**
-     * @throws JsonException
-     * @throws OidcServerException
-     * @throws Exception
-     * @throws Exception
+     * @throws \JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \Exception
      */
     public function testCrudWithOwner(): void
     {

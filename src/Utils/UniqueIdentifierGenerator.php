@@ -12,7 +12,7 @@ class UniqueIdentifierGenerator
     /**
      * Generate a new unique identifier.
      *
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public static function hitMe(int $length = 40): string
     {

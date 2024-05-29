@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Services;
 
-use Exception;
 use SimpleSAML\Module\oidc\ModuleConfig;
 
 /**
@@ -18,7 +17,7 @@ class OpMetadataService
     private array $metadata;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function __construct(
         private readonly ModuleConfig $moduleConfig,
@@ -28,7 +27,7 @@ class OpMetadataService
 
     /**
      * Initialize metadata array.
-     * @throws Exception
+     * @throws \Exception
      */
     private function initMetadata(): void
     {

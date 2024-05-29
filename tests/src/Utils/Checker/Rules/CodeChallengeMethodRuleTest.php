@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
 use LogicException;
-use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -19,7 +18,6 @@ use SimpleSAML\Module\oidc\Utils\Checker\ResultBag;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
-use Throwable;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeMethodRule
@@ -34,7 +32,7 @@ class CodeChallengeMethodRuleTest extends TestCase
     protected Stub $loggerServiceStub;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function setUp(): void
     {
@@ -47,8 +45,8 @@ class CodeChallengeMethodRuleTest extends TestCase
     }
 
     /**
-     * @throws Throwable
-     * @throws OidcServerException
+     * @throws \Throwable
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCheckRuleRedirectUriDependency(): void
     {
@@ -58,8 +56,8 @@ class CodeChallengeMethodRuleTest extends TestCase
     }
 
     /**
-     * @throws Throwable
-     * @throws OidcServerException
+     * @throws \Throwable
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCheckRuleStateDependency(): void
     {
@@ -70,7 +68,7 @@ class CodeChallengeMethodRuleTest extends TestCase
     }
 
     /**
-     * @throws Throwable
+     * @throws \Throwable
      */
     public function testCheckRuleWithInvalidCodeChallengeMethodThrows(): void
     {
@@ -81,8 +79,8 @@ class CodeChallengeMethodRuleTest extends TestCase
     }
 
     /**
-     * @throws Throwable
-     * @throws OidcServerException
+     * @throws \Throwable
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCheckRuleForValidCodeChallengeMethod(): void
     {

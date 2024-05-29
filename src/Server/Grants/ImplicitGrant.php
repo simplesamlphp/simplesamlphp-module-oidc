@@ -5,10 +5,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use DateInterval;
-use Exception;
-use League\OAuth2\Server\CryptKey;
-use League\OAuth2\Server\Exception\OAuthServerException;
-use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
@@ -34,15 +30,14 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestParameterRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredNonceRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ResponseTypeRule;
-use Throwable;
 
 class ImplicitGrant extends OAuth2ImplicitGrant
 {
     use IssueAccessTokenTrait;
 
     /**
-     * @var CryptKey
      * @psalm-suppress PropertyNotSetInConstructor
+     * @var \League\OAuth2\Server\CryptKey
      */
     protected $privateKey;
 
@@ -79,11 +74,11 @@ class ImplicitGrant extends OAuth2ImplicitGrant
 
     /**
      * {@inheritdoc}
-     * @param OAuth2AuthorizationRequest $authorizationRequest
-     * @return ResponseTypeInterface
-     * @throws OidcServerException
-     * @throws OAuthServerException
-     * @throws UniqueTokenIdentifierConstraintViolationException
+     * @param \League\OAuth2\Server\RequestTypes\AuthorizationRequest $authorizationRequest
+     * @return \League\OAuth2\Server\ResponseTypes\ResponseTypeInterface
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function completeAuthorizationRequest(
         OAuth2AuthorizationRequest $authorizationRequest,
@@ -96,8 +91,8 @@ class ImplicitGrant extends OAuth2ImplicitGrant
     }
 
     /**
-     * @throws Throwable
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \Throwable
      */
     public function validateAuthorizationRequestWithCheckerResultBag(
         ServerRequestInterface $request,
@@ -156,10 +151,10 @@ class ImplicitGrant extends OAuth2ImplicitGrant
     }
 
     /**
-     * @throws UniqueTokenIdentifierConstraintViolationException
-     * @throws OAuthServerException
-     * @throws OidcServerException
-     * @throws Exception
+     * @throws \Exception
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
     private function completeOidcAuthorizationRequest(AuthorizationRequest $authorizationRequest): ResponseTypeInterface
     {

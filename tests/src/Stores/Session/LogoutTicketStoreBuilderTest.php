@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Stores\Session;
 
-use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
+use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreInterface;
 
 /**

@@ -25,7 +25,8 @@ trait RequestTrait
     /**
      * Handle CORS 'preflight' requests by checking if 'origin' is registered as allowed to make HTTP CORS requests,
      * typically initiated in browser by JavaScript clients.
-     * @throws OidcServerException
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     protected function handleCors(ServerRequest $request): Response
     {

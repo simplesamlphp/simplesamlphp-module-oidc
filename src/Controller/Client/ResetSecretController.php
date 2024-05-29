@@ -18,9 +18,7 @@ namespace SimpleSAML\Module\oidc\Controller\Client;
 
 use Laminas\Diactoros\Response\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;
-use SimpleSAML\Error\BadRequest;
-use SimpleSAML\Error\Exception;
-use SimpleSAML\Error\NotFound;
+use SimpleSAML\Error;
 use SimpleSAML\Module\oidc\Controller\Traits\AuthenticatedGetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
@@ -42,10 +40,10 @@ class ResetSecretController
     }
 
     /**
-     * @throws BadRequest
-     * @throws NotFound
-     * @throws Exception
      * @throws \Exception
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\NotFound
      */
     public function __invoke(ServerRequest $request): RedirectResponse
     {
@@ -55,11 +53,11 @@ class ResetSecretController
 
         if ('POST' === mb_strtoupper($request->getMethod())) {
             if (!$clientSecret) {
-                throw new BadRequest('Client secret is missing.');
+                throw new Error\BadRequest('Client secret is missing.');
             }
 
             if ($clientSecret !== $client->getSecret()) {
-                throw new BadRequest('Client secret is invalid.');
+                throw new Error\BadRequest('Client secret is invalid.');
             }
 
             $client->restoreSecret((new Random())->generateID());

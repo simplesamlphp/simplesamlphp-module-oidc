@@ -21,28 +21,24 @@ use Laminas\Diactoros\Response\JsonResponse;
 use Laminas\Diactoros\ServerRequestFactory;
 use Laminas\HttpHandlerRunner\Emitter\SapiEmitter;
 use League\OAuth2\Server\Exception\OAuthServerException;
-use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\ContainerInterface;
-use Psr\Container\NotFoundExceptionInterface;
 use Psr\Http\Message\ResponseInterface;
 use ReflectionClass;
-use ReflectionException;
 use RuntimeException;
-use SimpleSAML\Error\BadRequest;
-use SimpleSAML\Error\Error;
-use SimpleSAML\Error\Exception;
+use SimpleSAML\Error;
 use SimpleSAML\Utils\Auth;
 use SimpleSAML\XHTML\Template;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 use Throwable;
 
 class RoutingService
 {
     /**
-     * @throws BadRequest
-     * @throws ContainerExceptionInterface
-     * @throws Exception
-     * @throws NotFoundExceptionInterface
-     * @throws ReflectionException
+     * @throws \Psr\Container\ContainerExceptionInterface
+     * @throws \Psr\Container\NotFoundExceptionInterface
+     * @throws \ReflectionException
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\Exception
      */
     public static function call(
         string $controllerClassname,
@@ -60,12 +56,12 @@ class RoutingService
     }
 
     /**
-     * @throws BadRequest
-     * @throws ContainerExceptionInterface
-     * @throws Exception
-     * @throws NotFoundExceptionInterface
-     * @throws ReflectionException
      * @throws \Exception
+     * @throws \Psr\Container\ContainerExceptionInterface
+     * @throws \Psr\Container\NotFoundExceptionInterface
+     * @throws \ReflectionException
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\Exception
      */
     public static function callWithPermission(string $controllerClassname, string $permission): void
     {
@@ -77,12 +73,12 @@ class RoutingService
     }
 
     /**
-     * @throws BadRequest
-     * @throws Exception
-     * @throws ReflectionException
-     * @throws ContainerExceptionInterface
-     * @throws NotFoundExceptionInterface
      * @throws \Exception
+     * @throws \Psr\Container\ContainerExceptionInterface
+     * @throws \Psr\Container\NotFoundExceptionInterface
+     * @throws \ReflectionException
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\Exception
      * @psalm-suppress MixedMethodCall, MixedAssignment
      */
     private static function callController(ContainerInterface $container, string $controllerClassname): void
@@ -93,7 +89,7 @@ class RoutingService
         $response = $controller($serverRequest);
 
         # TODO sspv2 return Symfony\Component\HttpFoundation\Response (Template instance) in SSP v2
-        if ($response instanceof \Symfony\Component\HttpFoundation\Response) {
+        if ($response instanceof SymfonyResponse) {
             if ($response instanceof Template) {
                 $response->data['messages'] = $container->get(SessionMessagesService::class)->getMessages();
             }
@@ -122,20 +118,20 @@ class RoutingService
             return;
         }
 
-        throw new Exception('Response type not supported: ' . $response::class);
+        throw new Error\Exception('Response type not supported: ' . $response::class);
     }
 
     /**
-     * @throws BadRequest
-     * @throws ContainerExceptionInterface
-     * @throws NotFoundExceptionInterface
-     * @throws ReflectionException
+     * @throws \Psr\Container\ContainerExceptionInterface
+     * @throws \Psr\Container\NotFoundExceptionInterface
+     * @throws \ReflectionException
+     * @throws \SimpleSAML\Error\BadRequest
      * @psalm-suppress MixedAssignment
      */
     protected static function getController(string $controllerClassname, ContainerInterface $container): object
     {
         if (!class_exists($controllerClassname)) {
-            throw new BadRequest("Controller does not exist: $controllerClassname");
+            throw new Error\BadRequest("Controller does not exist: $controllerClassname");
         }
         $controllerReflectionClass = new ReflectionClass($controllerClassname);
 
@@ -167,7 +163,7 @@ class RoutingService
     protected static function enableJsonExceptionResponse(): void
     {
         set_exception_handler(function (Throwable $t) {
-            if ($t instanceof Error) {
+            if ($t instanceof Error\Error) {
                 // Showing SSP Error will also use SSP logger to log it.
                 $t->show();
                 return;
@@ -183,7 +179,7 @@ class RoutingService
             }
 
             // Log exception using SSP Exception logging feature.
-            (Exception::fromException($t))->logError();
+            (Error\Exception::fromException($t))->logError();
 
             $emitter = new SapiEmitter();
             $emitter->emit($response);

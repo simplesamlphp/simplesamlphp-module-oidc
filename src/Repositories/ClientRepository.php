@@ -15,14 +15,11 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Module\oidc\Repositories;
 
-use Exception;
-use JsonException;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 class ClientRepository extends AbstractDatabaseRepository implements ClientRepositoryInterface
 {
@@ -35,8 +32,8 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
     /**
      * {@inheritdoc}
-     * @throws OAuthServerException
-     * @throws JsonException
+     * @throws \JsonException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
     public function getClientEntity($clientIdentifier)
     {
@@ -55,8 +52,8 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
     /**
      * @inheritDoc
-     * @throws OAuthServerException
-     * @throws JsonException
+     * @throws \JsonException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
     public function validateClient($clientIdentifier, $clientSecret, $grantType): bool
     {
@@ -74,8 +71,8 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
     }
 
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function findById(string $clientIdentifier, ?string $owner = null): ?ClientEntityInterface
     {
@@ -120,8 +117,9 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
     }
 
     /**
-     * @return ClientEntityInterface[]
-     * @throws OidcServerException|JsonException
+     * @return \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface[]
+     * @throws \JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function findAll(?string $owner = null): array
     {
@@ -150,8 +148,12 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
     }
 
     /**
-     * @return array{numPages: int, currentPage: int, items: ClientEntityInterface[]}
-     * @throws Exception
+     * @return array{
+     *   numPages: int,
+     *   currentPage: int,
+     *   items: \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface[]
+     * }
+     * @throws \Exception
      */
     public function findPaginated(int $page = 1, string $query = '', ?string $owner = null): array
     {
@@ -301,7 +303,7 @@ EOF
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     private function getItemsPerPage(): int
     {

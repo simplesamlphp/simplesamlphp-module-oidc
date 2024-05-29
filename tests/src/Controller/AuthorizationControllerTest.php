@@ -5,22 +5,18 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\Controller;
 
 use Laminas\Diactoros\ServerRequest;
-use League\OAuth2\Server\Exception\OAuthServerException;
-use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
-use SimpleSAML\Error;
-use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Controller\AuthorizationController;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use Throwable;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Controller\AuthorizationController
@@ -43,7 +39,7 @@ class AuthorizationControllerTest extends TestCase
     protected static array $sampleRequestedAcrs = ['values' => ['1', '0'], 'essential' => false];
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function setUp(): void
     {
@@ -59,12 +55,12 @@ class AuthorizationControllerTest extends TestCase
     }
 
     /**
-     * @throws Error\AuthSource
-     * @throws Error\BadRequest
-     * @throws Error\NotFound
-     * @throws Error\Exception
-     * @throws OAuthServerException
-     * @throws Throwable
+     * @throws \SimpleSAML\Error\AuthSource
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \Throwable
      */
     public function testReturnsResponseWhenInvoked(): void
     {
@@ -88,12 +84,12 @@ class AuthorizationControllerTest extends TestCase
     }
 
     /**
-     * @throws Error\AuthSource
-     * @throws Error\BadRequest
-     * @throws Error\NotFound
-     * @throws Error\Exception
-     * @throws OAuthServerException
-     * @throws Throwable
+     * @throws \SimpleSAML\Error\AuthSource
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \Throwable
      */
     public function testValidateAcrThrowsIfAuthSourceIdNotSetInAuthorizationRequest(): void
     {
@@ -116,12 +112,12 @@ class AuthorizationControllerTest extends TestCase
     }
 
     /**
-     * @throws Error\AuthSource
-     * @throws Error\BadRequest
-     * @throws Error\NotFound
-     * @throws Error\Exception
-     * @throws OAuthServerException
-     * @throws Throwable
+     * @throws \SimpleSAML\Error\AuthSource
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \Throwable
      */
     public function testValidateAcrThrowsIfCookieBasedAuthnNotSetInAuthorizationRequest(): void
     {
@@ -146,12 +142,12 @@ class AuthorizationControllerTest extends TestCase
     }
 
     /**
-     * @throws Error\AuthSource
-     * @throws Error\BadRequest
-     * @throws Error\NotFound
-     * @throws Error\Exception
-     * @throws OAuthServerException
-     * @throws Throwable
+     * @throws \SimpleSAML\Error\AuthSource
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \Throwable
      */
     public function testValidateAcrSetsForcedAcrForCookieAuthentication(): void
     {
@@ -185,12 +181,12 @@ class AuthorizationControllerTest extends TestCase
     }
 
     /**
-     * @throws Error\AuthSource
-     * @throws Error\BadRequest
-     * @throws Error\NotFound
-     * @throws Error\Exception
-     * @throws OAuthServerException
-     * @throws Throwable
+     * @throws \SimpleSAML\Error\AuthSource
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \Throwable
      */
     public function testValidateAcrThrowsIfNoMatchedAcrForEssentialAcrs(): void
     {
@@ -224,12 +220,12 @@ class AuthorizationControllerTest extends TestCase
     }
 
     /**
-     * @throws Error\AuthSource
-     * @throws Error\BadRequest
-     * @throws Error\NotFound
-     * @throws Error\Exception
-     * @throws OAuthServerException
-     * @throws Throwable
+     * @throws \SimpleSAML\Error\AuthSource
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \Throwable
      */
     public function testValidateAcrSetsFirstMatchedAcr(): void
     {
@@ -262,12 +258,12 @@ class AuthorizationControllerTest extends TestCase
     }
 
     /**
-     * @throws Error\AuthSource
-     * @throws Error\BadRequest
-     * @throws Error\NotFound
-     * @throws Error\Exception
-     * @throws OAuthServerException
-     * @throws Throwable
+     * @throws \SimpleSAML\Error\AuthSource
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \Throwable
      */
     public function testValidateAcrSetsCurrentSessionAcrIfNoMatchedAcr(): void
     {
@@ -301,12 +297,12 @@ class AuthorizationControllerTest extends TestCase
     }
 
     /**
-     * @throws Error\AuthSource
-     * @throws Error\BadRequest
-     * @throws Error\NotFound
-     * @throws Error\Exception
-     * @throws OAuthServerException
-     * @throws Throwable
+     * @throws \SimpleSAML\Error\AuthSource
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \Throwable
      */
     public function testValidateAcrLogsWarningIfNoAcrsConfigured(): void
     {

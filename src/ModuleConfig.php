@@ -17,14 +17,12 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc;
 
 use DateInterval;
-use Exception;
 use Lcobucci\JWT\Signer;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
 use ReflectionClass;
-use ReflectionException;
-use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Configuration;
 use SimpleSAML\Error\ConfigurationError;
+use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Codebooks\ScopesEnum;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
@@ -104,7 +102,7 @@ class ModuleConfig
     private readonly Configuration $sspConfig;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function __construct(
         string $fileName = self::DEFAULT_FILE_NAME, // Primarily used for easy (unit) testing overrides.
@@ -138,7 +136,7 @@ class ModuleConfig
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @return non-empty-string
      */
     public function getIssuer(): string
@@ -164,7 +162,7 @@ class ModuleConfig
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function getOpenIDScopes(): array
     {
@@ -172,7 +170,7 @@ class ModuleConfig
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function getOpenIDPrivateScopes(): array
     {
@@ -181,9 +179,9 @@ class ModuleConfig
 
     /**
      * @return void
-     * @throws Exception
+     * @throws \Exception
      *
-     * @throws ConfigurationError
+     * @throws \SimpleSAML\Error\ConfigurationError
      */
     private function validate(): void
     {
@@ -191,7 +189,7 @@ class ModuleConfig
         array_walk(
             $privateScopes,
             /**
-             * @throws ConfigurationError
+             * @throws \SimpleSAML\Error\ConfigurationError
              */
             function (array $scope, string $name): void {
                 if (in_array($name, array_keys(self::$standardScopes), true)) {
@@ -255,8 +253,8 @@ class ModuleConfig
     /**
      * Get signer for OIDC protocol.
      *
-     * @throws ReflectionException
-     * @throws Exception
+     * @throws \ReflectionException
+     * @throws \Exception
      */
     public function getProtocolSigner(): Signer
     {
@@ -272,7 +270,7 @@ class ModuleConfig
     /**
      * @param class-string $className
      * @throws \SimpleSAML\Error\ConfigurationError
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     protected function instantiateSigner(string $className): Signer
     {
@@ -289,7 +287,7 @@ class ModuleConfig
     /**
      * Get the path to the public certificate used in OIDC protocol.
      * @return string The file system path
-     * @throws Exception
+     * @throws \Exception
      */
     public function getProtocolCertPath(): string
     {
@@ -302,7 +300,7 @@ class ModuleConfig
 
     /**
      * Get the path to the private key used in OIDC protocol.
-     * @throws Exception
+     * @throws \Exception
      */
     public function getProtocolPrivateKeyPath(): string
     {
@@ -316,7 +314,7 @@ class ModuleConfig
     /**
      * Get the OIDC protocol private key passphrase.
      * @return ?string
-     * @throws Exception
+     * @throws \Exception
      */
     public function getProtocolPrivateKeyPassPhrase(): ?string
     {
@@ -327,7 +325,7 @@ class ModuleConfig
      * Get autproc filters defined in the OIDC configuration.
      *
      * @return array
-     * @throws Exception
+     * @throws \Exception
      */
     public function getAuthProcFilters(): array
     {
@@ -338,7 +336,7 @@ class ModuleConfig
      * Get supported Authentication Context Class References (ACRs).
      *
      * @return array
-     * @throws Exception
+     * @throws \Exception
      */
     public function getAcrValuesSupported(): array
     {
@@ -349,7 +347,7 @@ class ModuleConfig
      * Get a map of auth sources and their supported ACRs
      *
      * @return array
-     * @throws Exception
+     * @throws \Exception
      */
     public function getAuthSourcesToAcrValuesMap(): array
     {
@@ -358,7 +356,7 @@ class ModuleConfig
 
     /**
      * @return null|string
-     * @throws Exception
+     * @throws \Exception
      */
     public function getForcedAcrValueForCookieAuthentication(): ?string
     {
@@ -374,7 +372,7 @@ class ModuleConfig
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function getUserIdentifierAttribute(): string
     {
@@ -411,7 +409,7 @@ class ModuleConfig
     /**
      * Return the path to the federation public certificate
      * @return ?string The file system path or null if not set.
-     * @throws Exception
+     * @throws \Exception
      */
     public function getFederationCertPath(): ?string
     {
@@ -424,7 +422,7 @@ class ModuleConfig
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function getFederationEntityStatementDuration(): DateInterval
     {

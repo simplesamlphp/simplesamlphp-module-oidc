@@ -19,7 +19,7 @@ class AuthProcService
     /**
      * AuthProcService constructor.
      *
-     * @throws Exception
+     * @throws \Exception
      * @see \SimpleSAML\Auth\ProcessingChain for original implementation
      */
     public function __construct(
@@ -30,7 +30,7 @@ class AuthProcService
 
     /**
      * Load filters defined in configuration.
-     * @throws Exception
+     * @throws \Exception
      */
     private function loadFilters(): void
     {
@@ -43,8 +43,8 @@ class AuthProcService
      * @see \SimpleSAML\Auth\ProcessingChain::parseFilterList for original implementation
      *
      * @param array $filterSrc Array with filter configuration.
-     * @return array<ProcessingFilter>  Array of ProcessingFilter objects.
-     * @throws Exception
+     * @return \SimpleSAML\Auth\ProcessingFilter[]  Array of ProcessingFilter objects.
+     * @throws \Exception
      */
     private function parseFilterList(array $filterSrc): array
     {

@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Server\Validators;
 
-use JsonException;
 use Laminas\Diactoros\ServerRequest;
 use Laminas\Diactoros\StreamFactory;
 use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface as OAuth2AccessTokenRepositoryInterface;
-use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Configuration;
@@ -44,7 +42,6 @@ class BearerTokenValidatorTest extends TestCase
     protected ServerRequestInterface $serverRequest;
 
     /**
-     * @throws Exception
      * @throws \Exception
      */
     public function setUp(): void
@@ -55,8 +52,8 @@ class BearerTokenValidatorTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
      */
     public static function setUpBeforeClass(): void
     {
@@ -137,7 +134,7 @@ class BearerTokenValidatorTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testValidatesForAuthorizationHeader()
     {
@@ -152,7 +149,7 @@ class BearerTokenValidatorTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testValidatesForPostBodyParam()
     {
@@ -183,8 +180,8 @@ class BearerTokenValidatorTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
      */
     public function testThrowsForExpiredAccessToken()
     {
@@ -204,7 +201,8 @@ class BearerTokenValidatorTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException|\Exception
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \Exception
      */
     public function testThrowsForRevokedAccessToken()
     {
@@ -223,8 +221,8 @@ class BearerTokenValidatorTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
      */
     public function testThrowsForEmptyAccessTokenJti()
     {

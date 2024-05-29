@@ -5,20 +5,19 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Server;
 
 use Defuse\Crypto\Key;
-use Lcobucci\JWT\UnencryptedToken;
 use League\OAuth2\Server\AuthorizationServer as OAuth2AuthorizationServer;
 use League\OAuth2\Server\CryptKey;
-use LogicException;
-use SimpleSAML\Error\BadRequest;
 use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
+use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithCheckerResultBagInterface;
+use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\IdTokenHintRule;
@@ -26,7 +25,6 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\PostLogoutRedirectUriRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\UiLocalesRule;
-use Throwable;
 
 class AuthorizationServer extends OAuth2AuthorizationServer
 {
@@ -34,8 +32,9 @@ class AuthorizationServer extends OAuth2AuthorizationServer
     protected ClientRepositoryInterface $clientRepository;
 
     protected RequestRulesManager $requestRulesManager;
+
     /**
-     * @var CryptKey
+     * @var \League\OAuth2\Server\CryptKey
      * @psalm-suppress PropertyNotSetInConstructor
      */
     protected $publicKey;
@@ -71,7 +70,9 @@ class AuthorizationServer extends OAuth2AuthorizationServer
 
     /**
      * @inheritDoc
-     * @throws BadRequest|Throwable
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \Throwable
      */
     public function validateAuthorizationRequest(ServerRequestInterface $request): OAuth2AuthorizationRequest
     {
@@ -109,8 +110,8 @@ class AuthorizationServer extends OAuth2AuthorizationServer
     }
 
     /**
-     * @throws Throwable
-     * @throws BadRequest
+     * @throws \Throwable
+     * @throws \SimpleSAML\Error\BadRequest
      */
     public function validateLogoutRequest(ServerRequestInterface $request): LogoutRequest
     {
@@ -128,7 +129,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
             throw new BadRequest($reason);
         }
 
-        /** @var UnencryptedToken|null $idTokenHint */
+        /** @var \Lcobucci\JWT\UnencryptedToken|null $idTokenHint */
         $idTokenHint = $resultBag->getOrFail(IdTokenHintRule::class)->getValue();
         /** @var string|null $postLogoutRedirectUri */
         $postLogoutRedirectUri = $resultBag->getOrFail(PostLogoutRedirectUriRule::class)->getValue();

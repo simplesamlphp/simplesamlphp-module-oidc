@@ -12,13 +12,12 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
-use Throwable;
 
 class RedirectUriRule extends AbstractRule
 {
     /**
      * @inheritDoc
-     * @throws Throwable
+     * @throws \Throwable
      */
     public function checkRule(
         ServerRequestInterface $request,

@@ -16,7 +16,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Forms;
 
-use Exception;
 use Nette\Forms\Form;
 use SimpleSAML\Auth\Source;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
@@ -50,7 +49,7 @@ class ClientForm extends Form
     final public const REGEX_HTTP_URI = '/^http(s?):\/\/[^\s\/$.?#][^\s#]*$/i';
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function __construct(private readonly ModuleConfig $moduleConfig, protected CsrfProtection $csrfProtection)
     {
@@ -159,11 +158,11 @@ class ClientForm extends Form
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function setDefaults(object|array $data, bool $erase = false): static
     {
-        if (! is_array($data)) {
+        if (!is_array($data)) {
             if ($data instanceof Traversable) {
                 $data = iterator_to_array($data);
             } else {
@@ -176,7 +175,7 @@ class ClientForm extends Form
         $data['redirect_uri'] = implode("\n", $redirectUris);
 
         // Allowed origins are only available for public clients (not for confidential clients).
-        if (! $data['is_confidential'] && isset($data['allowed_origin'])) {
+        if (!$data['is_confidential'] && isset($data['allowed_origin'])) {
             /** @var string[] $allowedOrigins */
             $allowedOrigins = is_array($data['allowed_origin']) ? $data['allowed_origin'] : [];
             $data['allowed_origin'] = implode("\n", $allowedOrigins);
@@ -197,7 +196,7 @@ class ClientForm extends Form
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function buildForm(): void
     {
@@ -244,7 +243,7 @@ class ClientForm extends Form
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function getScopes(): array
     {

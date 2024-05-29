@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Server;
 
-use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use PHPUnit\Framework\TestCase;
 
 /**

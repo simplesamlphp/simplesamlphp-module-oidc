@@ -19,16 +19,14 @@ namespace SimpleSAML\Module\oidc\Controller;
 use Laminas\Diactoros\Response;
 use Laminas\Diactoros\Response\JsonResponse;
 use Laminas\Diactoros\ServerRequest;
-use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\ResourceServer;
-use SimpleSAML\Error\UserNotFound;
+use SimpleSAML\Error;
 use SimpleSAML\Module\oidc\Controller\Traits\RequestTrait;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
 class UserInfoController
@@ -45,9 +43,9 @@ class UserInfoController
     }
 
     /**
-     * @throws UserNotFound
-     * @throws OidcServerException
-     * @throws OAuthServerException
+     * @throws \SimpleSAML\Error\UserNotFound
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
     public function __invoke(ServerRequest $request): Response
     {
@@ -65,7 +63,7 @@ class UserInfoController
 
         $accessToken = $this->accessTokenRepository->findById($tokenId);
         if (!$accessToken instanceof AccessTokenEntity) {
-            throw new UserNotFound('Access token not found');
+            throw new Error\UserNotFound('Access token not found');
         }
         $user = $this->getUser($accessToken);
 
@@ -81,15 +79,15 @@ class UserInfoController
     }
 
     /**
-     * @throws OidcServerException
-     * @throws UserNotFound
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \SimpleSAML\Error\UserNotFound
      */
     private function getUser(AccessTokenEntity $accessToken): UserEntity
     {
         $userIdentifier = (string) $accessToken->getUserIdentifier();
         $user = $this->userRepository->getUserEntityByIdentifier($userIdentifier);
         if (!$user instanceof UserEntity) {
-            throw new UserNotFound("User $userIdentifier not found");
+            throw new Error\UserNotFound("User $userIdentifier not found");
         }
 
         return $user;

@@ -5,13 +5,11 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
-use Throwable;
 
 class RequestedClaimsRule extends AbstractRule
 {
@@ -21,7 +19,7 @@ class RequestedClaimsRule extends AbstractRule
 
 
     /**
-     * @throws Throwable
+     * @throws \Throwable
      */
     public function checkRule(
         ServerRequestInterface $request,
@@ -41,7 +39,7 @@ class RequestedClaimsRule extends AbstractRule
         if (is_null($claims)) {
             return null;
         }
-        /** @var ClientEntityInterface $client */
+        /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
 
         $authorizedClaims = [];

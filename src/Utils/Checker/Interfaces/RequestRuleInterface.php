@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Utils\Checker\Interfaces;
 
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 
 interface RequestRuleInterface
@@ -18,13 +17,14 @@ interface RequestRuleInterface
 
     /**
      * Check specific rule.
-     * @param ResultBagInterface $currentResultBag ResultBag with all results of the checks performed to current check
+     * @param \SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface $currentResultBag
+     *   ResultBag with all results of the checks performed to current check
      * @param array $data Data which will be available during check.
      * @param bool $useFragmentInHttpErrorResponses Indicate that in case of HTTP error responses, params should be
-     * returned in URI fragment instead of query.
+     *   returned in URI fragment instead of query.
      * @param string[] $allowedServerRequestMethods Indicate allowed HTTP methods used for request
-     * @return ResultInterface|null Result of the specific check
-     * @throws OidcServerException If check fails
+     * @return \SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface|null Result of the specific check
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException If check fails
      */
     public function checkRule(
         ServerRequestInterface $request,

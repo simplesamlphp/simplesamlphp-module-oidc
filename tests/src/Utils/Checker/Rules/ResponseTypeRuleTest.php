@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
-use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -41,14 +40,14 @@ class ResponseTypeRuleTest extends TestCase
     ];
 
     /**
-     * @var ResultBag
+     * @var \SimpleSAML\Module\oidc\Utils\Checker\ResultBag
      */
     private ResultBag $resultBag;
 
     protected Stub $loggerServiceStub;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function setUp(): void
     {
@@ -60,7 +59,7 @@ class ResponseTypeRuleTest extends TestCase
 
     /**
      * @dataProvider validResponseTypeProvider
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testResponseTypeRuleTest($responseType)
     {

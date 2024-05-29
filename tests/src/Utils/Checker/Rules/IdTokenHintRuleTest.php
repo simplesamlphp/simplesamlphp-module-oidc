@@ -9,14 +9,11 @@ use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
 use Lcobucci\JWT\UnencryptedToken;
 use League\OAuth2\Server\CryptKey;
-use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
-use ReflectionException;
-use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Factories\CryptKeyFactory;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
@@ -54,8 +51,8 @@ class IdTokenHintRuleTest extends TestCase
     }
 
     /**
-     * @throws ReflectionException
-     * @throws Exception
+     * @throws \ReflectionException
+     * @throws \Exception
      */
     protected function setUp(): void
     {
@@ -89,8 +86,8 @@ class IdTokenHintRuleTest extends TestCase
     }
 
     /**
-     * @throws Throwable
-     * @throws OidcServerException
+     * @throws \Throwable
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCheckRuleIsNullWhenParamNotSet(): void
     {
@@ -106,7 +103,7 @@ class IdTokenHintRuleTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCheckRuleThrowsForMalformedIdToken(): void
     {
@@ -118,7 +115,7 @@ class IdTokenHintRuleTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCheckRuleThrowsForIdTokenWithInvalidSignature(): void
     {
@@ -137,8 +134,8 @@ class IdTokenHintRuleTest extends TestCase
     }
 
     /**
-     * @throws ReflectionException
-     * @throws OidcServerException
+     * @throws \ReflectionException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCheckRuleThrowsForIdTokenWithInvalidIssuer(): void
     {
@@ -156,9 +153,9 @@ class IdTokenHintRuleTest extends TestCase
     }
 
     /**
-     * @throws ReflectionException
-     * @throws Throwable
-     * @throws OidcServerException
+     * @throws \ReflectionException
+     * @throws \Throwable
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCheckRulePassesForValidIdToken(): void
     {

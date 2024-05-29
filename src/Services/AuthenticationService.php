@@ -16,7 +16,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Services;
 
-use Exception;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Auth\State;
@@ -43,7 +42,7 @@ class AuthenticationService
     private string $userIdAttr;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function __construct(
         private readonly UserRepository $userRepository,
@@ -60,11 +59,11 @@ class AuthenticationService
     }
 
     /**
-     * @throws Error\Exception
-     * @throws Error\AuthSource
-     * @throws Error\BadRequest
-     * @throws Error\NotFound
-     * @throws Exception
+     * @throws \Exception
+     * @throws \SimpleSAML\Error\AuthSource
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\NotFound
      */
     public function getAuthenticateUser(
         ServerRequestInterface $request,
@@ -175,7 +174,7 @@ class AuthenticationService
 
     /**
      * Store Relying Party Association to the current session.
-     * @throws Exception
+     * @throws \Exception
      */
     protected function addRelyingPartyAssociation(ClientEntityInterface $oidcClient, UserEntity $user): void
     {

@@ -11,8 +11,6 @@ use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Pool;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
-use League\OAuth2\Server\Exception\OAuthServerException;
-use SimpleSAML\Module\oidc\Server\Associations\Interfaces\RelyingPartyAssociationInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\LogoutTokenBuilder;
 use Throwable;
@@ -26,9 +24,10 @@ class BackChannelLogoutHandler
     }
 
     /**
-     * @param array<RelyingPartyAssociationInterface> $relyingPartyAssociations
-     * @param HandlerStack|null $handlerStack For easier testing
-     * @throws OAuthServerException
+     * @param \SimpleSAML\Module\oidc\Server\Associations\Interfaces\RelyingPartyAssociationInterface[]
+     *   $relyingPartyAssociations
+     * @param \GuzzleHttp\HandlerStack|null $handlerStack For easier testing
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
     public function handle(array $relyingPartyAssociations, HandlerStack $handlerStack = null): void
     {
@@ -60,9 +59,10 @@ class BackChannelLogoutHandler
     }
 
     /**
-     * @param array<RelyingPartyAssociationInterface> $relyingPartyAssociations
-     * @return Generator
-     * @throws OAuthServerException
+     * @param \SimpleSAML\Module\oidc\Server\Associations\Interfaces\RelyingPartyAssociationInterface[]
+     *   $relyingPartyAssociations
+     * @return \Generator
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
     protected function logoutRequestsGenerator(array $relyingPartyAssociations): Generator
     {

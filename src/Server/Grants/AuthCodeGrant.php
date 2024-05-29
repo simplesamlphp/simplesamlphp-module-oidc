@@ -4,14 +4,10 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Server\Grants;
 
-use Exception;
 use DateInterval;
 use DateTimeImmutable;
-use JsonException;
-use League\OAuth2\Server\CodeChallengeVerifiers\CodeChallengeVerifierInterface;
 use League\OAuth2\Server\CodeChallengeVerifiers\PlainVerifier;
 use League\OAuth2\Server\CodeChallengeVerifiers\S256Verifier;
-use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface as OAuth2AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
@@ -19,9 +15,6 @@ use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use League\OAuth2\Server\Grant\AuthCodeGrant as OAuth2AuthCodeGrant;
 use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface as OAuth2AuthCodeRepositoryInterface;
-use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
-use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
-use League\OAuth2\Server\Repositories\UserRepositoryInterface;
 use League\OAuth2\Server\RequestEvent;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use League\OAuth2\Server\ResponseTypes\RedirectResponse;
@@ -29,7 +22,6 @@ use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
-use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
@@ -61,7 +53,6 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeOfflineAccessRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
 use SimpleSAML\Module\oidc\Utils\ScopeHelper;
-use Throwable;
 
 class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     // phpcs:ignore
@@ -75,22 +66,23 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
     protected DateInterval $authCodeTTL;
 
-    /**
-     * @var CodeChallengeVerifierInterface[]
-     */
+    /** @var \League\OAuth2\Server\CodeChallengeVerifiers\CodeChallengeVerifierInterface[] */
     protected array $codeChallengeVerifiers = [];
 
     /**
+     * @var \League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface
      * @psalm-suppress PropertyNotSetInConstructor
      */
     protected $authCodeRepository;
 
     /**
+     * @var \League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface
      * @psalm-suppress PropertyNotSetInConstructor
      */
     protected $accessTokenRepository;
 
     /**
+     * @var \League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface
      * @psalm-suppress PropertyNotSetInConstructor
      */
     protected $refreshTokenRepository;
@@ -100,7 +92,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     /**
      * @var bool
      * @psalm-suppress PropertyNotSetInConstructor
-     */
+      */
     protected $revokeRefreshTokens;
 
     /**
@@ -110,25 +102,25 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     protected $defaultScope;
 
     /**
-     * @var UserRepositoryInterface
+     * @var \League\OAuth2\Server\Repositories\UserRepositoryInterface
      * @psalm-suppress PropertyNotSetInConstructor
      */
     protected $userRepository;
 
     /**
-     * @var ScopeRepositoryInterface
+     * @var \League\OAuth2\Server\Repositories\ScopeRepositoryInterface
      * @psalm-suppress PropertyNotSetInConstructor
      */
     protected $scopeRepository;
 
     /**
-     * @var ClientRepositoryInterface
+     * @var \League\OAuth2\Server\Repositories\ClientRepositoryInterface
      * @psalm-suppress PropertyNotSetInConstructor
      */
     protected $clientRepository;
 
     /**
-     * @var CryptKey
+     * @var \League\OAuth2\Server\CryptKey
      * @psalm-suppress PropertyNotSetInConstructor
      */
     protected $privateKey;
@@ -145,7 +137,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      *     acr?: null|string,
      *     session_id?: null|string
      * }
-     * @throws Exception
+     * @throws \Exception
      */
     public function __construct(
         OAuth2AuthCodeRepositoryInterface $authCodeRepository,
@@ -191,8 +183,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
     /**
      * @inheritDoc
-     * @throws OAuthServerException
-     * @throws JsonException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \JsonException
      */
     public function completeAuthorizationRequest(
         OAuth2AuthorizationRequest $authorizationRequest,
@@ -207,9 +199,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     /**
      * This is reimplementation of OAuth2 completeAuthorizationRequest method with addition of nonce handling.
      *
-     * @throws OAuthServerException
-     * @throws UniqueTokenIdentifierConstraintViolationException
-     * @throws JsonException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
+     * @throws \JsonException
      */
     public function completeOidcAuthorizationRequest(
         AuthorizationRequest $authorizationRequest,
@@ -276,9 +268,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     }
 
     /**
-     * @param ScopeEntityInterface[] $scopes
-     * @throws OAuthServerException
-     * @throws UniqueTokenIdentifierConstraintViolationException
+     * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
      */
     protected function issueOidcAuthCode(
         DateInterval $authCodeTTL,
@@ -290,13 +282,13 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     ): AuthCodeEntityInterface {
         $maxGenerationAttempts = self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
 
-        if (! is_a($this->authCodeRepository, AuthCodeRepositoryInterface::class)) {
+        if (!is_a($this->authCodeRepository, AuthCodeRepositoryInterface::class)) {
             throw OidcServerException::serverError('Unexpected auth code repository entity type.');
         }
 
         $authCode = $this->authCodeRepository->getNewAuthCode();
 
-        if (! is_a($authCode, AuthCodeEntityInterface::class)) {
+        if (!is_a($authCode, AuthCodeEntityInterface::class)) {
             throw OidcServerException::serverError('Unexpected auth code entity type.');
         }
 
@@ -331,7 +323,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     /**
      * Get the client redirect URI if not set in the request.
      *
-     * @param OAuth2AuthorizationRequest $authorizationRequest
+     * @param \League\OAuth2\Server\RequestTypes\AuthorizationRequest $authorizationRequest
      *
      * @return string
      */
@@ -349,17 +341,15 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     /**
      * Reimplementation respondToAccessTokenRequest because of nonce feature.
      *
-     * @param ServerRequestInterface $request
-     * @param ResponseTypeInterface $responseType
-     * @param DateInterval $accessTokenTTL
+     * @param \Psr\Http\Message\ServerRequestInterface $request
+     * @param \League\OAuth2\Server\ResponseTypes\ResponseTypeInterface $responseType
+     * @param \DateInterval $accessTokenTTL
      *
-     * @return ResponseTypeInterface
+     * @return \League\OAuth2\Server\ResponseTypes\ResponseTypeInterface
      *
      * TODO refactor to request checkers
-     * @throws OAuthServerException
-     * @throws JsonException
-     * @throws JsonException
-     * @throws JsonException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \JsonException
      *
      */
     public function respondToAccessTokenRequest(
@@ -523,10 +513,10 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      * Reimplementation because of private parent access
      *
      * @param object $authCodePayload
-     * @param OAuth2ClientEntityInterface $client
-     * @param ServerRequestInterface $request
-     * @throws OAuthServerException
-     * @throws OidcServerException
+     * @param \League\OAuth2\Server\Entities\ClientEntityInterface $client
+     * @param \Psr\Http\Message\ServerRequestInterface $request
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     protected function validateAuthorizationCode(
         object $authCodePayload,
@@ -585,7 +575,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
     /**
      * @inheritDoc
-     * @throws Throwable
+     * @throws \Throwable
      */
     public function validateAuthorizationRequestWithCheckerResultBag(
         ServerRequestInterface $request,
@@ -608,7 +598,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $redirectUri = $resultBag->getOrFail(RedirectUriRule::class)->getValue();
         /** @var string|null $state */
         $state = $resultBag->getOrFail(StateRule::class)->getValue();
-        /** @var ClientEntityInterface $client */
+        /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $resultBag->getOrFail(ClientIdRule::class)->getValue();
 
         // Some rules have to have certain things available in order to work properly...
@@ -623,7 +613,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         $resultBag = $this->requestRulesManager->check($request, $rulesToExecute);
 
-        /** @var ScopeEntityInterface[] $scopes */
+        /** @var \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes */
         $scopes = $resultBag->getOrFail(ScopeRule::class)->getValue();
 
         $oAuth2AuthorizationRequest = new OAuth2AuthorizationRequest();
@@ -681,11 +671,11 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     }
 
     /**
-     * @param OAuth2AccessTokenEntityInterface $accessToken
+     * @param \League\OAuth2\Server\Entities\AccessTokenEntityInterface $accessToken
      * @param string|null $authCodeId
-     * @return RefreshTokenEntityInterface|null
-     * @throws OAuthServerException
-     * @throws UniqueTokenIdentifierConstraintViolationException
+     * @return \SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface|null
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
      */
     protected function issueRefreshToken(
         OAuth2AccessTokenEntityInterface $accessToken,

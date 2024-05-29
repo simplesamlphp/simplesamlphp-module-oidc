@@ -6,7 +6,6 @@ namespace SimpleSAML\Module\oidc\Utils\Checker;
 
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\RequestRuleInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
@@ -16,14 +15,10 @@ use function sprintf;
 
 class RequestRulesManager
 {
-    /**
-     * @var RequestRuleInterface[] $rules
-     */
+    /** @var \SimpleSAML\Module\oidc\Utils\Checker\Interfaces\RequestRuleInterface[] $rules */
     private array $rules = [];
 
-    /**
-     * @var ResultBagInterface $resultBag
-     */
+    /** @var \SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface $resultBag */
     protected ResultBagInterface $resultBag;
 
     /** @var array $data Which will be available during each check */
@@ -31,7 +26,7 @@ class RequestRulesManager
 
     /**
      * RequestRulesManager constructor.
-     * @param RequestRuleInterface[] $rules
+     * @param \SimpleSAML\Module\oidc\Utils\Checker\Interfaces\RequestRuleInterface[] $rules
      */
     public function __construct(array $rules = [], protected LoggerService $loggerService = new LoggerService())
     {
@@ -52,7 +47,7 @@ class RequestRulesManager
      * @param bool $useFragmentInHttpErrorResponses Indicate that in case of HTTP error responses, params should be
      * returned in URI fragment instead of query.
      * @param string[] $allowedServerRequestMethods Indicate allowed HTTP methods used for request
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function check(
         ServerRequestInterface $request,

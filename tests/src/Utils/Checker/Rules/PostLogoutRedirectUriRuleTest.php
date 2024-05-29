@@ -8,19 +8,17 @@ use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
 use League\OAuth2\Server\CryptKey;
-use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\Stub;
+use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\PostLogoutRedirectUriRule;
-use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
 use Throwable;
 
@@ -56,7 +54,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function setUp(): void
     {
@@ -76,8 +74,8 @@ class PostLogoutRedirectUriRuleTest extends TestCase
     }
 
     /**
-     * @throws Throwable
-     * @throws OidcServerException
+     * @throws \Throwable
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCheckRuleReturnsNullIfNoParamSet(): void
     {
@@ -89,7 +87,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCheckRuleThrowsWhenIdTokenHintNotAvailable(): void
     {
@@ -104,7 +102,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCheckRuleThrowsWhenAudClaimNotValid(): void
     {
@@ -131,7 +129,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCheckRuleThrowsWhenClientNotFound(): void
     {
@@ -161,7 +159,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCheckRuleThrowsWhenPostLogoutRegisteredUriNotRegistered(): void
     {
@@ -195,8 +193,8 @@ class PostLogoutRedirectUriRuleTest extends TestCase
     }
 
     /**
-     * @throws Throwable
-     * @throws OidcServerException
+     * @throws \Throwable
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCheckRuleReturnsForRegisteredPostLogoutRedirectUri(): void
     {

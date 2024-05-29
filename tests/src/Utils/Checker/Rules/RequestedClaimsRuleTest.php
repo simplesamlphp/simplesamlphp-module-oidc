@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Utils\Checker\Rules;
 
-use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -15,7 +14,6 @@ use SimpleSAML\Module\oidc\Utils\Checker\ResultBag;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
-use Throwable;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule
@@ -31,7 +29,7 @@ class RequestedClaimsRuleTest extends TestCase
 
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function setUp(): void
     {
@@ -44,7 +42,7 @@ class RequestedClaimsRuleTest extends TestCase
     }
 
     /**
-     * @throws Throwable
+     * @throws \Throwable
      */
     public function testNoRequestedClaims(): void
     {
@@ -54,7 +52,7 @@ class RequestedClaimsRuleTest extends TestCase
     }
 
     /**
-     * @throws Throwable
+     * @throws \Throwable
      */
     public function testWithClaims(): void
     {
@@ -92,7 +90,7 @@ class RequestedClaimsRuleTest extends TestCase
 
 
     /**
-     * @throws Throwable
+     * @throws \Throwable
      */
     public function testOnlyWithNonStandardClaimRequest(): void
     {

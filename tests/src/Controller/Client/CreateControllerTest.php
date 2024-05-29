@@ -9,7 +9,6 @@ use Laminas\Diactoros\ServerRequest;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
-use SimpleSAML\Error\Exception;
 use SimpleSAML\Module\oidc\Controller\Client\CreateController;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
@@ -72,7 +71,7 @@ class CreateControllerTest extends TestCase
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function testCanShowNewClientForm(): void
     {
@@ -107,7 +106,7 @@ class CreateControllerTest extends TestCase
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function testCanCreateNewClientFromFormData(): void
     {
@@ -161,7 +160,7 @@ class CreateControllerTest extends TestCase
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function testCanSetOwnerInNewClient(): void
     {

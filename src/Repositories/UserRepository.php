@@ -20,9 +20,8 @@ use Exception;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\Repositories\UserRepositoryInterface;
-use SimpleSAML\Module\oidc\Repositories\Interfaces\IdentityProviderInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\IdentityProviderInterface;
 
 class UserRepository extends AbstractDatabaseRepository implements UserRepositoryInterface, IdentityProviderInterface
 {
@@ -36,8 +35,8 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
     /**
      * @param string $identifier
      *
-     * @return UserEntity|null
-     * @throws OidcServerException
+     * @return \SimpleSAML\Module\oidc\Entities\UserEntity|null
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function getUserEntityByIdentifier(string $identifier): ?UserEntity
     {
@@ -63,7 +62,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
 
     /**
      * {@inheritdoc}
-     * @throws Exception
+     * @throws \Exception
      */
     public function getUserEntityByUserCredentials(
         $username,

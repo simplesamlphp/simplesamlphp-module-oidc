@@ -15,7 +15,6 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Module\oidc\Repositories;
 
-use Exception;
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -28,7 +27,7 @@ abstract class AbstractDatabaseRepository
 
     /**
      * ClientRepository constructor.
-     * @throws Exception
+     * @throws \Exception
      */
     public function __construct(protected ModuleConfig $moduleConfig)
     {

@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\Controller;
 
 use Laminas\Diactoros\ServerRequest;
-use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\MockObject;
-use SimpleSAML\Module\oidc\Controller\ConfigurationDiscoveryController;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\Controller\ConfigurationDiscoveryController;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
 
 /**
@@ -34,7 +33,7 @@ class ConfigurationDiscoveryControllerTest extends TestCase
     protected MockObject $serverRequestMock;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function setUp(): void
     {

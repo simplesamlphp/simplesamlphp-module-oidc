@@ -17,7 +17,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Factories\Grant;
 
 use DateInterval;
-use Exception;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
@@ -37,7 +36,7 @@ class AuthCodeGrantFactory
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function build(): AuthCodeGrant
     {

@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Controller\Client;
 
-use JsonException;
 use Laminas\Diactoros\ServerRequest;
-use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Error\BadRequest;
-use SimpleSAML\Error\NotFound;
 use SimpleSAML\Module\oidc\Controller\Client\ShowController;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
@@ -36,7 +33,7 @@ class ShowControllerTest extends TestCase
     protected MockObject $templateMock;
 
     /**
-     * @throws Exception
+     * @throws \SimpleSAML\Error\Exception
      */
     protected function setUp(): void
     {
@@ -69,10 +66,11 @@ class ShowControllerTest extends TestCase
     }
 
     /**
-     * @throws BadRequest
+     * @throws \SimpleSAML\Error\BadRequest
      * @throws \SimpleSAML\Error\Exception
-     * @throws NotFound
-     * @throws OidcServerException|JsonException
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
      */
     public function testItShowsClientDescription(): void
     {
@@ -109,8 +107,9 @@ class ShowControllerTest extends TestCase
 
     /**
      * @throws \SimpleSAML\Error\Exception
-     * @throws NotFound
-     * @throws OidcServerException|JsonException
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
      */
     public function testItThrowsIdNotFoundException(): void
     {
@@ -121,9 +120,10 @@ class ShowControllerTest extends TestCase
     }
 
     /**
-     * @throws BadRequest
+     * @throws \SimpleSAML\Error\BadRequest
      * @throws \SimpleSAML\Error\Exception
-     * @throws OidcServerException|JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
      */
     public function testItThrowsClientNotFoundException(): void
     {

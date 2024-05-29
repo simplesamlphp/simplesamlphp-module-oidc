@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Controller;
 
-use PHPUnit\Framework\MockObject\Exception;
-use PHPUnit\Framework\MockObject\MockObject;
 use Laminas\Diactoros\ServerRequest;
-use SimpleSAML\Module\oidc\Controller\JwksController;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\Controller\JwksController;
 use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
 
 /**
@@ -20,7 +19,7 @@ class JwksControllerTest extends TestCase
     protected MockObject $serverRequestMock;
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function setUp(): void
     {
