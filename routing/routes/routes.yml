@@ -13,3 +13,4 @@ openid-configuration:
 openid-federation-entity-statement-configuration:
   path: openid-federation
   controller: SimpleSAML\Module\oidc\Controller\Federation\EntityStatementController::configuration
+  methods: GET

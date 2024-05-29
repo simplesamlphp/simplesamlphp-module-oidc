@@ -7,6 +7,8 @@ namespace SimpleSAML\Module\oidc\Controller\Federation;
 use SimpleSAML\Module\oidc\Codebooks\ClaimNamesEnum;
 use SimpleSAML\Module\oidc\Codebooks\ClaimValues\TypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\EntityTypeEnum;
+use SimpleSAML\Module\oidc\Codebooks\HttpHeaders;
+use SimpleSAML\Module\oidc\Codebooks\HttpHeaderValues\ContentTypeEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
@@ -96,6 +98,10 @@ class EntityStatementController
         // * metadata_policy_crit
 
         $jws = $this->jsonWebTokenBuilderService->getSignedFederationJwt($builder);
-        return new Response($jws->toString());
+        return new Response(
+            $jws->toString(),
+            200,
+            [HttpHeaders::ContentType->value => ContentTypeEnum::ApplicationEntityStatementJwt->value,],
+        );
     }
 }
