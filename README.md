@@ -61,11 +61,11 @@ Because of the signing part, you need to create a public/private RSA key pair.
 
 To generate the private key, you can run this command in the terminal:
 
-    openssl genrsa -out cert/oidc_module.key 2048
+    openssl genrsa -out cert/oidc_module.key 3072
 
 If you want to provide a passphrase for your private key, run this command instead:
 
-    openssl genrsa -passout pass:myPassPhrase -out cert/oidc_module.key 2048
+    openssl genrsa -passout pass:myPassPhrase -out cert/oidc_module.key 3072
 
 Now you need to extract the public key from the private key:
 
