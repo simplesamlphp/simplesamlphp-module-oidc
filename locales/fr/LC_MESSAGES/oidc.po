@@ -92,6 +92,9 @@ msgstr "Confirmer la suppression du client. Cette action est irréversible."
 msgid "{oidc:delete}"
 msgstr "Supprimer"
 
+msgid "{oidc:edit}"
+msgstr "Modifier"
+
 #, fuzzy
 msgid "{oidc:client:added}"
 msgstr "Ajout du client réussi."
@@ -160,4 +163,30 @@ msgstr "Les clients du module désuet oauth2 ont été importés."
 
 #, fuzzy
 msgid "{oidc:client:is_enabled}"
-msgstr "Activé."
+msgstr "Activé"
+
+msgid "{oidc:client:deactivated}"
+msgstr "Désactivé"
+
+msgid "{oidc:client:confidential}"
+msgstr "Confidentiel"
+
+msgid "{oidc:client:client}"
+msgstr "Client"
+
+msgid "{oidc:client:type}"
+msgstr "Taper"
+
+msgid "{oidc:client:confidential_help}"
+msgstr ""
+"Choisissez si le client est confidentiel ou public. Les clients confidentiels sont capables de maintenir la "
+"confidentialité de leurs informations d'identification (par exemple, client implémenté sur un serveur sécurisé avec "
+"un accès restreint aux informations d'identification du client), ou capable de sécuriser l'authentification du client "
+"par d'autres moyens. Les clients publics sont incapables de maintenir le confidentialité de leurs informations "
+"d'identification (par exemple, les clients s'exécutant sur le périphérique utilisé par le propriétaire de la "
+"ressource, tel qu'un application native installée ou application basée sur un navigateur Web), et incapable de "
+"sécuriser l'authentification du client via tout autre moyen."
+""
+
+msgid "{oidc:client:public_client}"
+msgstr "Client public"
