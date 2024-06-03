@@ -11,6 +11,6 @@ openid-configuration:
 # Federation related routes
 # https://openid.net/specs/openid-federation-1_0.html#name-federation-entity-configura
 openid-federation-entity-statement-configuration:
-  path: openid-federation
+  path: .well-known/openid-federation
   controller: SimpleSAML\Module\oidc\Controller\Federation\EntityStatementController::configuration
   methods: GET
