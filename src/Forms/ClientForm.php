@@ -49,6 +49,11 @@ class ClientForm extends Form
     final public const REGEX_HTTP_URI = '/^http(s?):\/\/[^\s\/$.?#][^\s#]*$/i';
 
     /**
+     * URI with https or http scheme and host / domain. It can contain path, but no query, or fragment component.
+     */
+    final public const REGEX_HTTP_URI_PATH = '/^http(s?):\/\/[^\s\/$.?#][^\s?#]*$/i';
+
+    /**
      * @throws \Exception
      */
     public function __construct(private readonly ModuleConfig $moduleConfig, protected CsrfProtection $csrfProtection)
@@ -110,6 +115,19 @@ class ClientForm extends Form
         }
     }
 
+    public function validateEntityIdentifier(Form $form): void
+    {
+        /** @var ?string $entityIdentifier */
+        $entityIdentifier = $form->getValues()['entity_identifier'] ?? null;
+        if ($entityIdentifier !== null) {
+            $this->validateByMatchingRegex(
+                [$entityIdentifier],
+                self::REGEX_HTTP_URI_PATH,
+                'Invalid Entity Identifier URI: ',
+            );
+        }
+    }
+
     /**
      * @param string[] $values
      * @param non-empty-string $regex
@@ -153,6 +171,9 @@ class ClientForm extends Form
                 ['openid'],
             ),
         );
+
+        $entityIdentifier = trim((string)$values['entity_identifier']);
+        $values['entity_identifier'] = empty($entityIdentifier) ? null : $entityIdentifier;
 
         return $values;
     }
@@ -206,6 +227,7 @@ class ClientForm extends Form
         $this->onValidate[] = $this->validateAllowedOrigin(...);
         $this->onValidate[] = $this->validatePostLogoutRedirectUri(...);
         $this->onValidate[] = $this->validateBackChannelLogoutUri(...);
+        $this->onValidate[] = $this->validateEntityIdentifier(...);
 
         $this->setMethod('POST');
         $this->addComponent($this->csrfProtection, Form::ProtectorId);
@@ -240,6 +262,8 @@ class ClientForm extends Form
         $this->addTextArea('allowed_origin', '{oidc:client:allowed_origin}', null, 5);
 
         $this->addText('backchannel_logout_uri', '{oidc:client:backchannel_logout_uri}');
+
+        $this->addText('entity_identifier', 'Entity Identifier');
     }
 
     /**

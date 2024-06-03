@@ -10,7 +10,9 @@ enum ClaimNamesEnum: string
     case AuthorityHints = 'authority_hints';
     case Contacts = 'contacts';
     case ExpirationTime = 'exp';
+    case FederationFetchEndpoint = 'federation_fetch_endpoint';
     case HomepageUri = 'homepage_uri';
+    case Issuer = 'iss';
     case JsonWebKeySet = 'jwks';
     case KeyId = 'kid';
     case LogoUri = 'logo_uri';

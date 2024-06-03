@@ -120,6 +120,11 @@ class DatabaseMigration
             $this->version20210916173400();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20210916173400')");
         }
+
+        if (!in_array('20240603141400', $versions, true)) {
+            $this->version20240603141400();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20240603141400')");
+        }
     }
 
     private function versionsTableName(): string
@@ -348,6 +353,21 @@ EOT
         )
 EOT
         ,);
+    }
+
+    /**
+     * Add Entity Identifier column
+     */
+    protected function version20240603141400(): void
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $uqEntityIdentifier = $this->generateIdentifierName([$clientTableName, 'entity_identifier'], 'uq');
+        $this->database->write(<<< EOT
+        ALTER TABLE {$clientTableName}
+            ADD entity_identifier VARCHAR(191) NULL,
+            ADD UNIQUE INDEX $uqEntityIdentifier (entity_identifier)
+EOT
+            ,);
     }
 
     /**

@@ -103,6 +103,7 @@ class EditController
                 $client->getOwner(),
                 $postLogoutRedirectUris,
                 empty($data['backchannel_logout_uri']) ? null : (string)$data['backchannel_logout_uri'],
+                empty($data['entity_identifier']) ? null : (string)$data['entity_identifier'],
             ), $authedUser);
 
             // Also persist allowed origins for this client.
@@ -120,6 +121,7 @@ class EditController
             'regexUri' => ClientForm::REGEX_URI,
             'regexAllowedOriginUrl' => ClientForm::REGEX_ALLOWED_ORIGIN_URL,
             'regexHttpUri' => ClientForm::REGEX_HTTP_URI,
+            'regexHttpUriPath' => ClientForm::REGEX_HTTP_URI_PATH,
         ]);
     }
 }

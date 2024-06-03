@@ -92,6 +92,18 @@
             <small class="helper">{{ '{oidc:client:allowed_origin_help}'|trans }}</small>
         </div>
 
+        <h3 class="ui dividing header">OpenID Federation related properties</h3>
+
+        <div class="field">
+            <label for="frm-entity_identifier">{{ 'Entity Identifier'|trans }}</label>
+
+            {{ form['entity_identifier'].control | raw }}
+            <small class="helper">
+                {% trans %}A globally unique URI that is bound to the entity. URI must have https or http scheme and
+                host / domain. It can contain path, but no query, or fragment component.{% endtrans %}
+            </small>
+        </div>
+
         <div class="ui divider"></div>
 
         <div class="ui buttons">
@@ -153,6 +165,16 @@
 
             if (uri.length) {
                 return null !== uri.match({{ regexHttpUri | raw }});
+            }
+
+            return true;
+        };
+
+        $.fn.form.settings.rules.entityIdentifier = function(value) {
+            var uri = value.trim();
+
+            if (uri.length) {
+                return null !== uri.match({{ regexHttpUriPath | raw }});
             }
 
             return true;
@@ -222,6 +244,15 @@
                             {
                                 type: 'backChannelLogoutUri',
                                 prompt: '{{ "{oidc:client:backchannel_logout_uri_not_valid}"|trans }}'
+                            }
+                        ]
+                    },
+                    entity_identifier: {
+                        identifier: 'entity_identifier',
+                        rules: [
+                            {
+                                type: 'entityIdentifier',
+                                prompt: '{{ "Entity Identifier URI not valid."|trans }}'
                             }
                         ]
                     }

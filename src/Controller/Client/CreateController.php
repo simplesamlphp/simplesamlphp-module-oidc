@@ -96,6 +96,7 @@ class CreateController
                 empty($client['owner']) ? null : (string)$client['owner'],
                 $postLogoutRedirectUris,
                 empty($client['backchannel_logout_uri']) ? null : (string)$client['backchannel_logout_uri'],
+                empty($client['entity_identifier']) ? null : (string)$client['entity_identifier'],
             ));
 
             // Also persist allowed origins for this client.
@@ -111,6 +112,7 @@ class CreateController
             'regexUri' => ClientForm::REGEX_URI,
             'regexAllowedOriginUrl' => ClientForm::REGEX_ALLOWED_ORIGIN_URL,
             'regexHttpUri' => ClientForm::REGEX_HTTP_URI,
+            'regexHttpUriPath' => ClientForm::REGEX_HTTP_URI_PATH,
         ]);
     }
 }

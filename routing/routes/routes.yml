@@ -5,7 +5,7 @@
 #        controllerClassname: SimpleSAML\Module\oidc\Controller\Client\IndexController
 
 openid-configuration:
-  path: openid-configuration
+  path: .well-known/openid-configuration
   controller: SimpleSAML\Module\oidc\Controller\ConfigurationDiscoveryController
 
 # Federation related routes
@@ -13,4 +13,9 @@ openid-configuration:
 openid-federation-entity-statement-configuration:
   path: .well-known/openid-federation
   controller: SimpleSAML\Module\oidc\Controller\Federation\EntityStatementController::configuration
+  methods: GET
+
+openid-federation-fetch:
+  path: federation/fetch
+  controller: SimpleSAML\Module\oidc\Controller\Federation\EntityStatementController::fetch
   methods: GET

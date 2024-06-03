@@ -1,16 +1,32 @@
+# TODO
+- upgrade to v9 of oauth2-server https://github.com/thephpleague/oauth2-server/releases/tag/9.0.0
+- key rollover
+- token introspection
+- implement store for different entities?: i.e. client data can use RDB like mysql, whilst short term data
+  like tokens can utilize faster stores like memcache, redis...
+- move to SimpleSAMLphp ProcessingChain
+- move to SSP (symfony) routing
+  - handle CORS
+- move checkers to templates (generics) for proper static type handling
+- move to SSP (symfony) container
+- remove dependency on laminas/laminas-diactoros
+- remove dependency on laminas/laminas-httphandlerrunner
+- create a bridge towards SSP utility classes, so they can be easily mocked
+- ?move away from SSP database as store; move to custom store interface
+
 # Version 5 to 6
 
 ## New features
-- TODO move away from SSP database as store; move to custom store interface
-- TODO key rollover
-- TODO token introspection
-- TODO implement store for different entities?: i.e. client data can use RDB like mysql, whilst short term data
-  like tokens can utilize faster stores like memcache, redis...
-- TODO move to SimpleSAMLphp ProcessingChain
-- TODO OpenID Federation capabilities
-  - [ ] Expose OP configuration entity statement (statement about itself)
+
+- OpenID Federation capabilities
+  - New endpoints:
+    - endpoint for issuing configuration entity statement (statement about itself)
+    - fetch endpoint for issuing statements about subordinates (registered clients)
+  - Clients can now be configured with new properties:
+    - Entity Identifier
 
 ## New configuration options
+
 - (optional) Issuer - you can now override the issuer (OP identifier). If not set, it falls back to current scheme, host
 and optionally a port (as in all previous module versions).
 - (optional) OpenID Federation related options (needed if federation capabilities are to be used):
@@ -25,13 +41,13 @@ and optionally a port (as in all previous module versions).
   - homepage URI
 
 ## Major impact changes
+
 - PHP version requirement was bumped to v8.2
 - SimpleSAMLphp version requirement was bumped to v2.2
-- TODO move away from SSP database as store; move to custom store interface
 
 ## Medium impact changes
-- TODO move to SSP (symfony) routing
-  - TODO handle CORS
+
+- Database schema has been updated, so you'll have to run the DB migrations as described in the README file.
 
 ## Low impact changes
 
@@ -39,13 +55,7 @@ Below are some internal changes that should not have impact for the OIDC OP impl
 this module as a library or extending from it, you will probably encounter breaking changes, since a lot of code
 has been refactored:
 
-- TODO upgrade to v9 of oauth2-server https://github.com/thephpleague/oauth2-server/releases/tag/9.0.0
 - upgraded to v5 of lcobucci/jwt https://github.com/lcobucci/jwt
-- TODO move checkers to templates (generics) for proper static type handling
-- TODO move to SSP (symfony) container
-- TODO remove dependency on laminas/laminas-diactoros
-- TODO remove dependency on laminas/laminas-httphandlerrunner
-- TODO create a bridge towards SSP utility classes, so they can be easily mocked
 
 # Version 4 to 5
 
