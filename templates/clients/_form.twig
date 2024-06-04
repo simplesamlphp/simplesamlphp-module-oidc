@@ -29,26 +29,64 @@
         </div>
 
         <div class="field">
-            <div class="ui checkbox">
-                <input name="is_enabled"
-                       id="frm-is_enabled"
-                       {% if form['is_enabled'].filled %}checked=""{% endif %}
-                       type="checkbox">
-
-                <label for="frm-is_enabled">{{ '{oidc:client:is_enabled}'|trans }}</label>
+            <label for="frm-is_enabled">{{ '{oidc:client:state}'|trans }}</label>
+            <div class="inline fields">
+                <div class="field">
+                    <div class="ui radio checkbox">
+                        <input type="radio"
+                               id="frm-enabled"
+                               name="is_enabled"
+                               {% if form['is_enabled'].value == true %}checked=""{% endif %}
+                               tabindex="0"
+                               value="1"
+                               class="hidden">
+                        <label for="frm-enabled">{{ '{oidc:client:is_enabled}'|trans }}</label>
+                    </div>
+                </div>
+                <div class="field">
+                    <div class="ui radio checkbox">
+                        <input type="radio"
+                               id="frm-disabled"
+                               name="is_enabled"
+                               {% if form['is_enabled'].value == false %}checked=""{% endif %}
+                               tabindex="0"
+                               value="0"
+                               class="hidden">
+                        <label for="frm-disabled">{{ '{oidc:client:deactivated}'|trans }}</label>
+                    </div>
+                </div>
             </div>
         </div>
 
         <div class="field">
-            <div class="ui checkbox">
-                <input name="is_confidential"
-                       id="frm-is_confidential"
-                       {% if form['is_confidential'].filled %}checked=""{% endif %}
-                       type="checkbox">
-
-                <label for="frm-is_confidential">{{ '{oidc:client:is_confidential}'|trans }}</label>
-                <small class="helper">{{ '{oidc:client:is_confidential_help}'|trans }}</small>
+            <label for="is_confidential">{{ '{oidc:client:type}'|trans }}</label>
+            <div class="inline fields">
+                <div class="field">
+                    <div class="ui radio checkbox">
+                        <input type="radio"
+                               id="frm-confidential"
+                               name="is_confidential"
+                               {% if form['is_confidential'].value == true %}checked=""{% endif %}
+                               tabindex="0"
+                               value="1"
+                               class="hidden">
+                        <label for="frm-is_confidential">{{ '{oidc:client:confidential}'|trans }}</label>
+                    </div>
+                </div>
+                <div class="field">
+                    <div class="ui radio checkbox">
+                        <input type="radio"
+                               id="frm-public"
+                               name="is_confidential"
+                               {% if form['is_confidential'].value == false %}checked=""{% endif %}
+                               tabindex="0"
+                               value="0"
+                               class="hidden">
+                        <label for="frm-is_confidential">{{ '{oidc:client:public}'|trans }}</label>
+                    </div>
+                </div>
             </div>
+            <small class="helper">{{ '{oidc:client:confidential_help}'|trans }}</small>
         </div>
 
         <div class="field required">
@@ -85,12 +123,14 @@
             <small class="helper">{{ '{oidc:client:post_logout_redirect_uri_help}'|trans }}</small>
         </div>
 
-        <div class="field">
+        {% if form['is_confidential'].value == true %}
+        <div id="fld-allowed_origin" class="field">
             <label for="frm-allowed_origin">{{ '{oidc:client:allowed_origin}'|trans }}</label>
 
             {{ form['allowed_origin'].control | raw }}
             <small class="helper">{{ '{oidc:client:allowed_origin_help}'|trans }}</small>
         </div>
+        {% endif %}
 
         <h3 class="ui dividing header">OpenID Federation related properties</h3>
 
@@ -123,11 +163,18 @@
     <script>
         $(document).ready(function () {
             toggleAllowedOrigins();
-             $('#frm-is_confidential').change(toggleAllowedOrigins);
+            $('#frm-confidential').change(toggleAllowedOrigins);
+            $('#frm-public').change(toggleAllowedOrigins);
         });
 
         function toggleAllowedOrigins() {
-            $('#frm-allowed_origin').prop('disabled', $('#frm-is_confidential').prop('checked'));
+            if($('#frm-confidential').prop('checked')) {
+                $('#frm-allowed_origin').prop('disabled', true);
+                $('#fld-allowed_origin').hide('slow');
+            } else {
+                $('#frm-allowed_origin').prop('disabled', false);
+                $('#fld-allowed_origin').show('slow');
+            }
         }
 
         $.fn.form.settings.rules.redirectUri = function(value) {

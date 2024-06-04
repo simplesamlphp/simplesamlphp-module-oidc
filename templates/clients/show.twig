@@ -27,13 +27,14 @@
         <tr>
             <td class="collapsing">{{ '{oidc:client:state}'|trans }}</td>
             <td>
-                <span class="ui {{ client.isEnabled ? 'green' : 'red' }} tiny label">
-                    {{ '{oidc:client:is_enabled}'|trans }}
-                </span>
-                <span class="ui {{ client.isConfidential ? 'green' : 'red' }} tiny label">
-                    {{ '{oidc:client:is_confidential}'|trans }}
+                <span class="ui {{ client.isEnabled ? 'green' : 'red'}} tiny label">
+                    {{ (client.isEnabled ? '{oidc:client:is_enabled}' : '{oidc:client:deactivated}')|trans }}
                 </span>
             </td>
+        </tr>
+        <tr>
+            <td class="collapsing">{{ '{oidc:client:type}'|trans }}</td>
+            <td>{{ (client.isConfidential ? '{oidc:client:confidential}' : '{oidc:client:public}')|trans }}</td>
         </tr>
         <tr>
             <td class="collapsing">{{ '{oidc:client:identifier}'|trans }}</td>
@@ -43,6 +44,7 @@
                    class="copy link icon"></i>
             </td>
         </tr>
+        {% if client.isConfidential %}
         <tr>
             <td class="collapsing">{{ '{oidc:client:secret}'|trans }}</td>
             <td>
@@ -52,6 +54,7 @@
                    class="copy link icon"></i>
             </td>
         </tr>
+        {% endif %}
         <tr>
             <td class="collapsing">{{ '{oidc:client:auth_source}'|trans }}</td>
             <td>{{ client.authSourceId }}</td>
@@ -94,8 +97,8 @@
             <td class="collapsing">{{ '{oidc:client:owner}'|trans }}</td>
             <td>{{ client.owner }}</td>
         </tr>
+        {% if client.isConfidential == false %}
         <tr>
-
             <td class="collapsing">{{ '{oidc:client:allowed_origin}'|trans }}</td>
             <td>
                 <ul class="list">
@@ -104,8 +107,8 @@
                     {% endfor %}
                 </ul>
             </td>
-
         </tr>
+        {% endif %}
         <tr>
             <td colspan="2">OpenID Federation related properties</td>
         </tr>
@@ -125,6 +128,7 @@
                     <a href="./edit.php?client_id={{ client.identifier }}" class="ui small labeled icon button">
                         <i class="edit icon"></i> {{ '{oidc:edit}'|trans }}
                     </a>
+                    {% if client.isConfidential %}
                     <div class="ui small teal labeled icon button">
                         <i class="refresh icon"></i> {{ '{oidc:client:reset_secret}'|trans }}
                     </div>
@@ -136,6 +140,7 @@
                             <input type="submit" class="ui button" value="{{ '{oidc:confirm}'|trans }}">
                         </form>
                     </div>
+                    {% endif %}
                 </div>
             </th>
         </tr>
