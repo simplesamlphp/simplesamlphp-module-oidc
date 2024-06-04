@@ -18,6 +18,7 @@ namespace SimpleSAML\Module\oidc\Entities;
 
 use League\OAuth2\Server\Entities\Traits\ClientTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
+use SimpleSAML\Module\oidc\Codebooks\ClientRegistrationTypesEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
@@ -51,6 +52,10 @@ class ClientEntity implements ClientEntityInterface
 
     private ?string $backChannelLogoutUri = null;
     private ?string $entityIdentifier = null;
+    /**
+     * @var string[]|null
+     */
+    private ?array $clientRegistrationTypes = null;
 
     /**
      * Constructor.
@@ -63,6 +68,7 @@ class ClientEntity implements ClientEntityInterface
      * @param string[] $redirectUri
      * @param string[] $scopes
      * @param string[] $postLogoutRedirectUri
+     * @param string[] $clientRegistrationTypes
      */
     public static function fromData(
         string $id,
@@ -78,6 +84,7 @@ class ClientEntity implements ClientEntityInterface
         array $postLogoutRedirectUri = [],
         ?string $backChannelLogoutUri = null,
         ?string $entityIdentifier = null,
+        ?array $clientRegistrationTypes = null,
     ): ClientEntityInterface {
         $client = new self();
 
@@ -94,6 +101,7 @@ class ClientEntity implements ClientEntityInterface
         $client->postLogoutRedirectUri = $postLogoutRedirectUri;
         $client->backChannelLogoutUri = empty($backChannelLogoutUri) ? null : $backChannelLogoutUri;
         $client->entityIdentifier = empty($entityIdentifier) ? null : $entityIdentifier;
+        $client->clientRegistrationTypes = $clientRegistrationTypes;
 
         return $client;
     }
@@ -152,6 +160,10 @@ class ClientEntity implements ClientEntityInterface
         null :
         (string)$state['entity_identifier'];
 
+        $client->clientRegistrationTypes = empty($state['client_registration_types']) ?
+        null :
+        json_decode($state['client_registration_types'], true, 512, JSON_THROW_ON_ERROR);
+
         return $client;
     }
 
@@ -175,6 +187,9 @@ class ClientEntity implements ClientEntityInterface
             'post_logout_redirect_uri' => json_encode($this->getPostLogoutRedirectUri(), JSON_THROW_ON_ERROR),
             'backchannel_logout_uri' => $this->getBackChannelLogoutUri(),
             'entity_identifier' => $this->getEntityIdentifier(),
+            'client_registration_types' => is_null($this->clientRegistrationTypes) ?
+                null :
+                json_encode($this->getClientRegistrationTypes(), JSON_THROW_ON_ERROR),
         ];
     }
 
@@ -194,6 +209,7 @@ class ClientEntity implements ClientEntityInterface
             'post_logout_redirect_uri' => $this->postLogoutRedirectUri,
             'backchannel_logout_uri' => $this->backChannelLogoutUri,
             'entity_identifier' => $this->entityIdentifier,
+            'client_registration_types' => $this->clientRegistrationTypes,
         ];
     }
 
@@ -266,5 +282,20 @@ class ClientEntity implements ClientEntityInterface
     public function getRedirectUris(): array
     {
         return is_string($this->redirectUri) ? [$this->redirectUri] : $this->redirectUri;
+    }
+
+    /**
+     * Get client registration types.
+     * Since this is required property, it will fall back to 'automatic', if not set on client.
+     *
+     * @return string[]
+     */
+    public function getClientRegistrationTypes(): array
+    {
+        if (empty($this->clientRegistrationTypes)) {
+            return [ClientRegistrationTypesEnum::Automatic->value];
+        }
+
+        return $this->clientRegistrationTypes;
     }
 }

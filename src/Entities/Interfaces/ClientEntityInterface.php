@@ -66,5 +66,13 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
 
     public function getEntityIdentifier(): ?string;
 
+    /**
+     * @return string[]
+     */
     public function getRedirectUris(): array;
+
+    /**
+     * @return string[]
+     */
+    public function getClientRegistrationTypes(): array;
 }

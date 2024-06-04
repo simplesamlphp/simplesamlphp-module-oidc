@@ -116,6 +116,16 @@
             <td class="collapsing">{{ 'Entity Identifier'|trans }}</td>
             <td>{{ client.entityIdentifier }}</td>
         </tr>
+        <tr>
+            <td class="collapsing">{{ 'Client registration types'|trans }}</td>
+            <td>
+                <ul class="list">
+                    {% for clientRegistrationType in client.clientRegistrationTypes %}
+                        <li>{{ clientRegistrationType }}</li>
+                    {% endfor %}
+                </ul>
+            </td>
+        </tr>
         </tbody>
         <tfoot>
         <tr class="full-width">

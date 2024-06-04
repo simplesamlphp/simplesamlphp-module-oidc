@@ -168,6 +168,7 @@ class EntityStatementController
                         ClaimNamesEnum::ClientId->value => $client->getIdentifier(),
                         ClaimNamesEnum::RedirectUris->value => $client->getRedirectUris(),
                         ClaimNamesEnum::Scope->value => implode(' ', $client->getScopes()),
+                        ClaimNamesEnum::ClientRegistrationTypes->value => $client->getClientRegistrationTypes(),
                         // Optional claims...
                         ...(array_filter(
                             [
@@ -175,7 +176,6 @@ class EntityStatementController
                                 ClaimNamesEnum::PostLogoutRedirectUris->value => $client->getPostLogoutRedirectUri(),
                             ],
                         )),
-                        // TODO mivanci REQUIRED client_registration_types
                         // TODO mivanci Continue
                         // https://openid.net/specs/openid-connect-registration-1_0.html#ClientMetadata
                         // https://www.iana.org/assignments/oauth-parameters/oauth-parameters.xhtml#client-metadata

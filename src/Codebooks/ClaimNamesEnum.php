@@ -11,6 +11,7 @@ enum ClaimNamesEnum: string
     case BackChannelLogoutUri = 'backchannel_logout_uri';
     case ClientId = 'client_id';
     case ClientName = 'client_name';
+    case ClientRegistrationTypes = 'client_registration_types';
     case Contacts = 'contacts';
     case ExpirationTime = 'exp';
     case FederationFetchEndpoint = 'federation_fetch_endpoint';
