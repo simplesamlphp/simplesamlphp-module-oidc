@@ -141,13 +141,58 @@ class EntityStatementController
             return $this->configuration();
         }
 
-        $subject = (string) $subject;
+        /** @var non-empty-string $subject */
+        $subject = (string)$subject;
         $client = $this->clientRepository->findByEntityIdentifier($subject);
         if (empty($client)) {
-            // TODO mivanci continue
+            return $this->prepareJsonErrorResponse(
+                ErrorsEnum::NotFound->value,
+                sprintf('Subject not found (%s)', $subject),
+                404,
+            );
         }
+        $builder = $this->jsonWebTokenBuilderService->getFederationJwtBuilder()
+            ->withHeader(ClaimNamesEnum::Type->value, TypeEnum::EntityStatementJwt->value)
+            ->relatedTo($subject)
+            ->expiresAt(
+                (TimestampGenerator::utcImmutable())->add($this->moduleConfig->getFederationEntityStatementDuration()),
+            )->withClaim(
+                ClaimNamesEnum::JsonWebKeySet->value,
+                ['keys' => array_values($this->jsonWebKeySetService->federationKeys()),],
+            )
+            ->withClaim(
+                ClaimNamesEnum::Metadata->value,
+                [
+                    EntityTypeEnum::OpenIdRelyingParty->value => [
+                        ClaimNamesEnum::ClientName->value => $client->getName(),
+                        ClaimNamesEnum::ClientId->value => $client->getIdentifier(),
+                        ClaimNamesEnum::RedirectUris->value => $client->getRedirectUris(),
+                        ClaimNamesEnum::Scope->value => implode(' ', $client->getScopes()),
+                        // Optional claims...
+                        ...(array_filter(
+                            [
+                                ClaimNamesEnum::BackChannelLogoutUri->value => $client->getBackChannelLogoutUri(),
+                                ClaimNamesEnum::PostLogoutRedirectUris->value => $client->getPostLogoutRedirectUri(),
+                            ],
+                        )),
+                        // TODO mivanci REQUIRED client_registration_types
+                        // TODO mivanci Continue
+                        // https://openid.net/specs/openid-connect-registration-1_0.html#ClientMetadata
+                        // https://www.iana.org/assignments/oauth-parameters/oauth-parameters.xhtml#client-metadata
+                    ],
+                ],
+            );
 
-        return new Response();
+        // TODO mivanci ?Enforce through metadata policy:
+        // ?response_types, grant_types...
+
+
+        $jws = $this->jsonWebTokenBuilderService->getSignedFederationJwt($builder);
+        return new Response(
+            $jws->toString(),
+            200,
+            [HttpHeadersEnum::ContentType->value => ContentTypeEnum::ApplicationEntityStatementJwt->value,],
+        );
     }
 
     private function prepareJsonErrorResponse(string $error, string $description, int $httpCode = 500): JsonResponse

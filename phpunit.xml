@@ -21,6 +21,7 @@
   </logging>
   <php>
     <env name="SIMPLESAMLPHP_CONFIG_DIR" value="tests/config"/>
+    <env name="APP_ENV" value="phpunit"/>
   </php>
   <source>
     <include>

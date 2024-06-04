@@ -136,6 +136,7 @@ class EditControllerTest extends TestCase
                 'regexUri' => ClientForm::REGEX_URI,
                 'regexAllowedOriginUrl' => ClientForm::REGEX_ALLOWED_ORIGIN_URL,
                 'regexHttpUri' => ClientForm::REGEX_HTTP_URI,
+                'regexHttpUriPath' => ClientForm::REGEX_HTTP_URI_PATH,
             ],
         )->willReturn($this->templateStub);
 

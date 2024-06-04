@@ -59,6 +59,11 @@ class ClientEntity implements ClientEntityInterface
     {
     }
 
+    /**
+     * @param string[] $redirectUri
+     * @param string[] $scopes
+     * @param string[] $postLogoutRedirectUri
+     */
     public static function fromData(
         string $id,
         string $secret,
@@ -256,5 +261,10 @@ class ClientEntity implements ClientEntityInterface
     public function getEntityIdentifier(): ?string
     {
         return $this->entityIdentifier;
+    }
+
+    public function getRedirectUris(): array
+    {
+        return is_string($this->redirectUri) ? [$this->redirectUri] : $this->redirectUri;
     }
 }

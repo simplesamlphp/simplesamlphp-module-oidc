@@ -364,10 +364,24 @@ EOT
         $uqEntityIdentifier = $this->generateIdentifierName([$clientTableName, 'entity_identifier'], 'uq');
         $this->database->write(<<< EOT
         ALTER TABLE {$clientTableName}
-            ADD entity_identifier VARCHAR(191) NULL,
-            ADD UNIQUE INDEX $uqEntityIdentifier (entity_identifier)
+            ADD entity_identifier VARCHAR(191) NULL
+EOT
+        ,);
+
+        // The syntax for adding unique constraint in existing table is different in sqlite (used in unit tests).
+        if (getenv('APP_ENV') === 'phpunit') {
+            $this->database->write(<<< EOT
+            CREATE UNIQUE INDEX $uqEntityIdentifier ON $clientTableName(entity_identifier);
 EOT
             ,);
+            return;
+        }
+
+        $this->database->write(<<< EOT
+        ALTER TABLE {$clientTableName}
+            ADD UNIQUE INDEX $uqEntityIdentifier (entity_identifier)
+EOT
+        ,);
     }
 
     /**
