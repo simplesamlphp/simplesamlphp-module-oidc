@@ -122,7 +122,8 @@ to be enabled and configured.
 
 ### Endpoint locations
 
-Once you deployed the module, you will need the exact endpoint urls the module provides to configure the relying parties. You can visit the discovery endpoint to learn this information:
+Once you deployed the module, you will need the exact endpoint urls the module provides to configure the relying parties.
+You can visit the discovery endpoint to learn this information:
 
 `<basepath>/module.php/oidc/openid-configuration.php`
 

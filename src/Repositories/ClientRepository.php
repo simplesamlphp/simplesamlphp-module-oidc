@@ -103,6 +103,35 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         return ClientEntity::fromState($row);
     }
 
+    public function findByEntityIdentifier(string $entityIdentifier, ?string $owner = null): ?ClientEntityInterface
+    {
+        /**
+         * @var string $query
+         * @var array $params
+         */
+        [$query, $params] = $this->addOwnerWhereClause(
+            "SELECT * FROM {$this->getTableName()} WHERE entity_identifier = :entity_identifier",
+            [
+                'entity_identifier' => $entityIdentifier,
+            ],
+            $owner,
+        );
+
+        $stmt = $this->database->read($query, $params);
+
+        if (empty($rows = $stmt->fetchAll())) {
+            return null;
+        }
+
+        $row = current($rows);
+
+        if (!is_array($row)) {
+            return null;
+        }
+
+        return ClientEntity::fromState($row);
+    }
+
     private function addOwnerWhereClause(string $query, array $params, ?string $owner = null): array
     {
         if (isset($owner)) {
@@ -203,7 +232,9 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
                 is_confidential,
                 owner,
                 post_logout_redirect_uri,
-                backchannel_logout_uri
+                backchannel_logout_uri,
+                entity_identifier,
+                client_registration_types
             )
             VALUES (
                 :id,
@@ -217,7 +248,9 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
                 :is_confidential,
                 :owner,
                 :post_logout_redirect_uri,
-                :backchannel_logout_uri
+                :backchannel_logout_uri,
+                :entity_identifier,
+                :client_registration_types
             )
 EOS
             ,
@@ -260,7 +293,9 @@ EOS
                 is_confidential = :is_confidential,
                 owner = :owner,
                 post_logout_redirect_uri = :post_logout_redirect_uri,
-                backchannel_logout_uri = :backchannel_logout_uri
+                backchannel_logout_uri = :backchannel_logout_uri,
+                entity_identifier = :entity_identifier,
+                client_registration_types = :client_registration_types
             WHERE id = :id
 EOF
             ,

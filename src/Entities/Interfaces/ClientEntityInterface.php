@@ -63,4 +63,16 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
      * @param string|null $backChannelLogoutUri
      */
     public function setBackChannelLogoutUri(?string $backChannelLogoutUri): void;
+
+    public function getEntityIdentifier(): ?string;
+
+    /**
+     * @return string[]
+     */
+    public function getRedirectUris(): array;
+
+    /**
+     * @return string[]
+     */
+    public function getClientRegistrationTypes(): array;
 }

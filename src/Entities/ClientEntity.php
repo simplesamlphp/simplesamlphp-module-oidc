@@ -18,6 +18,7 @@ namespace SimpleSAML\Module\oidc\Entities;
 
 use League\OAuth2\Server\Entities\Traits\ClientTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
+use SimpleSAML\Module\oidc\Codebooks\ClientRegistrationTypesEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
@@ -50,6 +51,11 @@ class ClientEntity implements ClientEntityInterface
     private ?array $postLogoutRedirectUri = null;
 
     private ?string $backChannelLogoutUri = null;
+    private ?string $entityIdentifier = null;
+    /**
+     * @var string[]|null
+     */
+    private ?array $clientRegistrationTypes = null;
 
     /**
      * Constructor.
@@ -59,19 +65,10 @@ class ClientEntity implements ClientEntityInterface
     }
 
     /**
-     * @param string $id
-     * @param string $secret
-     * @param string $name
-     * @param string $description
      * @param string[] $redirectUri
      * @param string[] $scopes
-     * @param bool $isEnabled
-     * @param bool $isConfidential
-     * @param string|null $authSource
-     * @param string|null $owner
      * @param string[] $postLogoutRedirectUri
-     * @param string|null $backChannelLogoutUri
-     * @return \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface
+     * @param string[] $clientRegistrationTypes
      */
     public static function fromData(
         string $id,
@@ -86,6 +83,8 @@ class ClientEntity implements ClientEntityInterface
         ?string $owner = null,
         array $postLogoutRedirectUri = [],
         ?string $backChannelLogoutUri = null,
+        ?string $entityIdentifier = null,
+        ?array $clientRegistrationTypes = null,
     ): ClientEntityInterface {
         $client = new self();
 
@@ -101,6 +100,8 @@ class ClientEntity implements ClientEntityInterface
         $client->owner = empty($owner) ? null : $owner;
         $client->postLogoutRedirectUri = $postLogoutRedirectUri;
         $client->backChannelLogoutUri = empty($backChannelLogoutUri) ? null : $backChannelLogoutUri;
+        $client->entityIdentifier = empty($entityIdentifier) ? null : $entityIdentifier;
+        $client->clientRegistrationTypes = $clientRegistrationTypes;
 
         return $client;
     }
@@ -155,6 +156,16 @@ class ClientEntity implements ClientEntityInterface
         null :
         (string)$state['backchannel_logout_uri'];
 
+        $client->entityIdentifier = empty($state['entity_identifier']) ?
+        null :
+        (string)$state['entity_identifier'];
+
+        /** @var ?string[] $clientRegistrationTypes */
+        $clientRegistrationTypes = empty($state['client_registration_types']) ?
+        null :
+        json_decode((string)$state['client_registration_types'], true, 512, JSON_THROW_ON_ERROR);
+        $client->clientRegistrationTypes = $clientRegistrationTypes;
+
         return $client;
     }
 
@@ -177,7 +188,10 @@ class ClientEntity implements ClientEntityInterface
             'owner' => $this->getOwner(),
             'post_logout_redirect_uri' => json_encode($this->getPostLogoutRedirectUri(), JSON_THROW_ON_ERROR),
             'backchannel_logout_uri' => $this->getBackChannelLogoutUri(),
-
+            'entity_identifier' => $this->getEntityIdentifier(),
+            'client_registration_types' => is_null($this->clientRegistrationTypes) ?
+                null :
+                json_encode($this->getClientRegistrationTypes(), JSON_THROW_ON_ERROR),
         ];
     }
 
@@ -196,6 +210,8 @@ class ClientEntity implements ClientEntityInterface
             'owner' => $this->owner,
             'post_logout_redirect_uri' => $this->postLogoutRedirectUri,
             'backchannel_logout_uri' => $this->backChannelLogoutUri,
+            'entity_identifier' => $this->entityIdentifier,
+            'client_registration_types' => $this->clientRegistrationTypes,
         ];
     }
 
@@ -254,5 +270,34 @@ class ClientEntity implements ClientEntityInterface
     public function setBackChannelLogoutUri(?string $backChannelLogoutUri): void
     {
         $this->backChannelLogoutUri = $backChannelLogoutUri;
+    }
+
+    /**
+     * Get the RP Entity Identifier, as used in OpenID Federation specification.
+     * This is different from the client ID.
+     */
+    public function getEntityIdentifier(): ?string
+    {
+        return $this->entityIdentifier;
+    }
+
+    public function getRedirectUris(): array
+    {
+        return is_string($this->redirectUri) ? [$this->redirectUri] : $this->redirectUri;
+    }
+
+    /**
+     * Get client registration types.
+     * Since this is required property, it will fall back to 'automatic', if not set on client.
+     *
+     * @return string[]
+     */
+    public function getClientRegistrationTypes(): array
+    {
+        if (empty($this->clientRegistrationTypes)) {
+            return [ClientRegistrationTypesEnum::Automatic->value];
+        }
+
+        return $this->clientRegistrationTypes;
     }
 }

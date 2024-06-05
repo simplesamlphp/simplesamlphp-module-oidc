@@ -120,6 +120,16 @@ class DatabaseMigration
             $this->version20210916173400();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20210916173400')");
         }
+
+        if (!in_array('20240603141400', $versions, true)) {
+            $this->version20240603141400();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20240603141400')");
+        }
+
+        if (!in_array('20240605145700', $versions, true)) {
+            $this->version20240605145700();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20240605145700')");
+        }
     }
 
     private function versionsTableName(): string
@@ -348,6 +358,48 @@ EOT
         )
 EOT
         ,);
+    }
+
+    /**
+     * Add Entity Identifier column
+     */
+    protected function version20240603141400(): void
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $uqEntityIdentifier = $this->generateIdentifierName([$clientTableName, 'entity_identifier'], 'uq');
+        $this->database->write(<<< EOT
+        ALTER TABLE {$clientTableName}
+            ADD entity_identifier VARCHAR(191) NULL
+EOT
+        ,);
+
+        // The syntax for adding unique constraint in existing table is different in sqlite (used in unit tests).
+        if (getenv('APP_ENV') === 'phpunit') {
+            $this->database->write(<<< EOT
+            CREATE UNIQUE INDEX $uqEntityIdentifier ON $clientTableName(entity_identifier);
+EOT
+            ,);
+            return;
+        }
+
+        $this->database->write(<<< EOT
+        ALTER TABLE {$clientTableName}
+            ADD UNIQUE INDEX $uqEntityIdentifier (entity_identifier)
+EOT
+        ,);
+    }
+
+    /**
+     * Add Client Registration Types column
+     */
+    protected function version20240605145700(): void
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE {$clientTableName}
+            ADD client_registration_types VARCHAR(191) NULL
+EOT
+            ,);
     }
 
     /**

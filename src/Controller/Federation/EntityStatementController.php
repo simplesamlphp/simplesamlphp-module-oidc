@@ -7,11 +7,18 @@ namespace SimpleSAML\Module\oidc\Controller\Federation;
 use SimpleSAML\Module\oidc\Codebooks\ClaimNamesEnum;
 use SimpleSAML\Module\oidc\Codebooks\ClaimValues\TypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\EntityTypeEnum;
+use SimpleSAML\Module\oidc\Codebooks\ErrorsEnum;
+use SimpleSAML\Module\oidc\Codebooks\HttpHeadersEnum;
+use SimpleSAML\Module\oidc\Codebooks\HttpHeaderValues\ContentTypeEnum;
+use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class EntityStatementController
@@ -21,6 +28,7 @@ class EntityStatementController
         private readonly JsonWebTokenBuilderService $jsonWebTokenBuilderService,
         private readonly JsonWebKeySetService $jsonWebKeySetService,
         private readonly OpMetadataService $opMetadataService,
+        private readonly ClientRepository $clientRepository,
     ) {
     }
 
@@ -54,9 +62,10 @@ class EntityStatementController
                                 ClaimNamesEnum::HomepageUri->value => $this->moduleConfig->getHomepageUri(),
                             ],
                         )),
+                        ClaimNamesEnum::FederationFetchEndpoint->value =>
+                            $this->moduleConfig->getModuleUrl(RoutesEnum::FederationFetch->value),
                         // TODO mivanci Add when ready. Use ClaimsEnum for keys.
                         // https://openid.net/specs/openid-federation-1_0.html#name-federation-entity
-                        //'federation_fetch_endpoint',
                         //'federation_list_endpoint',
                         //'federation_resolve_endpoint',
                         //'federation_trust_mark_status_endpoint',
@@ -96,6 +105,104 @@ class EntityStatementController
         // * metadata_policy_crit
 
         $jws = $this->jsonWebTokenBuilderService->getSignedFederationJwt($builder);
-        return new Response($jws->toString());
+        return new Response(
+            $jws->toString(),
+            200,
+            [HttpHeadersEnum::ContentType->value => ContentTypeEnum::ApplicationEntityStatementJwt->value,],
+        );
+    }
+
+    public function fetch(Request $request): Response
+    {
+        $issuer = $request->query->get(ClaimNamesEnum::Issuer->value);
+
+        if (empty($issuer)) {
+            return $this->prepareJsonErrorResponse(
+                ErrorsEnum::InvalidRequest->value,
+                sprintf('Missing parameter %s', ClaimNamesEnum::Issuer->value),
+                400,
+            );
+        }
+
+        $issuer = (string) $issuer;
+
+        if (!hash_equals($issuer, $this->moduleConfig->getIssuer())) {
+            return $this->prepareJsonErrorResponse(
+                ErrorsEnum::InvalidIssuer->value,
+                sprintf('Invalid issuer (%s)', $issuer),
+                404,
+            );
+        }
+
+        $subject = $request->query->get(ClaimNamesEnum::Subject->value);
+
+        // If the subject is not set, we are required to return the issuer entity configuration.
+        if (empty($subject)) {
+            return $this->configuration();
+        }
+
+        /** @var non-empty-string $subject */
+        $subject = (string)$subject;
+        $client = $this->clientRepository->findByEntityIdentifier($subject);
+        if (empty($client)) {
+            return $this->prepareJsonErrorResponse(
+                ErrorsEnum::NotFound->value,
+                sprintf('Subject not found (%s)', $subject),
+                404,
+            );
+        }
+        $builder = $this->jsonWebTokenBuilderService->getFederationJwtBuilder()
+            ->withHeader(ClaimNamesEnum::Type->value, TypeEnum::EntityStatementJwt->value)
+            ->relatedTo($subject)
+            ->expiresAt(
+                (TimestampGenerator::utcImmutable())->add($this->moduleConfig->getFederationEntityStatementDuration()),
+            )->withClaim(
+                ClaimNamesEnum::JsonWebKeySet->value,
+                ['keys' => array_values($this->jsonWebKeySetService->federationKeys()),],
+            )
+            ->withClaim(
+                ClaimNamesEnum::Metadata->value,
+                [
+                    EntityTypeEnum::OpenIdRelyingParty->value => [
+                        ClaimNamesEnum::ClientName->value => $client->getName(),
+                        ClaimNamesEnum::ClientId->value => $client->getIdentifier(),
+                        ClaimNamesEnum::RedirectUris->value => $client->getRedirectUris(),
+                        ClaimNamesEnum::Scope->value => implode(' ', $client->getScopes()),
+                        ClaimNamesEnum::ClientRegistrationTypes->value => $client->getClientRegistrationTypes(),
+                        // Optional claims...
+                        ...(array_filter(
+                            [
+                                ClaimNamesEnum::BackChannelLogoutUri->value => $client->getBackChannelLogoutUri(),
+                                ClaimNamesEnum::PostLogoutRedirectUris->value => $client->getPostLogoutRedirectUri(),
+                            ],
+                        )),
+                        // TODO mivanci Continue
+                        // https://openid.net/specs/openid-connect-registration-1_0.html#ClientMetadata
+                        // https://www.iana.org/assignments/oauth-parameters/oauth-parameters.xhtml#client-metadata
+                    ],
+                ],
+            );
+
+        // TODO mivanci ?Enforce through metadata policy:
+        // ?response_types, grant_types...
+
+
+        $jws = $this->jsonWebTokenBuilderService->getSignedFederationJwt($builder);
+        return new Response(
+            $jws->toString(),
+            200,
+            [HttpHeadersEnum::ContentType->value => ContentTypeEnum::ApplicationEntityStatementJwt->value,],
+        );
+    }
+
+    private function prepareJsonErrorResponse(string $error, string $description, int $httpCode = 500): JsonResponse
+    {
+        return new JsonResponse(
+            [
+                'error' => $error,
+                'error_description' => $description,
+            ],
+            $httpCode,
+        );
     }
 }
