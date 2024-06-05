@@ -18,6 +18,7 @@ namespace SimpleSAML\Module\oidc\Forms;
 
 use Nette\Forms\Form;
 use SimpleSAML\Auth\Source;
+use SimpleSAML\Module\oidc\Codebooks\ClientRegistrationTypesEnum;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use Traversable;
@@ -128,6 +129,19 @@ class ClientForm extends Form
         }
     }
 
+    public function validateClientRegistrationTypes(Form $form): void
+    {
+        /** @var ?string[] $clientRegistrationTypes */
+        $clientRegistrationTypes = $form->getValues()['client_registration_types'] ?? null;
+        if ($clientRegistrationTypes !== null) {
+            foreach ($clientRegistrationTypes as $clientRegistrationType) {
+                if (is_null(ClientRegistrationTypesEnum::tryFrom($clientRegistrationType))) {
+                    $this->addError("Invalid value: $clientRegistrationType");
+                }
+            }
+        }
+    }
+
     /**
      * @param string[] $values
      * @param non-empty-string $regex
@@ -175,6 +189,10 @@ class ClientForm extends Form
         $entityIdentifier = trim((string)$values['entity_identifier']);
         $values['entity_identifier'] = empty($entityIdentifier) ? null : $entityIdentifier;
 
+        $values['client_registration_types'] = is_array($values['client_registration_types']) ?
+        array_intersect($values['client_registration_types'], $this->getClientRegistrationTypes()) :
+        [ClientRegistrationTypesEnum::Automatic->value];
+
         return $values;
     }
 
@@ -211,6 +229,10 @@ class ClientForm extends Form
         $scopes = is_array($data['scopes']) ? $data['scopes'] : [];
         $data['scopes'] = array_intersect($scopes, array_keys($this->getScopes()));
 
+        $data['client_registration_types'] = is_array($data['client_registration_types']) ?
+        array_intersect($data['client_registration_types'], $this->getClientRegistrationTypes()) :
+        [ClientRegistrationTypesEnum::Automatic->value];
+
         parent::setDefaults($data, $erase);
 
         return $this;
@@ -228,6 +250,7 @@ class ClientForm extends Form
         $this->onValidate[] = $this->validatePostLogoutRedirectUri(...);
         $this->onValidate[] = $this->validateBackChannelLogoutUri(...);
         $this->onValidate[] = $this->validateEntityIdentifier(...);
+        $this->onValidate[] = $this->validateClientRegistrationTypes(...);
 
         $this->setMethod('POST');
         $this->addComponent($this->csrfProtection, Form::ProtectorId);
@@ -264,6 +287,10 @@ class ClientForm extends Form
         $this->addText('backchannel_logout_uri', '{oidc:client:backchannel_logout_uri}');
 
         $this->addText('entity_identifier', 'Entity Identifier');
+
+        $this->addMultiSelect('client_registration_types', 'Registration types')
+            ->setHtmlAttribute('class', 'ui fluid dropdown')
+            ->setItems($this->getClientRegistrationTypes());
     }
 
     /**
@@ -286,5 +313,19 @@ class ClientForm extends Form
             preg_split("/[\t\r\n]+/", $text),
             fn(string $line): bool => !empty(trim($line)),
         );
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getClientRegistrationTypes(): array
+    {
+        $types = [];
+
+        foreach (ClientRegistrationTypesEnum::cases() as $case) {
+            $types[$case->value] = $case->value;
+        }
+
+        return $types;
     }
 }

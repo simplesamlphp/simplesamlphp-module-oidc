@@ -115,6 +115,8 @@ class EditControllerTest extends TestCase
             'allowed_origin' => [],
             'post_logout_redirect_uri' => [],
             'backchannel_logout_uri' => null,
+            'entity_identifier' => null,
+            'client_registration_types' => null,
         ];
 
         $this->clientEntityMock->expects($this->atLeastOnce())->method('getIdentifier')->willReturn('clientid');
@@ -169,6 +171,8 @@ class EditControllerTest extends TestCase
             'allowed_origin' => [],
             'post_logout_redirect_uri' => [],
             'backchannel_logout_uri' => null,
+            'entity_identifier' => null,
+            'client_registration_types' => null,
         ];
 
         $this->serverRequestMock->expects($this->once())->method('getQueryParams')
@@ -201,6 +205,8 @@ class EditControllerTest extends TestCase
                 'allowed_origin' => [],
                 'post_logout_redirect_uri' => [],
                 'backchannel_logout_uri' => null,
+                'entity_identifier' => null,
+                'client_registration_types' => null,
             ],
         );
 
@@ -255,6 +261,8 @@ class EditControllerTest extends TestCase
             'allowed_origin' => [],
             'post_logout_redirect_uri' => [],
             'backchannel_logout_uri' => null,
+            'entity_identifier' => null,
+            'client_registration_types' => null,
         ];
 
         $this->serverRequestMock->expects($this->once())->method('getQueryParams')
@@ -287,6 +295,8 @@ class EditControllerTest extends TestCase
                 'allowed_origin' => [],
                 'post_logout_redirect_uri' => [],
                 'backchannel_logout_uri' => null,
+                'entity_identifier' => null,
+                'client_registration_types' => null,
             ],
         );
 

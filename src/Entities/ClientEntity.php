@@ -160,9 +160,11 @@ class ClientEntity implements ClientEntityInterface
         null :
         (string)$state['entity_identifier'];
 
-        $client->clientRegistrationTypes = empty($state['client_registration_types']) ?
+        /** @var ?string[] $clientRegistrationTypes */
+        $clientRegistrationTypes = empty($state['client_registration_types']) ?
         null :
-        json_decode($state['client_registration_types'], true, 512, JSON_THROW_ON_ERROR);
+        json_decode((string)$state['client_registration_types'], true, 512, JSON_THROW_ON_ERROR);
+        $client->clientRegistrationTypes = $clientRegistrationTypes;
 
         return $client;
     }

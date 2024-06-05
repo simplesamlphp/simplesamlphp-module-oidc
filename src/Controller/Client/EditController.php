@@ -89,6 +89,9 @@ class EditController
             $postLogoutRedirectUris = $data['post_logout_redirect_uri'];
             /** @var string[] $allowedOrigins */
             $allowedOrigins = $data['allowed_origin'];
+            /** @var string[] $clientRegistrationTypes */
+            $clientRegistrationTypes = is_array($data['client_registration_types']) ?
+            $data['client_registration_types'] : null;
 
             $this->clientRepository->update(ClientEntity::fromData(
                 $client->getIdentifier(),
@@ -104,6 +107,7 @@ class EditController
                 $postLogoutRedirectUris,
                 empty($data['backchannel_logout_uri']) ? null : (string)$data['backchannel_logout_uri'],
                 empty($data['entity_identifier']) ? null : (string)$data['entity_identifier'],
+                $clientRegistrationTypes,
             ), $authedUser);
 
             // Also persist allowed origins for this client.

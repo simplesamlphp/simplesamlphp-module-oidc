@@ -134,6 +134,8 @@ class CreateControllerTest extends TestCase
                      'allowed_origin' => [],
                      'post_logout_redirect_uri' => [],
                      'backchannel_logout_uri' => null,
+                     'entity_identifier' => null,
+                     'client_registration_types' => null,
                  ],
             );
 
@@ -192,6 +194,8 @@ class CreateControllerTest extends TestCase
                     'allowed_origin' => [],
                     'post_logout_redirect_uri' => [],
                     'backchannel_logout_uri' => null,
+                    'entity_identifier' => null,
+                    'client_registration_types' => null,
                 ],
             );
 

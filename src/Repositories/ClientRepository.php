@@ -233,7 +233,8 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
                 owner,
                 post_logout_redirect_uri,
                 backchannel_logout_uri,
-                entity_identifier
+                entity_identifier,
+                client_registration_types
             )
             VALUES (
                 :id,
@@ -248,7 +249,8 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
                 :owner,
                 :post_logout_redirect_uri,
                 :backchannel_logout_uri,
-                :entity_identifier
+                :entity_identifier,
+                :client_registration_types
             )
 EOS
             ,
@@ -292,7 +294,8 @@ EOS
                 owner = :owner,
                 post_logout_redirect_uri = :post_logout_redirect_uri,
                 backchannel_logout_uri = :backchannel_logout_uri,
-                entity_identifier = :entity_identifier
+                entity_identifier = :entity_identifier,
+                client_registration_types = :client_registration_types
             WHERE id = :id
 EOF
             ,

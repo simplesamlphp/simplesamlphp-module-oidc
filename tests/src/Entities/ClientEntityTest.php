@@ -119,6 +119,7 @@ class ClientEntityTest extends TestCase
                 'post_logout_redirect_uri' => json_encode([]),
                 'backchannel_logout_uri' => null,
                 'entity_identifier' => null,
+                'client_registration_types' => null,
             ],
         );
     }
@@ -145,6 +146,7 @@ class ClientEntityTest extends TestCase
                 'post_logout_redirect_uri' => [],
                 'backchannel_logout_uri' => null,
                 'entity_identifier' => null,
+                'client_registration_types' => null,
             ],
         );
     }

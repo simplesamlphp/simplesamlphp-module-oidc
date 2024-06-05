@@ -24,6 +24,7 @@
     - fetch endpoint for issuing statements about subordinates (registered clients)
   - Clients can now be configured with new properties:
     - Entity Identifier
+    - Registration Types
 
 ## New configuration options
 

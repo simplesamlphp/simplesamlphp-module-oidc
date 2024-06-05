@@ -144,6 +144,15 @@
             </small>
         </div>
 
+        <div class="field">
+            <label for="frm-scopes">{{ 'Registration types'|trans }}</label>
+
+            {{ form['client_registration_types'].control | raw }}
+            <small class="helper">
+                {% trans %}One or more values from the list. If not selected, falls back to 'automatic'.{% endtrans %}
+            </small>
+        </div>
+
         <div class="ui divider"></div>
 
         <div class="ui buttons">
