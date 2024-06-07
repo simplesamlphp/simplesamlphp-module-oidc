@@ -16,14 +16,22 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Services;
 
-use DateInterval;
+use Laminas\Diactoros\ResponseFactory;
+use Laminas\Diactoros\ServerRequestFactory;
+use Laminas\Diactoros\StreamFactory;
+use Laminas\Diactoros\UploadedFileFactory;
 use League\OAuth2\Server\ResourceServer;
 use Psr\Container\ContainerInterface;
 use Psr\Container\NotFoundExceptionInterface;
+use Psr\Http\Message\ResponseFactoryInterface;
+use Psr\Http\Message\ServerRequestFactoryInterface;
+use Psr\Http\Message\StreamFactoryInterface;
+use Psr\Http\Message\UploadedFileFactoryInterface;
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Metadata\MetaDataStorageHandler;
+use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Factories\AuthorizationServerFactory;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory;
@@ -77,7 +85,7 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\UiLocalesRule;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Session;
-use SimpleSAML\Utils\Config;
+use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
 
 class Container implements ContainerInterface
 {
@@ -206,18 +214,8 @@ class Container implements ContainerInterface
         $requestRuleManager = new RequestRulesManager($requestRules, $loggerService);
         $this->services[RequestRulesManager::class] = $requestRuleManager;
 
-        $accessTokenDuration = new DateInterval(
-            $moduleConfig->config()->getString(ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_TTL),
-        );
-        $authCodeDuration = new DateInterval(
-            $moduleConfig->config()->getString(ModuleConfig::OPTION_TOKEN_AUTHORIZATION_CODE_TTL),
-        );
-        $refreshTokenDuration = new DateInterval(
-            $moduleConfig->config()->getString(ModuleConfig::OPTION_TOKEN_REFRESH_TOKEN_TTL),
-        );
         $publicKey = $cryptKeyFactory->buildPublicKey();
         $privateKey = $cryptKeyFactory->buildPrivateKey();
-        $encryptionKey = (new Config())->getSecretSalt();
 
         $jsonWebTokenBuilderService = new JsonWebTokenBuilderService($moduleConfig);
         $this->services[JsonWebTokenBuilderService::class] = $jsonWebTokenBuilderService;
@@ -235,41 +233,41 @@ class Container implements ContainerInterface
         $this->services[LogoutTicketStoreBuilder::class] = $sessionLogoutTicketStoreBuilder;
 
         $idTokenResponseFactory = new IdTokenResponseFactory(
+            $moduleConfig,
             $userRepository,
             $this->services[IdTokenBuilder::class],
             $privateKey,
-            $encryptionKey,
         );
         $this->services[IdTokenResponse::class] = $idTokenResponseFactory->build();
 
         $authCodeGrantFactory = new AuthCodeGrantFactory(
+            $moduleConfig,
             $authCodeRepository,
             $accessTokenRepository,
             $refreshTokenRepository,
-            $refreshTokenDuration,
-            $authCodeDuration,
             $requestRuleManager,
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 
-        $oAuth2ImplicitGrantFactory = new OAuth2ImplicitGrantFactory($accessTokenDuration, $requestRuleManager);
+        $oAuth2ImplicitGrantFactory = new OAuth2ImplicitGrantFactory($moduleConfig, $requestRuleManager);
         $this->services[OAuth2ImplicitGrant::class] = $oAuth2ImplicitGrantFactory->build();
 
         $implicitGrantFactory = new ImplicitGrantFactory(
+            $moduleConfig,
             $this->services[IdTokenBuilder::class],
-            $accessTokenDuration,
             $requestRuleManager,
             $accessTokenRepository,
         );
         $this->services[ImplicitGrant::class] = $implicitGrantFactory->build();
 
         $refreshTokenGrantFactory = new RefreshTokenGrantFactory(
+            $moduleConfig,
             $refreshTokenRepository,
-            $refreshTokenDuration,
         );
         $this->services[RefreshTokenGrant::class] = $refreshTokenGrantFactory->build();
 
         $authorizationServerFactory = new AuthorizationServerFactory(
+            $moduleConfig,
             $clientRepository,
             $accessTokenRepository,
             $scopeRepository,
@@ -277,11 +275,9 @@ class Container implements ContainerInterface
             $this->services[OAuth2ImplicitGrant::class],
             $this->services[ImplicitGrant::class],
             $this->services[RefreshTokenGrant::class],
-            $accessTokenDuration,
             $this->services[IdTokenResponse::class],
             $requestRuleManager,
             $privateKey,
-            $encryptionKey,
         );
         $this->services[AuthorizationServer::class] = $authorizationServerFactory->build();
 
@@ -294,6 +290,33 @@ class Container implements ContainerInterface
             $bearerTokenValidator,
         );
         $this->services[ResourceServer::class] = $resourceServerFactory->build();
+
+        $httpFoundationFactory = new HttpFoundationFactory();
+        $this->services[HttpFoundationFactory::class] = $httpFoundationFactory;
+
+        $serverRequestFactory = new ServerRequestFactory();
+        $this->services[ServerRequestFactoryInterface::class] = $serverRequestFactory;
+
+        $responseFactory = new ResponseFactory();
+        $this->services[ResponseFactoryInterface::class] = $responseFactory;
+
+        $streamFactory = new StreamFactory();
+        $this->services[StreamFactoryInterface::class] = $streamFactory;
+
+        $uploadedFileFactory = new UploadedFileFactory();
+        $this->services[UploadedFileFactoryInterface::class] = $uploadedFileFactory;
+
+        $psrHttpBridge = new PsrHttpBridge(
+            $httpFoundationFactory,
+            $serverRequestFactory,
+            $responseFactory,
+            $streamFactory,
+            $uploadedFileFactory,
+        );
+        $this->services[PsrHttpBridge::class] = $psrHttpBridge;
+
+        $errorResponder = new ErrorResponder($psrHttpBridge);
+        $this->services[ErrorResponder::class] = $errorResponder;
     }
 
     /**

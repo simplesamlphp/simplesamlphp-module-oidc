@@ -9,6 +9,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
+use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Controller\AuthorizationController;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -16,6 +17,7 @@ use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
+use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 
 /**
@@ -31,6 +33,8 @@ class AuthorizationControllerTest extends TestCase
     protected Stub $userEntityStub;
     protected Stub $serverRequestStub;
     protected Stub $responseStub;
+    protected MockObject $psrHttpBridgeMock;
+    protected MockObject $errorResponderMock;
 
     protected static string $sampleAuthSourceId = 'authSource123';
 
@@ -52,6 +56,9 @@ class AuthorizationControllerTest extends TestCase
         $this->userEntityStub = $this->createStub(UserEntity::class);
         $this->serverRequestStub = $this->createStub(ServerRequest::class);
         $this->responseStub = $this->createStub(ResponseInterface::class);
+
+        $this->psrHttpBridgeMock = $this->createMock(PsrHttpBridge::class);
+        $this->errorResponderMock = $this->createMock(ErrorResponder::class);
     }
 
     /**
@@ -78,6 +85,8 @@ class AuthorizationControllerTest extends TestCase
             $this->authorizationServerStub,
             $this->moduleConfigStub,
             $this->loggerServiceMock,
+            $this->psrHttpBridgeMock,
+            $this->errorResponderMock,
         );
 
         $this->assertInstanceOf(ResponseInterface::class, $controller($this->serverRequestStub));
@@ -108,6 +117,8 @@ class AuthorizationControllerTest extends TestCase
             $this->authorizationServerStub,
             $this->moduleConfigStub,
             $this->loggerServiceMock,
+            $this->psrHttpBridgeMock,
+            $this->errorResponderMock,
         ))($this->serverRequestStub);
     }
 
@@ -138,6 +149,8 @@ class AuthorizationControllerTest extends TestCase
             $this->authorizationServerStub,
             $this->moduleConfigStub,
             $this->loggerServiceMock,
+            $this->psrHttpBridgeMock,
+            $this->errorResponderMock,
         ))($this->serverRequestStub);
     }
 
@@ -177,6 +190,8 @@ class AuthorizationControllerTest extends TestCase
             $this->authorizationServerStub,
             $this->moduleConfigStub,
             $this->loggerServiceMock,
+            $this->psrHttpBridgeMock,
+            $this->errorResponderMock,
         ))($this->serverRequestStub);
     }
 
@@ -216,6 +231,8 @@ class AuthorizationControllerTest extends TestCase
             $this->authorizationServerStub,
             $this->moduleConfigStub,
             $this->loggerServiceMock,
+            $this->psrHttpBridgeMock,
+            $this->errorResponderMock,
         ))($this->serverRequestStub);
     }
 
@@ -254,6 +271,8 @@ class AuthorizationControllerTest extends TestCase
             $this->authorizationServerStub,
             $this->moduleConfigStub,
             $this->loggerServiceMock,
+            $this->psrHttpBridgeMock,
+            $this->errorResponderMock,
         ))($this->serverRequestStub);
     }
 
@@ -293,6 +312,8 @@ class AuthorizationControllerTest extends TestCase
             $this->authorizationServerStub,
             $this->moduleConfigStub,
             $this->loggerServiceMock,
+            $this->psrHttpBridgeMock,
+            $this->errorResponderMock,
         ))($this->serverRequestStub);
     }
 
@@ -333,6 +354,8 @@ class AuthorizationControllerTest extends TestCase
             $this->authorizationServerStub,
             $this->moduleConfigStub,
             $this->loggerServiceMock,
+            $this->psrHttpBridgeMock,
+            $this->errorResponderMock,
         ))($this->serverRequestStub);
     }
 }

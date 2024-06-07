@@ -16,15 +16,19 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controller;
 
-use Laminas\Diactoros\Response;
-use Laminas\Diactoros\ServerRequest;
+use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
+use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 class AuthorizationController
 {
@@ -33,6 +37,8 @@ class AuthorizationController
         private readonly AuthorizationServer $authorizationServer,
         private readonly ModuleConfig $moduleConfig,
         private readonly LoggerService $loggerService,
+        private readonly PsrHttpBridge $psrHttpBridge,
+        private readonly ErrorResponder $errorResponder,
     ) {
     }
 
@@ -44,8 +50,11 @@ class AuthorizationController
      * @throws \SimpleSAML\Error\Exception
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \Throwable
+     *
+     * @deprecated 7.0.0 Will be moved to Symfony controller method
+     * @see self::authorize()
      */
-    public function __invoke(ServerRequest $request): ResponseInterface
+    public function __invoke(ServerRequestInterface $request): ResponseInterface
     {
         $authorizationRequest = $this->authorizationServer->validateAuthorizationRequest($request);
 
@@ -62,7 +71,25 @@ class AuthorizationController
             $this->validatePostAuthnAuthorizationRequest($authorizationRequest);
         }
 
-        return $this->authorizationServer->completeAuthorizationRequest($authorizationRequest, new Response());
+        return $this->authorizationServer->completeAuthorizationRequest(
+            $authorizationRequest,
+            $this->psrHttpBridge->getResponseFactory()->createResponse(),
+        );
+    }
+
+    public function authorize(Request $request): Response
+    {
+        try {
+            /**
+             * @psalm-suppress DeprecatedMethod Until we drop support for old public/*.php routes, we need to bridge
+             * between PSR and Symfony HTTP messages.
+             */
+            return $this->psrHttpBridge->getHttpFoundationFactory()->createResponse(
+                $this->__invoke($this->psrHttpBridge->getPsrHttpFactory()->createRequest($request)),
+            );
+        } catch (OAuthServerException $exception) {
+            return $this->errorResponder->forException($exception);
+        }
     }
 
     /**

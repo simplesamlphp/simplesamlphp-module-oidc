@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Services;
 
+use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 
 /**
@@ -34,7 +35,7 @@ class OpMetadataService
         $this->metadata = [];
         $this->metadata['issuer'] = $this->moduleConfig->getIssuer();
         $this->metadata['authorization_endpoint'] =
-        $this->moduleConfig->getModuleUrl('authorize.php');
+        $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdAuthorization->value);
         $this->metadata['token_endpoint'] = $this->moduleConfig->getModuleUrl('token.php');
         $this->metadata['userinfo_endpoint'] = $this->moduleConfig->getModuleUrl('userinfo.php');
         $this->metadata['end_session_endpoint'] = $this->moduleConfig->getModuleUrl('logout.php');

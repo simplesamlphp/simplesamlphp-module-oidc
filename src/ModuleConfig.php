@@ -322,6 +322,15 @@ class ModuleConfig
     }
 
     /**
+     * Used in services.yml.
+     * @return string
+     */
+    public function getEncryptionKey(): string
+    {
+        return $this->sspBridge->utils()->config()->getSecretSalt();
+    }
+
+    /**
      * Get autproc filters defined in the OIDC configuration.
      *
      * @return array
@@ -481,6 +490,27 @@ class ModuleConfig
         return $this->config()->getOptionalString(
             self::OPTION_HOMEPAGE_URI,
             null,
+        );
+    }
+
+    public function getAccessTokenDuration(): DateInterval
+    {
+        return new DateInterval(
+            $this->config()->getString(self::OPTION_TOKEN_ACCESS_TOKEN_TTL),
+        );
+    }
+
+    public function getAuthCodeDuration(): DateInterval
+    {
+        return new DateInterval(
+            $this->config()->getString(self::OPTION_TOKEN_AUTHORIZATION_CODE_TTL),
+        );
+    }
+
+    public function getRefreshTokenDuration(): DateInterval
+    {
+        return new DateInterval(
+            $this->config()->getString(self::OPTION_TOKEN_REFRESH_TOKEN_TTL),
         );
     }
 }

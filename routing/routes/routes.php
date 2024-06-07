@@ -1,9 +1,14 @@
 <?php
 
+/**
+ * OIDC module routes file.
+ */
+
 declare(strict_types=1);
 
 use SimpleSAML\Module\oidc\Codebooks\HttpMethodsEnum;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
+use SimpleSAML\Module\oidc\Controller\AuthorizationController;
 use SimpleSAML\Module\oidc\Controller\ConfigurationDiscoveryController;
 use SimpleSAML\Module\oidc\Controller\Federation\EntityStatementController;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
@@ -13,6 +18,12 @@ return function (RoutingConfigurator $routes): void {
     $routes->add(RoutesEnum::OpenIdConfiguration->name, RoutesEnum::OpenIdConfiguration->value)
         ->controller(ConfigurationDiscoveryController::class);
 
+    $routes->add(RoutesEnum::OpenIdAuthorization->name, RoutesEnum::OpenIdAuthorization->value)
+        ->controller([AuthorizationController::class, 'authorize']);
+
+    /**
+     * OpenID Federation related routes.
+     */
     $routes->add(RoutesEnum::OpenIdFederationConfiguration->name, RoutesEnum::OpenIdFederationConfiguration->value)
         ->controller([EntityStatementController::class, 'configuration'])
         ->methods([HttpMethodsEnum::GET->value]);
