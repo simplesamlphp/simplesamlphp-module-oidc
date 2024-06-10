@@ -5,11 +5,7 @@
 - implement store for different entities?: i.e. client data can use RDB like mysql, whilst short term data
   like tokens can utilize faster stores like memcache, redis...
 - move to SimpleSAMLphp ProcessingChain
-- move to SSP (symfony) routing
-  - handle CORS
 - move checkers to templates (generics) for proper static type handling
-- move to SSP (symfony) container
-- remove dependency on laminas/laminas-diactoros
 - remove dependency on laminas/laminas-httphandlerrunner
 - create a bridge towards SSP utility classes, so they can be easily mocked
 - ?move away from SSP database as store; move to custom store interface
@@ -49,6 +45,15 @@ and optionally a port (as in all previous module versions).
 ## Medium impact changes
 
 - Database schema has been updated, so you'll have to run the DB migrations as described in the README file.
+- OIDC protocol endpoints ('authorization_endpoint', 'token_endpoint', 'userinfo_endpoint', 'end_session_endpoint',
+'jwks_uri') are now available as new routes which use Symfony routing and container mechanism. This was done as an
+effort to move to default SimpleSAMLphp way of working with routes and services. New routes are now published by
+default in "OP Configuration" endpoint, which is now also available as
+`<basepath>/module.php/oidc/.well-known/openid-configuration`. If you are publishing that URL as a "well-known" URL
+('/.well-known/openid-configuration'), make sure to update your web server configuration to reflect that change
+(you can refer to README for examples). All old routes (routes served by PHP files in public folder) will stay
+available in this version, which should allow all RPs to update OP configuration in time. Old routes will be
+removed in version 7.
 
 ## Low impact changes
 
