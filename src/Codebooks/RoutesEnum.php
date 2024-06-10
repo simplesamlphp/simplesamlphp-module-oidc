@@ -10,6 +10,7 @@ enum RoutesEnum: string
     case OpenIdConfiguration = '.well-known/openid-configuration';
     case OpenIdFederationConfiguration = '.well-known/openid-federation';
     case OpenIdFederationFetch = 'federation/fetch';
+    case OpenIdJwks = 'jwks';
     case OpenIdToken = 'token';
     case OpenIdUserInfo = 'userinfo';
     case OpenIdEndSession = 'end-session';

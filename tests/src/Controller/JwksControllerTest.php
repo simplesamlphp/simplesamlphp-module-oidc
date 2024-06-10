@@ -7,6 +7,7 @@ namespace SimpleSAML\Test\Module\oidc\Controller;
 use Laminas\Diactoros\ServerRequest;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Controller\JwksController;
 use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
 
@@ -17,6 +18,7 @@ class JwksControllerTest extends TestCase
 {
     protected MockObject $jsonWebKeySetServiceMock;
     protected MockObject $serverRequestMock;
+    protected MockObject $psrHttpBridge;
 
     /**
      * @throws \Exception
@@ -25,13 +27,22 @@ class JwksControllerTest extends TestCase
     {
         $this->jsonWebKeySetServiceMock = $this->createMock(JsonWebKeySetService::class);
         $this->serverRequestMock = $this->createMock(ServerRequest::class);
+        $this->psrHttpBridge = $this->createMock(PsrHttpBridge::class);
+    }
+
+    protected function mock(): JwksController
+    {
+        return new JwksController(
+            $this->jsonWebKeySetServiceMock,
+            $this->psrHttpBridge,
+        );
     }
 
     public function testItIsInitializable(): void
     {
         $this->assertInstanceOf(
             JwksController::class,
-            new JwksController($this->jsonWebKeySetServiceMock),
+            $this->mock(),
         );
     }
 
@@ -52,7 +63,7 @@ class JwksControllerTest extends TestCase
 
         $this->assertSame(
             ['keys' => $keys],
-            (new JwksController($this->jsonWebKeySetServiceMock))->__invoke()->getPayload(),
+            $this->mock()->__invoke()->getPayload(),
         );
     }
 }

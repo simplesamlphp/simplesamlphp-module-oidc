@@ -13,6 +13,7 @@ use SimpleSAML\Module\oidc\Controller\AuthorizationController;
 use SimpleSAML\Module\oidc\Controller\ConfigurationDiscoveryController;
 use SimpleSAML\Module\oidc\Controller\EndSessionController;
 use SimpleSAML\Module\oidc\Controller\Federation\EntityStatementController;
+use SimpleSAML\Module\oidc\Controller\JwksController;
 use SimpleSAML\Module\oidc\Controller\UserInfoController;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 
@@ -32,6 +33,8 @@ return function (RoutingConfigurator $routes): void {
         ->controller([UserInfoController::class, 'userInfo']);
     $routes->add(RoutesEnum::OpenIdEndSession->name, RoutesEnum::OpenIdEndSession->value)
         ->controller([EndSessionController::class, 'endSession']);
+    $routes->add(RoutesEnum::OpenIdJwks->name, RoutesEnum::OpenIdJwks->value)
+        ->controller([JwksController::class, 'jwks']);
 
     /**
      * OpenID Federation related routes.
