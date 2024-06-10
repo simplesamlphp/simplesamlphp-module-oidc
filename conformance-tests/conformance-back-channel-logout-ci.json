@@ -63,12 +63,12 @@
             ]
         },
         {
-            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
+            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/end-session*",
             "tasks": [
                 {
                     "task": "nothing to do. We redirect to postback",
                     "optional": true,
-                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php**",
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/end-session**",
                     "commands": []
                 }
             ]
@@ -417,11 +417,11 @@
                 },
                 {
                     "comment": "expect an immediate error page",
-                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/end-session*",
                     "tasks": [
                         {
                             "task": "Expect error page",
-                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/end-session*",
                             "commands": [
                                 [
                                     "wait",
@@ -481,11 +481,11 @@
                 },
                 {
                     "comment": "expect an immediate error page",
-                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/end-session*",
                     "tasks": [
                         {
                             "task": "Expect error page",
-                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/end-session*",
                             "commands": [
                                 [
                                     "wait",
@@ -545,11 +545,11 @@
                 },
                 {
                     "comment": "expect an immediate error page",
-                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/end-session*",
                     "tasks": [
                         {
                             "task": "Expect error page",
-                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/end-session*",
                             "commands": [
                                 [
                                     "wait",
@@ -609,11 +609,11 @@
                 },
                 {
                     "comment": "expect an immediate error page",
-                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/end-session*",
                     "tasks": [
                         {
                             "task": "Expect error page",
-                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/end-session*",
                             "commands": [
                                 [
                                     "wait",
@@ -673,11 +673,11 @@
                 },
                 {
                     "comment": "expect an immediate error page",
-                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/end-session*",
                     "tasks": [
                         {
                             "task": "Expect error page",
-                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/end-session*",
                             "commands": [
                                 [
                                     "wait",
@@ -737,11 +737,11 @@
                 },
                 {
                     "comment": "wait for the logout success",
-                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/end-session*",
                     "tasks": [
                         {
                             "task": "Expect success page",
-                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/end-session*",
                             "commands": [
                                 [
                                     "wait",
@@ -801,11 +801,11 @@
                 },
                 {
                     "comment": "wait for the logout success",
-                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/end-session*",
                     "tasks": [
                         {
                             "task": "Expect success page",
-                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/end-session*",
                             "commands": [
                                 [
                                     "wait",
@@ -865,11 +865,11 @@
                 },
                 {
                     "comment": "wait for the logout success",
-                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/end-session*",
                     "tasks": [
                         {
                             "task": "Expect success page",
-                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/logout.php*",
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/end-session*",
                             "commands": [
                                 [
                                     "wait",

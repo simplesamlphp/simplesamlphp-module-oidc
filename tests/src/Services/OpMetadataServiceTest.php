@@ -36,7 +36,7 @@ class OpMetadataServiceTest extends TestCase
                     RoutesEnum::OpenIdToken->value => 'http://localhost/token',
                     RoutesEnum::OpenIdUserInfo->value => 'http://localhost/userinfo',
                     'jwks.php' => 'http://localhost/jwks.php',
-                    'logout.php' => 'http://localhost/logout.php',
+                    RoutesEnum::OpenIdEndSession->value => 'http://localhost/end-session',
                 ];
 
                 return $paths[$path] ?? null;
@@ -78,7 +78,7 @@ class OpMetadataServiceTest extends TestCase
                 'authorization_endpoint' => 'http://localhost/authorization',
                 'token_endpoint' => 'http://localhost/token',
                 'userinfo_endpoint' => 'http://localhost/userinfo',
-                'end_session_endpoint' => 'http://localhost/logout.php',
+                'end_session_endpoint' => 'http://localhost/end-session',
                 'jwks_uri' => 'http://localhost/jwks.php',
                 'scopes_supported' => ['openid'],
                 'response_types_supported' => ['code', 'token', 'id_token', 'id_token token'],

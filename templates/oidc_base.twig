@@ -82,7 +82,7 @@
 
                 {% block contentwrapper %}
 
-                    {% if messages is not empty %}
+                    {% if messages is defined and messages is not empty %}
                     <div class="ui positive message">
                         {% for message in messages %}
                         <p>{{ message|trans }}</p>

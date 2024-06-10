@@ -11,6 +11,7 @@ use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Controller\AccessTokenController;
 use SimpleSAML\Module\oidc\Controller\AuthorizationController;
 use SimpleSAML\Module\oidc\Controller\ConfigurationDiscoveryController;
+use SimpleSAML\Module\oidc\Controller\EndSessionController;
 use SimpleSAML\Module\oidc\Controller\Federation\EntityStatementController;
 use SimpleSAML\Module\oidc\Controller\UserInfoController;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
@@ -29,6 +30,8 @@ return function (RoutingConfigurator $routes): void {
         ->controller([AccessTokenController::class, 'token']);
     $routes->add(RoutesEnum::OpenIdUserInfo->name, RoutesEnum::OpenIdUserInfo->value)
         ->controller([UserInfoController::class, 'userInfo']);
+    $routes->add(RoutesEnum::OpenIdEndSession->name, RoutesEnum::OpenIdEndSession->value)
+        ->controller([EndSessionController::class, 'endSession']);
 
     /**
      * OpenID Federation related routes.

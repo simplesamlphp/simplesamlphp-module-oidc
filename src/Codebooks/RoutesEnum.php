@@ -12,4 +12,5 @@ enum RoutesEnum: string
     case OpenIdFederationFetch = 'federation/fetch';
     case OpenIdToken = 'token';
     case OpenIdUserInfo = 'userinfo';
+    case OpenIdEndSession = 'end-session';
 }

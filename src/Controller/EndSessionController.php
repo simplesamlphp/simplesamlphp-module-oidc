@@ -4,20 +4,24 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controller;
 
-use Laminas\Diactoros\ServerRequest;
+use League\OAuth2\Server\Exception\OAuthServerException;
+use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\LogoutHandlers\BackChannelLogoutHandler;
 use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
+use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
 use SimpleSAML\Session;
 use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
-class LogoutController
+class EndSessionController
 {
     public function __construct(
         protected AuthorizationServer $authorizationServer,
@@ -25,6 +29,8 @@ class LogoutController
         protected LogoutTicketStoreBuilder $sessionLogoutTicketStoreBuilder,
         protected LoggerService $loggerService,
         protected TemplateFactory $templateFactory,
+        protected PsrHttpBridge $psrHttpBridge,
+        protected ErrorResponder $errorResponder,
     ) {
     }
 
@@ -33,7 +39,7 @@ class LogoutController
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \Throwable
      */
-    public function __invoke(ServerRequest $request): Response
+    public function __invoke(ServerRequestInterface $request): Response
     {
         // TODO Back-Channel Logout: https://openid.net/specs/openid-connect-backchannel-1_0.html
         //      [] Refresh tokens issued without the offline_access property to a session being logged out SHOULD
@@ -102,6 +108,19 @@ class LogoutController
         $this->sessionService->setIsOidcInitiatedLogout(false);
 
         return $this->resolveResponse($logoutRequest, $wasLogoutActionCalled);
+    }
+
+    public function endSession(Request $request): Response
+    {
+        try {
+            /**
+             * @psalm-suppress DeprecatedMethod Until we drop support for old public/*.php routes, we need to bridge
+             * between PSR and Symfony HTTP messages.
+             */
+            return $this->__invoke($this->psrHttpBridge->getPsrHttpFactory()->createRequest($request));
+        } catch (OAuthServerException $exception) {
+            return $this->errorResponder->forException($exception);
+        }
     }
 
     /**

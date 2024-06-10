@@ -26,7 +26,7 @@ class ConfigurationDiscoveryControllerTest extends TestCase
         'subject_types_supported' => ['public'],
         'id_token_signing_alg_values_supported' => ['RS256'],
         'code_challenge_methods_supported' => ['plain', 'S256'],
-        'end_session_endpoint' => 'http://localhost/logout.php',
+        'end_session_endpoint' => 'http://localhost/end-session',
     ];
 
     protected MockObject $oidcOpenIdProviderMetadataServiceMock;
