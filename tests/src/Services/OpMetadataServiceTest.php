@@ -33,7 +33,7 @@ class OpMetadataServiceTest extends TestCase
             ->willReturnCallback(function ($path) {
                 $paths = [
                     RoutesEnum::OpenIdAuthorization->value => 'http://localhost/authorization',
-                    'token.php' => 'http://localhost/token.php',
+                    RoutesEnum::OpenIdToken->value => 'http://localhost/token',
                     'userinfo.php' => 'http://localhost/userinfo.php',
                     'jwks.php' => 'http://localhost/jwks.php',
                     'logout.php' => 'http://localhost/logout.php',
@@ -76,7 +76,7 @@ class OpMetadataServiceTest extends TestCase
             [
                 'issuer' => 'http://localhost',
                 'authorization_endpoint' => 'http://localhost/authorization',
-                'token_endpoint' => 'http://localhost/token.php',
+                'token_endpoint' => 'http://localhost/token',
                 'userinfo_endpoint' => 'http://localhost/userinfo.php',
                 'end_session_endpoint' => 'http://localhost/logout.php',
                 'jwks_uri' => 'http://localhost/jwks.php',

@@ -17,8 +17,8 @@ class ConfigurationDiscoveryControllerTest extends TestCase
 {
     final public const OIDC_OP_METADATA = [
         'issuer' => 'http://localhost',
-        'authorization_endpoint' => 'http://localhost/authorize.php',
-        'token_endpoint' => 'http://localhost/token.php',
+        'authorization_endpoint' => 'http://localhost/authorization',
+        'token_endpoint' => 'http://localhost/token',
         'userinfo_endpoint' => 'http://localhost/userinfo.php',
         'jwks_uri' => 'http://localhost/jwks.php',
         'scopes_supported' => ['openid'],

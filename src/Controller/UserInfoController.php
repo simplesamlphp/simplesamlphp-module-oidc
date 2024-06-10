@@ -16,11 +16,12 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controller;
 
-use Laminas\Diactoros\Response;
 use Laminas\Diactoros\Response\JsonResponse;
-use Laminas\Diactoros\ServerRequest;
 use League\OAuth2\Server\ResourceServer;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Error;
+use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Controller\Traits\RequestTrait;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
@@ -39,6 +40,7 @@ class UserInfoController
         private readonly UserRepository $userRepository,
         private readonly AllowedOriginRepository $allowedOriginRepository,
         private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
+        private readonly PsrHttpBridge $psrHttpBridge,
     ) {
     }
 
@@ -47,7 +49,7 @@ class UserInfoController
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
-    public function __invoke(ServerRequest $request): Response
+    public function __invoke(ServerRequestInterface $request): ResponseInterface
     {
         // Check if this is actually a CORS preflight request...
         if (strtoupper($request->getMethod()) === 'OPTIONS') {

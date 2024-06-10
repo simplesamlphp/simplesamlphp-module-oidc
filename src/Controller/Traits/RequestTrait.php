@@ -16,8 +16,8 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controller\Traits;
 
-use Laminas\Diactoros\Response;
-use Laminas\Diactoros\ServerRequest;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 trait RequestTrait
@@ -28,7 +28,7 @@ trait RequestTrait
      *
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
-    protected function handleCors(ServerRequest $request): Response
+    protected function handleCors(ServerRequestInterface $request): ResponseInterface
     {
         $origin = $request->getHeaderLine('Origin');
 
@@ -40,15 +40,12 @@ trait RequestTrait
             throw OidcServerException::accessDenied(sprintf('CORS error: origin %s is not allowed', $origin));
         }
 
-        $headers = [
-            'Access-Control-Allow-Origin' => $origin,
-            'Access-Control-Allow-Methods' => 'GET, POST, OPTIONS',
-            // Support AJAX requests for JS clients
-            // e.g. https://github.com/swagger-api/swagger-ui/commit/937c8f6208f3adf713b10a349a82a1b129bd0ffd
-            'Access-Control-Allow-Headers' => 'Authorization, X-Requested-With',
-            'Access-Control-Allow-Credentials' => 'true',
-        ];
-
-        return new Response('php://memory', 204, $headers);
+        return $this->psrHttpBridge->getResponseFactory()->createResponse(204)
+            ->withBody($this->psrHttpBridge->getStreamFactory()->createStream('php://memory'))
+            ->withHeader('Access-Control-Allow-Origin', $origin)
+            ->withHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+            ->withHeader('Access-Control-Allow-Headers', 'Authorization, X-Requested-With')
+            ->withHeader('Access-Control-Allow-Credentials', 'true')
+        ;
     }
 }

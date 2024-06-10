@@ -52,7 +52,7 @@ class AuthorizationController
      * @throws \Throwable
      *
      * @deprecated 7.0.0 Will be moved to Symfony controller method
-     * @see self::authorize()
+     * @see self::authorization()
      */
     public function __invoke(ServerRequestInterface $request): ResponseInterface
     {
@@ -77,7 +77,7 @@ class AuthorizationController
         );
     }
 
-    public function authorize(Request $request): Response
+    public function authorization(Request $request): Response
     {
         try {
             /**
