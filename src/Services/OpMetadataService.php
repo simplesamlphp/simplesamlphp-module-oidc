@@ -37,7 +37,7 @@ class OpMetadataService
         $this->metadata['authorization_endpoint'] =
         $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdAuthorization->value);
         $this->metadata['token_endpoint'] = $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdToken->value);
-        $this->metadata['userinfo_endpoint'] = $this->moduleConfig->getModuleUrl('userinfo.php');
+        $this->metadata['userinfo_endpoint'] = $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdUserInfo->value);
         $this->metadata['end_session_endpoint'] = $this->moduleConfig->getModuleUrl('logout.php');
         $this->metadata['jwks_uri'] = $this->moduleConfig->getModuleUrl('jwks.php');
         $this->metadata['scopes_supported'] = array_keys($this->moduleConfig->getOpenIDScopes());

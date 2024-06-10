@@ -95,9 +95,12 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
     {
         $jwt = null;
 
-        if ($request->hasHeader('authorization')) {
-            $header = $request->getHeader('authorization');
-            $jwt = trim((string) preg_replace('/^\s*Bearer\s/', '', $header[0]));
+        if (
+            $request->hasHeader('authorization') &&
+            ($header = $request->getHeader('authorization')) &&
+            ($accessToken = trim((string) preg_replace('/^\s*Bearer\s/', '', $header[0])))
+        ) {
+            $jwt = $accessToken;
         } elseif (
             strcasecmp($request->getMethod(), 'POST') === 0 &&
             is_array($parsedBody = $request->getParsedBody()) &&

@@ -11,4 +11,5 @@ enum RoutesEnum: string
     case OpenIdFederationConfiguration = '.well-known/openid-federation';
     case OpenIdFederationFetch = 'federation/fetch';
     case OpenIdToken = 'token';
+    case OpenIdUserInfo = 'userinfo';
 }

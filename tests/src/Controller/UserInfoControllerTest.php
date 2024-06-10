@@ -18,6 +18,7 @@ use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
 /**
@@ -34,7 +35,8 @@ class UserInfoControllerTest extends TestCase
     protected MockObject $authorizationServerRequestMock;
     protected MockObject $accessTokenEntityMock;
     protected MockObject $userEntityMock;
-    protected MockObject $psrHttpBridge;
+    protected MockObject $psrHttpBridgeMock;
+    protected MockObject $errorResponderMock;
 
     protected function setUp(): void
     {
@@ -49,7 +51,8 @@ class UserInfoControllerTest extends TestCase
         $this->accessTokenEntityMock = $this->createMock(AccessTokenEntity::class);
         $this->userEntityMock = $this->createMock(UserEntity::class);
 
-        $this->psrHttpBridge = $this->createMock(PsrHttpBridge::class);
+        $this->psrHttpBridgeMock = $this->createMock(PsrHttpBridge::class);
+        $this->errorResponderMock = $this->createMock(ErrorResponder::class);
     }
 
     protected function mock(): UserInfoController
@@ -60,7 +63,8 @@ class UserInfoControllerTest extends TestCase
             $this->userRepositoryMock,
             $this->allowedOriginRepositoryMock,
             $this->claimTranslatorExtractorMock,
-            $this->psrHttpBridge,
+            $this->psrHttpBridgeMock,
+            $this->errorResponderMock,
         );
     }
 
