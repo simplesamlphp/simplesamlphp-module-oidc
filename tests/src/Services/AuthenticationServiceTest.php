@@ -18,7 +18,6 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
-use SimpleSAML\Module\oidc\Services\AuthProcService;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
 use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
@@ -57,7 +56,6 @@ class AuthenticationServiceTest extends TestCase
     protected MockObject $userRepositoryMock;
     protected MockObject $authSimpleFactoryMock;
     protected MockObject $authSimpleMock;
-    protected MockObject $authProcServiceMock;
     protected MockObject $clientRepositoryMock;
     protected MockObject $moduleConfigMock;
     protected MockObject $oidcOpenIdProviderMetadataServiceMock;
@@ -76,7 +74,6 @@ class AuthenticationServiceTest extends TestCase
         $this->userRepositoryMock = $this->createMock(UserRepository::class);
         $this->authSimpleFactoryMock = $this->createMock(AuthSimpleFactory::class);
         $this->authSimpleMock = $this->createMock(Simple::class);
-        $this->authProcServiceMock = $this->createMock(AuthProcService::class);
         $this->clientRepositoryMock = $this->createMock(ClientRepository::class);
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->oidcOpenIdProviderMetadataServiceMock = $this->createMock(OpMetadataService::class);
@@ -112,7 +109,6 @@ class AuthenticationServiceTest extends TestCase
         return new AuthenticationService(
             $this->userRepositoryMock,
             $this->authSimpleFactoryMock,
-            $this->authProcServiceMock,
             $this->clientRepositoryMock,
             $this->oidcOpenIdProviderMetadataServiceMock,
             $this->sessionServiceMock,
@@ -156,8 +152,6 @@ class AuthenticationServiceTest extends TestCase
 
         $this->claimTranslatorExtractorMock->method('extract')->with(['openid'], $this->isType('array'))
             ->willReturn([]);
-
-        $this->authProcServiceMock->method('processState')->willReturn(self::STATE);
 
         $userEntity = $this->prepareMockedInstance()->getAuthenticateUser($this->serverRequestMock);
 
@@ -207,8 +201,6 @@ class AuthenticationServiceTest extends TestCase
             ->with(['openid'], $this->isType('array'))
             ->willReturn([]);
 
-        $this->authProcServiceMock->method('processState')->willReturn(self::STATE);
-
         $this->assertSame(
             $this->prepareMockedInstance()->getAuthenticateUser($this->serverRequestMock),
             $this->userEntityMock,
@@ -233,8 +225,6 @@ class AuthenticationServiceTest extends TestCase
 
         $invalidState = self::STATE;
         unset($invalidState['Attributes'][self::USER_ID_ATTR]);
-
-        $this->authProcServiceMock->expects($this->once())->method('processState')->willReturn($invalidState);
 
         $this->expectException(Exception::class);
 

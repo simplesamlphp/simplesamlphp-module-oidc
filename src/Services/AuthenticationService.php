@@ -55,7 +55,6 @@ class AuthenticationService
     public function __construct(
         private readonly UserRepository $userRepository,
         private readonly AuthSimpleFactory $authSimpleFactory,
-        private readonly AuthProcService $authProcService,
         ClientRepository $clientRepository,
         private readonly OpMetadataService $opMetadataService,
         private readonly SessionService $sessionService,
