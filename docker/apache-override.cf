@@ -3,9 +3,9 @@ RewriteRule ^/.well-known/openid-configuration(.*) /${SSP_APACHE_ALIAS}module.ph
 
 # Leave Authorization header with Bearer tokens available in requests.
 # Solution 1:
-#RewriteEngine On
-#RewriteCond %{HTTP:Authorization} .+
-#RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+RewriteEngine On
+RewriteCond %{HTTP:Authorization} .+
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 # Solution 2:
 #SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
 
