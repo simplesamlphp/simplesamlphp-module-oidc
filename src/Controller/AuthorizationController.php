@@ -20,6 +20,8 @@ use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
+use SimpleSAML\Auth\ProcessingChain;
+use SimpleSAML\Auth\State;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -56,10 +58,19 @@ class AuthorizationController
      */
     public function __invoke(ServerRequestInterface $request): ResponseInterface
     {
-        $authorizationRequest = $this->authorizationServer->validateAuthorizationRequest($request);
+        $queryParameters = $request->getQueryParams();
+        if(!isset($queryParameters[ProcessingChain::AUTHPARAM])) {
+            $authorizationRequest = $this->authorizationServer->validateAuthorizationRequest($request);
+            $this->authenticationService->handleState($request, $authorizationRequest);
+            // handleState will trigger a redirect
+        }
 
-        $user = $this->authenticationService->getAuthenticateUser($request);
+        $stateId = $queryParameters[ProcessingChain::AUTHPARAM];
+        $state = State::loadState($stateId, ProcessingChain::COMPLETED_STAGE);
 
+        $user = $this->authenticationService->getAuthenticateUser($state);
+
+        $authorizationRequest = $state['authorizationRequest'];
         $authorizationRequest->setUser($user);
         $authorizationRequest->setAuthorizationApproved(true);
 

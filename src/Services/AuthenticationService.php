@@ -16,10 +16,17 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Services;
 
+use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Auth\ProcessingChain;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Auth\State;
 use SimpleSAML\Error;
+use SimpleSAML\Error\AuthSource;
+use SimpleSAML\Error\BadRequest;
+use SimpleSAML\Error\Exception;
+use SimpleSAML\Error\NotFound;
+use SimpleSAML\Error\UnserializableException;
 use SimpleSAML\Module\oidc\Controller\EndSessionController;
 use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
@@ -29,6 +36,7 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
 class AuthenticationService
@@ -52,24 +60,33 @@ class AuthenticationService
         private readonly OpMetadataService $opMetadataService,
         private readonly SessionService $sessionService,
         private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
-        ModuleConfig $moduleConfig,
+        private readonly ModuleConfig $moduleConfig
     ) {
         $this->clientRepository = $clientRepository;
-        $this->userIdAttr = $moduleConfig->getUserIdentifierAttribute();
+        $this->userIdAttr = $this->moduleConfig->getUserIdentifierAttribute();
     }
 
     /**
-     * @throws \Exception
-     * @throws \SimpleSAML\Error\AuthSource
-     * @throws \SimpleSAML\Error\BadRequest
-     * @throws \SimpleSAML\Error\Exception
-     * @throws \SimpleSAML\Error\NotFound
+     * @param   ServerRequestInterface      $request
+     * @param   OAuth2AuthorizationRequest  $authorizationRequest
+     * @param   array                       $loginParams
+     * @param   bool                        $forceAuthn
+     *
+     * @return void
+     * @throws AuthSource
+     * @throws BadRequest
+     * @throws Exception
+     * @throws NotFound
+     * @throws OidcServerException
+     * @throws UnserializableException
+     * @throws \JsonException
      */
-    public function getAuthenticateUser(
+    public function handleState(
         ServerRequestInterface $request,
+        OAuth2AuthorizationRequest $authorizationRequest,
         array $loginParams = [],
         bool $forceAuthn = false,
-    ): UserEntity {
+    ): void {
         $oidcClient = $this->getClientFromRequest($request);
         $authSimple = $this->authSimpleFactory->build($oidcClient);
 
@@ -93,8 +110,24 @@ class AuthenticationService
         }
 
         $state = $this->prepareStateArray($authSimple, $oidcClient, $request);
-        $state = $this->authProcService->processState($state);
+        $state['authorizationRequest'] = $authorizationRequest;
+        $this->runAuthProcs($state);
+    }
 
+
+    /**
+     * @param   array                   $state
+     *
+     * @return UserEntity
+     * @throws Error\BadRequest
+     * @throws Error\NotFound
+     * @throws Exception
+     * @throws \JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function getAuthenticateUser(
+        array &$state
+    ): UserEntity {
         if (!isset($state['Attributes']) || !is_array($state['Attributes'])) {
             throw new Error\Exception('State array does not contain any attributes.');
         }
@@ -119,7 +152,12 @@ class AuthenticationService
             $this->userRepository->update($user);
         }
 
-        $this->addRelyingPartyAssociation($oidcClient, $user);
+        $client = $this->clientRepository->findById($state['Oidc']['RelyingPartyMetadata']['id']);
+        if (!$client) {
+            throw new Error\NotFound('Client not found.');
+        }
+
+        $this->addRelyingPartyAssociation($client, $user);
 
         return $user;
     }
@@ -189,5 +227,44 @@ class AuthenticationService
                 $oidcClient->getBackChannelLogoutUri(),
             ),
         );
+    }
+
+    /**
+     * Run authproc filters with the processing chain
+     * Creating the ProcessingChain require metadata.
+     * - For the idp metadata use the OIDC issuer as the entityId (and the authprocs from the main config file)
+     * - For the sp metadata use the client id as the entityId (and don’t set authprocs).
+     *
+     * @param   array  $state
+     *
+     * @return void
+     * @throws Exception
+     * @throws UnserializableException
+     */
+    protected function runAuthProcs(array &$state): void
+    {
+        $idpMetadata = [
+            'entityid' => $state['Source']['entityid'],
+            // ProcessChain needs to know the list of authproc filters we defined in module_oidc configuration
+            'authproc' => $this->moduleConfig->getAuthProcFilters()
+        ];
+        $spMetadata = [
+            'entityid' => $state['Destination']['entityid']
+        ];
+        $pc = new ProcessingChain(
+            $idpMetadata,
+            $spMetadata,
+            explode('.', $this->moduleConfig::OPTION_AUTH_PROCESSING_FILTERS)[1]
+        );
+
+        $state['ReturnURL'] = $this->moduleConfig->getModuleUrl('authorize.php');
+        $state['Destination'] = $spMetadata;
+        $state['Source'] = $idpMetadata;
+
+        $pc->processState($state);
+
+        // If no filter(s) is available in the configuration, it will enforce a redirect
+        // to the authentication endpoint.
+        ProcessingChain::resumeProcessing($state);
     }
 }
