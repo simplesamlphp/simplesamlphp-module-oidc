@@ -125,9 +125,27 @@ to be enabled and configured.
 Once you deployed the module, you will need the exact endpoint urls the module provides to configure the relying parties.
 You can visit the discovery endpoint to learn this information:
 
-`<basepath>/module.php/oidc/openid-configuration.php`
+`<basepath>/module.php/oidc/.well-known/openid-configuration`
 
 This endpoint can be used to set up a `.well-known` URL (see below). 
+
+### Note when using Apache web server
+
+If you are using Apache web server, you might encounter situations in which Apache strips of Authorization header
+with Bearer scheme in HTTP requests, which is a known 'issue' (https://github.com/symfony/symfony/issues/19693). 
+Although we handle this special situation, it has performance implications, so you should add one of the following
+Apache configuration snippets to preserve Authorization header in requests:
+
+```apacheconf
+RewriteEngine On
+RewriteCond %{HTTP:Authorization} .+
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+```
+or
+```apacheconf
+SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+```
+Choose the one which works for you. If you don't set it, you'll get a warnings about this situation in your logs.
 
 ## Additional considerations
 ### Private scopes
@@ -251,7 +269,7 @@ Users can visit the `https://example.com/simplesaml/module.php/oidc/clients/` to
 
 The module offers an OpenID Connect Discovery endpoint at URL:
 
-    https://yourserver/simplesaml/module.php/oidc/openid-configuration.php
+    https://yourserver/simplesaml/module.php/oidc/.well-known/openid-configuration
 
 ### .well-known URL
 
@@ -260,13 +278,14 @@ form. Here are some sample configurations:
 
 #### nginx 
     location = /.well-known/openid-configuration {
-        rewrite ^(.*)$ /simplesaml/module.php/oidc/openid-configuration.php break;
+        rewrite ^(.*)$ /simplesaml/module.php/oidc/.well-known/openid-configuration break;
         proxy_pass https://localhost;
     }
 
 #### Apache
 
-    Alias /.well-known/openid-configuration "/path/to/simplesamlphp/module.php/oidc/openid-configuration.php"
+    RewriteEngine On
+    RewriteRule ^/.well-known/openid-configuration(.*) /path/to/simplesamlphp/module.php/oidc/.well-known/openid-configuration$1 [P,L]
 
 ## Using Docker
 

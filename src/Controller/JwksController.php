@@ -17,12 +17,16 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Controller;
 
 use Laminas\Diactoros\Response\JsonResponse;
+use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
+use Symfony\Component\HttpFoundation\Response;
 
 class JwksController
 {
-    public function __construct(private readonly JsonWebKeySetService $jsonWebKeySetService)
-    {
+    public function __construct(
+        private readonly JsonWebKeySetService $jsonWebKeySetService,
+        private readonly PsrHttpBridge $psrHttpBridge,
+    ) {
     }
 
     public function __invoke(): JsonResponse
@@ -30,5 +34,10 @@ class JwksController
         return new JsonResponse([
             'keys' => array_values($this->jsonWebKeySetService->protocolKeys()),
         ]);
+    }
+
+    public function jwks(): Response
+    {
+        return $this->psrHttpBridge->getHttpFoundationFactory()->createResponse($this->__invoke());
     }
 }

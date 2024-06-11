@@ -10,6 +10,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Error\UserNotFound;
+use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Controller\Traits\RequestTrait;
 use SimpleSAML\Module\oidc\Controller\UserInfoController;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
@@ -17,6 +18,7 @@ use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
 /**
@@ -33,10 +35,9 @@ class UserInfoControllerTest extends TestCase
     protected MockObject $authorizationServerRequestMock;
     protected MockObject $accessTokenEntityMock;
     protected MockObject $userEntityMock;
+    protected MockObject $psrHttpBridgeMock;
+    protected MockObject $errorResponderMock;
 
-    /**
-     * @throws \Exception
-     */
     protected function setUp(): void
     {
         $this->resourceServerMock = $this->createMock(ResourceServer::class);
@@ -49,9 +50,12 @@ class UserInfoControllerTest extends TestCase
         $this->authorizationServerRequestMock = $this->createMock(ServerRequestInterface::class);
         $this->accessTokenEntityMock = $this->createMock(AccessTokenEntity::class);
         $this->userEntityMock = $this->createMock(UserEntity::class);
+
+        $this->psrHttpBridgeMock = $this->createMock(PsrHttpBridge::class);
+        $this->errorResponderMock = $this->createMock(ErrorResponder::class);
     }
 
-    protected function prepareMockedInstance(): UserInfoController
+    protected function mock(): UserInfoController
     {
         return new UserInfoController(
             $this->resourceServerMock,
@@ -59,6 +63,8 @@ class UserInfoControllerTest extends TestCase
             $this->userRepositoryMock,
             $this->allowedOriginRepositoryMock,
             $this->claimTranslatorExtractorMock,
+            $this->psrHttpBridgeMock,
+            $this->errorResponderMock,
         );
     }
 
@@ -66,7 +72,7 @@ class UserInfoControllerTest extends TestCase
     {
         $this->assertInstanceOf(
             UserInfoController::class,
-            $this->prepareMockedInstance(),
+            $this->mock(),
         );
     }
 
@@ -131,7 +137,7 @@ class UserInfoControllerTest extends TestCase
 
         $this->assertSame(
             ['email' => 'userid@localhost.localdomain'],
-            $this->prepareMockedInstance()->__invoke($this->serverRequestMock)->getPayload(),
+            $this->mock()->__invoke($this->serverRequestMock)->getPayload(),
         );
     }
 
@@ -167,7 +173,7 @@ class UserInfoControllerTest extends TestCase
             ->willReturn(null);
 
         $this->expectException(UserNotFound::class);
-        $this->prepareMockedInstance()->__invoke($this->serverRequestMock);
+        $this->mock()->__invoke($this->serverRequestMock);
     }
 
     /**
@@ -211,7 +217,7 @@ class UserInfoControllerTest extends TestCase
             ->willReturn(null);
 
         $this->expectException(UserNotFound::class);
-        $this->prepareMockedInstance()->__invoke($this->serverRequestMock);
+        $this->mock()->__invoke($this->serverRequestMock);
     }
 
     public function testItHandlesCorsRequest(): void

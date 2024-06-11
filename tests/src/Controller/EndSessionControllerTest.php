@@ -12,10 +12,12 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Error\BadRequest;
-use SimpleSAML\Module\oidc\Controller\LogoutController;
+use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
+use SimpleSAML\Module\oidc\Controller\EndSessionController;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
+use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
@@ -25,9 +27,9 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * @covers \SimpleSAML\Module\oidc\Controller\LogoutController
+ * @covers \SimpleSAML\Module\oidc\Controller\EndSessionController
  */
-class LogoutControllerTest extends TestCase
+class EndSessionControllerTest extends TestCase
 {
     protected Stub $authorizationServerStub;
     protected Stub $authenticationServiceStub;
@@ -44,6 +46,8 @@ class LogoutControllerTest extends TestCase
     protected Stub $sessionLogoutTicketStoreDbStub;
     protected MockObject $loggerServiceMock;
     protected Stub $templateFactoryStub;
+    protected MockObject $psrHttpBridgeMock;
+    protected MockObject $errorResponderMock;
 
     /**
      * @throws \PHPUnit\Framework\MockObject\Exception
@@ -62,19 +66,29 @@ class LogoutControllerTest extends TestCase
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
         $this->sessionLogoutTicketStoreDbStub = $this->createStub(LogoutTicketStoreDb::class);
         $this->templateFactoryStub = $this->createStub(TemplateFactory::class);
+
+        $this->psrHttpBridgeMock = $this->createMock(PsrHttpBridge::class);
+        $this->errorResponderMock = $this->createMock(ErrorResponder::class);
+    }
+
+    protected function mock(): EndSessionController
+    {
+        return new EndSessionController(
+            $this->authorizationServerStub,
+            $this->sessionServiceStub,
+            $this->sessionLogoutTicketStoreBuilderStub,
+            $this->loggerServiceMock,
+            $this->templateFactoryStub,
+            $this->psrHttpBridgeMock,
+            $this->errorResponderMock,
+        );
     }
 
     public function testConstruct(): void
     {
         $this->assertInstanceOf(
-            LogoutController::class,
-            new LogoutController(
-                $this->authorizationServerStub,
-                $this->sessionServiceStub,
-                $this->sessionLogoutTicketStoreBuilderStub,
-                $this->loggerServiceMock,
-                $this->templateFactoryStub,
-            ),
+            EndSessionController::class,
+            $this->mock(),
         );
     }
 
@@ -87,17 +101,9 @@ class LogoutControllerTest extends TestCase
         $this->authorizationServerStub->method('validateLogoutRequest')
             ->willThrowException(new BadRequest('Invalid parameter provided.'));
 
-        $logoutController = new LogoutController(
-            $this->authorizationServerStub,
-            $this->sessionServiceStub,
-            $this->sessionLogoutTicketStoreBuilderStub,
-            $this->loggerServiceMock,
-            $this->templateFactoryStub,
-        );
-
         $this->expectException(BadRequest::class);
 
-        $logoutController->__invoke($this->serverRequestStub);
+        $this->mock()->__invoke($this->serverRequestStub);
     }
 
     /**
@@ -122,13 +128,7 @@ class LogoutControllerTest extends TestCase
             ->method('doLogout')
             ->with($this->callback(fn($authId) => in_array($authId, ['authId1', 'authId2'])));
 
-        (new LogoutController(
-            $this->authorizationServerStub,
-            $this->sessionServiceStub,
-            $this->sessionLogoutTicketStoreBuilderStub,
-            $this->loggerServiceMock,
-            $this->templateFactoryStub,
-        ))->__invoke($this->serverRequestStub);
+        $this->mock()->__invoke($this->serverRequestStub);
     }
 
     /**
@@ -152,13 +152,7 @@ class LogoutControllerTest extends TestCase
         $this->loggerServiceMock->expects($this->once())
             ->method('warning');
 
-        (new LogoutController(
-            $this->authorizationServerStub,
-            $this->sessionServiceStub,
-            $this->sessionLogoutTicketStoreBuilderStub,
-            $this->loggerServiceMock,
-            $this->templateFactoryStub,
-        ))->__invoke($this->serverRequestStub);
+        $this->mock()->__invoke($this->serverRequestStub);
     }
 
     /**
@@ -176,13 +170,7 @@ class LogoutControllerTest extends TestCase
 
         $this->sessionServiceStub->method('getCurrentSession')->willReturn($this->currentSessionMock);
 
-        (new LogoutController(
-            $this->authorizationServerStub,
-            $this->sessionServiceStub,
-            $this->sessionLogoutTicketStoreBuilderStub,
-            $this->loggerServiceMock,
-            $this->templateFactoryStub,
-        ))->__invoke($this->serverRequestStub);
+        $this->mock()->__invoke($this->serverRequestStub);
     }
 
     /**
@@ -198,15 +186,7 @@ class LogoutControllerTest extends TestCase
         $this->logoutRequestStub->method('getState')->willReturn('state123');
         $this->authorizationServerStub->method('validateLogoutRequest')->willReturn($this->logoutRequestStub);
 
-        $logoutController = new LogoutController(
-            $this->authorizationServerStub,
-            $this->sessionServiceStub,
-            $this->sessionLogoutTicketStoreBuilderStub,
-            $this->loggerServiceMock,
-            $this->templateFactoryStub,
-        );
-
-        $this->assertInstanceOf(RedirectResponse::class, $logoutController->__invoke($this->serverRequestStub));
+        $this->assertInstanceOf(RedirectResponse::class, $this->mock()->__invoke($this->serverRequestStub));
     }
 
     /**
@@ -219,15 +199,7 @@ class LogoutControllerTest extends TestCase
         $this->currentSessionMock->method('getAuthorities')->willReturn([]);
         $this->sessionServiceStub->method('getCurrentSession')->willReturn($this->currentSessionMock);
 
-        $logoutController = new LogoutController(
-            $this->authorizationServerStub,
-            $this->sessionServiceStub,
-            $this->sessionLogoutTicketStoreBuilderStub,
-            $this->loggerServiceMock,
-            $this->templateFactoryStub,
-        );
-
-        $this->assertInstanceOf(Response::class, $logoutController->__invoke($this->serverRequestStub));
+        $this->assertInstanceOf(Response::class, $this->mock()->__invoke($this->serverRequestStub));
     }
 
     public function testLogoutHandler(): never

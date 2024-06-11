@@ -7,6 +7,7 @@ namespace SimpleSAML\Test\Module\oidc\Services;
 use Lcobucci\JWT\Signer\Rsa;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
 
@@ -31,11 +32,11 @@ class OpMetadataServiceTest extends TestCase
         $this->moduleConfigMock->method('getModuleUrl')
             ->willReturnCallback(function ($path) {
                 $paths = [
-                    'authorize.php' => 'http://localhost/authorize.php',
-                    'token.php' => 'http://localhost/token.php',
-                    'userinfo.php' => 'http://localhost/userinfo.php',
-                    'jwks.php' => 'http://localhost/jwks.php',
-                    'logout.php' => 'http://localhost/logout.php',
+                    RoutesEnum::OpenIdAuthorization->value => 'http://localhost/authorization',
+                    RoutesEnum::OpenIdToken->value => 'http://localhost/token',
+                    RoutesEnum::OpenIdUserInfo->value => 'http://localhost/userinfo',
+                    RoutesEnum::OpenIdJwks->value => 'http://localhost/jwks',
+                    RoutesEnum::OpenIdEndSession->value => 'http://localhost/end-session',
                 ];
 
                 return $paths[$path] ?? null;
@@ -74,11 +75,11 @@ class OpMetadataServiceTest extends TestCase
         $this->assertSame(
             [
                 'issuer' => 'http://localhost',
-                'authorization_endpoint' => 'http://localhost/authorize.php',
-                'token_endpoint' => 'http://localhost/token.php',
-                'userinfo_endpoint' => 'http://localhost/userinfo.php',
-                'end_session_endpoint' => 'http://localhost/logout.php',
-                'jwks_uri' => 'http://localhost/jwks.php',
+                'authorization_endpoint' => 'http://localhost/authorization',
+                'token_endpoint' => 'http://localhost/token',
+                'userinfo_endpoint' => 'http://localhost/userinfo',
+                'end_session_endpoint' => 'http://localhost/end-session',
+                'jwks_uri' => 'http://localhost/jwks',
                 'scopes_supported' => ['openid'],
                 'response_types_supported' => ['code', 'token', 'id_token', 'id_token token'],
                 'subject_types_supported' => ['public'],

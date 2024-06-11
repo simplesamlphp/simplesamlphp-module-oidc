@@ -15,22 +15,22 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Module\oidc\Factories\Grant;
 
-use DateInterval;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
 
 class RefreshTokenGrantFactory
 {
     public function __construct(
+        private readonly ModuleConfig $moduleConfig,
         private readonly RefreshTokenRepository $refreshTokenRepository,
-        private readonly DateInterval $refreshTokenDuration,
     ) {
     }
 
     public function build(): RefreshTokenGrant
     {
         $refreshTokenGrant = new RefreshTokenGrant($this->refreshTokenRepository);
-        $refreshTokenGrant->setRefreshTokenTTL($this->refreshTokenDuration);
+        $refreshTokenGrant->setRefreshTokenTTL($this->moduleConfig->getRefreshTokenDuration());
 
         return $refreshTokenGrant;
     }

@@ -15,20 +15,20 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Module\oidc\Factories\Grant;
 
-use DateInterval;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Grants\OAuth2ImplicitGrant;
 use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 
 class OAuth2ImplicitGrantFactory
 {
     public function __construct(
-        private readonly DateInterval $accessTokenDuration,
+        private readonly ModuleConfig $moduleConfig,
         private readonly RequestRulesManager $requestRulesManager,
     ) {
     }
 
     public function build(): OAuth2ImplicitGrant
     {
-        return new OAuth2ImplicitGrant($this->accessTokenDuration, '#', $this->requestRulesManager);
+        return new OAuth2ImplicitGrant($this->moduleConfig->getAccessTokenDuration(), '#', $this->requestRulesManager);
     }
 }

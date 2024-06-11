@@ -14,6 +14,7 @@
     <file>src</file>
     <file>tests</file>
     <file>public</file>
+    <file>routing/routes</file>
 
     <!-- Use this to exclude paths. You can have multiple patterns -->
     <!--<exclude-pattern>*/tests/*</exclude-pattern>-->

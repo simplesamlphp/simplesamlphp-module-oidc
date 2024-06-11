@@ -20,7 +20,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Auth\State;
 use SimpleSAML\Error;
-use SimpleSAML\Module\oidc\Controller\LogoutController;
+use SimpleSAML\Module\oidc\Controller\EndSessionController;
 use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
@@ -85,7 +85,7 @@ class AuthenticationService
 
             $this->sessionService->registerLogoutHandler(
                 $this->authSourceId,
-                LogoutController::class,
+                EndSessionController::class,
                 'logoutHandler',
             );
         } else {

@@ -17,16 +17,16 @@ class ConfigurationDiscoveryControllerTest extends TestCase
 {
     final public const OIDC_OP_METADATA = [
         'issuer' => 'http://localhost',
-        'authorization_endpoint' => 'http://localhost/authorize.php',
-        'token_endpoint' => 'http://localhost/token.php',
-        'userinfo_endpoint' => 'http://localhost/userinfo.php',
-        'jwks_uri' => 'http://localhost/jwks.php',
+        'authorization_endpoint' => 'http://localhost/authorization',
+        'token_endpoint' => 'http://localhost/token',
+        'userinfo_endpoint' => 'http://localhost/userinfo',
+        'jwks_uri' => 'http://localhost/jwks',
         'scopes_supported' => ['openid'],
         'response_types_supported' => ['code', 'token', 'id_token', 'id_token token'],
         'subject_types_supported' => ['public'],
         'id_token_signing_alg_values_supported' => ['RS256'],
         'code_challenge_methods_supported' => ['plain', 'S256'],
-        'end_session_endpoint' => 'http://localhost/logout.php',
+        'end_session_endpoint' => 'http://localhost/end-session',
     ];
 
     protected MockObject $oidcOpenIdProviderMetadataServiceMock;

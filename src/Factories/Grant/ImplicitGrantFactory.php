@@ -15,7 +15,7 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Module\oidc\Factories\Grant;
 
-use DateInterval;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
@@ -24,8 +24,8 @@ use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 class ImplicitGrantFactory
 {
     public function __construct(
+        private readonly ModuleConfig $moduleConfig,
         private readonly IdTokenBuilder $idTokenBuilder,
-        private readonly DateInterval $accessTokenDuration,
         private readonly RequestRulesManager $requestRulesManager,
         private readonly AccessTokenRepository $accessTokenRepository,
     ) {
@@ -35,7 +35,7 @@ class ImplicitGrantFactory
     {
         return new ImplicitGrant(
             $this->idTokenBuilder,
-            $this->accessTokenDuration,
+            $this->moduleConfig->getAccessTokenDuration(),
             $this->accessTokenRepository,
             '#',
             $this->requestRulesManager,
