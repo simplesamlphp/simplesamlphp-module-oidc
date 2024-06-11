@@ -54,6 +54,10 @@ default in "OP Configuration" endpoint, which is now also available as
 (you can refer to README for examples). All old routes (routes served by PHP files in public folder) will stay
 available in this version, which should allow all RPs to update OP configuration in time. Old routes will be
 removed in version 7.
+- If you are using Apache web server: you should check the README file which now contains a note on how to configure
+Apache to preserve Authorization HTTP headers with Bearer token scheme (stripping of this header in Apache is a
+known 'issue': https://github.com/symfony/symfony/issues/19693). If you don't set this config, you'll now get warnings
+about this situation in your logs.
 
 ## Low impact changes
 

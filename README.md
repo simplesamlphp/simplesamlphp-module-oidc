@@ -129,6 +129,24 @@ You can visit the discovery endpoint to learn this information:
 
 This endpoint can be used to set up a `.well-known` URL (see below). 
 
+### Note when using Apache web server
+
+If you are using Apache web server, you might encounter situations in which Apache strips of Authorization header
+with Bearer scheme in HTTP requests, which is a known 'issue' (https://github.com/symfony/symfony/issues/19693). 
+Although we handle this special situation, it has performance implications, so you should add one of the following
+Apache configuration snippets to preserve Authorization header in requests:
+
+```apacheconf
+RewriteEngine On
+RewriteCond %{HTTP:Authorization} .+
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+```
+or
+```apacheconf
+SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+```
+Choose the one which works for you. If you don't set it, you'll get a warnings about this situation in your logs.
+
 ## Additional considerations
 ### Private scopes
 

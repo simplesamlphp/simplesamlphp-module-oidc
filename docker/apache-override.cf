@@ -1,5 +1,11 @@
 RewriteEngine On
 RewriteRule ^/.well-known/openid-configuration(.*) /${SSP_APACHE_ALIAS}module.php/oidc/.well-known/openid-configuration$1 [PT]
 
-# Needed so Apache will leave Authorization header available (for Symfony).
-SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+# Leave Authorization header with Bearer tokens available in requests.
+# Solution 1:
+#RewriteEngine On
+#RewriteCond %{HTTP:Authorization} .+
+#RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+# Solution 2:
+#SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+

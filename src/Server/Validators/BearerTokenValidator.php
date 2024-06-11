@@ -19,6 +19,7 @@ use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
 use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface as OAuth2AccessTokenRepositoryInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 
 use function count;
 use function date_default_timezone_get;
@@ -47,6 +48,7 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
         AccessTokenRepositoryInterface $accessTokenRepository,
         CryptKey $publicKey,
         DateInterval $jwtValidAtDateLeeway = null,
+        protected LoggerService $loggerService = new LoggerService(),
     ) {
         parent::__construct($accessTokenRepository, $jwtValidAtDateLeeway);
         $this->accessTokenRepository = $accessTokenRepository;
@@ -98,7 +100,7 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
         if (
             $request->hasHeader('authorization') &&
             ($header = $request->getHeader('authorization')) &&
-            ($accessToken = trim((string) preg_replace('/^\s*Bearer\s/', '', $header[0])))
+            ($accessToken = $this->getTokenFromAuthorizationBearer($header[0]))
         ) {
             $jwt = $accessToken;
         } elseif (
@@ -108,6 +110,22 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
             is_string($parsedBody['access_token'])
         ) {
             $jwt = $parsedBody['access_token'];
+        } elseif (
+            // Handle case when Apache strips of Authorization header with Bearer scheme.
+            // https://github.com/symfony/symfony/issues/19693
+            // Although we actually handle it here, it has performance implications, so give warning about it.
+            is_callable('apache_request_headers') &&
+            ($headers = array_change_key_case(apache_request_headers())) &&
+            (array_key_exists('authorization', $headers)) &&
+            ($header = (string)$headers['authorization']) &&
+            ($accessToken = $this->getTokenFromAuthorizationBearer($header))
+        ) {
+            $this->loggerService->warning(
+                'Apache stripping of Authorization Bearer request header encountered. You should modify your' .
+                ' Apache configuration to preserve to Authorization Bearer token in requests to avoid performance ' .
+                'implications. Check the OIDC module README file on how to do that.',
+            );
+            $jwt = $accessToken;
         }
 
         if (!is_string($jwt) || empty($jwt)) {
@@ -147,6 +165,11 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
             ->withAttribute('oauth_client_id', $this->convertSingleRecordAudToString($claims->get('aud')))
             ->withAttribute('oauth_user_id', $claims->get('sub'))
             ->withAttribute('oauth_scopes', $claims->get('scopes'));
+    }
+
+    protected function getTokenFromAuthorizationBearer(string $authorizationHeader): string
+    {
+        return trim((string) preg_replace('/^\s*Bearer\s/', '', $authorizationHeader));
     }
 
     /**
