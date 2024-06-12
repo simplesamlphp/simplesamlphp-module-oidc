@@ -27,6 +27,7 @@ use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Error\NotFound;
 use SimpleSAML\Error\UnserializableException;
+use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Controller\EndSessionController;
 use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
@@ -256,7 +257,7 @@ class AuthenticationService
             explode('.', $this->moduleConfig::OPTION_AUTH_PROCESSING_FILTERS)[1]
         );
 
-        $state['ReturnURL'] = $this->moduleConfig->getModuleUrl('authorize.php');
+        $state['ReturnURL'] = $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdAuthorization->value);
         $state['Destination'] = $spMetadata;
         $state['Source'] = $idpMetadata;
 
