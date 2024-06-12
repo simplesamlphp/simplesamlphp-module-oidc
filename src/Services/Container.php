@@ -173,7 +173,6 @@ class Container implements ContainerInterface
         $authenticationService = new AuthenticationService(
             $userRepository,
             $authSimpleFactory,
-            $authProcService,
             $clientRepository,
             $opMetadataService,
             $sessionService,
