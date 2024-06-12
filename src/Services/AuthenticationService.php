@@ -25,6 +25,7 @@ use SimpleSAML\Error;
 use SimpleSAML\Error\AuthSource;
 use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Error\Exception;
+use SimpleSAML\Error\NoState;
 use SimpleSAML\Error\NotFound;
 use SimpleSAML\Error\UnserializableException;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
@@ -126,7 +127,7 @@ class AuthenticationService
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function getAuthenticateUser(
-        array &$state
+        array $state
     ): UserEntity {
         if (!isset($state['Attributes']) || !is_array($state['Attributes'])) {
             throw new Error\Exception('State array does not contain any attributes.');
@@ -227,6 +228,24 @@ class AuthenticationService
                 $oidcClient->getBackChannelLogoutUri(),
             ),
         );
+    }
+
+    /**
+     * This is a wrapper around Auth/State::loadState that facilitates testing by
+     * hiding the static method
+     *
+     * @param   array  $queryParameters
+     *
+     * @return array
+     * @throws NoState
+     */
+    public function loadState(array $queryParameters): array
+    {
+        if (empty($queryParameters[ProcessingChain::AUTHPARAM])) {
+            throw new NoState();
+        }
+        $stateId = $queryParameters[ProcessingChain::AUTHPARAM];
+        return State::loadState($stateId, ProcessingChain::COMPLETED_STAGE);
     }
 
     /**

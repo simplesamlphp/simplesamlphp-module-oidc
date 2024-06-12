@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\Services;
 
 use Laminas\Diactoros\ServerRequest;
 use Laminas\Diactoros\Uri;
+use League\OAuth2\Server\RequestTypes\AuthorizationRequest;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Auth\Simple;
@@ -56,6 +57,7 @@ class AuthenticationServiceTest extends TestCase
     protected MockObject $userRepositoryMock;
     protected MockObject $authSimpleFactoryMock;
     protected MockObject $authSimpleMock;
+    protected MockObject $authorizationRequestMock;
     protected MockObject $clientRepositoryMock;
     protected MockObject $moduleConfigMock;
     protected MockObject $oidcOpenIdProviderMetadataServiceMock;
@@ -74,6 +76,7 @@ class AuthenticationServiceTest extends TestCase
         $this->userRepositoryMock = $this->createMock(UserRepository::class);
         $this->authSimpleFactoryMock = $this->createMock(AuthSimpleFactory::class);
         $this->authSimpleMock = $this->createMock(Simple::class);
+        $this->authorizationRequestMock = $this->createMock(AuthorizationRequest::class);
         $this->clientRepositoryMock = $this->createMock(ClientRepository::class);
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->oidcOpenIdProviderMetadataServiceMock = $this->createMock(OpMetadataService::class);
@@ -126,34 +129,18 @@ class AuthenticationServiceTest extends TestCase
     }
 
     /**
-     * @throws \SimpleSAML\Error\AuthSource
+     * @return void
+     * @throws Exception
+     * @throws \JsonException
      * @throws \SimpleSAML\Error\BadRequest
      * @throws \SimpleSAML\Error\NotFound
-     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testItCreatesNewUser(): void
     {
         $clientId = 'client123';
-        $this->authSourceMock->method('getAuthId')->willReturn('theAuthId');
-
-        $this->authSimpleMock->expects($this->once())->method('isAuthenticated')->willReturn(false);
-        $this->authSimpleMock->expects($this->once())->method('login')->with([]);
-        $this->authSimpleMock->expects($this->once())->method('getAuthSource')->willReturn($this->authSourceMock);
-
         $this->clientEntityMock->expects($this->once())->method('getIdentifier')->willReturn($clientId);
-        $this->clientEntityMock->expects($this->once())->method('getBackChannelLogoutUri')->willReturn(null);
-
-        $this->sessionServiceMock->expects($this->once())->method('getCurrentSession')->willReturn($this->sessionMock);
-        $this->sessionServiceMock->expects($this->once())->method('setIsCookieBasedAuthn')->with(false);
-        $this->sessionServiceMock->expects($this->once())->method('setIsAuthnPerformedInPreviousRequest')->with(true);
-
-        $this->userRepositoryMock->expects($this->once())->method('getUserEntityByIdentifier')->willReturn(null);
-        $this->userRepositoryMock->expects($this->once())->method('add')->with($this->isInstanceOf(UserEntity::class));
-
-        $this->claimTranslatorExtractorMock->method('extract')->with(['openid'], $this->isType('array'))
-            ->willReturn([]);
-
-        $userEntity = $this->prepareMockedInstance()->getAuthenticateUser($this->serverRequestMock);
+        $userEntity = $this->prepareMockedInstance()->getAuthenticateUser(self::STATE);
 
         $this->assertSame(
             $userEntity->getIdentifier(),
@@ -176,12 +163,6 @@ class AuthenticationServiceTest extends TestCase
         $clientId = 'client123';
         $userId = 'user123';
 
-        $this->authSourceMock->method('getAuthId')->willReturn('theAuthId');
-
-        $this->authSimpleMock->expects($this->once())->method('isAuthenticated')->willReturn(false);
-        $this->authSimpleMock->expects($this->once())->method('login')->with([]);
-        $this->authSimpleMock->expects($this->once())->method('getAuthSource')->willReturn($this->authSourceMock);
-
         $this->clientEntityMock->expects($this->once())->method('getIdentifier')->willReturn($clientId);
         $this->clientEntityMock->expects($this->once())->method('getBackChannelLogoutUri')->willReturn(null);
 
@@ -193,41 +174,33 @@ class AuthenticationServiceTest extends TestCase
             ->willReturn($this->userEntityMock);
         $this->userRepositoryMock->expects($this->once())->method('update')->with($this->userEntityMock);
 
-        $this->sessionServiceMock->expects($this->once())->method('getCurrentSession')->willReturn($this->sessionMock);
-        $this->sessionServiceMock->expects($this->once())->method('setIsCookieBasedAuthn')->with(false);
-        $this->sessionServiceMock->expects($this->once())->method('setIsAuthnPerformedInPreviousRequest')->with(true);
-
         $this->claimTranslatorExtractorMock->expects($this->once())->method('extract')
             ->with(['openid'], $this->isType('array'))
             ->willReturn([]);
 
         $this->assertSame(
-            $this->prepareMockedInstance()->getAuthenticateUser($this->serverRequestMock),
+            $this->prepareMockedInstance()->getAuthenticateUser(self::STATE),
             $this->userEntityMock,
         );
     }
 
+
+
     /**
-     * @throws \SimpleSAML\Error\AuthSource
+     * @return void
+     * @throws Exception
+     * @throws \JsonException
      * @throws \SimpleSAML\Error\BadRequest
      * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testItThrowsIfClaimsNotExist(): void
     {
-        $this->authSourceMock->method('getAuthId')->willReturn('theAuthId');
-
-        $this->authSimpleMock->expects($this->once())->method('isAuthenticated')->willReturn(false);
-        $this->authSimpleMock->expects($this->once())->method('login');
-        $this->authSimpleMock->expects($this->once())->method('getAuthSource')->willReturn($this->authSourceMock);
-
-        $this->sessionServiceMock->expects($this->once())->method('setIsCookieBasedAuthn')->with(false);
-        $this->sessionServiceMock->expects($this->once())->method('setIsAuthnPerformedInPreviousRequest')->with(true);
-
         $invalidState = self::STATE;
         unset($invalidState['Attributes'][self::USER_ID_ATTR]);
 
         $this->expectException(Exception::class);
 
-        $this->prepareMockedInstance()->getAuthenticateUser($this->serverRequestMock);
+        $this->prepareMockedInstance()->getAuthenticateUser($invalidState);
     }
 }

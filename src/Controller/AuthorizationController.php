@@ -21,7 +21,6 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Auth\ProcessingChain;
-use SimpleSAML\Auth\State;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -65,9 +64,7 @@ class AuthorizationController
             // handleState will trigger a redirect
         }
 
-        $stateId = $queryParameters[ProcessingChain::AUTHPARAM];
-        $state = State::loadState($stateId, ProcessingChain::COMPLETED_STAGE);
-
+        $state = $this->authenticationService->loadState($queryParameters);
         $user = $this->authenticationService->getAuthenticateUser($state);
 
         $authorizationRequest = $state['authorizationRequest'];
@@ -88,6 +85,17 @@ class AuthorizationController
         );
     }
 
+    /**
+     * @param   Request  $request
+     *
+     * @return Response
+     * @throws \SimpleSAML\Error\AuthSource
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\Error
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \Throwable
+     */
     public function authorization(Request $request): Response
     {
         try {
