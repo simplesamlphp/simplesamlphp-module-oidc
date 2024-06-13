@@ -16,6 +16,12 @@
             "email": "sergio@uco.es"
         }
     ],
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "git@github.com:simplesamlphp/openid-tools.git"
+        }
+    ],
     "require": {
         "php": "^8.2",
         "ext-curl": "*",
@@ -34,7 +40,8 @@
         "spomky-labs/base64url": "^2.0",
         "symfony/expression-language": "^6.3",
         "symfony/psr-http-message-bridge": "^7.1",
-        "web-token/jwt-framework": "^3"
+        "web-token/jwt-framework": "^3",
+        "simplesamlphp/openid-tools": "dev-master"
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^3",
