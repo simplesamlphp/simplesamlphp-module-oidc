@@ -66,6 +66,7 @@ this module as a library or extending from it, you will probably encounter break
 has been refactored:
 
 - upgraded to v5 of lcobucci/jwt https://github.com/lcobucci/jwt
+- upgraded to v3 of laminas/laminas-diactoros https://github.com/laminas/laminas-diactoros
 
 # Version 4 to 5
 
