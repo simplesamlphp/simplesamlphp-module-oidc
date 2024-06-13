@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Controller\Federation;
 
 use SimpleSAML\Module\oidc\Codebooks\ClaimNamesEnum;
+use SimpleSAML\Module\oidc\Codebooks\ClaimValues\ClientRegistrationTypesEnum;
 use SimpleSAML\Module\oidc\Codebooks\ClaimValues\TypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\EntityTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\ErrorsEnum;
@@ -77,8 +78,13 @@ class EntityStatementController
                         //'jwks_uri',
                         //'jwks',
                     ],
-                    // TODO mivanci expand OP metadata with federation related claims.
-                    EntityTypeEnum::OpenIdProvider->value => $this->opMetadataService->getMetadata(),
+                    // OP metadata with federation related claims.
+                    EntityTypeEnum::OpenIdProvider->value => [
+                        ...$this->opMetadataService->getMetadata(),
+                        ClaimNamesEnum::ClientRegistrationTypesSupported->value => [
+                            ClientRegistrationTypesEnum::Automatic->value,
+                        ],
+                    ],
                 ],
             );
 

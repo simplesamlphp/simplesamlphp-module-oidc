@@ -12,6 +12,7 @@ enum ClaimNamesEnum: string
     case ClientId = 'client_id';
     case ClientName = 'client_name';
     case ClientRegistrationTypes = 'client_registration_types';
+    case ClientRegistrationTypesSupported = 'client_registration_types_supported';
     case Contacts = 'contacts';
     case ExpirationTime = 'exp';
     case FederationFetchEndpoint = 'federation_fetch_endpoint';
