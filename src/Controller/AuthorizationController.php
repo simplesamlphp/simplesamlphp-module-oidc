@@ -19,8 +19,8 @@ namespace SimpleSAML\Module\oidc\Controller;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Auth\ProcessingChain;
+use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -58,7 +58,7 @@ class AuthorizationController
     public function __invoke(ServerRequestInterface $request): ResponseInterface
     {
         $queryParameters = $request->getQueryParams();
-        if(!isset($queryParameters[ProcessingChain::AUTHPARAM])) {
+        if (!isset($queryParameters[ProcessingChain::AUTHPARAM])) {
             $authorizationRequest = $this->authorizationServer->validateAuthorizationRequest($request);
             $this->authenticationService->handleState($request, $authorizationRequest);
             // handleState will trigger a redirect
@@ -66,18 +66,16 @@ class AuthorizationController
 
         $state = $this->authenticationService->loadState($queryParameters);
         $user = $this->authenticationService->getAuthenticateUser($state);
+        $authorizationRequest = $this->authenticationService->getAuthorizationRequestFromState($state);
 
-        $authorizationRequest = $state['authorizationRequest'];
         $authorizationRequest->setUser($user);
         $authorizationRequest->setAuthorizationApproved(true);
 
-        if ($authorizationRequest instanceof AuthorizationRequest) {
-            $authorizationRequest->setIsCookieBasedAuthn($this->authenticationService->isCookieBasedAuthn());
-            $authorizationRequest->setAuthSourceId($this->authenticationService->getAuthSourceId());
-            $authorizationRequest->setSessionId($this->authenticationService->getSessionId());
+        $authorizationRequest->setIsCookieBasedAuthn($this->authenticationService->isCookieBasedAuthn());
+        $authorizationRequest->setAuthSourceId($this->authenticationService->getAuthSourceId());
+        $authorizationRequest->setSessionId($this->authenticationService->getSessionId());
 
-            $this->validatePostAuthnAuthorizationRequest($authorizationRequest);
-        }
+        $this->validatePostAuthnAuthorizationRequest($authorizationRequest);
 
         return $this->authorizationServer->completeAuthorizationRequest(
             $authorizationRequest,

@@ -81,7 +81,7 @@ class AuthorizationControllerTest extends TestCase
                 'RelyingPartyMetadata' => self::CLIENT_ENTITY,
                 'AuthorizationRequestParameters' => self::AUTHZ_REQUEST_PARAMS,
             ],
-            'authorizationRequest' => $this->authorizationRequestMock
+            'authorizationRequest' => $this->authorizationRequestMock,
         ];
     }
 
@@ -110,6 +110,9 @@ class AuthorizationControllerTest extends TestCase
             ->willReturn($this->state);
         $this->authenticationServiceStub->method('getAuthenticateUser')
             ->willReturn($this->userEntityStub);
+        $this->authenticationServiceStub
+            ->method('getAuthorizationRequestFromState')
+            ->willReturn($this->authorizationRequestMock);
 
         $controller = new AuthorizationController(
             $this->authenticationServiceStub,
@@ -147,6 +150,9 @@ class AuthorizationControllerTest extends TestCase
 
         $this->authenticationServiceStub->method('loadState')
             ->willReturn($this->state);
+        $this->authenticationServiceStub
+            ->method('getAuthorizationRequestFromState')
+            ->willReturn($this->authorizationRequestMock);
 
         $this->expectException(OidcServerException::class);
 
@@ -182,6 +188,9 @@ class AuthorizationControllerTest extends TestCase
 
         $this->authenticationServiceStub->method('loadState')
             ->willReturn($this->state);
+        $this->authenticationServiceStub
+            ->method('getAuthorizationRequestFromState')
+            ->willReturn($this->authorizationRequestMock);
 
         $this->authorizationServerStub
             ->method('validateAuthorizationRequest')
@@ -234,6 +243,9 @@ class AuthorizationControllerTest extends TestCase
 
         $this->authenticationServiceStub->method('loadState')
             ->willReturn($this->state);
+        $this->authenticationServiceStub
+            ->method('getAuthorizationRequestFromState')
+            ->willReturn($this->authorizationRequestMock);
 
         $this->authorizationRequestMock->expects($this->once())->method('setAcr')->with('0');
 
@@ -282,6 +294,9 @@ class AuthorizationControllerTest extends TestCase
 
         $this->authenticationServiceStub->method('loadState')
             ->willReturn($this->state);
+        $this->authenticationServiceStub
+            ->method('getAuthorizationRequestFromState')
+            ->willReturn($this->authorizationRequestMock);
 
         $this->expectException(OidcServerException::class);
 
@@ -329,6 +344,9 @@ class AuthorizationControllerTest extends TestCase
 
         $this->authenticationServiceStub->method('loadState')
             ->willReturn($this->state);
+        $this->authenticationServiceStub
+            ->method('getAuthorizationRequestFromState')
+            ->willReturn($this->authorizationRequestMock);
 
 
         $this->authorizationRequestMock->expects($this->once())->method('setAcr')->with('1');
@@ -378,6 +396,9 @@ class AuthorizationControllerTest extends TestCase
 
         $this->authenticationServiceStub->method('loadState')
             ->willReturn($this->state);
+        $this->authenticationServiceStub
+            ->method('getAuthorizationRequestFromState')
+            ->willReturn($this->authorizationRequestMock);
 
         $this->authorizationRequestMock->expects($this->once())->method('setAcr')->with('1');
 
@@ -426,6 +447,9 @@ class AuthorizationControllerTest extends TestCase
 
         $this->authenticationServiceStub->method('loadState')
             ->willReturn($this->state);
+        $this->authenticationServiceStub
+            ->method('getAuthorizationRequestFromState')
+            ->willReturn($this->authorizationRequestMock);
 
         $this->authorizationRequestMock->expects($this->once())->method('setAcr');
         $this->loggerServiceMock->expects($this->once())->method('warning');

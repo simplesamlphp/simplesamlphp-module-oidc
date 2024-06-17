@@ -75,7 +75,7 @@ class MaxAgeRule extends AbstractRule
             $loginParams = [];
             $loginParams['ReturnTo'] = (new HTTP())->addURLParameters((new HTTP())->getSelfURLNoQuery(), $queryParams);
 
-            $this->authenticationService->getAuthenticateUser($request, $loginParams, true);
+            $this->authenticationService->handleState($request, null, $loginParams, true);
         }
 
         return new Result($this->getKey(), $lastAuth);

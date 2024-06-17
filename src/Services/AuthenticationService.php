@@ -22,12 +22,8 @@ use SimpleSAML\Auth\ProcessingChain;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Auth\State;
 use SimpleSAML\Error;
-use SimpleSAML\Error\AuthSource;
-use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Error\NoState;
-use SimpleSAML\Error\NotFound;
-use SimpleSAML\Error\UnserializableException;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Controller\EndSessionController;
 use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
@@ -38,7 +34,7 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
 class AuthenticationService
@@ -61,30 +57,30 @@ class AuthenticationService
         private readonly OpMetadataService $opMetadataService,
         private readonly SessionService $sessionService,
         private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
-        private readonly ModuleConfig $moduleConfig
+        private readonly ModuleConfig $moduleConfig,
     ) {
         $this->clientRepository = $clientRepository;
         $this->userIdAttr = $this->moduleConfig->getUserIdentifierAttribute();
     }
 
     /**
-     * @param   ServerRequestInterface      $request
-     * @param   OAuth2AuthorizationRequest  $authorizationRequest
-     * @param   array                       $loginParams
-     * @param   bool                        $forceAuthn
+     * @param   ServerRequestInterface           $request
+     * @param   OAuth2AuthorizationRequest|null  $authorizationRequest
+     * @param   array                            $loginParams
+     * @param   bool                             $forceAuthn
      *
      * @return void
-     * @throws AuthSource
-     * @throws BadRequest
+     * @throws Error\AuthSource
+     * @throws Error\BadRequest
+     * @throws Error\NotFound
      * @throws Exception
-     * @throws NotFound
-     * @throws OidcServerException
-     * @throws UnserializableException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws Error\UnserializableException
      * @throws \JsonException
      */
     public function handleState(
         ServerRequestInterface $request,
-        OAuth2AuthorizationRequest $authorizationRequest,
+        ?OAuth2AuthorizationRequest $authorizationRequest,
         array $loginParams = [],
         bool $forceAuthn = false,
     ): void {
@@ -117,7 +113,7 @@ class AuthenticationService
 
 
     /**
-     * @param   array                   $state
+     * @param   array  $state
      *
      * @return UserEntity
      * @throws Error\BadRequest
@@ -125,9 +121,10 @@ class AuthenticationService
      * @throws Exception
      * @throws \JsonException
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \Exception
      */
     public function getAuthenticateUser(
-        array $state
+        array $state,
     ): UserEntity {
         if (!isset($state['Attributes']) || !is_array($state['Attributes'])) {
             throw new Error\Exception('State array does not contain any attributes.');
@@ -145,15 +142,19 @@ class AuthenticationService
         $userId = (string)$claims[$this->userIdAttr][0];
         $user = $this->userRepository->getUserEntityByIdentifier($userId);
 
-        if (!$user) {
-            $user = UserEntity::fromData($userId, $claims);
-            $this->userRepository->add($user);
-        } else {
+        if ($user) {
             $user->setClaims($claims);
             $this->userRepository->update($user);
+        } else {
+            $user = UserEntity::fromData($userId, $claims);
+            $this->userRepository->add($user);
         }
 
-        $client = $this->clientRepository->findById($state['Oidc']['RelyingPartyMetadata']['id']);
+        if (empty($state['Oidc']['RelyingPartyMetadata']['id'])) {
+            throw new Error\Exception('OIDC RelyingPartyMetadata ID does not exist in state');
+        }
+
+        $client = $this->clientRepository->findById((string)$state['Oidc']['RelyingPartyMetadata']['id']);
         if (!$client) {
             throw new Error\NotFound('Client not found.');
         }
@@ -161,6 +162,21 @@ class AuthenticationService
         $this->addRelyingPartyAssociation($client, $user);
 
         return $user;
+    }
+
+    /**
+     * @param   array  $state
+     *
+     * @return AuthorizationRequest
+     * @throws Exception
+     */
+
+    public function getAuthorizationRequestFromState(array $state): AuthorizationRequest
+    {
+        if (!($state['authorizationRequest'] instanceof AuthorizationRequest)) {
+            throw new Exception("Authorization Request is not valid: " . print_r($state, true));
+        }
+        return $state['authorizationRequest'];
     }
 
     private function prepareStateArray(
@@ -244,7 +260,7 @@ class AuthenticationService
         if (empty($queryParameters[ProcessingChain::AUTHPARAM])) {
             throw new NoState();
         }
-        $stateId = $queryParameters[ProcessingChain::AUTHPARAM];
+        $stateId = (string)$queryParameters[ProcessingChain::AUTHPARAM];
         return State::loadState($stateId, ProcessingChain::COMPLETED_STAGE);
     }
 
@@ -258,22 +274,22 @@ class AuthenticationService
      *
      * @return void
      * @throws Exception
-     * @throws UnserializableException
+     * @throws Error\UnserializableException
      */
     protected function runAuthProcs(array &$state): void
     {
         $idpMetadata = [
-            'entityid' => $state['Source']['entityid'],
+            'entityid' => $state['Source']['entityid'] ?? '',
             // ProcessChain needs to know the list of authproc filters we defined in module_oidc configuration
-            'authproc' => $this->moduleConfig->getAuthProcFilters()
+            'authproc' => $this->moduleConfig->getAuthProcFilters(),
         ];
         $spMetadata = [
-            'entityid' => $state['Destination']['entityid']
+            'entityid' => $state['Destination']['entityid'] ?? '',
         ];
         $pc = new ProcessingChain(
             $idpMetadata,
             $spMetadata,
-            explode('.', $this->moduleConfig::OPTION_AUTH_PROCESSING_FILTERS)[1]
+            explode('.', (string)$this->moduleConfig::OPTION_AUTH_PROCESSING_FILTERS)[1],
         );
 
         $state['ReturnURL'] = $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdAuthorization->value);
