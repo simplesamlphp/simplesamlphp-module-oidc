@@ -228,6 +228,7 @@ class AuthenticationServiceTest extends TestCase
         $this->authSimpleMock->expects($this->once())->method('login')->with([]);
         $authenticationServiceMock->expects($this->once())
             ->method('getClientFromRequest')
+            ->with($this->serverRequestMock)
             ->willReturn($this->clientEntityMock);
 
         $authenticationServiceMock->authenticate($this->serverRequestMock);
