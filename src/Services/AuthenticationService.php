@@ -65,7 +65,7 @@ class AuthenticationService
 
     /**
      * @param   ServerRequestInterface           $request
-     * @param   OAuth2AuthorizationRequest|null  $authorizationRequest
+     * @param   OAuth2AuthorizationRequest       $authorizationRequest
      *
      * @return void
      * @throws Error\AuthSource
@@ -76,9 +76,9 @@ class AuthenticationService
      * @throws Error\UnserializableException
      * @throws \JsonException
      */
-    public function handleState(
+    public function processRequest(
         ServerRequestInterface $request,
-        ?OAuth2AuthorizationRequest $authorizationRequest,
+        OAuth2AuthorizationRequest $authorizationRequest,
     ): void {
         $oidcClient = $this->getClientFromRequest($request);
         $authSimple = $this->authSimpleFactory->build($oidcClient);
@@ -99,8 +99,7 @@ class AuthenticationService
             $this->sessionService->setIsCookieBasedAuthn(true);
         }
 
-        $state = $this->prepareStateArray($authSimple, $oidcClient, $request);
-        $state['authorizationRequest'] = $authorizationRequest;
+        $state = $this->prepareStateArray($authSimple, $oidcClient, $request, $authorizationRequest);
         $this->runAuthProcs($state);
     }
 
@@ -172,10 +171,20 @@ class AuthenticationService
         return $state['authorizationRequest'];
     }
 
+    /**
+     * @param   Simple                           $authSimple
+     * @param   ClientEntityInterface            $client
+     * @param   ServerRequestInterface           $request
+     * @param   OAuth2AuthorizationRequest       $authorizationRequest
+     *
+     * @return array
+     */
+
     private function prepareStateArray(
         Simple $authSimple,
         ClientEntityInterface $client,
         ServerRequestInterface $request,
+        OAuth2AuthorizationRequest $authorizationRequest,
     ): array {
         $state = $authSimple->getAuthDataArray();
 
@@ -201,6 +210,8 @@ class AuthenticationService
         $state['Destination'] = ['entityid' => $state['Oidc']['RelyingPartyMetadata']['id']];
 
         $state[State::RESTART] = $request->getUri()->__toString();
+
+        $state['authorizationRequest'] = $authorizationRequest;
 
         return $state;
     }

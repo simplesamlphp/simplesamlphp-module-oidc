@@ -60,8 +60,8 @@ class AuthorizationController
         $queryParameters = $request->getQueryParams();
         if (!isset($queryParameters[ProcessingChain::AUTHPARAM])) {
             $authorizationRequest = $this->authorizationServer->validateAuthorizationRequest($request);
-            $this->authenticationService->handleState($request, $authorizationRequest);
-            // handleState will trigger a redirect
+            $this->authenticationService->processRequest($request, $authorizationRequest);
+            // processState will trigger a redirect
         }
 
         $state = $this->authenticationService->loadState($queryParameters);
