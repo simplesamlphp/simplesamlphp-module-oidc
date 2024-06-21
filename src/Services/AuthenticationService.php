@@ -90,10 +90,7 @@ class AuthenticationService
         $this->authSourceId = $authSimple->getAuthSource()->getAuthId();
 
         if (! $authSimple->isAuthenticated() || $forceAuthn === true) {
-            $this->sessionService->setIsCookieBasedAuthn(false);
-            $this->sessionService->setIsAuthnPerformedInPreviousRequest(true);
-
-            $authSimple->login($loginParams);
+            $this->authenticate($request, $loginParams);
         } elseif ($this->sessionService->getIsAuthnPerformedInPreviousRequest()) {
             $this->sessionService->setIsAuthnPerformedInPreviousRequest(false);
 
@@ -228,7 +225,31 @@ class AuthenticationService
     }
 
     /**
-     * Store Relying Party Association to the current session.
+     * @param   ServerRequestInterface  $request
+     * @param   array                   $loginParams
+     *
+     * @return void
+     * @throws Error\BadRequest
+     * @throws Error\NotFound
+     * @throws \JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+
+    public function authenticate(
+        ServerRequestInterface $request,
+        array $loginParams = [],
+    ): void {
+        $oidcClient = $this->getClientFromRequest($request);
+        $authSimple = $this->authSimpleFactory->build($oidcClient);
+
+        $this->sessionService->setIsCookieBasedAuthn(false);
+        $this->sessionService->setIsAuthnPerformedInPreviousRequest(true);
+
+        $authSimple->login($loginParams);
+    }
+
+    /**
+     * Store Relying on Party Association to the current session.
      * @throws \Exception
      */
     protected function addRelyingPartyAssociation(ClientEntityInterface $oidcClient, UserEntity $user): void

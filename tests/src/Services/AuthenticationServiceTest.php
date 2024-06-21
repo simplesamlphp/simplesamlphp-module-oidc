@@ -184,8 +184,6 @@ class AuthenticationServiceTest extends TestCase
         );
     }
 
-
-
     /**
      * @return void
      * @throws Exception
@@ -202,5 +200,36 @@ class AuthenticationServiceTest extends TestCase
         $this->expectException(Exception::class);
 
         $this->prepareMockedInstance()->getAuthenticateUser($invalidState);
+    }
+
+    /**
+     * @return void
+     * @throws \JsonException
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testItAuthenticates(): void
+    {
+        $authenticationServiceMock = $this->getMockBuilder(AuthenticationService::class)
+            ->enableOriginalConstructor()
+            ->setConstructorArgs([
+                                     $this->userRepositoryMock,
+                                     $this->authSimpleFactoryMock,
+                                     $this->clientRepositoryMock,
+                                     $this->oidcOpenIdProviderMetadataServiceMock,
+                                     $this->sessionServiceMock,
+                                     $this->claimTranslatorExtractorMock,
+                                     $this->moduleConfigMock,
+                                 ])
+            ->onlyMethods(['getClientFromRequest'])
+            ->getMock();
+
+        $this->authSimpleMock->expects($this->once())->method('login')->with([]);
+        $authenticationServiceMock->expects($this->once())
+            ->method('getClientFromRequest')
+            ->willReturn($this->clientEntityMock);
+
+        $authenticationServiceMock->authenticate($this->serverRequestMock);
     }
 }
