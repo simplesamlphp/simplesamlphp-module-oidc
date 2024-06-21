@@ -66,8 +66,6 @@ class AuthenticationService
     /**
      * @param   ServerRequestInterface           $request
      * @param   OAuth2AuthorizationRequest|null  $authorizationRequest
-     * @param   array                            $loginParams
-     * @param   bool                             $forceAuthn
      *
      * @return void
      * @throws Error\AuthSource
@@ -81,16 +79,14 @@ class AuthenticationService
     public function handleState(
         ServerRequestInterface $request,
         ?OAuth2AuthorizationRequest $authorizationRequest,
-        array $loginParams = [],
-        bool $forceAuthn = false,
     ): void {
         $oidcClient = $this->getClientFromRequest($request);
         $authSimple = $this->authSimpleFactory->build($oidcClient);
 
         $this->authSourceId = $authSimple->getAuthSource()->getAuthId();
 
-        if (! $authSimple->isAuthenticated() || $forceAuthn === true) {
-            $this->authenticate($request, $loginParams);
+        if (! $authSimple->isAuthenticated()) {
+            $this->authenticate($request);
         } elseif ($this->sessionService->getIsAuthnPerformedInPreviousRequest()) {
             $this->sessionService->setIsAuthnPerformedInPreviousRequest(false);
 
