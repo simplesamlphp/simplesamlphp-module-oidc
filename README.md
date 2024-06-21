@@ -296,11 +296,10 @@ mounted in the container, along with some configuration files. Any code changes 
 "live" in the container, allowing you to test and iterate different things.
 
 ```
-GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 docker run --name ssp-oidc-dev \
    --mount type=bind,source="$(pwd)",target=/var/simplesamlphp/staging-modules/oidc,readonly \
   -e STAGINGCOMPOSERREPOS=oidc \
-  -e COMPOSER_REQUIRE="simplesamlphp/simplesamlphp-module-oidc:dev-$GIT_BRANCH" \
+  -e COMPOSER_REQUIRE="simplesamlphp/simplesamlphp-module-oidc:@dev" \
   -e SSP_ADMIN_PASSWORD=secret1 \
   --mount type=bind,source="$(pwd)/docker/ssp/module_oidc.php",target=/var/simplesamlphp/config/module_oidc.php,readonly \
   --mount type=bind,source="$(pwd)/docker/ssp/authsources.php",target=/var/simplesamlphp/config/authsources.php,readonly \
@@ -308,7 +307,7 @@ docker run --name ssp-oidc-dev \
   --mount type=bind,source="$(pwd)/docker/ssp/oidc_module.crt",target=/var/simplesamlphp/cert/oidc_module.crt,readonly \
   --mount type=bind,source="$(pwd)/docker/ssp/oidc_module.key",target=/var/simplesamlphp/cert/oidc_module.key,readonly \
   --mount type=bind,source="$(pwd)/docker/apache-override.cf",target=/etc/apache2/sites-enabled/ssp-override.cf,readonly \
-   -p 443:443 cirrusid/simplesamlphp:1.19.0
+   -p 443:443 cirrusid/simplesamlphp:v2.2.2
 ```
 
 Visit https://localhost/simplesaml/ and confirm you get the default page.
