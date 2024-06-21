@@ -374,7 +374,7 @@ EOT
         ,);
 
         // The syntax for adding unique constraint in existing table is different in sqlite (used in unit tests).
-        if (getenv('APP_ENV') === 'phpunit') {
+        if ($this->database->getDriver() === 'sqlite') {
             $this->database->write(<<< EOT
             CREATE UNIQUE INDEX $uqEntityIdentifier ON $clientTableName(entity_identifier);
 EOT
