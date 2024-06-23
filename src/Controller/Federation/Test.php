@@ -12,7 +12,6 @@ use Symfony\Component\HttpFoundation\Response;
 class Test
 {
     public function __construct(
-        //protected OIDT $oidt,
     )
     {
     }
@@ -20,11 +19,19 @@ class Test
     public function __invoke(): Response
     {
 
-        dd((new Federation(
+        dd(
+            (new Federation(
             logger: new LoggerService(),
         ))
-            ->entityStatementFetcher()
-            ->forWellKnown('https://82-dap.localhost.markoivancic.from.hr/simplesamlphp/simplesamlphp-2.2/module.php/oidc/'));
+            ->trustChainFetcher()
+                ->for(
+                    'https://82-dap.localhost.markoivancic.from.hr/openid/entities/a-leaf/',
+                    [
+                        'https://82-dap.localhost.markoivancic.from.hr/openid/entities/ab-trust-anchor/',
+                        'https://82-dap.localhost.markoivancic.from.hr/openid/entities/c-trust-anchor/'
+                    ]
+                )
+        );
 
         return new Response();
     }
