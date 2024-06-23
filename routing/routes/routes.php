@@ -49,5 +49,5 @@ return function (RoutingConfigurator $routes): void {
 
     // TODO mivanci delete
     $routes->add('test', 'test')
-        ->controller(\SimpleSAML\Module\oidc\Controller\Federation\Test::class, 'test');
+        ->controller(\SimpleSAML\Module\oidc\Controller\Federation\Test::class);
 };
