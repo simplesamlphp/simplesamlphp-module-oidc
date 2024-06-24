@@ -67,7 +67,7 @@ class AuthenticationService
      * @param   ServerRequestInterface           $request
      * @param   OAuth2AuthorizationRequest       $authorizationRequest
      *
-     * @return void
+     * @return null|array
      * @throws Error\AuthSource
      * @throws Error\BadRequest
      * @throws Error\NotFound
@@ -79,7 +79,7 @@ class AuthenticationService
     public function processRequest(
         ServerRequestInterface $request,
         OAuth2AuthorizationRequest $authorizationRequest,
-    ): void {
+    ): null|array {
         $oidcClient = $this->getClientFromRequest($request);
         $authSimple = $this->authSimpleFactory->build($oidcClient);
 
@@ -101,6 +101,8 @@ class AuthenticationService
 
         $state = $this->prepareStateArray($authSimple, $oidcClient, $request, $authorizationRequest);
         $this->runAuthProcs($state);
+
+        return $state;
     }
 
 
@@ -166,7 +168,7 @@ class AuthenticationService
     public function getAuthorizationRequestFromState(array $state): AuthorizationRequest
     {
         if (!($state['authorizationRequest'] instanceof AuthorizationRequest)) {
-            throw new Exception("Authorization Request is not valid: " . print_r($state, true));
+            throw new Exception('Authorization Request is not valid');
         }
         return $state['authorizationRequest'];
     }
@@ -317,7 +319,7 @@ class AuthenticationService
         $pc = new ProcessingChain(
             $idpMetadata,
             $spMetadata,
-            explode('.', (string)$this->moduleConfig::OPTION_AUTH_PROCESSING_FILTERS)[1],
+            'oidc',
         );
 
         $state['ReturnURL'] = $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdAuthorization->value);
@@ -325,9 +327,5 @@ class AuthenticationService
         $state['Source'] = $idpMetadata;
 
         $pc->processState($state);
-
-        // If no filter(s) is available in the configuration, it will enforce a redirect
-        // to the authentication endpoint.
-        ProcessingChain::resumeProcessing($state);
     }
 }

@@ -58,15 +58,18 @@ class AuthorizationController
     public function __invoke(ServerRequestInterface $request): ResponseInterface
     {
         $queryParameters = $request->getQueryParams();
+        $state = null;
+        $authorizationRequest = null;
+
         if (!isset($queryParameters[ProcessingChain::AUTHPARAM])) {
             $authorizationRequest = $this->authorizationServer->validateAuthorizationRequest($request);
-            $this->authenticationService->processRequest($request, $authorizationRequest);
+            $state = $this->authenticationService->processRequest($request, $authorizationRequest);
             // processState will trigger a redirect
         }
 
-        $state = $this->authenticationService->loadState($queryParameters);
+        $state ??= $this->authenticationService->loadState($queryParameters);
         $user = $this->authenticationService->getAuthenticateUser($state);
-        $authorizationRequest = $this->authenticationService->getAuthorizationRequestFromState($state);
+        $authorizationRequest ??= $this->authenticationService->getAuthorizationRequestFromState($state);
 
         $authorizationRequest->setUser($user);
         $authorizationRequest->setAuthorizationApproved(true);
