@@ -59,7 +59,6 @@ class AuthorizationController
     {
         $queryParameters = $request->getQueryParams();
         $state = null;
-        $authorizationRequest = null;
 
         if (!isset($queryParameters[ProcessingChain::AUTHPARAM])) {
             $authorizationRequest = $this->authorizationServer->validateAuthorizationRequest($request);
@@ -68,7 +67,7 @@ class AuthorizationController
         }
 
         $state ??= $this->authenticationService->loadState($queryParameters);
-        $authorizationRequest ??= $this->authenticationService->getAuthorizationRequestFromState($state);
+        $authorizationRequest = $this->authenticationService->getAuthorizationRequestFromState($state);
 
         $user = $this->authenticationService->getAuthenticateUser($state);
 

@@ -22,7 +22,6 @@ use SimpleSAML\Auth\ProcessingChain;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Auth\State;
 use SimpleSAML\Error;
-use SimpleSAML\Error\AuthSource;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Error\NoState;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
@@ -68,7 +67,7 @@ class AuthenticationService
      * @param   ServerRequestInterface           $request
      * @param   OAuth2AuthorizationRequest       $authorizationRequest
      *
-     * @return null|array
+     * @return array
      * @throws Error\AuthSource
      * @throws Error\BadRequest
      * @throws Error\NotFound
@@ -80,7 +79,7 @@ class AuthenticationService
     public function processRequest(
         ServerRequestInterface $request,
         OAuth2AuthorizationRequest $authorizationRequest,
-    ): null|array {
+    ): array {
         $oidcClient = $this->getClientFromRequest($request);
         $authSimple = $this->authSimpleFactory->build($oidcClient);
 
@@ -298,7 +297,7 @@ class AuthenticationService
         $stateId = (string)$queryParameters[ProcessingChain::AUTHPARAM];
         $state = State::loadState($stateId, ProcessingChain::COMPLETED_STAGE);
 
-        $this->authSourceId = $state['authSourceId'];
+        $this->authSourceId = (string)$state['authSourceId'];
         unset($state['authSourceId']);
 
         return $state;
