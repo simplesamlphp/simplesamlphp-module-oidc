@@ -68,8 +68,9 @@ class AuthorizationController
         }
 
         $state ??= $this->authenticationService->loadState($queryParameters);
-        $user = $this->authenticationService->getAuthenticateUser($state);
         $authorizationRequest ??= $this->authenticationService->getAuthorizationRequestFromState($state);
+
+        $user = $this->authenticationService->getAuthenticateUser($state);
 
         $authorizationRequest->setUser($user);
         $authorizationRequest->setAuthorizationApproved(true);
