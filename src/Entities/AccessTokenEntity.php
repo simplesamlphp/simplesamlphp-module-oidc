@@ -22,6 +22,7 @@ use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInt
 use League\OAuth2\Server\Entities\Traits\AccessTokenTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\TokenEntityTrait;
+use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\EntityStringRepresentationInterface;
@@ -157,13 +158,20 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
      */
     public function getState(): array
     {
+        $database = Database::getInstance();
+
+        $revoked = $this->isRevoked() ? 'true' : 'false';
+        if($database->getDriver() === 'mysql') {
+            $revoked = (int) $this->isRevoked();
+        }
+
         return [
             'id' => $this->getIdentifier(),
             'scopes' => json_encode($this->scopes, JSON_THROW_ON_ERROR),
             'expires_at' => $this->getExpiryDateTime()->format('Y-m-d H:i:s'),
             'user_id' => $this->getUserIdentifier(),
             'client_id' => $this->getClient()->getIdentifier(),
-            'is_revoked' => (int) $this->isRevoked(),
+            'is_revoked' => $revoked,
             'auth_code_id' => $this->getAuthCodeId(),
             'requested_claims' => json_encode($this->requestedClaims, JSON_THROW_ON_ERROR),
         ];
