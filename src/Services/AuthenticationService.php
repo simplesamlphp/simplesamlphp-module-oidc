@@ -180,7 +180,7 @@ class AuthenticationService
      * @param   OAuth2AuthorizationRequest  $authorizationRequest
      *
      * @return array
-     * @throws AuthSource
+     * @throws Error\AuthSource
      */
 
     private function prepareStateArray(
