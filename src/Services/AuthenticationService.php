@@ -67,7 +67,7 @@ class AuthenticationService
      * @param   ServerRequestInterface           $request
      * @param   OAuth2AuthorizationRequest       $authorizationRequest
      *
-     * @return void
+     * @return array
      * @throws Error\AuthSource
      * @throws Error\BadRequest
      * @throws Error\NotFound
@@ -79,7 +79,7 @@ class AuthenticationService
     public function processRequest(
         ServerRequestInterface $request,
         OAuth2AuthorizationRequest $authorizationRequest,
-    ): void {
+    ): array {
         $oidcClient = $this->getClientFromRequest($request);
         $authSimple = $this->authSimpleFactory->build($oidcClient);
 
@@ -101,6 +101,8 @@ class AuthenticationService
 
         $state = $this->prepareStateArray($authSimple, $oidcClient, $request, $authorizationRequest);
         $this->runAuthProcs($state);
+
+        return $state;
     }
 
 
@@ -166,18 +168,19 @@ class AuthenticationService
     public function getAuthorizationRequestFromState(array $state): AuthorizationRequest
     {
         if (!($state['authorizationRequest'] instanceof AuthorizationRequest)) {
-            throw new Exception("Authorization Request is not valid: " . print_r($state, true));
+            throw new Exception('Authorization Request is not valid');
         }
         return $state['authorizationRequest'];
     }
 
     /**
-     * @param   Simple                           $authSimple
-     * @param   ClientEntityInterface            $client
-     * @param   ServerRequestInterface           $request
-     * @param   OAuth2AuthorizationRequest       $authorizationRequest
+     * @param   Simple                      $authSimple
+     * @param   ClientEntityInterface       $client
+     * @param   ServerRequestInterface      $request
+     * @param   OAuth2AuthorizationRequest  $authorizationRequest
      *
      * @return array
+     * @throws AuthSource
      */
 
     private function prepareStateArray(
@@ -211,7 +214,9 @@ class AuthenticationService
 
         $state[State::RESTART] = $request->getUri()->__toString();
 
+        // Data required after we get back from a ProcessingChain redirect
         $state['authorizationRequest'] = $authorizationRequest;
+        $state['authSourceId'] = $authSimple->getAuthSource()->getAuthId();
 
         return $state;
     }
@@ -288,8 +293,14 @@ class AuthenticationService
         if (empty($queryParameters[ProcessingChain::AUTHPARAM])) {
             throw new NoState();
         }
+
         $stateId = (string)$queryParameters[ProcessingChain::AUTHPARAM];
-        return State::loadState($stateId, ProcessingChain::COMPLETED_STAGE);
+        $state = State::loadState($stateId, ProcessingChain::COMPLETED_STAGE);
+
+        $this->authSourceId = (string)$state['authSourceId'];
+        unset($state['authSourceId']);
+
+        return $state;
     }
 
     /**
@@ -317,7 +328,7 @@ class AuthenticationService
         $pc = new ProcessingChain(
             $idpMetadata,
             $spMetadata,
-            explode('.', (string)$this->moduleConfig::OPTION_AUTH_PROCESSING_FILTERS)[1],
+            'oidc',
         );
 
         $state['ReturnURL'] = $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdAuthorization->value);
@@ -325,9 +336,5 @@ class AuthenticationService
         $state['Source'] = $idpMetadata;
 
         $pc->processState($state);
-
-        // If no filter(s) is available in the configuration, it will enforce a redirect
-        // to the authentication endpoint.
-        ProcessingChain::resumeProcessing($state);
     }
 }
