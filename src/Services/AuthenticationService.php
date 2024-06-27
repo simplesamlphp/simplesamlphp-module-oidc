@@ -183,7 +183,7 @@ class AuthenticationService
      * @throws Error\AuthSource
      */
 
-    private function prepareStateArray(
+    public function prepareStateArray(
         Simple $authSimple,
         ClientEntityInterface $client,
         ServerRequestInterface $request,
