@@ -11,6 +11,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Auth\Source;
+use SimpleSAML\Auth\State;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
@@ -29,6 +30,7 @@ use SimpleSAML\Session;
  */
 class AuthenticationServiceTest extends TestCase
 {
+    final public const URI = 'https://some-server/authorize.php?abc=efg';
     final public const AUTH_SOURCE = 'auth_source';
     final public const USER_ID_ATTR = 'uid';
     final public const USERNAME = 'username';
@@ -49,7 +51,6 @@ class AuthenticationServiceTest extends TestCase
         ],
     ];
 
-    public static string $uri = 'https://some-server/authorize.php?abc=efg';
 
     protected MockObject $claimTranslatorExtractorMock;
     protected MockObject $serverRequestMock;
@@ -87,7 +88,7 @@ class AuthenticationServiceTest extends TestCase
         $this->userEntityMock = $this->createMock(UserEntity::class);
 
         $this->serverRequestMock->method('getQueryParams')->willReturn(self::AUTHZ_REQUEST_PARAMS);
-        $this->serverRequestMock->method('getUri')->willReturn(new Uri(self::$uri));
+        $this->serverRequestMock->method('getUri')->willReturn(new Uri(self::URI));
 
         $this->clientEntityMock->method('getAuthSourceId')->willReturn(self::AUTH_SOURCE);
         $this->clientEntityMock->method('toArray')->willReturn(self::CLIENT_ENTITY);
@@ -232,5 +233,32 @@ class AuthenticationServiceTest extends TestCase
             ->willReturn($this->clientEntityMock);
 
         $authenticationServiceMock->authenticate($this->serverRequestMock);
+    }
+
+    /**
+     * @return void
+     * @throws \SimpleSAML\Error\AuthSource
+     */
+    public function testPrepareState(): void
+    {
+        $state = self::STATE;
+        $state['Source'] = [
+            'entityid' => $state['Oidc']['OpenIdProviderMetadata']['issuer']
+        ];
+        $state['Destination'] = [
+            'entityid' => $state['Oidc']['RelyingPartyMetadata']['id']
+        ];
+        $state[State::RESTART] = self::URI;
+        $state['authorizationRequest'] = $this->authorizationRequestMock;
+        $state['authSourceId'] = '';
+
+       $this->assertSame(
+           $this->prepareMockedInstance()->prepareStateArray(
+               $this->authSimpleMock,
+               $this->clientEntityMock,
+               $this->serverRequestMock,
+               $this->authorizationRequestMock,
+           ),
+           $state);
     }
 }
