@@ -243,22 +243,23 @@ class AuthenticationServiceTest extends TestCase
     {
         $state = self::STATE;
         $state['Source'] = [
-            'entityid' => $state['Oidc']['OpenIdProviderMetadata']['issuer']
+            'entityid' => $state['Oidc']['OpenIdProviderMetadata']['issuer'],
         ];
         $state['Destination'] = [
-            'entityid' => $state['Oidc']['RelyingPartyMetadata']['id']
+            'entityid' => $state['Oidc']['RelyingPartyMetadata']['id'],
         ];
         $state[State::RESTART] = self::URI;
         $state['authorizationRequest'] = $this->authorizationRequestMock;
         $state['authSourceId'] = '';
 
-       $this->assertSame(
-           $this->prepareMockedInstance()->prepareStateArray(
-               $this->authSimpleMock,
-               $this->clientEntityMock,
-               $this->serverRequestMock,
-               $this->authorizationRequestMock,
-           ),
-           $state);
+        $this->assertSame(
+            $this->prepareMockedInstance()->prepareStateArray(
+                $this->authSimpleMock,
+                $this->clientEntityMock,
+                $this->serverRequestMock,
+                $this->authorizationRequestMock,
+            ),
+            $state,
+        );
     }
 }
