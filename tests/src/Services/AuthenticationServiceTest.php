@@ -7,6 +7,8 @@ namespace SimpleSAML\Test\Module\oidc\Services;
 use Laminas\Diactoros\ServerRequest;
 use Laminas\Diactoros\Uri;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Auth\Simple;
@@ -110,15 +112,19 @@ class AuthenticationServiceTest extends TestCase
 
     public function prepareMockedInstance(): AuthenticationService
     {
-        return new AuthenticationService(
-            $this->userRepositoryMock,
-            $this->authSimpleFactoryMock,
-            $this->clientRepositoryMock,
-            $this->oidcOpenIdProviderMetadataServiceMock,
-            $this->sessionServiceMock,
-            $this->claimTranslatorExtractorMock,
-            $this->moduleConfigMock,
-        );
+        return $this->getMockBuilder(AuthenticationService::class)
+            ->enableOriginalConstructor()
+            ->setConstructorArgs([
+                                     $this->userRepositoryMock,
+                                     $this->authSimpleFactoryMock,
+                                     $this->clientRepositoryMock,
+                                     $this->oidcOpenIdProviderMetadataServiceMock,
+                                     $this->sessionServiceMock,
+                                     $this->claimTranslatorExtractorMock,
+                                     $this->moduleConfigMock,
+                                 ])
+            ->onlyMethods(['getClientFromRequest'])
+            ->getMock();
     }
 
     public function testItIsInitializable(): void
@@ -212,27 +218,13 @@ class AuthenticationServiceTest extends TestCase
      */
     public function testItAuthenticates(): void
     {
-        $authenticationServiceMock = $this->getMockBuilder(AuthenticationService::class)
-            ->enableOriginalConstructor()
-            ->setConstructorArgs([
-                                     $this->userRepositoryMock,
-                                     $this->authSimpleFactoryMock,
-                                     $this->clientRepositoryMock,
-                                     $this->oidcOpenIdProviderMetadataServiceMock,
-                                     $this->sessionServiceMock,
-                                     $this->claimTranslatorExtractorMock,
-                                     $this->moduleConfigMock,
-                                 ])
-            ->onlyMethods(['getClientFromRequest'])
-            ->getMock();
-
         $this->authSimpleMock->expects($this->once())->method('login')->with([]);
-        $authenticationServiceMock->expects($this->once())
+        $this->prepareMockedInstance()
             ->method('getClientFromRequest')
             ->with($this->serverRequestMock)
             ->willReturn($this->clientEntityMock);
 
-        $authenticationServiceMock->authenticate($this->serverRequestMock);
+        $this->prepareMockedInstance()->authenticate($this->serverRequestMock);
     }
 
     /**
@@ -260,6 +252,64 @@ class AuthenticationServiceTest extends TestCase
                 $this->authorizationRequestMock,
             ),
             $state,
+        );
+    }
+
+    /**
+     * @return array
+     */
+    public static function isAuthnPerformedInPreviousRequest(): array
+    {
+        return [
+            [false],
+            [true],
+        ];
+    }
+
+    /**
+     * @throws SimpleSAML\Error\AuthSource
+     * @throws SimpleSAML\Error\BadRequest
+     * @throws SimpleSAML\Error\Exception
+     * @throws JsonException
+     * @throws SimpleSAML\Error\OidcServerException
+     * @throws SimpleSAML\Error\NotFound
+     */
+    #[DataProvider('isAuthnPerformedInPreviousRequest')]
+    #[TestDox('Process Request with authentication performed in previous request: $isAuthnPer')]
+    public function testItProcessesRequest(bool $isAuthnPer): void
+    {
+        $authenticationServiceMock = $this->getMockBuilder(AuthenticationService::class)
+            ->enableOriginalConstructor()
+            ->setConstructorArgs([
+                                     $this->userRepositoryMock,
+                                     $this->authSimpleFactoryMock,
+                                     $this->clientRepositoryMock,
+                                     $this->oidcOpenIdProviderMetadataServiceMock,
+                                     $this->sessionServiceMock,
+                                     $this->claimTranslatorExtractorMock,
+                                     $this->moduleConfigMock,
+                                 ])
+            ->onlyMethods(['getClientFromRequest', 'runAuthProcs', 'prepareStateArray'])
+            ->getMock();
+
+        $this->authSimpleMock->expects($this->once())->method('isAuthenticated')->willReturn(true);
+        $authenticationServiceMock->method('getClientFromRequest')->with($this->serverRequestMock)
+            ->willReturn($this->clientEntityMock);
+        $authenticationServiceMock->method('prepareStateArray')->with(
+            $this->authSimpleMock,
+            $this->clientEntityMock,
+            $this->serverRequestMock,
+            $this->authorizationRequestMock,
+        )->willReturn(self::STATE);
+
+        $this->sessionServiceMock->method('getIsAuthnPerformedInPreviousRequest')->willReturn($isAuthnPer);
+
+        $this->assertSame(
+            $authenticationServiceMock->processRequest(
+                $this->serverRequestMock,
+                $this->authorizationRequestMock,
+            ),
+            self::STATE,
         );
     }
 }
