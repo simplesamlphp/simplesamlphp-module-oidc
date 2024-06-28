@@ -11,10 +11,12 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Auth\ProcessingChain;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Auth\Source;
 use SimpleSAML\Auth\State;
 use SimpleSAML\Error\Exception;
+use SimpleSAML\Error\NoState;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
@@ -231,7 +233,7 @@ class AuthenticationServiceTest extends TestCase
      * @return void
      * @throws \SimpleSAML\Error\AuthSource
      */
-    public function testPrepareState(): void
+    public function testItConstructsStateArray(): void
     {
         $state = self::STATE;
         $state['Source'] = [
@@ -245,13 +247,13 @@ class AuthenticationServiceTest extends TestCase
         $state['authSourceId'] = '';
 
         $this->assertSame(
+            $state,
             $this->prepareMockedInstance()->prepareStateArray(
                 $this->authSimpleMock,
                 $this->clientEntityMock,
                 $this->serverRequestMock,
                 $this->authorizationRequestMock,
             ),
-            $state,
         );
     }
 
@@ -311,5 +313,47 @@ class AuthenticationServiceTest extends TestCase
             ),
             self::STATE,
         );
+    }
+
+    /**
+     * @throws NoState
+     */
+    public function testItThrowsOnMissingQueryParameterAuthparam(): void
+    {
+        $this->expectException(NoState::class);
+        $this->prepareMockedInstance()->loadState([]);
+    }
+
+    /**
+     * @throws NoState
+     */
+    public function testLoadStateFromProcessingChainRedirect(): void
+    {
+        $queryParameters = [
+            ProcessingChain::AUTHPARAM => '123',
+        ];
+
+        $mock = $this->prepareMockedInstance();
+        $mock->setAuthState(new class () extends State {
+            public static function loadState(string $id, string $stage, bool $allowMissing = false): ?array
+            {
+                return [
+                    'Attributes' => AuthenticationServiceTest::AUTH_DATA['Attributes'],
+                    'Oidc' => [
+                        'OpenIdProviderMetadata' => AuthenticationServiceTest::OIDC_OP_METADATA,
+                        'RelyingPartyMetadata' => AuthenticationServiceTest::CLIENT_ENTITY,
+                        'AuthorizationRequestParameters' => AuthenticationServiceTest::AUTHZ_REQUEST_PARAMS,
+                    ],
+                    'authSourceId' => '456',
+                ];
+            }
+        });
+
+        $this->assertSame(
+            self::STATE,
+            $mock->loadState($queryParameters),
+        );
+
+        $this->assertEquals('456', $mock->getAuthSourceId());
     }
 }

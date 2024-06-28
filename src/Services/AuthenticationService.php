@@ -42,9 +42,19 @@ class AuthenticationService
     use GetClientFromRequestTrait;
 
     /**
+     * @var \SimpleSAML\Auth\State|string
+     * @psalm-var \SimpleSAML\Auth\State|class-string
+     */
+    protected string|State $authState = \SimpleSAML\Auth\State::class;
+
+    /**
      * ID of auth source used during authn.
      */
     private ?string $authSourceId = null;
+
+    /**
+     * @var string
+     */
     private string $userIdAttr;
 
     /**
@@ -221,16 +231,35 @@ class AuthenticationService
         return $state;
     }
 
+    /**
+     * Inject the \SimpleSAML\Auth\State dependency.
+     *
+     * @param State $authState
+     */
+    public function setAuthState(State $authState): void
+    {
+        $this->authState = $authState;
+    }
+
+    /**
+     * @return bool
+     */
     public function isCookieBasedAuthn(): bool
     {
         return (bool) $this->sessionService->getIsCookieBasedAuthn();
     }
 
+    /**
+     * @return string|null
+     */
     public function getAuthSourceId(): ?string
     {
         return $this->authSourceId;
     }
 
+    /**
+     * @return string|null
+     */
     public function getSessionId(): ?string
     {
         return $this->sessionService->getCurrentSession()->getSessionId();
@@ -295,7 +324,8 @@ class AuthenticationService
         }
 
         $stateId = (string)$queryParameters[ProcessingChain::AUTHPARAM];
-        $state = State::loadState($stateId, ProcessingChain::COMPLETED_STAGE);
+        \assert($this->authState instanceof State);
+        $state = $this->authState::loadState($stateId, ProcessingChain::COMPLETED_STAGE);
 
         $this->authSourceId = (string)$state['authSourceId'];
         unset($state['authSourceId']);
