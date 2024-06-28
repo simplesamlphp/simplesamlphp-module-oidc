@@ -106,7 +106,6 @@ class AuthenticationServiceTest extends TestCase
 
         $this->oidcOpenIdProviderMetadataServiceMock->method('getMetadata')->willReturn(self::OIDC_OP_METADATA);
 
-        $this->moduleConfigMock->method('getAuthProcFilters')->willReturn([]);
         $this->moduleConfigMock->method('getUserIdentifierAttribute')->willReturn(self::USER_ID_ATTR);
 
         $this->sessionServiceMock->method('getCurrentSession')->willReturn($this->sessionMock);
@@ -294,6 +293,7 @@ class AuthenticationServiceTest extends TestCase
             ->onlyMethods(['getClientFromRequest', 'runAuthProcs', 'prepareStateArray'])
             ->getMock();
 
+        $this->moduleConfigMock->method('getAuthProcFilters')->willReturn([]);
         $this->authSimpleMock->expects($this->once())->method('isAuthenticated')->willReturn(true);
         $authenticationServiceMock->method('getClientFromRequest')->with($this->serverRequestMock)
             ->willReturn($this->clientEntityMock);
@@ -355,5 +355,38 @@ class AuthenticationServiceTest extends TestCase
         );
 
         $this->assertEquals('456', $mock->getAuthSourceId());
+    }
+
+    public function testItRunAuthProcs(): void
+    {
+        $authProcFilters = [
+            25 => [
+                'class' => 'core:AttributeMap',
+                'oid2name'
+            ],
+        ];
+        $returnUrl = 'http://example.com/authorization';
+        $this->moduleConfigMock->method('getAuthProcFilters')->willReturn($authProcFilters);
+        $this->moduleConfigMock->method('getModuleUrl')->willReturn($returnUrl);
+        $mockedInstance = new class(
+            $this->userRepositoryMock,
+            $this->authSimpleFactoryMock,
+            $this->clientRepositoryMock,
+            $this->oidcOpenIdProviderMetadataServiceMock,
+            $this->sessionServiceMock,
+            $this->claimTranslatorExtractorMock,
+            $this->moduleConfigMock,
+        ) extends AuthenticationService {
+            public function runAuthProcsPublic(array &$state): void
+            {
+                $this->runAuthProcs($state);
+            }
+        };
+
+        $state = self::STATE;
+        $mockedInstance->runAuthProcsPublic($state);
+
+        $this->assertEquals($state['ReturnURL'], $returnUrl);
+        $this->assertEquals($state['Source']['authproc'], $authProcFilters);
     }
 }
