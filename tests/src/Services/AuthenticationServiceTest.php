@@ -362,13 +362,13 @@ class AuthenticationServiceTest extends TestCase
         $authProcFilters = [
             25 => [
                 'class' => 'core:AttributeMap',
-                'oid2name'
+                'oid2name',
             ],
         ];
         $returnUrl = 'http://example.com/authorization';
         $this->moduleConfigMock->method('getAuthProcFilters')->willReturn($authProcFilters);
         $this->moduleConfigMock->method('getModuleUrl')->willReturn($returnUrl);
-        $mockedInstance = new class(
+        $mockedInstance = new class (
             $this->userRepositoryMock,
             $this->authSimpleFactoryMock,
             $this->clientRepositoryMock,
