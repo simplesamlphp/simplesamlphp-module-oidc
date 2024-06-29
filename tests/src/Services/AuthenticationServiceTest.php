@@ -17,6 +17,7 @@ use SimpleSAML\Auth\Source;
 use SimpleSAML\Auth\State;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Error\NoState;
+use SimpleSAML\Error\NotFound;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
@@ -72,6 +73,16 @@ class AuthenticationServiceTest extends TestCase
     protected MockObject $userEntityMock;
 
     /**
+     * @return void
+     */
+    public static function setUpBeforeClass(): void
+    {
+        // To make lib/SimpleSAML/Utils/HTTP::getSelfURL() work...
+        global $_SERVER;
+        $_SERVER['REQUEST_URI'] = '';
+    }
+
+    /**
      * @throws \PHPUnit\Framework\MockObject\Exception
      */
     protected function setUp(): void
@@ -96,9 +107,6 @@ class AuthenticationServiceTest extends TestCase
 
         $this->clientEntityMock->method('getAuthSourceId')->willReturn(self::AUTH_SOURCE);
         $this->clientEntityMock->method('toArray')->willReturn(self::CLIENT_ENTITY);
-
-        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
-
         $this->authSimpleMock->method('getAttributes')->willReturn(self::AUTH_DATA['Attributes']);
         $this->authSimpleMock->method('getAuthDataArray')->willReturn(self::AUTH_DATA);
 
@@ -111,6 +119,9 @@ class AuthenticationServiceTest extends TestCase
         $this->sessionServiceMock->method('getCurrentSession')->willReturn($this->sessionMock);
     }
 
+    /**
+     * @return AuthenticationService
+     */
     public function prepareMockedInstance(): AuthenticationService
     {
         return $this->getMockBuilder(AuthenticationService::class)
@@ -128,6 +139,9 @@ class AuthenticationServiceTest extends TestCase
             ->getMock();
     }
 
+    /**
+     * @return void
+     */
     public function testItIsInitializable(): void
     {
         $this->assertInstanceOf(
@@ -147,6 +161,7 @@ class AuthenticationServiceTest extends TestCase
     public function testItCreatesNewUser(): void
     {
         $clientId = 'client123';
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
         $this->clientEntityMock->expects($this->once())->method('getIdentifier')->willReturn($clientId);
         $userEntity = $this->prepareMockedInstance()->getAuthenticateUser(self::STATE);
 
@@ -173,6 +188,7 @@ class AuthenticationServiceTest extends TestCase
 
         $this->clientEntityMock->expects($this->once())->method('getIdentifier')->willReturn($clientId);
         $this->clientEntityMock->expects($this->once())->method('getBackChannelLogoutUri')->willReturn(null);
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
 
         $this->userEntityMock->expects($this->once())->method('getIdentifier')->willReturn($userId);
         $this->userEntityMock->expects($this->once())->method('setClaims')->with(self::USER_ENTITY_ATTRIBUTES);
@@ -193,6 +209,65 @@ class AuthenticationServiceTest extends TestCase
     }
 
     /**
+     * @return array
+     */
+    public static function getUserState(): array
+    {
+        return [
+            'No Attributes' => [
+                [
+                    'Oidc' => [
+                        'OpenIdProviderMetadata' => self::OIDC_OP_METADATA,
+                        'RelyingPartyMetadata' => self::CLIENT_ENTITY,
+                        'AuthorizationRequestParameters' => self::AUTHZ_REQUEST_PARAMS,
+                    ],
+                ],
+            ],
+            'No OIDC RelyingPartyMetadata ID' => [
+                [
+                    'Attributes' => self::AUTH_DATA['Attributes'],
+                    'Oidc' => [
+                        'OpenIdProviderMetadata' => self::OIDC_OP_METADATA,
+                        'AuthorizationRequestParameters' => self::AUTHZ_REQUEST_PARAMS,
+                    ],
+                ],
+            ],
+            'No Client' => [
+                [
+                    'Attributes' => self::AUTH_DATA['Attributes'],
+                    'Oidc' => [
+                        'OpenIdProviderMetadata' => self::OIDC_OP_METADATA,
+                        'RelyingPartyMetadata' => self::CLIENT_ENTITY,
+                        'AuthorizationRequestParameters' => self::AUTHZ_REQUEST_PARAMS,
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @throws BadRequest
+     * @throws OidcServerException
+     * @throws \JsonException
+     */
+    #[DataProvider('getUserState')]
+    public function testGetAuthenticateUserItThrowsWhenState(array $state): void
+    {
+        if (!isset($state['Oidc']['RelyingPartyMetadata']['id'])) {
+            $this->expectException(Exception::class);
+            $this->expectExceptionMessageMatches('/OIDC RelyingPartyMetadata ID does not exist in state./');
+        } elseif (isset($state['Attributes'])) {
+            $this->expectException(NotFound::class);
+            $this->expectExceptionMessageMatches('/Client not found./');
+            $this->clientRepositoryMock->method('findById')->willReturn(null);
+        } else {
+            $this->expectException(Exception::class);
+            $this->expectExceptionMessageMatches('/State array does not contain any attributes./');
+        }
+        $this->prepareMockedInstance()->getAuthenticateUser($state);
+    }
+
+    /**
      * @return void
      * @throws Exception
      * @throws \JsonException
@@ -200,12 +275,15 @@ class AuthenticationServiceTest extends TestCase
      * @throws \SimpleSAML\Error\NotFound
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
-    public function testItThrowsIfClaimsNotExist(): void
+    public function testGetAuthenticateUserItThrowsIfClaimsNotExist(): void
     {
         $invalidState = self::STATE;
         unset($invalidState['Attributes'][self::USER_ID_ATTR]);
 
         $this->expectException(Exception::class);
+        $this->expectExceptionMessageMatches(
+            "/Attribute `useridattr` doesn\'t exists in claims. Available attributes are:/",
+        );
 
         $this->prepareMockedInstance()->getAuthenticateUser($invalidState);
     }
@@ -357,6 +435,9 @@ class AuthenticationServiceTest extends TestCase
         $this->assertEquals('456', $mock->getAuthSourceId());
     }
 
+    /**
+     * @return void
+     */
     public function testItRunAuthProcs(): void
     {
         $authProcFilters = [
