@@ -177,8 +177,11 @@ class AuthenticationService
 
     public function getAuthorizationRequestFromState(array $state): AuthorizationRequest
     {
-        if (!($state['authorizationRequest'] instanceof AuthorizationRequest)) {
-            throw new Exception('Authorization Request is not valid');
+        if (
+            !isset($state['authorizationRequest'])
+            || !($state['authorizationRequest'] instanceof AuthorizationRequest)
+        ) {
+            throw new Exception('Authorization Request is not valid.');
         }
         return $state['authorizationRequest'];
     }

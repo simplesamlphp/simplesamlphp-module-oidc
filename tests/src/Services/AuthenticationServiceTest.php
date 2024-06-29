@@ -6,7 +6,6 @@ namespace SimpleSAML\Test\Module\oidc\Services;
 
 use Laminas\Diactoros\ServerRequest;
 use Laminas\Diactoros\Uri;
-use League\OAuth2\Server\RequestTypes\AuthorizationRequest;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -24,6 +23,7 @@ use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
 use SimpleSAML\Module\oidc\Services\SessionService;
@@ -41,7 +41,7 @@ class AuthenticationServiceTest extends TestCase
     final public const USERNAME = 'username';
     final public const OIDC_OP_METADATA = ['issuer' => 'https://idp.example.org'];
     final public const USER_ENTITY_ATTRIBUTES = [
-        self::USER_ID_ATTR => [self::USERNAME],
+        self::USER_ID_ATTR    => [self::USERNAME],
         'eduPersonTargetedId' => [self::USERNAME],
     ];
     final public const AUTH_DATA = ['Attributes' => self::USER_ENTITY_ATTRIBUTES];
@@ -49,9 +49,9 @@ class AuthenticationServiceTest extends TestCase
     final public const AUTHZ_REQUEST_PARAMS = ['client_id' => 'clientid', 'redirect_uri' => 'https://rp.example.org'];
     final public const STATE = [
         'Attributes' => self::AUTH_DATA['Attributes'],
-        'Oidc' => [
-            'OpenIdProviderMetadata' => self::OIDC_OP_METADATA,
-            'RelyingPartyMetadata' => self::CLIENT_ENTITY,
+        'Oidc'       => [
+            'OpenIdProviderMetadata'         => self::OIDC_OP_METADATA,
+            'RelyingPartyMetadata'           => self::CLIENT_ENTITY,
             'AuthorizationRequestParameters' => self::AUTHZ_REQUEST_PARAMS,
         ],
     ];
@@ -87,20 +87,20 @@ class AuthenticationServiceTest extends TestCase
      */
     protected function setUp(): void
     {
-        $this->serverRequestMock = $this->createMock(ServerRequest::class);
-        $this->clientEntityMock = $this->createMock(ClientEntity::class);
-        $this->userRepositoryMock = $this->createMock(UserRepository::class);
-        $this->authSimpleFactoryMock = $this->createMock(AuthSimpleFactory::class);
-        $this->authSimpleMock = $this->createMock(Simple::class);
-        $this->authorizationRequestMock = $this->createMock(AuthorizationRequest::class);
-        $this->clientRepositoryMock = $this->createMock(ClientRepository::class);
-        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->serverRequestMock                     = $this->createMock(ServerRequest::class);
+        $this->clientEntityMock                      = $this->createMock(ClientEntity::class);
+        $this->userRepositoryMock                    = $this->createMock(UserRepository::class);
+        $this->authSimpleFactoryMock                 = $this->createMock(AuthSimpleFactory::class);
+        $this->authSimpleMock                        = $this->createMock(Simple::class);
+        $this->authorizationRequestMock              = $this->createMock(AuthorizationRequest::class);
+        $this->clientRepositoryMock                  = $this->createMock(ClientRepository::class);
+        $this->moduleConfigMock                      = $this->createMock(ModuleConfig::class);
         $this->oidcOpenIdProviderMetadataServiceMock = $this->createMock(OpMetadataService::class);
-        $this->sessionServiceMock = $this->createMock(SessionService::class);
-        $this->claimTranslatorExtractorMock = $this->createMock(ClaimTranslatorExtractor::class);
-        $this->authSourceMock = $this->createMock(Source::class);
-        $this->sessionMock = $this->createMock(Session::class);
-        $this->userEntityMock = $this->createMock(UserEntity::class);
+        $this->sessionServiceMock                    = $this->createMock(SessionService::class);
+        $this->claimTranslatorExtractorMock          = $this->createMock(ClaimTranslatorExtractor::class);
+        $this->authSourceMock                        = $this->createMock(Source::class);
+        $this->sessionMock                           = $this->createMock(Session::class);
+        $this->userEntityMock                        = $this->createMock(UserEntity::class);
 
         $this->serverRequestMock->method('getQueryParams')->willReturn(self::AUTHZ_REQUEST_PARAMS);
         $this->serverRequestMock->method('getUri')->willReturn(new Uri(self::URI));
@@ -184,7 +184,7 @@ class AuthenticationServiceTest extends TestCase
     public function testItReturnsAnUser(): void
     {
         $clientId = 'client123';
-        $userId = 'user123';
+        $userId   = 'user123';
 
         $this->clientEntityMock->expects($this->once())->method('getIdentifier')->willReturn($clientId);
         $this->clientEntityMock->expects($this->once())->method('getBackChannelLogoutUri')->willReturn(null);
@@ -214,11 +214,11 @@ class AuthenticationServiceTest extends TestCase
     public static function getUserState(): array
     {
         return [
-            'No Attributes' => [
+            'No Attributes'                   => [
                 [
                     'Oidc' => [
-                        'OpenIdProviderMetadata' => self::OIDC_OP_METADATA,
-                        'RelyingPartyMetadata' => self::CLIENT_ENTITY,
+                        'OpenIdProviderMetadata'         => self::OIDC_OP_METADATA,
+                        'RelyingPartyMetadata'           => self::CLIENT_ENTITY,
                         'AuthorizationRequestParameters' => self::AUTHZ_REQUEST_PARAMS,
                     ],
                 ],
@@ -226,18 +226,18 @@ class AuthenticationServiceTest extends TestCase
             'No OIDC RelyingPartyMetadata ID' => [
                 [
                     'Attributes' => self::AUTH_DATA['Attributes'],
-                    'Oidc' => [
-                        'OpenIdProviderMetadata' => self::OIDC_OP_METADATA,
+                    'Oidc'       => [
+                        'OpenIdProviderMetadata'         => self::OIDC_OP_METADATA,
                         'AuthorizationRequestParameters' => self::AUTHZ_REQUEST_PARAMS,
                     ],
                 ],
             ],
-            'No Client' => [
+            'No Client'                       => [
                 [
                     'Attributes' => self::AUTH_DATA['Attributes'],
-                    'Oidc' => [
-                        'OpenIdProviderMetadata' => self::OIDC_OP_METADATA,
-                        'RelyingPartyMetadata' => self::CLIENT_ENTITY,
+                    'Oidc'       => [
+                        'OpenIdProviderMetadata'         => self::OIDC_OP_METADATA,
+                        'RelyingPartyMetadata'           => self::CLIENT_ENTITY,
                         'AuthorizationRequestParameters' => self::AUTHZ_REQUEST_PARAMS,
                     ],
                 ],
@@ -312,16 +312,16 @@ class AuthenticationServiceTest extends TestCase
      */
     public function testItConstructsStateArray(): void
     {
-        $state = self::STATE;
-        $state['Source'] = [
+        $state                         = self::STATE;
+        $state['Source']               = [
             'entityid' => $state['Oidc']['OpenIdProviderMetadata']['issuer'],
         ];
-        $state['Destination'] = [
+        $state['Destination']          = [
             'entityid' => $state['Oidc']['RelyingPartyMetadata']['id'],
         ];
-        $state[State::RESTART] = self::URI;
+        $state[State::RESTART]         = self::URI;
         $state['authorizationRequest'] = $this->authorizationRequestMock;
-        $state['authSourceId'] = '';
+        $state['authSourceId']         = '';
 
         $this->assertSame(
             $state,
@@ -412,20 +412,22 @@ class AuthenticationServiceTest extends TestCase
         ];
 
         $mock = $this->prepareMockedInstance();
-        $mock->setAuthState(new class () extends State {
-            public static function loadState(string $id, string $stage, bool $allowMissing = false): ?array
-            {
-                return [
-                    'Attributes' => AuthenticationServiceTest::AUTH_DATA['Attributes'],
-                    'Oidc' => [
-                        'OpenIdProviderMetadata' => AuthenticationServiceTest::OIDC_OP_METADATA,
-                        'RelyingPartyMetadata' => AuthenticationServiceTest::CLIENT_ENTITY,
-                        'AuthorizationRequestParameters' => AuthenticationServiceTest::AUTHZ_REQUEST_PARAMS,
-                    ],
-                    'authSourceId' => '456',
-                ];
-            }
-        });
+        $mock->setAuthState(
+            new class () extends State {
+                public static function loadState(string $id, string $stage, bool $allowMissing = false): ?array
+                {
+                    return [
+                        'Attributes'   => AuthenticationServiceTest::AUTH_DATA['Attributes'],
+                        'Oidc'         => [
+                            'OpenIdProviderMetadata'         => AuthenticationServiceTest::OIDC_OP_METADATA,
+                            'RelyingPartyMetadata'           => AuthenticationServiceTest::CLIENT_ENTITY,
+                            'AuthorizationRequestParameters' => AuthenticationServiceTest::AUTHZ_REQUEST_PARAMS,
+                        ],
+                        'authSourceId' => '456',
+                    ];
+                }
+            },
+        );
 
         $this->assertSame(
             self::STATE,
@@ -446,7 +448,7 @@ class AuthenticationServiceTest extends TestCase
                 'oid2name',
             ],
         ];
-        $returnUrl = 'http://example.com/authorization';
+        $returnUrl       = 'http://example.com/authorization';
         $this->moduleConfigMock->method('getAuthProcFilters')->willReturn($authProcFilters);
         $this->moduleConfigMock->method('getModuleUrl')->willReturn($returnUrl);
         $mockedInstance = new class (
@@ -469,5 +471,57 @@ class AuthenticationServiceTest extends TestCase
 
         $this->assertEquals($state['ReturnURL'], $returnUrl);
         $this->assertEquals($state['Source']['authproc'], $authProcFilters);
+    }
+
+    /**
+     * @return void
+     * @throws Exception
+     */
+    public function testItGetsAuthorizationRequestFromState(): void
+    {
+        $authorizationRequest = new AuthorizationRequest();
+        $state = [
+            ...self::STATE,
+            'authorizationRequest' => $authorizationRequest,
+        ];
+
+        $this->assertEquals(
+            $this->prepareMockedInstance()->getAuthorizationRequestFromState($state),
+            $authorizationRequest,
+        );
+    }
+
+    /**
+     * @return array
+     */
+    public static function authorizationRequestValues(): array
+    {
+        return [
+            'invalid'                   => [
+                [
+                    ...self::STATE,
+                    'authorizationRequest' => string::class,
+                ],
+            ],
+            'not set' => [
+                [
+                    ...self::STATE,
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @param   array  $state
+     *
+     * @return void
+     * @throws Exception
+     */
+    #[DataProvider('authorizationRequestValues')]
+    public function testGetsAuthorizationRequestFromStateThrowsOnInvalid(array $state): void
+    {
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessageMatches('/Authorization Request is not valid./');
+        $this->prepareMockedInstance()->getAuthorizationRequestFromState($state);
     }
 }
