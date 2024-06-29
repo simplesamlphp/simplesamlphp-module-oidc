@@ -155,7 +155,7 @@ class AuthenticationService
         }
 
         if (empty($state['Oidc']['RelyingPartyMetadata']['id'])) {
-            throw new Error\Exception('OIDC RelyingPartyMetadata ID does not exist in state');
+            throw new Error\Exception('OIDC RelyingPartyMetadata ID does not exist in state.');
         }
 
         $client = $this->clientRepository->findById((string)$state['Oidc']['RelyingPartyMetadata']['id']);
