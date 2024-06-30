@@ -159,9 +159,6 @@ class Container implements ContainerInterface
         $templateFactory = new TemplateFactory($simpleSAMLConfiguration);
         $this->services[TemplateFactory::class] = $templateFactory;
 
-        $authProcService = new AuthProcService($moduleConfig);
-        $this->services[AuthProcService::class] = $authProcService;
-
         $opMetadataService = new OpMetadataService($moduleConfig);
         $this->services[OpMetadataService::class] = $opMetadataService;
 
@@ -176,7 +173,6 @@ class Container implements ContainerInterface
         $authenticationService = new AuthenticationService(
             $userRepository,
             $authSimpleFactory,
-            $authProcService,
             $clientRepository,
             $opMetadataService,
             $sessionService,
