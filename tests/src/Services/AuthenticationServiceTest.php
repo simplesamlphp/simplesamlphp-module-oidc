@@ -222,6 +222,8 @@ class AuthenticationServiceTest extends TestCase
                         'AuthorizationRequestParameters' => self::AUTHZ_REQUEST_PARAMS,
                     ],
                 ],
+                Exception::class,
+                '/State array does not contain any attributes./',
             ],
             'No OIDC RelyingPartyMetadata ID' => [
                 [
@@ -231,6 +233,8 @@ class AuthenticationServiceTest extends TestCase
                         'AuthorizationRequestParameters' => self::AUTHZ_REQUEST_PARAMS,
                     ],
                 ],
+                Exception::class,
+                '/OIDC RelyingPartyMetadata ID does not exist in state./',
             ],
             'No Client'                       => [
                 [
@@ -241,29 +245,37 @@ class AuthenticationServiceTest extends TestCase
                         'AuthorizationRequestParameters' => self::AUTHZ_REQUEST_PARAMS,
                     ],
                 ],
+                NotFound::class,
+                '/Client not found./',
             ],
         ];
     }
 
     /**
-     * @throws BadRequest
-     * @throws OidcServerException
+     * @param   array   $state
+     * @param   string  $exceptionClass
+     * @param   string  $exceptionMessage
+     *
+     * @return void
+     * @throws Error/Exception
+     * @throws Error/NotFound
      * @throws \JsonException
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     #[DataProvider('getUserState')]
-    public function testGetAuthenticateUserItThrowsWhenState(array $state): void
-    {
-        if (!isset($state['Oidc']['RelyingPartyMetadata']['id'])) {
-            $this->expectException(Exception::class);
-            $this->expectExceptionMessageMatches('/OIDC RelyingPartyMetadata ID does not exist in state./');
-        } elseif (isset($state['Attributes'])) {
-            $this->expectException(NotFound::class);
-            $this->expectExceptionMessageMatches('/Client not found./');
+    #[TestDox('getAuthenticateUser throws $exceptionClass with message: "$exceptionMessage" when $_dataName')]
+    public function testGetAuthenticateUserItThrowsWhenState(
+        array $state,
+        string $exceptionClass,
+        string $exceptionMessage,
+    ): void {
+        if (isset($state['Attributes'])) {
+            // Needed for the 3rd use case
             $this->clientRepositoryMock->method('findById')->willReturn(null);
-        } else {
-            $this->expectException(Exception::class);
-            $this->expectExceptionMessageMatches('/State array does not contain any attributes./');
         }
+        $this->expectException($exceptionClass);
+        $this->expectExceptionMessageMatches($exceptionMessage);
         $this->prepareMockedInstance()->getAuthenticateUser($state);
     }
 
