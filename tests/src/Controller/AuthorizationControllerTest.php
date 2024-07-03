@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\Controller;
 
 use Laminas\Diactoros\ServerRequest;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -85,6 +86,18 @@ class AuthorizationControllerTest extends TestCase
         ];
     }
 
+    public static function queryParameterValues(): array
+    {
+        return [
+            'Has ProcessingChain Query Param' => [
+                [ProcessingChain::AUTHPARAM => '123'],
+            ],
+            'No Query Parameters' => [
+                [],
+            ],
+        ];
+    }
+
     /**
      * @throws \SimpleSAML\Error\AuthSource
      * @throws \SimpleSAML\Error\BadRequest
@@ -93,7 +106,8 @@ class AuthorizationControllerTest extends TestCase
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \Throwable
      */
-    public function testReturnsResponseWhenInvoked(): void
+    #[DataProvider('queryParameterValues')]
+    public function testReturnsResponseWhenInvoked(array $queryParameters): void
     {
         $this->authorizationServerStub
             ->method('validateAuthorizationRequest')
@@ -104,7 +118,7 @@ class AuthorizationControllerTest extends TestCase
 
         $this->serverRequestStub
             ->method('getQueryParams')
-            ->willReturn([ProcessingChain::AUTHPARAM => '123']);
+            ->willReturn($queryParameters);
 
         $this->authenticationServiceStub->method('loadState')
             ->willReturn($this->state);
@@ -122,6 +136,15 @@ class AuthorizationControllerTest extends TestCase
             $this->psrHttpBridgeMock,
             $this->errorResponderMock,
         );
+
+        if (empty($queryParameters)) {
+            $this->authenticationServiceStub->expects($this->once())
+                ->method('processRequest')
+                ->with(
+                    $this->serverRequestStub,
+                    $this->authorizationRequestMock,
+                );
+        }
 
         $this->assertInstanceOf(ResponseInterface::class, $controller($this->serverRequestStub));
     }
