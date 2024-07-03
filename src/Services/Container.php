@@ -42,6 +42,7 @@ use SimpleSAML\Module\oidc\Factories\Grant\ImplicitGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\OAuth2ImplicitGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\RefreshTokenGrantFactory;
 use SimpleSAML\Module\oidc\Factories\IdTokenResponseFactory;
+use SimpleSAML\Module\oidc\Factories\ProcessingChainFactory;
 use SimpleSAML\Module\oidc\Factories\ResourceServerFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
@@ -170,6 +171,9 @@ class Container implements ContainerInterface
         ))->build();
         $this->services[ClaimTranslatorExtractor::class] = $claimTranslatorExtractor;
 
+        $processingChainFactory = new ProcessingChainFactory($moduleConfig);
+        $this->services[ProcessingChainFactory::class] = $processingChainFactory;
+
         $authenticationService = new AuthenticationService(
             $userRepository,
             $authSimpleFactory,
@@ -178,6 +182,7 @@ class Container implements ContainerInterface
             $sessionService,
             $claimTranslatorExtractor,
             $moduleConfig,
+            $processingChainFactory,
         );
         $this->services[AuthenticationService::class] = $authenticationService;
 

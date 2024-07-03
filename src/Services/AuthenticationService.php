@@ -30,6 +30,7 @@ use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
+use SimpleSAML\Module\oidc\Factories\ProcessingChainFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
@@ -68,6 +69,7 @@ class AuthenticationService
         private readonly SessionService $sessionService,
         private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
         private readonly ModuleConfig $moduleConfig,
+        private readonly ProcessingChainFactory $processingChainFactory,
     ) {
         $this->clientRepository = $clientRepository;
         $this->userIdAttr = $this->moduleConfig->getUserIdentifierAttribute();
@@ -347,6 +349,7 @@ class AuthenticationService
      * @return void
      * @throws Exception
      * @throws Error\UnserializableException
+     * @throws \Exception
      */
     protected function runAuthProcs(array &$state): void
     {
@@ -358,16 +361,11 @@ class AuthenticationService
         $spMetadata = [
             'entityid' => $state['Destination']['entityid'] ?? '',
         ];
-        $pc = new ProcessingChain(
-            $idpMetadata,
-            $spMetadata,
-            'oidc',
-        );
 
         $state['ReturnURL'] = $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdAuthorization->value);
         $state['Destination'] = $spMetadata;
         $state['Source'] = $idpMetadata;
 
-        $pc->processState($state);
+        $this->processingChainFactory->build($state)->processState($state);
     }
 }
