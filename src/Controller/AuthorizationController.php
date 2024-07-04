@@ -66,7 +66,7 @@ class AuthorizationController
             // processState will trigger a redirect
         }
 
-        $state ??= $this->authenticationService->loadState($queryParameters);
+        $state ??= $this->authenticationService->manageState($queryParameters);
         $authorizationRequest = $this->authenticationService->getAuthorizationRequestFromState($state);
 
         $user = $this->authenticationService->getAuthenticateUser($state);

@@ -28,6 +28,7 @@ use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
 use SimpleSAML\Module\oidc\Services\SessionService;
+use SimpleSAML\Module\oidc\Services\StateService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Session;
 
@@ -71,6 +72,7 @@ class AuthenticationServiceTest extends TestCase
     protected MockObject $serverRequestMock;
     protected MockObject $sessionMock;
     protected MockObject $sessionServiceMock;
+    protected MockObject $stateServiceMock;
     protected MockObject $userEntityMock;
     protected MockObject $userRepositoryMock;
 
@@ -103,6 +105,7 @@ class AuthenticationServiceTest extends TestCase
         $this->serverRequestMock                     = $this->createMock(ServerRequest::class);
         $this->sessionMock                           = $this->createMock(Session::class);
         $this->sessionServiceMock                    = $this->createMock(SessionService::class);
+        $this->stateServiceMock                      = $this->createMock(StateService::class);
         $this->userEntityMock                        = $this->createMock(UserEntity::class);
         $this->userRepositoryMock                    = $this->createMock(UserRepository::class);
 
@@ -135,6 +138,7 @@ class AuthenticationServiceTest extends TestCase
                                      $this->claimTranslatorExtractorMock,
                                      $this->moduleConfigMock,
                                      $this->processingChainFactoryMock,
+                                     $this->stateServiceMock,
                                  ])
             ->onlyMethods(['getClientFromRequest'])
             ->getMock();
@@ -381,6 +385,7 @@ class AuthenticationServiceTest extends TestCase
                                      $this->claimTranslatorExtractorMock,
                                      $this->moduleConfigMock,
                                      $this->processingChainFactoryMock,
+                                     $this->stateServiceMock,
                                  ])
             ->onlyMethods(['getClientFromRequest', 'runAuthProcs', 'prepareStateArray'])
             ->getMock();
@@ -413,7 +418,7 @@ class AuthenticationServiceTest extends TestCase
     public function testItThrowsOnMissingQueryParameterAuthparam(): void
     {
         $this->expectException(NoState::class);
-        $this->prepareMockedInstance()->loadState([]);
+        $this->prepareMockedInstance()->manageState([]);
     }
 
     /**
@@ -424,28 +429,23 @@ class AuthenticationServiceTest extends TestCase
         $queryParameters = [
             ProcessingChain::AUTHPARAM => '123',
         ];
+        $state = [
+            'Attributes'   => AuthenticationServiceTest::AUTH_DATA['Attributes'],
+            'Oidc'         => [
+                'OpenIdProviderMetadata'         => AuthenticationServiceTest::OIDC_OP_METADATA,
+                'RelyingPartyMetadata'           => AuthenticationServiceTest::CLIENT_ENTITY,
+                'AuthorizationRequestParameters' => AuthenticationServiceTest::AUTHZ_REQUEST_PARAMS,
+            ],
+            'authSourceId' => '456',
+        ];
+        $this->stateServiceMock->method('loadState')->willReturn($state);
+
 
         $mock = $this->prepareMockedInstance();
-        $mock->setAuthState(
-            new class () extends State {
-                public static function loadState(string $id, string $stage, bool $allowMissing = false): ?array
-                {
-                    return [
-                        'Attributes'   => AuthenticationServiceTest::AUTH_DATA['Attributes'],
-                        'Oidc'         => [
-                            'OpenIdProviderMetadata'         => AuthenticationServiceTest::OIDC_OP_METADATA,
-                            'RelyingPartyMetadata'           => AuthenticationServiceTest::CLIENT_ENTITY,
-                            'AuthorizationRequestParameters' => AuthenticationServiceTest::AUTHZ_REQUEST_PARAMS,
-                        ],
-                        'authSourceId' => '456',
-                    ];
-                }
-            },
-        );
 
         $this->assertSame(
             self::STATE,
-            $mock->loadState($queryParameters),
+            $mock->manageState($queryParameters),
         );
 
         $this->assertEquals('456', $mock->getAuthSourceId());
@@ -474,6 +474,7 @@ class AuthenticationServiceTest extends TestCase
             $this->claimTranslatorExtractorMock,
             $this->moduleConfigMock,
             $this->processingChainFactoryMock,
+            $this->stateServiceMock,
         ) extends AuthenticationService {
             public function runAuthProcsPublic(array &$state): void
             {

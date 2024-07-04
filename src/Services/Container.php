@@ -174,6 +174,9 @@ class Container implements ContainerInterface
         $processingChainFactory = new ProcessingChainFactory($moduleConfig);
         $this->services[ProcessingChainFactory::class] = $processingChainFactory;
 
+        $stateService = new StateService();
+        $this->services[StateService::class] = $stateService;
+
         $authenticationService = new AuthenticationService(
             $userRepository,
             $authSimpleFactory,
@@ -183,6 +186,7 @@ class Container implements ContainerInterface
             $claimTranslatorExtractor,
             $moduleConfig,
             $processingChainFactory,
+            $stateService,
         );
         $this->services[AuthenticationService::class] = $authenticationService;
 

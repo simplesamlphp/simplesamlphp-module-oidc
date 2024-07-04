@@ -120,7 +120,7 @@ class AuthorizationControllerTest extends TestCase
             ->method('getQueryParams')
             ->willReturn($queryParameters);
 
-        $this->authenticationServiceStub->method('loadState')
+        $this->authenticationServiceStub->method('manageState')
             ->willReturn($this->state);
         $this->authenticationServiceStub->method('getAuthenticateUser')
             ->willReturn($this->userEntityStub);
@@ -171,7 +171,7 @@ class AuthorizationControllerTest extends TestCase
             ->method('getQueryParams')
             ->willReturn([ProcessingChain::AUTHPARAM => '123']);
 
-        $this->authenticationServiceStub->method('loadState')
+        $this->authenticationServiceStub->method('manageState')
             ->willReturn($this->state);
         $this->authenticationServiceStub
             ->method('getAuthorizationRequestFromState')
@@ -209,7 +209,7 @@ class AuthorizationControllerTest extends TestCase
             ->method('getQueryParams')
             ->willReturn([ProcessingChain::AUTHPARAM => '123']);
 
-        $this->authenticationServiceStub->method('loadState')
+        $this->authenticationServiceStub->method('manageState')
             ->willReturn($this->state);
         $this->authenticationServiceStub
             ->method('getAuthorizationRequestFromState')
@@ -264,7 +264,7 @@ class AuthorizationControllerTest extends TestCase
             ->method('getQueryParams')
             ->willReturn([ProcessingChain::AUTHPARAM => '123']);
 
-        $this->authenticationServiceStub->method('loadState')
+        $this->authenticationServiceStub->method('manageState')
             ->willReturn($this->state);
         $this->authenticationServiceStub
             ->method('getAuthorizationRequestFromState')
@@ -315,7 +315,7 @@ class AuthorizationControllerTest extends TestCase
             ->method('getQueryParams')
             ->willReturn([ProcessingChain::AUTHPARAM => '123']);
 
-        $this->authenticationServiceStub->method('loadState')
+        $this->authenticationServiceStub->method('manageState')
             ->willReturn($this->state);
         $this->authenticationServiceStub
             ->method('getAuthorizationRequestFromState')
@@ -365,7 +365,7 @@ class AuthorizationControllerTest extends TestCase
             ->method('getQueryParams')
             ->willReturn([ProcessingChain::AUTHPARAM => '123']);
 
-        $this->authenticationServiceStub->method('loadState')
+        $this->authenticationServiceStub->method('manageState')
             ->willReturn($this->state);
         $this->authenticationServiceStub
             ->method('getAuthorizationRequestFromState')
@@ -417,7 +417,7 @@ class AuthorizationControllerTest extends TestCase
             ->method('getQueryParams')
             ->willReturn([ProcessingChain::AUTHPARAM => '123']);
 
-        $this->authenticationServiceStub->method('loadState')
+        $this->authenticationServiceStub->method('manageState')
             ->willReturn($this->state);
         $this->authenticationServiceStub
             ->method('getAuthorizationRequestFromState')
@@ -468,7 +468,7 @@ class AuthorizationControllerTest extends TestCase
             ->method('getQueryParams')
             ->willReturn([ProcessingChain::AUTHPARAM => '123']);
 
-        $this->authenticationServiceStub->method('loadState')
+        $this->authenticationServiceStub->method('manageState')
             ->willReturn($this->state);
         $this->authenticationServiceStub
             ->method('getAuthorizationRequestFromState')

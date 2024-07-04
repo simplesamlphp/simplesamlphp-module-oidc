@@ -43,12 +43,6 @@ class AuthenticationService
     use GetClientFromRequestTrait;
 
     /**
-     * @var \SimpleSAML\Auth\State|string
-     * @psalm-var \SimpleSAML\Auth\State|class-string
-     */
-    protected string|State $authState = \SimpleSAML\Auth\State::class;
-
-    /**
      * ID of auth source used during authn.
      */
     private ?string $authSourceId = null;
@@ -70,6 +64,7 @@ class AuthenticationService
         private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
         private readonly ModuleConfig $moduleConfig,
         private readonly ProcessingChainFactory $processingChainFactory,
+        private readonly StateService $stateService,
     ) {
         $this->clientRepository = $clientRepository;
         $this->userIdAttr = $this->moduleConfig->getUserIdentifierAttribute();
@@ -119,18 +114,16 @@ class AuthenticationService
 
 
     /**
-     * @param   array  $state
+     * @param   array|null  $state
      *
      * @return UserEntity
-     * @throws Error\BadRequest
-     * @throws Error\NotFound
+     * @throws NotFound
      * @throws Exception
      * @throws \JsonException
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
-     * @throws \Exception
+     * @throws OidcServerException
      */
     public function getAuthenticateUser(
-        array $state,
+        ?array $state,
     ): UserEntity {
         if (!isset($state['Attributes']) || !is_array($state['Attributes'])) {
             throw new Error\Exception('State array does not contain any attributes.');
@@ -171,13 +164,13 @@ class AuthenticationService
     }
 
     /**
-     * @param   array  $state
+     * @param   array|null  $state
      *
      * @return AuthorizationRequest
      * @throws Exception
      */
 
-    public function getAuthorizationRequestFromState(array $state): AuthorizationRequest
+    public function getAuthorizationRequestFromState(array|null $state): AuthorizationRequest
     {
         if (
             !isset($state['authorizationRequest'])
@@ -234,16 +227,6 @@ class AuthenticationService
         $state['authSourceId'] = $authSimple->getAuthSource()->getAuthId();
 
         return $state;
-    }
-
-    /**
-     * Inject the \SimpleSAML\Auth\State dependency.
-     *
-     * @param State $authState
-     */
-    public function setAuthState(State $authState): void
-    {
-        $this->authState = $authState;
     }
 
     /**
@@ -319,21 +302,22 @@ class AuthenticationService
      *
      * @param   array  $queryParameters
      *
-     * @return array
+     * @return array|null
      * @throws NoState
      */
-    public function loadState(array $queryParameters): array
+    public function manageState(array $queryParameters): ?array
     {
         if (empty($queryParameters[ProcessingChain::AUTHPARAM])) {
             throw new NoState();
         }
 
         $stateId = (string)$queryParameters[ProcessingChain::AUTHPARAM];
-        \assert($this->authState instanceof State);
-        $state = $this->authState::loadState($stateId, ProcessingChain::COMPLETED_STAGE);
+        $state = $this->stateService->loadState($stateId, ProcessingChain::COMPLETED_STAGE);
 
-        $this->authSourceId = (string)$state['authSourceId'];
-        unset($state['authSourceId']);
+        if (!empty($state['authSourceId'])) {
+            $this->authSourceId = (string)$state['authSourceId'];
+            unset($state['authSourceId']);
+        }
 
         return $state;
     }
