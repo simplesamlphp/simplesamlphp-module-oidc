@@ -117,10 +117,10 @@ class AuthenticationService
      * @param   array|null  $state
      *
      * @return UserEntity
-     * @throws NotFound
+     * @throws Error\NotFound
      * @throws Exception
      * @throws \JsonException
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function getAuthenticateUser(
         ?array $state,
