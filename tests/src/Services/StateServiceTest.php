@@ -12,7 +12,6 @@ use SimpleSAML\Module\oidc\Services\StateService;
  */
 class StateServiceTest extends TestCase
 {
-
     /**
      * @return StateService
      */
