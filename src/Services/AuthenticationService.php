@@ -166,19 +166,23 @@ class AuthenticationService
     /**
      * @param   array|null  $state
      *
-     * @return AuthorizationRequest
+     * @return AuthorizationRequest|OAuth2AuthorizationRequest
      * @throws Exception
      */
 
-    public function getAuthorizationRequestFromState(array|null $state): AuthorizationRequest
+    public function getAuthorizationRequestFromState(array|null $state): AuthorizationRequest|OAuth2AuthorizationRequest
     {
-        if (
-            !isset($state['authorizationRequest'])
-            || !($state['authorizationRequest'] instanceof AuthorizationRequest)
-        ) {
+        if (!isset($state['authorizationRequest'])) {
+            throw new Exception('Authorization Request is not set.');
+        }
+
+        if ($state['authorizationRequest'] instanceof AuthorizationRequest) {
+            return $state['authorizationRequest'];
+        } elseif ($state['authorizationRequest'] instanceof OAuth2AuthorizationRequest) {
+            return $state['authorizationRequest'];
+        } else {
             throw new Exception('Authorization Request is not valid.');
         }
-        return $state['authorizationRequest'];
     }
 
     /**

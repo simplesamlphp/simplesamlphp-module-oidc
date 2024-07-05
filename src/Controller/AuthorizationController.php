@@ -74,11 +74,13 @@ class AuthorizationController
         $authorizationRequest->setUser($user);
         $authorizationRequest->setAuthorizationApproved(true);
 
-        $authorizationRequest->setIsCookieBasedAuthn($this->authenticationService->isCookieBasedAuthn());
-        $authorizationRequest->setAuthSourceId($this->authenticationService->getAuthSourceId());
-        $authorizationRequest->setSessionId($this->authenticationService->getSessionId());
+        if ($authorizationRequest instanceof AuthorizationRequest) {
+            $authorizationRequest->setIsCookieBasedAuthn($this->authenticationService->isCookieBasedAuthn());
+            $authorizationRequest->setAuthSourceId($this->authenticationService->getAuthSourceId());
+            $authorizationRequest->setSessionId($this->authenticationService->getSessionId());
 
-        $this->validatePostAuthnAuthorizationRequest($authorizationRequest);
+            $this->validatePostAuthnAuthorizationRequest($authorizationRequest);
+        }
 
         return $this->authorizationServer->completeAuthorizationRequest(
             $authorizationRequest,

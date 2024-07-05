@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\Services;
 
 use Laminas\Diactoros\ServerRequest;
 use Laminas\Diactoros\Uri;
+use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -489,20 +490,55 @@ class AuthenticationServiceTest extends TestCase
         $this->assertEquals($state['Source']['authproc'], $authProcFilters);
     }
 
+
     /**
+     * @return array
+     */
+    public static function authorizationRequestInstanceOf(): array
+    {
+        $authorizationRequest = new AuthorizationRequest();
+        $oAuth2AuthorizationRequest = new OAuth2AuthorizationRequest();
+        return [
+            'Instance of AuthorizationRequest'                   => [
+                [
+                    ...self::STATE,
+                    'authorizationRequest' => $authorizationRequest,
+                ],
+                $authorizationRequest,
+                AuthorizationRequest::class,
+            ],
+            'Instance of OAuth2AuthorizationRequest'                   => [
+                [
+                    ...self::STATE,
+                    'authorizationRequest' => $oAuth2AuthorizationRequest,
+                ],
+                $oAuth2AuthorizationRequest,
+                OAuth2AuthorizationRequest::class,
+            ],
+        ];
+    }
+
+    /**
+     * @param   array                                            $state
+     * @param   AuthorizationRequest|OAuth2AuthorizationRequest  $authorizationRequest
+     * @param   string                                           $instanceOf
+     *
      * @return void
      * @throws Exception
      */
-    public function testItGetsAuthorizationRequestFromState(): void
-    {
-        $authorizationRequest = new AuthorizationRequest();
-        $state = [
-            ...self::STATE,
-            'authorizationRequest' => $authorizationRequest,
-        ];
-
+    #[DataProvider('authorizationRequestInstanceOf')]
+    public function testItGetsAuthorizationRequestFromState(
+        array $state,
+        AuthorizationRequest|OAuth2AuthorizationRequest $authorizationRequest,
+        string $instanceOf,
+    ): void {
         $this->assertEquals(
             $this->prepareMockedInstance()->getAuthorizationRequestFromState($state),
+            $authorizationRequest,
+        );
+
+        $this->assertInstanceOf(
+            $instanceOf,
             $authorizationRequest,
         );
     }
@@ -518,26 +554,29 @@ class AuthenticationServiceTest extends TestCase
                     ...self::STATE,
                     'authorizationRequest' => string::class,
                 ],
+                '/Authorization Request is not valid./',
             ],
             'not set' => [
                 [
                     ...self::STATE,
                 ],
+                '/Authorization Request is not set./',
             ],
         ];
     }
 
     /**
      * @param   array  $state
+     * @param   string $exceptionMessage
      *
      * @return void
      * @throws Exception
      */
     #[DataProvider('authorizationRequestValues')]
-    public function testGetsAuthorizationRequestFromStateThrowsOnInvalid(array $state): void
+    public function testGetsAuthorizationRequestFromStateThrowsOnInvalid(array $state, $exceptionMessage): void
     {
         $this->expectException(Exception::class);
-        $this->expectExceptionMessageMatches('/Authorization Request is not valid./');
+        $this->expectExceptionMessageMatches($exceptionMessage);
         $this->prepareMockedInstance()->getAuthorizationRequestFromState($state);
     }
 }
