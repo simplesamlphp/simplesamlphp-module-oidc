@@ -19,6 +19,7 @@ namespace SimpleSAML\Module\oidc\Entities;
 use DateTimeImmutable;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\RefreshTokenTrait;
+use PDO;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Traits\AssociateWithAuthCodeTrait;
