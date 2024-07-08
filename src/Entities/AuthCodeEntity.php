@@ -18,7 +18,6 @@ namespace SimpleSAML\Module\oidc\Entities;
 use DateTimeImmutable;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\TokenEntityTrait;
-use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\MementoInterface;
@@ -85,20 +84,13 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
      */
     public function getState(): array
     {
-        $database = Database::getInstance();
-
-        $revoked = $this->isRevoked() ? 'true' : 'false';
-        if($database->getDriver() === 'mysql') {
-            $revoked = (int) $this->isRevoked();
-        }
-
         return [
             'id' => $this->getIdentifier(),
             'scopes' => json_encode($this->scopes, JSON_THROW_ON_ERROR),
             'expires_at' => $this->getExpiryDateTime()->format('Y-m-d H:i:s'),
             'user_id' => $this->getUserIdentifier(),
             'client_id' => $this->client->getIdentifier(),
-            'is_revoked' => $revoked,
+            'is_revoked' => [$this->isRevoked(), PDO::PARAM_BOOL],
             'redirect_uri' => $this->getRedirectUri(),
             'nonce' => $this->getNonce(),
         ];
