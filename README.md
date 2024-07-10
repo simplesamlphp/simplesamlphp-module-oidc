@@ -316,6 +316,16 @@ and you can add a client.
 
 You may view the OIDC configuration endpoint at `https://localhost/.well-known/openid-configuration`
 
+#### Testing AuthProc filters
+
+To perform manual testing of authproc filters, enable the authprocs in `module_oidc.php` that set firstname, sn and performs
+a redirect for preprod warning. This setup shows that an authproc can do a redirect and then processing resumes.
+Once adjusted, run docker while change the `COMPOSER_REQUIRE` line to
+
+    `-e COMPOSER_REQUIRE="simplesamlphp/simplesamlphp-module-oidc:@dev simplesamlphp/simplesamlphp-module-preprodwarning" \`
+
+You can register a client from https://oidcdebugger.com/ to test.
+
 ### Build Image to Deploy for Conformance Tests
 
 Build an image that contains a pre-configured sqlite database.
