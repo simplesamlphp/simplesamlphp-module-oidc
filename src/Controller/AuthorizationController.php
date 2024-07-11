@@ -19,6 +19,7 @@ namespace SimpleSAML\Module\oidc\Controller;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Auth\ProcessingChain;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
@@ -56,9 +57,19 @@ class AuthorizationController
      */
     public function __invoke(ServerRequestInterface $request): ResponseInterface
     {
-        $authorizationRequest = $this->authorizationServer->validateAuthorizationRequest($request);
+        $queryParameters = $request->getQueryParams();
+        $state = null;
 
-        $user = $this->authenticationService->getAuthenticateUser($request);
+        if (!isset($queryParameters[ProcessingChain::AUTHPARAM])) {
+            $authorizationRequest = $this->authorizationServer->validateAuthorizationRequest($request);
+            $state = $this->authenticationService->processRequest($request, $authorizationRequest);
+            // processState will trigger a redirect
+        }
+
+        $state ??= $this->authenticationService->manageState($queryParameters);
+        $authorizationRequest = $this->authenticationService->getAuthorizationRequestFromState($state);
+
+        $user = $this->authenticationService->getAuthenticateUser($state);
 
         $authorizationRequest->setUser($user);
         $authorizationRequest->setAuthorizationApproved(true);
@@ -77,6 +88,17 @@ class AuthorizationController
         );
     }
 
+    /**
+     * @param   Request  $request
+     *
+     * @return Response
+     * @throws \SimpleSAML\Error\AuthSource
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\Error
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \Throwable
+     */
     public function authorization(Request $request): Response
     {
         try {

@@ -42,6 +42,7 @@ use SimpleSAML\Module\oidc\Factories\Grant\ImplicitGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\OAuth2ImplicitGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\RefreshTokenGrantFactory;
 use SimpleSAML\Module\oidc\Factories\IdTokenResponseFactory;
+use SimpleSAML\Module\oidc\Factories\ProcessingChainFactory;
 use SimpleSAML\Module\oidc\Factories\ResourceServerFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
@@ -159,9 +160,6 @@ class Container implements ContainerInterface
         $templateFactory = new TemplateFactory($simpleSAMLConfiguration);
         $this->services[TemplateFactory::class] = $templateFactory;
 
-        $authProcService = new AuthProcService($moduleConfig);
-        $this->services[AuthProcService::class] = $authProcService;
-
         $opMetadataService = new OpMetadataService($moduleConfig);
         $this->services[OpMetadataService::class] = $opMetadataService;
 
@@ -173,15 +171,22 @@ class Container implements ContainerInterface
         ))->build();
         $this->services[ClaimTranslatorExtractor::class] = $claimTranslatorExtractor;
 
+        $processingChainFactory = new ProcessingChainFactory($moduleConfig);
+        $this->services[ProcessingChainFactory::class] = $processingChainFactory;
+
+        $stateService = new StateService();
+        $this->services[StateService::class] = $stateService;
+
         $authenticationService = new AuthenticationService(
             $userRepository,
             $authSimpleFactory,
-            $authProcService,
             $clientRepository,
             $opMetadataService,
             $sessionService,
             $claimTranslatorExtractor,
             $moduleConfig,
+            $processingChainFactory,
+            $stateService,
         );
         $this->services[AuthenticationService::class] = $authenticationService;
 
