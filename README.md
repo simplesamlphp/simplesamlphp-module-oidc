@@ -223,8 +223,8 @@ In addition to that, the following OIDC related data will be available in the st
 * \['Oidc'\]\['RelyingPartyMetadata'\] - contains information about the OIDC client making the authN request.
 * \['Oidc'\]\['AuthorizationRequestParameters'\] - contains relevant authorization request query parameters.
 
-Note: at the moment there is no support for showing a page to the user in a filter, and then resuming the filtering.
-Only the common filter use cases are supported like attribute handling, logging, or similar. 
+Auth Proc processing has been tested with a variety of modules including ones that adjust attributes, log
+and redirect for user interaction.
 
 You can add Auth Proc filters in the 'authproc.oidc' config option in the same manner as described in the [Auth Proc 
 documentation](https://simplesamlphp.org/docs/stable/simplesamlphp-authproc).
