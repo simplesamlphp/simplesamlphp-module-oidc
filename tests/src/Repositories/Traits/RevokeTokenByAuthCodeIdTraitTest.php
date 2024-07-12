@@ -4,16 +4,23 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Repositories\Traits;
 
+use DateTimeImmutable;
 use PDO;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
+use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AbstractDatabaseRepository;
+use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
+use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait
@@ -21,14 +28,18 @@ use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
 class RevokeTokenByAuthCodeIdTraitTest extends TestCase
 {
     protected array $state;
-    protected string $id = '123';
     protected array $scopes;
     protected string $expiresAt;
-    protected string $userId = 'user123';
-    protected bool $isRevoked = false;
-    protected string $authCodeId = 'authCode123';
-    protected array $requestedClaims = ['key' => 'value'];
-    protected string $clientId = 'client123';
+
+    final public const IS_REVOKED = false;
+    final public const AUTH_CODE_ID = 'authCode123';
+    final public const REQUESTED_CLAIMS = ['key' => 'value'];
+    final public const CLIENT_ID = 'access_token_client_id';
+    final public const USER_ID = 'access_token_user_id';
+    final public const ACCESS_TOKEN_ID = 'access_token_id';
+
+    protected static AccessTokenRepository $repository;
+
 
     /**
      * @var AbstractDatabaseRepository|__anonymous@856
@@ -50,21 +61,20 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
      */
     protected ScopeEntity $scopeEntityProfile;
 
-    /**
-     * @var \SimpleSAML\Module\oidc\Entities\ClientEntity
-     */
-    protected ClientEntity $clientEntityStub;
+    public static function setUpBeforeClass(): void
+    {
+        $config = [
+            'database.dsn' => 'sqlite::memory:',
+            'database.username' => null,
+            'database.password' => null,
+            'database.prefix' => 'phpunit_',
+            'database.persistent' => true,
+            'database.secondaries' => [],
+        ];
 
-    /**
-     * @var Configuration
-     */
-    protected $config;
-
-    /**
-     * @var Database
-     */
-    protected Database $db;
-
+        Configuration::loadFromArray($config, '', 'simplesaml');
+        Configuration::setConfigDir(__DIR__ . '/../../../config-templates');
+    }
 
     /**
      * @return void
@@ -88,50 +98,25 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
                 return $this->generateQuery($authCodeId, $revokedParam);
             }
 
-            public function setDatabaseInstance(Database $db): void
-            {
-                $this->database = $db;
-            }
-
             public function getDatabase(): Database
             {
                 return $this->database;
             }
         };
 
-        $config = [
-            'database.dsn'        => 'sqlite::memory:',
-            'database.username'   => null,
-            'database.password'   => null,
-            'database.prefix'     => 'phpunit_',
-            'database.persistent' => true,
-            'database.secondaries'     => [],
-        ];
+        // Truncate the table(assume SQLITE)
+        self::$repository = new AccessTokenRepository($this->moduleConfigMock);
+        $client = self::clientRepositoryGetClient(self::CLIENT_ID);
+        $clientRepositoryMock = new ClientRepository($this->moduleConfigMock);
+        $this->mock->getDatabase()->write('DELETE from ' . $clientRepositoryMock->getTableName());
+        $clientRepositoryMock->add($client);
 
-        $this->config = new Configuration($config, "test/SimpleSAML/DatabaseTest.php");
 
-        // Ensure that we have a functional configuration class
-        $this->assertEquals($config['database.dsn'], $this->config->getString('database.dsn'));
+        $user = UserEntity::fromData(self::USER_ID);
+        $userRepositoryMock = new UserRepository($this->moduleConfigMock);
+        $this->mock->getDatabase()->write('DELETE from ' . $userRepositoryMock->getTableName());
+        $userRepositoryMock->add($user);
 
-        $this->db = Database::getInstance($this->config);
-        $table = $this->db->applyPrefix("oidc_access_token");
-        $createQuery = sprintf(
-            'CREATE TABLE IF NOT EXISTS %s (
-                id VARCHAR(191) PRIMARY KEY NOT NULL,
-                scopes TEXT,
-                expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                user_id VARCHAR(191) NOT NULL,
-                client_id VARCHAR(191) NOT NULL,
-                is_revoked BOOLEAN NOT NULL DEFAULT false,
-                auth_code_id varchar(191) DEFAULT NULL,
-                requested_claims TEXT NULL
-                )',
-            $table,
-        );
-        $this->db->write($createQuery);
-
-        $this->clientEntityStub = $this->createStub(ClientEntity::class);
-        $this->clientEntityStub->method('getIdentifier')->willReturn($this->clientId);
         $this->scopeEntityOpenId = $this->createStub(ScopeEntity::class);
         $this->scopeEntityOpenId->method('getIdentifier')->willReturn('openid');
         $this->scopeEntityOpenId->method('jsonSerialize')->willReturn('openid');
@@ -139,19 +124,6 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         $this->scopeEntityProfile->method('getIdentifier')->willReturn('profile');
         $this->scopeEntityProfile->method('jsonSerialize')->willReturn('profile');
         $this->scopes = [$this->scopeEntityOpenId, $this->scopeEntityProfile,];
-
-        $this->expiresAt = date('Y-m-d H:i:s', strtotime('+10 minutes'));
-
-        $this->state = [
-            'id' => $this->id,
-            'scopes' => json_encode($this->scopes, JSON_THROW_ON_ERROR),
-            'expires_at' => $this->expiresAt,
-            'user_id' => $this->userId,
-            'client_id' => $this->clientEntityStub->getIdentifier(),
-            'is_revoked' => $this->isRevoked,
-            'auth_code_id' => $this->authCodeId,
-            'requested_claims' => json_encode($this->requestedClaims, JSON_THROW_ON_ERROR),
-        ];
     }
 
     /**
@@ -159,45 +131,60 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
      */
     public function testItGenerateQuery(): void
     {
-        $revokedParam = [true, PDO::PARAM_BOOL];
+        $revokedParam = [self::IS_REVOKED, PDO::PARAM_BOOL];
         $expected = [
             'UPDATE oidc_access_token SET is_revoked = :is_revoked WHERE auth_code_id = :auth_code_id',
             [
-                'auth_code_id' => $this->authCodeId,
+                'auth_code_id' => self::AUTH_CODE_ID,
                 'is_revoked' => $revokedParam,
             ],
         ];
 
         $this->assertEquals(
             $expected,
-            $this->mock->generateQueryWrapper($this->authCodeId, $revokedParam),
+            $this->mock->generateQueryWrapper(self::AUTH_CODE_ID, $revokedParam),
         );
     }
 
     public function testRevokeByAuthCodeId(): void
     {
-        $table = $this->db->applyPrefix("oidc_access_token");
-        $this->mock->setDatabaseInstance($this->db);
-
-        $stmt = sprintf(
-            'INSERT INTO %s (id, scopes, expires_at, user_id, client_id, is_revoked, auth_code_id, requested_claims) '
-            . 'VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked, :auth_code_id, :requested_claims)',
-            $this->mock->getTableName(),
+        $accessToken = self::$repository->getNewToken(
+            self::clientRepositoryGetClient(self::CLIENT_ID),
+            $this->scopes,
+            self::USER_ID,
+            self::AUTH_CODE_ID,
+            self::REQUESTED_CLAIMS,
         );
+        $accessToken->setIdentifier(self::ACCESS_TOKEN_ID);
+        $accessToken->setExpiryDateTime(DateTimeImmutable::createFromMutable(
+            TimestampGenerator::utc('yesterday'),
+        ));
 
-        // Truncate the table(assume SQLITE)
-        $this->mock->getDatabase()->write("DELETE from $table");
-        // Add valid access token
-        $this->mock->getDatabase()->write(
-            $stmt,
-            $this->state,
+        self::$repository->persistNewAccessToken($accessToken);
+
+        $this->mock->revokeByAuthCodeId(self::AUTH_CODE_ID);
+        $isRevoked = self::$repository->isAccessTokenRevoked(self::ACCESS_TOKEN_ID);
+
+        $this->assertTrue($isRevoked);
+    }
+
+    public static function clientRepositoryGetClient(
+        string $id,
+        bool $enabled = true,
+        bool $confidential = false,
+        ?string $owner = null,
+    ): ClientEntityInterface {
+        return ClientEntity::fromData(
+            $id,
+            'clientsecret',
+            'Client',
+            'Description',
+            ['http://localhost/redirect'],
+            ['openid'],
+            $enabled,
+            $confidential,
+            'admin',
+            $owner,
         );
-        // Run revoke
-        $this->mock->revokeByAuthCodeId($this->authCodeId);
-
-        $queryResponse = $this->mock->getDatabase()->read("SELECT is_revoked FROM {$table} where id={$this->id}");
-        $isRevoked = $queryResponse->fetch()[0];
-        $this->assertIsBool(filter_var($isRevoked, FILTER_VALIDATE_BOOL));
-        $this->assertTrue(filter_var($isRevoked, FILTER_VALIDATE_BOOL));
     }
 }
