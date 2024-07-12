@@ -20,6 +20,7 @@ use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 /**
@@ -74,6 +75,7 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
 
         Configuration::loadFromArray($config, '', 'simplesaml');
         Configuration::setConfigDir(__DIR__ . '/../../../config-templates');
+        (new DatabaseMigration())->migrate();
     }
 
     /**
@@ -104,8 +106,9 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
             }
         };
 
-        // Truncate the table(assume SQLITE)
         self::$repository = new AccessTokenRepository($this->moduleConfigMock);
+
+
         $client = self::clientRepositoryGetClient(self::CLIENT_ID);
         $clientRepositoryMock = new ClientRepository($this->moduleConfigMock);
         $this->mock->getDatabase()->write('DELETE from ' . $clientRepositoryMock->getTableName());
