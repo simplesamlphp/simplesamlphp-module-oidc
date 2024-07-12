@@ -6,7 +6,6 @@ namespace SimpleSAML\Test\Module\oidc\Repositories\Traits;
 
 use DateTimeImmutable;
 use PDO;
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
@@ -41,16 +40,15 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
 
     protected static AccessTokenRepository $repository;
 
+    /**
+     * @var AbstractDatabaseRepository
+     */
+    protected static $mock;
 
     /**
-     * @var MockObject|(object&MockObject)|ModuleConfig|(ModuleConfig&object&MockObject)|(ModuleConfig&MockObject)
+     * @var ModuleConfig
      */
-    protected $mock;
-
-    /**
-     * @var MockObject|(object&MockObject)|ModuleConfig|(ModuleConfig&object&MockObject)|(ModuleConfig&MockObject)
-     */
-    protected MockObject $moduleConfigMock;
+    protected ModuleConfig $moduleConfig;
 
     /**
      * @var \SimpleSAML\Module\oidc\Entities\ScopeEntity
@@ -74,20 +72,12 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         ];
 
         Configuration::loadFromArray($config, '', 'simplesaml');
-        Configuration::setConfigDir(__DIR__ . '/../../../config-templates');
+        Configuration::setConfigDir(__DIR__ . '/../../../../config-templates');
         (new DatabaseMigration())->migrate();
-    }
 
-    /**
-     * @return void
-     * @throws \PHPUnit\Framework\MockObject\Exception
-     */
-    public function setUp(): void
-    {
-        Configuration::clearInternalState();
-        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $moduleConfig = new ModuleConfig();
 
-        $this->mock = new class ($this->moduleConfigMock) extends AbstractDatabaseRepository {
+        self::$mock = new class ($moduleConfig) extends AbstractDatabaseRepository {
             use RevokeTokenByAuthCodeIdTrait;
 
             public function getTableName(): ?string
@@ -106,20 +96,27 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
             }
         };
 
-        self::$repository = new AccessTokenRepository($this->moduleConfigMock);
+        self::$repository = new AccessTokenRepository($moduleConfig);
 
 
         $client = self::clientRepositoryGetClient(self::CLIENT_ID);
-        $clientRepositoryMock = new ClientRepository($this->moduleConfigMock);
-        $this->mock->getDatabase()->write('DELETE from ' . $clientRepositoryMock->getTableName());
+        $clientRepositoryMock = new ClientRepository($moduleConfig);
+        self::$mock->getDatabase()->write('DELETE from ' . $clientRepositoryMock->getTableName());
         $clientRepositoryMock->add($client);
 
 
         $user = UserEntity::fromData(self::USER_ID);
-        $userRepositoryMock = new UserRepository($this->moduleConfigMock);
-        $this->mock->getDatabase()->write('DELETE from ' . $userRepositoryMock->getTableName());
+        $userRepositoryMock = new UserRepository($moduleConfig);
+        self::$mock->getDatabase()->write('DELETE from ' . $userRepositoryMock->getTableName());
         $userRepositoryMock->add($user);
+    }
 
+    /**
+     * @return void
+     * @throws \PHPUnit\Framework\MockObject\Exception
+     */
+    public function setUp(): void
+    {
         $this->scopeEntityOpenId = $this->createStub(ScopeEntity::class);
         $this->scopeEntityOpenId->method('getIdentifier')->willReturn('openid');
         $this->scopeEntityOpenId->method('jsonSerialize')->willReturn('openid');
@@ -136,7 +133,7 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
     {
         $revokedParam = [self::IS_REVOKED, PDO::PARAM_BOOL];
         $expected = [
-            'UPDATE oidc_access_token SET is_revoked = :is_revoked WHERE auth_code_id = :auth_code_id',
+            'UPDATE phpunit_oidc_access_token SET is_revoked = :is_revoked WHERE auth_code_id = :auth_code_id',
             [
                 'auth_code_id' => self::AUTH_CODE_ID,
                 'is_revoked' => $revokedParam,
@@ -145,7 +142,7 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
 
         $this->assertEquals(
             $expected,
-            $this->mock->generateQueryWrapper(self::AUTH_CODE_ID, $revokedParam),
+            self::$mock->generateQueryWrapper(self::AUTH_CODE_ID, $revokedParam),
         );
     }
 
@@ -165,7 +162,7 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
 
         self::$repository->persistNewAccessToken($accessToken);
 
-        $this->mock->revokeByAuthCodeId(self::AUTH_CODE_ID);
+        self::$mock->revokeByAuthCodeId(self::AUTH_CODE_ID);
         $isRevoked = self::$repository->isAccessTokenRevoked(self::ACCESS_TOKEN_ID);
 
         $this->assertTrue($isRevoked);
