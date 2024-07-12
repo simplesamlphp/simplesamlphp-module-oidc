@@ -42,7 +42,7 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
 
 
     /**
-     * @var AbstractDatabaseRepository|__anonymous@856
+     * @var MockObject|(object&MockObject)|ModuleConfig|(ModuleConfig&object&MockObject)|(ModuleConfig&MockObject)
      */
     protected $mock;
 
