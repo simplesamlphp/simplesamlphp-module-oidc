@@ -21,6 +21,8 @@ use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
+use Testcontainer\Container\PostgresContainer;
+use Testcontainer\Wait\WaitForHealthCheck;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait
@@ -62,18 +64,28 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
 
     public static function setUpBeforeClass(): void
     {
+        $container = PostgresContainer::make('15.0', 'password');
+        $container->withPostgresDatabase('database');
+        $container->withPostgresUser('username');
+
+        $container->run();
+        // Wait until the docker heartcheck is green
+        $container->withWait(new WaitForHealthCheck());
+
         $config = [
-            'database.dsn' => 'sqlite::memory:',
-            'database.username' => null,
-            'database.password' => null,
+            'database.dsn' => sprintf('pgsql:host=%s;port=5432;dbname=database', $container->getAddress()),
+            'database.username' => 'username',
+            'database.password' => 'password',
             'database.prefix' => 'phpunit_',
             'database.persistent' => true,
             'database.secondaries' => [],
         ];
 
-        Configuration::loadFromArray($config, '', 'simplesaml');
+        $configuration = Configuration::loadFromArray($config, '', 'simplesaml');
         Configuration::setConfigDir(__DIR__ . '/../../../../config-templates');
-        (new DatabaseMigration())->migrate();
+
+        $database = Database::getInstance($configuration);
+        (new DatabaseMigration($database))->migrate();
 
         $moduleConfig = new ModuleConfig();
 
