@@ -146,6 +146,13 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         );
     }
 
+    /**
+     * @return void
+     * @throws \JsonException
+     * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
+     * @throws \SimpleSAML\Error\Error
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
     public function testRevokeByAuthCodeId(): void
     {
         $accessToken = self::$repository->getNewToken(
@@ -162,12 +169,24 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
 
         self::$repository->persistNewAccessToken($accessToken);
 
+        $isRevoked = self::$repository->isAccessTokenRevoked(self::ACCESS_TOKEN_ID);
+        $this->assertFalse($isRevoked);
+
+        // Revoke the access token
         self::$mock->revokeByAuthCodeId(self::AUTH_CODE_ID);
         $isRevoked = self::$repository->isAccessTokenRevoked(self::ACCESS_TOKEN_ID);
 
         $this->assertTrue($isRevoked);
     }
 
+    /**
+     * @param   string       $id
+     * @param   bool         $enabled
+     * @param   bool         $confidential
+     * @param   string|null  $owner
+     *
+     * @return ClientEntityInterface
+     */
     public static function clientRepositoryGetClient(
         string $id,
         bool $enabled = true,
