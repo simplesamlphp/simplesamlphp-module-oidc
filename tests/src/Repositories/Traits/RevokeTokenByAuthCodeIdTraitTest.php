@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\Repositories\Traits;
 
 use DateTimeImmutable;
 use PDO;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
@@ -21,8 +22,10 @@ use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
+use Testcontainer\Container\MySQLContainer;
 use Testcontainer\Container\PostgresContainer;
 use Testcontainer\Wait\WaitForHealthCheck;
+use Testcontainer\Wait\WaitForLog;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait
@@ -40,12 +43,16 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
     final public const USER_ID = 'access_token_user_id';
     final public const ACCESS_TOKEN_ID = 'access_token_id';
 
-    protected static AccessTokenRepository $repository;
+    protected AccessTokenRepository $repository;
+
+    public static array $pgConfig;
+    public static array $mysqlConfig;
+    public static array $sqliteConfig;
 
     /**
      * @var AbstractDatabaseRepository
      */
-    protected static $mock;
+    protected $mock;
 
     /**
      * @var ModuleConfig
@@ -64,32 +71,23 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
 
     public static function setUpBeforeClass(): void
     {
-        $container = PostgresContainer::make('15.0', 'password');
-        $container->withPostgresDatabase('database');
-        $container->withPostgresUser('username');
 
-        $container->run();
-        // Wait until the docker heartcheck is green
-        $container->withWait(new WaitForHealthCheck());
-
-        $config = [
-            'database.dsn' => sprintf('pgsql:host=%s;port=5432;dbname=database', $container->getAddress()),
-            'database.username' => 'username',
-            'database.password' => 'password',
-            'database.prefix' => 'phpunit_',
-            'database.persistent' => true,
-            'database.secondaries' => [],
-        ];
-
-        $configuration = Configuration::loadFromArray($config, '', 'simplesaml');
         Configuration::setConfigDir(__DIR__ . '/../../../../config-templates');
+        self::$pgConfig = self::loadPGDatabase();
+        self::$mysqlConfig = self::loadMySqlDatabase();
+        self::$sqliteConfig = self::loadSqliteDatabase();
+    }
+
+    public function useDatabase($config): void
+    {
+        $configuration = Configuration::loadFromArray($config, '', 'simplesaml');
 
         $database = Database::getInstance($configuration);
         (new DatabaseMigration($database))->migrate();
 
         $moduleConfig = new ModuleConfig();
 
-        self::$mock = new class ($moduleConfig) extends AbstractDatabaseRepository {
+        $this->mock = new class ($moduleConfig) extends AbstractDatabaseRepository {
             use RevokeTokenByAuthCodeIdTrait;
 
             public function getTableName(): ?string
@@ -108,19 +106,82 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
             }
         };
 
-        self::$repository = new AccessTokenRepository($moduleConfig);
+        $this->repository = new AccessTokenRepository($moduleConfig);
 
 
         $client = self::clientRepositoryGetClient(self::CLIENT_ID);
         $clientRepositoryMock = new ClientRepository($moduleConfig);
-        self::$mock->getDatabase()->write('DELETE from ' . $clientRepositoryMock->getTableName());
+        $this->mock->getDatabase()->write('DELETE from ' . $clientRepositoryMock->getTableName());
         $clientRepositoryMock->add($client);
 
 
         $user = UserEntity::fromData(self::USER_ID);
         $userRepositoryMock = new UserRepository($moduleConfig);
-        self::$mock->getDatabase()->write('DELETE from ' . $userRepositoryMock->getTableName());
+        $this->mock->getDatabase()->write('DELETE from ' . $userRepositoryMock->getTableName());
         $userRepositoryMock->add($user);
+    }
+
+    public static function loadPGDatabase(): array
+    {
+        $pgContainer = PostgresContainer::make('15.0', 'password');
+        $pgContainer->withPostgresDatabase('database');
+        $pgContainer->withPostgresUser('username');
+
+        $pgContainer->run();
+        // Wait until the docker heartcheck is green
+        $pgContainer->withWait(new WaitForHealthCheck());
+        // Wait until that message is in the logs
+        $pgContainer->withWait(new WaitForLog('Ready to accept connections'));
+
+        $pgConfig = [
+            'database.dsn' => sprintf('pgsql:host=%s;port=5432;dbname=database', $pgContainer->getAddress()),
+            'database.username' => 'username',
+            'database.password' => 'password',
+            'database.prefix' => 'phpunit_',
+            'database.persistent' => true,
+            'database.secondaries' => [],
+        ];
+
+        return $pgConfig;
+    }
+
+    public static function loadSqliteDatabase(): array
+    {
+        $config = [
+            'database.dsn'         => 'sqlite::memory:',
+            'database.username'    => null,
+            'database.password'    => null,
+            'database.prefix'      => 'phpunit_',
+            'database.persistent'  => true,
+            'database.secondaries' => [],
+        ];
+
+        return $config;
+    }
+
+    public static function loadMySqlDatabase(): array
+    {
+        $mysqlContainer = MySQLContainer::make('8.0');
+        $mysqlContainer->withMySQLDatabase('database');
+        $mysqlContainer->withMySQLUser('username', 'password');
+
+        $mysqlContainer->run();
+        // Wait until the docker heartcheck is green
+        $mysqlContainer->withWait(new WaitForHealthCheck());
+        // Wait until that message is in the logs
+        $mysqlContainer->withWait(new WaitForLog('Ready to accept connections'));
+
+        $mysqlConfig = [
+            'database.dsn' =>
+                sprintf('mysql:host=%s;port=3306;dbname=database', $mysqlContainer->getAddress()),
+            'database.username' => 'username',
+            'database.password' => 'password',
+            'database.prefix' => 'phpunit_',
+            'database.persistent' => true,
+            'database.secondaries' => [],
+        ];
+
+        return $mysqlConfig;
     }
 
     /**
@@ -138,11 +199,23 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         $this->scopes = [$this->scopeEntityOpenId, $this->scopeEntityProfile,];
     }
 
+    public static function databaseToTest(): array
+    {
+        return [
+            'PostgreSql' => ['pgConfig'],
+            'MySql' => ['mysqlConfig'],
+            'Sqlite' => ['sqliteConfig'],
+        ];
+    }
+
     /**
      * @return void
      */
-    public function testItGenerateQuery(): void
+    #[DataProvider('databaseToTest')]
+    public function testItGenerateQuery(string $database): void
     {
+        $this->useDatabase(self::$$database);
+
         $revokedParam = [self::IS_REVOKED, PDO::PARAM_BOOL];
         $expected = [
             'UPDATE phpunit_oidc_access_token SET is_revoked = :is_revoked WHERE auth_code_id = :auth_code_id',
@@ -154,7 +227,7 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
 
         $this->assertEquals(
             $expected,
-            self::$mock->generateQueryWrapper(self::AUTH_CODE_ID, $revokedParam),
+            $this->mock->generateQueryWrapper(self::AUTH_CODE_ID, $revokedParam),
         );
     }
 
@@ -165,9 +238,13 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
      * @throws \SimpleSAML\Error\Error
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
-    public function testRevokeByAuthCodeId(): void
+
+    #[DataProvider('databaseToTest')]
+    public function testRevokeByAuthCodeId(string $database): void
     {
-        $accessToken = self::$repository->getNewToken(
+        $this->useDatabase(self::$$database);
+
+        $accessToken = $this->repository->getNewToken(
             self::clientRepositoryGetClient(self::CLIENT_ID),
             $this->scopes,
             self::USER_ID,
@@ -179,14 +256,14 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
             TimestampGenerator::utc('yesterday'),
         ));
 
-        self::$repository->persistNewAccessToken($accessToken);
+        $this->repository->persistNewAccessToken($accessToken);
 
-        $isRevoked = self::$repository->isAccessTokenRevoked(self::ACCESS_TOKEN_ID);
+        $isRevoked = $this->repository->isAccessTokenRevoked(self::ACCESS_TOKEN_ID);
         $this->assertFalse($isRevoked);
 
         // Revoke the access token
-        self::$mock->revokeByAuthCodeId(self::AUTH_CODE_ID);
-        $isRevoked = self::$repository->isAccessTokenRevoked(self::ACCESS_TOKEN_ID);
+        $this->mock->revokeByAuthCodeId(self::AUTH_CODE_ID);
+        $isRevoked = $this->repository->isAccessTokenRevoked(self::ACCESS_TOKEN_ID);
 
         $this->assertTrue($isRevoked);
     }
