@@ -221,7 +221,6 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
             'UPDATE phpunit_oidc_access_token SET is_revoked = 1 WHERE auth_code_id = :auth_code_id',
             [
                 'auth_code_id' => self::AUTH_CODE_ID,
-                'is_revoked' => $revokedParam,
             ],
         ];
 
