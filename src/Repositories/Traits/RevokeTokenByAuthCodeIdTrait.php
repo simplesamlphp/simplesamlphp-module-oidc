@@ -32,7 +32,7 @@ trait RevokeTokenByAuthCodeIdTrait
             'UPDATE %s SET is_revoked = 1 WHERE auth_code_id = :auth_code_id',
             $this->getTableName(),
         );
-        $bindParam = ['auth_code_id' => $authCodeId, 'is_revoked' => $revokedParam];
+        $bindParam = ['auth_code_id' => $authCodeId];
 
         return [$query, $bindParam];
     }
