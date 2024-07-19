@@ -29,10 +29,10 @@ trait RevokeTokenByAuthCodeIdTrait
     protected function generateQuery(string $authCodeId, array $revokedParam): array
     {
         $query     = sprintf(
-            'UPDATE %s SET is_revoked = 1 WHERE auth_code_id = :auth_code_id',
+            'UPDATE %s SET is_revoked = :is_revoked WHERE auth_code_id = :auth_code_id',
             $this->getTableName(),
         );
-        $bindParam = ['auth_code_id' => $authCodeId];
+        $bindParam = ['auth_code_id' => $authCodeId, 'is_revoked' => $revokedParam];
 
         return [$query, $bindParam];
     }
