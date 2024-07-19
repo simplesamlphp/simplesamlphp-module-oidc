@@ -60,6 +60,9 @@ you have at least the following parameters set:
     'database.username' => 'user',
     'database.password' => 'password',
 
+> [!NOTE]  
+> The module has been tested against and supports the SQLite, PostgresSQL and MySQL databases.
+
 ### Create RSA key pair
 
 During the authentication flow, generated ID Token and Access Token will be in a form of signed JSON Web token (JWS).
