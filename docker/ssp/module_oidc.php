@@ -32,7 +32,30 @@ $config = [
     ],
 
     ModuleConfig::OPTION_AUTH_PROCESSING_FILTERS => [
+        // For conformance tests we always have an authproc run just to confirm nothing is broken
+        // with the integration to ProcessingChain
+        5 => [
+            'class' => 'core:AttributeAdd',
+            'someUnusedAttribute' => 'Some value',
+        ]
     ],
+
+    // Use the below auth processing config to test authprocs with a redirect
+/*    ModuleConfig::OPTION_AUTH_PROCESSING_FILTERS => [
+        5 => [
+            'class' => 'core:AttributeAdd',
+            '%replace',
+            'givenName' => 'First AuthProc',
+        ],
+        10 => [
+            'class' => 'preprodwarning:Warning',
+        ],
+        15 => [
+            'class' => 'core:AttributeAdd',
+            '%replace',
+            'sn' => 'SN AuthProc',
+        ]
+    ],*/
 
     ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES => [
     ],

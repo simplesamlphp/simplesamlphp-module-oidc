@@ -223,8 +223,8 @@ In addition to that, the following OIDC related data will be available in the st
 * \['Oidc'\]\['RelyingPartyMetadata'\] - contains information about the OIDC client making the authN request.
 * \['Oidc'\]\['AuthorizationRequestParameters'\] - contains relevant authorization request query parameters.
 
-Note: at the moment there is no support for showing a page to the user in a filter, and then resuming the filtering.
-Only the common filter use cases are supported like attribute handling, logging, or similar. 
+Auth Proc processing has been tested with a variety of modules including ones that adjust attributes, log
+and redirect for user interaction.
 
 You can add Auth Proc filters in the 'authproc.oidc' config option in the same manner as described in the [Auth Proc 
 documentation](https://simplesamlphp.org/docs/stable/simplesamlphp-authproc).
@@ -315,6 +315,16 @@ Then navigate to [OIDC screen](https://localhost/simplesaml/module.php/oidc/inst
 and you can add a client.
 
 You may view the OIDC configuration endpoint at `https://localhost/.well-known/openid-configuration`
+
+#### Testing AuthProc filters
+
+To perform manual testing of authproc filters, enable the authprocs in `module_oidc.php` that set firstname, sn and performs
+a redirect for preprod warning. This setup shows that an authproc can do a redirect and then processing resumes.
+Once adjusted, run docker while change the `COMPOSER_REQUIRE` line to
+
+    `-e COMPOSER_REQUIRE="simplesamlphp/simplesamlphp-module-oidc:@dev simplesamlphp/simplesamlphp-module-preprodwarning" \`
+
+You can register a client from https://oidcdebugger.com/ to test.
 
 ### Build Image to Deploy for Conformance Tests
 
