@@ -51,7 +51,8 @@
         "sort-packages": true,
         "allow-plugins": {
             "simplesamlphp/composer-module-installer": true,
-            "dealerdirect/phpcodesniffer-composer-installer": true
+            "dealerdirect/phpcodesniffer-composer-installer": true,
+            "phpstan/extension-installer": true
         },
         "cache-dir": "build/composer"
     },
