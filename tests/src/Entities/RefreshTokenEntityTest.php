@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Entities;
 
+use PDO;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
@@ -66,7 +67,7 @@ class RefreshTokenEntityTest extends TestCase
                 'id' => 'id',
                 'expires_at' => '1970-01-01 00:00:00',
                 'access_token_id' => 'access_token_id',
-                'is_revoked' => 0,
+                'is_revoked' => [$this->state['is_revoked'], PDO::PARAM_BOOL],
                 'auth_code_id' => '123',
             ],
         );

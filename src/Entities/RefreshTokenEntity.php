@@ -19,6 +19,7 @@ namespace SimpleSAML\Module\oidc\Entities;
 use DateTimeImmutable;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\RefreshTokenTrait;
+use PDO;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Traits\AssociateWithAuthCodeTrait;
@@ -66,7 +67,7 @@ class RefreshTokenEntity implements RefreshTokenEntityInterface
             'id' => $this->getIdentifier(),
             'expires_at' => $this->getExpiryDateTime()->format('Y-m-d H:i:s'),
             'access_token_id' => $this->getAccessToken()->getIdentifier(),
-            'is_revoked' => (int) $this->isRevoked(),
+            'is_revoked' => [$this->isRevoked(), PDO::PARAM_BOOL],
             'auth_code_id' => $this->getAuthCodeId(),
         ];
     }
