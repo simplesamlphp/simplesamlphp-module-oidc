@@ -324,6 +324,38 @@ and you can add a client.
 
 You may view the OIDC configuration endpoint at `https://localhost/.well-known/openid-configuration`
 
+#### Local Testing with other DBs
+
+To test local changes against another DB, such as Postgres, we need to:
+
+* Create a docker network layer
+* Run a DB container ( and create a DB if one doesn't exist)
+* Run SSP and use the DB container
+
+```
+# Create the network
+docker network create ssp-oidc-test
+```
+
+```
+# Run the db container
+    docker run --name oidc-db \
+      --network ssp-oidc-test \
+      -e POSTGRES_PASSWORD=oidcpass \
+      -p 25432:5432 \
+      -d  postgres:15
+```
+
+And then use the `docker run` command from  `With current git branch` with the following additions
+
+```
+    -e DB.DSN="pgsql:host=oidc-db;dbname=postgres" \
+    -e DB.USERNAME="postgres" \
+    -e DB.PASSWORD="oidcpass" \
+   --network ssp-oidc-test \
+
+```
+
 #### Testing AuthProc filters
 
 To perform manual testing of authproc filters, enable the authprocs in `module_oidc.php` that set firstname, sn and performs
