@@ -40,6 +40,7 @@ class EntityStatementController
      */
     public function configuration(): Response
     {
+        // TODO mivanci header and each JWK must have 'kid'.
         $builder = $this->jsonWebTokenBuilderService->getFederationJwtBuilder()
             ->withHeader(ClaimNamesEnum::Type->value, TypeEnum::EntityStatementJwt->value)
             ->relatedTo($this->moduleConfig->getIssuer()) // This is entity configuration (statement about itself).
