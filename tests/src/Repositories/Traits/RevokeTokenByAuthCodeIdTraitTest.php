@@ -126,6 +126,8 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         $pgContainer = PostgresContainer::make('15.0', 'password');
         $pgContainer->withPostgresDatabase('database');
         $pgContainer->withPostgresUser('username');
+        $hostPort = '15432';
+        $pgContainer->withPort($hostPort, '5432');
 
         $pgContainer->run();
         // Wait until the docker heartcheck is green
@@ -134,7 +136,11 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         $pgContainer->withWait(new WaitForLog('Ready to accept connections'));
 
         $pgConfig = [
-            'database.dsn' => sprintf('pgsql:host=%s;port=5432;dbname=database', $pgContainer->getAddress()),
+            'database.dsn' => sprintf(
+                'pgsql:host=%s;port=%s;dbname=database',
+                $pgContainer->getAddress(),
+                $hostPort,
+            ),
             'database.username' => 'username',
             'database.password' => 'password',
             'database.prefix' => 'phpunit_',
