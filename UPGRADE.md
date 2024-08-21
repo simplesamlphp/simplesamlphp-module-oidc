@@ -20,6 +20,7 @@
   - Clients can now be configured with new properties:
     - Entity Identifier
     - Registration Types
+    - Federation JWKS
 - Improved AuthProc filter support
   - Support authproc filters that need to redirect and later resume processing
     - `consent` and `preprodwarning` are two authprocs that redirect for user interaction and are now supported
@@ -44,7 +45,6 @@ and optionally a port (as in all previous module versions).
 ## Major impact changes
 
 - PHP version requirement was bumped to v8.2
-- SimpleSAMLphp version requirement was bumped to v2.2
 
 ## Medium impact changes
 
@@ -71,6 +71,8 @@ this module as a library or extending from it, you will probably encounter break
 has been refactored:
 
 - upgraded to v5 of lcobucci/jwt https://github.com/lcobucci/jwt
+- upgraded to v3 of laminas/laminas-diactoros https://github.com/laminas/laminas-diactoros
+- SimpleSAMLphp version used during development was bumped to v2.2
 
 # Version 4 to 5
 
@@ -99,7 +101,7 @@ match expressions...
 # Version 3 to 4
 - PHP version requirement was bumped to v8.0 to enable updating important dependant packages like 'league/oauth2-server'
   which has already moved to PHPv8 between their minor releases.
-- SimpleSAMLphp version requirement fixed to v2.0.*
+- SimpleSAMLphp version used during development was bumped v2.0
 
 # Version 2 to 3
  - Module code was refactored to make it compatible with SimpleSAMLphp v2

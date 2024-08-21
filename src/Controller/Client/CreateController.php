@@ -85,6 +85,8 @@ class CreateController
             /** @var string[] $clientRegistrationTypes */
             $clientRegistrationTypes = is_array($client['client_registration_types']) ?
             $client['client_registration_types'] : null;
+            /** @var ?array[] $federationJwks */
+            $federationJwks = is_array($client['federation_jwks']) ? $client['federation_jwks'] : null;
 
             $this->clientRepository->add(ClientEntity::fromData(
                 $client['id'],
@@ -101,6 +103,7 @@ class CreateController
                 empty($client['backchannel_logout_uri']) ? null : (string)$client['backchannel_logout_uri'],
                 empty($client['entity_identifier']) ? null : (string)$client['entity_identifier'],
                 $clientRegistrationTypes,
+                $federationJwks,
             ));
 
             // Also persist allowed origins for this client.

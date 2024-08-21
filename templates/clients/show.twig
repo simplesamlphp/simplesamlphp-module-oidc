@@ -126,6 +126,20 @@
                 </ul>
             </td>
         </tr>
+        <tr >
+            <td class="collapsing">{{ 'Federation JWKS'|trans }}</td>
+            <td>
+                {% if client.federationJwks %}
+                    <div class="ui comments" >
+                        <div class="comment">
+                            <div class="text">
+                                {{ client.federationJwks|json_encode(constant('JSON_PRETTY_PRINT')) }}
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </td>
+        </tr>
         </tbody>
         <tfoot>
         <tr class="full-width">

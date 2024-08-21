@@ -130,6 +130,11 @@ class DatabaseMigration
             $this->version20240605145700();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20240605145700')");
         }
+
+        if (!in_array('20240820132400', $versions, true)) {
+            $this->version20240820132400();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20240820132400')");
+        }
     }
 
     private function versionsTableName(): string
@@ -398,6 +403,16 @@ EOT
         $this->database->write(<<< EOT
         ALTER TABLE {$clientTableName}
             ADD client_registration_types VARCHAR(191) NULL
+EOT
+            ,);
+    }
+
+    private function version20240820132400(): void
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE {$clientTableName}
+            ADD federation_jwks TEXT NULL
 EOT
             ,);
     }

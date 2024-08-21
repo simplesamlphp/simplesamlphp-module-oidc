@@ -42,7 +42,7 @@ class LoggerService implements LoggerInterface
         Logger::notice($message . ($context ? " " . var_export($context, true) : ""));
     }
 
-    public function info($message, array $context = []): void
+    public function info(string|Stringable $message, array $context = []): void
     {
         Logger::info($message . ($context ? " " . var_export($context, true) : ""));
     }
@@ -52,7 +52,7 @@ class LoggerService implements LoggerInterface
         Logger::debug($message . ($context ? " " . var_export($context, true) : ""));
     }
 
-    public function log($level, string|Stringable $message, array $context = []): void
+    public function log(mixed $level, string|Stringable $message, array $context = []): void
     {
         match ($level) {
             LogLevel::ALERT => $this->alert($message, $context),

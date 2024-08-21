@@ -295,7 +295,7 @@ $config = [
     //ModuleConfig::OPTION_FEDERATION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Rsa\Sha256::class,
 
     // Federation entity statement duration which determines the Expiration Time (exp) claim set in entity
-    // statement JWTs. If not set, default of 1 day will be used. For duration format info, check
+    // statement JWTs published by this OP. If not set, default of 1 day will be used. For duration format info, check
     // https://www.php.net/manual/en/dateinterval.construct.php
     //ModuleConfig::OPTION_FEDERATION_ENTITY_STATEMENT_DURATION => 'P1D', // 1 day
 

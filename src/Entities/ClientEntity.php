@@ -18,7 +18,7 @@ namespace SimpleSAML\Module\oidc\Entities;
 
 use League\OAuth2\Server\Entities\Traits\ClientTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
-use SimpleSAML\Module\oidc\Codebooks\ClientRegistrationTypesEnum;
+use SimpleSAML\Module\oidc\Codebooks\ClaimValues\ClientRegistrationTypesEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
@@ -56,6 +56,10 @@ class ClientEntity implements ClientEntityInterface
      * @var string[]|null
      */
     private ?array $clientRegistrationTypes = null;
+    /**
+     * @var ?array[]|null
+     */
+    private ?array $federationJwks = null;
 
     /**
      * Constructor.
@@ -69,6 +73,7 @@ class ClientEntity implements ClientEntityInterface
      * @param string[] $scopes
      * @param string[] $postLogoutRedirectUri
      * @param string[] $clientRegistrationTypes
+     * @param array[] $federationJwks
      */
     public static function fromData(
         string $id,
@@ -85,6 +90,7 @@ class ClientEntity implements ClientEntityInterface
         ?string $backChannelLogoutUri = null,
         ?string $entityIdentifier = null,
         ?array $clientRegistrationTypes = null,
+        ?array $federationJwks = null,
     ): ClientEntityInterface {
         $client = new self();
 
@@ -102,6 +108,7 @@ class ClientEntity implements ClientEntityInterface
         $client->backChannelLogoutUri = empty($backChannelLogoutUri) ? null : $backChannelLogoutUri;
         $client->entityIdentifier = empty($entityIdentifier) ? null : $entityIdentifier;
         $client->clientRegistrationTypes = $clientRegistrationTypes;
+        $client->federationJwks = $federationJwks;
 
         return $client;
     }
@@ -166,6 +173,12 @@ class ClientEntity implements ClientEntityInterface
         json_decode((string)$state['client_registration_types'], true, 512, JSON_THROW_ON_ERROR);
         $client->clientRegistrationTypes = $clientRegistrationTypes;
 
+        /** @var ?array[] $federationJwks */
+        $federationJwks = empty($state['federation_jwks']) ?
+        null :
+        json_decode((string)$state['federation_jwks'], true, 512, JSON_THROW_ON_ERROR);
+        $client->federationJwks = $federationJwks;
+
         return $client;
     }
 
@@ -192,6 +205,9 @@ class ClientEntity implements ClientEntityInterface
             'client_registration_types' => is_null($this->clientRegistrationTypes) ?
                 null :
                 json_encode($this->getClientRegistrationTypes(), JSON_THROW_ON_ERROR),
+            'federation_jwks' => is_null($this->federationJwks) ?
+                null :
+                json_encode($this->getFederationJwks()),
         ];
     }
 
@@ -212,6 +228,7 @@ class ClientEntity implements ClientEntityInterface
             'backchannel_logout_uri' => $this->backChannelLogoutUri,
             'entity_identifier' => $this->entityIdentifier,
             'client_registration_types' => $this->clientRegistrationTypes,
+            'federation_jwks' => $this->federationJwks,
         ];
     }
 
@@ -299,5 +316,10 @@ class ClientEntity implements ClientEntityInterface
         }
 
         return $this->clientRegistrationTypes;
+    }
+
+    public function getFederationJwks(): ?array
+    {
+        return $this->federationJwks;
     }
 }
