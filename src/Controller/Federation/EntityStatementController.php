@@ -40,7 +40,6 @@ class EntityStatementController
      */
     public function configuration(): Response
     {
-        // TODO mivanci header and each JWK must have 'kid'.
         $builder = $this->jsonWebTokenBuilderService->getFederationJwtBuilder()
             ->withHeader(ClaimNamesEnum::Type->value, TypeEnum::EntityStatementJwt->value)
             ->relatedTo($this->moduleConfig->getIssuer()) // This is entity configuration (statement about itself).
@@ -96,7 +95,7 @@ class EntityStatementController
             $builder = $builder->withClaim(ClaimNamesEnum::AuthorityHints->value, $authorityHints);
         }
 
-        // TODO mivanci Add remaining claims when ready.
+        // Remaining claims, add if / when ready.
         // * crit
         // * trust_marks
         // * trust_mark_issuers
@@ -104,12 +103,6 @@ class EntityStatementController
 
         // Note: claims which should only be present in Trust Anchors
         // * trust_mark_owners
-
-
-        // Note: claims which must not be present in entity configuration:
-        // * metadata_policy
-        // * constraints
-        // * metadata_policy_crit
 
         $jws = $this->jsonWebTokenBuilderService->getSignedFederationJwt($builder);
         return new Response(
@@ -143,9 +136,12 @@ class EntityStatementController
 
         $subject = $request->query->get(ClaimNamesEnum::Subject->value);
 
-        // If the subject is not set, we are required to return the issuer entity configuration.
         if (empty($subject)) {
-            return $this->configuration();
+            return $this->prepareJsonErrorResponse(
+                ErrorsEnum::InvalidRequest->value,
+                sprintf('Missing parameter %s', ClaimNamesEnum::Subject->value),
+                400,
+            );
         }
 
         /** @var non-empty-string $subject */
@@ -158,6 +154,16 @@ class EntityStatementController
                 404,
             );
         }
+
+        $jwks = $client->getFederationJwks();
+        if (empty($jwks)) {
+            return $this->prepareJsonErrorResponse(
+                ErrorsEnum::InvalidClient->value,
+                sprintf('Subject does not contain JWKS claim (%s)', $subject),
+                401,
+            );
+        }
+
         $builder = $this->jsonWebTokenBuilderService->getFederationJwtBuilder()
             ->withHeader(ClaimNamesEnum::Type->value, TypeEnum::EntityStatementJwt->value)
             ->relatedTo($subject)
@@ -165,7 +171,7 @@ class EntityStatementController
                 (TimestampGenerator::utcImmutable())->add($this->moduleConfig->getFederationEntityStatementDuration()),
             )->withClaim(
                 ClaimNamesEnum::JsonWebKeySet->value,
-                ['keys' => array_values($this->jsonWebKeySetService->federationKeys()),],
+                $jwks,
             )
             ->withClaim(
                 ClaimNamesEnum::Metadata->value,
@@ -190,9 +196,10 @@ class EntityStatementController
                 ],
             );
 
-        // TODO mivanci ?Enforce through metadata policy:
-        // ?response_types, grant_types...
-
+        // Note: claims which can be present in subordinate statements:
+        // * metadata_policy
+        // * constraints
+        // * metadata_policy_crit
 
         $jws = $this->jsonWebTokenBuilderService->getSignedFederationJwt($builder);
         return new Response(

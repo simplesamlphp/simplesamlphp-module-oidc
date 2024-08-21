@@ -142,6 +142,28 @@ class ClientForm extends Form
         }
     }
 
+    public function validateFederationJwks(Form $form): void
+    {
+        $federationJwks = $form->getValues()['federation_jwks'] ?? null;
+        if (is_null($federationJwks)) {
+            return;
+        }
+
+        if (!is_array($federationJwks)) {
+            $this->addError(sprintf("Invalid JWKS format: %s", var_export($federationJwks, true)));
+            return;
+        }
+
+        if (!array_key_exists('keys', $federationJwks)) {
+            $this->addError(sprintf("No keys property in JWKS: %s", var_export($federationJwks, true)));
+            return;
+        }
+
+        if (empty($federationJwks['keys'])) {
+            $this->addError(sprintf("Empty keys in JWKS: %s", var_export($federationJwks, true)));
+        }
+    }
+
     /**
      * @param string[] $values
      * @param non-empty-string $regex
@@ -193,6 +215,12 @@ class ClientForm extends Form
         array_intersect($values['client_registration_types'], $this->getClientRegistrationTypes()) :
         [ClientRegistrationTypesEnum::Automatic->value];
 
+        $federationJwks = trim((string)$values['federation_jwks']);
+        /** @psalm-suppress MixedAssignment */
+        $values['federation_jwks'] = empty($federationJwks) ?
+        null :
+        json_decode($federationJwks, true, 512, JSON_THROW_ON_ERROR);
+
         return $values;
     }
 
@@ -233,6 +261,8 @@ class ClientForm extends Form
         array_intersect($data['client_registration_types'], $this->getClientRegistrationTypes()) :
         [ClientRegistrationTypesEnum::Automatic->value];
 
+        $data['federation_jwks'] = is_array($data['federation_jwks']) ? json_encode($data['federation_jwks']) : null;
+
         parent::setDefaults($data, $erase);
 
         return $this;
@@ -251,6 +281,7 @@ class ClientForm extends Form
         $this->onValidate[] = $this->validateBackChannelLogoutUri(...);
         $this->onValidate[] = $this->validateEntityIdentifier(...);
         $this->onValidate[] = $this->validateClientRegistrationTypes(...);
+        $this->onValidate[] = $this->validateFederationJwks(...);
 
         $this->setMethod('POST');
         $this->addComponent($this->csrfProtection, Form::ProtectorId);
@@ -291,6 +322,8 @@ class ClientForm extends Form
         $this->addMultiSelect('client_registration_types', 'Registration types')
             ->setHtmlAttribute('class', 'ui fluid dropdown')
             ->setItems($this->getClientRegistrationTypes());
+
+        $this->addTextArea('federation_jwks', '{oidc:client:federation_jwks}', null, 5);
     }
 
     /**

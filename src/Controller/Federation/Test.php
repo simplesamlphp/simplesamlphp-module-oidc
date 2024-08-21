@@ -29,7 +29,7 @@ class Test
         $cache = new Psr16Cache(new FilesystemAdapter(
             'oidc-federation',
             60,
-            $this->moduleConfig->sspConfig()->getPathValue('cachedir')
+            $this->moduleConfig->sspConfig()->getPathValue('cachedir'),
         ));
 
 //        $cache->clear();
@@ -49,7 +49,7 @@ class Test
             );
 
         return new JsonResponse(
-            $trustChain->getResolvedMetadata(EntityTypeEnum::OpenIdRelyingParty)
+            $trustChain->getResolvedMetadata(EntityTypeEnum::OpenIdRelyingParty),
         );
     }
 }

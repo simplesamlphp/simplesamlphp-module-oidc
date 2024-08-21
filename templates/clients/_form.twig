@@ -145,11 +145,21 @@
         </div>
 
         <div class="field">
-            <label for="frm-scopes">{{ 'Registration types'|trans }}</label>
+            <label for="frm-client_registration_types">{{ 'Registration types'|trans }}</label>
 
             {{ form['client_registration_types'].control | raw }}
             <small class="helper">
                 {% trans %}One or more values from the list. If not selected, falls back to 'automatic'.{% endtrans %}
+            </small>
+        </div>
+
+        <div class="field">
+            <label for="frm-federation_jwks">{{ 'Federation JWKS'|trans }}</label>
+
+            {{ form['federation_jwks'].control | raw }}
+            <small class="helper">
+                {% trans %}JSON object (string) representing federation JWKS (used in entity statements). Example:
+                {"keys":[{"kty": "RSA","n": "...","e": "AQAB","kid": "...","use": "sig","alg": "RS256"}]}{% endtrans %}
             </small>
         </div>
 

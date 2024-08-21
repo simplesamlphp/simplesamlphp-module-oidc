@@ -75,4 +75,9 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
      * @return string[]
      */
     public function getClientRegistrationTypes(): array;
+
+    /**
+     * @return array[]|null
+     */
+    public function getFederationJwks(): ?array;
 }
