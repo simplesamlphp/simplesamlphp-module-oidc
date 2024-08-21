@@ -16,12 +16,6 @@
             "email": "sergio@uco.es"
         }
     ],
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "git@github.com:simplesamlphp/openid.git"
-        }
-    ],
     "require": {
         "php": "^8.2",
         "ext-curl": "*",
