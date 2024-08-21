@@ -22,10 +22,10 @@ use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
-use Testcontainer\Container\MySQLContainer;
-use Testcontainer\Container\PostgresContainer;
-use Testcontainer\Wait\WaitForHealthCheck;
-use Testcontainer\Wait\WaitForLog;
+use Testcontainers\Container\MySQLContainer;
+use Testcontainers\Container\PostgresContainer;
+use Testcontainers\Wait\WaitForHealthCheck;
+use Testcontainers\Wait\WaitForLog;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait
