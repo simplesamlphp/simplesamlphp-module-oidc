@@ -85,6 +85,7 @@ class CreateController
             /** @var string[] $clientRegistrationTypes */
             $clientRegistrationTypes = is_array($client['client_registration_types']) ?
             $client['client_registration_types'] : null;
+            /** @var ?array[] $federationJwks */
             $federationJwks = is_array($client['federation_jwks']) ? $client['federation_jwks'] : null;
 
             $this->clientRepository->add(ClientEntity::fromData(

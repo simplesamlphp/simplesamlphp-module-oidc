@@ -56,6 +56,9 @@ class ClientEntity implements ClientEntityInterface
      * @var string[]|null
      */
     private ?array $clientRegistrationTypes = null;
+    /**
+     * @var ?array[]|null
+     */
     private ?array $federationJwks = null;
 
     /**
@@ -70,6 +73,7 @@ class ClientEntity implements ClientEntityInterface
      * @param string[] $scopes
      * @param string[] $postLogoutRedirectUri
      * @param string[] $clientRegistrationTypes
+     * @param array[] $federationJwks
      */
     public static function fromData(
         string $id,
