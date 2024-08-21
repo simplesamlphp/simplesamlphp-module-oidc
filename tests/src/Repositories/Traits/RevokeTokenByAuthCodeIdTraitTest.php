@@ -126,7 +126,7 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         $pgContainer = PostgresContainer::make('15.0', 'password');
         $pgContainer->withPostgresDatabase('database');
         $pgContainer->withPostgresUser('username');
-        $hostPort = getenv('HOSTPORT') ?? '5432';
+        $hostPort = getenv('HOSTPORT') ?: '5432';
         $pgContainer->withPort($hostPort, '5432');
 
         $pgContainer->run();
@@ -135,7 +135,7 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         // Wait until that message is in the logs
         $pgContainer->withWait(new WaitForLog('Ready to accept connections'));
 
-        $hostAddress = getenv('HOSTADDRESS') ?? $pgContainer->getAddress();
+        $hostAddress = getenv('HOSTADDRESS') ?: $pgContainer->getAddress();
         $pgConfig = [
             'database.dsn' => sprintf(
                 'pgsql:host=%s;port=%s;dbname=database',
