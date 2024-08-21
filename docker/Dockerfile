@@ -1,5 +1,5 @@
-FROM cirrusid/simplesamlphp:v2.2.2
-#FROM cicnavi/simplesamlphp:dev-simplesamlphp-2.1
+#FROM cirrusid/simplesamlphp:v2.2.2
+FROM cicnavi/simplesamlphp:dev
 
 RUN apt-get update && apt-get install -y sqlite3
 # Prepopulate the DB with items needed for testing
