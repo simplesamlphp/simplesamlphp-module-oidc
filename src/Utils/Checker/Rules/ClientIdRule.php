@@ -12,6 +12,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 class ClientIdRule extends AbstractRule
 {
@@ -28,10 +29,15 @@ class ClientIdRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = ['GET'],
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
     ): ?ResultInterface {
         /** @var ?string $clientId */
-        $clientId = $request->getQueryParams()['client_id'] ?? $request->getServerParams()['PHP_AUTH_USER'] ?? null;
+        $clientId = $this->getParamFromRequestBasedOnAllowedMethods(
+            'client_id',
+            $request,
+            $loggerService,
+            $allowedServerRequestMethods,
+        ) ?? $request->getServerParams()['PHP_AUTH_USER'] ?? null;
 
         if ($clientId === null) {
             throw OidcServerException::invalidRequest('client_id');

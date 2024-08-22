@@ -10,6 +10,7 @@ use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 class RequestedClaimsRule extends AbstractRule
 {
@@ -27,7 +28,7 @@ class RequestedClaimsRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = ['GET'],
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
     ): ?ResultInterface {
         /** @var ?string $claimsParam */
         $claimsParam = $request->getQueryParams()['claims'] ?? null;

@@ -25,6 +25,7 @@ use SimpleSAML\Module\oidc\Utils\Checker\Rules\PostLogoutRedirectUriRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
 use SimpleSAML\Module\oidc\Utils\Checker\Rules\UiLocalesRule;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 class AuthorizationServer extends OAuth2AuthorizationServer
 {
@@ -83,7 +84,12 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         ];
 
         try {
-            $resultBag = $this->requestRulesManager->check($request, $rulesToExecute);
+            $resultBag = $this->requestRulesManager->check(
+                $request,
+                $rulesToExecute,
+                false,
+                [HttpMethodsEnum::GET->value, HttpMethodsEnum::POST->value],
+            );
         } catch (OidcServerException $exception) {
             $reason = sprintf("%s %s", $exception->getMessage(), $exception->getHint() ?? '');
             throw new BadRequest($reason);

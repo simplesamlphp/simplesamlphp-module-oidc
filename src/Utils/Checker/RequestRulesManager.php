@@ -10,6 +10,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\RequestRuleInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 use function sprintf;
 
@@ -53,7 +54,7 @@ class RequestRulesManager
         ServerRequestInterface $request,
         array $ruleKeysToExecute,
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = ['GET'],
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
     ): ResultBagInterface {
         foreach ($ruleKeysToExecute as $ruleKey) {
             if (! isset($this->rules[$ruleKey])) {

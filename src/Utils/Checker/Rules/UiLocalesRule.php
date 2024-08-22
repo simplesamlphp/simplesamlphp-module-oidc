@@ -9,6 +9,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 class UiLocalesRule extends AbstractRule
 {
@@ -21,7 +22,7 @@ class UiLocalesRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = ['GET'],
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
     ): ?ResultInterface {
         return new Result($this->getKey(), $this->getParamFromRequestBasedOnAllowedMethods(
             'ui_locales',

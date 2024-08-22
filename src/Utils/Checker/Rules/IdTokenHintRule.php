@@ -16,6 +16,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use Throwable;
 
 class IdTokenHintRule extends AbstractRule
@@ -36,7 +37,7 @@ class IdTokenHintRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = ['GET'],
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
     ): ?ResultInterface {
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();

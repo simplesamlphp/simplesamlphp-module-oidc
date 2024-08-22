@@ -9,6 +9,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 class AcrValuesRule extends AbstractRule
 {
@@ -21,7 +22,7 @@ class AcrValuesRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = ['GET'],
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
     ): ?ResultInterface {
         $acrValues = [
             'essential' => false,
@@ -54,8 +55,12 @@ class AcrValuesRule extends AbstractRule
         }
 
         // Check for acr_values request parameter
-        /** @var ?string $acrValuesParam */
-        $acrValuesParam = $request->getQueryParams()['acr_values'] ?? null;
+        $acrValuesParam = $this->getParamFromRequestBasedOnAllowedMethods(
+            'acr_values',
+            $request,
+            $loggerService,
+            $allowedServerRequestMethods,
+        );
         if ($acrValuesParam !== null) {
             $acrValues['values'] = array_merge($acrValues['values'], explode(' ', $acrValuesParam));
         }

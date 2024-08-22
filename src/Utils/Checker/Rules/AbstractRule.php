@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Utils\Checker\Rules;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\RequestRuleInterface;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 abstract class AbstractRule implements RequestRuleInterface
 {
@@ -25,7 +26,7 @@ abstract class AbstractRule implements RequestRuleInterface
         string $paramKey,
         ServerRequestInterface $request,
         LoggerService $loggerService,
-        array $allowedServerRequestMethods = ['GET'],
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
     ): ?string {
         // Make sure the case is compatible...
         $allowedServerRequestMethods = array_map('strtoupper', $allowedServerRequestMethods);

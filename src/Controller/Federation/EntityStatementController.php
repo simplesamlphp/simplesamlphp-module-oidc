@@ -87,7 +87,7 @@ class EntityStatementController
                         ],
                         ClaimNamesEnum::RequestAuthenticationMethodsSupported->value => [
                             ClaimNamesEnum::AuthorizationEndpoint->value => [
-                                RequestAuthenticationMethodsEnum::RequestObject->value
+                                RequestAuthenticationMethodsEnum::RequestObject->value,
                             ],
                         ],
                         ClaimNamesEnum::RequestAuthenticationSigningAlgValuesSupported->value => [

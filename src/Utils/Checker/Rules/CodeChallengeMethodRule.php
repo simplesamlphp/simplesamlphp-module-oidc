@@ -11,6 +11,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 class CodeChallengeMethodRule extends AbstractRule
 {
@@ -28,15 +29,19 @@ class CodeChallengeMethodRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = ['GET'],
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
     ): ?ResultInterface {
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
-        /** @var string $codeChallengeMethod */
-        $codeChallengeMethod = $request->getQueryParams()['code_challenge_method'] ?? 'plain';
+        $codeChallengeMethod = $this->getParamFromRequestBasedOnAllowedMethods(
+            'code_challenge_method',
+            $request,
+            $loggerService,
+            $allowedServerRequestMethods,
+        ) ?? 'plain';
         $codeChallengeVerifiers = $this->codeChallengeVerifiersRepository->getAll();
 
         if (array_key_exists($codeChallengeMethod, $codeChallengeVerifiers) === false) {

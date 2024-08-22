@@ -10,6 +10,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Utils\Checker\Result;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 class CodeChallengeRule extends AbstractRule
 {
@@ -23,15 +24,19 @@ class CodeChallengeRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = ['GET'],
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
     ): ?ResultInterface {
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
-        /** @var ?string $codeChallenge */
-        $codeChallenge = $request->getQueryParams()['code_challenge'] ?? null;
+        $codeChallenge = $this->getParamFromRequestBasedOnAllowedMethods(
+            'code_challenge',
+            $request,
+            $loggerService,
+            $allowedServerRequestMethods,
+        );
 
         if ($codeChallenge === null) {
             throw OidcServerException::invalidRequest(
