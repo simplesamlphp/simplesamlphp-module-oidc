@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Services;
 
+use SimpleSAML\Module\oidc\Codebooks\ClaimNamesEnum;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 
@@ -33,8 +34,9 @@ class OpMetadataService
     private function initMetadata(): void
     {
         $this->metadata = [];
+        // TODO mivanci Replace keys with enum values.
         $this->metadata['issuer'] = $this->moduleConfig->getIssuer();
-        $this->metadata['authorization_endpoint'] =
+        $this->metadata[ClaimNamesEnum::AuthorizationEndpoint->value] =
         $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdAuthorization->value);
         $this->metadata['token_endpoint'] = $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdToken->value);
         $this->metadata['userinfo_endpoint'] = $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdUserInfo->value);

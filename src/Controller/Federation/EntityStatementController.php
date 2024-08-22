@@ -6,6 +6,7 @@ namespace SimpleSAML\Module\oidc\Controller\Federation;
 
 use SimpleSAML\Module\oidc\Codebooks\ClaimNamesEnum;
 use SimpleSAML\Module\oidc\Codebooks\ClaimValues\ClientRegistrationTypesEnum;
+use SimpleSAML\Module\oidc\Codebooks\ClaimValues\RequestAuthenticationMethodsEnum;
 use SimpleSAML\Module\oidc\Codebooks\ClaimValues\TypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\EntityTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\ErrorsEnum;
@@ -78,11 +79,19 @@ class EntityStatementController
                         //'jwks_uri',
                         //'jwks',
                     ],
-                    // OP metadata with federation related claims.
+                    // OP metadata with additional federation related claims.
                     EntityTypeEnum::OpenIdProvider->value => [
                         ...$this->opMetadataService->getMetadata(),
                         ClaimNamesEnum::ClientRegistrationTypesSupported->value => [
                             ClientRegistrationTypesEnum::Automatic->value,
+                        ],
+                        ClaimNamesEnum::RequestAuthenticationMethodsSupported->value => [
+                            ClaimNamesEnum::AuthorizationEndpoint->value => [
+                                RequestAuthenticationMethodsEnum::RequestObject->value
+                            ],
+                        ],
+                        ClaimNamesEnum::RequestAuthenticationSigningAlgValuesSupported->value => [
+                            $this->moduleConfig->getProtocolSigner()->algorithmId(),
                         ],
                     ],
                 ],
