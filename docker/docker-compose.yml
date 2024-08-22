@@ -50,5 +50,5 @@ services:
 # Connect to the conformance-suite network to make it easier to communicate between components
 networks:
   default:
-    external:
-      name: conformance-suite_default
+    name: conformance-suite_default
+    external: true
