@@ -219,17 +219,17 @@ jobs:
         run: |
           sed -i -e 's/localhost/localhost.emobix.co.uk/g' src/main/resources/application.properties
           sed -i -e 's/-B clean/-B -DskipTests=true/g' builder-compose.yml
-          docker-compose -f builder-compose.yml run builder
+          docker compose -f builder-compose.yml run builder
       - name: Run Conformance Suite
         working-directory: ./conformance-suite
         run: |
-          docker-compose -f docker-compose-dev.yml up -d
+          docker compose -f docker-compose-dev.yml up -d
           while ! curl -skfail https://localhost.emobix.co.uk:8443/api/runner/available >/dev/null; do sleep 2; done
       - name: Start SSP docker
         working-directory: ./main
         # Must run after conformance suite since they share a docker network.
         run: |
-          OIDC_VERSION=@dev docker-compose -f docker/docker-compose.yml --project-directory . up -d --build
+          OIDC_VERSION=@dev docker compose -f docker/docker-compose.yml --project-directory . up -d --build
           sleep 30
         # while ! curl -skfail https://op.local.stack-dev.cirrusidentity.com/.well-known/openid-configuration >/dev/null; do sleep 2; done
       - name: Run Basic conformance tests
@@ -247,11 +247,11 @@ jobs:
       - name: Stop SSP
         working-directory: ./main
         run: |
-          docker-compose -f docker/docker-compose.yml down
+          docker compose -f docker/docker-compose.yml down
       - name: Stop Conformance Suite
         working-directory: ./conformance-suite
         # cleaning up errors out on removing the network, so add "|| true" to prevent that from breaking the build
         run: |
-          docker-compose -f docker-compose-dev.yml down || true
+          docker compose -f docker-compose-dev.yml down || true
           sudo rm -rf mongo
 
