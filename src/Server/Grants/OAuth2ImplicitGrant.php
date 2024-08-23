@@ -10,12 +10,12 @@ use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2Authorizatio
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithCheckerResultBagInterface;
-use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
-use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
+use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 
 class OAuth2ImplicitGrant extends ImplicitGrant implements AuthorizationValidatableWithCheckerResultBagInterface
 {

@@ -17,7 +17,7 @@ namespace SimpleSAML\Module\oidc\Factories\Grant;
 
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Grants\OAuth2ImplicitGrant;
-use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 
 class OAuth2ImplicitGrantFactory
 {

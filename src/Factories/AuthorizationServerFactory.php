@@ -26,8 +26,8 @@ use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
 use SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant;
 use SimpleSAML\Module\oidc\Server\Grants\OAuth2ImplicitGrant;
 use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
+use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
-use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
 
 class AuthorizationServerFactory
 {

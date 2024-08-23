@@ -7,12 +7,13 @@ namespace SimpleSAML\Test\Module\oidc\Server\Grants;
 use DateInterval;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
-use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
+use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant
@@ -25,6 +26,7 @@ class AuthCodeGrantTest extends TestCase
     protected DateInterval $authCodeTtl;
     protected Stub $requestRulesManagerStub;
     protected Stub $moduleConfigStub;
+    protected Stub $helpersStub;
 
     /**
      * @throws \Exception
@@ -37,6 +39,7 @@ class AuthCodeGrantTest extends TestCase
         $this->authCodeTtl = new DateInterval('PT1M');
         $this->requestRulesManagerStub = $this->createStub(RequestRulesManager::class);
         $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
+        $this->helpersStub = $this->createStub(Helpers::class);
     }
 
     /**
@@ -52,6 +55,7 @@ class AuthCodeGrantTest extends TestCase
                 $this->refreshTokenRepositoryStub,
                 $this->authCodeTtl,
                 $this->requestRulesManagerStub,
+                $this->helpersStub,
             ),
         );
     }
