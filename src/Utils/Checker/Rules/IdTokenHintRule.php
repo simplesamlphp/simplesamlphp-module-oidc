@@ -42,7 +42,7 @@ class IdTokenHintRule extends AbstractRule
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
-        $idTokenHintParam = $this->getParamFromRequestBasedOnAllowedMethods(
+        $idTokenHintParam = $this->getRequestParamBasedOnAllowedMethods(
             'id_token_hint',
             $request,
             $loggerService,

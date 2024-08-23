@@ -37,7 +37,7 @@ class PostLogoutRedirectUriRule extends AbstractRule
         /** @var \Lcobucci\JWT\UnencryptedToken|null $idTokenHint */
         $idTokenHint = $currentResultBag->getOrFail(IdTokenHintRule::class)->getValue();
 
-        $postLogoutRedirectUri = $this->getParamFromRequestBasedOnAllowedMethods(
+        $postLogoutRedirectUri = $this->getRequestParamBasedOnAllowedMethods(
             'post_logout_redirect_uri',
             $request,
             $loggerService,

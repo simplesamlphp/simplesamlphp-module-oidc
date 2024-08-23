@@ -107,6 +107,7 @@ class RedirectUriRuleTest extends TestCase
      */
     public function testCheckRuleWithValidRedirectUri(): void
     {
+        $this->requestStub->method('getMethod')->willReturn('GET');
         $this->requestStub->method('getQueryParams')->willReturn(['redirect_uri' => $this->redirectUri]);
         $resultBag = $this->prepareValidResultBag();
 

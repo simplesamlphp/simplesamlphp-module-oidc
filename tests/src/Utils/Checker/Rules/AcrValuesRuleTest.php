@@ -71,6 +71,7 @@ class AcrValuesRuleTest extends TestCase
      */
     public function testPopulatesAcrValuesFromAcrValuesRequestParameter(): void
     {
+        $this->requestStub->method('getMethod')->willReturn('GET');
         $this->requestStub->method('getQueryParams')->willReturn(['acr_values' => '1 0']);
 
         $result = (new AcrValuesRule())->checkRule(

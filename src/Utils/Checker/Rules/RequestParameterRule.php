@@ -25,8 +25,12 @@ class RequestParameterRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
     ): ?ResultInterface {
-        $queryParams = $request->getQueryParams();
-        if (!array_key_exists('request', $queryParams)) {
+        $requestParams = $this->getAllRequestParamsBasedOnAllowedMethods(
+            $request,
+            $loggerService,
+            $allowedServerRequestMethods,
+        ) ?? [];
+        if (!array_key_exists('request', $requestParams)) {
             return null;
         }
 

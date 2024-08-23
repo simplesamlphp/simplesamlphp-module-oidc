@@ -83,6 +83,7 @@ class RequiredNonceRuleTest extends TestCase
     {
         $rule = new RequiredNonceRule();
 
+        $this->requestStub->method('getMethod')->willReturn('GET');
         $this->requestStub->method('getQueryParams')->willReturn($this->requestQueryParams);
 
         $result = $rule->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub) ??

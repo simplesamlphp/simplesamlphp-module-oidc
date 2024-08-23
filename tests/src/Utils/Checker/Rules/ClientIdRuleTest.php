@@ -70,6 +70,7 @@ class ClientIdRuleTest extends TestCase
      */
     public function testCheckRuleForValidClientId(): void
     {
+        $this->requestStub->method('getMethod')->willReturn('GET');
         $this->requestStub->method('getQueryParams')->willReturn(['client_id' => '123']);
         $client = $this->createStub(ClientEntityInterface::class);
         $this->clientRepositoryStub->method('getClientEntity')->willReturn($client);

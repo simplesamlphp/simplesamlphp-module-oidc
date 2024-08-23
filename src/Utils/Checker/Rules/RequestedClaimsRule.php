@@ -30,8 +30,12 @@ class RequestedClaimsRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
     ): ?ResultInterface {
-        /** @var ?string $claimsParam */
-        $claimsParam = $request->getQueryParams()['claims'] ?? null;
+        $claimsParam = $this->getRequestParamBasedOnAllowedMethods(
+            'claims',
+            $request,
+            $loggerService,
+            $allowedServerRequestMethods,
+        );
         if ($claimsParam === null) {
             return null;
         }

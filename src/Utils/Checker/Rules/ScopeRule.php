@@ -41,10 +41,14 @@ class ScopeRule extends AbstractRule
         /** @var string $scopeDelimiterString */
         $scopeDelimiterString = $data['scope_delimiter_string'] ?? ' ';
 
-        $scopes = $this->convertScopesQueryStringToArray(
-            (string)($request->getQueryParams()['scope'] ?? $defaultScope),
-            $scopeDelimiterString,
-        );
+        $scopeParam = $this->getRequestParamBasedOnAllowedMethods(
+            'scope',
+            $request,
+            $loggerService,
+            $allowedServerRequestMethods,
+        ) ?? $defaultScope;
+
+        $scopes = $this->convertScopesQueryStringToArray($scopeParam, $scopeDelimiterString);
 
         $validScopes = [];
 

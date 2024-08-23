@@ -31,7 +31,7 @@ class CodeChallengeRule extends AbstractRule
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
-        $codeChallenge = $this->getParamFromRequestBasedOnAllowedMethods(
+        $codeChallenge = $this->getRequestParamBasedOnAllowedMethods(
             'code_challenge',
             $request,
             $loggerService,

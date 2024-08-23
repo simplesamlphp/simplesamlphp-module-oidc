@@ -4,14 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controller\Federation;
 
-use SimpleSAML\Module\oidc\Codebooks\ClaimNamesEnum;
-use SimpleSAML\Module\oidc\Codebooks\ClaimValues\ClientRegistrationTypesEnum;
-use SimpleSAML\Module\oidc\Codebooks\ClaimValues\RequestAuthenticationMethodsEnum;
-use SimpleSAML\Module\oidc\Codebooks\ClaimValues\TypeEnum;
-use SimpleSAML\Module\oidc\Codebooks\EntityTypeEnum;
-use SimpleSAML\Module\oidc\Codebooks\ErrorsEnum;
-use SimpleSAML\Module\oidc\Codebooks\HttpHeadersEnum;
-use SimpleSAML\Module\oidc\Codebooks\HttpHeaderValues\ContentTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
@@ -19,6 +11,14 @@ use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
+use SimpleSAML\OpenID\Codebooks\ContentTypeEnum;
+use SimpleSAML\OpenID\Codebooks\EntityTypeEnum;
+use SimpleSAML\OpenID\Codebooks\ErrorsEnum;
+use SimpleSAML\OpenID\Codebooks\HttpHeadersEnum;
+use SimpleSAML\OpenID\Codebooks\JwtTypeEnum;
+use SimpleSAML\OpenID\Codebooks\RequestAuthenticationMethodsEnum;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -42,29 +42,29 @@ class EntityStatementController
     public function configuration(): Response
     {
         $builder = $this->jsonWebTokenBuilderService->getFederationJwtBuilder()
-            ->withHeader(ClaimNamesEnum::Type->value, TypeEnum::EntityStatementJwt->value)
+            ->withHeader(ClaimsEnum::Typ->value, JwtTypeEnum::EntityStatementJwt->value)
             ->relatedTo($this->moduleConfig->getIssuer()) // This is entity configuration (statement about itself).
             ->expiresAt(
                 (TimestampGenerator::utcImmutable())->add($this->moduleConfig->getFederationEntityStatementDuration()),
             )->withClaim(
-                ClaimNamesEnum::JsonWebKeySet->value,
+                ClaimsEnum::Jwks->value,
                 ['keys' => array_values($this->jsonWebKeySetService->federationKeys()),],
             )
             ->withClaim(
-                ClaimNamesEnum::Metadata->value,
+                ClaimsEnum::Metadata->value,
                 [
                     EntityTypeEnum::FederationEntity->value => [
                         // Common https://openid.net/specs/openid-federation-1_0.html#name-common-metadata-parameters
                         ...(array_filter(
                             [
-                                ClaimNamesEnum::OrganizationName->value => $this->moduleConfig->getOrganizationName(),
-                                ClaimNamesEnum::Contacts->value => $this->moduleConfig->getContacts(),
-                                ClaimNamesEnum::LogoUri->value => $this->moduleConfig->getLogoUri(),
-                                ClaimNamesEnum::PolicyUri->value => $this->moduleConfig->getPolicyUri(),
-                                ClaimNamesEnum::HomepageUri->value => $this->moduleConfig->getHomepageUri(),
+                                ClaimsEnum::OrganizationName->value => $this->moduleConfig->getOrganizationName(),
+                                ClaimsEnum::Contacts->value => $this->moduleConfig->getContacts(),
+                                ClaimsEnum::LogoUri->value => $this->moduleConfig->getLogoUri(),
+                                ClaimsEnum::PolicyUri->value => $this->moduleConfig->getPolicyUri(),
+                                ClaimsEnum::HomepageUri->value => $this->moduleConfig->getHomepageUri(),
                             ],
                         )),
-                        ClaimNamesEnum::FederationFetchEndpoint->value =>
+                        ClaimsEnum::FederationFetchEndpoint->value =>
                             $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdFederationFetch->value),
                         // TODO mivanci Add when ready. Use ClaimsEnum for keys.
                         // https://openid.net/specs/openid-federation-1_0.html#name-federation-entity
@@ -82,15 +82,15 @@ class EntityStatementController
                     // OP metadata with additional federation related claims.
                     EntityTypeEnum::OpenIdProvider->value => [
                         ...$this->opMetadataService->getMetadata(),
-                        ClaimNamesEnum::ClientRegistrationTypesSupported->value => [
+                        ClaimsEnum::ClientRegistrationTypesSupported->value => [
                             ClientRegistrationTypesEnum::Automatic->value,
                         ],
-                        ClaimNamesEnum::RequestAuthenticationMethodsSupported->value => [
-                            ClaimNamesEnum::AuthorizationEndpoint->value => [
+                        ClaimsEnum::RequestAuthenticationMethodsSupported->value => [
+                            ClaimsEnum::AuthorizationEndpoint->value => [
                                 RequestAuthenticationMethodsEnum::RequestObject->value,
                             ],
                         ],
-                        ClaimNamesEnum::RequestAuthenticationSigningAlgValuesSupported->value => [
+                        ClaimsEnum::RequestAuthenticationSigningAlgValuesSupported->value => [
                             $this->moduleConfig->getProtocolSigner()->algorithmId(),
                         ],
                     ],
@@ -101,7 +101,7 @@ class EntityStatementController
             is_array($authorityHints = $this->moduleConfig->getFederationAuthorityHints()) &&
             (!empty($authorityHints))
         ) {
-            $builder = $builder->withClaim(ClaimNamesEnum::AuthorityHints->value, $authorityHints);
+            $builder = $builder->withClaim(ClaimsEnum::AuthorityHints->value, $authorityHints);
         }
 
         // Remaining claims, add if / when ready.
@@ -123,12 +123,12 @@ class EntityStatementController
 
     public function fetch(Request $request): Response
     {
-        $issuer = $request->query->get(ClaimNamesEnum::Issuer->value);
+        $issuer = $request->query->get(ClaimsEnum::Iss->value);
 
         if (empty($issuer)) {
             return $this->prepareJsonErrorResponse(
                 ErrorsEnum::InvalidRequest->value,
-                sprintf('Missing parameter %s', ClaimNamesEnum::Issuer->value),
+                sprintf('Missing parameter %s', ClaimsEnum::Iss->value),
                 400,
             );
         }
@@ -143,12 +143,12 @@ class EntityStatementController
             );
         }
 
-        $subject = $request->query->get(ClaimNamesEnum::Subject->value);
+        $subject = $request->query->get(ClaimsEnum::Sub->value);
 
         if (empty($subject)) {
             return $this->prepareJsonErrorResponse(
                 ErrorsEnum::InvalidRequest->value,
-                sprintf('Missing parameter %s', ClaimNamesEnum::Subject->value),
+                sprintf('Missing parameter %s', ClaimsEnum::Sub->value),
                 400,
             );
         }
@@ -174,28 +174,28 @@ class EntityStatementController
         }
 
         $builder = $this->jsonWebTokenBuilderService->getFederationJwtBuilder()
-            ->withHeader(ClaimNamesEnum::Type->value, TypeEnum::EntityStatementJwt->value)
+            ->withHeader(ClaimsEnum::Typ->value, JwtTypeEnum::EntityStatementJwt->value)
             ->relatedTo($subject)
             ->expiresAt(
                 (TimestampGenerator::utcImmutable())->add($this->moduleConfig->getFederationEntityStatementDuration()),
             )->withClaim(
-                ClaimNamesEnum::JsonWebKeySet->value,
+                ClaimsEnum::Jwks->value,
                 $jwks,
             )
             ->withClaim(
-                ClaimNamesEnum::Metadata->value,
+                ClaimsEnum::Metadata->value,
                 [
                     EntityTypeEnum::OpenIdRelyingParty->value => [
-                        ClaimNamesEnum::ClientName->value => $client->getName(),
-                        ClaimNamesEnum::ClientId->value => $client->getIdentifier(),
-                        ClaimNamesEnum::RedirectUris->value => $client->getRedirectUris(),
-                        ClaimNamesEnum::Scope->value => implode(' ', $client->getScopes()),
-                        ClaimNamesEnum::ClientRegistrationTypes->value => $client->getClientRegistrationTypes(),
+                        ClaimsEnum::ClientName->value => $client->getName(),
+                        ClaimsEnum::ClientId->value => $client->getIdentifier(),
+                        ClaimsEnum::RedirectUris->value => $client->getRedirectUris(),
+                        ClaimsEnum::Scope->value => implode(' ', $client->getScopes()),
+                        ClaimsEnum::ClientRegistrationTypes->value => $client->getClientRegistrationTypes(),
                         // Optional claims...
                         ...(array_filter(
                             [
-                                ClaimNamesEnum::BackChannelLogoutUri->value => $client->getBackChannelLogoutUri(),
-                                ClaimNamesEnum::PostLogoutRedirectUris->value => $client->getPostLogoutRedirectUri(),
+                                ClaimsEnum::BackChannelLogoutUri->value => $client->getBackChannelLogoutUri(),
+                                ClaimsEnum::PostLogoutRedirectUris->value => $client->getPostLogoutRedirectUri(),
                             ],
                         )),
                         // TODO mivanci Continue

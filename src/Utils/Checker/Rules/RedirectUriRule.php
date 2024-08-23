@@ -33,8 +33,12 @@ class RedirectUriRule extends AbstractRule
             throw new LogicException('Can not check redirect_uri, client is not ClientEntityInterface.');
         }
 
-        /** @var string|null $redirectUri */
-        $redirectUri = $request->getQueryParams()['redirect_uri'] ?? null;
+        $redirectUri = $this->getRequestParamBasedOnAllowedMethods(
+            'redirect_uri',
+            $request,
+            $loggerService,
+            $allowedServerRequestMethods,
+        );
 
         // On OAuth2 redirect_uri is optional if there is only one registered, however we will always require it
         // since this is OIDC oriented package and in OIDC this parameter is required.

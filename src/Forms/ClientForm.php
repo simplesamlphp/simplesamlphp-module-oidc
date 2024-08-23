@@ -18,9 +18,9 @@ namespace SimpleSAML\Module\oidc\Forms;
 
 use Nette\Forms\Form;
 use SimpleSAML\Auth\Source;
-use SimpleSAML\Module\oidc\Codebooks\ClaimValues\ClientRegistrationTypesEnum;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
 use Traversable;
 
 /**

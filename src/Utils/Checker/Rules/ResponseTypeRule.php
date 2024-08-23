@@ -25,14 +25,18 @@ class ResponseTypeRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
     ): ?ResultInterface {
-        $queryParams = $request->getQueryParams();
+        $requestParams = $this->getAllRequestParamsBasedOnAllowedMethods(
+            $request,
+            $loggerService,
+            $allowedServerRequestMethods,
+        ) ?? [];
 
-        if (!isset($queryParams['response_type']) || !isset($queryParams['client_id'])) {
+        if (!isset($requestParams['response_type']) || !isset($requestParams['client_id'])) {
             throw  OidcServerException::invalidRequest('Missing response_type');
         }
 
         // TODO consider checking for supported response types, for example, from configuration...
 
-        return new Result($this->getKey(), $queryParams['response_type']);
+        return new Result($this->getKey(), $requestParams['response_type']);
     }
 }

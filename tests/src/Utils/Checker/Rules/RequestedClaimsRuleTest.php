@@ -77,6 +77,7 @@ class RequestedClaimsRuleTest extends TestCase
         // Add some claims the client is not authorized for
         $requestedClaims['userinfo']['someClaim'] = null;
         $requestedClaims['id_token']['secret_password'] = null;
+        $this->requestStub->method('getMethod')->willReturn('GET');
         $this->requestStub->method('getQueryParams')->willReturn([
             'claims' => json_encode($requestedClaims),
             'client_id' => 'abc',
@@ -100,6 +101,7 @@ class RequestedClaimsRuleTest extends TestCase
             ],
         ];
         $requestedClaims = $expectedClaims;
+        $this->requestStub->method('getMethod')->willReturn('GET');
         $this->requestStub->method('getQueryParams')->willReturn([
             'claims' => json_encode($requestedClaims),
             'client_id' => 'abc',

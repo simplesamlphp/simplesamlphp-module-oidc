@@ -32,7 +32,7 @@ class ClientIdRule extends AbstractRule
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
     ): ?ResultInterface {
         /** @var ?string $clientId */
-        $clientId = $this->getParamFromRequestBasedOnAllowedMethods(
+        $clientId = $this->getRequestParamBasedOnAllowedMethods(
             'client_id',
             $request,
             $loggerService,

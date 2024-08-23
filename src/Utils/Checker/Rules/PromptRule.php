@@ -45,19 +45,23 @@ class PromptRule extends AbstractRule
 
         $authSimple = $this->authSimpleFactory->build($client);
 
-        $queryParams = $request->getQueryParams();
-        if (!array_key_exists('prompt', $queryParams)) {
+        $requestParams = $this->getAllRequestParamsBasedOnAllowedMethods(
+            $request,
+            $loggerService,
+            $allowedServerRequestMethods,
+        ) ?? [];
+        if (!array_key_exists('prompt', $requestParams)) {
             return null;
         }
 
-        $prompt = explode(" ", (string)$queryParams['prompt']);
+        $prompt = explode(" ", (string)$requestParams['prompt']);
         if (count($prompt) > 1 && in_array('none', $prompt, true)) {
             throw OAuthServerException::invalidRequest('prompt', 'Invalid prompt parameter');
         }
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
         /** @var ?string $state */
-        $state = $queryParams['state'] ?? null;
+        $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
         if (in_array('none', $prompt, true) && !$authSimple->isAuthenticated()) {
             throw OidcServerException::loginRequired(
@@ -70,10 +74,10 @@ class PromptRule extends AbstractRule
         }
 
         if (in_array('login', $prompt, true) && $authSimple->isAuthenticated()) {
-            $queryParams = (new HTTP())->parseQueryString($request->getUri()->getQuery());
-            unset($queryParams['prompt']);
+            unset($requestParams['prompt']);
             $loginParams = [];
-            $loginParams['ReturnTo'] = (new HTTP())->addURLParameters((new HTTP())->getSelfURLNoQuery(), $queryParams);
+            $loginParams['ReturnTo'] = (new HTTP())
+                ->addURLParameters((new HTTP())->getSelfURLNoQuery(), $requestParams);
 
             $this->authenticationService->authenticate($request, $loginParams);
         }

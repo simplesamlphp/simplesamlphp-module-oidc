@@ -55,7 +55,7 @@ class AcrValuesRule extends AbstractRule
         }
 
         // Check for acr_values request parameter
-        $acrValuesParam = $this->getParamFromRequestBasedOnAllowedMethods(
+        $acrValuesParam = $this->getRequestParamBasedOnAllowedMethods(
             'acr_values',
             $request,
             $loggerService,

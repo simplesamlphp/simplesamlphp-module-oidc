@@ -23,8 +23,8 @@ use ReflectionClass;
 use SimpleSAML\Configuration;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
-use SimpleSAML\Module\oidc\Codebooks\ScopesEnum;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\OpenID\Codebooks\ScopesEnum;
 
 class ModuleConfig
 {

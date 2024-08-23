@@ -31,8 +31,12 @@ class RequiredNonceRule extends AbstractRule
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
-        /** @var string|null $nonce */
-        $nonce = $request->getQueryParams()['nonce'] ?? null;
+        $nonce = $this->getRequestParamBasedOnAllowedMethods(
+            'nonce',
+            $request,
+            $loggerService,
+            $allowedServerRequestMethods,
+        );
 
         if ($nonce === null || $nonce === '') {
             throw OidcServerException::invalidRequest(

@@ -24,7 +24,7 @@ class UiLocalesRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
     ): ?ResultInterface {
-        return new Result($this->getKey(), $this->getParamFromRequestBasedOnAllowedMethods(
+        return new Result($this->getKey(), $this->getRequestParamBasedOnAllowedMethods(
             'ui_locales',
             $request,
             $loggerService,

@@ -97,6 +97,7 @@ class CodeChallengeRuleTest extends TestCase
     public function testCheckRuleForValidCodeChallenge(): void
     {
         $resultBag = $this->prepareValidResultBag();
+        $this->requestStub->method('getMethod')->willReturn('GET');
         $this->requestStub->method('getQueryParams')->willReturn(['code_challenge' => $this->codeChallenge]);
         $result = $this->rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
 

@@ -97,6 +97,7 @@ class ScopeRuleTest extends TestCase
     public function testValidScopes(): void
     {
         $resultBag = $this->prepareValidResultBag();
+        $this->requestStub->method('getMethod')->willReturn('GET');
         $this->requestStub->method('getQueryParams')->willReturn(['scope' => 'openid profile']);
         $this->scopeRepositoryStub
             ->method('getScopeEntityByIdentifier')
@@ -121,6 +122,7 @@ class ScopeRuleTest extends TestCase
     public function testInvalidScopeThrows(): void
     {
         $resultBag = $this->prepareValidResultBag();
+        $this->requestStub->method('getMethod')->willReturn('GET');
         $this->requestStub->method('getQueryParams')->willReturn(['scope' => 'openid']);
         $this->scopeRepositoryStub
             ->method('getScopeEntityByIdentifier')

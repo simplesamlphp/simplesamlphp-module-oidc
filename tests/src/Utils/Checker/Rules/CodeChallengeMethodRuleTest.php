@@ -73,6 +73,7 @@ class CodeChallengeMethodRuleTest extends TestCase
     public function testCheckRuleWithInvalidCodeChallengeMethodThrows(): void
     {
         $resultBag = $this->prepareValidResultBag();
+        $this->requestStub->method('getMethod')->willReturn('GET');
         $this->requestStub->method('getQueryParams')->willReturn(['code_challenge_method' => 'invalid']);
         $this->expectException(OidcServerException::class);
         $this->rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);

@@ -66,6 +66,7 @@ class ResponseTypeRuleTest extends TestCase
         $rule = new ResponseTypeRule();
 
         $this->requestParams['response_type'] = $responseType;
+        $this->requestStub->method('getMethod')->willReturn('GET');
         $this->requestStub->method('getQueryParams')->willReturn($this->requestParams);
         $result = $rule->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub) ??
         new Result(ResponseTypeRule::class, null);

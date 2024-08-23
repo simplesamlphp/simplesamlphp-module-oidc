@@ -39,23 +39,33 @@ class MaxAgeRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
     ): ?ResultInterface {
-        $queryParams = $request->getQueryParams();
+        $requestParams = $this->getAllRequestParamsBasedOnAllowedMethods(
+            $request,
+            $loggerService,
+            $allowedServerRequestMethods,
+        ) ?? [];
 
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
 
         $authSimple = $this->authSimpleFactory->build($client);
 
-        if (!array_key_exists('max_age', $queryParams) || !$authSimple->isAuthenticated()) {
+        if (!array_key_exists('max_age', $requestParams) || !$authSimple->isAuthenticated()) {
             return null;
         }
 
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
         /** @var ?string $state */
-        $state = $queryParams['state'] ?? null;
+        $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
-        if (false === filter_var($queryParams['max_age'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]])) {
+        if (
+            false === filter_var(
+                $requestParams['max_age'],
+                FILTER_VALIDATE_INT,
+                ['options' => ['min_range' => 0]],
+            )
+        ) {
             throw OidcServerException::invalidRequest(
                 'max_age',
                 'max_age must be a valid integer',
@@ -66,15 +76,16 @@ class MaxAgeRule extends AbstractRule
             );
         }
 
-        $maxAge = (int) $queryParams['max_age'];
+        $maxAge = (int) $requestParams['max_age'];
         $lastAuth =  (int) $authSimple->getAuthData('AuthnInstant');
         $isExpired = $lastAuth + $maxAge < time();
 
         if ($isExpired) {
-            $queryParams = (new HTTP())->parseQueryString($request->getUri()->getQuery());
-            unset($queryParams['prompt']);
+            unset($requestParams['prompt']);
             $loginParams = [];
-            $loginParams['ReturnTo'] = (new HTTP())->addURLParameters((new HTTP())->getSelfURLNoQuery(), $queryParams);
+            // TODO mivanci Move to SspBridge
+            $loginParams['ReturnTo'] = (new HTTP())
+                ->addURLParameters((new HTTP())->getSelfURLNoQuery(), $requestParams);
 
             $this->authenticationService->authenticate($request, $loginParams);
         }

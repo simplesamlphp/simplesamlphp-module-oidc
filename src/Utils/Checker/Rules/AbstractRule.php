@@ -22,12 +22,11 @@ abstract class AbstractRule implements RequestRuleInterface
     /**
      * @param string[] $allowedServerRequestMethods
      */
-    protected function getParamFromRequestBasedOnAllowedMethods(
-        string $paramKey,
+    protected function getAllRequestParamsBasedOnAllowedMethods(
         ServerRequestInterface $request,
         LoggerService $loggerService,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
-    ): ?string {
+    ): ?array {
         // Make sure the case is compatible...
         $allowedServerRequestMethods = array_map('strtoupper', $allowedServerRequestMethods);
         $requestMethod = strtoupper($request->getMethod());
@@ -43,27 +42,46 @@ abstract class AbstractRule implements RequestRuleInterface
             return null;
         }
 
-        /** @var ?string $param */
-        $param = null;
         switch ($requestMethod) {
             case 'GET':
-                $param = isset($request->getQueryParams()[$paramKey]) ?
-                (string)$request->getQueryParams()[$paramKey] : null;
-                break;
+                return $request->getQueryParams();
             case 'POST':
                 if (is_array($parsedBody = $request->getParsedBody())) {
-                    $param = isset($parsedBody[$paramKey]) ? (string)$parsedBody[$paramKey] : null;
+                    return $parsedBody;
                 }
-                break;
-            default:
                 $loggerService->warning(
                     sprintf(
-                        'Request method %s is not supported.',
+                        'Unexpected HTTP body content for method %s. Got: %s',
                         $requestMethod,
+                        var_export($parsedBody, true),
                     ),
                 );
+                return null;
+            default:
+                $loggerService->warning(sprintf('Request method %s is not supported.', $requestMethod));
+                return null;
+        }
+    }
+
+    /**
+     * @param string[] $allowedServerRequestMethods
+     */
+    protected function getRequestParamBasedOnAllowedMethods(
+        string $paramKey,
+        ServerRequestInterface $request,
+        LoggerService $loggerService,
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
+    ): ?string {
+        $requestParams = $this->getAllRequestParamsBasedOnAllowedMethods(
+            $request,
+            $loggerService,
+            $allowedServerRequestMethods,
+        );
+
+        if (is_null($requestParams)) {
+            return null;
         }
 
-        return $param;
+        return isset($requestParams[$paramKey]) ? (string)$requestParams[$paramKey] : null;
     }
 }
