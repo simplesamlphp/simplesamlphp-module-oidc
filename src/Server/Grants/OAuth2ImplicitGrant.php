@@ -104,7 +104,7 @@ class OAuth2ImplicitGrant extends ImplicitGrant implements AuthorizationValidata
         $this->requestRulesManager->setData('default_scope', $this->defaultScope);
         $this->requestRulesManager->setData('scope_delimiter_string', self::SCOPE_DELIMITER_STRING);
 
-        $resultBag = $this->requestRulesManager->check($request, $rulesToExecute);
+        $resultBag = $this->requestRulesManager->check($request, $rulesToExecute, false, ['GET', 'POST']);
 
         /** @var \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes */
         $scopes = $resultBag->getOrFail(ScopeRule::class)->getValue();

@@ -26,11 +26,11 @@ use SimpleSAML\Error\Exception;
 use SimpleSAML\Error\NoState;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Controller\EndSessionController;
-use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Factories\ProcessingChainFactory;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
@@ -40,8 +40,6 @@ use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
 class AuthenticationService
 {
-    use GetClientFromRequestTrait;
-
     /**
      * ID of auth source used during authn.
      */
@@ -58,15 +56,15 @@ class AuthenticationService
     public function __construct(
         private readonly UserRepository $userRepository,
         private readonly AuthSimpleFactory $authSimpleFactory,
-        ClientRepository $clientRepository,
+        private readonly ClientRepository $clientRepository,
         private readonly OpMetadataService $opMetadataService,
         private readonly SessionService $sessionService,
         private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
         private readonly ModuleConfig $moduleConfig,
         private readonly ProcessingChainFactory $processingChainFactory,
         private readonly StateService $stateService,
+        private readonly Helpers $helpers,
     ) {
-        $this->clientRepository = $clientRepository;
         $this->userIdAttr = $this->moduleConfig->getUserIdentifierAttribute();
     }
 
@@ -87,7 +85,8 @@ class AuthenticationService
         ServerRequestInterface $request,
         OAuth2AuthorizationRequest $authorizationRequest,
     ): array {
-        $oidcClient = $this->getClientFromRequest($request);
+        // TODO mivanci Fix: client has already been resolved up to this point, but we are again fetching it from DB.
+        $oidcClient = $this->helpers->client()->getFromRequest($request, $this->clientRepository);
         $authSimple = $this->authSimpleFactory->build($oidcClient);
 
         $this->authSourceId = $authSimple->getAuthSource()->getAuthId();
@@ -166,11 +165,11 @@ class AuthenticationService
     /**
      * @param   array|null  $state
      *
-     * @return AuthorizationRequest|OAuth2AuthorizationRequest
+     * @return OAuth2AuthorizationRequest
      * @throws Exception
      */
 
-    public function getAuthorizationRequestFromState(array|null $state): AuthorizationRequest|OAuth2AuthorizationRequest
+    public function getAuthorizationRequestFromState(array|null $state): OAuth2AuthorizationRequest
     {
         if (!isset($state['authorizationRequest'])) {
             throw new Exception('Authorization Request is not set.');
@@ -211,7 +210,7 @@ class AuthenticationService
                 ARRAY_FILTER_USE_KEY,
             ),
             'AuthorizationRequestParameters' => array_filter(
-                $request->getQueryParams(),
+                $this->helpers->http()->getAllRequestParams($request),
                 function (/** @param array-key $key */ $key) {
                     $authzParams = ['response_type', 'client_id', 'redirect_uri', 'scope', 'code_challenge_method'];
                     return in_array($key, $authzParams);
@@ -272,7 +271,8 @@ class AuthenticationService
         ServerRequestInterface $request,
         array $loginParams = [],
     ): void {
-        $oidcClient = $this->getClientFromRequest($request);
+        // TODO mivanci Fix: client has already been resolved up to this point, but we are again fetching it from DB.
+        $oidcClient = $this->helpers->client()->getFromRequest($request, $this->clientRepository);
         $authSimple = $this->authSimpleFactory->build($oidcClient);
 
         $this->sessionService->setIsCookieBasedAuthn(false);

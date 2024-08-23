@@ -44,6 +44,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestParameterRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeOfflineAccessRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
@@ -610,6 +611,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             RequestedClaimsRule::class,
             AcrValuesRule::class,
             ScopeOfflineAccessRule::class,
+            RequiredOpenIdScopeRule::class,
         ];
 
         // Since we have already validated redirect_uri, and we have state, make it available for other checkers.
@@ -632,7 +634,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $rulesToExecute[] = CodeChallengeMethodRule::class;
         }
 
-        $resultBag = $this->requestRulesManager->check($request, $rulesToExecute);
+        $resultBag = $this->requestRulesManager->check($request, $rulesToExecute, false, ['GET', 'POST']);
 
         /** @var \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes */
         $scopes = $resultBag->getOrFail(ScopeRule::class)->getValue();
@@ -664,8 +666,12 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         $authorizationRequest = AuthorizationRequest::fromOAuth2AuthorizationRequest($oAuth2AuthorizationRequest);
 
+        $requestParams = $this->helpers->http()->getAllRequestParamsBasedOnAllowedMethods(
+            $request,
+            [HttpMethodsEnum::GET, HttpMethodsEnum::POST],
+        ) ?? [];
         /** @var string|null $nonce */
-        $nonce = $request->getQueryParams()['nonce'] ?? null;
+        $nonce = $requestParams['nonce'] ?? null;
         if ($nonce !== null) {
             $authorizationRequest->setNonce($nonce);
         }

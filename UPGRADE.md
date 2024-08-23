@@ -26,6 +26,7 @@
     - `consent` and `preprodwarning` are two authprocs that redirect for user interaction and are now supported
   - Uses SSP's ProcessingChain class for closer alignment with SAML IdP configuration.
     - Allows additional configuration of authprocs in the main `config.php` under key `authproc.oidc`
+- Authorization endpoint now also supports sending parameters using HTTP POST method, in addition to GET.
 
 ## New configuration options
 
@@ -73,6 +74,8 @@ has been refactored:
 - upgraded to v5 of lcobucci/jwt https://github.com/lcobucci/jwt
 - upgraded to v3 of laminas/laminas-diactoros https://github.com/laminas/laminas-diactoros
 - SimpleSAMLphp version used during development was bumped to v2.2
+- In Authorization Code Flow, a new validation was added which checks for 'openid' value in 'scope' parameter. Up to
+now, 'openid' value was dynamically added if not present. In Implicit Code Flow this validation was already present. 
 
 # Version 4 to 5
 

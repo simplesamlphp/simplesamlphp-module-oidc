@@ -9,6 +9,14 @@ use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 class Http
 {
+    public function getAllRequestParams(ServerRequestInterface $request): array
+    {
+        return array_merge(
+            $request->getQueryParams(),
+            (is_array($parsedBody = $request->getParsedBody()) ? $parsedBody : []),
+        );
+    }
+
     /**
      * @param \Psr\Http\Message\ServerRequestInterface $request
      * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods

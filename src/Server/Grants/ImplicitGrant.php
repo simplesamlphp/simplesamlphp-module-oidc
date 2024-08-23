@@ -122,7 +122,12 @@ class ImplicitGrant extends OAuth2ImplicitGrant
 
         $this->requestRulesManager->predefineResultBag($resultBag);
 
-        $resultBag = $this->requestRulesManager->check($request, $rulesToExecute, $this->shouldUseFragment());
+        $resultBag = $this->requestRulesManager->check(
+            $request,
+            $rulesToExecute,
+            $this->shouldUseFragment(),
+            ['GET', 'POST'],
+        );
 
         $authorizationRequest = AuthorizationRequest::fromOAuth2AuthorizationRequest($oAuth2AuthorizationRequest);
 

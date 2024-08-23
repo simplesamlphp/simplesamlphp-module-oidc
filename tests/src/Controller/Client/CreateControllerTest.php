@@ -136,6 +136,7 @@ class CreateControllerTest extends TestCase
                      'backchannel_logout_uri' => null,
                      'entity_identifier' => null,
                      'client_registration_types' => null,
+                     'federation_jwks' => null,
                  ],
             );
 
@@ -196,6 +197,7 @@ class CreateControllerTest extends TestCase
                     'backchannel_logout_uri' => null,
                     'entity_identifier' => null,
                     'client_registration_types' => null,
+                    'federation_jwks' => null,
                 ],
             );
 

@@ -136,7 +136,7 @@ class Container implements ContainerInterface
         $databaseLegacyOAuth2Import = new DatabaseLegacyOAuth2Import($clientRepository);
         $this->services[DatabaseLegacyOAuth2Import::class] = $databaseLegacyOAuth2Import;
 
-        $authSimpleFactory = new AuthSimpleFactory($clientRepository, $moduleConfig);
+        $authSimpleFactory = new AuthSimpleFactory($moduleConfig);
         $this->services[AuthSimpleFactory::class] = $authSimpleFactory;
 
         $authContextService = new AuthContextService($moduleConfig, $authSimpleFactory);
@@ -178,6 +178,8 @@ class Container implements ContainerInterface
         $stateService = new StateService();
         $this->services[StateService::class] = $stateService;
 
+        $helpers = new Helpers();
+
         $authenticationService = new AuthenticationService(
             $userRepository,
             $authSimpleFactory,
@@ -188,6 +190,7 @@ class Container implements ContainerInterface
             $moduleConfig,
             $processingChainFactory,
             $stateService,
+            $helpers,
         );
         $this->services[AuthenticationService::class] = $authenticationService;
 
@@ -246,7 +249,6 @@ class Container implements ContainerInterface
         );
         $this->services[IdTokenResponse::class] = $idTokenResponseFactory->build();
 
-        $helpers = new Helpers();
         $this->services[Helpers::class] = $helpers;
 
         $authCodeGrantFactory = new AuthCodeGrantFactory(

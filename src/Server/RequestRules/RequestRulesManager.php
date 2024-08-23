@@ -54,6 +54,7 @@ class RequestRulesManager
         ServerRequestInterface $request,
         array $ruleKeysToExecute,
         bool $useFragmentInHttpErrorResponses = false,
+        // TODO mivanci move to HttpMethodsEnum instances
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
     ): ResultBagInterface {
         foreach ($ruleKeysToExecute as $ruleKey) {
