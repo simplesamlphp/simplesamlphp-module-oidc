@@ -69,13 +69,24 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
      */
     protected ScopeEntity $scopeEntityProfile;
 
+    private static ?string $containerAddress = null;
+    private static ?string $mysqlPort = null;
+    private static ?string $postgresPort = null;
+
     public static function setUpBeforeClass(): void
     {
+        self::$containerAddress = getenv('HOSTADDRESS') ?: null;
+        self::$mysqlPort = getenv('HOSTPORT_MY') ?: null;
+        self::$postgresPort = getenv('HOSTPORT_PG') ?: null;
         // Mac docker seems to require connecting to localhost and mapped port to access containers
         if (PHP_OS_FAMILY === 'Darwin' && getenv('HOSTADDRESS') === false) {
             //phpcs:ignore Generic.Files.LineLength.TooLong
             echo "Defaulting docker host address to 127.0.0.1. Disable this behavior by setting HOSTADDRESS to a blank.\n\tHOSTADDRESS= ./vendor/bin/phpunit";
-            putenv('HOSTADDRESS=127.0.0.1');
+            self::$containerAddress = "127.0.0.1";
+        } else {
+            //Use the container ips and ports if not on a Mac
+            self::$mysqlPort ??= "3306";
+            self::$postgresPort ??= "5432";
         }
         Configuration::setConfigDir(__DIR__ . '/../../../../config-templates');
         self::$pgConfig = self::loadPGDatabase();
@@ -131,7 +142,7 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         $pgContainer = PostgresContainer::make('15.0', 'password');
         $pgContainer->withPostgresDatabase('database');
         $pgContainer->withPostgresUser('username');
-        $hostPort = getenv('HOSTPORT_PG') ?: self::findFreePort();
+        $hostPort = self::$postgresPort ?: self::findFreePort();
         $pgContainer->withPort($hostPort, '5432');
 
         $pgContainer->run();
@@ -140,7 +151,7 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         // Wait until that message is in the logs
         $pgContainer->withWait(new WaitForLog('Ready to accept connections'));
 
-        $hostAddress = getenv('HOSTADDRESS') ?: $pgContainer->getAddress();
+        $hostAddress = self::$containerAddress ?: $pgContainer->getAddress();
         $pgConfig = [
             'database.dsn' => sprintf(
                 'pgsql:host=%s;port=%s;dbname=database',
@@ -153,8 +164,8 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
             'database.persistent' => true,
             'database.secondaries' => [],
             'database.driver_options' => [
-                PDO::ATTR_TIMEOUT => 2 // Timeout quickly if there are docker issues
-            ]
+                PDO::ATTR_TIMEOUT => 2, // Timeout quickly if there are docker issues
+            ],
         ];
 
         return $pgConfig;
@@ -179,7 +190,7 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         $mysqlContainer = MySQLContainer::make('8.0');
         $mysqlContainer->withMySQLDatabase('database');
         $mysqlContainer->withMySQLUser('username', 'password');
-        $hostPort = getenv('HOSTPORT_MY') ?: self::findFreePort();
+        $hostPort = self::$mysqlPort ?: self::findFreePort();
         $mysqlContainer->withPort($hostPort, '3306');
 
         $mysqlContainer->run();
@@ -188,8 +199,9 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         // Wait until that message is in the logs
         $mysqlContainer->withWait(new WaitForLog('Ready to accept connections'));
 
-        $hostAddress = getenv('HOSTADDRESS') ?: $mysqlContainer->getAddress();
+        $hostAddress = self::$containerAddress ?: $mysqlContainer->getAddress();
         if ($hostAddress === 'localhost') {
+            //phpcs:ignore Generic.Files.LineLength.TooLong
             throw new \Exception('To connect to localhost with mysql use IP 127.0.0.1, otherwise mysql tries to use a file socket');
         }
         $mysqlConfig = [
@@ -201,8 +213,8 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
             'database.persistent' => true,
             'database.secondaries' => [],
             'database.driver_options' => [
-                PDO::ATTR_TIMEOUT => 2 // Timeout quickly if there are docker issues
-            ]
+                PDO::ATTR_TIMEOUT => 2, // Timeout quickly if there are docker issues
+            ],
         ];
 
 
