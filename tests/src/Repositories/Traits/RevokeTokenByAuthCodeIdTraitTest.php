@@ -71,7 +71,12 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
 
     public static function setUpBeforeClass(): void
     {
-
+        // Mac docker seems to require connecting to localhost and mapped port to access containers
+        if (PHP_OS_FAMILY === 'Darwin' && getenv('HOSTADDRESS') === false) {
+            //phpcs:ignore Generic.Files.LineLength.TooLong
+            echo "Defaulting docker host address to 127.0.0.1. Disable this behavior by setting HOSTADDRESS to a blank.\n\tHOSTADDRESS= ./vendor/bin/phpunit";
+            putenv('HOSTADDRESS=127.0.0.1');
+        }
         Configuration::setConfigDir(__DIR__ . '/../../../../config-templates');
         self::$pgConfig = self::loadPGDatabase();
         self::$mysqlConfig = self::loadMySqlDatabase();
@@ -126,7 +131,7 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         $pgContainer = PostgresContainer::make('15.0', 'password');
         $pgContainer->withPostgresDatabase('database');
         $pgContainer->withPostgresUser('username');
-        $hostPort = getenv('HOSTPORT') ?: '5432';
+        $hostPort = getenv('HOSTPORT_PG') ?: self::findFreePort();
         $pgContainer->withPort($hostPort, '5432');
 
         $pgContainer->run();
@@ -147,6 +152,9 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
             'database.prefix' => 'phpunit_',
             'database.persistent' => true,
             'database.secondaries' => [],
+            'database.driver_options' => [
+                PDO::ATTR_TIMEOUT => 2 // Timeout quickly if there are docker issues
+            ]
         ];
 
         return $pgConfig;
@@ -171,6 +179,8 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         $mysqlContainer = MySQLContainer::make('8.0');
         $mysqlContainer->withMySQLDatabase('database');
         $mysqlContainer->withMySQLUser('username', 'password');
+        $hostPort = getenv('HOSTPORT_MY') ?: self::findFreePort();
+        $mysqlContainer->withPort($hostPort, '3306');
 
         $mysqlContainer->run();
         // Wait until the docker heartcheck is green
@@ -178,15 +188,23 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         // Wait until that message is in the logs
         $mysqlContainer->withWait(new WaitForLog('Ready to accept connections'));
 
+        $hostAddress = getenv('HOSTADDRESS') ?: $mysqlContainer->getAddress();
+        if ($hostAddress === 'localhost') {
+            throw new \Exception('To connect to localhost with mysql use IP 127.0.0.1, otherwise mysql tries to use a file socket');
+        }
         $mysqlConfig = [
             'database.dsn' =>
-                sprintf('mysql:host=%s;port=3306;dbname=database', $mysqlContainer->getAddress()),
+                sprintf('mysql:host=%s;port=%s;dbname=database', $hostAddress, $hostPort),
             'database.username' => 'username',
             'database.password' => 'password',
             'database.prefix' => 'phpunit_',
             'database.persistent' => true,
             'database.secondaries' => [],
+            'database.driver_options' => [
+                PDO::ATTR_TIMEOUT => 2 // Timeout quickly if there are docker issues
+            ]
         ];
+
 
         return $mysqlConfig;
     }
@@ -301,5 +319,20 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
             'admin',
             $owner,
         );
+    }
+
+    /**
+     * Determine a free port for the docker container
+     * by creating a closing a socket
+     */
+    private static function findFreePort(): string
+    {
+        $sock = socket_create_listen(0);
+        if (socket_getsockname($sock, $addr, $port)) {
+            socket_close($sock);
+            return '' . $port;
+        } else {
+            throw new \Exception('unable to allocate port');
+        }
     }
 }
