@@ -17,14 +17,15 @@ use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithCheckerResultBagInterface;
+use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
-use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\IdTokenHintRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\PostLogoutRedirectUriRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\UiLocalesRule;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 class AuthorizationServer extends OAuth2AuthorizationServer
 {
@@ -83,7 +84,12 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         ];
 
         try {
-            $resultBag = $this->requestRulesManager->check($request, $rulesToExecute);
+            $resultBag = $this->requestRulesManager->check(
+                $request,
+                $rulesToExecute,
+                false,
+                [HttpMethodsEnum::GET->value, HttpMethodsEnum::POST->value],
+            );
         } catch (OidcServerException $exception) {
             $reason = sprintf("%s %s", $exception->getMessage(), $exception->getHint() ?? '');
             throw new BadRequest($reason);

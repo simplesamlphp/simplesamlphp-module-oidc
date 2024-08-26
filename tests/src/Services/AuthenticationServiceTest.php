@@ -22,6 +22,7 @@ use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Factories\ProcessingChainFactory;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
@@ -76,6 +77,9 @@ class AuthenticationServiceTest extends TestCase
     protected MockObject $stateServiceMock;
     protected MockObject $userEntityMock;
     protected MockObject $userRepositoryMock;
+    protected MockObject $helpersMock;
+    protected MockObject $httpHelperMock;
+    protected MockObject $clientHelperMock;
 
     /**
      * @return void
@@ -121,27 +125,38 @@ class AuthenticationServiceTest extends TestCase
         $this->serverRequestMock->method('getQueryParams')->willReturn(self::AUTHZ_REQUEST_PARAMS);
         $this->serverRequestMock->method('getUri')->willReturn(new Uri(self::URI));
         $this->sessionServiceMock->method('getCurrentSession')->willReturn($this->sessionMock);
+
+        $this->helpersMock = $this->createMock(Helpers::class);
+        $this->httpHelperMock = $this->createMock(Helpers\Http::class);
+        $this->httpHelperMock->method('getAllRequestParams')->with($this->serverRequestMock)
+            ->willReturn(self::AUTHZ_REQUEST_PARAMS);
+        $this->clientHelperMock = $this->createMock(Helpers\Client::class);
+
+        $this->helpersMock->method('http')->willReturn($this->httpHelperMock);
+        $this->helpersMock->method('client')->willReturn($this->clientHelperMock);
     }
 
     /**
      * @return AuthenticationService
      */
-    public function prepareMockedInstance(): AuthenticationService
+    public function mock(): AuthenticationService
     {
         return $this->getMockBuilder(AuthenticationService::class)
             ->enableOriginalConstructor()
-            ->setConstructorArgs([
-                                     $this->userRepositoryMock,
-                                     $this->authSimpleFactoryMock,
-                                     $this->clientRepositoryMock,
-                                     $this->oidcOpenIdProviderMetadataServiceMock,
-                                     $this->sessionServiceMock,
-                                     $this->claimTranslatorExtractorMock,
-                                     $this->moduleConfigMock,
-                                     $this->processingChainFactoryMock,
-                                     $this->stateServiceMock,
-                                 ])
-            ->onlyMethods(['getClientFromRequest'])
+            ->setConstructorArgs(
+                [
+                     $this->userRepositoryMock,
+                     $this->authSimpleFactoryMock,
+                     $this->clientRepositoryMock,
+                     $this->oidcOpenIdProviderMetadataServiceMock,
+                     $this->sessionServiceMock,
+                     $this->claimTranslatorExtractorMock,
+                     $this->moduleConfigMock,
+                     $this->processingChainFactoryMock,
+                     $this->stateServiceMock,
+                     $this->helpersMock,
+                ],
+            )->onlyMethods([])
             ->getMock();
     }
 
@@ -152,7 +167,7 @@ class AuthenticationServiceTest extends TestCase
     {
         $this->assertInstanceOf(
             AuthenticationService::class,
-            $this->prepareMockedInstance(),
+            $this->mock(),
         );
     }
 
@@ -169,7 +184,7 @@ class AuthenticationServiceTest extends TestCase
         $clientId = 'client123';
         $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
         $this->clientEntityMock->expects($this->once())->method('getIdentifier')->willReturn($clientId);
-        $userEntity = $this->prepareMockedInstance()->getAuthenticateUser(self::STATE);
+        $userEntity = $this->mock()->getAuthenticateUser(self::STATE);
 
         $this->assertSame(
             $userEntity->getIdentifier(),
@@ -182,10 +197,10 @@ class AuthenticationServiceTest extends TestCase
     }
 
     /**
-     * @throws \SimpleSAML\Error\AuthSource
-     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \SimpleSAML\Error\NotFound
      * @throws \SimpleSAML\Error\Exception
+     * @throws \JsonException
      */
     public function testItReturnsAnUser(): void
     {
@@ -209,7 +224,7 @@ class AuthenticationServiceTest extends TestCase
             ->willReturn([]);
 
         $this->assertSame(
-            $this->prepareMockedInstance()->getAuthenticateUser(self::STATE),
+            $this->mock()->getAuthenticateUser(self::STATE),
             $this->userEntityMock,
         );
     }
@@ -258,15 +273,13 @@ class AuthenticationServiceTest extends TestCase
     }
 
     /**
-     * @param   array   $state
-     * @param   string  $exceptionClass
-     * @param   string  $exceptionMessage
+     * @param array $state
+     * @param string $exceptionClass
+     * @param string $exceptionMessage
      *
-     * @return void
-     * @throws Error/Exception
-     * @throws Error/NotFound
      * @throws \JsonException
-     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\NotFound
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     #[DataProvider('getUserState')]
@@ -282,7 +295,7 @@ class AuthenticationServiceTest extends TestCase
         }
         $this->expectException($exceptionClass);
         $this->expectExceptionMessageMatches($exceptionMessage);
-        $this->prepareMockedInstance()->getAuthenticateUser($state);
+        $this->mock()->getAuthenticateUser($state);
     }
 
     /**
@@ -303,7 +316,7 @@ class AuthenticationServiceTest extends TestCase
             "/Attribute `useridattr` doesn\'t exists in claims. Available attributes are:/",
         );
 
-        $this->prepareMockedInstance()->getAuthenticateUser($invalidState);
+        $this->mock()->getAuthenticateUser($invalidState);
     }
 
     /**
@@ -316,12 +329,11 @@ class AuthenticationServiceTest extends TestCase
     public function testItAuthenticates(): void
     {
         $this->authSimpleMock->expects($this->once())->method('login')->with([]);
-        $this->prepareMockedInstance()
-            ->method('getClientFromRequest')
-            ->with($this->serverRequestMock)
+        $this->clientHelperMock->expects($this->once())
+            ->method('getFromRequest')
             ->willReturn($this->clientEntityMock);
 
-        $this->prepareMockedInstance()->authenticate($this->serverRequestMock);
+        $this->mock()->authenticate($this->serverRequestMock);
     }
 
     /**
@@ -343,7 +355,7 @@ class AuthenticationServiceTest extends TestCase
 
         $this->assertSame(
             $state,
-            $this->prepareMockedInstance()->prepareStateArray(
+            $this->mock()->prepareStateArray(
                 $this->authSimpleMock,
                 $this->clientEntityMock,
                 $this->serverRequestMock,
@@ -364,12 +376,13 @@ class AuthenticationServiceTest extends TestCase
     }
 
     /**
-     * @throws SimpleSAML\Error\AuthSource
-     * @throws SimpleSAML\Error\BadRequest
-     * @throws SimpleSAML\Error\Exception
-     * @throws JsonException
-     * @throws SimpleSAML\Error\OidcServerException
-     * @throws SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Error\AuthSource
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Error\UnserializableException
      */
     #[DataProvider('isAuthnPerformedInPreviousRequest')]
     #[TestDox('Process Request with authentication performed in previous request: $isAuthnPer')]
@@ -387,14 +400,14 @@ class AuthenticationServiceTest extends TestCase
                                      $this->moduleConfigMock,
                                      $this->processingChainFactoryMock,
                                      $this->stateServiceMock,
+                                     $this->helpersMock,
                                  ])
-            ->onlyMethods(['getClientFromRequest', 'runAuthProcs', 'prepareStateArray'])
+            ->onlyMethods(['runAuthProcs', 'prepareStateArray'])
             ->getMock();
 
         $this->moduleConfigMock->method('getAuthProcFilters')->willReturn([]);
         $this->authSimpleMock->expects($this->once())->method('isAuthenticated')->willReturn(true);
-        $authenticationServiceMock->method('getClientFromRequest')->with($this->serverRequestMock)
-            ->willReturn($this->clientEntityMock);
+        $this->clientHelperMock->method('getFromRequest')->willReturn($this->clientEntityMock);
         $authenticationServiceMock->method('prepareStateArray')->with(
             $this->authSimpleMock,
             $this->clientEntityMock,
@@ -419,7 +432,7 @@ class AuthenticationServiceTest extends TestCase
     public function testItThrowsOnMissingQueryParameterAuthparam(): void
     {
         $this->expectException(NoState::class);
-        $this->prepareMockedInstance()->manageState([]);
+        $this->mock()->manageState([]);
     }
 
     /**
@@ -442,7 +455,7 @@ class AuthenticationServiceTest extends TestCase
         $this->stateServiceMock->method('loadState')->willReturn($state);
 
 
-        $mock = $this->prepareMockedInstance();
+        $mock = $this->mock();
 
         $this->assertSame(
             self::STATE,
@@ -476,6 +489,7 @@ class AuthenticationServiceTest extends TestCase
             $this->moduleConfigMock,
             $this->processingChainFactoryMock,
             $this->stateServiceMock,
+            $this->helpersMock,
         ) extends AuthenticationService {
             public function runAuthProcsPublic(array &$state): void
             {
@@ -533,7 +547,7 @@ class AuthenticationServiceTest extends TestCase
         string $instanceOf,
     ): void {
         $this->assertEquals(
-            $this->prepareMockedInstance()->getAuthorizationRequestFromState($state),
+            $this->mock()->getAuthorizationRequestFromState($state),
             $authorizationRequest,
         );
 
@@ -552,7 +566,7 @@ class AuthenticationServiceTest extends TestCase
             'invalid'                   => [
                 [
                     ...self::STATE,
-                    'authorizationRequest' => string::class,
+                    'authorizationRequest' => 'invalid',
                 ],
                 '/Authorization Request is not valid./',
             ],
@@ -567,16 +581,16 @@ class AuthenticationServiceTest extends TestCase
 
     /**
      * @param   array  $state
-     * @param   string $exceptionMessage
+     * @param string $exceptionMessage
      *
      * @return void
      * @throws Exception
      */
     #[DataProvider('authorizationRequestValues')]
-    public function testGetsAuthorizationRequestFromStateThrowsOnInvalid(array $state, $exceptionMessage): void
+    public function testGetsAuthorizationRequestFromStateThrowsOnInvalid(array $state, string $exceptionMessage): void
     {
         $this->expectException(Exception::class);
         $this->expectExceptionMessageMatches($exceptionMessage);
-        $this->prepareMockedInstance()->getAuthorizationRequestFromState($state);
+        $this->mock()->getAuthorizationRequestFromState($state);
     }
 }

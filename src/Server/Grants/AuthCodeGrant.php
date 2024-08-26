@@ -24,6 +24,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
@@ -32,27 +33,29 @@ use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWith
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\OidcCapableGrantTypeInterface;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\PkceEnabledGrantTypeInterface;
 use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
+use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
+use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestParameterRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeOfflineAccessRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AcrResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\SessionIdResponseTypeInterface;
 use SimpleSAML\Module\oidc\Utils\Arr;
-use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
-use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\AcrValuesRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeMethodRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\MaxAgeRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\PromptRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestParameterRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeOfflineAccessRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
 use SimpleSAML\Module\oidc\Utils\ScopeHelper;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     // phpcs:ignore
@@ -145,6 +148,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         RefreshTokenRepositoryInterface $refreshTokenRepository,
         DateInterval $authCodeTTL,
         protected RequestRulesManager $requestRulesManager,
+        protected Helpers $helpers,
     ) {
         parent::__construct($authCodeRepository, $refreshTokenRepository, $authCodeTTL);
 
@@ -161,6 +165,24 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         $plainVerifier = new PlainVerifier();
         $this->codeChallengeVerifiers[$plainVerifier->getMethod()] = $plainVerifier;
+    }
+
+    /**
+     * Reimplemented in order to support HTTP POST method.
+     *
+     * @param \Psr\Http\Message\ServerRequestInterface $request
+     * @return bool
+     */
+    public function canRespondToAuthorizationRequest(ServerRequestInterface $request): bool
+    {
+        $requestParams = $this->helpers->http()->getAllRequestParamsBasedOnAllowedMethods(
+            $request,
+            [HttpMethodsEnum::GET, HttpMethodsEnum::POST],
+        ) ?? [];
+
+        return (\array_key_exists('response_type', $requestParams)
+            && $requestParams['response_type'] === 'code'
+            && isset($requestParams['client_id']));
     }
 
     protected function shouldCheckPkce(OAuth2ClientEntityInterface $client): bool
@@ -589,6 +611,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             RequestedClaimsRule::class,
             AcrValuesRule::class,
             ScopeOfflineAccessRule::class,
+            RequiredOpenIdScopeRule::class,
         ];
 
         // Since we have already validated redirect_uri, and we have state, make it available for other checkers.
@@ -611,7 +634,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $rulesToExecute[] = CodeChallengeMethodRule::class;
         }
 
-        $resultBag = $this->requestRulesManager->check($request, $rulesToExecute);
+        $resultBag = $this->requestRulesManager->check($request, $rulesToExecute, false, ['GET', 'POST']);
 
         /** @var \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes */
         $scopes = $resultBag->getOrFail(ScopeRule::class)->getValue();
@@ -643,8 +666,12 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         $authorizationRequest = AuthorizationRequest::fromOAuth2AuthorizationRequest($oAuth2AuthorizationRequest);
 
+        $requestParams = $this->helpers->http()->getAllRequestParamsBasedOnAllowedMethods(
+            $request,
+            [HttpMethodsEnum::GET, HttpMethodsEnum::POST],
+        ) ?? [];
         /** @var string|null $nonce */
-        $nonce = $request->getQueryParams()['nonce'] ?? null;
+        $nonce = $requestParams['nonce'] ?? null;
         if ($nonce !== null) {
             $authorizationRequest->setNonce($nonce);
         }

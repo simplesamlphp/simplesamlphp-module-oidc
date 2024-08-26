@@ -11,11 +11,11 @@ use Lcobucci\JWT\Encoding\ChainedFormatter;
 use Lcobucci\JWT\Signer;
 use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\UnencryptedToken;
-use SimpleSAML\Module\oidc\Codebooks\ClaimNamesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
 use SimpleSAML\Module\oidc\Utils\UniqueIdentifierGenerator;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 
 class JsonWebTokenBuilderService
 {
@@ -112,7 +112,7 @@ class JsonWebTokenBuilderService
     public function getSignedProtocolJwt(Builder $builder): UnencryptedToken
     {
         $headers = [
-            ClaimNamesEnum::KeyId->value => FingerprintGenerator::forFile($this->moduleConfig->getProtocolCertPath()),
+            ClaimsEnum::Kid->value => FingerprintGenerator::forFile($this->moduleConfig->getProtocolCertPath()),
         ];
 
         return $this->getSignedJwt($builder, $this->protocolJwtConfig, $headers);
@@ -130,7 +130,7 @@ class JsonWebTokenBuilderService
         }
 
         $headers = [
-            ClaimNamesEnum::KeyId->value => FingerprintGenerator::forFile($federationCertPath),
+            ClaimsEnum::Kid->value => FingerprintGenerator::forFile($federationCertPath),
         ];
 
         return $this->getSignedJwt($builder, $this->protocolJwtConfig, $headers);

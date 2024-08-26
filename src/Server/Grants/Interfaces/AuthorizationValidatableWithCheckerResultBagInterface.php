@@ -6,7 +6,7 @@ namespace SimpleSAML\Module\oidc\Server\Grants\Interfaces;
 
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
+use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 
 interface AuthorizationValidatableWithCheckerResultBagInterface
 {

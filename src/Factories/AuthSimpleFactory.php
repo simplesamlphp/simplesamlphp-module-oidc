@@ -17,20 +17,14 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Factories;
 
 use SimpleSAML\Auth\Simple;
-use SimpleSAML\Module\oidc\Controller\Traits\GetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 
 class AuthSimpleFactory
 {
-    use GetClientFromRequestTrait;
-
     public function __construct(
-        ClientRepository $clientRepository,
         private readonly ModuleConfig $moduleConfig,
     ) {
-        $this->clientRepository = $clientRepository;
     }
 
     /**

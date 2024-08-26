@@ -18,11 +18,11 @@ namespace SimpleSAML\Module\oidc\Services;
 use Jose\Component\Core\JWKSet;
 use Jose\Component\KeyManagement\JWKFactory;
 use SimpleSAML\Error;
-use SimpleSAML\Module\oidc\Codebooks\ClaimNamesEnum;
-use SimpleSAML\Module\oidc\Codebooks\ClaimValues\PublicKeyUseEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Codebooks\PublicKeyUseEnum;
 
 class JsonWebKeySetService
 {
@@ -43,9 +43,9 @@ class JsonWebKeySetService
         }
 
         $jwk = JWKFactory::createFromKeyFile($publicKeyPath, null, [
-            ClaimNamesEnum::KeyId->value => FingerprintGenerator::forFile($publicKeyPath),
-            ClaimNamesEnum::PublicKeyUse->value => PublicKeyUseEnum::Signature->value,
-            ClaimNamesEnum::Algorithm->value => $moduleConfig->getProtocolSigner()->algorithmId(),
+            ClaimsEnum::Kid->value => FingerprintGenerator::forFile($publicKeyPath),
+            ClaimsEnum::Use->value => PublicKeyUseEnum::Signature->value,
+            ClaimsEnum::Alg->value => $moduleConfig->getProtocolSigner()->algorithmId(),
         ]);
 
         $this->protocolJwkSet = new JWKSet([$jwk]);
@@ -56,9 +56,9 @@ class JsonWebKeySetService
             ($federationSigner = $moduleConfig->getFederationSigner())
         ) {
             $federationJwk = JWKFactory::createFromKeyFile($federationPublicKeyPath, null, [
-                ClaimNamesEnum::KeyId->value => FingerprintGenerator::forFile($federationPublicKeyPath),
-                ClaimNamesEnum::PublicKeyUse->value => PublicKeyUseEnum::Signature->value,
-                ClaimNamesEnum::Algorithm->value => $federationSigner->algorithmId(),
+                ClaimsEnum::Kid->value => FingerprintGenerator::forFile($federationPublicKeyPath),
+                ClaimsEnum::Use->value => PublicKeyUseEnum::Signature->value,
+                ClaimsEnum::Alg->value => $federationSigner->algorithmId(),
             ]);
 
             $this->federationJwkSet = new JWKSet([$federationJwk]);

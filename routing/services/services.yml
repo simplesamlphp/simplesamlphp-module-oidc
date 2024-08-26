@@ -36,8 +36,9 @@ services:
     resource: '../../src/Bridges/*'
 
   SimpleSAML\Module\oidc\ModuleConfig: ~
+  SimpleSAML\Module\oidc\Helpers: ~
   SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection: ~
-  SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager:
+  SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager:
     factory: ['@SimpleSAML\Module\oidc\Factories\RequestRulesManagerFactory', 'build']
   # Grants
   SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant:

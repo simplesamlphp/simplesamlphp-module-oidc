@@ -6,7 +6,6 @@
 
 declare(strict_types=1);
 
-use SimpleSAML\Module\oidc\Codebooks\HttpMethodsEnum;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Controller\AccessTokenController;
 use SimpleSAML\Module\oidc\Controller\AuthorizationController;
@@ -15,6 +14,7 @@ use SimpleSAML\Module\oidc\Controller\EndSessionController;
 use SimpleSAML\Module\oidc\Controller\Federation\EntityStatementController;
 use SimpleSAML\Module\oidc\Controller\JwksController;
 use SimpleSAML\Module\oidc\Controller\UserInfoController;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 
 /** @psalm-suppress InvalidArgument */

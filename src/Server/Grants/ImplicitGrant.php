@@ -14,22 +14,24 @@ use RuntimeException;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
+use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
+use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AddClaimsToIdTokenRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestParameterRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredNonceRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
-use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
-use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\AcrValuesRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\MaxAgeRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\PromptRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestParameterRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredNonceRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredOpenIdScopeRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\ResponseTypeRule;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 class ImplicitGrant extends OAuth2ImplicitGrant
 {
@@ -47,6 +49,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
         AccessTokenRepositoryInterface $accessTokenRepository,
         string $queryDelimiter = '#',
         RequestRulesManager $requestRulesManager = null,
+        protected Helpers $helpers = new Helpers(),
     ) {
         parent::__construct($accessTokenTTL, $queryDelimiter, $requestRulesManager);
         $this->accessTokenRepository = $accessTokenRepository;
@@ -57,16 +60,20 @@ class ImplicitGrant extends OAuth2ImplicitGrant
      */
     public function canRespondToAuthorizationRequest(ServerRequestInterface $request): bool
     {
-        $queryParams = $request->getQueryParams();
+        $requestParams = $this->helpers->http()->getAllRequestParamsBasedOnAllowedMethods(
+            $request,
+            [HttpMethodsEnum::GET, HttpMethodsEnum::POST],
+        ) ?? [];
+
         if (
-            !isset($queryParams['response_type']) ||
-            !is_string($queryParams['response_type']) ||
-            !isset($queryParams['client_id'])
+            !isset($requestParams['response_type']) ||
+            !is_string($requestParams['response_type']) ||
+            !isset($requestParams['client_id'])
         ) {
             return false;
         }
 
-        $responseType = explode(" ", $queryParams['response_type']);
+        $responseType = explode(" ", $requestParams['response_type']);
 
         return in_array('id_token', $responseType, true) &&
         ! in_array('code', $responseType, true); // ...avoid triggering hybrid flow
@@ -115,7 +122,12 @@ class ImplicitGrant extends OAuth2ImplicitGrant
 
         $this->requestRulesManager->predefineResultBag($resultBag);
 
-        $resultBag = $this->requestRulesManager->check($request, $rulesToExecute, $this->shouldUseFragment());
+        $resultBag = $this->requestRulesManager->check(
+            $request,
+            $rulesToExecute,
+            $this->shouldUseFragment(),
+            ['GET', 'POST'],
+        );
 
         $authorizationRequest = AuthorizationRequest::fromOAuth2AuthorizationRequest($oAuth2AuthorizationRequest);
 

@@ -46,6 +46,7 @@ use SimpleSAML\Module\oidc\Factories\ProcessingChainFactory;
 use SimpleSAML\Module\oidc\Factories\ResourceServerFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
@@ -60,30 +61,30 @@ use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
 use SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant;
 use SimpleSAML\Module\oidc\Server\Grants\OAuth2ImplicitGrant;
 use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
+use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AddClaimsToIdTokenRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestParameterRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredNonceRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeOfflineAccessRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
-use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\AcrValuesRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\ClientIdRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeMethodRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\CodeChallengeRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\IdTokenHintRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\MaxAgeRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\PostLogoutRedirectUriRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\PromptRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\RedirectUriRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestParameterRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredNonceRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredOpenIdScopeRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\ResponseTypeRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeOfflineAccessRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\ScopeRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\StateRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\UiLocalesRule;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Session;
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
@@ -135,7 +136,7 @@ class Container implements ContainerInterface
         $databaseLegacyOAuth2Import = new DatabaseLegacyOAuth2Import($clientRepository);
         $this->services[DatabaseLegacyOAuth2Import::class] = $databaseLegacyOAuth2Import;
 
-        $authSimpleFactory = new AuthSimpleFactory($clientRepository, $moduleConfig);
+        $authSimpleFactory = new AuthSimpleFactory($moduleConfig);
         $this->services[AuthSimpleFactory::class] = $authSimpleFactory;
 
         $authContextService = new AuthContextService($moduleConfig, $authSimpleFactory);
@@ -177,6 +178,8 @@ class Container implements ContainerInterface
         $stateService = new StateService();
         $this->services[StateService::class] = $stateService;
 
+        $helpers = new Helpers();
+
         $authenticationService = new AuthenticationService(
             $userRepository,
             $authSimpleFactory,
@@ -187,6 +190,7 @@ class Container implements ContainerInterface
             $moduleConfig,
             $processingChainFactory,
             $stateService,
+            $helpers,
         );
         $this->services[AuthenticationService::class] = $authenticationService;
 
@@ -245,12 +249,15 @@ class Container implements ContainerInterface
         );
         $this->services[IdTokenResponse::class] = $idTokenResponseFactory->build();
 
+        $this->services[Helpers::class] = $helpers;
+
         $authCodeGrantFactory = new AuthCodeGrantFactory(
             $moduleConfig,
             $authCodeRepository,
             $accessTokenRepository,
             $refreshTokenRepository,
             $requestRuleManager,
+            $helpers,
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 
@@ -262,6 +269,7 @@ class Container implements ContainerInterface
             $this->services[IdTokenBuilder::class],
             $requestRuleManager,
             $accessTokenRepository,
+            $helpers,
         );
         $this->services[ImplicitGrant::class] = $implicitGrantFactory->build();
 
