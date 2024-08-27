@@ -634,7 +634,12 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $rulesToExecute[] = CodeChallengeMethodRule::class;
         }
 
-        $resultBag = $this->requestRulesManager->check($request, $rulesToExecute, false, ['GET', 'POST']);
+        $resultBag = $this->requestRulesManager->check(
+            $request,
+            $rulesToExecute,
+            false,
+            [HttpMethodsEnum::GET, HttpMethodsEnum::POST],
+        );
 
         /** @var \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes */
         $scopes = $resultBag->getOrFail(ScopeRule::class)->getValue();

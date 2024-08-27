@@ -12,15 +12,18 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\ParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\Utils\HTTP;
 
 class PromptRule extends AbstractRule
 {
     public function __construct(
+        ParamsResolver $paramsResolver,
         private readonly AuthSimpleFactory $authSimpleFactory,
         private readonly AuthenticationService $authenticationService,
     ) {
+        parent::__construct($paramsResolver);
     }
 
     /**
@@ -38,7 +41,7 @@ class PromptRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();

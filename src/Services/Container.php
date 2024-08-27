@@ -86,6 +86,8 @@ use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Utils\ParamsResolver;
+use SimpleSAML\OpenID\Core;
 use SimpleSAML\Session;
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
 
@@ -199,26 +201,29 @@ class Container implements ContainerInterface
 
         $cryptKeyFactory = new CryptKeyFactory($moduleConfig);
 
+        $core = new Core();
+        $paramsResolver = new ParamsResolver($helpers, $core);
+
         $requestRules = [
-            new StateRule(),
-            new ClientIdRule($clientRepository),
-            new RedirectUriRule(),
-            new RequestParameterRule(),
-            new PromptRule($authSimpleFactory, $authenticationService),
-            new MaxAgeRule($authSimpleFactory, $authenticationService),
-            new ScopeRule($scopeRepository),
-            new RequiredOpenIdScopeRule(),
-            new CodeChallengeRule(),
-            new CodeChallengeMethodRule($codeChallengeVerifiersRepository),
-            new RequestedClaimsRule($claimTranslatorExtractor),
-            new AddClaimsToIdTokenRule(),
-            new RequiredNonceRule(),
-            new ResponseTypeRule(),
-            new IdTokenHintRule($moduleConfig, $cryptKeyFactory),
-            new PostLogoutRedirectUriRule($clientRepository),
-            new UiLocalesRule(),
-            new AcrValuesRule(),
-            new ScopeOfflineAccessRule(),
+            new StateRule($paramsResolver),
+            new ClientIdRule($paramsResolver, $clientRepository),
+            new RedirectUriRule($paramsResolver),
+            new RequestParameterRule($paramsResolver),
+            new PromptRule($paramsResolver, $authSimpleFactory, $authenticationService),
+            new MaxAgeRule($paramsResolver, $authSimpleFactory, $authenticationService),
+            new ScopeRule($paramsResolver, $scopeRepository),
+            new RequiredOpenIdScopeRule($paramsResolver),
+            new CodeChallengeRule($paramsResolver),
+            new CodeChallengeMethodRule($paramsResolver, $codeChallengeVerifiersRepository),
+            new RequestedClaimsRule($paramsResolver, $claimTranslatorExtractor),
+            new AddClaimsToIdTokenRule($paramsResolver),
+            new RequiredNonceRule($paramsResolver),
+            new ResponseTypeRule($paramsResolver),
+            new IdTokenHintRule($paramsResolver, $moduleConfig, $cryptKeyFactory),
+            new PostLogoutRedirectUriRule($paramsResolver, $clientRepository),
+            new UiLocalesRule($paramsResolver),
+            new AcrValuesRule($paramsResolver),
+            new ScopeOfflineAccessRule($paramsResolver),
         ];
         $requestRuleManager = new RequestRulesManager($requestRules, $loggerService);
         $this->services[RequestRulesManager::class] = $requestRuleManager;

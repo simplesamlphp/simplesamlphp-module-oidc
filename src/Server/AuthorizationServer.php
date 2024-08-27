@@ -88,7 +88,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
                 $request,
                 $rulesToExecute,
                 false,
-                [HttpMethodsEnum::GET->value, HttpMethodsEnum::POST->value],
+                [HttpMethodsEnum::GET, HttpMethodsEnum::POST],
             );
         } catch (OidcServerException $exception) {
             $reason = sprintf("%s %s", $exception->getMessage(), $exception->getHint() ?? '');
@@ -129,7 +129,12 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         ];
 
         try {
-            $resultBag = $this->requestRulesManager->check($request, $rulesToExecute, false, ['GET', 'POST']);
+            $resultBag = $this->requestRulesManager->check(
+                $request,
+                $rulesToExecute,
+                false,
+                [HttpMethodsEnum::GET, HttpMethodsEnum::POST],
+            );
         } catch (OidcServerException $exception) {
             $reason = sprintf("%s %s", $exception->getMessage(), $exception->getHint() ?? '');
             throw new BadRequest($reason);

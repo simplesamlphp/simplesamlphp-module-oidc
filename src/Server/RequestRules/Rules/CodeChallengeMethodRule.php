@@ -11,12 +11,16 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\ParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 class CodeChallengeMethodRule extends AbstractRule
 {
-    public function __construct(protected CodeChallengeVerifiersRepository $codeChallengeVerifiersRepository)
-    {
+    public function __construct(
+        ParamsResolver $paramsResolver,
+        protected CodeChallengeVerifiersRepository $codeChallengeVerifiersRepository,
+    ) {
+        parent::__construct($paramsResolver);
     }
 
     /**
@@ -29,13 +33,14 @@ class CodeChallengeMethodRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
+        // TODO mivanci continue refactoring to paramsResolver:
         $codeChallengeMethod = $this->getRequestParamBasedOnAllowedMethods(
             'code_challenge_method',
             $request,

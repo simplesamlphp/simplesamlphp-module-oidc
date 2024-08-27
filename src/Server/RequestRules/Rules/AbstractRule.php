@@ -7,10 +7,15 @@ namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\RequestRuleInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\ParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 abstract class AbstractRule implements RequestRuleInterface
 {
+    public function __construct(protected ParamsResolver $paramsResolver)
+    {
+    }
+
     /**
      * @inheritDoc
      */
@@ -20,12 +25,12 @@ abstract class AbstractRule implements RequestRuleInterface
     }
 
     /**
-     * @param string[] $allowedServerRequestMethods
+     * @param HttpMethodsEnum[] $allowedServerRequestMethods
      */
     protected function getAllRequestParamsBasedOnAllowedMethods(
         ServerRequestInterface $request,
         LoggerService $loggerService,
-        array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?array {
         // Make sure the case is compatible...
         $allowedServerRequestMethods = array_map('strtoupper', $allowedServerRequestMethods);
@@ -64,13 +69,13 @@ abstract class AbstractRule implements RequestRuleInterface
     }
 
     /**
-     * @param string[] $allowedServerRequestMethods
+     * @param HttpMethodsEnum[] $allowedServerRequestMethods
      */
     protected function getRequestParamBasedOnAllowedMethods(
         string $paramKey,
         ServerRequestInterface $request,
         LoggerService $loggerService,
-        array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?string {
         $requestParams = $this->getAllRequestParamsBasedOnAllowedMethods(
             $request,

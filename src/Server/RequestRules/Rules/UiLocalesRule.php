@@ -22,7 +22,7 @@ class UiLocalesRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         return new Result($this->getKey(), $this->getRequestParamBasedOnAllowedMethods(
             'ui_locales',

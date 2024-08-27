@@ -126,7 +126,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             $request,
             $rulesToExecute,
             $this->shouldUseFragment(),
-            ['GET', 'POST'],
+            [HttpMethodsEnum::GET, HttpMethodsEnum::POST],
         );
 
         $authorizationRequest = AuthorizationRequest::fromOAuth2AuthorizationRequest($oAuth2AuthorizationRequest);

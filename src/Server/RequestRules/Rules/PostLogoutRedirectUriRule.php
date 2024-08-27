@@ -11,12 +11,16 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\ParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 class PostLogoutRedirectUriRule extends AbstractRule
 {
-    public function __construct(protected ClientRepository $clientRepository)
-    {
+    public function __construct(
+        ParamsResolver $paramsResolver,
+        protected ClientRepository $clientRepository,
+    ) {
+        parent::__construct($paramsResolver);
     }
 
     /**
@@ -29,7 +33,7 @@ class PostLogoutRedirectUriRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
