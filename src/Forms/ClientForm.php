@@ -144,23 +144,32 @@ class ClientForm extends Form
 
     public function validateFederationJwks(Form $form): void
     {
-        $federationJwks = $form->getValues()['federation_jwks'] ?? null;
-        if (is_null($federationJwks)) {
+        $this->validateJwks($form->getValues()['federation_jwks'] ?? null);
+    }
+
+    public function validateProtocolJwks(Form $form): void
+    {
+        $this->validateJwks($form->getValues()['protocol_jwks'] ?? null);
+    }
+
+    public function validateJwks(mixed $jwks): void
+    {
+        if (is_null($jwks)) {
             return;
         }
 
-        if (!is_array($federationJwks)) {
-            $this->addError(sprintf("Invalid JWKS format: %s", var_export($federationJwks, true)));
+        if (!is_array($jwks)) {
+            $this->addError(sprintf("Invalid JWKS format: %s", var_export($jwks, true)));
             return;
         }
 
-        if (!array_key_exists('keys', $federationJwks)) {
-            $this->addError(sprintf("No keys property in JWKS: %s", var_export($federationJwks, true)));
+        if (!array_key_exists('keys', $jwks)) {
+            $this->addError(sprintf("No keys property in JWKS: %s", var_export($jwks, true)));
             return;
         }
 
-        if (empty($federationJwks['keys'])) {
-            $this->addError(sprintf("Empty keys in JWKS: %s", var_export($federationJwks, true)));
+        if (empty($jwks['keys'])) {
+            $this->addError(sprintf("Empty keys in JWKS: %s", var_export($jwks, true)));
         }
     }
 
@@ -221,6 +230,12 @@ class ClientForm extends Form
         null :
         json_decode($federationJwks, true, 512, JSON_THROW_ON_ERROR);
 
+        $protocolJwks = trim((string)$values['protocol_jwks']);
+        /** @psalm-suppress MixedAssignment */
+        $values['protocol_jwks'] = empty($protocolJwks) ?
+        null :
+        json_decode($protocolJwks, true, 512, JSON_THROW_ON_ERROR);
+
         return $values;
     }
 
@@ -263,6 +278,8 @@ class ClientForm extends Form
 
         $data['federation_jwks'] = is_array($data['federation_jwks']) ? json_encode($data['federation_jwks']) : null;
 
+        $data['protocol_jwks'] = is_array($data['protocol_jwks']) ? json_encode($data['protocol_jwks']) : null;
+
         parent::setDefaults($data, $erase);
 
         return $this;
@@ -282,6 +299,7 @@ class ClientForm extends Form
         $this->onValidate[] = $this->validateEntityIdentifier(...);
         $this->onValidate[] = $this->validateClientRegistrationTypes(...);
         $this->onValidate[] = $this->validateFederationJwks(...);
+        $this->onValidate[] = $this->validateProtocolJwks(...);
 
         $this->setMethod('POST');
         $this->addComponent($this->csrfProtection, Form::ProtectorId);
@@ -324,6 +342,8 @@ class ClientForm extends Form
             ->setItems($this->getClientRegistrationTypes());
 
         $this->addTextArea('federation_jwks', '{oidc:client:federation_jwks}', null, 5);
+
+        $this->addTextArea('protocol_jwks', '{oidc:client:protocol_jwks}', null, 5);
     }
 
     /**

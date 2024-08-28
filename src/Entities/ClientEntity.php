@@ -63,7 +63,7 @@ class ClientEntity implements ClientEntityInterface
     /**
      * @var ?array[]|null
      */
-    private ?array $jwks = null;
+    private ?array $protocolJwks = null;
 
     /**
      * Constructor.
@@ -78,6 +78,7 @@ class ClientEntity implements ClientEntityInterface
      * @param string[] $postLogoutRedirectUri
      * @param string[] $clientRegistrationTypes
      * @param array[] $federationJwks
+     * @param array[] $protocolJwks
      */
     public static function fromData(
         string $id,
@@ -95,6 +96,7 @@ class ClientEntity implements ClientEntityInterface
         ?string $entityIdentifier = null,
         ?array $clientRegistrationTypes = null,
         ?array $federationJwks = null,
+        ?array $protocolJwks = null,
     ): ClientEntityInterface {
         $client = new self();
 
@@ -113,6 +115,7 @@ class ClientEntity implements ClientEntityInterface
         $client->entityIdentifier = empty($entityIdentifier) ? null : $entityIdentifier;
         $client->clientRegistrationTypes = $clientRegistrationTypes;
         $client->federationJwks = $federationJwks;
+        $client->protocolJwks = $protocolJwks;
 
         return $client;
     }
@@ -183,6 +186,12 @@ class ClientEntity implements ClientEntityInterface
         json_decode((string)$state['federation_jwks'], true, 512, JSON_THROW_ON_ERROR);
         $client->federationJwks = $federationJwks;
 
+        /** @var ?array[] $protocolJwks */
+        $protocolJwks = empty($state['protocol_jwks']) ?
+        null :
+        json_decode((string)$state['protocol_jwks'], true, 512, JSON_THROW_ON_ERROR);
+        $client->protocolJwks = $protocolJwks;
+
         return $client;
     }
 
@@ -212,6 +221,9 @@ class ClientEntity implements ClientEntityInterface
             'federation_jwks' => is_null($this->federationJwks) ?
                 null :
                 json_encode($this->getFederationJwks()),
+            'protocol_jwks' => is_null($this->protocolJwks) ?
+                null :
+                json_encode($this->getProtocolJwks()),
         ];
     }
 
@@ -233,6 +245,7 @@ class ClientEntity implements ClientEntityInterface
             'entity_identifier' => $this->entityIdentifier,
             'client_registration_types' => $this->clientRegistrationTypes,
             'federation_jwks' => $this->federationJwks,
+            'protocol_jwks' => $this->protocolJwks,
         ];
     }
 
@@ -327,8 +340,8 @@ class ClientEntity implements ClientEntityInterface
         return $this->federationJwks;
     }
 
-    public function getJwks(): ?array
+    public function getProtocolJwks(): ?array
     {
-        return $this->jwks;
+        return $this->protocolJwks;
     }
 }

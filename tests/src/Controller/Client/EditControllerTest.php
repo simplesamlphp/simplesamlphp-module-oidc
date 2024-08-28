@@ -118,6 +118,7 @@ class EditControllerTest extends TestCase
             'entity_identifier' => null,
             'client_registration_types' => null,
             'federation_jwks' => null,
+            'protocol_jwks' => null,
         ];
 
         $this->clientEntityMock->expects($this->atLeastOnce())->method('getIdentifier')->willReturn('clientid');
@@ -175,6 +176,7 @@ class EditControllerTest extends TestCase
             'entity_identifier' => null,
             'client_registration_types' => null,
             'federation_jwks' => null,
+            'protocol_jwks' => null,
         ];
 
         $this->serverRequestMock->expects($this->once())->method('getQueryParams')
@@ -210,6 +212,7 @@ class EditControllerTest extends TestCase
                 'entity_identifier' => null,
                 'client_registration_types' => null,
                 'federation_jwks' => null,
+                'protocol_jwks' => null,
             ],
         );
 
@@ -267,6 +270,7 @@ class EditControllerTest extends TestCase
             'entity_identifier' => null,
             'client_registration_types' => null,
             'federation_jwks' => null,
+            'protocol_jwks' => null,
         ];
 
         $this->serverRequestMock->expects($this->once())->method('getQueryParams')
@@ -302,6 +306,7 @@ class EditControllerTest extends TestCase
                 'entity_identifier' => null,
                 'client_registration_types' => null,
                 'federation_jwks' => null,
+                'protocol_jwks' => null,
             ],
         );
 

@@ -53,7 +53,7 @@ class RequestParameterRule extends AbstractRule
         /** @var ?string $stateValue */
         $stateValue = ($currentResultBag->get(StateRule::class))?->getValue();
 
-        ($jwks = $client->getJwks()) || throw OidcServerException::accessDenied(
+        ($jwks = $client->getProtocolJwks()) || throw OidcServerException::accessDenied(
             'can not validate request object, client JWKS not available',
             $redirectUri,
             null,

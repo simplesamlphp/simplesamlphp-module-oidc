@@ -78,7 +78,7 @@ class RequestParameterRuleTest extends TestCase
         $this->requestObjectMock->method('isProtected')->willReturn(true);
         $this->paramsResolverMock->expects($this->once())->method('parseRequestObjectToken')
             ->with('token')->willReturn($this->requestObjectMock);
-        $this->clientStub->expects($this->once())->method('getJwks')->willReturn(null);
+        $this->clientStub->expects($this->once())->method('getProtocolJwks')->willReturn(null);
 
         $this->expectException(OidcServerException::class);
         $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
@@ -92,7 +92,7 @@ class RequestParameterRuleTest extends TestCase
         ->willThrowException(OidcServerException::accessDenied());
         $this->paramsResolverMock->expects($this->once())->method('parseRequestObjectToken')
             ->with('token')->willReturn($this->requestObjectMock);
-        $this->clientStub->expects($this->once())->method('getJwks')->willReturn(['jwks']);
+        $this->clientStub->expects($this->once())->method('getProtocolJwks')->willReturn(['jwks']);
 
         $this->expectException(OidcServerException::class);
         $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
@@ -105,7 +105,7 @@ class RequestParameterRuleTest extends TestCase
         $this->requestObjectMock->expects($this->once())->method('verifyWithKeySet')->with(['jwks']);
         $this->paramsResolverMock->expects($this->once())->method('parseRequestObjectToken')
             ->with('token')->willReturn($this->requestObjectMock);
-        $this->clientStub->expects($this->once())->method('getJwks')->willReturn(['jwks']);
+        $this->clientStub->expects($this->once())->method('getProtocolJwks')->willReturn(['jwks']);
 
         $result = $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
 

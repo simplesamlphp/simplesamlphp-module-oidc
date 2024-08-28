@@ -87,6 +87,8 @@ class CreateController
             $client['client_registration_types'] : null;
             /** @var ?array[] $federationJwks */
             $federationJwks = is_array($client['federation_jwks']) ? $client['federation_jwks'] : null;
+            /** @var ?array[] $protocolJwks */
+            $protocolJwks = is_array($client['protocol_jwks']) ? $client['protocol_jwks'] : null;
 
             $this->clientRepository->add(ClientEntity::fromData(
                 $client['id'],
@@ -104,6 +106,7 @@ class CreateController
                 empty($client['entity_identifier']) ? null : (string)$client['entity_identifier'],
                 $clientRegistrationTypes,
                 $federationJwks,
+                $protocolJwks,
             ));
 
             // Also persist allowed origins for this client.

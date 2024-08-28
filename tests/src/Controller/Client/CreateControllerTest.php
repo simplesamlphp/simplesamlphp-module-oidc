@@ -137,6 +137,7 @@ class CreateControllerTest extends TestCase
                      'entity_identifier' => null,
                      'client_registration_types' => null,
                      'federation_jwks' => null,
+                     'protocol_jwks' => null,
                  ],
             );
 
@@ -198,6 +199,7 @@ class CreateControllerTest extends TestCase
                     'entity_identifier' => null,
                     'client_registration_types' => null,
                     'federation_jwks' => null,
+                    'protocol_jwks' => null,
                 ],
             );
 
