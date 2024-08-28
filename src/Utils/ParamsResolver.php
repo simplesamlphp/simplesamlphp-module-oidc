@@ -108,6 +108,7 @@ class ParamsResolver
      * @param \Psr\Http\Message\ServerRequestInterface $request
      * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods
      * @return string|null
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      */
     public function getAsStringBasedOnAllowedMethods(
         string $paramKey,
@@ -143,7 +144,7 @@ class ParamsResolver
     protected function resolveRequestObjectParams(array $requestParams): array
     {
         if (array_key_exists(ParamsEnum::Request->value, $requestParams)) {
-            $this->parseRequestObjectToken((string)$requestParams[ParamsEnum::Request->value])->getPayload();
+            return $this->parseRequestObjectToken((string)$requestParams[ParamsEnum::Request->value])->getPayload();
         }
 
         return [];

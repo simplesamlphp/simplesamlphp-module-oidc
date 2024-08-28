@@ -671,6 +671,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         $authorizationRequest = AuthorizationRequest::fromOAuth2AuthorizationRequest($oAuth2AuthorizationRequest);
 
+        // TODO mivanci continue: replace HTTP param with resolved param value. Either introduce NonceRule (optional
+        // nonce), or get value from Param Resolver.
+        // TODO mivanci Search for $request->method usages and replace with helper or param resolver when appropriate.
         $requestParams = $this->helpers->http()->getAllRequestParamsBasedOnAllowedMethods(
             $request,
             [HttpMethodsEnum::GET, HttpMethodsEnum::POST],
