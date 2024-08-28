@@ -11,6 +11,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\ParamsResolver;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AbstractRule
@@ -19,6 +20,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 class StateRuleTest extends TestCase
 {
     protected Stub $loggerServiceStub;
+    protected Stub $paramsResolverStub;
 
     /**
      * @throws \Exception
@@ -26,31 +28,33 @@ class StateRuleTest extends TestCase
     public function setUp(): void
     {
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
+        $this->paramsResolverStub = $this->createStub(ParamsResolver::class);
+    }
+
+    protected function mock(): StateRule
+    {
+        return new StateRule($this->paramsResolverStub);
     }
 
     public function testGetKey(): void
     {
-        $rule = new StateRule();
-        $this->assertSame(StateRule::class, $rule->getKey());
+        $this->assertSame(StateRule::class, $this->mock()->getKey());
     }
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \Exception
      */
-    public function testCheckRuleGetMethod(): void
+    public function testCheckRuleHasValue(): void
     {
-        $key = 'state';
         $value = '123';
 
         $request = $this->createStub(ServerRequestInterface::class);
-        $request->method('getMethod')->willReturn('GET');
-        $request->method('getQueryParams')->willReturn([$key => $value]);
+        $this->paramsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn($value);
 
         $resultBag = new ResultBag();
         $data = [];
-        $rule = new StateRule();
-        $result = $rule->checkRule($request, $resultBag, $this->loggerServiceStub, $data);
+        $result = $this->mock()->checkRule($request, $resultBag, $this->loggerServiceStub, $data);
 
         $this->assertInstanceOf(ResultInterface::class, $result);
         $this->assertSame($value, $result->getValue());
@@ -62,61 +66,17 @@ class StateRuleTest extends TestCase
      */
     public function testCheckRulePostMethod(): void
     {
-        $key = 'state';
-        $value = '123';
-
         $request = $this->createStub(ServerRequestInterface::class);
-        $request->method('getMethod')->willReturn('POST');
-        $request->method('getParsedBody')->willReturn([$key => $value]);
+        $this->paramsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn(null);
 
         $resultBag = new ResultBag();
-        $data = [];
-        $rule = new StateRule();
-        $result = $rule->checkRule($request, $resultBag, $this->loggerServiceStub, $data, false, ['GET', 'POST']);
+        $result = $this->mock()->checkRule(
+            $request,
+            $resultBag,
+            $this->loggerServiceStub,
+        );
 
         $this->assertInstanceOf(ResultInterface::class, $result);
-        $this->assertSame($value, $result->getValue());
-    }
-
-    /**
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
-     * @throws \Exception
-     */
-    public function testCheckRuleReturnsNullWhenMethodNotAllowed(): void
-    {
-        $key = 'state';
-        $value = '123';
-
-        $request = $this->createStub(ServerRequestInterface::class);
-        $request->method('getMethod')->willReturn('POST');
-        $request->method('getParsedBody')->willReturn([$key => $value]);
-
-        $resultBag = new ResultBag();
-        $rule = new StateRule();
-        $result = $rule->checkRule($request, $resultBag, $this->loggerServiceStub);
-
-        $this->assertInstanceOf(ResultInterface::class, $result);
-        $this->assertNull($result->getValue());
-    }
-
-    /**
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
-     * @throws \Exception
-     */
-    public function testCheckRuleReturnsNullWhenMethodNotSupported(): void
-    {
-        $key = 'state';
-        $value = '123';
-
-        $request = $this->createStub(ServerRequestInterface::class);
-        $request->method('getMethod')->willReturn('OPTIONS');
-        $request->method('getParsedBody')->willReturn([$key => $value]);
-
-        $resultBag = new ResultBag();
-        $rule = new StateRule();
-        $result = $rule->checkRule($request, $resultBag, $this->loggerServiceStub, [], false, ['OPTIONS']);
-
-        $this->assertInstanceOf(ResultInterface::class, $result);
-        $this->assertNull($result->getValue());
+        $this->assertSame(null, $result->getValue());
     }
 }

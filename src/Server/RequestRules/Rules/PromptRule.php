@@ -14,6 +14,7 @@ use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\Utils\HTTP;
 
 class PromptRule extends AbstractRule
@@ -48,18 +49,18 @@ class PromptRule extends AbstractRule
 
         $authSimple = $this->authSimpleFactory->build($client);
 
-        $requestParams = $this->getAllRequestParamsBasedOnAllowedMethods(
+//        $requestParams = $this->getAllRequestParamsBasedOnAllowedMethods(
+        $requestParams = $this->paramsResolver->getAllBasedOnAllowedMethods(
             $request,
-            $loggerService,
             $allowedServerRequestMethods,
-        ) ?? [];
-        if (!array_key_exists('prompt', $requestParams)) {
+        );
+        if (!array_key_exists(ParamsEnum::Prompt->value, $requestParams)) {
             return null;
         }
 
-        $prompt = explode(" ", (string)$requestParams['prompt']);
+        $prompt = explode(" ", (string)$requestParams[ParamsEnum::Prompt->value]);
         if (count($prompt) > 1 && in_array('none', $prompt, true)) {
-            throw OAuthServerException::invalidRequest('prompt', 'Invalid prompt parameter');
+            throw OAuthServerException::invalidRequest(ParamsEnum::Prompt->value, 'Invalid prompt parameter');
         }
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
@@ -77,8 +78,9 @@ class PromptRule extends AbstractRule
         }
 
         if (in_array('login', $prompt, true) && $authSimple->isAuthenticated()) {
-            unset($requestParams['prompt']);
+            unset($requestParams[ParamsEnum::Prompt->value]);
             $loginParams = [];
+            // TODO mivanci move to SSP Bridge
             $loginParams['ReturnTo'] = (new HTTP())
                 ->addURLParameters((new HTTP())->getSelfURLNoQuery(), $requestParams);
 

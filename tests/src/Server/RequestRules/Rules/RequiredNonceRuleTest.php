@@ -15,6 +15,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredNonceRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\ParamsResolver;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredNonceRule
@@ -33,6 +34,7 @@ class RequiredNonceRuleTest extends TestCase
     ];
 
     protected Stub $loggerServiceStub;
+    protected Stub $paramsResolverStub;
 
     /**
      * @throws \Exception
@@ -48,6 +50,12 @@ class RequiredNonceRuleTest extends TestCase
         $this->resultBag->add($this->stateResult);
 
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
+        $this->paramsResolverStub = $this->createStub(ParamsResolver::class);
+    }
+
+    protected function mock(): RequiredNonceRule
+    {
+        return new RequiredNonceRule($this->paramsResolverStub);
     }
 
     /**
@@ -56,10 +64,9 @@ class RequiredNonceRuleTest extends TestCase
      */
     public function testCheckRuleRedirectUriDependency(): void
     {
-        $rule = new RequiredNonceRule();
         $resultBag = new ResultBag();
         $this->expectException(LogicException::class);
-        $rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
+        $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
     }
 
     /**
@@ -68,11 +75,10 @@ class RequiredNonceRuleTest extends TestCase
      */
     public function testCheckRuleStateDependency(): void
     {
-        $rule = new \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredNonceRule();
         $resultBag = new ResultBag();
         $resultBag->add($this->redirectUriResult);
         $this->expectException(LogicException::class);
-        $rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
+        $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
     }
 
     /**
@@ -81,12 +87,10 @@ class RequiredNonceRuleTest extends TestCase
      */
     public function testCheckRulePassesWhenNonceIsPresent()
     {
-        $rule = new \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredNonceRule();
+        $this->paramsResolverStub->method('getAsStringBasedOnAllowedMethods')
+            ->willReturn($this->requestQueryParams['nonce']);
 
-        $this->requestStub->method('getMethod')->willReturn('GET');
-        $this->requestStub->method('getQueryParams')->willReturn($this->requestQueryParams);
-
-        $result = $rule->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub) ??
+        $result = $this->mock()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub) ??
         new Result(RequiredNonceRule::class, null);
 
         $this->assertEquals($this->requestQueryParams['nonce'], $result->getValue());
@@ -97,15 +101,8 @@ class RequiredNonceRuleTest extends TestCase
      */
     public function testCheckRuleThrowsWhenNonceIsNotPresent()
     {
-        $rule = new \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredNonceRule();
-
-        $invalidParams = $this->requestQueryParams;
-        unset($invalidParams['nonce']);
-
-        $this->requestStub->method('getQueryParams')->willReturn($invalidParams);
-
         $this->expectException(OidcServerException::class);
 
-        $rule->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
+        $this->mock()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
     }
 }

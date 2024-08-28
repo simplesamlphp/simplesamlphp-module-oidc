@@ -18,6 +18,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use Throwable;
 
 class IdTokenHintRule extends AbstractRule
@@ -45,10 +46,9 @@ class IdTokenHintRule extends AbstractRule
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
-        $idTokenHintParam = $this->getRequestParamBasedOnAllowedMethods(
-            'id_token_hint',
+        $idTokenHintParam = $this->paramsResolver->getAsStringBasedOnAllowedMethods(
+            ParamsEnum::IdTokenHint->value,
             $request,
-            $loggerService,
             $allowedServerRequestMethods,
         );
 
@@ -56,6 +56,7 @@ class IdTokenHintRule extends AbstractRule
             return new Result($this->getKey(), $idTokenHintParam);
         }
 
+        // TODO mivanci Fix: unmockable services... inject instead.
         $privateKey = $this->cryptKeyFactory->buildPrivateKey();
         $publicKey = $this->cryptKeyFactory->buildPublicKey();
         /** @psalm-suppress ArgumentTypeCoercion */
@@ -67,7 +68,7 @@ class IdTokenHintRule extends AbstractRule
 
         if (empty($idTokenHintParam)) {
             throw OidcServerException::invalidRequest(
-                'id_token_hint',
+                ParamsEnum::IdTokenHint->value,
                 'Received empty id_token_hint',
                 null,
                 null,
@@ -92,7 +93,13 @@ class IdTokenHintRule extends AbstractRule
                 ),
             );
         } catch (Throwable $exception) {
-            throw OidcServerException::invalidRequest('id_token_hint', $exception->getMessage(), null, null, $state);
+            throw OidcServerException::invalidRequest(
+                ParamsEnum::IdTokenHint->value,
+                $exception->getMessage(),
+                null,
+                null,
+                $state,
+            );
         }
 
         return new Result($this->getKey(), $idTokenHint);

@@ -11,6 +11,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 class ResponseTypeRule extends AbstractRule
 {
@@ -25,18 +26,20 @@ class ResponseTypeRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
-        $requestParams = $this->getAllRequestParamsBasedOnAllowedMethods(
+        $requestParams = $this->paramsResolver->getAllBasedOnAllowedMethods(
             $request,
-            $loggerService,
             $allowedServerRequestMethods,
-        ) ?? [];
+        );
 
-        if (!isset($requestParams['response_type']) || !isset($requestParams['client_id'])) {
-            throw  OidcServerException::invalidRequest('Missing response_type');
+        if (
+            !isset($requestParams[ParamsEnum::ResponseType->value]) ||
+            !isset($requestParams[ParamsEnum::ClientId->value])
+        ) {
+            throw  OidcServerException::invalidRequest('Missing response_type or client_id');
         }
 
         // TODO consider checking for supported response types, for example, from configuration...
 
-        return new Result($this->getKey(), $requestParams['response_type']);
+        return new Result($this->getKey(), $requestParams[ParamsEnum::ResponseType->value]);
     }
 }

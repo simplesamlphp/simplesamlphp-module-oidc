@@ -11,6 +11,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 class RequiredNonceRule extends AbstractRule
 {
@@ -31,16 +32,15 @@ class RequiredNonceRule extends AbstractRule
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
-        $nonce = $this->getRequestParamBasedOnAllowedMethods(
-            'nonce',
+        $nonce = $this->paramsResolver->getAsStringBasedOnAllowedMethods(
+            ParamsEnum::Nonce->value,
             $request,
-            $loggerService,
             $allowedServerRequestMethods,
         );
 
         if ($nonce === null || $nonce === '') {
             throw OidcServerException::invalidRequest(
-                'nonce',
+                ParamsEnum::Nonce->value,
                 'nonce is required',
                 null,
                 $redirectUri,

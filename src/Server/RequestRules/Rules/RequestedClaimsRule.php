@@ -12,6 +12,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\ParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 class RequestedClaimsRule extends AbstractRule
 {
@@ -34,17 +35,21 @@ class RequestedClaimsRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
-        $claimsParam = $this->getRequestParamBasedOnAllowedMethods(
-            'claims',
+        /** @psalm-suppress MixedAssignment We'll check the type. */
+        $claimsParam = $this->paramsResolver->getBasedOnAllowedMethods(
+            ParamsEnum::Claims->value,
             $request,
-            $loggerService,
             $allowedServerRequestMethods,
         );
         if ($claimsParam === null) {
             return null;
         }
+        // In case the claims param is sent using request object, this will already be array type.
         /** @var ?array $claims */
-        $claims = json_decode($claimsParam, true, 512, JSON_THROW_ON_ERROR);
+        $claims = is_array($claimsParam) ?
+        $claimsParam :
+        json_decode((string)$claimsParam, true, 512, JSON_THROW_ON_ERROR);
+
         if (is_null($claims)) {
             return null;
         }

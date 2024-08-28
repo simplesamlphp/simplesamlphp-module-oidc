@@ -85,7 +85,7 @@ class ParamsResolver
     }
 
     /**
-     * Get param value from HTTP request or Request Object if present.
+     * Get param value from HTTP request or Request Object if present, based on allowed methods.
      *
      * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException
@@ -94,8 +94,43 @@ class ParamsResolver
         string $paramKey,
         ServerRequestInterface $request,
         array $allowedMethods = [HttpMethodsEnum::GET],
-    ): ?string {
+    ): mixed {
         $allParams = $this->getAllBasedOnAllowedMethods($request, $allowedMethods);
+
+        return $allParams[$paramKey] ?? null;
+    }
+
+    /**
+     * Get param value as null or string from HTTP request or Request Object if present, based on allowed methods.
+     * This is convenience method, since in most cases params will be strings (or absent).
+     *
+     * @param string $paramKey
+     * @param \Psr\Http\Message\ServerRequestInterface $request
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods
+     * @return string|null
+     */
+    public function getAsStringBasedOnAllowedMethods(
+        string $paramKey,
+        ServerRequestInterface $request,
+        array $allowedMethods = [HttpMethodsEnum::GET],
+    ): ?string {
+        /** @psalm-suppress MixedAssignment */
+        return is_null($value = $this->getBasedOnAllowedMethods($paramKey, $request, $allowedMethods)) ?
+        null :
+        (string)$value;
+    }
+
+    /**
+     * Get param value from HTTP request (not from Request Object), based on allowed methods.
+     *
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods
+     */
+    public function getFromRequestBasedOnAllowedMethods(
+        string $paramKey,
+        ServerRequestInterface $request,
+        array $allowedMethods = [HttpMethodsEnum::GET],
+    ): ?string {
+        $allParams = $this->getAllFromRequestBasedOnAllowedMethods($request, $allowedMethods);
 
         return isset($allParams[$paramKey]) ? (string)$allParams[$paramKey] : null;
     }

@@ -14,38 +14,51 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\ParamsResolver;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule
  */
 class ClientIdRuleTest extends TestCase
 {
+    protected Stub $clientEntityStub;
     protected Stub $clientRepositoryStub;
     protected Stub $requestStub;
     protected Stub $resultBagStub;
     protected Stub $loggerServiceStub;
+    protected Stub $paramsResolverStub;
 
     /**
      * @throws \Exception
      */
     protected function setUp(): void
     {
+        $this->clientEntityStub = $this->createStub(ClientEntityInterface::class);
         $this->clientRepositoryStub = $this->createStub(ClientRepositoryInterface::class);
         $this->requestStub = $this->createStub(ServerRequestInterface::class);
         $this->resultBagStub = $this->createStub(ResultBagInterface::class);
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
+        $this->paramsResolverStub = $this->createStub(ParamsResolver::class);
+    }
+
+    protected function mock(): ClientIdRule
+    {
+        return new ClientIdRule(
+            $this->paramsResolverStub,
+            $this->clientRepositoryStub,
+        );
     }
 
     public function testConstruct(): void
     {
-        $this->assertInstanceOf(ClientIdRule::class, new ClientIdRule($this->clientRepositoryStub));
+        $this->assertInstanceOf(ClientIdRule::class, $this->mock());
     }
 
     public function testCheckRuleEmptyClientIdThrows(): void
     {
-        $this->requestStub->method('getQueryParams')->willReturn([]);
+        $this->paramsResolverStub->method('getBasedOnAllowedMethods')->willReturn(null);
         $this->expectException(OidcServerException::class);
-        (new ClientIdRule($this->clientRepositoryStub))->checkRule(
+        $this->mock()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
@@ -54,10 +67,10 @@ class ClientIdRuleTest extends TestCase
 
     public function testCheckRuleInvalidClientThrows(): void
     {
-        $this->requestStub->method('getQueryParams')->willReturn(['client_id' => '123']);
+        $this->paramsResolverStub->method('getBasedOnAllowedMethods')->willReturn('123');
         $this->clientRepositoryStub->method('getClientEntity')->willReturn('invalid');
         $this->expectException(OidcServerException::class);
-        (new ClientIdRule($this->clientRepositoryStub))->checkRule(
+        $this->mock()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
@@ -70,12 +83,10 @@ class ClientIdRuleTest extends TestCase
      */
     public function testCheckRuleForValidClientId(): void
     {
-        $this->requestStub->method('getMethod')->willReturn('GET');
-        $this->requestStub->method('getQueryParams')->willReturn(['client_id' => '123']);
-        $client = $this->createStub(ClientEntityInterface::class);
-        $this->clientRepositoryStub->method('getClientEntity')->willReturn($client);
+        $this->paramsResolverStub->method('getBasedOnAllowedMethods')->willReturn('123');
+        $this->clientRepositoryStub->method('getClientEntity')->willReturn($this->clientEntityStub);
 
-        $result = (new ClientIdRule($this->clientRepositoryStub))->checkRule(
+        $result = $this->mock()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,

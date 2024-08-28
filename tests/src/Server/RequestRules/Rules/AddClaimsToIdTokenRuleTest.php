@@ -13,6 +13,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AddClaimsToIdTokenRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\ParamsResolver;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AddClaimsToIdTokenRule
@@ -20,6 +21,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 class AddClaimsToIdTokenRuleTest extends TestCase
 {
     protected Stub $requestStub;
+    protected Stub $paramsResolverStub;
 
     protected array $requestParams = [
         'client_id' => 'client123',
@@ -54,6 +56,12 @@ class AddClaimsToIdTokenRuleTest extends TestCase
 
         $this->resultBag = new ResultBag();
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
+        $this->paramsResolverStub = $this->createStub(ParamsResolver::class);
+    }
+
+    protected function mock(): AddClaimsToIdTokenRule
+    {
+        return new AddClaimsToIdTokenRule($this->paramsResolverStub);
     }
 
     /**
@@ -62,10 +70,9 @@ class AddClaimsToIdTokenRuleTest extends TestCase
      */
     public function testAddClaimsToIdTokenRuleTest($responseType)
     {
-        $rule = new AddClaimsToIdTokenRule();
         $this->resultBag->add(new Result(ResponseTypeRule::class, $responseType));
 
-        $result = $rule->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub) ??
+        $result = $this->mock()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub) ??
         new Result(AddClaimsToIdTokenRule::class, null);
         $this->assertTrue($result->getValue());
     }
@@ -83,10 +90,9 @@ class AddClaimsToIdTokenRuleTest extends TestCase
      */
     public function testDoNotAddClaimsToIdTokenRuleTest($responseType)
     {
-        $rule = new AddClaimsToIdTokenRule();
         $this->resultBag->add(new Result(ResponseTypeRule::class, $responseType));
 
-        $result = $rule->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub) ??
+        $result = $this->mock()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub) ??
         new Result(AddClaimsToIdTokenRule::class, null);
 
         $this->assertFalse($result->getValue());
@@ -110,8 +116,7 @@ class AddClaimsToIdTokenRuleTest extends TestCase
      */
     public function testAddClaimsToIdTokenRuleThrowsWithNoResponseTypeParamTest()
     {
-        $rule = new AddClaimsToIdTokenRule();
         $this->expectException(LogicException::class);
-        $rule->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
+        $this->mock()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
     }
 }

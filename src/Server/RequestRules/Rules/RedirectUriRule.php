@@ -13,6 +13,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 class RedirectUriRule extends AbstractRule
 {
@@ -33,17 +34,16 @@ class RedirectUriRule extends AbstractRule
             throw new LogicException('Can not check redirect_uri, client is not ClientEntityInterface.');
         }
 
-        $redirectUri = $this->getRequestParamBasedOnAllowedMethods(
-            'redirect_uri',
+        $redirectUri = $this->paramsResolver->getAsStringBasedOnAllowedMethods(
+            ParamsEnum::RedirectUri->value,
             $request,
-            $loggerService,
             $allowedServerRequestMethods,
         );
 
         // On OAuth2 redirect_uri is optional if there is only one registered, however we will always require it
         // since this is OIDC oriented package and in OIDC this parameter is required.
         if ($redirectUri === null) {
-            throw OidcServerException::invalidRequest('redirect_uri');
+            throw OidcServerException::invalidRequest(ParamsEnum::RedirectUri->value);
         }
 
         $clientRedirectUri = $client->getRedirectUri();
@@ -53,7 +53,7 @@ class RedirectUriRule extends AbstractRule
             is_array($clientRedirectUri) &&
             in_array($redirectUri, $clientRedirectUri, true) === false
         ) {
-            throw OidcServerException::invalidRequest('redirect_uri');
+            throw OidcServerException::invalidRequest(ParamsEnum::RedirectUri->value);
         }
 
         return new Result($this->getKey(), $redirectUri);

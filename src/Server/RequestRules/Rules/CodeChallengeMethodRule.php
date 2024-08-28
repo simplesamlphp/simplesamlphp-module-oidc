@@ -13,6 +13,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 class CodeChallengeMethodRule extends AbstractRule
 {
@@ -40,16 +41,14 @@ class CodeChallengeMethodRule extends AbstractRule
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
-        // TODO mivanci continue refactoring to paramsResolver:
-        $codeChallengeMethod = $this->getRequestParamBasedOnAllowedMethods(
-            'code_challenge_method',
+        $codeChallengeMethod = $this->paramsResolver->getAsStringBasedOnAllowedMethods(
+            ParamsEnum::CodeChallengeMethod->value,
             $request,
-            $loggerService,
             $allowedServerRequestMethods,
         ) ?? 'plain';
         $codeChallengeVerifiers = $this->codeChallengeVerifiersRepository->getAll();
 
-        if (array_key_exists($codeChallengeMethod, $codeChallengeVerifiers) === false) {
+        if ($this->codeChallengeVerifiersRepository->has($codeChallengeMethod) === false) {
             throw OidcServerException::invalidRequest(
                 'code_challenge_method',
                 'Code challenge method must be one of ' . implode(', ', array_map(

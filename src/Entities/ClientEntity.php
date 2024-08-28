@@ -60,6 +60,10 @@ class ClientEntity implements ClientEntityInterface
      * @var ?array[]|null
      */
     private ?array $federationJwks = null;
+    /**
+     * @var ?array[]|null
+     */
+    private ?array $jwks = null;
 
     /**
      * Constructor.
@@ -321,5 +325,10 @@ class ClientEntity implements ClientEntityInterface
     public function getFederationJwks(): ?array
     {
         return $this->federationJwks;
+    }
+
+    public function getJwks(): ?array
+    {
+        return $this->jwks;
     }
 }

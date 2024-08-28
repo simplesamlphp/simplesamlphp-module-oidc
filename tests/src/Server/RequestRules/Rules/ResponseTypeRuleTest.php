@@ -12,6 +12,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\ParamsResolver;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule
@@ -19,6 +20,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 class ResponseTypeRuleTest extends TestCase
 {
     protected Stub $requestStub;
+    protected Stub $paramsResolverStub;
 
     protected array $requestParams = [
         'client_id' => 'client123',
@@ -55,6 +57,12 @@ class ResponseTypeRuleTest extends TestCase
 
         $this->resultBag = new ResultBag();
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
+        $this->paramsResolverStub = $this->createStub(ParamsResolver::class);
+    }
+
+    protected function mock(): ResponseTypeRule
+    {
+        return new ResponseTypeRule($this->paramsResolverStub);
     }
 
     /**
@@ -63,12 +71,9 @@ class ResponseTypeRuleTest extends TestCase
      */
     public function testResponseTypeRuleTest($responseType)
     {
-        $rule = new ResponseTypeRule();
-
         $this->requestParams['response_type'] = $responseType;
-        $this->requestStub->method('getMethod')->willReturn('GET');
-        $this->requestStub->method('getQueryParams')->willReturn($this->requestParams);
-        $result = $rule->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub) ??
+        $this->paramsResolverStub->method('getAllBasedOnAllowedMethods')->willReturn($this->requestParams);
+        $result = $this->mock()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub) ??
         new Result(ResponseTypeRule::class, null);
         $this->assertSame($responseType, $result->getValue());
     }
@@ -83,11 +88,10 @@ class ResponseTypeRuleTest extends TestCase
 
     public function testResponseTypeRuleThrowsWithNoResponseTypeParamTest()
     {
-        $rule = new ResponseTypeRule();
         $params = $this->requestParams;
         unset($params['response_type']);
-        $this->requestStub->method('getQueryParams')->willReturn($params);
+        $this->paramsResolverStub->method('getAllBasedOnAllowedMethods')->willReturn($params);
         $this->expectException(OidcServerException::class);
-        $rule->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
+        $this->mock()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
     }
 }

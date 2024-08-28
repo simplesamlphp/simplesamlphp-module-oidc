@@ -14,6 +14,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 class ScopeRule extends AbstractRule
 {
@@ -45,10 +46,9 @@ class ScopeRule extends AbstractRule
         /** @var string $scopeDelimiterString */
         $scopeDelimiterString = $data['scope_delimiter_string'] ?? ' ';
 
-        $scopeParam = $this->getRequestParamBasedOnAllowedMethods(
-            'scope',
+        $scopeParam = $this->paramsResolver->getAsStringBasedOnAllowedMethods(
+            ParamsEnum::Scope->value,
             $request,
-            $loggerService,
             $allowedServerRequestMethods,
         ) ?? $defaultScope;
 

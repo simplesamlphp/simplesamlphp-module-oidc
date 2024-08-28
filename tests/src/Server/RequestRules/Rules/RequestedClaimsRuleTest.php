@@ -14,6 +14,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Utils\ParamsResolver;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule
@@ -26,6 +27,7 @@ class RequestedClaimsRuleTest extends TestCase
     protected string $redirectUri = 'https://some-redirect-uri.org';
     protected Stub $loggerServiceStub;
     protected static string $userIdAttr = 'uid';
+    protected Stub $paramsResolverStub;
 
 
     /**
@@ -39,6 +41,15 @@ class RequestedClaimsRuleTest extends TestCase
         $this->clientStub->method('getScopes')->willReturn(['openid', 'profile', 'email']);
         $this->resultBag->add(new Result(ClientIdRule::class, $this->clientStub));
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
+        $this->paramsResolverStub = $this->createStub(ParamsResolver::class);
+    }
+
+    protected function mock(): RequestedClaimsRule
+    {
+        return new RequestedClaimsRule(
+            $this->paramsResolverStub,
+            new ClaimTranslatorExtractor(self::$userIdAttr),
+        );
     }
 
     /**
@@ -46,8 +57,7 @@ class RequestedClaimsRuleTest extends TestCase
      */
     public function testNoRequestedClaims(): void
     {
-        $rule = new RequestedClaimsRule(new ClaimTranslatorExtractor(self::$userIdAttr));
-        $result = $rule->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
+        $result = $this->mock()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
         $this->assertNull($result);
     }
 
@@ -77,14 +87,10 @@ class RequestedClaimsRuleTest extends TestCase
         // Add some claims the client is not authorized for
         $requestedClaims['userinfo']['someClaim'] = null;
         $requestedClaims['id_token']['secret_password'] = null;
-        $this->requestStub->method('getMethod')->willReturn('GET');
-        $this->requestStub->method('getQueryParams')->willReturn([
-            'claims' => json_encode($requestedClaims),
-            'client_id' => 'abc',
-        ]);
 
-        $rule = new RequestedClaimsRule(new ClaimTranslatorExtractor(self::$userIdAttr));
-        $result = $rule->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
+        $this->paramsResolverStub->method('getBasedOnAllowedMethods')->willReturn(json_encode($requestedClaims));
+
+        $result = $this->mock()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
         $this->assertNotNull($result);
         $this->assertEquals($expectedClaims, $result->getValue());
     }
@@ -101,14 +107,9 @@ class RequestedClaimsRuleTest extends TestCase
             ],
         ];
         $requestedClaims = $expectedClaims;
-        $this->requestStub->method('getMethod')->willReturn('GET');
-        $this->requestStub->method('getQueryParams')->willReturn([
-            'claims' => json_encode($requestedClaims),
-            'client_id' => 'abc',
-        ]);
+        $this->paramsResolverStub->method('getBasedOnAllowedMethods')->willReturn(json_encode($requestedClaims));
 
-        $rule = new RequestedClaimsRule(new ClaimTranslatorExtractor(self::$userIdAttr));
-        $result = $rule->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
+        $result = $this->mock()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
         $this->assertNotNull($result);
         $this->assertEquals($expectedClaims, $result->getValue());
     }

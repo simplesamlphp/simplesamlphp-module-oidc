@@ -10,6 +10,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 class StateRule extends AbstractRule
 {
@@ -24,10 +25,9 @@ class StateRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
-        $state = $this->getRequestParamBasedOnAllowedMethods(
-            'state',
+        $state = $this->paramsResolver->getAsStringBasedOnAllowedMethods(
+            ParamsEnum::State->value,
             $request,
-            $loggerService,
             $allowedServerRequestMethods,
         );
 

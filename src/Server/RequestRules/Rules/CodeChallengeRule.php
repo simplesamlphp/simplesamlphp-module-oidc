@@ -11,6 +11,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 class CodeChallengeRule extends AbstractRule
 {
@@ -31,16 +32,15 @@ class CodeChallengeRule extends AbstractRule
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
-        $codeChallenge = $this->getRequestParamBasedOnAllowedMethods(
-            'code_challenge',
+        $codeChallenge = $this->paramsResolver->getAsStringBasedOnAllowedMethods(
+            ParamsEnum::CodeChallenge->value,
             $request,
-            $loggerService,
             $allowedServerRequestMethods,
         );
 
         if ($codeChallenge === null) {
             throw OidcServerException::invalidRequest(
-                'code_challenge',
+                ParamsEnum::CodeChallenge->value,
                 'Code challenge must be provided for public clients',
                 null,
                 $redirectUri,
@@ -53,7 +53,7 @@ class CodeChallengeRule extends AbstractRule
         // @see: https://tools.ietf.org/html/rfc7636#section-4.2
         if (preg_match('/^[A-Za-z0-9-._~]{43,128}$/', $codeChallenge) !== 1) {
             throw OidcServerException::invalidRequest(
-                'code_challenge',
+                ParamsEnum::CodeChallenge->value,
                 'Code challenge must follow the specifications of RFC-7636.',
                 null,
                 $redirectUri,
