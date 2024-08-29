@@ -11,12 +11,17 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 class PostLogoutRedirectUriRule extends AbstractRule
 {
-    public function __construct(protected ClientRepository $clientRepository)
-    {
+    public function __construct(
+        RequestParamsResolver $requestParamsResolver,
+        protected ClientRepository $clientRepository,
+    ) {
+        parent::__construct($requestParamsResolver);
     }
 
     /**
@@ -29,7 +34,7 @@ class PostLogoutRedirectUriRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
@@ -37,10 +42,9 @@ class PostLogoutRedirectUriRule extends AbstractRule
         /** @var \Lcobucci\JWT\UnencryptedToken|null $idTokenHint */
         $idTokenHint = $currentResultBag->getOrFail(IdTokenHintRule::class)->getValue();
 
-        $postLogoutRedirectUri = $this->getRequestParamBasedOnAllowedMethods(
-            'post_logout_redirect_uri',
+        $postLogoutRedirectUri = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
+            ParamsEnum::PostLogoutRedirectUri->value,
             $request,
-            $loggerService,
             $allowedServerRequestMethods,
         );
 
@@ -58,7 +62,13 @@ class PostLogoutRedirectUriRule extends AbstractRule
         $claims = $idTokenHint->claims()->all();
 
         if (empty($claims['aud'])) {
-            throw OidcServerException::invalidRequest('id_token_hint', 'aud claim not present', null, null, $state);
+            throw OidcServerException::invalidRequest(
+                ParamsEnum::IdTokenHint->value,
+                'aud claim not present',
+                null,
+                null,
+                $state,
+            );
         }
         /** @var string[] $auds */
         $auds = is_array($claims['aud']) ? $claims['aud'] : [$claims['aud']];
@@ -67,7 +77,13 @@ class PostLogoutRedirectUriRule extends AbstractRule
         foreach ($auds as $aud) {
             $client = $this->clientRepository->findById($aud);
             if ($client === null) {
-                throw OidcServerException::invalidRequest('id_token_hint', 'aud claim not valid', null, null, $state);
+                throw OidcServerException::invalidRequest(
+                    ParamsEnum::IdTokenHint->value,
+                    'aud claim not valid',
+                    null,
+                    null,
+                    $state,
+                );
             }
             if (in_array($postLogoutRedirectUri, $client->getPostLogoutRedirectUri(), true)) {
                 $isPostLogoutRedirectUriRegistered = true;
@@ -77,7 +93,7 @@ class PostLogoutRedirectUriRule extends AbstractRule
 
         if (! $isPostLogoutRedirectUriRegistered) {
             throw OidcServerException::invalidRequest(
-                'id_token_hint',
+                ParamsEnum::IdTokenHint->value,
                 'post_logout_redirect_uri not registered',
                 null,
                 null,

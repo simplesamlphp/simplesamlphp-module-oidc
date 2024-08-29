@@ -11,6 +11,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 class RequiredNonceRule extends AbstractRule
 {
@@ -24,23 +25,22 @@ class RequiredNonceRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
-        $nonce = $this->getRequestParamBasedOnAllowedMethods(
-            'nonce',
+        $nonce = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
+            ParamsEnum::Nonce->value,
             $request,
-            $loggerService,
             $allowedServerRequestMethods,
         );
 
         if ($nonce === null || $nonce === '') {
             throw OidcServerException::invalidRequest(
-                'nonce',
+                ParamsEnum::Nonce->value,
                 'nonce is required',
                 null,
                 $redirectUri,

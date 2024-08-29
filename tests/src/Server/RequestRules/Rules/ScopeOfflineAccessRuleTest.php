@@ -17,6 +17,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeOfflineAccessRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeOfflineAccessRule
@@ -35,6 +36,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
     protected Stub $validScopesResultStub;
     protected Stub $moduleConfigStub;
     protected Stub $openIdConfigurationStub;
+    protected Stub $requestParamsResolverStub;
 
     /**
      * @throws \Exception
@@ -62,13 +64,19 @@ class ScopeOfflineAccessRuleTest extends TestCase
 
         $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
         $this->openIdConfigurationStub = $this->createStub(Configuration::class);
+        $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
+    }
+
+    protected function mock(): ScopeOfflineAccessRule
+    {
+        return new ScopeOfflineAccessRule($this->requestParamsResolverStub);
     }
 
     public function testCanCreateInstance(): void
     {
         $this->assertInstanceOf(
             ScopeOfflineAccessRule::class,
-            new ScopeOfflineAccessRule(),
+            $this->mock(),
         );
     }
 
@@ -95,8 +103,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
         $this->moduleConfigStub->method('config')
             ->willReturn($this->openIdConfigurationStub);
 
-        $result = (new ScopeOfflineAccessRule())
-            ->checkRule($this->serverRequestStub, $this->resultBagMock, $this->loggerServiceMock);
+        $result = $this->mock()->checkRule($this->serverRequestStub, $this->resultBagMock, $this->loggerServiceMock);
 
         $this->assertNotNull($result);
         $this->assertFalse($result->getValue());
@@ -127,8 +134,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
 
         $this->expectException(OidcServerException::class);
 
-        (new ScopeOfflineAccessRule())
-            ->checkRule($this->serverRequestStub, $this->resultBagMock, $this->loggerServiceMock);
+        $this->mock()->checkRule($this->serverRequestStub, $this->resultBagMock, $this->loggerServiceMock);
     }
 
     /**
@@ -155,8 +161,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
         $this->moduleConfigStub->method('config')
             ->willReturn($this->openIdConfigurationStub);
 
-        $result = (new ScopeOfflineAccessRule())
-            ->checkRule($this->serverRequestStub, $this->resultBagMock, $this->loggerServiceMock);
+        $result = $this->mock()->checkRule($this->serverRequestStub, $this->resultBagMock, $this->loggerServiceMock);
 
         $this->assertNotNull($result);
         $this->assertTrue($result->getValue());

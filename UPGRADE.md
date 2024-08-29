@@ -21,12 +21,15 @@
     - Entity Identifier
     - Registration Types
     - Federation JWKS
+    - Protocol JWKS
 - Improved AuthProc filter support
   - Support authproc filters that need to redirect and later resume processing
     - `consent` and `preprodwarning` are two authprocs that redirect for user interaction and are now supported
   - Uses SSP's ProcessingChain class for closer alignment with SAML IdP configuration.
     - Allows additional configuration of authprocs in the main `config.php` under key `authproc.oidc`
-- Authorization endpoint now also supports sending parameters using HTTP POST method, in addition to GET.
+- Authorization endpoint now also supports sending request parameters using HTTP POST method, in addition to GET.
+- Added support for passing request parameters as JWTs, specifically - passing a Request Object by Value:
+https://openid.net/specs/openid-connect-core-1_0.html#RequestObject
 
 ## New configuration options
 

@@ -60,6 +60,10 @@ class ClientEntity implements ClientEntityInterface
      * @var ?array[]|null
      */
     private ?array $federationJwks = null;
+    /**
+     * @var ?array[]|null
+     */
+    private ?array $jwks = null;
 
     /**
      * Constructor.
@@ -74,6 +78,7 @@ class ClientEntity implements ClientEntityInterface
      * @param string[] $postLogoutRedirectUri
      * @param string[] $clientRegistrationTypes
      * @param array[] $federationJwks
+     * @param array[] $jwks
      */
     public static function fromData(
         string $id,
@@ -91,6 +96,7 @@ class ClientEntity implements ClientEntityInterface
         ?string $entityIdentifier = null,
         ?array $clientRegistrationTypes = null,
         ?array $federationJwks = null,
+        ?array $jwks = null,
     ): ClientEntityInterface {
         $client = new self();
 
@@ -109,6 +115,7 @@ class ClientEntity implements ClientEntityInterface
         $client->entityIdentifier = empty($entityIdentifier) ? null : $entityIdentifier;
         $client->clientRegistrationTypes = $clientRegistrationTypes;
         $client->federationJwks = $federationJwks;
+        $client->jwks = $jwks;
 
         return $client;
     }
@@ -179,6 +186,12 @@ class ClientEntity implements ClientEntityInterface
         json_decode((string)$state['federation_jwks'], true, 512, JSON_THROW_ON_ERROR);
         $client->federationJwks = $federationJwks;
 
+        /** @var ?array[] $jwks */
+        $jwks = empty($state['jwks']) ?
+        null :
+        json_decode((string)$state['jwks'], true, 512, JSON_THROW_ON_ERROR);
+        $client->jwks = $jwks;
+
         return $client;
     }
 
@@ -208,6 +221,9 @@ class ClientEntity implements ClientEntityInterface
             'federation_jwks' => is_null($this->federationJwks) ?
                 null :
                 json_encode($this->getFederationJwks()),
+            'jwks' => is_null($this->jwks) ?
+                null :
+                json_encode($this->jwks()),
         ];
     }
 
@@ -229,6 +245,7 @@ class ClientEntity implements ClientEntityInterface
             'entity_identifier' => $this->entityIdentifier,
             'client_registration_types' => $this->clientRegistrationTypes,
             'federation_jwks' => $this->federationJwks,
+            'jwks' => $this->jwks,
         ];
     }
 
@@ -321,5 +338,10 @@ class ClientEntity implements ClientEntityInterface
     public function getFederationJwks(): ?array
     {
         return $this->federationJwks;
+    }
+
+    public function jwks(): ?array
+    {
+        return $this->jwks;
     }
 }

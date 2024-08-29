@@ -16,6 +16,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 class OAuth2ImplicitGrant extends ImplicitGrant implements AuthorizationValidatableWithCheckerResultBagInterface
 {
@@ -104,7 +105,12 @@ class OAuth2ImplicitGrant extends ImplicitGrant implements AuthorizationValidata
         $this->requestRulesManager->setData('default_scope', $this->defaultScope);
         $this->requestRulesManager->setData('scope_delimiter_string', self::SCOPE_DELIMITER_STRING);
 
-        $resultBag = $this->requestRulesManager->check($request, $rulesToExecute, false, ['GET', 'POST']);
+        $resultBag = $this->requestRulesManager->check(
+            $request,
+            $rulesToExecute,
+            false,
+            [HttpMethodsEnum::GET, HttpMethodsEnum::POST],
+        );
 
         /** @var \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes */
         $scopes = $resultBag->getOrFail(ScopeRule::class)->getValue();

@@ -10,6 +10,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 class UiLocalesRule extends AbstractRule
 {
@@ -22,12 +23,11 @@ class UiLocalesRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
-        return new Result($this->getKey(), $this->getRequestParamBasedOnAllowedMethods(
-            'ui_locales',
+        return new Result($this->getKey(), $this->requestParamsResolver->getBasedOnAllowedMethods(
+            ParamsEnum::UiLocales->value,
             $request,
-            $loggerService,
             $allowedServerRequestMethods,
         ));
     }

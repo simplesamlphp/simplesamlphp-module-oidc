@@ -17,6 +17,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule
@@ -31,18 +32,24 @@ class CodeChallengeRuleTest extends TestCase
 
     protected string $codeChallenge = '123123123123123123123123123123123123123123123123123123123123';
     protected Stub $loggerServiceStub;
+    protected Stub $requestParamsResolverStub;
 
     /**
      * @throws \Exception
      */
     protected function setUp(): void
     {
-        $this->rule = new CodeChallengeRule();
         $this->requestStub = $this->createStub(ServerRequestInterface::class);
         $this->resultBagStub = $this->createStub(ResultBagInterface::class);
         $this->redirectUriResult = new Result(RedirectUriRule::class, 'https://some-uri.org');
         $this->stateResult = new Result(StateRule::class, '123');
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
+        $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
+    }
+
+    protected function mock(): CodeChallengeRule
+    {
+        return new CodeChallengeRule($this->requestParamsResolverStub);
     }
 
     /**
@@ -53,7 +60,7 @@ class CodeChallengeRuleTest extends TestCase
     {
         $resultBag = new ResultBag();
         $this->expectException(LogicException::class);
-        $this->rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
+        $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
     }
 
     /**
@@ -65,7 +72,7 @@ class CodeChallengeRuleTest extends TestCase
         $resultBag = new ResultBag();
         $resultBag->add($this->redirectUriResult);
         $this->expectException(LogicException::class);
-        $this->rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
+        $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
     }
 
     /**
@@ -74,9 +81,9 @@ class CodeChallengeRuleTest extends TestCase
     public function testCheckRuleNoCodeChallengeThrows(): void
     {
         $resultBag = $this->prepareValidResultBag();
-        $this->requestStub->method('getQueryParams')->willReturn([]);
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn(null);
         $this->expectException(OidcServerException::class);
-        $this->rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
+        $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
     }
 
     /**
@@ -85,9 +92,9 @@ class CodeChallengeRuleTest extends TestCase
     public function testCheckRuleInvalidCodeChallengeThrows(): void
     {
         $resultBag = $this->prepareValidResultBag();
-        $this->requestStub->method('getQueryParams')->willReturn(['code_challenge' => 'too-short']);
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('too-short');
         $this->expectException(OidcServerException::class);
-        $this->rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
+        $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
     }
 
     /**
@@ -97,9 +104,9 @@ class CodeChallengeRuleTest extends TestCase
     public function testCheckRuleForValidCodeChallenge(): void
     {
         $resultBag = $this->prepareValidResultBag();
-        $this->requestStub->method('getMethod')->willReturn('GET');
-        $this->requestStub->method('getQueryParams')->willReturn(['code_challenge' => $this->codeChallenge]);
-        $result = $this->rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn($this->codeChallenge);
+
+        $result = $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
 
         $this->assertInstanceOf(ResultInterface::class, $result);
         $this->assertSame($this->codeChallenge, $result->getValue());

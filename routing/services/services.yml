@@ -75,15 +75,18 @@ services:
     arguments:
       $publicKey: '@oidc.key.public'
 
-  SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor:
-    factory: ['@SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory', 'build']
-
   SimpleSAML\Module\oidc\Server\AuthorizationServer:
     factory: ['@SimpleSAML\Module\oidc\Factories\AuthorizationServerFactory', 'build']
 
   # OAuth2 Server
   League\OAuth2\Server\ResourceServer:
     factory: ['@SimpleSAML\Module\oidc\Factories\ResourceServerFactory', 'build']
+
+  # Utils
+  SimpleSAML\Module\oidc\Utils\RequestParamsResolver: ~
+
+  SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor:
+    factory: ['@SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory', 'build']
 
   # Use (already available) Laminas\Diactoros package as PSR HTTP Factories.
   Laminas\Diactoros\ServerRequestFactory: ~
@@ -94,3 +97,6 @@ services:
 
   # Symfony
   Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory: ~
+
+  # Ssp OpenId
+  SimpleSAML\OpenID\Core: ~

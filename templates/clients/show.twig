@@ -109,6 +109,21 @@
             </td>
         </tr>
         {% endif %}
+        <tr >
+            <td class="collapsing">{{ 'Protocol JWKS'|trans }}</td>
+            <td>
+                {% if client.jwks %}
+                    <div class="ui comments" >
+                        <div class="comment">
+                            <div class="text">
+                                {{ client.jwks|json_encode(constant('JSON_PRETTY_PRINT')) }}
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </td>
+        </tr>
+
         <tr>
             <td colspan="2">OpenID Federation related properties</td>
         </tr>

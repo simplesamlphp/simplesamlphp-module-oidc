@@ -267,30 +267,6 @@
         }
       ]
     },
-    "oidcc-ensure-request-object-with-redirect-uri": {
-      "browser": [
-        {
-          "comment": "expect an immediate error page",
-          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
-          "tasks": [
-            {
-              "task": "Expect redirect uri mismatch error page",
-              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
-              "commands": [
-                [
-                  "wait",
-                  "xpath",
-                  "//*",
-                  10,
-                  "Check the `redirect_uri` parameter",
-                  "update-image-placeholder"
-                ]
-              ]
-            }
-          ]
-        }
-      ]
-    },
     "oidcc-ensure-redirect-uri-in-authorization-request": {
       "browser": [
         {

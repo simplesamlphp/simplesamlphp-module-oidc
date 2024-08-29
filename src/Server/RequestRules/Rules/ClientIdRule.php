@@ -12,12 +12,17 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 class ClientIdRule extends AbstractRule
 {
-    public function __construct(protected ClientRepositoryInterface $clientRepository)
-    {
+    public function __construct(
+        RequestParamsResolver $requestParamsResolver,
+        protected ClientRepositoryInterface $clientRepository,
+    ) {
+        parent::__construct($requestParamsResolver);
     }
 
     /**
@@ -29,13 +34,12 @@ class ClientIdRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         /** @var ?string $clientId */
-        $clientId = $this->getRequestParamBasedOnAllowedMethods(
-            'client_id',
+        $clientId = $this->requestParamsResolver->getBasedOnAllowedMethods(
+            ParamsEnum::ClientId->value,
             $request,
-            $loggerService,
             $allowedServerRequestMethods,
         ) ?? $request->getServerParams()['PHP_AUTH_USER'] ?? null;
 

@@ -12,15 +12,19 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\Utils\HTTP;
 
 class MaxAgeRule extends AbstractRule
 {
     public function __construct(
+        RequestParamsResolver $requestParamsResolver,
         private readonly AuthSimpleFactory $authSimpleFactory,
         private readonly AuthenticationService $authenticationService,
     ) {
+        parent::__construct($requestParamsResolver);
     }
 
     /**
@@ -37,20 +41,19 @@ class MaxAgeRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
-        $requestParams = $this->getAllRequestParamsBasedOnAllowedMethods(
+        $requestParams = $this->requestParamsResolver->getAllBasedOnAllowedMethods(
             $request,
-            $loggerService,
             $allowedServerRequestMethods,
-        ) ?? [];
+        );
 
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
 
         $authSimple = $this->authSimpleFactory->build($client);
 
-        if (!array_key_exists('max_age', $requestParams) || !$authSimple->isAuthenticated()) {
+        if (!array_key_exists(ParamsEnum::MaxAge->value, $requestParams) || !$authSimple->isAuthenticated()) {
             return null;
         }
 
@@ -61,13 +64,13 @@ class MaxAgeRule extends AbstractRule
 
         if (
             false === filter_var(
-                $requestParams['max_age'],
+                $requestParams[ParamsEnum::MaxAge->value],
                 FILTER_VALIDATE_INT,
                 ['options' => ['min_range' => 0]],
             )
         ) {
             throw OidcServerException::invalidRequest(
-                'max_age',
+                ParamsEnum::MaxAge->value,
                 'max_age must be a valid integer',
                 null,
                 $redirectUri,
@@ -76,7 +79,7 @@ class MaxAgeRule extends AbstractRule
             );
         }
 
-        $maxAge = (int) $requestParams['max_age'];
+        $maxAge = (int) $requestParams[ParamsEnum::MaxAge->value];
         $lastAuth =  (int) $authSimple->getAuthData('AuthnInstant');
         $isExpired = $lastAuth + $maxAge < time();
 

@@ -86,6 +86,8 @@ use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\OpenID\Core;
 use SimpleSAML\Session;
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
 
@@ -180,6 +182,9 @@ class Container implements ContainerInterface
 
         $helpers = new Helpers();
 
+        $core = new Core();
+        $requestParamsResolver = new RequestParamsResolver($helpers, $core);
+
         $authenticationService = new AuthenticationService(
             $userRepository,
             $authSimpleFactory,
@@ -191,6 +196,7 @@ class Container implements ContainerInterface
             $processingChainFactory,
             $stateService,
             $helpers,
+            $requestParamsResolver,
         );
         $this->services[AuthenticationService::class] = $authenticationService;
 
@@ -200,25 +206,25 @@ class Container implements ContainerInterface
         $cryptKeyFactory = new CryptKeyFactory($moduleConfig);
 
         $requestRules = [
-            new StateRule(),
-            new ClientIdRule($clientRepository),
-            new RedirectUriRule(),
-            new RequestParameterRule(),
-            new PromptRule($authSimpleFactory, $authenticationService),
-            new MaxAgeRule($authSimpleFactory, $authenticationService),
-            new ScopeRule($scopeRepository),
-            new RequiredOpenIdScopeRule(),
-            new CodeChallengeRule(),
-            new CodeChallengeMethodRule($codeChallengeVerifiersRepository),
-            new RequestedClaimsRule($claimTranslatorExtractor),
-            new AddClaimsToIdTokenRule(),
-            new RequiredNonceRule(),
-            new ResponseTypeRule(),
-            new IdTokenHintRule($moduleConfig, $cryptKeyFactory),
-            new PostLogoutRedirectUriRule($clientRepository),
-            new UiLocalesRule(),
-            new AcrValuesRule(),
-            new ScopeOfflineAccessRule(),
+            new StateRule($requestParamsResolver),
+            new ClientIdRule($requestParamsResolver, $clientRepository),
+            new RedirectUriRule($requestParamsResolver),
+            new RequestParameterRule($requestParamsResolver),
+            new PromptRule($requestParamsResolver, $authSimpleFactory, $authenticationService),
+            new MaxAgeRule($requestParamsResolver, $authSimpleFactory, $authenticationService),
+            new ScopeRule($requestParamsResolver, $scopeRepository),
+            new RequiredOpenIdScopeRule($requestParamsResolver),
+            new CodeChallengeRule($requestParamsResolver),
+            new CodeChallengeMethodRule($requestParamsResolver, $codeChallengeVerifiersRepository),
+            new RequestedClaimsRule($requestParamsResolver, $claimTranslatorExtractor),
+            new AddClaimsToIdTokenRule($requestParamsResolver),
+            new RequiredNonceRule($requestParamsResolver),
+            new ResponseTypeRule($requestParamsResolver),
+            new IdTokenHintRule($requestParamsResolver, $moduleConfig, $cryptKeyFactory),
+            new PostLogoutRedirectUriRule($requestParamsResolver, $clientRepository),
+            new UiLocalesRule($requestParamsResolver),
+            new AcrValuesRule($requestParamsResolver),
+            new ScopeOfflineAccessRule($requestParamsResolver),
         ];
         $requestRuleManager = new RequestRulesManager($requestRules, $loggerService);
         $this->services[RequestRulesManager::class] = $requestRuleManager;
@@ -257,7 +263,7 @@ class Container implements ContainerInterface
             $accessTokenRepository,
             $refreshTokenRepository,
             $requestRuleManager,
-            $helpers,
+            $requestParamsResolver,
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 
@@ -269,7 +275,7 @@ class Container implements ContainerInterface
             $this->services[IdTokenBuilder::class],
             $requestRuleManager,
             $accessTokenRepository,
-            $helpers,
+            $requestParamsResolver,
         );
         $this->services[ImplicitGrant::class] = $implicitGrantFactory->build();
 

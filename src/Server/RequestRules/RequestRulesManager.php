@@ -47,7 +47,7 @@ class RequestRulesManager
      * @param class-string[] $ruleKeysToExecute
      * @param bool $useFragmentInHttpErrorResponses Indicate that in case of HTTP error responses, params should be
      * returned in URI fragment instead of query.
-     * @param string[] $allowedServerRequestMethods Indicate allowed HTTP methods used for request
+     * @param HttpMethodsEnum[] $allowedServerRequestMethods Indicate allowed HTTP methods used for request
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function check(
@@ -55,7 +55,7 @@ class RequestRulesManager
         array $ruleKeysToExecute,
         bool $useFragmentInHttpErrorResponses = false,
         // TODO mivanci move to HttpMethodsEnum instances
-        array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ResultBagInterface {
         foreach ($ruleKeysToExecute as $ruleKey) {
             if (! isset($this->rules[$ruleKey])) {

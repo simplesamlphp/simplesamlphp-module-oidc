@@ -94,6 +94,8 @@ class EditController
             $data['client_registration_types'] : null;
             /** @var ?array[] $federationJwks */
             $federationJwks = is_array($data['federation_jwks']) ? $data['federation_jwks'] : null;
+            /** @var ?array[] $jwks */
+            $jwks = is_array($data['jwks']) ? $data['jwks'] : null;
 
             $this->clientRepository->update(ClientEntity::fromData(
                 $client->getIdentifier(),
@@ -111,6 +113,7 @@ class EditController
                 empty($data['entity_identifier']) ? null : (string)$data['entity_identifier'],
                 $clientRegistrationTypes,
                 $federationJwks,
+                $jwks,
             ), $authedUser);
 
             // Also persist allowed origins for this client.

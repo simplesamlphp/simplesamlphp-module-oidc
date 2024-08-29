@@ -17,6 +17,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule
@@ -32,6 +33,7 @@ class RequiredOpenIdScopeRuleTest extends TestCase
     protected Stub $requestStub;
 
     protected Stub $loggerServiceStub;
+    protected Stub $requestParamsResolverStub;
 
     /**
      * @throws \Exception
@@ -47,6 +49,14 @@ class RequiredOpenIdScopeRuleTest extends TestCase
         ];
         $this->scopeResult = new Result(ScopeRule::class, $this->scopeEntities);
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
+        $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
+    }
+
+    protected function mock(): RequiredOpenIdScopeRule
+    {
+        return new RequiredOpenIdScopeRule(
+            $this->requestParamsResolverStub,
+        );
     }
 
     /**
@@ -55,10 +65,9 @@ class RequiredOpenIdScopeRuleTest extends TestCase
      */
     public function testCheckRuleRedirectUriDependency(): void
     {
-        $rule = new RequiredOpenIdScopeRule();
         $resultBag = new ResultBag();
         $this->expectException(LogicException::class);
-        $rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
+        $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
     }
 
     /**
@@ -67,11 +76,10 @@ class RequiredOpenIdScopeRuleTest extends TestCase
      */
     public function testCheckRuleStateDependency(): void
     {
-        $rule = new RequiredOpenIdScopeRule();
         $resultBag = new ResultBag();
         $resultBag->add($this->redirectUriResult);
         $this->expectException(LogicException::class);
-        $rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
+        $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
     }
 
     /**
@@ -80,13 +88,12 @@ class RequiredOpenIdScopeRuleTest extends TestCase
      */
     public function testCheckRulePassesWhenOpenIdScopeIsPresent()
     {
-        $rule = new RequiredOpenIdScopeRule();
         $resultBag = new ResultBag();
         $resultBag->add($this->redirectUriResult);
         $resultBag->add($this->stateResult);
         $resultBag->add($this->scopeResult);
 
-        $result = $rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub) ??
+        $result = $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub) ??
         new Result(RequiredOpenIdScopeRule::class, null);
 
         $this->assertTrue($result->getValue());
@@ -97,7 +104,6 @@ class RequiredOpenIdScopeRuleTest extends TestCase
      */
     public function testCheckRuleThrowsWhenOpenIdScopeIsNotPresent()
     {
-        $rule = new RequiredOpenIdScopeRule();
         $resultBag = new ResultBag();
         $resultBag->add($this->redirectUriResult);
         $resultBag->add($this->stateResult);
@@ -108,6 +114,6 @@ class RequiredOpenIdScopeRuleTest extends TestCase
 
         $this->expectException(OidcServerException::class);
 
-        $rule->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
+        $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
     }
 }

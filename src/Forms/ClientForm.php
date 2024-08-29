@@ -144,23 +144,32 @@ class ClientForm extends Form
 
     public function validateFederationJwks(Form $form): void
     {
-        $federationJwks = $form->getValues()['federation_jwks'] ?? null;
-        if (is_null($federationJwks)) {
+        $this->validateJwks($form->getValues()['federation_jwks'] ?? null);
+    }
+
+    public function validateProtocolJwks(Form $form): void
+    {
+        $this->validateJwks($form->getValues()['jwks'] ?? null);
+    }
+
+    public function validateJwks(mixed $jwks): void
+    {
+        if (is_null($jwks)) {
             return;
         }
 
-        if (!is_array($federationJwks)) {
-            $this->addError(sprintf("Invalid JWKS format: %s", var_export($federationJwks, true)));
+        if (!is_array($jwks)) {
+            $this->addError(sprintf("Invalid JWKS format: %s", var_export($jwks, true)));
             return;
         }
 
-        if (!array_key_exists('keys', $federationJwks)) {
-            $this->addError(sprintf("No keys property in JWKS: %s", var_export($federationJwks, true)));
+        if (!array_key_exists('keys', $jwks)) {
+            $this->addError(sprintf("No keys property in JWKS: %s", var_export($jwks, true)));
             return;
         }
 
-        if (empty($federationJwks['keys'])) {
-            $this->addError(sprintf("Empty keys in JWKS: %s", var_export($federationJwks, true)));
+        if (empty($jwks['keys'])) {
+            $this->addError(sprintf("Empty keys in JWKS: %s", var_export($jwks, true)));
         }
     }
 
@@ -216,10 +225,26 @@ class ClientForm extends Form
         [ClientRegistrationTypesEnum::Automatic->value];
 
         $federationJwks = trim((string)$values['federation_jwks']);
-        /** @psalm-suppress MixedAssignment */
-        $values['federation_jwks'] = empty($federationJwks) ?
-        null :
-        json_decode($federationJwks, true, 512, JSON_THROW_ON_ERROR);
+        try {
+            /** @psalm-suppress MixedAssignment */
+            $values['federation_jwks'] = empty($federationJwks) ?
+            null :
+            json_decode($federationJwks, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $e) {
+            $this->addError('Federation JSON error: ' . $e->getMessage());
+            $values['federation_jwks'] = null;
+        }
+
+        $jwks = trim((string)$values['jwks']);
+        try {
+            /** @psalm-suppress MixedAssignment */
+            $values['jwks'] = empty($jwks) ?
+            null :
+            json_decode($jwks, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $e) {
+            $this->addError('JWKS JSON error: ' . $e->getMessage());
+            $values['jwks'] = null;
+        }
 
         return $values;
     }
@@ -263,6 +288,8 @@ class ClientForm extends Form
 
         $data['federation_jwks'] = is_array($data['federation_jwks']) ? json_encode($data['federation_jwks']) : null;
 
+        $data['jwks'] = is_array($data['jwks']) ? json_encode($data['jwks']) : null;
+
         parent::setDefaults($data, $erase);
 
         return $this;
@@ -282,6 +309,7 @@ class ClientForm extends Form
         $this->onValidate[] = $this->validateEntityIdentifier(...);
         $this->onValidate[] = $this->validateClientRegistrationTypes(...);
         $this->onValidate[] = $this->validateFederationJwks(...);
+        $this->onValidate[] = $this->validateProtocolJwks(...);
 
         $this->setMethod('POST');
         $this->addComponent($this->csrfProtection, Form::ProtectorId);
@@ -298,6 +326,7 @@ class ClientForm extends Form
 
         $this->addCheckbox('is_confidential', '{oidc:client:is_confidential}');
 
+        // TODO mivanci Source::getSource() move to SSP Bridge.
         $this->addSelect('auth_source', '{oidc:client:auth_source}:')
             ->setHtmlAttribute('class', 'ui fluid dropdown clearable')
             ->setItems(Source::getSources(), false)
@@ -324,6 +353,8 @@ class ClientForm extends Form
             ->setItems($this->getClientRegistrationTypes());
 
         $this->addTextArea('federation_jwks', '{oidc:client:federation_jwks}', null, 5);
+
+        $this->addTextArea('jwks', '{oidc:client:jwks}', null, 5);
     }
 
     /**

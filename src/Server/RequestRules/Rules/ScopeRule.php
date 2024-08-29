@@ -12,12 +12,17 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 class ScopeRule extends AbstractRule
 {
-    public function __construct(protected ScopeRepositoryInterface $scopeRepository)
-    {
+    public function __construct(
+        RequestParamsResolver $requestParamsResolver,
+        protected ScopeRepositoryInterface $scopeRepository,
+    ) {
+        parent::__construct($requestParamsResolver);
     }
 
     /**
@@ -30,7 +35,7 @@ class ScopeRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
@@ -41,10 +46,9 @@ class ScopeRule extends AbstractRule
         /** @var string $scopeDelimiterString */
         $scopeDelimiterString = $data['scope_delimiter_string'] ?? ' ';
 
-        $scopeParam = $this->getRequestParamBasedOnAllowedMethods(
-            'scope',
+        $scopeParam = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
+            ParamsEnum::Scope->value,
             $request,
-            $loggerService,
             $allowedServerRequestMethods,
         ) ?? $defaultScope;
 

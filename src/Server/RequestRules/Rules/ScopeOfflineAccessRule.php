@@ -25,7 +25,7 @@ class ScopeOfflineAccessRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();

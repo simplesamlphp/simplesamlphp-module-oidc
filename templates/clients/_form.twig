@@ -132,6 +132,18 @@
         </div>
         {% endif %}
 
+        <div class="field">
+            <label for="frm-jwks">{{ 'JWKS'|trans }}</label>
+
+            {{ form['jwks'].control | raw }}
+            <small class="helper">
+                {% trans %}JSON object (string) representing protocol JWKS. This can be used, for example, to check
+                    integrity of Request Object parameter. Note that this should be different from Federation JWKS.
+                    Example:
+                    {"keys":[{"kty": "RSA","n": "...","e": "AQAB","kid": "pro123","use": "sig","alg": "RS256"}]}{% endtrans %}
+            </small>
+        </div>
+
         <h3 class="ui dividing header">OpenID Federation related properties</h3>
 
         <div class="field">
@@ -158,8 +170,9 @@
 
             {{ form['federation_jwks'].control | raw }}
             <small class="helper">
-                {% trans %}JSON object (string) representing federation JWKS (used in entity statements). Example:
-                {"keys":[{"kty": "RSA","n": "...","e": "AQAB","kid": "...","use": "sig","alg": "RS256"}]}{% endtrans %}
+                {% trans %}JSON object (string) representing federation JWKS. This can be used, for example, in
+                    entity statements. Note that this should be different from Protocol JWKS. Example:
+                {"keys":[{"kty": "RSA","n": "...","e": "AQAB","kid": "fed123","use": "sig","alg": "RS256"}]}{% endtrans %}
             </small>
         </div>
 

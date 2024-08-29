@@ -23,7 +23,7 @@ class AddClaimsToIdTokenRule extends AbstractRule
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = [HttpMethodsEnum::GET->value],
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         /** @var string $responseType */
         $responseType = $currentResultBag->getOrFail(ResponseTypeRule::class)->getValue();

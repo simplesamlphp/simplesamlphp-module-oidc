@@ -18,6 +18,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use Throwable;
 
 /**
@@ -40,6 +41,7 @@ class IdTokenHintRuleTest extends TestCase
     private Configuration $jwtConfig;
 
     protected Stub $loggerServiceStub;
+    protected Stub $requestParamsResolverStub;
 
     public static function setUpBeforeClass(): void
     {
@@ -75,14 +77,21 @@ class IdTokenHintRuleTest extends TestCase
         );
 
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
+        $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
+    }
+
+    protected function mock(): IdTokenHintRule
+    {
+        return new IdTokenHintRule(
+            $this->requestParamsResolverStub,
+            $this->moduleConfigStub,
+            $this->cryptKeyFactoryStub,
+        );
     }
 
     public function testConstruct(): void
     {
-        $this->assertInstanceOf(IdTokenHintRule::class, new IdTokenHintRule(
-            $this->moduleConfigStub,
-            $this->cryptKeyFactoryStub,
-        ));
+        $this->assertInstanceOf(IdTokenHintRule::class, $this->mock());
     }
 
     /**
@@ -91,13 +100,11 @@ class IdTokenHintRuleTest extends TestCase
      */
     public function testCheckRuleIsNullWhenParamNotSet(): void
     {
-        $rule = new IdTokenHintRule($this->moduleConfigStub, $this->cryptKeyFactoryStub);
-        $this->requestStub->method('getMethod')->willReturn('');
-        $result = $rule->checkRule(
+        $result = $this->mock()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
-        ) ?? new Result(\SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule::class);
+        ) ?? new Result(IdTokenHintRule::class);
 
         $this->assertNull($result->getValue());
     }
@@ -107,11 +114,9 @@ class IdTokenHintRuleTest extends TestCase
      */
     public function testCheckRuleThrowsForMalformedIdToken(): void
     {
-        $this->requestStub->method('getMethod')->willReturn('GET');
-        $this->requestStub->method('getQueryParams')->willReturn(['id_token_hint' => 'malformed']);
-        $rule = new IdTokenHintRule($this->moduleConfigStub, $this->cryptKeyFactoryStub);
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('malformed');
         $this->expectException(Throwable::class);
-        $rule->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
+        $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
     }
 
     /**
@@ -119,7 +124,6 @@ class IdTokenHintRuleTest extends TestCase
      */
     public function testCheckRuleThrowsForIdTokenWithInvalidSignature(): void
     {
-        $this->requestStub->method('getMethod')->willReturn('GET');
         $invalidSignatureJwt = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2V4YW1wbGUub3JnIiwic3ViIjo' .
         'iMTIzNDU2Nzg5MCIsIm5hbWUiOiJKb2huIERvZSIsImlhdCI6MTUxNjIzOTAyMn0.JGJ_KSiXiRsgVc5nYFTSqbaeeM3UA5DGnOTaz3' .
         'UqbyHM0ogO3rq_-8FwLRzGk-7942U6rQ1ARziLsYYsUtH7yaUTWi6xSvh_mJQuF8hl_X3OghJWeXWms42OjAkHXtB-H7LQ_bEQNV' .
@@ -127,10 +131,9 @@ class IdTokenHintRuleTest extends TestCase
         '1_rZ1WyOrJu7AHkT9R4FNQNCw40BRzfI3S_OYBNirKAh5G0sctNwEEaJL_a3lEwKYSC-d_sZ6WBvFP8B138b7T6nPzI71tvfXE' .
         'Ru7Q7rA';
 
-        $this->requestStub->method('getQueryParams')->willReturn(['id_token_hint' => $invalidSignatureJwt]);
-        $rule = new IdTokenHintRule($this->moduleConfigStub, $this->cryptKeyFactoryStub);
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn($invalidSignatureJwt);
         $this->expectException(Throwable::class);
-        $rule->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
+        $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
     }
 
     /**
@@ -145,11 +148,9 @@ class IdTokenHintRuleTest extends TestCase
             $this->moduleConfigStub->getProtocolSigner(),
             InMemory::plainText(self::$privateKey->getKeyContents()),
         )->toString();
-
-        $this->requestStub->method('getQueryParams')->willReturn(['id_token_hint' => $invalidIssuerJwt]);
-        $rule = new IdTokenHintRule($this->moduleConfigStub, $this->cryptKeyFactoryStub);
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn($invalidIssuerJwt);
         $this->expectException(Throwable::class);
-        $rule->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
+        $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
     }
 
     /**
@@ -159,16 +160,13 @@ class IdTokenHintRuleTest extends TestCase
      */
     public function testCheckRulePassesForValidIdToken(): void
     {
-        $this->requestStub->method('getMethod')->willReturn('GET');
-
         $idToken = $this->jwtConfig->builder()->issuedBy(self::$issuer)->getToken(
             $this->moduleConfigStub->getProtocolSigner(),
             InMemory::plainText(self::$privateKey->getKeyContents()),
         )->toString();
 
-        $this->requestStub->method('getQueryParams')->willReturn(['id_token_hint' => $idToken]);
-        $rule = new IdTokenHintRule($this->moduleConfigStub, $this->cryptKeyFactoryStub);
-        $result = $rule->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn($idToken);
+        $result = $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
         new Result(IdTokenHintRule::class);
 
         $this->assertInstanceOf(UnencryptedToken::class, $result->getValue());

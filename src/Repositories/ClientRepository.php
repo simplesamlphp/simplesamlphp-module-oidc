@@ -235,7 +235,8 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
                 backchannel_logout_uri,
                 entity_identifier,
                 client_registration_types,
-                federation_jwks
+                federation_jwks,
+                jwks
             )
             VALUES (
                 :id,
@@ -252,7 +253,8 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
                 :backchannel_logout_uri,
                 :entity_identifier,
                 :client_registration_types,
-                :federation_jwks
+                :federation_jwks,
+                :jwks
             )
 EOS
             ,
@@ -298,7 +300,8 @@ EOS
                 backchannel_logout_uri = :backchannel_logout_uri,
                 entity_identifier = :entity_identifier,
                 client_registration_types = :client_registration_types,
-                federation_jwks = :federation_jwks
+                federation_jwks = :federation_jwks,
+                jwks = :jwks
             WHERE id = :id
 EOF
             ,

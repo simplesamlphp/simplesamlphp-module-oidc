@@ -6,6 +6,7 @@ namespace SimpleSAML\Module\oidc\Server\RequestRules\Interfaces;
 
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 interface RequestRuleInterface
 {
@@ -22,7 +23,7 @@ interface RequestRuleInterface
      * @param array $data Data which will be available during check.
      * @param bool $useFragmentInHttpErrorResponses Indicate that in case of HTTP error responses, params should be
      *   returned in URI fragment instead of query.
-     * @param string[] $allowedServerRequestMethods Indicate allowed HTTP methods used for request
+     * @param HttpMethodsEnum[] $allowedServerRequestMethods Indicate allowed HTTP methods used for request
      * @return \SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface|null Result of the specific check
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException If check fails
      */
@@ -32,6 +33,6 @@ interface RequestRuleInterface
         LoggerService $loggerService,
         array $data = [],
         bool $useFragmentInHttpErrorResponses = false,
-        array $allowedServerRequestMethods = ['GET'],
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface;
 }
