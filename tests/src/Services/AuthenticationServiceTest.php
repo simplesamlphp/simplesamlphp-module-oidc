@@ -32,6 +32,7 @@ use SimpleSAML\Module\oidc\Services\OpMetadataService;
 use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Services\StateService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Session;
 
 /**
@@ -68,7 +69,7 @@ class AuthenticationServiceTest extends TestCase
     protected MockObject $clientEntityMock;
     protected MockObject $clientRepositoryMock;
     protected MockObject $moduleConfigMock;
-    protected MockObject $oidcOpenIdProviderMetadataServiceMock;
+    protected MockObject $opMetadataService;
     protected MockObject $processingChainFactoryMock;
     protected MockObject $processingChainMock;
     protected MockObject $serverRequestMock;
@@ -78,8 +79,8 @@ class AuthenticationServiceTest extends TestCase
     protected MockObject $userEntityMock;
     protected MockObject $userRepositoryMock;
     protected MockObject $helpersMock;
-    protected MockObject $httpHelperMock;
     protected MockObject $clientHelperMock;
+    protected MockObject $requestParamsResolverMock;
 
     /**
      * @return void
@@ -104,7 +105,7 @@ class AuthenticationServiceTest extends TestCase
         $this->clientEntityMock                      = $this->createMock(ClientEntity::class);
         $this->clientRepositoryMock                  = $this->createMock(ClientRepository::class);
         $this->moduleConfigMock                      = $this->createMock(ModuleConfig::class);
-        $this->oidcOpenIdProviderMetadataServiceMock = $this->createMock(OpMetadataService::class);
+        $this->opMetadataService                     = $this->createMock(OpMetadataService::class);
         $this->processingChainFactoryMock            = $this->createMock(ProcessingChainFactory::class);
         $this->processingChainMock                   = $this->createMock(ProcessingChain::class);
         $this->serverRequestMock                     = $this->createMock(ServerRequest::class);
@@ -120,20 +121,19 @@ class AuthenticationServiceTest extends TestCase
         $this->clientEntityMock->method('getAuthSourceId')->willReturn(self::AUTH_SOURCE);
         $this->clientEntityMock->method('toArray')->willReturn(self::CLIENT_ENTITY);
         $this->moduleConfigMock->method('getUserIdentifierAttribute')->willReturn(self::USER_ID_ATTR);
-        $this->oidcOpenIdProviderMetadataServiceMock->method('getMetadata')->willReturn(self::OIDC_OP_METADATA);
+        $this->opMetadataService->method('getMetadata')->willReturn(self::OIDC_OP_METADATA);
         $this->processingChainFactoryMock->method('build')->willReturn($this->processingChainMock);
         $this->serverRequestMock->method('getQueryParams')->willReturn(self::AUTHZ_REQUEST_PARAMS);
         $this->serverRequestMock->method('getUri')->willReturn(new Uri(self::URI));
         $this->sessionServiceMock->method('getCurrentSession')->willReturn($this->sessionMock);
 
         $this->helpersMock = $this->createMock(Helpers::class);
-        $this->httpHelperMock = $this->createMock(Helpers\Http::class);
-        $this->httpHelperMock->method('getAllRequestParams')->with($this->serverRequestMock)
-            ->willReturn(self::AUTHZ_REQUEST_PARAMS);
         $this->clientHelperMock = $this->createMock(Helpers\Client::class);
-
-        $this->helpersMock->method('http')->willReturn($this->httpHelperMock);
         $this->helpersMock->method('client')->willReturn($this->clientHelperMock);
+
+        $this->requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
+        $this->requestParamsResolverMock->method('getAll')->with($this->serverRequestMock)
+            ->willReturn(self::AUTHZ_REQUEST_PARAMS);
     }
 
     /**
@@ -148,13 +148,14 @@ class AuthenticationServiceTest extends TestCase
                      $this->userRepositoryMock,
                      $this->authSimpleFactoryMock,
                      $this->clientRepositoryMock,
-                     $this->oidcOpenIdProviderMetadataServiceMock,
+                     $this->opMetadataService,
                      $this->sessionServiceMock,
                      $this->claimTranslatorExtractorMock,
                      $this->moduleConfigMock,
                      $this->processingChainFactoryMock,
                      $this->stateServiceMock,
                      $this->helpersMock,
+                     $this->requestParamsResolverMock,
                 ],
             )->onlyMethods([])
             ->getMock();
@@ -394,13 +395,14 @@ class AuthenticationServiceTest extends TestCase
                                      $this->userRepositoryMock,
                                      $this->authSimpleFactoryMock,
                                      $this->clientRepositoryMock,
-                                     $this->oidcOpenIdProviderMetadataServiceMock,
+                                     $this->opMetadataService,
                                      $this->sessionServiceMock,
                                      $this->claimTranslatorExtractorMock,
                                      $this->moduleConfigMock,
                                      $this->processingChainFactoryMock,
                                      $this->stateServiceMock,
                                      $this->helpersMock,
+                                     $this->requestParamsResolverMock,
                                  ])
             ->onlyMethods(['runAuthProcs', 'prepareStateArray'])
             ->getMock();
@@ -483,13 +485,14 @@ class AuthenticationServiceTest extends TestCase
             $this->userRepositoryMock,
             $this->authSimpleFactoryMock,
             $this->clientRepositoryMock,
-            $this->oidcOpenIdProviderMetadataServiceMock,
+            $this->opMetadataService,
             $this->sessionServiceMock,
             $this->claimTranslatorExtractorMock,
             $this->moduleConfigMock,
             $this->processingChainFactoryMock,
             $this->stateServiceMock,
             $this->helpersMock,
+            $this->requestParamsResolverMock,
         ) extends AuthenticationService {
             public function runAuthProcsPublic(array &$state): void
             {

@@ -12,7 +12,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\ParamsResolver;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule
@@ -23,7 +23,7 @@ class AcrValuesRuleTest extends TestCase
     protected Stub $resultBagStub;
     protected Stub $resultStub;
     protected Stub $loggerServiceStub;
-    protected Stub $paramsResolverStub;
+    protected Stub $requestParamsResolverStub;
 
     /**
      * @throws \Exception
@@ -34,12 +34,12 @@ class AcrValuesRuleTest extends TestCase
         $this->resultBagStub = $this->createStub(ResultBagInterface::class);
         $this->resultStub = $this->createStub(ResultInterface::class);
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
-        $this->paramsResolverStub = $this->createStub(ParamsResolver::class);
+        $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
     }
 
     protected function mock(): AcrValuesRule
     {
-        return new AcrValuesRule($this->paramsResolverStub);
+        return new AcrValuesRule($this->requestParamsResolverStub);
     }
 
     /**
@@ -79,7 +79,7 @@ class AcrValuesRuleTest extends TestCase
      */
     public function testPopulatesAcrValuesFromAcrValuesRequestParameter(): void
     {
-        $this->paramsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('1 0');
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('1 0');
 
         $result = $this->mock()->checkRule(
             $this->requestStub,

@@ -32,7 +32,7 @@ class RequiredNonceRule extends AbstractRule
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
-        $nonce = $this->paramsResolver->getAsStringBasedOnAllowedMethods(
+        $nonce = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
             ParamsEnum::Nonce->value,
             $request,
             $allowedServerRequestMethods,

@@ -27,7 +27,7 @@ class RequestParameterRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
-        $requestParam = $this->paramsResolver->getFromRequestBasedOnAllowedMethods(
+        $requestParam = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
             ParamsEnum::Request->value,
             $request,
             $allowedServerRequestMethods,
@@ -37,7 +37,7 @@ class RequestParameterRule extends AbstractRule
             return null;
         }
 
-        $requestObject = $this->paramsResolver->parseRequestObjectToken($requestParam);
+        $requestObject = $this->requestParamsResolver->parseRequestObjectToken($requestParam);
 
         // If request object is not protected (signed), we are allowed to use it as is.
         if (!$requestObject->isProtected()) {
@@ -53,7 +53,7 @@ class RequestParameterRule extends AbstractRule
         /** @var ?string $stateValue */
         $stateValue = ($currentResultBag->get(StateRule::class))?->getValue();
 
-        ($jwks = $client->getProtocolJwks()) || throw OidcServerException::accessDenied(
+        ($jwks = $client->jwks()) || throw OidcServerException::accessDenied(
             'can not validate request object, client JWKS not available',
             $redirectUri,
             null,

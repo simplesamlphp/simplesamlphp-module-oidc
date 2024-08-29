@@ -16,7 +16,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\ParamsResolver;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use Throwable;
@@ -24,11 +24,11 @@ use Throwable;
 class IdTokenHintRule extends AbstractRule
 {
     public function __construct(
-        ParamsResolver $paramsResolver,
+        RequestParamsResolver $requestParamsResolver,
         protected ModuleConfig $moduleConfig,
         protected CryptKeyFactory $cryptKeyFactory,
     ) {
-        parent::__construct($paramsResolver);
+        parent::__construct($requestParamsResolver);
     }
 
     /**
@@ -46,7 +46,7 @@ class IdTokenHintRule extends AbstractRule
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
-        $idTokenHintParam = $this->paramsResolver->getAsStringBasedOnAllowedMethods(
+        $idTokenHintParam = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
             ParamsEnum::IdTokenHint->value,
             $request,
             $allowedServerRequestMethods,

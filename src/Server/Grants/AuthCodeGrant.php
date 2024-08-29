@@ -24,7 +24,6 @@ use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
-use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
@@ -54,8 +53,10 @@ use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeI
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\SessionIdResponseTypeInterface;
 use SimpleSAML\Module\oidc\Utils\Arr;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\ScopeHelper;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     // phpcs:ignore
@@ -128,6 +129,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      */
     protected $privateKey;
 
+    /** @var HttpMethodsEnum[]  */
+    protected array $allowedAuthorizationHttpMethods = [HttpMethodsEnum::GET, HttpMethodsEnum::POST];
+
     /**
      * @psalm-type AuthCodePayloadObject = object{
      *     scopes: null|string|array,
@@ -148,7 +152,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         RefreshTokenRepositoryInterface $refreshTokenRepository,
         DateInterval $authCodeTTL,
         protected RequestRulesManager $requestRulesManager,
-        protected Helpers $helpers,
+        protected RequestParamsResolver $requestParamsResolver,
     ) {
         parent::__construct($authCodeRepository, $refreshTokenRepository, $authCodeTTL);
 
@@ -172,13 +176,14 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      *
      * @param \Psr\Http\Message\ServerRequestInterface $request
      * @return bool
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      */
     public function canRespondToAuthorizationRequest(ServerRequestInterface $request): bool
     {
-        $requestParams = $this->helpers->http()->getAllRequestParamsBasedOnAllowedMethods(
+        $requestParams = $this->requestParamsResolver->getAllBasedOnAllowedMethods(
             $request,
-            [HttpMethodsEnum::GET, HttpMethodsEnum::POST],
-        ) ?? [];
+            $this->allowedAuthorizationHttpMethods,
+        );
 
         return (\array_key_exists('response_type', $requestParams)
             && $requestParams['response_type'] === 'code'
@@ -638,7 +643,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $request,
             $rulesToExecute,
             false,
-            [HttpMethodsEnum::GET, HttpMethodsEnum::POST],
+            $this->allowedAuthorizationHttpMethods,
         );
 
         /** @var \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes */
@@ -671,15 +676,12 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         $authorizationRequest = AuthorizationRequest::fromOAuth2AuthorizationRequest($oAuth2AuthorizationRequest);
 
-        // TODO mivanci continue: replace HTTP param with resolved param value. Either introduce NonceRule (optional
-        // nonce), or get value from Param Resolver.
         // TODO mivanci Search for $request->method usages and replace with helper or param resolver when appropriate.
-        $requestParams = $this->helpers->http()->getAllRequestParamsBasedOnAllowedMethods(
+        $nonce = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
+            ParamsEnum::Nonce->value,
             $request,
-            [HttpMethodsEnum::GET, HttpMethodsEnum::POST],
-        ) ?? [];
-        /** @var string|null $nonce */
-        $nonce = $requestParams['nonce'] ?? null;
+            $this->allowedAuthorizationHttpMethods,
+        );
         if ($nonce !== null) {
             $authorizationRequest->setNonce($nonce);
         }

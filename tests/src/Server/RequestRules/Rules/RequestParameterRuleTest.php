@@ -17,7 +17,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestParameterRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\ParamsResolver;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Core\RequestObject;
 
 #[CoversClass(RequestParameterRule::class)]
@@ -25,7 +25,7 @@ class RequestParameterRuleTest extends TestCase
 {
     protected Stub $clientStub;
     protected Stub $resultBagStub;
-    protected MockObject $paramsResolverMock;
+    protected MockObject $requestParamsResolverMock;
     protected MockObject $requestObjectMock;
     protected Stub $requestStub;
     protected Stub $loggerServiceStub;
@@ -38,7 +38,7 @@ class RequestParameterRuleTest extends TestCase
             [ClientIdRule::class, new Result(ClientIdRule::class, $this->clientStub)],
             [RedirectUriRule::class, new Result(RedirectUriRule::class, 'https://example.com/redirect')],
         ]);
-        $this->paramsResolverMock = $this->createMock(ParamsResolver::class);
+        $this->requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
         $this->requestObjectMock = $this->createMock(RequestObject::class);
         $this->requestStub = $this->createStub(ServerRequestInterface::class);
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
@@ -46,7 +46,7 @@ class RequestParameterRuleTest extends TestCase
 
     protected function mock(): RequestParameterRule
     {
-        return new RequestParameterRule($this->paramsResolverMock);
+        return new RequestParameterRule($this->requestParamsResolverMock);
     }
 
     public function testCanCreateInstance(): void
@@ -62,9 +62,9 @@ class RequestParameterRuleTest extends TestCase
 
     public function testUnprotectedRequestParamCanBeUsed(): void
     {
-        $this->paramsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn('token');
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn('token');
         $this->requestObjectMock->method('isProtected')->willReturn(false);
-        $this->paramsResolverMock->expects($this->once())->method('parseRequestObjectToken')
+        $this->requestParamsResolverMock->expects($this->once())->method('parseRequestObjectToken')
         ->with('token')->willReturn($this->requestObjectMock);
 
         $result = $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
@@ -74,11 +74,11 @@ class RequestParameterRuleTest extends TestCase
 
     public function testMissingClientJwksThrows(): void
     {
-        $this->paramsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn('token');
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn('token');
         $this->requestObjectMock->method('isProtected')->willReturn(true);
-        $this->paramsResolverMock->expects($this->once())->method('parseRequestObjectToken')
+        $this->requestParamsResolverMock->expects($this->once())->method('parseRequestObjectToken')
             ->with('token')->willReturn($this->requestObjectMock);
-        $this->clientStub->expects($this->once())->method('getProtocolJwks')->willReturn(null);
+        $this->clientStub->expects($this->once())->method('jwks')->willReturn(null);
 
         $this->expectException(OidcServerException::class);
         $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
@@ -86,13 +86,13 @@ class RequestParameterRuleTest extends TestCase
 
     public function testThrowsForInvalidRequestObject(): void
     {
-        $this->paramsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn('token');
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn('token');
         $this->requestObjectMock->method('isProtected')->willReturn(true);
         $this->requestObjectMock->expects($this->once())->method('verifyWithKeySet')->with(['jwks'])
         ->willThrowException(OidcServerException::accessDenied());
-        $this->paramsResolverMock->expects($this->once())->method('parseRequestObjectToken')
+        $this->requestParamsResolverMock->expects($this->once())->method('parseRequestObjectToken')
             ->with('token')->willReturn($this->requestObjectMock);
-        $this->clientStub->expects($this->once())->method('getProtocolJwks')->willReturn(['jwks']);
+        $this->clientStub->expects($this->once())->method('jwks')->willReturn(['jwks']);
 
         $this->expectException(OidcServerException::class);
         $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
@@ -100,12 +100,12 @@ class RequestParameterRuleTest extends TestCase
 
     public function testReturnsValidRequestObject(): void
     {
-        $this->paramsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn('token');
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn('token');
         $this->requestObjectMock->method('isProtected')->willReturn(true);
         $this->requestObjectMock->expects($this->once())->method('verifyWithKeySet')->with(['jwks']);
-        $this->paramsResolverMock->expects($this->once())->method('parseRequestObjectToken')
+        $this->requestParamsResolverMock->expects($this->once())->method('parseRequestObjectToken')
             ->with('token')->willReturn($this->requestObjectMock);
-        $this->clientStub->expects($this->once())->method('getProtocolJwks')->willReturn(['jwks']);
+        $this->clientStub->expects($this->once())->method('jwks')->willReturn(['jwks']);
 
         $result = $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
 

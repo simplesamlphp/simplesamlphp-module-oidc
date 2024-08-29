@@ -36,7 +36,7 @@ CREATE TABLE oidc_client (
             entity_identifier VARCHAR(255) NULL,
             client_registration_types VARCHAR(255) NULL,
             federation_jwks TEXT NULL,
-            protocol_jwks TEXT NULL
+            jwks TEXT NULL
 );
 -- Used 'httpd' host for back-channel logout url (https://httpd:8443/test/a/simplesamlphp-module-oidc/backchannel_logout)
 -- since this is the hostname of conformance server while running in container environment

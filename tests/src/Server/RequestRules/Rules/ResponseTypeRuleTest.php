@@ -12,7 +12,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\ParamsResolver;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule
@@ -20,7 +20,7 @@ use SimpleSAML\Module\oidc\Utils\ParamsResolver;
 class ResponseTypeRuleTest extends TestCase
 {
     protected Stub $requestStub;
-    protected Stub $paramsResolverStub;
+    protected Stub $requestParamsResolverStub;
 
     protected array $requestParams = [
         'client_id' => 'client123',
@@ -57,12 +57,12 @@ class ResponseTypeRuleTest extends TestCase
 
         $this->resultBag = new ResultBag();
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
-        $this->paramsResolverStub = $this->createStub(ParamsResolver::class);
+        $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
     }
 
     protected function mock(): ResponseTypeRule
     {
-        return new ResponseTypeRule($this->paramsResolverStub);
+        return new ResponseTypeRule($this->requestParamsResolverStub);
     }
 
     /**
@@ -72,7 +72,7 @@ class ResponseTypeRuleTest extends TestCase
     public function testResponseTypeRuleTest($responseType)
     {
         $this->requestParams['response_type'] = $responseType;
-        $this->paramsResolverStub->method('getAllBasedOnAllowedMethods')->willReturn($this->requestParams);
+        $this->requestParamsResolverStub->method('getAllBasedOnAllowedMethods')->willReturn($this->requestParams);
         $result = $this->mock()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub) ??
         new Result(ResponseTypeRule::class, null);
         $this->assertSame($responseType, $result->getValue());
@@ -90,7 +90,7 @@ class ResponseTypeRuleTest extends TestCase
     {
         $params = $this->requestParams;
         unset($params['response_type']);
-        $this->paramsResolverStub->method('getAllBasedOnAllowedMethods')->willReturn($params);
+        $this->requestParamsResolverStub->method('getAllBasedOnAllowedMethods')->willReturn($params);
         $this->expectException(OidcServerException::class);
         $this->mock()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
     }

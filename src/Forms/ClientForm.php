@@ -149,7 +149,7 @@ class ClientForm extends Form
 
     public function validateProtocolJwks(Form $form): void
     {
-        $this->validateJwks($form->getValues()['protocol_jwks'] ?? null);
+        $this->validateJwks($form->getValues()['jwks'] ?? null);
     }
 
     public function validateJwks(mixed $jwks): void
@@ -225,16 +225,26 @@ class ClientForm extends Form
         [ClientRegistrationTypesEnum::Automatic->value];
 
         $federationJwks = trim((string)$values['federation_jwks']);
-        /** @psalm-suppress MixedAssignment */
-        $values['federation_jwks'] = empty($federationJwks) ?
-        null :
-        json_decode($federationJwks, true, 512, JSON_THROW_ON_ERROR);
+        try {
+            /** @psalm-suppress MixedAssignment */
+            $values['federation_jwks'] = empty($federationJwks) ?
+            null :
+            json_decode($federationJwks, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $e) {
+            $this->addError('Federation JSON error: ' . $e->getMessage());
+            $values['federation_jwks'] = null;
+        }
 
-        $protocolJwks = trim((string)$values['protocol_jwks']);
-        /** @psalm-suppress MixedAssignment */
-        $values['protocol_jwks'] = empty($protocolJwks) ?
-        null :
-        json_decode($protocolJwks, true, 512, JSON_THROW_ON_ERROR);
+        $jwks = trim((string)$values['jwks']);
+        try {
+            /** @psalm-suppress MixedAssignment */
+            $values['jwks'] = empty($jwks) ?
+            null :
+            json_decode($jwks, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $e) {
+            $this->addError('JWKS JSON error: ' . $e->getMessage());
+            $values['jwks'] = null;
+        }
 
         return $values;
     }
@@ -278,7 +288,7 @@ class ClientForm extends Form
 
         $data['federation_jwks'] = is_array($data['federation_jwks']) ? json_encode($data['federation_jwks']) : null;
 
-        $data['protocol_jwks'] = is_array($data['protocol_jwks']) ? json_encode($data['protocol_jwks']) : null;
+        $data['jwks'] = is_array($data['jwks']) ? json_encode($data['jwks']) : null;
 
         parent::setDefaults($data, $erase);
 
@@ -316,6 +326,7 @@ class ClientForm extends Form
 
         $this->addCheckbox('is_confidential', '{oidc:client:is_confidential}');
 
+        // TODO mivanci Source::getSource() move to SSP Bridge.
         $this->addSelect('auth_source', '{oidc:client:auth_source}:')
             ->setHtmlAttribute('class', 'ui fluid dropdown clearable')
             ->setItems(Source::getSources(), false)
@@ -343,7 +354,7 @@ class ClientForm extends Form
 
         $this->addTextArea('federation_jwks', '{oidc:client:federation_jwks}', null, 5);
 
-        $this->addTextArea('protocol_jwks', '{oidc:client:protocol_jwks}', null, 5);
+        $this->addTextArea('jwks', '{oidc:client:jwks}', null, 5);
     }
 
     /**

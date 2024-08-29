@@ -34,7 +34,7 @@ class RedirectUriRule extends AbstractRule
             throw new LogicException('Can not check redirect_uri, client is not ClientEntityInterface.');
         }
 
-        $redirectUri = $this->paramsResolver->getAsStringBasedOnAllowedMethods(
+        $redirectUri = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
             ParamsEnum::RedirectUri->value,
             $request,
             $allowedServerRequestMethods,

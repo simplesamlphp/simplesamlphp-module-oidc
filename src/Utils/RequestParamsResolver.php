@@ -14,7 +14,7 @@ use SimpleSAML\OpenID\Core;
  * Resolve authorization params from HTTP request (based or not based on used method), and from Request Object param if
  * present.
  */
-class ParamsResolver
+class RequestParamsResolver
 {
     public function __construct(
         protected Helpers $helpers,

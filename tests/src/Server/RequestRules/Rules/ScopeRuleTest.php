@@ -20,7 +20,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\ParamsResolver;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule
@@ -43,7 +43,7 @@ class ScopeRuleTest extends TestCase
     protected Stub $requestStub;
 
     protected Stub $loggerServiceStub;
-    protected Stub $paramsResolverStub;
+    protected Stub $requestParamsResolverStub;
 
     /**
      * @throws \Exception
@@ -60,13 +60,13 @@ class ScopeRuleTest extends TestCase
             'profile' => ScopeEntity::fromData('profile'),
         ];
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
-        $this->paramsResolverStub = $this->createStub(ParamsResolver::class);
+        $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
     }
 
     protected function mock(): ScopeRule
     {
         return new ScopeRule(
-            $this->paramsResolverStub,
+            $this->requestParamsResolverStub,
             $this->scopeRepositoryStub,
         );
     }
@@ -106,7 +106,7 @@ class ScopeRuleTest extends TestCase
     public function testValidScopes(): void
     {
         $resultBag = $this->prepareValidResultBag();
-        $this->paramsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('openid profile');
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('openid profile');
         $this->scopeRepositoryStub
             ->method('getScopeEntityByIdentifier')
             ->willReturn(
@@ -129,7 +129,7 @@ class ScopeRuleTest extends TestCase
     public function testInvalidScopeThrows(): void
     {
         $resultBag = $this->prepareValidResultBag();
-        $this->paramsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('openid');
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('openid');
         $this->scopeRepositoryStub
             ->method('getScopeEntityByIdentifier')
             ->willReturn(

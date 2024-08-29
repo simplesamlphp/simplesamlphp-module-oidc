@@ -15,12 +15,12 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Module\oidc\Factories\Grant;
 
-use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
 class ImplicitGrantFactory
 {
@@ -29,7 +29,7 @@ class ImplicitGrantFactory
         private readonly IdTokenBuilder $idTokenBuilder,
         private readonly RequestRulesManager $requestRulesManager,
         private readonly AccessTokenRepository $accessTokenRepository,
-        private readonly Helpers $helpers,
+        private readonly RequestParamsResolver $requestParamsResolver,
     ) {
     }
 
@@ -39,9 +39,9 @@ class ImplicitGrantFactory
             $this->idTokenBuilder,
             $this->moduleConfig->getAccessTokenDuration(),
             $this->accessTokenRepository,
-            '#',
             $this->requestRulesManager,
-            $this->helpers,
+            $this->requestParamsResolver,
+            '#',
         );
     }
 }

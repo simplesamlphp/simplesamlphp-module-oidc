@@ -83,7 +83,7 @@ services:
     factory: ['@SimpleSAML\Module\oidc\Factories\ResourceServerFactory', 'build']
 
   # Utils
-  SimpleSAML\Module\oidc\Utils\ParamsResolver: ~
+  SimpleSAML\Module\oidc\Utils\RequestParamsResolver: ~
 
   SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor:
     factory: ['@SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory', 'build']

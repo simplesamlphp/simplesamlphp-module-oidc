@@ -12,7 +12,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\ParamsResolver;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\Utils\HTTP;
@@ -20,11 +20,11 @@ use SimpleSAML\Utils\HTTP;
 class PromptRule extends AbstractRule
 {
     public function __construct(
-        ParamsResolver $paramsResolver,
+        RequestParamsResolver $requestParamsResolver,
         private readonly AuthSimpleFactory $authSimpleFactory,
         private readonly AuthenticationService $authenticationService,
     ) {
-        parent::__construct($paramsResolver);
+        parent::__construct($requestParamsResolver);
     }
 
     /**
@@ -50,7 +50,7 @@ class PromptRule extends AbstractRule
         $authSimple = $this->authSimpleFactory->build($client);
 
 //        $requestParams = $this->getAllRequestParamsBasedOnAllowedMethods(
-        $requestParams = $this->paramsResolver->getAllBasedOnAllowedMethods(
+        $requestParams = $this->requestParamsResolver->getAllBasedOnAllowedMethods(
             $request,
             $allowedServerRequestMethods,
         );

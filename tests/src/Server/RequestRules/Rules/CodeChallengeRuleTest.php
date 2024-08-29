@@ -17,7 +17,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\ParamsResolver;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule
@@ -32,7 +32,7 @@ class CodeChallengeRuleTest extends TestCase
 
     protected string $codeChallenge = '123123123123123123123123123123123123123123123123123123123123';
     protected Stub $loggerServiceStub;
-    protected Stub $paramsResolverStub;
+    protected Stub $requestParamsResolverStub;
 
     /**
      * @throws \Exception
@@ -44,12 +44,12 @@ class CodeChallengeRuleTest extends TestCase
         $this->redirectUriResult = new Result(RedirectUriRule::class, 'https://some-uri.org');
         $this->stateResult = new Result(StateRule::class, '123');
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
-        $this->paramsResolverStub = $this->createStub(ParamsResolver::class);
+        $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
     }
 
     protected function mock(): CodeChallengeRule
     {
-        return new CodeChallengeRule($this->paramsResolverStub);
+        return new CodeChallengeRule($this->requestParamsResolverStub);
     }
 
     /**
@@ -81,7 +81,7 @@ class CodeChallengeRuleTest extends TestCase
     public function testCheckRuleNoCodeChallengeThrows(): void
     {
         $resultBag = $this->prepareValidResultBag();
-        $this->paramsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn(null);
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn(null);
         $this->expectException(OidcServerException::class);
         $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
     }
@@ -92,7 +92,7 @@ class CodeChallengeRuleTest extends TestCase
     public function testCheckRuleInvalidCodeChallengeThrows(): void
     {
         $resultBag = $this->prepareValidResultBag();
-        $this->paramsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('too-short');
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('too-short');
         $this->expectException(OidcServerException::class);
         $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
     }
@@ -104,7 +104,7 @@ class CodeChallengeRuleTest extends TestCase
     public function testCheckRuleForValidCodeChallenge(): void
     {
         $resultBag = $this->prepareValidResultBag();
-        $this->paramsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn($this->codeChallenge);
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn($this->codeChallenge);
 
         $result = $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
 

@@ -31,7 +31,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
-use SimpleSAML\Module\oidc\Utils\ParamsResolver;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
 class RequestRulesManagerFactory
 {
@@ -45,7 +45,7 @@ class RequestRulesManagerFactory
         private readonly CodeChallengeVerifiersRepository $codeChallengeVerifiersRepository,
         private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
         private readonly CryptKeyFactory $cryptKeyFactory,
-        private readonly ParamsResolver $paramsResolver,
+        private readonly RequestParamsResolver $requestParamsResolver,
     ) {
     }
 
@@ -65,25 +65,25 @@ class RequestRulesManagerFactory
     private function getDefaultRules(): array
     {
         return [
-            new StateRule($this->paramsResolver),
-            new ClientIdRule($this->paramsResolver, $this->clientRepository),
-            new RedirectUriRule($this->paramsResolver),
-            new RequestParameterRule($this->paramsResolver),
-            new PromptRule($this->paramsResolver, $this->authSimpleFactory, $this->authenticationService),
-            new MaxAgeRule($this->paramsResolver, $this->authSimpleFactory, $this->authenticationService),
-            new ScopeRule($this->paramsResolver, $this->scopeRepository),
-            new RequiredOpenIdScopeRule($this->paramsResolver),
-            new CodeChallengeRule($this->paramsResolver),
-            new CodeChallengeMethodRule($this->paramsResolver, $this->codeChallengeVerifiersRepository),
-            new RequestedClaimsRule($this->paramsResolver, $this->claimTranslatorExtractor),
-            new AddClaimsToIdTokenRule($this->paramsResolver),
-            new RequiredNonceRule($this->paramsResolver),
-            new ResponseTypeRule($this->paramsResolver),
-            new IdTokenHintRule($this->paramsResolver, $this->moduleConfig, $this->cryptKeyFactory),
-            new PostLogoutRedirectUriRule($this->paramsResolver, $this->clientRepository),
-            new UiLocalesRule($this->paramsResolver),
-            new AcrValuesRule($this->paramsResolver),
-            new ScopeOfflineAccessRule($this->paramsResolver),
+            new StateRule($this->requestParamsResolver),
+            new ClientIdRule($this->requestParamsResolver, $this->clientRepository),
+            new RedirectUriRule($this->requestParamsResolver),
+            new RequestParameterRule($this->requestParamsResolver),
+            new PromptRule($this->requestParamsResolver, $this->authSimpleFactory, $this->authenticationService),
+            new MaxAgeRule($this->requestParamsResolver, $this->authSimpleFactory, $this->authenticationService),
+            new ScopeRule($this->requestParamsResolver, $this->scopeRepository),
+            new RequiredOpenIdScopeRule($this->requestParamsResolver),
+            new CodeChallengeRule($this->requestParamsResolver),
+            new CodeChallengeMethodRule($this->requestParamsResolver, $this->codeChallengeVerifiersRepository),
+            new RequestedClaimsRule($this->requestParamsResolver, $this->claimTranslatorExtractor),
+            new AddClaimsToIdTokenRule($this->requestParamsResolver),
+            new RequiredNonceRule($this->requestParamsResolver),
+            new ResponseTypeRule($this->requestParamsResolver),
+            new IdTokenHintRule($this->requestParamsResolver, $this->moduleConfig, $this->cryptKeyFactory),
+            new PostLogoutRedirectUriRule($this->requestParamsResolver, $this->clientRepository),
+            new UiLocalesRule($this->requestParamsResolver),
+            new AcrValuesRule($this->requestParamsResolver),
+            new ScopeOfflineAccessRule($this->requestParamsResolver),
         ];
     }
 }

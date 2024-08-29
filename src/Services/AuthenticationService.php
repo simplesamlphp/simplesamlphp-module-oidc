@@ -37,6 +37,7 @@ use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
 class AuthenticationService
 {
@@ -64,6 +65,7 @@ class AuthenticationService
         private readonly ProcessingChainFactory $processingChainFactory,
         private readonly StateService $stateService,
         private readonly Helpers $helpers,
+        private readonly RequestParamsResolver $requestParamsResolver,
     ) {
         $this->userIdAttr = $this->moduleConfig->getUserIdentifierAttribute();
     }
@@ -210,7 +212,7 @@ class AuthenticationService
                 ARRAY_FILTER_USE_KEY,
             ),
             'AuthorizationRequestParameters' => array_filter(
-                $this->helpers->http()->getAllRequestParams($request),
+                $this->requestParamsResolver->getAll($request),
                 function (/** @param array-key $key */ $key) {
                     $authzParams = ['response_type', 'client_id', 'redirect_uri', 'scope', 'code_challenge_method'];
                     return in_array($key, $authzParams);

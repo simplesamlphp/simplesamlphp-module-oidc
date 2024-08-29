@@ -14,7 +14,6 @@ use RuntimeException;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
-use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
@@ -31,11 +30,15 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 class ImplicitGrant extends OAuth2ImplicitGrant
 {
     use IssueAccessTokenTrait;
+
+    /** @var HttpMethodsEnum[]  */
+    protected array $allowedAuthorizationHttpMethods = [HttpMethodsEnum::GET, HttpMethodsEnum::POST];
 
     /**
      * @psalm-suppress PropertyNotSetInConstructor
@@ -47,9 +50,9 @@ class ImplicitGrant extends OAuth2ImplicitGrant
         protected IdTokenBuilder $idTokenBuilder,
         DateInterval $accessTokenTTL,
         AccessTokenRepositoryInterface $accessTokenRepository,
-        string $queryDelimiter = '#',
-        RequestRulesManager $requestRulesManager = null,
-        protected Helpers $helpers = new Helpers(),
+        RequestRulesManager $requestRulesManager,
+        protected RequestParamsResolver $requestParamsResolver,
+        string $queryDelimiter,
     ) {
         parent::__construct($accessTokenTTL, $queryDelimiter, $requestRulesManager);
         $this->accessTokenRepository = $accessTokenRepository;
@@ -57,13 +60,14 @@ class ImplicitGrant extends OAuth2ImplicitGrant
 
     /**
      * {@inheritdoc}
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      */
     public function canRespondToAuthorizationRequest(ServerRequestInterface $request): bool
     {
-        $requestParams = $this->helpers->http()->getAllRequestParamsBasedOnAllowedMethods(
+        $requestParams = $this->requestParamsResolver->getAllBasedOnAllowedMethods(
             $request,
-            [HttpMethodsEnum::GET, HttpMethodsEnum::POST],
-        ) ?? [];
+            $this->allowedAuthorizationHttpMethods,
+        );
 
         if (
             !isset($requestParams['response_type']) ||
@@ -126,7 +130,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
             $request,
             $rulesToExecute,
             $this->shouldUseFragment(),
-            [HttpMethodsEnum::GET, HttpMethodsEnum::POST],
+            $this->allowedAuthorizationHttpMethods,
         );
 
         $authorizationRequest = AuthorizationRequest::fromOAuth2AuthorizationRequest($oAuth2AuthorizationRequest);

@@ -26,7 +26,7 @@ class ResponseTypeRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
-        $requestParams = $this->paramsResolver->getAllBasedOnAllowedMethods(
+        $requestParams = $this->requestParamsResolver->getAllBasedOnAllowedMethods(
             $request,
             $allowedServerRequestMethods,
         );

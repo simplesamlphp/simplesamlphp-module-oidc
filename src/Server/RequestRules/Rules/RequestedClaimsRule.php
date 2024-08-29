@@ -10,17 +10,17 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
-use SimpleSAML\Module\oidc\Utils\ParamsResolver;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 class RequestedClaimsRule extends AbstractRule
 {
     public function __construct(
-        ParamsResolver $paramsResolver,
+        RequestParamsResolver $requestParamsResolver,
         private readonly ClaimTranslatorExtractor $claimExtractor,
     ) {
-        parent::__construct($paramsResolver);
+        parent::__construct($requestParamsResolver);
     }
 
 
@@ -36,7 +36,7 @@ class RequestedClaimsRule extends AbstractRule
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         /** @psalm-suppress MixedAssignment We'll check the type. */
-        $claimsParam = $this->paramsResolver->getBasedOnAllowedMethods(
+        $claimsParam = $this->requestParamsResolver->getBasedOnAllowedMethods(
             ParamsEnum::Claims->value,
             $request,
             $allowedServerRequestMethods,

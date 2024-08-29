@@ -11,7 +11,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\ParamsResolver;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule
@@ -21,7 +21,7 @@ class UiLocalesRuleTest extends TestCase
     protected Stub $requestStub;
     protected Stub $resultBagStub;
     protected Stub $loggerServiceStub;
-    protected Stub $paramsResolverStub;
+    protected Stub $requestParamsResolverStub;
 
     /**
      * @throws \Exception
@@ -33,12 +33,12 @@ class UiLocalesRuleTest extends TestCase
 
         $this->resultBagStub = $this->createStub(ResultBagInterface::class);
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
-        $this->paramsResolverStub = $this->createStub(ParamsResolver::class);
+        $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
     }
 
     protected function mock(): UiLocalesRule
     {
-        return new UiLocalesRule($this->paramsResolverStub);
+        return new UiLocalesRule($this->requestParamsResolverStub);
     }
 
     /**
@@ -46,7 +46,7 @@ class UiLocalesRuleTest extends TestCase
      */
     public function testCheckRuleReturnsResultWhenParamSet()
     {
-        $this->paramsResolverStub->method('getBasedOnAllowedMethods')->willReturn('en');
+        $this->requestParamsResolverStub->method('getBasedOnAllowedMethods')->willReturn('en');
 
         $result = $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
         new Result(\SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule::class);

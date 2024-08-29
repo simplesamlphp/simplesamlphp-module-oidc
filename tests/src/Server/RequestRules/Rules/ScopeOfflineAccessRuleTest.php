@@ -17,7 +17,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeOfflineAccessRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\ParamsResolver;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeOfflineAccessRule
@@ -36,7 +36,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
     protected Stub $validScopesResultStub;
     protected Stub $moduleConfigStub;
     protected Stub $openIdConfigurationStub;
-    protected Stub $paramsResolverStub;
+    protected Stub $requestParamsResolverStub;
 
     /**
      * @throws \Exception
@@ -64,12 +64,12 @@ class ScopeOfflineAccessRuleTest extends TestCase
 
         $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
         $this->openIdConfigurationStub = $this->createStub(Configuration::class);
-        $this->paramsResolverStub = $this->createStub(ParamsResolver::class);
+        $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
     }
 
     protected function mock(): ScopeOfflineAccessRule
     {
-        return new ScopeOfflineAccessRule($this->paramsResolverStub);
+        return new ScopeOfflineAccessRule($this->requestParamsResolverStub);
     }
 
     public function testCanCreateInstance(): void

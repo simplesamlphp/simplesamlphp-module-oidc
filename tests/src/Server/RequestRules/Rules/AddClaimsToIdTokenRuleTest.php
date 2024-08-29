@@ -13,7 +13,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AddClaimsToIdTokenRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\ParamsResolver;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AddClaimsToIdTokenRule
@@ -21,7 +21,7 @@ use SimpleSAML\Module\oidc\Utils\ParamsResolver;
 class AddClaimsToIdTokenRuleTest extends TestCase
 {
     protected Stub $requestStub;
-    protected Stub $paramsResolverStub;
+    protected Stub $requestParamsResolverStub;
 
     protected array $requestParams = [
         'client_id' => 'client123',
@@ -56,12 +56,12 @@ class AddClaimsToIdTokenRuleTest extends TestCase
 
         $this->resultBag = new ResultBag();
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
-        $this->paramsResolverStub = $this->createStub(ParamsResolver::class);
+        $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
     }
 
     protected function mock(): AddClaimsToIdTokenRule
     {
-        return new AddClaimsToIdTokenRule($this->paramsResolverStub);
+        return new AddClaimsToIdTokenRule($this->requestParamsResolverStub);
     }
 
     /**

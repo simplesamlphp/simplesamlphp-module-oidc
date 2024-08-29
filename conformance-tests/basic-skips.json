@@ -1,7 +1,2 @@
 [
-  {
-    "test-name": "oidcc-unsigned-request-object-supported-correctly-or-rejected-as-unsupported",
-    "variant": "*",
-    "configuration-filename": "*"
-  }
 ]

@@ -19,7 +19,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\ParamsResolver;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule
@@ -32,7 +32,7 @@ class CodeChallengeMethodRuleTest extends TestCase
     protected Result $redirectUriResult;
     protected Result $stateResult;
     protected Stub $loggerServiceStub;
-    protected Stub $paramsResolverStub;
+    protected Stub $requestParamsResolverStub;
     protected MockObject $codeChallengeVerifiersRepositoryMock;
     /**
      * @throws \Exception
@@ -44,14 +44,14 @@ class CodeChallengeMethodRuleTest extends TestCase
         $this->redirectUriResult = new Result(RedirectUriRule::class, 'https://some-uri.org');
         $this->stateResult = new Result(StateRule::class, '123');
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
-        $this->paramsResolverStub = $this->createStub(ParamsResolver::class);
+        $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
         $this->codeChallengeVerifiersRepositoryMock = $this->createMock(CodeChallengeVerifiersRepository::class);
     }
 
     protected function mock(): CodeChallengeMethodRule
     {
         return new CodeChallengeMethodRule(
-            $this->paramsResolverStub,
+            $this->requestParamsResolverStub,
             $this->codeChallengeVerifiersRepositoryMock,
         );
     }
@@ -85,7 +85,7 @@ class CodeChallengeMethodRuleTest extends TestCase
     public function testCheckRuleWithInvalidCodeChallengeMethodThrows(): void
     {
         $resultBag = $this->prepareValidResultBag();
-        $this->paramsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('invalid');
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('invalid');
         $this->codeChallengeVerifiersRepositoryMock->expects($this->once())->method('has')
             ->with('invalid')->willReturn(false);
         $this->expectException(OidcServerException::class);
@@ -99,7 +99,7 @@ class CodeChallengeMethodRuleTest extends TestCase
     public function testCheckRuleForValidCodeChallengeMethod(): void
     {
         $resultBag = $this->prepareValidResultBag();
-        $this->paramsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('plain');
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('plain');
         $this->codeChallengeVerifiersRepositoryMock->expects($this->once())->method('has')
             ->with('plain')->willReturn(true);
         $result = $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);

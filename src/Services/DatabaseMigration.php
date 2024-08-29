@@ -427,7 +427,7 @@ EOT
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
         $this->database->write(<<< EOT
         ALTER TABLE {$clientTableName}
-            ADD protocol_jwks TEXT NULL
+            ADD jwks TEXT NULL
 EOT
             ,);
     }

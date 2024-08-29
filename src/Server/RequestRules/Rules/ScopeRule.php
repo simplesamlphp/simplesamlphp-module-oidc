@@ -12,17 +12,17 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\ParamsResolver;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 class ScopeRule extends AbstractRule
 {
     public function __construct(
-        ParamsResolver $paramsResolver,
+        RequestParamsResolver $requestParamsResolver,
         protected ScopeRepositoryInterface $scopeRepository,
     ) {
-        parent::__construct($paramsResolver);
+        parent::__construct($requestParamsResolver);
     }
 
     /**
@@ -46,7 +46,7 @@ class ScopeRule extends AbstractRule
         /** @var string $scopeDelimiterString */
         $scopeDelimiterString = $data['scope_delimiter_string'] ?? ' ';
 
-        $scopeParam = $this->paramsResolver->getAsStringBasedOnAllowedMethods(
+        $scopeParam = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
             ParamsEnum::Scope->value,
             $request,
             $allowedServerRequestMethods,

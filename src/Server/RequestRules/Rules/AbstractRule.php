@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\RequestRuleInterface;
-use SimpleSAML\Module\oidc\Utils\ParamsResolver;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
 abstract class AbstractRule implements RequestRuleInterface
 {
-    public function __construct(protected ParamsResolver $paramsResolver)
+    public function __construct(protected RequestParamsResolver $requestParamsResolver)
     {
     }
 

@@ -11,17 +11,17 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\ParamsResolver;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 class PostLogoutRedirectUriRule extends AbstractRule
 {
     public function __construct(
-        ParamsResolver $paramsResolver,
+        RequestParamsResolver $requestParamsResolver,
         protected ClientRepository $clientRepository,
     ) {
-        parent::__construct($paramsResolver);
+        parent::__construct($requestParamsResolver);
     }
 
     /**
@@ -42,7 +42,7 @@ class PostLogoutRedirectUriRule extends AbstractRule
         /** @var \Lcobucci\JWT\UnencryptedToken|null $idTokenHint */
         $idTokenHint = $currentResultBag->getOrFail(IdTokenHintRule::class)->getValue();
 
-        $postLogoutRedirectUri = $this->paramsResolver->getAsStringBasedOnAllowedMethods(
+        $postLogoutRedirectUri = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
             ParamsEnum::PostLogoutRedirectUri->value,
             $request,
             $allowedServerRequestMethods,

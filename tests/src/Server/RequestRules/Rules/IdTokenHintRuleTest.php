@@ -18,7 +18,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\ParamsResolver;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use Throwable;
 
 /**
@@ -41,7 +41,7 @@ class IdTokenHintRuleTest extends TestCase
     private Configuration $jwtConfig;
 
     protected Stub $loggerServiceStub;
-    protected Stub $paramsResolverStub;
+    protected Stub $requestParamsResolverStub;
 
     public static function setUpBeforeClass(): void
     {
@@ -77,13 +77,13 @@ class IdTokenHintRuleTest extends TestCase
         );
 
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
-        $this->paramsResolverStub = $this->createStub(ParamsResolver::class);
+        $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
     }
 
     protected function mock(): IdTokenHintRule
     {
         return new IdTokenHintRule(
-            $this->paramsResolverStub,
+            $this->requestParamsResolverStub,
             $this->moduleConfigStub,
             $this->cryptKeyFactoryStub,
         );
@@ -114,7 +114,7 @@ class IdTokenHintRuleTest extends TestCase
      */
     public function testCheckRuleThrowsForMalformedIdToken(): void
     {
-        $this->paramsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('malformed');
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('malformed');
         $this->expectException(Throwable::class);
         $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
     }
@@ -131,7 +131,7 @@ class IdTokenHintRuleTest extends TestCase
         '1_rZ1WyOrJu7AHkT9R4FNQNCw40BRzfI3S_OYBNirKAh5G0sctNwEEaJL_a3lEwKYSC-d_sZ6WBvFP8B138b7T6nPzI71tvfXE' .
         'Ru7Q7rA';
 
-        $this->paramsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn($invalidSignatureJwt);
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn($invalidSignatureJwt);
         $this->expectException(Throwable::class);
         $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
     }
@@ -148,7 +148,7 @@ class IdTokenHintRuleTest extends TestCase
             $this->moduleConfigStub->getProtocolSigner(),
             InMemory::plainText(self::$privateKey->getKeyContents()),
         )->toString();
-        $this->paramsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn($invalidIssuerJwt);
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn($invalidIssuerJwt);
         $this->expectException(Throwable::class);
         $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
     }
@@ -165,7 +165,7 @@ class IdTokenHintRuleTest extends TestCase
             InMemory::plainText(self::$privateKey->getKeyContents()),
         )->toString();
 
-        $this->paramsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn($idToken);
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn($idToken);
         $result = $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
         new Result(IdTokenHintRule::class);
 

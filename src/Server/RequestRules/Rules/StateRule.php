@@ -25,7 +25,7 @@ class StateRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
-        $state = $this->paramsResolver->getAsStringBasedOnAllowedMethods(
+        $state = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
             ParamsEnum::State->value,
             $request,
             $allowedServerRequestMethods,

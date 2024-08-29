@@ -11,7 +11,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\ParamsResolver;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AbstractRule
@@ -20,7 +20,7 @@ use SimpleSAML\Module\oidc\Utils\ParamsResolver;
 class StateRuleTest extends TestCase
 {
     protected Stub $loggerServiceStub;
-    protected Stub $paramsResolverStub;
+    protected Stub $requestParamsResolverStub;
 
     /**
      * @throws \Exception
@@ -28,12 +28,12 @@ class StateRuleTest extends TestCase
     public function setUp(): void
     {
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
-        $this->paramsResolverStub = $this->createStub(ParamsResolver::class);
+        $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
     }
 
     protected function mock(): StateRule
     {
-        return new StateRule($this->paramsResolverStub);
+        return new StateRule($this->requestParamsResolverStub);
     }
 
     public function testGetKey(): void
@@ -50,7 +50,7 @@ class StateRuleTest extends TestCase
         $value = '123';
 
         $request = $this->createStub(ServerRequestInterface::class);
-        $this->paramsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn($value);
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn($value);
 
         $resultBag = new ResultBag();
         $data = [];
@@ -67,7 +67,7 @@ class StateRuleTest extends TestCase
     public function testCheckRulePostMethod(): void
     {
         $request = $this->createStub(ServerRequestInterface::class);
-        $this->paramsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn(null);
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn(null);
 
         $resultBag = new ResultBag();
         $result = $this->mock()->checkRule(

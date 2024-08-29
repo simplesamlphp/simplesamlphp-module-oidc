@@ -16,7 +16,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\ParamsResolver;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule
@@ -29,7 +29,7 @@ class RedirectUriRuleTest extends TestCase
     protected Stub $requestStub;
     protected string $redirectUri = 'https://some-redirect-uri.org';
     protected Stub $loggerServiceStub;
-    protected Stub $paramsResolverStub;
+    protected Stub $requestParamsResolverStub;
 
 
     /**
@@ -41,12 +41,12 @@ class RedirectUriRuleTest extends TestCase
         $this->clientStub = $this->createStub(ClientEntityInterface::class);
         $this->requestStub = $this->createStub(ServerRequestInterface::class);
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
-        $this->paramsResolverStub = $this->createStub(ParamsResolver::class);
+        $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
     }
 
     protected function mock(): RedirectUriRule
     {
-        return new RedirectUriRule($this->paramsResolverStub);
+        return new RedirectUriRule($this->requestParamsResolverStub);
     }
 
     /**
@@ -86,7 +86,7 @@ class RedirectUriRuleTest extends TestCase
      */
     public function testCheckRuleDifferentClientRedirectUriThrows(): void
     {
-        $this->paramsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('invalid');
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('invalid');
         $resultBag = $this->prepareValidResultBag();
 
         $this->expectException(OidcServerException::class);
@@ -98,7 +98,7 @@ class RedirectUriRuleTest extends TestCase
      */
     public function testCheckRuleDifferentClientRedirectUriArrayThrows(): void
     {
-        $this->paramsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('invalid');
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('invalid');
 
         $this->clientStub->method('getRedirectUri')->willReturn([$this->redirectUri]);
         $this->resultBag->add(new Result(ClientIdRule::class, $this->clientStub));
@@ -113,7 +113,7 @@ class RedirectUriRuleTest extends TestCase
      */
     public function testCheckRuleWithValidRedirectUri(): void
     {
-        $this->paramsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn($this->redirectUri);
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn($this->redirectUri);
 
         $resultBag = $this->prepareValidResultBag();
 

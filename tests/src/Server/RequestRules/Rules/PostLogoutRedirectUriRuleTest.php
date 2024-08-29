@@ -20,7 +20,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\ParamsResolver;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use Throwable;
 
 /**
@@ -44,7 +44,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
     private Configuration $jwtConfig;
 
     protected Stub $loggerServiceStub;
-    protected Stub $paramsResolverStub;
+    protected Stub $requestParamsResolverStub;
 
     public static function setUpBeforeClass(): void
     {
@@ -73,13 +73,13 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         );
 
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
-        $this->paramsResolverStub = $this->createStub(ParamsResolver::class);
+        $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
     }
 
     protected function mock(): PostLogoutRedirectUriRule
     {
         return new PostLogoutRedirectUriRule(
-            $this->paramsResolverStub,
+            $this->requestParamsResolverStub,
             $this->clientRepositoryStub,
         );
     }
@@ -101,7 +101,8 @@ class PostLogoutRedirectUriRuleTest extends TestCase
      */
     public function testCheckRuleThrowsWhenIdTokenHintNotAvailable(): void
     {
-        $this->paramsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn(self::$postLogoutRedirectUri);
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')
+            ->willReturn(self::$postLogoutRedirectUri);
 
         $this->expectException(Throwable::class);
 
@@ -114,7 +115,8 @@ class PostLogoutRedirectUriRuleTest extends TestCase
      */
     public function testCheckRuleThrowsWhenAudClaimNotValid(): void
     {
-        $this->paramsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn(self::$postLogoutRedirectUri);
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')
+            ->willReturn(self::$postLogoutRedirectUri);
 
         $jwt = $this->jwtConfig->builder()->issuedBy(self::$issuer)
             ->getToken(
@@ -138,7 +140,8 @@ class PostLogoutRedirectUriRuleTest extends TestCase
      */
     public function testCheckRuleThrowsWhenClientNotFound(): void
     {
-        $this->paramsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn(self::$postLogoutRedirectUri);
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')
+            ->willReturn(self::$postLogoutRedirectUri);
         $jwt = $this->jwtConfig->builder()
             ->issuedBy(self::$issuer)
             ->permittedFor('invalid-client-id')
@@ -165,7 +168,8 @@ class PostLogoutRedirectUriRuleTest extends TestCase
      */
     public function testCheckRuleThrowsWhenPostLogoutRegisteredUriNotRegistered(): void
     {
-        $this->paramsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn(self::$postLogoutRedirectUri);
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')
+            ->willReturn(self::$postLogoutRedirectUri);
 
         $jwt = $this->jwtConfig->builder()
             ->issuedBy(self::$issuer)
@@ -198,7 +202,8 @@ class PostLogoutRedirectUriRuleTest extends TestCase
      */
     public function testCheckRuleReturnsForRegisteredPostLogoutRedirectUri(): void
     {
-        $this->paramsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn(self::$postLogoutRedirectUri);
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')
+            ->willReturn(self::$postLogoutRedirectUri);
 
         $jwt = $this->jwtConfig->builder()
             ->issuedBy(self::$issuer)

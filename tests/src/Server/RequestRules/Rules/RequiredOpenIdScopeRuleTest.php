@@ -17,7 +17,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\ParamsResolver;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule
@@ -33,7 +33,7 @@ class RequiredOpenIdScopeRuleTest extends TestCase
     protected Stub $requestStub;
 
     protected Stub $loggerServiceStub;
-    protected Stub $paramsResolverStub;
+    protected Stub $requestParamsResolverStub;
 
     /**
      * @throws \Exception
@@ -49,13 +49,13 @@ class RequiredOpenIdScopeRuleTest extends TestCase
         ];
         $this->scopeResult = new Result(ScopeRule::class, $this->scopeEntities);
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
-        $this->paramsResolverStub = $this->createStub(ParamsResolver::class);
+        $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
     }
 
     protected function mock(): RequiredOpenIdScopeRule
     {
         return new RequiredOpenIdScopeRule(
-            $this->paramsResolverStub,
+            $this->requestParamsResolverStub,
         );
     }
 

@@ -32,7 +32,7 @@ class CodeChallengeRule extends AbstractRule
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
-        $codeChallenge = $this->paramsResolver->getAsStringBasedOnAllowedMethods(
+        $codeChallenge = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
             ParamsEnum::CodeChallenge->value,
             $request,
             $allowedServerRequestMethods,

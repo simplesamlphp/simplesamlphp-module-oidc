@@ -133,9 +133,9 @@
         {% endif %}
 
         <div class="field">
-            <label for="frm-protocol_jwks">{{ 'Protocol JWKS'|trans }}</label>
+            <label for="frm-jwks">{{ 'JWKS'|trans }}</label>
 
-            {{ form['protocol_jwks'].control | raw }}
+            {{ form['jwks'].control | raw }}
             <small class="helper">
                 {% trans %}JSON object (string) representing protocol JWKS. This can be used, for example, to check
                     integrity of Request Object parameter. Note that this should be different from Federation JWKS.
