@@ -20,10 +20,6 @@
   <logging>
     <junit outputFile="build/logs/junit.xml"/>
   </logging>
-  <php>
-    <env name="SIMPLESAMLPHP_CONFIG_DIR" value="tests/config"/>
-    <env name="APP_ENV" value="phpintegration"/>
-  </php>
   <source>
     <include>
       <directory>./src</directory>
