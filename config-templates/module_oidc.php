@@ -285,20 +285,22 @@ $config = [
     // (optional) Dedicated federation cache adapter, used to cache federation artifacts like trust chains, entity
     // statements, etc. Setting this is strongly recommended in production environments. If set to null, no
     // caching will be used. Can be set to any Symfony Cache Adapter class, like in examples below.
+    // If set, make sure to also give proper adapter arguments for its instantiation below.
     // @see https://symfony.com/doc/current/components/cache.html#available-cache-adapters
     ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER => null,
     //ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\FilesystemAdapter::class,
     //ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\MemcachedAdapter::class,
 
-    // Federation cache adapter arguments used for creating cache instance. Refer to documentation for particular
+    // Federation cache adapter arguments used for adapter instantiation. Refer to documentation for particular
     // adapter on which arguments are needed to create its instance, in the order of constructor arguments.
+    // See examples below.
     ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS => [
         // Adapter arguments here...
     ],
     // Example for FileSystemAdapter:
     //ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS => [
     //    'openidFederation', // Namespace, subdirectory of main cache directory
-    //    60 * 60 * 24, // Default lifetime in seconds (used when particular cache item doesn't define its own lifetime)
+    //    60 * 60 * 6, // Default lifetime in seconds (used when particular cache item doesn't define its own lifetime)
     //    '/path/to/main/cache/directory' // Must be writable. Can be set to null to use system temporary directory.
     //],
     // Example for MemcachedAdapter:
@@ -313,8 +315,14 @@ $config = [
     //    // 'memcached://localhost:11222?socket_recv_size=1&socket_send_size=2'
     //    ),
     //    'openidFederation', // Namespace, key prefix.
-    //    60 * 60 * 24, // Default lifetime in seconds (used when particular cache item doesn't define its own lifetime)
+    //    60 * 60 * 6, // Default lifetime in seconds (used when particular cache item doesn't define its own lifetime)
     //],
+
+    // Maximum federation cache item duration. Federation cache item duration will typically be resolved based on the
+    // expiry of the artifact. For example, when caching entity statements, cache duration will be based on the 'exp'
+    // claim (expiration time). Since those claims are set by issuer (can be long), it could be desirable to limit
+    // the maximum time, so that items in cache get refreshed more regularly (and changes propagate more quickly).
+    ModuleConfig::OPTION_FEDERATION_CACHE_MAX_DURATION => 'PT6H',
 
     /**
      * PKI settings related to OpenID Federation. These keys will be used, for example, to sign federation

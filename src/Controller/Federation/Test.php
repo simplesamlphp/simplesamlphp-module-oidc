@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Controller\Federation;
 
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\OpenID\Codebooks\EntityTypeEnum;
 use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Federation;
@@ -19,13 +18,14 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class Test
 {
-//    public function __construct(protected ModuleConfig $moduleConfig)
-//    {
-//    }
-
-    public function __invoke(?FederationCache $federationCache): Response
+    public function __construct(protected Federation $federation)
     {
-        dd($federationCache);
+    }
+
+    public function __invoke(): Response
+    {
+        dd($this->federation);
+
 //        $cache = new Psr16Cache(new FilesystemAdapter(
 //            'oidc-federation',
 //            60,

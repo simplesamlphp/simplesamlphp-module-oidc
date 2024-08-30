@@ -73,6 +73,7 @@ class ModuleConfig
     final public const OPTION_FEDERATION_ENABLED = 'federation_enabled';
     final public const OPTION_FEDERATION_CACHE_ADAPTER = 'federation_cache_adapter';
     final public const OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS = 'federation_cache_adapter_arguments';
+    final public const OPTION_FEDERATION_CACHE_MAX_DURATION = 'federation_cache_max_duration';
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
@@ -530,5 +531,12 @@ class ModuleConfig
     public function getFederationCacheAdapterArguments(): array
     {
         return $this->config()->getOptionalArray(self::OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS, []);
+    }
+
+    public function getFederationCacheMaxDuration(): DateInterval
+    {
+        return new DateInterval(
+            $this->config()->getOptionalString(self::OPTION_FEDERATION_CACHE_MAX_DURATION, 'PT6H'),
+        );
     }
 }

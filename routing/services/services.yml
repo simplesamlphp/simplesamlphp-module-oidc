@@ -88,7 +88,7 @@ services:
   SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor:
     factory: ['@SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory', 'build']
   SimpleSAML\Module\oidc\Utils\FederationCache:
-    factory: ['@SimpleSAML\Module\oidc\Factories\FederationCacheFactory', 'build'] # Can return null
+    factory: ['@SimpleSAML\Module\oidc\Factories\CacheFactory', 'forFederation'] # Can return null
 
   # Use (already available) Laminas\Diactoros package as PSR HTTP Factories.
   Laminas\Diactoros\ServerRequestFactory: ~
@@ -102,3 +102,5 @@ services:
 
   # Ssp OpenId
   SimpleSAML\OpenID\Core: ~
+  SimpleSAML\OpenID\Federation:
+    factory: [ '@SimpleSAML\Module\oidc\Factories\FederationFactory', 'build' ]

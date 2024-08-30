@@ -12,7 +12,7 @@ use SimpleSAML\Module\oidc\Utils\FederationCache;
 use Symfony\Component\Cache\Adapter\AdapterInterface;
 use Symfony\Component\Cache\Psr16Cache;
 
-class FederationCacheFactory
+class CacheFactory
 {
     public function __construct(
         protected ModuleConfig $moduleConfig,
@@ -24,7 +24,7 @@ class FederationCacheFactory
     /**
      * @throws \SimpleSAML\Module\oidc\OidcException
      */
-    public function build(): ?FederationCache
+    public function forFederation(): ?FederationCache
     {
         $class = $this->moduleConfig->getFederationCacheAdapterClass();
 
@@ -33,7 +33,10 @@ class FederationCacheFactory
         }
 
         try {
-            $instance = $this->classInstanceBuilder->build($class);
+            $instance = $this->classInstanceBuilder->build(
+                $class,
+                $this->moduleConfig->getFederationCacheAdapterArguments(),
+            );
         } catch (\Throwable $exception) {
             $message = "Error building federation cache instance: " . $exception->getMessage();
             $this->loggerService->error($message);

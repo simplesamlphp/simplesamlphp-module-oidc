@@ -13,7 +13,7 @@ class ClassInstanceBuilder
      * @throws \SimpleSAML\Module\oidc\OidcException
      * @throws \ReflectionException
      */
-    public function build(string $class, mixed ...$args): mixed
+    public function build(string $class, array $args): mixed
     {
         if (!class_exists($class)) {
             $message = "Error building instance: class {$class} does not exist";
