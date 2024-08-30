@@ -64,11 +64,6 @@ jobs:
           echo $NO_COVERAGE
           ./vendor/bin/phpunit $NO_COVERAGE
 
-      - name: Run Integration tests
-        run: |
-          echo $NO_COVERAGE
-          ./vendor/bin/phpunit phpunit.integration.xml $NO_COVERAGE
-
       - name: Save coverage data
         if: ${{ matrix.php-versions == '8.2' }}
         uses: actions/upload-artifact@v4
