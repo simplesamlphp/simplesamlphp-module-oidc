@@ -63,7 +63,7 @@ jobs:
         run: |
           echo $NO_COVERAGE
           ./vendor/bin/phpunit $NO_COVERAGE
-          ./vendor/bin/phpunit phpunit.integration.xm $NO_COVERAGE
+          ./vendor/bin/phpunit phpunit.integration.xml $NO_COVERAGE
 
       - name: Save coverage data
         if: ${{ matrix.php-versions == '8.2' }}
