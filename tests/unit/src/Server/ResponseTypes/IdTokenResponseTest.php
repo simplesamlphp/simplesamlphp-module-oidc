@@ -64,7 +64,7 @@ class IdTokenResponseTest extends TestCase
      */
     protected function setUp(): void
     {
-        $this->certFolder = dirname(__DIR__, 4) . '/docker/ssp/';
+        $this->certFolder = dirname(__DIR__, 5) . '/docker/ssp/';
         $this->userEntity = UserEntity::fromData(self::SUBJECT, [
             'cn'  => ['Homer Simpson'],
             'mail' => ['myEmail@example.com'],

@@ -88,7 +88,7 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
             self::$mysqlPort ??= "3306";
             self::$postgresPort ??= "5432";
         }
-        Configuration::setConfigDir(__DIR__ . '/../../../../config-templates');
+        Configuration::setConfigDir(__DIR__ . '/../../../../../config-templates');
         self::$pgConfig = self::loadPGDatabase();
         self::$mysqlConfig = self::loadMySqlDatabase();
         self::$sqliteConfig = self::loadSqliteDatabase();
@@ -137,7 +137,10 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         $userRepositoryMock->add($user);
     }
 
-    public static function loadPGDatabase(): array
+  /**
+   * @throws \Exception
+   */
+  public static function loadPGDatabase(): array
     {
         $pgContainer = PostgresContainer::make('15.0', 'password');
         $pgContainer->withPostgresDatabase('database');

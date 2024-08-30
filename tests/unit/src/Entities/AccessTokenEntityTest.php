@@ -53,7 +53,7 @@ class AccessTokenEntityTest extends TestCase
         // Plant certdir config for JsonWebTokenBuilderService (since we don't inject it)
         Configuration::clearInternalState();
         $config = [
-            'certdir' => dirname(__DIR__, 3) . '/docker/ssp/',
+            'certdir' => dirname(__DIR__, 4) . '/docker/ssp/',
         ];
         Configuration::loadFromArray($config, '', 'simplesaml');
 
