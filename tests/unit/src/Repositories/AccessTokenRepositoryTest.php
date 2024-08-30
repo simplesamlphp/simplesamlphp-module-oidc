@@ -59,8 +59,10 @@ class AccessTokenRepositoryTest extends TestCase
         $moduleConfig = new ModuleConfig();
 
         $client = ClientRepositoryTest::getClient(self::CLIENT_ID);
+        (new ClientRepository($moduleConfig))->delete($client);
         (new ClientRepository($moduleConfig))->add($client);
         $user = UserEntity::fromData(self::USER_ID);
+        (new UserRepository($moduleConfig))->delete($user);
         (new UserRepository($moduleConfig))->add($user);
 
         self::$repository = new AccessTokenRepository($moduleConfig);

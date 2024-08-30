@@ -137,10 +137,10 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         $userRepositoryMock->add($user);
     }
 
-  /**
-   * @throws \Exception
-   */
-  public static function loadPGDatabase(): array
+    /**
+     * @throws \Exception
+     */
+    public static function loadPGDatabase(): array
     {
         $pgContainer = PostgresContainer::make('15.0', 'password');
         $pgContainer->withPostgresDatabase('database');
