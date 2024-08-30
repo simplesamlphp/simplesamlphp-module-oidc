@@ -85,4 +85,6 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
      * @return array[]|null
      */
     public function jwks(): ?array;
+
+    public function getJwksUri(): ?string;
 }

@@ -89,6 +89,7 @@ class CreateController
             $federationJwks = is_array($client['federation_jwks']) ? $client['federation_jwks'] : null;
             /** @var ?array[] $jwks */
             $jwks = is_array($client['jwks']) ? $client['jwks'] : null;
+            $jwksUri = empty($client['jwks_uri']) ? null : (string)$client['jwks_uri'];
 
             $this->clientRepository->add(ClientEntity::fromData(
                 $client['id'],
@@ -107,6 +108,7 @@ class CreateController
                 $clientRegistrationTypes,
                 $federationJwks,
                 $jwks,
+                $jwksUri,
             ));
 
             // Also persist allowed origins for this client.

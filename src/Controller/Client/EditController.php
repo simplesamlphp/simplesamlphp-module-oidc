@@ -96,6 +96,7 @@ class EditController
             $federationJwks = is_array($data['federation_jwks']) ? $data['federation_jwks'] : null;
             /** @var ?array[] $jwks */
             $jwks = is_array($data['jwks']) ? $data['jwks'] : null;
+            $jwksUri = empty($data['jwks_uri']) ? null : (string)$data['jwks_uri'];
 
             $this->clientRepository->update(ClientEntity::fromData(
                 $client->getIdentifier(),
@@ -114,6 +115,7 @@ class EditController
                 $clientRegistrationTypes,
                 $federationJwks,
                 $jwks,
+                $jwksUri,
             ), $authedUser);
 
             // Also persist allowed origins for this client.

@@ -133,13 +133,22 @@
         {% endif %}
 
         <div class="field">
+            <label for="frm-jwks_uri">{{ 'JWKS URI'|trans }}</label>
+
+            {{ form['jwks_uri'].control | raw }}
+            <small class="helper">
+                {% trans %}URL to a JWKS document containing protocol public keys. Example:
+                    https://example.org/jwks{% endtrans %}
+            </small>
+        </div>
+
+        <div class="field">
             <label for="frm-jwks">{{ 'JWKS'|trans }}</label>
 
             {{ form['jwks'].control | raw }}
             <small class="helper">
-                {% trans %}JSON object (string) representing protocol JWKS. This can be used, for example, to check
-                    integrity of Request Object parameter. Note that this should be different from Federation JWKS.
-                    Example:
+                {% trans %}JSON object (string) representing JWKS document containing protocol public keys. Note that
+                    this should be different from Federation JWKS. Will be used if JWKS URI is not set. Example:
                     {"keys":[{"kty": "RSA","n": "...","e": "AQAB","kid": "pro123","use": "sig","alg": "RS256"}]}{% endtrans %}
             </small>
         </div>

@@ -236,7 +236,8 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
                 entity_identifier,
                 client_registration_types,
                 federation_jwks,
-                jwks
+                jwks,
+                jwks_uri
             )
             VALUES (
                 :id,
@@ -254,7 +255,8 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
                 :entity_identifier,
                 :client_registration_types,
                 :federation_jwks,
-                :jwks
+                :jwks,
+                :jwks_uri
             )
 EOS
             ,
@@ -301,7 +303,8 @@ EOS
                 entity_identifier = :entity_identifier,
                 client_registration_types = :client_registration_types,
                 federation_jwks = :federation_jwks,
-                jwks = :jwks
+                jwks = :jwks,
+                jwks_uri = :jwks_uri
             WHERE id = :id
 EOF
             ,

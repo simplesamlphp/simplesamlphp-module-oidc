@@ -100,7 +100,7 @@ services:
   # Symfony
   Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory: ~
 
-  # Ssp OpenId
+  # SSP OpenId
   SimpleSAML\OpenID\Core: ~
   SimpleSAML\OpenID\Federation:
     factory: [ '@SimpleSAML\Module\oidc\Factories\FederationFactory', 'build' ]

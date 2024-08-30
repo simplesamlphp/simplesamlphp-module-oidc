@@ -110,7 +110,11 @@
         </tr>
         {% endif %}
         <tr >
-            <td class="collapsing">{{ 'Protocol JWKS'|trans }}</td>
+            <td class="collapsing">{{ 'JWKS URI'|trans }}</td>
+            <td>{{ client.jwksUri }}</td>
+        </tr>
+        <tr >
+            <td class="collapsing">{{ 'JWKS'|trans }}</td>
             <td>
                 {% if client.jwks %}
                     <div class="ui comments" >

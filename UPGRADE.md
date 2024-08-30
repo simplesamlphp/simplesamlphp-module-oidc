@@ -13,8 +13,8 @@
 
 ## New features
 
-- OpenID Federation capabilities
-  - New endpoints:
+- OpenID capabilities
+  - New federation endpoints:
     - endpoint for issuing configuration entity statement (statement about itself)
     - fetch endpoint for issuing statements about subordinates (registered clients)
   - Clients can now be configured with new properties:
@@ -22,6 +22,7 @@
     - Registration Types
     - Federation JWKS
     - Protocol JWKS
+    - Protocol JWKS URI
 - Improved AuthProc filter support
   - Support authproc filters that need to redirect and later resume processing
     - `consent` and `preprodwarning` are two authprocs that redirect for user interaction and are now supported
