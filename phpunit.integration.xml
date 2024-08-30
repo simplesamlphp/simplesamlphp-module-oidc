@@ -2,14 +2,13 @@
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          colors="true"
          bootstrap="./tests/bootstrap.php"
-         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.3/phpunit.xsd"
-         cacheDirectory="./build-integration/phpunit-cache"
+         cacheDirectory="./build/phpunit-cache"
          displayDetailsOnTestsThatTriggerWarnings="true"
 >
   <coverage>
     <report>
-      <clover outputFile="build-integration/logs/clover.xml"/>
-      <html outputDirectory="build-integration/coverage/html"/>
+      <clover outputFile="build/logs/clover.xml"/>
+      <html outputDirectory="build/coverage/html"/>
     </report>
   </coverage>
   <testsuites>
@@ -18,7 +17,7 @@
     </testsuite>
   </testsuites>
   <logging>
-    <junit outputFile="build-integration/logs/junit.xml"/>
+    <junit outputFile="build/logs/junit.xml"/>
   </logging>
   <php>
     <env name="SIMPLESAMLPHP_CONFIG_DIR" value="tests/config"/>

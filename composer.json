@@ -79,7 +79,8 @@
             "vendor/bin/phpcs -p"
         ],
         "tests": [
-            "vendor/bin/phpunit --no-coverage"
+            "vendor/bin/phpunit --no-coverage",
+            "vendor/bin/phpunit -c phpunit.integration.xml --no-coverage"
         ]
     }
 }
