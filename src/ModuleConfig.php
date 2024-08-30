@@ -70,6 +70,9 @@ class ModuleConfig
     final public const OPTION_LOGO_URI = 'logo_uri';
     final public const OPTION_POLICY_URI = 'policy_uri';
     final public const OPTION_HOMEPAGE_URI = 'homepage_uri';
+    final public const OPTION_FEDERATION_ENABLED = 'federation_enabled';
+    final public const OPTION_FEDERATION_CACHE_ADAPTER = 'federation_cache_adapter';
+    final public const OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS = 'federation_cache_adapter_arguments';
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
@@ -512,5 +515,20 @@ class ModuleConfig
         return new DateInterval(
             $this->config()->getString(self::OPTION_TOKEN_REFRESH_TOKEN_TTL),
         );
+    }
+
+    public function getFederationEnabled(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_FEDERATION_ENABLED, false);
+    }
+
+    public function getFederationCacheAdapterClass(): ?string
+    {
+        return $this->config()->getOptionalString(self::OPTION_FEDERATION_CACHE_ADAPTER, null);
+    }
+
+    public function getFederationCacheAdapterArguments(): array
+    {
+        return $this->config()->getOptionalArray(self::OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS, []);
     }
 }

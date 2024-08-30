@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
@@ -21,6 +22,7 @@ class ClientIdRule extends AbstractRule
     public function __construct(
         RequestParamsResolver $requestParamsResolver,
         protected ClientRepositoryInterface $clientRepository,
+        protected ModuleConfig $moduleConfig,
     ) {
         parent::__construct($requestParamsResolver);
     }
@@ -49,9 +51,16 @@ class ClientIdRule extends AbstractRule
 
         $client = $this->clientRepository->getClientEntity($clientId);
 
-        if ($client instanceof ClientEntityInterface === false) {
+        if ($client instanceof ClientEntityInterface) {
+            return new Result($this->getKey(), $client);
+        }
+
+        // If federation capabilities are not enabled, we don't have anything else to do.
+        if ($this->moduleConfig->getFederationEnabled() === false) {
             throw OidcServerException::invalidClient($request);
         }
+
+        // Federation is enabled, try to resolve trust chain and client from it.
 
         return new Result($this->getKey(), $client);
     }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Controller\Federation;
 
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\OpenID\Codebooks\EntityTypeEnum;
 use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Federation;
@@ -22,8 +23,9 @@ class Test
 //    {
 //    }
 
-    public function __invoke(): Response
+    public function __invoke(?FederationCache $federationCache): Response
     {
+        dd($federationCache);
 //        $cache = new Psr16Cache(new FilesystemAdapter(
 //            'oidc-federation',
 //            60,

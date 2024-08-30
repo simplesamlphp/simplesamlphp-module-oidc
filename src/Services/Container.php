@@ -207,7 +207,7 @@ class Container implements ContainerInterface
 
         $requestRules = [
             new StateRule($requestParamsResolver),
-            new ClientIdRule($requestParamsResolver, $clientRepository),
+            new ClientIdRule($requestParamsResolver, $clientRepository, $moduleConfig),
             new RedirectUriRule($requestParamsResolver),
             new RequestParameterRule($requestParamsResolver),
             new PromptRule($requestParamsResolver, $authSimpleFactory, $authenticationService),

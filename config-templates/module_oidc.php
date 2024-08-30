@@ -279,6 +279,43 @@ $config = [
      * disabled.
      */
 
+    // Enable or disable federation capabilities. Default is disabled (false).
+    ModuleConfig::OPTION_FEDERATION_ENABLED => false,
+
+    // (optional) Dedicated federation cache adapter, used to cache federation artifacts like trust chains, entity
+    // statements, etc. Setting this is strongly recommended in production environments. If set to null, no
+    // caching will be used. Can be set to any Symfony Cache Adapter class, like in examples below.
+    // @see https://symfony.com/doc/current/components/cache.html#available-cache-adapters
+    ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER => null,
+    //ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\FilesystemAdapter::class,
+    //ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\MemcachedAdapter::class,
+
+    // Federation cache adapter arguments used for creating cache instance. Refer to documentation for particular
+    // adapter on which arguments are needed to create its instance, in the order of constructor arguments.
+    ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS => [
+        // Adapter arguments here...
+    ],
+    // Example for FileSystemAdapter:
+    //ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS => [
+    //    'openidFederation', // Namespace, subdirectory of main cache directory
+    //    60 * 60 * 24, // Default lifetime in seconds (used when particular cache item doesn't define its own lifetime)
+    //    '/path/to/main/cache/directory' // Must be writable. Can be set to null to use system temporary directory.
+    //],
+    // Example for MemcachedAdapter:
+    //ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS => [
+    //    // First argument is a connection instance, so we can use the helper method to create it. In this example a
+    //    // single server is used. Refer to documentation on how to use multiple servers, and / or to provide other
+    //    // options.
+    //    \Symfony\Component\Cache\Adapter\MemcachedAdapter::createConnection(
+    //        'memcached://localhost'
+    //    // the DSN can include config options (pass them as a query string):
+    //    // 'memcached://localhost:11222?retry_timeout=10'
+    //    // 'memcached://localhost:11222?socket_recv_size=1&socket_send_size=2'
+    //    ),
+    //    'openidFederation', // Namespace, key prefix.
+    //    60 * 60 * 24, // Default lifetime in seconds (used when particular cache item doesn't define its own lifetime)
+    //],
+
     /**
      * PKI settings related to OpenID Federation. These keys will be used, for example, to sign federation
      * entity statements. Note that these keys SHOULD NOT be the same as the ones used in OIDC protocol itself.

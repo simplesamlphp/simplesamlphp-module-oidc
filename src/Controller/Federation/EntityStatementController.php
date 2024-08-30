@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Controller\Federation;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
@@ -25,6 +26,9 @@ use Symfony\Component\HttpFoundation\Response;
 
 class EntityStatementController
 {
+    /**
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
     public function __construct(
         private readonly ModuleConfig $moduleConfig,
         private readonly JsonWebTokenBuilderService $jsonWebTokenBuilderService,
@@ -32,12 +36,16 @@ class EntityStatementController
         private readonly OpMetadataService $opMetadataService,
         private readonly ClientRepository $clientRepository,
     ) {
+        if (!$this->moduleConfig->getFederationEnabled()) {
+            throw OidcServerException::forbidden('federation capabilities not enabled');
+        }
     }
 
     /**
      * Return the JWS with the OP configuration statement.
      * @return \Symfony\Component\HttpFoundation\Response
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \ReflectionException
      */
     public function configuration(): Response
     {

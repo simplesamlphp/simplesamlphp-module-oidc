@@ -66,7 +66,7 @@ class RequestRulesManagerFactory
     {
         return [
             new StateRule($this->requestParamsResolver),
-            new ClientIdRule($this->requestParamsResolver, $this->clientRepository),
+            new ClientIdRule($this->requestParamsResolver, $this->clientRepository, $this->moduleConfig),
             new RedirectUriRule($this->requestParamsResolver),
             new RequestParameterRule($this->requestParamsResolver),
             new PromptRule($this->requestParamsResolver, $this->authSimpleFactory, $this->authenticationService),

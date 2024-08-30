@@ -245,6 +245,28 @@ class OidcServerException extends OAuthServerException
     }
 
     /**
+     * Forbidden request.
+     *
+     * @param string|null $hint
+     * @param \Throwable|null $previous
+     *
+     * @return self
+     * @psalm-suppress LessSpecificImplementedReturnType
+     */
+    public static function forbidden(string $hint = null, Throwable $previous = null): OidcServerException
+    {
+        return new self(
+            'Request understood, but refused to process it.',
+            11,
+            'forbidden',
+            403,
+            $hint,
+            null,
+            $previous,
+        );
+    }
+
+    /**
      * Returns the current payload.
      *
      * @return array
