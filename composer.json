@@ -80,6 +80,12 @@
         ],
         "tests": [
             "vendor/bin/phpunit --no-coverage"
+        ],
+        "integration-tests": [
+            "vendor/bin/phpunit --testsuite Integration --no-coverage"
+        ],
+        "unit-tests": [
+            "vendor/bin/phpunit --testsuite Unit --no-coverage"
         ]
     }
 }
