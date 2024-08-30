@@ -22,4 +22,6 @@ $linkPath = $projectRoot . '/vendor/simplesamlphp/simplesamlphp/modules/oidc';
 if (false === file_exists($linkPath)) {
     echo "Linking '$linkPath' to '$projectRoot'\n";
     symlink($projectRoot, $linkPath);
+} else {
+    echo "'$linkPath' linked to '$projectRoot'\n";
 }
