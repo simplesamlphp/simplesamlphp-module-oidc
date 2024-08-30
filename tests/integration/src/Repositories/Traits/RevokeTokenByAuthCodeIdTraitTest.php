@@ -55,11 +55,6 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
     protected $mock;
 
     /**
-     * @var ModuleConfig
-     */
-    protected ModuleConfig $moduleConfig;
-
-    /**
      * @var \SimpleSAML\Module\oidc\Entities\ScopeEntity
      */
     protected ScopeEntity $scopeEntityOpenId;
