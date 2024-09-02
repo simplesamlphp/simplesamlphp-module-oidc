@@ -45,7 +45,8 @@
         "simplesamlphp/simplesamlphp-test-framework": "^1.5",
         "squizlabs/php_codesniffer": "^3",
         "vimeo/psalm": "^5",
-        "testcontainers/testcontainers": "^0.2"
+        "testcontainers/testcontainers": "^0.2",
+        "nimut/phpunit-merger": "^2.0"
     },
     "config": {
         "preferred-install": {
@@ -82,10 +83,10 @@
             "vendor/bin/phpunit --no-coverage"
         ],
         "integration-tests": [
-            "vendor/bin/phpunit --testsuite Integration --no-coverage"
+            "vendor/bin/phpunit --no-configuration -c phpunit.integration.xml --no-coverage"
         ],
         "unit-tests": [
-            "vendor/bin/phpunit --testsuite Unit --no-coverage"
+            "vendor/bin/phpunit --no-coverage"
         ]
     }
 }
