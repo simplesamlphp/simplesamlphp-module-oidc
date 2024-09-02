@@ -93,10 +93,6 @@
                 </ul>
             </td>
         </tr>
-        <tr>
-            <td class="collapsing">{{ '{oidc:client:owner}'|trans }}</td>
-            <td>{{ client.owner }}</td>
-        </tr>
         {% if client.isConfidential == false %}
         <tr>
             <td class="collapsing">{{ '{oidc:client:allowed_origin}'|trans }}</td>
@@ -109,6 +105,10 @@
             </td>
         </tr>
         {% endif %}
+        <tr >
+            <td class="collapsing">{{ 'Signed JWKS URI'|trans }}</td>
+            <td>{{ client.signedJwksUri }}</td>
+        </tr>
         <tr >
             <td class="collapsing">{{ 'JWKS URI'|trans }}</td>
             <td>{{ client.jwksUri }}</td>
@@ -126,6 +126,10 @@
                     </div>
                 {% endif %}
             </td>
+        </tr>
+        <tr>
+            <td class="collapsing">{{ '{oidc:client:owner}'|trans }}</td>
+            <td>{{ client.owner }}</td>
         </tr>
 
         <tr>

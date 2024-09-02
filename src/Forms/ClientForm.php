@@ -154,11 +154,16 @@ class ClientForm extends Form
 
     public function validateJwksUri(Form $form): void
     {
-        /** @var ?string $jwksUri */
-        $jwksUri = $form->getValues()['jwks_uri'] ?? null;
-        if ($jwksUri !== null) {
+        /** @var string[] $uris */
+        $uris = array_filter(
+            [
+                $form->getValues()['jwks_uri'] ?? null,
+                $form->getValues()['signed_jwks_uri'] ?? null,
+            ],
+        );
+        if (!empty($uris)) {
             $this->validateByMatchingRegex(
-                [$jwksUri],
+                $uris,
                 self::REGEX_HTTP_URI,
                 'Invalid JWKS URI: ',
             );
@@ -261,6 +266,9 @@ class ClientForm extends Form
 
         $jwksUri = trim((string)$values['jwks_uri']);
         $values['jwks_uri'] = empty($jwksUri) ? null : $jwksUri;
+
+        $signedJwksUri = trim((string)$values['signed_jwks_uri']);
+        $values['signed_jwks_uri'] = empty($signedJwksUri) ? null : $signedJwksUri;
 
         return $values;
     }
@@ -374,6 +382,7 @@ class ClientForm extends Form
         $this->addTextArea('jwks', '{oidc:client:jwks}', null, 5);
 
         $this->addText('jwks_uri', 'JWKS URI');
+        $this->addText('signed_jwks_uri', 'Signed JWKS URI');
     }
 
     /**

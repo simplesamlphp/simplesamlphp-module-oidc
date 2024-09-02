@@ -65,6 +65,7 @@ class ClientEntity implements ClientEntityInterface
      */
     private ?array $jwks = null;
     private ?string $jwksUri = null;
+    private ?string $signedJwksUri = null;
 
     /**
      * Constructor.
@@ -99,6 +100,7 @@ class ClientEntity implements ClientEntityInterface
         ?array $federationJwks = null,
         ?array $jwks = null,
         ?string $jwksUri = null,
+        ?string $signedJwksUri = null,
     ): ClientEntityInterface {
         $client = new self();
 
@@ -119,6 +121,7 @@ class ClientEntity implements ClientEntityInterface
         $client->federationJwks = $federationJwks;
         $client->jwks = $jwks;
         $client->jwksUri = $jwksUri;
+        $client->signedJwksUri = $signedJwksUri;
 
         return $client;
     }
@@ -196,6 +199,7 @@ class ClientEntity implements ClientEntityInterface
         $client->jwks = $jwks;
 
         $client->jwksUri = empty($state['jwks_uri']) ? null : (string)$state['jwks_uri'];
+        $client->signedJwksUri = empty($state['signed_jwks_uri']) ? null : (string)$state['signed_jwks_uri'];
 
         return $client;
     }
@@ -230,6 +234,7 @@ class ClientEntity implements ClientEntityInterface
                 null :
                 json_encode($this->jwks()),
             'jwks_uri' => $this->getJwksUri(),
+            'signed_jwks_uri' => $this->getSignedJwksUri(),
         ];
     }
 
@@ -253,6 +258,7 @@ class ClientEntity implements ClientEntityInterface
             'federation_jwks' => $this->federationJwks,
             'jwks' => $this->jwks,
             'jwks_uri' => $this->jwksUri,
+            'signed_jwks_uri' => $this->signedJwksUri,
         ];
     }
 
@@ -355,5 +361,10 @@ class ClientEntity implements ClientEntityInterface
     public function getJwksUri(): ?string
     {
         return $this->jwksUri;
+    }
+
+    public function getSignedJwksUri(): ?string
+    {
+        return $this->signedJwksUri;
     }
 }

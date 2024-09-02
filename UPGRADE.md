@@ -21,8 +21,7 @@
     - Entity Identifier
     - Registration Types
     - Federation JWKS
-    - Protocol JWKS
-    - Protocol JWKS URI
+    - Protocol JWKS, JWKS URI and Signed JWKS URI
 - Improved AuthProc filter support
   - Support authproc filters that need to redirect and later resume processing
     - `consent` and `preprodwarning` are two authprocs that redirect for user interaction and are now supported

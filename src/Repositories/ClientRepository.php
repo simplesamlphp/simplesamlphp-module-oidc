@@ -237,7 +237,8 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
                 client_registration_types,
                 federation_jwks,
                 jwks,
-                jwks_uri
+                jwks_uri,
+                signed_jwks_uri
             )
             VALUES (
                 :id,
@@ -256,7 +257,8 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
                 :client_registration_types,
                 :federation_jwks,
                 :jwks,
-                :jwks_uri
+                :jwks_uri,
+                :signed_jwks_uri
             )
 EOS
             ,
@@ -304,7 +306,8 @@ EOS
                 client_registration_types = :client_registration_types,
                 federation_jwks = :federation_jwks,
                 jwks = :jwks,
-                jwks_uri = :jwks_uri
+                jwks_uri = :jwks_uri,
+                signed_jwks_uri = :signed_jwks_uri
             WHERE id = :id
 EOF
             ,

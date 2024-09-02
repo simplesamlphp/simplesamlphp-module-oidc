@@ -145,6 +145,11 @@ class DatabaseMigration
             $this->version20240830153300();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20240830153300')");
         }
+
+        if (!in_array('20240902120000', $versions, true)) {
+            $this->version20240902120000();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20240902120000')");
+        }
     }
 
     private function versionsTableName(): string
@@ -443,6 +448,16 @@ EOT
         $this->database->write(<<< EOT
         ALTER TABLE {$clientTableName}
             ADD jwks_uri TEXT NULL
+EOT
+            ,);
+    }
+
+    private function version20240902120000(): void
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE {$clientTableName}
+            ADD signed_jwks_uri TEXT NULL
 EOT
             ,);
     }

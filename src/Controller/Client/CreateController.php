@@ -90,6 +90,7 @@ class CreateController
             /** @var ?array[] $jwks */
             $jwks = is_array($client['jwks']) ? $client['jwks'] : null;
             $jwksUri = empty($client['jwks_uri']) ? null : (string)$client['jwks_uri'];
+            $signedJwksUri = empty($client['signed_jwks_uri']) ? null : (string)$client['signed_jwks_uri'];
 
             $this->clientRepository->add(ClientEntity::fromData(
                 $client['id'],
@@ -109,6 +110,7 @@ class CreateController
                 $federationJwks,
                 $jwks,
                 $jwksUri,
+                $signedJwksUri,
             ));
 
             // Also persist allowed origins for this client.

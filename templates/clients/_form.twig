@@ -133,12 +133,22 @@
         {% endif %}
 
         <div class="field">
+            <label for="frm-signed_jwks_uri">{{ 'Signed JWKS URI'|trans }}</label>
+
+            {{ form['signed_jwks_uri'].control | raw }}
+            <small class="helper">
+                {% trans %}URL to a JWS document containing protocol public keys in JWKS format (claim 'keys'). Example:
+                    https://example.org/signed-jwks{% endtrans %}
+            </small>
+        </div>
+
+        <div class="field">
             <label for="frm-jwks_uri">{{ 'JWKS URI'|trans }}</label>
 
             {{ form['jwks_uri'].control | raw }}
             <small class="helper">
-                {% trans %}URL to a JWKS document containing protocol public keys. Example:
-                    https://example.org/jwks{% endtrans %}
+                {% trans %}URL to a JWKS document containing protocol public keys. Will be used if Signed JWKS URI
+                    is not set. Example: https://example.org/jwks{% endtrans %}
             </small>
         </div>
 
@@ -268,6 +278,41 @@
             return true;
         };
 
+        $.fn.form.settings.rules.httpUri = function(value) {
+            var uri = value.trim();
+
+            if (uri.length) {
+                return null !== uri.match({{ regexHttpUri | raw }});
+            }
+
+            return true;
+        };
+
+
+
+        $.fn.form.settings.rules.jwksJson = function(value) {
+            var jwksJson = value.trim();
+
+            if (!jwksJson.length) {
+                return true;
+            }
+
+            try {
+                var parsed = JSON.parse(jwksJson);
+
+                if (parsed && typeof parsed === 'object' && 'keys' in parsed) {
+                    var keys = parsed['keys'];
+                    return Array.isArray(keys) && keys.length > 0;
+                }
+
+                return false;
+            } catch (e) {
+                // If an error occurs during parsing, it's not valid JSON
+                console.error(e);
+                return false;
+            }
+        };
+
         var formEl = $('.ui.form');
         formEl.checkbox();
 
@@ -339,8 +384,44 @@
                         identifier: 'entity_identifier',
                         rules: [
                             {
-                                type: 'entityIdentifier',
+                                type: 'httpUri',
                                 prompt: '{{ "Entity Identifier URI not valid."|trans }}'
+                            }
+                        ]
+                    },
+                    signed_jwks_uri: {
+                        identifier: 'signed_jwks_uri',
+                        rules: [
+                            {
+                                type: 'httpUri',
+                                prompt: '{{ "Signed JWKS URI not valid."|trans }}'
+                            }
+                        ]
+                    },
+                    jwks_uri: {
+                        identifier: 'jwks_uri',
+                        rules: [
+                            {
+                                type: 'httpUri',
+                                prompt: '{{ "JWKS URI not valid."|trans }}'
+                            }
+                        ]
+                    },
+                    jwks: {
+                        identifier: 'jwks',
+                        rules: [
+                            {
+                                type: 'jwksJson',
+                                prompt: '{{ "JWKS not valid."|trans }}'
+                            }
+                        ]
+                    },
+                    federation_jwks: {
+                        identifier: 'federation_jwks',
+                        rules: [
+                            {
+                                type: 'jwksJson',
+                                prompt: '{{ "JWKS not valid."|trans }}'
                             }
                         ]
                     }

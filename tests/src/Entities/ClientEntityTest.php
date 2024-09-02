@@ -123,6 +123,7 @@ class ClientEntityTest extends TestCase
                 'federation_jwks' => null,
                 'jwks' => null,
                 'jwks_uri' => null,
+                'signed_jwks_uri' => null,
             ],
         );
     }
@@ -153,6 +154,7 @@ class ClientEntityTest extends TestCase
                 'federation_jwks' => null,
                 'jwks' => null,
                 'jwks_uri' => null,
+                'signed_jwks_uri' => null,
             ],
         );
     }

@@ -21,6 +21,7 @@ class ConfigurationDiscoveryControllerTest extends TestCase
         'token_endpoint' => 'http://localhost/token',
         'userinfo_endpoint' => 'http://localhost/userinfo',
         'jwks_uri' => 'http://localhost/jwks',
+        'signed_jwks_uri' => 'http://localhost/signed-jwks',
         'scopes_supported' => ['openid'],
         'response_types_supported' => ['code', 'token', 'id_token', 'id_token token'],
         'subject_types_supported' => ['public'],
