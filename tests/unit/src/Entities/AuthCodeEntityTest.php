@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\Entities;
 
+use PDO;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
@@ -72,7 +73,7 @@ class AuthCodeEntityTest extends TestCase
                 'expires_at' => '1970-01-01 00:00:00',
                 'user_id' => 'user_id',
                 'client_id' => 'client_id',
-                'is_revoked' => 0,
+                'is_revoked' => [$this->state['is_revoked'], PDO::PARAM_BOOL],
                 'redirect_uri' => 'https://localhost/redirect',
                 'nonce' => 'nonce',
             ],

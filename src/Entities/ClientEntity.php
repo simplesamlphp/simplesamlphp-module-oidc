@@ -18,6 +18,8 @@ namespace SimpleSAML\Module\oidc\Entities;
 
 use League\OAuth2\Server\Entities\Traits\ClientTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
+use PDO;
+// use SimpleSAML\Module\oidc\Codebooks\ClaimValues\ClientRegistrationTypesEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
@@ -209,8 +211,8 @@ class ClientEntity implements ClientEntityInterface
             'auth_source' => $this->getAuthSourceId(),
             'redirect_uri' => json_encode($this->getRedirectUri(), JSON_THROW_ON_ERROR),
             'scopes' => json_encode($this->getScopes(), JSON_THROW_ON_ERROR),
-            'is_enabled' => (int) $this->isEnabled(),
-            'is_confidential' => (int) $this->isConfidential(),
+            'is_enabled' => [$this->isEnabled(), PDO::PARAM_BOOL],
+            'is_confidential' => [$this->isConfidential(), PDO::PARAM_BOOL],
             'owner' => $this->getOwner(),
             'post_logout_redirect_uri' => json_encode($this->getPostLogoutRedirectUri(), JSON_THROW_ON_ERROR),
             'backchannel_logout_uri' => $this->getBackChannelLogoutUri(),
