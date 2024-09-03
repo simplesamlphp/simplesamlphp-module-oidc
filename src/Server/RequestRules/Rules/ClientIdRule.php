@@ -16,6 +16,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
+use SimpleSAML\OpenID\Federation;
 
 class ClientIdRule extends AbstractRule
 {
@@ -23,6 +24,7 @@ class ClientIdRule extends AbstractRule
         RequestParamsResolver $requestParamsResolver,
         protected ClientRepositoryInterface $clientRepository,
         protected ModuleConfig $moduleConfig,
+        protected Federation $federation,
     ) {
         parent::__construct($requestParamsResolver);
     }
@@ -60,7 +62,22 @@ class ClientIdRule extends AbstractRule
             throw OidcServerException::invalidClient($request);
         }
 
-        // Federation is enabled, try to resolve trust chain and client from it.
+        // Federation is enabled.
+        // Check if we have a request object available. If not, we don't have anything else to do.
+        $requestParam = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
+            ParamsEnum::Request->value,
+            $request,
+            $allowedServerRequestMethods,
+        );
+
+        if (is_null($requestParam)) {
+            throw OidcServerException::invalidClient($request);
+        }
+
+        // We have a request object available. We must verify that it is the one compatible with OpenID Federation
+        // specification (not only Core specification).
+        // TDOO mivanci continue. See how to operate this together with RequestParameterRule (maybe inject it from here)
+//        $requestObject = $this->requestParamsResolver->parseFederationRequestObjectToken($requestParam);
 
         return new Result($this->getKey(), $client);
     }

@@ -104,3 +104,5 @@ services:
   SimpleSAML\OpenID\Core: ~
   SimpleSAML\OpenID\Federation:
     factory: [ '@SimpleSAML\Module\oidc\Factories\FederationFactory', 'build' ]
+  SimpleSAML\OpenID\Jwks:
+    factory: [ '@SimpleSAML\Module\oidc\Factories\JwksFactory', 'build' ]

@@ -53,6 +53,7 @@ class RequestParameterRule extends AbstractRule
         /** @var ?string $stateValue */
         $stateValue = ($currentResultBag->get(StateRule::class))?->getValue();
 
+        // TODO mivanci implement fetching jwks from signed_jwks_uri, jwks_uri, or jwks
         ($jwks = $client->jwks()) || throw OidcServerException::accessDenied(
             'can not validate request object, client JWKS not available',
             $redirectUri,

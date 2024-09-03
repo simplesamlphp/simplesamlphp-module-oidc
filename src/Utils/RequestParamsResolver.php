@@ -9,6 +9,7 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Core;
+use SimpleSAML\OpenID\Federation;
 
 /**
  * Resolve authorization params from HTTP request (based or not based on used method), and from Request Object param if
@@ -19,6 +20,7 @@ class RequestParamsResolver
     public function __construct(
         protected Helpers $helpers,
         protected Core $core,
+        protected Federation $federation,
     ) {
     }
 
@@ -153,12 +155,19 @@ class RequestParamsResolver
     /**
      * Parse the Request Object token. Note that this won't do any validation of it.
      *
-     * @see \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestParameterRule
      * @param string $token
      * @return \SimpleSAML\OpenID\Core\RequestObject
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     * @see \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestParameterRule
      */
     public function parseRequestObjectToken(string $token): Core\RequestObject
     {
-        return $this->core->getRequestObjectFactory()->fromToken($token);
+        return $this->core->requestObjectFactory()->fromToken($token);
+    }
+
+    public function parseFederationRequestObjectToken(string $requestParam)
+    {
+        // TODO continue
+//        return $this->federation->
     }
 }
