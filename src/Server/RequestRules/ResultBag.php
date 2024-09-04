@@ -64,4 +64,9 @@ class ResultBag implements ResultBagInterface
     {
         unset($this->results[$key]);
     }
+
+    public function has(string $key): bool
+    {
+        return array_key_exists($key, $this->results);
+    }
 }
