@@ -39,7 +39,7 @@ readonly class JwksFactory
         return new Jwks(
             supportedAlgorithms: $supportedAlgorithms,
             maxCacheDuration: $this->moduleConfig->getFederationCacheMaxDuration(),
-            cache: $this->federationCache?->instance,
+            cache: $this->federationCache?->cache,
             logger: $this->loggerService,
         );
     }

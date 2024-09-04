@@ -153,7 +153,8 @@ class RequestParamsResolver
     }
 
     /**
-     * Parse the Request Object token. Note that this won't do any validation of it.
+     * Parse the Request Object token according to OpenID Core specification.
+     * Note that this won't do signature validation of it.
      *
      * @param string $token
      * @return \SimpleSAML\OpenID\Core\RequestObject
@@ -165,9 +166,15 @@ class RequestParamsResolver
         return $this->core->requestObjectFactory()->fromToken($token);
     }
 
-    public function parseFederationRequestObjectToken(string $requestParam)
+    /**
+     * Parse the Request Object token according to OpenID Federation specification.
+     * Note that this won't do signature validation of it.
+     *
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     * @throws \SimpleSAML\OpenID\Exceptions\RequestObjectException
+     */
+    public function parseFederationRequestObjectToken(string $token): Federation\RequestObject
     {
-        // TODO continue
-//        return $this->federation->
+        return $this->federation->requestObjectFactory()->fromToken($token);
     }
 }

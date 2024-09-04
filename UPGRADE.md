@@ -28,8 +28,10 @@
   - Uses SSP's ProcessingChain class for closer alignment with SAML IdP configuration.
     - Allows additional configuration of authprocs in the main `config.php` under key `authproc.oidc`
 - Authorization endpoint now also supports sending request parameters using HTTP POST method, in addition to GET.
-- Added support for passing request parameters as JWTs, specifically - passing a Request Object by Value:
+- Added support for passing authorization request parameters as JWTs, specifically - passing a Request Object by Value:
 https://openid.net/specs/openid-connect-core-1_0.html#RequestObject
+- TODO Added support for `private_key_jwt` client authentication method at token endpoint:
+https://openid.net/specs/openid-connect-core-1_0.html#ClientAuthentication
 
 ## New configuration options
 
@@ -37,11 +39,12 @@ https://openid.net/specs/openid-connect-core-1_0.html#RequestObject
 and optionally a port (as in all previous module versions).
 - (optional) OpenID Federation related options (needed if federation capabilities are to be used):
   - enabled or disabled federation capabilities
+  - valid trust anchors
+  - authority hints
   - federation caching adapter and its arguments
   - PKI keys - federation keys used for example to sign federation entity statements
   - signer algorithm
   - entity statement duration
-  - authority hints
   - organization name
   - contacts
   - logo URI

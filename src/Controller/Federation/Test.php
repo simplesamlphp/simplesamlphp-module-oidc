@@ -37,7 +37,7 @@ class Test
 //            $this->moduleConfig->sspConfig()->getPathValue('cachedir'),
 //        ));
 
-        $requestObjectFactory = (new Core())->getRequestObjectFactory();
+        $requestObjectFactory = (new Core())->requestObjectFactory();
 
         // {"alg":"none"}, {"iss":"joe",
         //      "exp":1300819380,
@@ -52,7 +52,7 @@ class Test
 
         $trustChain = (new Federation(
             maxCacheDuration: $this->maxCacheDuration,
-            cache: $this->federationCache->instance,
+            cache: $this->federationCache->cache,
             logger: $this->loggerService,
         ))
             ->trustChainResolver()
@@ -77,9 +77,9 @@ class Test
 
         $cachedSignedJwks = $signedJwksUri ? $this->jwks->jwksFetcher()->fromCache($signedJwksUri) : null;
         $signedJwks = $signedJwksUri ? $this->jwks->jwksFetcher()->fromSignedJwksUri($signedJwksUri, $leafFederationJwks) : null;
-
+        var_export(json_decode(json_encode($jwks->jwks->jsonSerialize()), true));
         dd(
-            $jwks->jwks->jsonSerialize(),
+            var_export(json_decode(json_encode($jwks->jwks->jsonSerialize()), true)),
             $cachedJwks?->jsonSerialize(),
             $signedJwks->jwks->jsonSerialize(),
             $cachedSignedJwks?->jsonSerialize(),

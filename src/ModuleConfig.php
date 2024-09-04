@@ -24,6 +24,7 @@ use SimpleSAML\Configuration;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ScopesEnum;
 
 class ModuleConfig
@@ -74,6 +75,7 @@ class ModuleConfig
     final public const OPTION_FEDERATION_CACHE_ADAPTER = 'federation_cache_adapter';
     final public const OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS = 'federation_cache_adapter_arguments';
     final public const OPTION_FEDERATION_CACHE_MAX_DURATION = 'federation_cache_max_duration';
+    final public const OPTION_FEDERATION_TRUST_ANCHORS = 'federation_trust_anchors';
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
@@ -537,6 +539,52 @@ class ModuleConfig
     {
         return new DateInterval(
             $this->config()->getOptionalString(self::OPTION_FEDERATION_CACHE_MAX_DURATION, 'PT6H'),
+        );
+    }
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getFederationTrustAnchors(): array
+    {
+        $trustAnchors = $this->config()->getOptionalArray(self::OPTION_FEDERATION_TRUST_ANCHORS, []);
+
+        if (empty($trustAnchors) && $this->getFederationEnabled()) {
+            throw new ConfigurationError('No Trust Anchors have been configured.');
+        }
+
+        return $trustAnchors;
+    }
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getFederationTrustAnchorIds(): array
+    {
+        return array_map('strval', array_keys($this->getFederationTrustAnchors()));
+    }
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getTrustAnchorJwks(string $trustAnchorId): ?array
+    {
+        $jwks = $this->getFederationTrustAnchors()[$trustAnchorId] ?? null;
+
+        if ($jwks === null) {
+            return null;
+        }
+
+        if (
+            is_array($jwks) &&
+            array_key_exists(ClaimsEnum::Keys->value, $jwks) &&
+            (!empty($jwks[ClaimsEnum::Keys->value]))
+        ) {
+            return $jwks;
+        }
+
+        throw new ConfigurationError(
+            sprintf('Unexpected JWKS format for Trust Anchor %s: %s', $trustAnchorId, var_export($jwks, true)),
         );
     }
 }

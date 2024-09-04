@@ -244,6 +244,21 @@ class OidcServerException extends OAuthServerException
         return new self('The refresh token is invalid.', 8, 'invalid_grant', 400, $hint, null, $previous);
     }
 
+    public static function invalidTrustChain(
+        string $hint = null,
+        string $redirectUri = null,
+        Throwable $previous = null,
+        string $state = null,
+        bool $useFragment = false,
+    ): OidcServerException {
+        $errorMessage = 'Trust chain validation failed.';
+
+        $e = new self($errorMessage, 12, 'validation_failed', 400, $hint, $redirectUri, $previous, $state);
+        $e->useFragmentInHttpResponses($useFragment);
+
+        return $e;
+    }
+
     /**
      * Forbidden request.
      *

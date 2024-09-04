@@ -282,10 +282,46 @@ $config = [
     // Enable or disable federation capabilities. Default is disabled (false).
     ModuleConfig::OPTION_FEDERATION_ENABLED => false,
 
+    // Trust Anchors which are valid for this entity. The key represents the Trust Anchor Entity ID, while the value can
+    // be the Trust Anchor's JWKS array value, or null. If JWKS is provided, it will be used to validate Trust Anchor
+    // Configuration Statement in addition to using JWKS acquired during Trust Chain resolution. If JWKS is not
+    // provided (value null), the validity of Trust Anchor Configuration Statement will "only" be validated
+    // by the JWKS acquired during Trust Chain resolution, meaning that security will rely "only" on
+    // protection implied from using TLS on endpoints used during Trust Chain resolution.
+    ModuleConfig::OPTION_FEDERATION_TRUST_ANCHORS => [
+//        'https://ta.example.org/' => [
+//            'keys' => [
+//                [
+//                    'alg' => 'RS256',
+//                    'use' => 'sig',
+//                    'kty' => 'RSA',
+//                    'n' => 'abc...def',
+//                    'e' => 'AQAB',
+//                    'kid' => '123',
+//                ],
+//                [
+//                    'alg' => 'RS256',
+//                    'use' => 'sig',
+//                    'kty' => 'RSA',
+//                    'n' => 'ghi...jkl',
+//                    'e' => 'AQAB',
+//                    'kid' => '456',
+//                ],
+//            ],
+//        ],
+//        'https://ta2.example.org/' => null,
+    ],
+
+    // Federation authority hints. An array of strings representing the Entity Identifiers of Intermediate Entities
+    // (or Trust Anchors). Required if this entity has a Superior entity above it.
+    ModuleConfig::OPTION_FEDERATION_AUTHORITY_HINTS => [
+        //'https://intermediate.example.org/',
+    ],
+
     // (optional) Dedicated federation cache adapter, used to cache federation artifacts like trust chains, entity
-    // statements, etc. Setting this is strongly recommended in production environments. If set to null, no
-    // caching will be used. Can be set to any Symfony Cache Adapter class, like in examples below.
-    // If set, make sure to also give proper adapter arguments for its instantiation below.
+    // statements, etc. Setting this is recommended in production environments. If set to null, no caching will
+    // be used. Can be set to any Symfony Cache Adapter class, like in examples below. If set, make sure to
+    // also give proper adapter arguments for its instantiation below.
     // @see https://symfony.com/doc/current/components/cache.html#available-cache-adapters
     ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER => null,
     //ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\FilesystemAdapter::class,
@@ -343,12 +379,6 @@ $config = [
     // statement JWTs published by this OP. If not set, default of 1 day will be used. For duration format info, check
     // https://www.php.net/manual/en/dateinterval.construct.php
     //ModuleConfig::OPTION_FEDERATION_ENTITY_STATEMENT_DURATION => 'P1D', // 1 day
-
-    // Federation authority hints. An array of strings representing the Entity Identifiers of Intermediate Entities
-    // or Trust Anchors. Required if this entity has a Superior entity above it.
-    ModuleConfig::OPTION_FEDERATION_AUTHORITY_HINTS => [
-        //'https://edugain.org/federation',
-    ],
 
     // Common federation entity parameters:
     // https://openid.net/specs/openid-federation-1_0.html#name-common-metadata-parameters
