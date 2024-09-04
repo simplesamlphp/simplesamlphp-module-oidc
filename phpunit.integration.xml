@@ -8,17 +8,17 @@
 >
   <coverage>
     <report>
-      <php outputFile="build/logs/partial_clover/unit.cov"/>
-      <html outputDirectory="build/coverage/unit/html"/>
+      <php outputFile="build/logs/partial_clover/integration.cov"/>
+      <html outputDirectory="build/coverage/integration/html"/>
     </report>
   </coverage>
   <testsuites>
-    <testsuite name="Unit">
-      <directory>./tests/unit</directory>
+    <testsuite name="Integration">
+      <directory>./tests/integration</directory>
     </testsuite>
   </testsuites>
   <logging>
-    <junit outputFile="build/logs/partial_junit/unit.xml"/>
+    <junit outputFile="build/logs/partial_junit/integration.xml"/>
   </logging>
   <php>
     <env name="SIMPLESAMLPHP_CONFIG_DIR" value="tests/config"/>
