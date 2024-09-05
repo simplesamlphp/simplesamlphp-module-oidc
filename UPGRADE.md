@@ -19,9 +19,11 @@
     - fetch endpoint for issuing statements about subordinates (registered clients)
   - Clients can now be configured with new properties:
     - Entity Identifier
-    - Registration Types
+    - Supported Registration Types
     - Federation JWKS
-    - Protocol JWKS, JWKS URI and Signed JWKS URI
+    - Protocol JWKS, JWKS URI and Signed JWKS URI,
+    - Registration type (manual, federated_automatic, or other in the future)
+    - Timestamps: created_at, updated_at, expires_at 
 - Improved AuthProc filter support
   - Support authproc filters that need to redirect and later resume processing
     - `consent` and `preprodwarning` are two authprocs that redirect for user interaction and are now supported

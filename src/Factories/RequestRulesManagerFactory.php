@@ -31,21 +31,25 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\OpenID\Federation;
 
-class RequestRulesManagerFactory
+readonly class RequestRulesManagerFactory
 {
     public function __construct(
-        private readonly ModuleConfig $moduleConfig,
-        private readonly LoggerService $logger,
-        private readonly ClientRepository $clientRepository,
-        private readonly AuthSimpleFactory $authSimpleFactory,
-        private readonly AuthenticationService $authenticationService,
-        private readonly ScopeRepository $scopeRepository,
-        private readonly CodeChallengeVerifiersRepository $codeChallengeVerifiersRepository,
-        private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
-        private readonly CryptKeyFactory $cryptKeyFactory,
-        private readonly RequestParamsResolver $requestParamsResolver,
+        private ModuleConfig $moduleConfig,
+        private LoggerService $logger,
+        private ClientRepository $clientRepository,
+        private AuthSimpleFactory $authSimpleFactory,
+        private AuthenticationService $authenticationService,
+        private ScopeRepository $scopeRepository,
+        private CodeChallengeVerifiersRepository $codeChallengeVerifiersRepository,
+        private ClaimTranslatorExtractor $claimTranslatorExtractor,
+        private CryptKeyFactory $cryptKeyFactory,
+        private RequestParamsResolver $requestParamsResolver,
+        private Federation $federation,
+        private ?FederationCache $federationCache = null,
     ) {
     }
 
@@ -66,7 +70,13 @@ class RequestRulesManagerFactory
     {
         return [
             new StateRule($this->requestParamsResolver),
-            new ClientIdRule($this->requestParamsResolver, $this->clientRepository, $this->moduleConfig),
+            new ClientIdRule(
+                $this->requestParamsResolver,
+                $this->clientRepository,
+                $this->moduleConfig,
+                $this->federation,
+                $this->federationCache,
+            ),
             new RedirectUriRule($this->requestParamsResolver),
             new RequestParameterRule($this->requestParamsResolver),
             new PromptRule($this->requestParamsResolver, $this->authSimpleFactory, $this->authenticationService),

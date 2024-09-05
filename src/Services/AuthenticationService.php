@@ -215,7 +215,7 @@ class AuthenticationService
                 $this->requestParamsResolver->getAll($request),
                 function (/** @param array-key $key */ $key) {
                     $authzParams = ['response_type', 'client_id', 'redirect_uri', 'scope', 'code_challenge_method'];
-                    return in_array($key, $authzParams);
+                    return in_array($key, $authzParams, true);
                 },
                 ARRAY_FILTER_USE_KEY,
             ),

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\Server\RequestRules\Rules;
+namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -40,6 +40,7 @@ class RequestParameterRuleTest extends TestCase
         ]);
         $this->requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
         $this->requestObjectMock = $this->createMock(RequestObject::class);
+        $this->requestObjectMock->method('getPayload')->willReturn(['payload']);
         $this->requestStub = $this->createStub(ServerRequestInterface::class);
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
     }
@@ -110,6 +111,7 @@ class RequestParameterRuleTest extends TestCase
         $result = $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
 
         $this->assertInstanceOf(Result::class, $result);
-        $this->assertSame($this->requestObjectMock, $result->getValue());
+        $this->assertIsArray($result->getValue());
+        $this->assertNotEmpty($result->getValue());
     }
 }

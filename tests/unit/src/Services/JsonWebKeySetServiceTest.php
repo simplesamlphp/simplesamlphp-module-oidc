@@ -13,7 +13,7 @@ declare(strict_types=1);
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-namespace SimpleSAML\Test\Module\oidc\Services;
+namespace SimpleSAML\Test\Module\oidc\unit\Services;
 
 use Exception;
 use Jose\Component\Core\JWKSet;

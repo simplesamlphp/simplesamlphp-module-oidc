@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\Repositories;
+namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;

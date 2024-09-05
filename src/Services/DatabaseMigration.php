@@ -150,6 +150,11 @@ class DatabaseMigration
             $this->version20240902120000();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20240902120000')");
         }
+
+        if (!in_array('20240905120000', $versions, true)) {
+            $this->version20240905120000();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20240905120000')");
+        }
     }
 
     private function versionsTableName(): string
@@ -460,6 +465,37 @@ EOT
             ADD signed_jwks_uri TEXT NULL
 EOT
             ,);
+    }
+
+    private function version20240905120000(): void
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $idxRegistrationType = $this->generateIdentifierName([$clientTableName, 'registration_type'], 'idx');
+        $idxExpiresAt = $this->generateIdentifierName([$clientTableName, 'expires_at'], 'idx');
+
+        $this->database->write(<<< EOT
+        ALTER TABLE {$clientTableName} ADD registration_type CHAR(32) DEFAULT 'manual';
+        ALTER TABLE {$clientTableName} ADD updated_at TIMESTAMP NULL DEFAULT NULL;
+        ALTER TABLE {$clientTableName} ADD created_at TIMESTAMP NULL DEFAULT NULL;
+        ALTER TABLE {$clientTableName} ADD expires_at TIMESTAMP NULL DEFAULT NULL;
+EOT
+            ,);
+
+        // The syntax for adding unique constraint in existing table is different in sqlite (used in unit tests).
+        if ($this->database->getDriver() !== 'mysql') {
+            $this->database->write(<<< EOT
+            CREATE INDEX $idxRegistrationType ON $clientTableName(registration_type);
+            CREATE INDEX $idxExpiresAt ON $clientTableName(expires_at);
+EOT
+            ,);
+        } else {
+            $this->database->write(<<< EOT
+            ALTER TABLE {$clientTableName}
+                ADD INDEX $idxRegistrationType (registration_type),
+                ADD INDEX $idxExpiresAt (expires_at)
+EOT
+                ,);
+        }
     }
 
     /**

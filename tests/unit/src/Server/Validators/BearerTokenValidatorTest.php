@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\Server\Validators;
+namespace SimpleSAML\Test\Module\oidc\unit\Server\Validators;
 
 use Laminas\Diactoros\ServerRequest;
 use Laminas\Diactoros\StreamFactory;

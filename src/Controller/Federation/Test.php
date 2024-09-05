@@ -16,7 +16,8 @@ use Symfony\Component\HttpFoundation\Response;
 // TODO mivanci remove controller
 
 /**
- * @psalm-suppress UnevaluatedCode
+ * @psalm-suppress UnevaluatedCode, UnusedVariable, MixedAssignment, MixedArgument, PossiblyNullPropertyFetch,
+ * @psalm-suppress PossiblyNullReference
  */
 class Test
 {
@@ -76,8 +77,9 @@ class Test
         $jwks = $jwksUri ? $this->jwks->jwksFetcher()->fromJwksUri($jwksUri) : null;
 
         $cachedSignedJwks = $signedJwksUri ? $this->jwks->jwksFetcher()->fromCache($signedJwksUri) : null;
-        $signedJwks = $signedJwksUri ? $this->jwks->jwksFetcher()->fromSignedJwksUri($signedJwksUri, $leafFederationJwks) : null;
-        var_export(json_decode(json_encode($jwks->jwks->jsonSerialize()), true));
+        $signedJwks = $signedJwksUri ? $this->jwks->jwksFetcher()
+            ->fromSignedJwksUri($signedJwksUri, $leafFederationJwks) : null;
+        var_export(json_decode(json_encode($jwks->jwks?->jsonSerialize()), true));
         dd(
             var_export(json_decode(json_encode($jwks->jwks->jsonSerialize()), true)),
             $cachedJwks?->jsonSerialize(),

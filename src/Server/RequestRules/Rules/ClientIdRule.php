@@ -96,7 +96,7 @@ class ClientIdRule extends AbstractRule
 
         // We have a Federation compatible Request Object.
         // The Audience (aud) value MUST be or include the OP's Issuer Identifier URL.
-        (in_array($this->moduleConfig->getIssuer(), $requestObject->getAudience())) ||
+        (in_array($this->moduleConfig->getIssuer(), $requestObject->getAudience(), true)) ||
         throw OidcServerException::invalidRequest(ParamsEnum::Request->value, 'invalid audience');
 
         // Check for reuse of the Request Object. Request Object MUST only be used once.
@@ -146,7 +146,8 @@ class ClientIdRule extends AbstractRule
         // To persist it, we must introduce new properties:
         //  * registration type (manual, federationAutomatic...)
         //  * expires_at (null if it does not expire or timestamp in the future).
-        // TODO New properties must be taken into account while checking if client is valid (check method ClientRepository::getClientEntity)
+        // TODO New properties must be taken into account while checking if client is valid
+        // (check method ClientRepository::getClientEntity)
         // TODO Update result for RequestParameterRule (inject value from here)
 
         return new Result($this->getKey(), $client);

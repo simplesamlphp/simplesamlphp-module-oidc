@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\Server\RequestRules\Rules;
+namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use PHPUnit\Framework\MockObject\MockObject;

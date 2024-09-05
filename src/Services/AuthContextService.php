@@ -72,7 +72,7 @@ class AuthContextService
         $entitlements = $auth->getAttributes()[$attributeName] ?? [];
         $neededEntitlements = $permissions->getArrayizeString($neededPermission);
         foreach ($entitlements as $entitlement) {
-            if (in_array($entitlement, $neededEntitlements)) {
+            if (in_array($entitlement, $neededEntitlements, true)) {
                 return;
             }
         }

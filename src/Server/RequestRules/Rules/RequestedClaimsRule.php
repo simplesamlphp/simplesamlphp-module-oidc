@@ -84,7 +84,7 @@ class RequestedClaimsRule extends AbstractRule
         }
         $requestClaims[$key] = array_filter(
             $requested,
-            fn($key) => in_array($key, $authorized),
+            fn($key) => in_array($key, $authorized, true),
             ARRAY_FILTER_USE_KEY,
         );
     }

@@ -239,7 +239,7 @@ class ModuleConfig
                                                  'values with strings only.');
                 }
 
-                if (! in_array($acrValue, $acrValuesSupported)) {
+                if (! in_array($acrValue, $acrValuesSupported, true)) {
                     throw new ConfigurationError('Config option authSourcesToAcrValuesMap should have ' .
                                                  'supported ACR values only.');
                 }
@@ -249,7 +249,7 @@ class ModuleConfig
         $forcedAcrValueForCookieAuthentication = $this->getForcedAcrValueForCookieAuthentication();
 
         if (! is_null($forcedAcrValueForCookieAuthentication)) {
-            if (! in_array($forcedAcrValueForCookieAuthentication, $acrValuesSupported)) {
+            if (! in_array($forcedAcrValueForCookieAuthentication, $acrValuesSupported, true)) {
                 throw new ConfigurationError('Config option forcedAcrValueForCookieAuthentication should have' .
                                              ' null value or string value indicating particular supported ACR.');
             }
@@ -558,6 +558,8 @@ class ModuleConfig
 
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
+     * @return non-empty-array<array-key, non-empty-string>
+     * @psalm-suppress LessSpecificReturnStatement, MoreSpecificReturnType
      */
     public function getFederationTrustAnchorIds(): array
     {
@@ -569,6 +571,7 @@ class ModuleConfig
      */
     public function getTrustAnchorJwks(string $trustAnchorId): ?array
     {
+        /** @psalm-suppress MixedAssignment */
         $jwks = $this->getFederationTrustAnchors()[$trustAnchorId] ?? null;
 
         if ($jwks === null) {

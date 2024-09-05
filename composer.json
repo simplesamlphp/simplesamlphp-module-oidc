@@ -69,7 +69,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "SimpleSAML\\Test\\Module\\oidc\\": "tests/src/"
+            "SimpleSAML\\Test\\Module\\oidc\\unit\\": "tests/unit/src/",
+            "SimpleSAML\\Test\\Module\\oidc\\integration\\": "tests/integration/src/"
         }
     },
     "extra": {

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\Services;
+namespace SimpleSAML\Test\Module\oidc\unit\Services;
 
 use Laminas\Diactoros\ServerRequest;
 use Laminas\Diactoros\Uri;

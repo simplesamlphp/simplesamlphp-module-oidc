@@ -42,7 +42,7 @@ class ScopeOfflineAccessRule extends AbstractRule
         }
 
         // Scope offline_access is used. Check if the client has it registered.
-        if (! in_array('offline_access', $client->getScopes())) {
+        if (! in_array('offline_access', $client->getScopes(), true)) {
             throw OidcServerException::invalidRequest(
                 'scope',
                 'offline_access scope is not registered for the client',

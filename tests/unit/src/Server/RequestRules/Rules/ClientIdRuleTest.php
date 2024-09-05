@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\Server\RequestRules\Rules;
+namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use PHPUnit\Framework\MockObject\Stub;
@@ -15,7 +15,9 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\OpenID\Federation;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule
@@ -29,6 +31,8 @@ class ClientIdRuleTest extends TestCase
     protected Stub $loggerServiceStub;
     protected Stub $requestParamsResolverStub;
     protected Stub $moduleConfigStub;
+    protected Stub $federationStub;
+    protected Stub $federationCacheStub;
 
     /**
      * @throws \Exception
@@ -42,6 +46,8 @@ class ClientIdRuleTest extends TestCase
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
         $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
+        $this->federationStub = $this->createStub(Federation::class);
+        $this->federationCacheStub = $this->createStub(FederationCache::class);
     }
 
     protected function mock(): ClientIdRule
@@ -50,6 +56,8 @@ class ClientIdRuleTest extends TestCase
             $this->requestParamsResolverStub,
             $this->clientRepositoryStub,
             $this->moduleConfigStub,
+            $this->federationStub,
+            $this->federationCacheStub,
         );
     }
 

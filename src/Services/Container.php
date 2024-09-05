@@ -34,8 +34,10 @@ use SimpleSAML\Metadata\MetaDataStorageHandler;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Factories\AuthorizationServerFactory;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
+use SimpleSAML\Module\oidc\Factories\CacheFactory;
 use SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory;
 use SimpleSAML\Module\oidc\Factories\CryptKeyFactory;
+use SimpleSAML\Module\oidc\Factories\FederationFactory;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\AuthCodeGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\ImplicitGrantFactory;
@@ -86,8 +88,11 @@ use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Utils\ClassInstanceBuilder;
+use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Core;
+use SimpleSAML\OpenID\Federation;
 use SimpleSAML\Session;
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
 
@@ -183,7 +188,20 @@ class Container implements ContainerInterface
         $helpers = new Helpers();
 
         $core = new Core();
-        $requestParamsResolver = new RequestParamsResolver($helpers, $core);
+        $this->services[Core::class] = $core;
+        $classInstanceBuilder = new ClassInstanceBuilder();
+        $this->services[ClassInstanceBuilder::class] = $classInstanceBuilder;
+        $cacheFactory = new CacheFactory($moduleConfig, $loggerService, $classInstanceBuilder);
+        $this->services[CacheFactory::class] = $cacheFactory;
+        $federationCache = $cacheFactory->forFederation();
+        $this->services[FederationCache::class] = $federationCache;
+        $federationFactory = new FederationFactory($moduleConfig, $loggerService, $federationCache);
+        $this->services[FederationFactory::class] = $federationFactory;
+        $federation = $federationFactory->build();
+        $this->services[Federation::class] = $federation;
+
+        $requestParamsResolver = new RequestParamsResolver($helpers, $core, $federation);
+        $this->services[RequestParamsResolver::class] = $requestParamsResolver;
 
         $authenticationService = new AuthenticationService(
             $userRepository,
@@ -207,7 +225,13 @@ class Container implements ContainerInterface
 
         $requestRules = [
             new StateRule($requestParamsResolver),
-            new ClientIdRule($requestParamsResolver, $clientRepository, $moduleConfig),
+            new ClientIdRule(
+                $requestParamsResolver,
+                $clientRepository,
+                $moduleConfig,
+                $federation,
+                $federationCache,
+            ),
             new RedirectUriRule($requestParamsResolver),
             new RequestParameterRule($requestParamsResolver),
             new PromptRule($requestParamsResolver, $authSimpleFactory, $authenticationService),

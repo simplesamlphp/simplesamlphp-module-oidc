@@ -6,6 +6,6 @@ namespace SimpleSAML\Module\oidc\Utils;
 
 use SimpleSAML\OpenID\Decorators\CacheDecorator;
 
-readonly class FederationCache extends CacheDecorator
+class FederationCache extends CacheDecorator
 {
 }

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\Server;
+namespace SimpleSAML\Test\Module\oidc\unit\Server;
 
 use PHPUnit\Framework\TestCase;
 

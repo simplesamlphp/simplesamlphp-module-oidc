@@ -28,7 +28,7 @@ class Http
     ): ?array {
         $requestMethod = HttpMethodsEnum::from(strtoupper($request->getMethod()));
 
-        if (! in_array($requestMethod, $allowedMethods)) {
+        if (! in_array($requestMethod, $allowedMethods, true)) {
             return null;
         }
 
