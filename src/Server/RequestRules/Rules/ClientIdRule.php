@@ -110,6 +110,9 @@ class ClientIdRule extends AbstractRule
         throw OidcServerException::invalidRequest(ParamsEnum::Request->value, 'client ID is not valid URI');
 
         // We are ready to resolve trust chain.
+        // TODO mivanci Request Object can contain trust_chain claim. Implement resolving it using that claim. Note
+        // that this is only possible if we have JWKS configured for common TA, so we can check TA Configuration
+        // signature.
         try {
             $trustChain = $this->federation->trustChainResolver()->for(
                 $clientEntityId,
