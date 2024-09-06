@@ -12,12 +12,12 @@ use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Jwks;
 use SimpleSAML\OpenID\SupportedAlgorithms;
 
-readonly class JwksFactory
+class JwksFactory
 {
     public function __construct(
-        protected ModuleConfig $moduleConfig,
-        protected LoggerService $loggerService,
-        protected ?FederationCache $federationCache = null,
+        protected readonly ModuleConfig $moduleConfig,
+        protected readonly LoggerService $loggerService,
+        protected readonly ?FederationCache $federationCache = null,
     ) {
     }
 

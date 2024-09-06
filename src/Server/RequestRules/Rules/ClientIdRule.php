@@ -143,11 +143,6 @@ class ClientIdRule extends AbstractRule
         }
 
         // TODO mivanci continue We have client metadata. We now must try and create client entity and persist it.
-        // To persist it, we must introduce new properties:
-        //  * registration type (manual, federationAutomatic...)
-        //  * expires_at (null if it does not expire or timestamp in the future).
-        // TODO New properties must be taken into account while checking if client is valid
-        // (check method ClientRepository::getClientEntity)
         // TODO Update result for RequestParameterRule (inject value from here)
 
         return new Result($this->getKey(), $client);

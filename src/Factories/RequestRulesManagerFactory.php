@@ -35,21 +35,21 @@ use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Federation;
 
-readonly class RequestRulesManagerFactory
+class RequestRulesManagerFactory
 {
     public function __construct(
-        private ModuleConfig $moduleConfig,
-        private LoggerService $logger,
-        private ClientRepository $clientRepository,
-        private AuthSimpleFactory $authSimpleFactory,
-        private AuthenticationService $authenticationService,
-        private ScopeRepository $scopeRepository,
-        private CodeChallengeVerifiersRepository $codeChallengeVerifiersRepository,
-        private ClaimTranslatorExtractor $claimTranslatorExtractor,
-        private CryptKeyFactory $cryptKeyFactory,
-        private RequestParamsResolver $requestParamsResolver,
-        private Federation $federation,
-        private ?FederationCache $federationCache = null,
+        private readonly ModuleConfig $moduleConfig,
+        private readonly LoggerService $logger,
+        private readonly ClientRepository $clientRepository,
+        private readonly AuthSimpleFactory $authSimpleFactory,
+        private readonly AuthenticationService $authenticationService,
+        private readonly ScopeRepository $scopeRepository,
+        private readonly CodeChallengeVerifiersRepository $codeChallengeVerifiersRepository,
+        private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
+        private readonly CryptKeyFactory $cryptKeyFactory,
+        private readonly RequestParamsResolver $requestParamsResolver,
+        private readonly Federation $federation,
+        private readonly ?FederationCache $federationCache = null,
     ) {
     }
 
