@@ -23,6 +23,7 @@ use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Forms\ClientForm;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -42,6 +43,7 @@ class EditController
         private readonly FormFactory $formFactory,
         private readonly SessionMessagesService $messages,
         AuthContextService $authContextService,
+        private readonly Helpers $helpers,
     ) {
         $this->clientRepository = $clientRepository;
         $this->authContextService = $authContextService;
@@ -98,6 +100,11 @@ class EditController
             $jwks = is_array($data['jwks']) ? $data['jwks'] : null;
             $jwksUri = empty($data['jwks_uri']) ? null : (string)$data['jwks_uri'];
             $signedJwksUri = empty($data['signed_jwks_uri']) ? null : (string)$data['signed_jwks_uri'];
+            $registrationType = $client->getRegistrationType();
+            $updatedAt = $this->helpers->dateTime()->getTimestamp();
+            $createdAt = $client->getCreatedAt();
+            $expiresAt = $client->getExpiresAt();
+            $isFederated = (bool)$data['is_federated'];
 
             $this->clientRepository->update(ClientEntity::fromData(
                 $client->getIdentifier(),
@@ -118,6 +125,11 @@ class EditController
                 $jwks,
                 $jwksUri,
                 $signedJwksUri,
+                $registrationType,
+                $updatedAt,
+                $createdAt,
+                $expiresAt,
+                $isFederated,
             ), $authedUser);
 
             // Also persist allowed origins for this client.

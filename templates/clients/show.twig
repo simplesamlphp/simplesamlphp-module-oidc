@@ -12,6 +12,13 @@
 
     <div class="ui hidden divider"></div>
 
+    <div class="ui segment">
+        {{ 'Registration:'|trans }} {{ client.registrationType.description }} |
+        {{ 'Created at:'|trans }} {{ client.createdAt ? client.createdAt|date() : 'n/a' }} |
+        {{ 'Updated at:'|trans }} {{ client.updatedAt ? client.updatedAt|date() : 'n/a' }} |
+        {{ 'Expires at:'|trans }} {{ client.expiresAt ? client.expiresAt|date() : 'never' }}
+    </div>
+
     <table class="ui definition table">
         <tbody>
         <tr>
@@ -134,6 +141,11 @@
 
         <tr>
             <td colspan="2">OpenID Federation related properties</td>
+        </tr>
+
+        <tr>
+            <td class="collapsing">{{ 'Is federated'|trans }}</td>
+            <td>{{ (client.isFederated ? 'Yes' : 'No')|trans }}</td>
         </tr>
         <tr>
             <td class="collapsing">{{ 'Entity Identifier'|trans }}</td>

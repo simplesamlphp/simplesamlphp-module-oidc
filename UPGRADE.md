@@ -23,7 +23,8 @@
     - Federation JWKS
     - Protocol JWKS, JWKS URI and Signed JWKS URI,
     - Registration type (manual, federated_automatic, or other in the future)
-    - Timestamps: created_at, updated_at, expires_at 
+    - Timestamps: created_at, updated_at, expires_at
+    - Is Federated flag (indicates participation in federation context)
 - Improved AuthProc filter support
   - Support authproc filters that need to redirect and later resume processing
     - `consent` and `preprodwarning` are two authprocs that redirect for user interaction and are now supported

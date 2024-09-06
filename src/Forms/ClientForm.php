@@ -383,6 +383,8 @@ class ClientForm extends Form
 
         $this->addText('jwks_uri', 'JWKS URI');
         $this->addText('signed_jwks_uri', 'Signed JWKS URI');
+
+        $this->addCheckbox('is_federated', '{oidc:client:is_federated}');
     }
 
     /**

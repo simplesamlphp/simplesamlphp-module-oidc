@@ -14,6 +14,7 @@ use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Forms\ClientForm;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
@@ -34,6 +35,7 @@ class CreateControllerTest extends TestCase
     protected MockObject $clientFormMock;
     protected Stub $serverRequestStub;
     protected Stub $templateStub;
+    protected MockObject $helpersMock;
 
     /**
      * @throws \PHPUnit\Framework\MockObject\Exception
@@ -50,6 +52,8 @@ class CreateControllerTest extends TestCase
         $this->clientFormMock = $this->createMock(ClientForm::class);
         $this->serverRequestStub = $this->createStub(ServerRequest::class);
         $this->templateStub = $this->createStub(Template::class);
+
+        $this->helpersMock = $this->createMock(Helpers::class);
     }
 
     public function testCanInstantiate(): void
@@ -67,6 +71,7 @@ class CreateControllerTest extends TestCase
             $this->formFactoryMock,
             $this->sessionMessageServiceMock,
             $this->authContextServiceMock,
+            $this->helpersMock,
         );
     }
 
@@ -140,6 +145,7 @@ class CreateControllerTest extends TestCase
                      'jwks' => null,
                      'jwks_uri' => null,
                      'signed_jwks_uri' => null,
+                     'is_federated' => false,
                  ],
             );
 
@@ -204,6 +210,7 @@ class CreateControllerTest extends TestCase
                     'jwks' => null,
                     'jwks_uri' => null,
                     'signed_jwks_uri' => null,
+                    'is_federated' => false,
                 ],
             );
 

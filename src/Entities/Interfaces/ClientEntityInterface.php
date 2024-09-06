@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Entities\Interfaces;
 
+use DateTimeImmutable;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
+use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 
 interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInterface
 {
@@ -88,4 +90,10 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
 
     public function getJwksUri(): ?string;
     public function getSignedJwksUri(): ?string;
+    public function getRegistrationType(): RegistrationTypeEnum;
+    public function getUpdatedAt(): ?DateTimeImmutable;
+    public function getCreatedAt(): ?DateTimeImmutable;
+    public function getExpiresAt(): ?DateTimeImmutable;
+    public function isExpired(): bool;
+    public function isFederated(): bool;
 }

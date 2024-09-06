@@ -17,10 +17,12 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Controller\Client;
 
 use Laminas\Diactoros\Response\RedirectResponse;
+use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Forms\ClientForm;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -39,6 +41,7 @@ class CreateController
         private readonly FormFactory $formFactory,
         private readonly SessionMessagesService $messages,
         private readonly AuthContextService $authContextService,
+        private readonly Helpers $helpers,
     ) {
     }
 
@@ -91,6 +94,11 @@ class CreateController
             $jwks = is_array($client['jwks']) ? $client['jwks'] : null;
             $jwksUri = empty($client['jwks_uri']) ? null : (string)$client['jwks_uri'];
             $signedJwksUri = empty($client['signed_jwks_uri']) ? null : (string)$client['signed_jwks_uri'];
+            $registrationType = RegistrationTypeEnum::Manual;
+            $createdAt = $this->helpers->dateTime()->getTimestamp();
+            $updatedAt = $createdAt;
+            $expiresAt = null;
+            $isFederated = (bool)$client['is_federated'];
 
             $this->clientRepository->add(ClientEntity::fromData(
                 $client['id'],
@@ -111,6 +119,11 @@ class CreateController
                 $jwks,
                 $jwksUri,
                 $signedJwksUri,
+                $registrationType,
+                $updatedAt,
+                $createdAt,
+                $expiresAt,
+                $isFederated,
             ));
 
             // Also persist allowed origins for this client.

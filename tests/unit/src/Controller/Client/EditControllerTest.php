@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Controller\Client;
 
+use DateTimeImmutable;
 use Exception;
 use Laminas\Diactoros\Response\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;
@@ -12,11 +13,13 @@ use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\UriInterface;
 use SimpleSAML\Error\BadRequest;
+use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Controller\Client\EditController;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Forms\ClientForm;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
@@ -41,6 +44,9 @@ class EditControllerTest extends TestCase
     protected MockObject $clientEntityMock;
     protected Stub $templateStub;
     protected MockObject $clientFormMock;
+    protected MockObject $helpersMock;
+    protected MockObject $dateTimeHelperMock;
+    protected MockObject $updatedAtMock;
 
     /**
      * @throws \PHPUnit\Framework\MockObject\Exception
@@ -58,6 +64,7 @@ class EditControllerTest extends TestCase
         $this->uriStub = $this->createStub(UriInterface::class);
 
         $this->clientEntityMock = $this->createMock(ClientEntity::class);
+        $this->clientEntityMock->method('getRegistrationType')->willReturn(RegistrationTypeEnum::Manual);
         $this->templateStub = $this->createStub(Template::class);
         $this->clientFormMock = $this->createMock(ClientForm::class);
 
@@ -65,6 +72,13 @@ class EditControllerTest extends TestCase
         $this->uriStub->method('getPath')->willReturn('/');
         $this->serverRequestMock->method('getUri')->willReturn($this->uriStub);
         $this->serverRequestMock->method('withQueryParams')->willReturn($this->serverRequestMock);
+
+        $this->helpersMock = $this->createMock(Helpers::class);
+        $this->dateTimeHelperMock = $this->createMock(Helpers\DateTime::class);
+        $this->helpersMock->method('dateTime')->willReturn($this->dateTimeHelperMock);
+
+        $this->updatedAtMock = $this->createMock(DateTimeImmutable::class);
+        $this->dateTimeHelperMock->method('getTimestamp')->willReturn($this->updatedAtMock);
     }
 
     public static function setUpBeforeClass(): void
@@ -74,7 +88,7 @@ class EditControllerTest extends TestCase
         $_SERVER['REQUEST_URI'] = '';
     }
 
-    protected function getStubbedInstance(): EditController
+    protected function mock(): EditController
     {
         return new EditController(
             $this->clientRepositoryMock,
@@ -83,6 +97,7 @@ class EditControllerTest extends TestCase
             $this->formFactoryMock,
             $this->sessionMessageServiceMock,
             $this->authContextServiceMock,
+            $this->helpersMock,
         );
     }
 
@@ -90,7 +105,7 @@ class EditControllerTest extends TestCase
     {
         $this->assertInstanceOf(
             EditController::class,
-            $this->getStubbedInstance(),
+            $this->mock(),
         );
     }
 
@@ -121,6 +136,11 @@ class EditControllerTest extends TestCase
             'jwks' => null,
             'jwks_uri' => null,
             'signed_jwks_uri' => null,
+            'registration_type' => RegistrationTypeEnum::Manual,
+            'updated_at' => null,
+            'created_at' => null,
+            'expires_at' => null,
+            'is_federated' => false,
         ];
 
         $this->clientEntityMock->expects($this->atLeastOnce())->method('getIdentifier')->willReturn('clientid');
@@ -147,7 +167,7 @@ class EditControllerTest extends TestCase
         )->willReturn($this->templateStub);
 
         $this->assertSame(
-            ($this->getStubbedInstance())->__invoke($this->serverRequestMock),
+            ($this->mock())->__invoke($this->serverRequestMock),
             $this->templateStub,
         );
     }
@@ -181,6 +201,11 @@ class EditControllerTest extends TestCase
             'jwks' => null,
             'jwks_uri' => null,
             'signed_jwks_uri' => null,
+            'registration_type' => RegistrationTypeEnum::Manual,
+            'updated_at' => null,
+            'created_at' => null,
+            'expires_at' => null,
+            'is_federated' => false,
         ];
 
         $this->serverRequestMock->expects($this->once())->method('getQueryParams')
@@ -219,6 +244,7 @@ class EditControllerTest extends TestCase
                 'jwks' => null,
                 'jwks_uri' => null,
                 'signed_jwks_uri' => null,
+                'is_federated' => false,
             ],
         );
 
@@ -236,6 +262,16 @@ class EditControllerTest extends TestCase
                 false,
                 'auth_source',
                 'existingOwner',
+                [],
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                RegistrationTypeEnum::Manual,
+                $this->updatedAtMock,
             ),
             null,
         );
@@ -246,7 +282,7 @@ class EditControllerTest extends TestCase
 
         $this->assertInstanceOf(
             RedirectResponse::class,
-            ($this->getStubbedInstance())->__invoke($this->serverRequestMock),
+            ($this->mock())->__invoke($this->serverRequestMock),
         );
     }
 
@@ -279,6 +315,11 @@ class EditControllerTest extends TestCase
             'jwks' => null,
             'jwks_uri' => null,
             'signed_jwks_uri' => null,
+            'registration_type' => RegistrationTypeEnum::Manual,
+            'updated_at' => null,
+            'created_at' => null,
+            'expires_at' => null,
+            'is_federated' => false,
         ];
 
         $this->serverRequestMock->expects($this->once())->method('getQueryParams')
@@ -317,6 +358,7 @@ class EditControllerTest extends TestCase
                 'jwks' => null,
                 'jwks_uri' => null,
                 'signed_jwks_uri' => null,
+                'is_federated' => false,
             ],
         );
 
@@ -334,6 +376,16 @@ class EditControllerTest extends TestCase
                 false,
                 'auth_source',
                 'existingOwner',
+                [],
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                RegistrationTypeEnum::Manual,
+                $this->updatedAtMock,
             ),
             'authedUserId',
         );
@@ -346,7 +398,7 @@ class EditControllerTest extends TestCase
 
         $this->assertInstanceOf(
             RedirectResponse::class,
-            ($this->getStubbedInstance())->__invoke($this->serverRequestMock),
+            ($this->mock())->__invoke($this->serverRequestMock),
         );
     }
 
@@ -360,7 +412,7 @@ class EditControllerTest extends TestCase
 
         $this->expectException(BadRequest::class);
 
-        ($this->getStubbedInstance())->__invoke($this->serverRequestMock);
+        ($this->mock())->__invoke($this->serverRequestMock);
     }
 
     /**
@@ -376,6 +428,6 @@ class EditControllerTest extends TestCase
 
         $this->expectException(Exception::class);
 
-        ($this->getStubbedInstance())->__invoke($this->serverRequestMock);
+        ($this->mock())->__invoke($this->serverRequestMock);
     }
 }

@@ -155,6 +155,11 @@ class DatabaseMigration
             $this->version20240905120000();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20240905120000')");
         }
+
+        if (!in_array('20240906120000', $versions, true)) {
+            $this->version20240906120000();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20240906120000')");
+        }
     }
 
     private function versionsTableName(): string
@@ -474,10 +479,22 @@ EOT
         $idxExpiresAt = $this->generateIdentifierName([$clientTableName, 'expires_at'], 'idx');
 
         $this->database->write(<<< EOT
-        ALTER TABLE {$clientTableName} ADD registration_type CHAR(32) DEFAULT 'manual';
-        ALTER TABLE {$clientTableName} ADD updated_at TIMESTAMP NULL DEFAULT NULL;
-        ALTER TABLE {$clientTableName} ADD created_at TIMESTAMP NULL DEFAULT NULL;
-        ALTER TABLE {$clientTableName} ADD expires_at TIMESTAMP NULL DEFAULT NULL;
+        ALTER TABLE $clientTableName ADD registration_type CHAR(32) DEFAULT 'manual';
+EOT
+            ,);
+
+        $this->database->write(<<< EOT
+        ALTER TABLE $clientTableName ADD updated_at TIMESTAMP NULL DEFAULT NULL;
+EOT
+            ,);
+
+        $this->database->write(<<< EOT
+        ALTER TABLE $clientTableName ADD created_at TIMESTAMP NULL DEFAULT NULL;
+EOT
+            ,);
+
+        $this->database->write(<<< EOT
+        ALTER TABLE $clientTableName ADD expires_at TIMESTAMP NULL DEFAULT NULL;
 EOT
             ,);
 
@@ -485,6 +502,9 @@ EOT
         if ($this->database->getDriver() !== 'mysql') {
             $this->database->write(<<< EOT
             CREATE INDEX $idxRegistrationType ON $clientTableName(registration_type);
+EOT
+            ,);
+            $this->database->write(<<< EOT
             CREATE INDEX $idxExpiresAt ON $clientTableName(expires_at);
 EOT
             ,);
@@ -496,6 +516,16 @@ EOT
 EOT
                 ,);
         }
+    }
+
+    private function version20240906120000(): void
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE {$clientTableName}
+            ADD is_federated BOOLEAN NOT NULL DEFAULT false
+EOT
+            ,);
     }
 
     /**
