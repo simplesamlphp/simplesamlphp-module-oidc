@@ -9,6 +9,7 @@ use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Factories\ClientEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
@@ -33,6 +34,7 @@ class ClientIdRuleTest extends TestCase
     protected Stub $moduleConfigStub;
     protected Stub $federationStub;
     protected Stub $federationCacheStub;
+    protected Stub $clientEntityFactoryStub;
 
     /**
      * @throws \Exception
@@ -48,6 +50,7 @@ class ClientIdRuleTest extends TestCase
         $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
         $this->federationStub = $this->createStub(Federation::class);
         $this->federationCacheStub = $this->createStub(FederationCache::class);
+        $this->clientEntityFactoryStub = $this->createStub(ClientEntityFactory::class);
     }
 
     protected function mock(): ClientIdRule
@@ -56,6 +59,7 @@ class ClientIdRuleTest extends TestCase
             $this->requestParamsResolverStub,
             $this->clientRepositoryStub,
             $this->moduleConfigStub,
+            $this->clientEntityFactoryStub,
             $this->federationStub,
             $this->federationCacheStub,
         );

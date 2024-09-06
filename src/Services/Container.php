@@ -36,6 +36,7 @@ use SimpleSAML\Module\oidc\Factories\AuthorizationServerFactory;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Factories\CacheFactory;
 use SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory;
+use SimpleSAML\Module\oidc\Factories\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Factories\CryptKeyFactory;
 use SimpleSAML\Module\oidc\Factories\FederationFactory;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
@@ -223,12 +224,16 @@ class Container implements ContainerInterface
 
         $cryptKeyFactory = new CryptKeyFactory($moduleConfig);
 
+        $clientEntityFactory = new ClientEntityFactory();
+        $this->services[ClientEntityFactory::class] = $clientEntityFactory;
+
         $requestRules = [
             new StateRule($requestParamsResolver),
             new ClientIdRule(
                 $requestParamsResolver,
                 $clientRepository,
                 $moduleConfig,
+                $clientEntityFactory,
                 $federation,
                 $federationCache,
             ),

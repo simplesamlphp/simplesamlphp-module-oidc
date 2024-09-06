@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
@@ -21,6 +22,7 @@ class ScopeRule extends AbstractRule
     public function __construct(
         RequestParamsResolver $requestParamsResolver,
         protected ScopeRepositoryInterface $scopeRepository,
+        protected Helpers $helpers,
     ) {
         parent::__construct($requestParamsResolver);
     }
@@ -52,7 +54,7 @@ class ScopeRule extends AbstractRule
             $allowedServerRequestMethods,
         ) ?? $defaultScope;
 
-        $scopes = $this->convertScopesQueryStringToArray($scopeParam, $scopeDelimiterString);
+        $scopes = $this->helpers->str()->convertScopesStringToArray($scopeParam, $scopeDelimiterString);
 
         $validScopes = [];
 
@@ -67,20 +69,5 @@ class ScopeRule extends AbstractRule
         }
 
         return new Result($this->getKey(), $validScopes);
-    }
-
-    /**
-     * Converts a scopes query string to an array to easily iterate for validation.
-     *
-     * @return string[]
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
-     */
-    protected function convertScopesQueryStringToArray(string $scopes, string $scopeDelimiterString): array
-    {
-        if (empty($scopeDelimiterString)) {
-            throw OidcServerException::serverError('Scope delimiter string can not be empty.');
-        }
-
-        return array_filter(explode($scopeDelimiterString, trim($scopes)), fn($scope) => !empty($scope));
     }
 }

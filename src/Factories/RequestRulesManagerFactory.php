@@ -48,6 +48,7 @@ class RequestRulesManagerFactory
         private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
         private readonly CryptKeyFactory $cryptKeyFactory,
         private readonly RequestParamsResolver $requestParamsResolver,
+        private readonly ClientEntityFactory $clientEntityFactory,
         private readonly Federation $federation,
         private readonly ?FederationCache $federationCache = null,
     ) {
@@ -74,6 +75,7 @@ class RequestRulesManagerFactory
                 $this->requestParamsResolver,
                 $this->clientRepository,
                 $this->moduleConfig,
+                $this->clientEntityFactory,
                 $this->federation,
                 $this->federationCache,
             ),

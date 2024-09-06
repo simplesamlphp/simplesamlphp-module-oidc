@@ -32,6 +32,32 @@ use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
  */
 class ClientEntity implements ClientEntityInterface
 {
+    public const KEY_ID = 'id';
+    public const KEY_SECRET = 'secret';
+    public const KEY_NAME = 'name';
+    public const KEY_DESCRIPTION = 'description';
+    public const KEY_AUTH_SOURCE = 'auth_source';
+    public const KEY_REDIRECT_URI = 'redirect_uri';
+    public const KEY_SCOPES = 'scopes';
+    public const KEY_IS_ENABLED = 'is_enabled';
+    public const KEY_IS_CONFIDENTIAL = 'is_confidential';
+    public const KEY_OWNER = 'owner';
+    public const KEY_POST_LOGOUT_REDIRECT_URI = 'post_logout_redirect_uri';
+    public const KEY_BACKCHANNEL_LOGOUT_URI = 'backchannel_logout_uri';
+    public const KEY_ENTITY_IDENTIFIER = 'entity_identifier';
+    public const KEY_CLIENT_REGISTRATION_TYPES = 'client_registration_types';
+    public const KEY_FEDERATION_JWKS = 'federation_jwks';
+    public const KEY_JWKS = 'jwks';
+    public const KEY_JWKS_URI = 'jwks_uri';
+    public const KEY_SIGNED_JWKS_URI = 'signed_jwks_uri';
+    public const KEY_REGISTRATION_TYPE = 'registration_type';
+    public const KEY_UPDATED_AT = 'updated_at';
+    public const KEY_CREATED_AT = 'created_at';
+    public const KEY_EXPIRES_AT = 'expires_at';
+    public const KEY_IS_FEDERATED = 'is_federated';
+
+
+
     use EntityTrait;
     use ClientTrait;
 

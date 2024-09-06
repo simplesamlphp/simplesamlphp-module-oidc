@@ -8,6 +8,7 @@ use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Factories\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Forms\ClientForm;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -31,6 +32,7 @@ class ClientIdRule extends AbstractRule
         RequestParamsResolver $requestParamsResolver,
         protected ClientRepositoryInterface $clientRepository,
         protected ModuleConfig $moduleConfig,
+        protected ClientEntityFactory $clientEntityFactory,
         protected Federation $federation,
         protected ?FederationCache $federationCache = null,
     ) {
@@ -142,7 +144,12 @@ class ClientIdRule extends AbstractRule
             throw OidcServerException::invalidTrustChain('no relying party metadata available');
         }
 
-        // TODO mivanci continue We have client metadata. We now must try and create client entity and persist it.
+        // TODO mivanci We have client metadata. We now must try and create client entity and persist it.
+
+        $clientData = $this->clientEntityFactory->resolveRegistrationData($clientMetadata);
+
+        dd($clientData);
+
         // TODO Update result for RequestParameterRule (inject value from here)
 
         return new Result($this->getKey(), $client);
