@@ -9,6 +9,7 @@ class Str
     /**
      * Converts a scopes query string to an array to easily iterate for validation.
      *
+     * @param non-empty-string $delimiter
      * @return string[]
      */
     public function convertScopesStringToArray(string $scopes, string $delimiter = ' '): array

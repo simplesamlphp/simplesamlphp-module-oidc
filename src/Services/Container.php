@@ -32,6 +32,7 @@ use SimpleSAML\Database;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Metadata\MetaDataStorageHandler;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
+use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Factories\AuthorizationServerFactory;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Factories\CacheFactory;
@@ -224,7 +225,10 @@ class Container implements ContainerInterface
 
         $cryptKeyFactory = new CryptKeyFactory($moduleConfig);
 
-        $clientEntityFactory = new ClientEntityFactory();
+        $sspBridge = new SspBridge();
+        $this->services[SspBridge::class] = $sspBridge;
+
+        $clientEntityFactory = new ClientEntityFactory($sspBridge, $helpers);
         $this->services[ClientEntityFactory::class] = $clientEntityFactory;
 
         $requestRules = [
@@ -241,7 +245,7 @@ class Container implements ContainerInterface
             new RequestParameterRule($requestParamsResolver),
             new PromptRule($requestParamsResolver, $authSimpleFactory, $authenticationService),
             new MaxAgeRule($requestParamsResolver, $authSimpleFactory, $authenticationService),
-            new ScopeRule($requestParamsResolver, $scopeRepository),
+            new ScopeRule($requestParamsResolver, $scopeRepository, $helpers),
             new RequiredOpenIdScopeRule($requestParamsResolver),
             new CodeChallengeRule($requestParamsResolver),
             new CodeChallengeMethodRule($requestParamsResolver, $codeChallengeVerifiersRepository),

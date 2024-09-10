@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Factories;
 
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\CodeChallengeVerifiersRepository;
@@ -50,6 +51,7 @@ class RequestRulesManagerFactory
         private readonly RequestParamsResolver $requestParamsResolver,
         private readonly ClientEntityFactory $clientEntityFactory,
         private readonly Federation $federation,
+        private readonly Helpers $helpers,
         private readonly ?FederationCache $federationCache = null,
     ) {
     }
@@ -83,7 +85,7 @@ class RequestRulesManagerFactory
             new RequestParameterRule($this->requestParamsResolver),
             new PromptRule($this->requestParamsResolver, $this->authSimpleFactory, $this->authenticationService),
             new MaxAgeRule($this->requestParamsResolver, $this->authSimpleFactory, $this->authenticationService),
-            new ScopeRule($this->requestParamsResolver, $this->scopeRepository),
+            new ScopeRule($this->requestParamsResolver, $this->scopeRepository, $this->helpers),
             new RequiredOpenIdScopeRule($this->requestParamsResolver),
             new CodeChallengeRule($this->requestParamsResolver),
             new CodeChallengeMethodRule($this->requestParamsResolver, $this->codeChallengeVerifiersRepository),

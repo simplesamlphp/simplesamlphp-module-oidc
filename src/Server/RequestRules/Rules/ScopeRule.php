@@ -45,7 +45,7 @@ class ScopeRule extends AbstractRule
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
         /** @var string $defaultScope */
         $defaultScope = $data['default_scope'] ?? '';
-        /** @var string $scopeDelimiterString */
+        /** @var non-empty-string $scopeDelimiterString */
         $scopeDelimiterString = $data['scope_delimiter_string'] ?? ' ';
 
         $scopeParam = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(

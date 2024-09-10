@@ -10,6 +10,8 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\OpenID\Codebooks\ApplicationTypeEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
+use SimpleSAML\OpenID\Codebooks\ResponseTypesEnum;
 use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodEnum;
 
 class ClientEntityFactory
@@ -23,6 +25,8 @@ class ClientEntityFactory
     /**
      * Resolve client data from registration metadata. Resolved data can be used to create new ClientEntity instance.
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     *
+     * @psalm-suppress MixedAssignment
      */
     public function resolveRegistrationData(
         array $metadata,
@@ -53,6 +57,13 @@ class ClientEntityFactory
         $data[ClientEntity::KEY_IS_CONFIDENTIAL] = $client?->isConfidential() ??
         $this->guessIsConfidential($metadata);
 
+        $data[ClientEntity::KEY_OWNER] = $client?->getOwner();
+
+        $data[ClientEntity::KEY_POST_LOGOUT_REDIRECT_URI] = $metadata[ClaimsEnum::PostLogoutRedirectUris->value] ??
+        $client?->getPostLogoutRedirectUri();
+
+        $data[ClientEntity::KEY_BACKCHANNEL_LOGOUT_URI] = $metadata[ClaimsEnum::BackChannelLogoutUri->value] ??
+        $client?->getBackChannelLogoutUri();
 
         return $data;
     }
@@ -75,12 +86,24 @@ class ClientEntityFactory
             return false;
         }
 
-        // TODO mivanci Continue with checking if grant types contain 'implicit' value.
-//        if (
-//            array_key_exists(ClaimsEnum::GrantTypes->value, $metadata)
-//        ) {
-//
-//        }
+        if (
+            array_key_exists(ClaimsEnum::GrantTypes->value, $metadata) &&
+            is_array($metadata[ClaimsEnum::GrantTypes->value]) &&
+            in_array(GrantTypesEnum::Implicit->value, $metadata[ClaimsEnum::GrantTypes->value], true)
+        ) {
+            // Explicit statement of implicit grant type is indication of public client.
+            return false;
+        }
+
+        if (
+            array_key_exists(ClaimsEnum::ResponseTypes->value, $metadata) &&
+            is_array($metadata[ClaimsEnum::ResponseTypes->value]) &&
+            (in_array(ResponseTypesEnum::IdToken->value, $metadata[ClaimsEnum::ResponseTypes->value], true) ||
+                in_array(ResponseTypesEnum::IdTokenToken->value, $metadata[ClaimsEnum::ResponseTypes->value], true))
+        ) {
+            // Response type 'id_token' or 'id_token token' is indication of public client.
+            return false;
+        }
 
         // Assume confidential client.
         return true;
