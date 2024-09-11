@@ -46,6 +46,7 @@ use SimpleSAML\Module\oidc\Factories\Grant\ImplicitGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\OAuth2ImplicitGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\RefreshTokenGrantFactory;
 use SimpleSAML\Module\oidc\Factories\IdTokenResponseFactory;
+use SimpleSAML\Module\oidc\Factories\JwksFactory;
 use SimpleSAML\Module\oidc\Factories\ProcessingChainFactory;
 use SimpleSAML\Module\oidc\Factories\ResourceServerFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
@@ -92,9 +93,11 @@ use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\ClassInstanceBuilder;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
+use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Federation;
+use SimpleSAML\OpenID\Jwks;
 use SimpleSAML\Session;
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
 
@@ -231,6 +234,15 @@ class Container implements ContainerInterface
         $clientEntityFactory = new ClientEntityFactory($sspBridge, $helpers);
         $this->services[ClientEntityFactory::class] = $clientEntityFactory;
 
+        $jwksFactory = new JwksFactory($moduleConfig, $loggerService, $federationCache);
+        $this->services[JwksFactory::class] = $jwksFactory;
+
+        $jwks = $jwksFactory->build();
+        $this->services[Jwks::class] = $jwks;
+
+        $jwksResolver = new JwksResolver($jwks);
+        $this->services[JwksResolver::class] = $jwksResolver;
+
         $requestRules = [
             new StateRule($requestParamsResolver),
             new ClientIdRule(
@@ -239,10 +251,12 @@ class Container implements ContainerInterface
                 $moduleConfig,
                 $clientEntityFactory,
                 $federation,
+                $helpers,
+                $jwksResolver,
                 $federationCache,
             ),
             new RedirectUriRule($requestParamsResolver),
-            new RequestParameterRule($requestParamsResolver),
+            new RequestParameterRule($requestParamsResolver, $jwksResolver),
             new PromptRule($requestParamsResolver, $authSimpleFactory, $authenticationService),
             new MaxAgeRule($requestParamsResolver, $authSimpleFactory, $authenticationService),
             new ScopeRule($requestParamsResolver, $scopeRepository, $helpers),

@@ -33,6 +33,7 @@ use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
+use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Federation;
 
@@ -52,6 +53,7 @@ class RequestRulesManagerFactory
         private readonly ClientEntityFactory $clientEntityFactory,
         private readonly Federation $federation,
         private readonly Helpers $helpers,
+        private readonly JwksResolver $jwksResolver,
         private readonly ?FederationCache $federationCache = null,
     ) {
     }
@@ -79,10 +81,12 @@ class RequestRulesManagerFactory
                 $this->moduleConfig,
                 $this->clientEntityFactory,
                 $this->federation,
+                $this->helpers,
+                $this->jwksResolver,
                 $this->federationCache,
             ),
             new RedirectUriRule($this->requestParamsResolver),
-            new RequestParameterRule($this->requestParamsResolver),
+            new RequestParameterRule($this->requestParamsResolver, $this->jwksResolver),
             new PromptRule($this->requestParamsResolver, $this->authSimpleFactory, $this->authenticationService),
             new MaxAgeRule($this->requestParamsResolver, $this->authSimpleFactory, $this->authenticationService),
             new ScopeRule($this->requestParamsResolver, $this->scopeRepository, $this->helpers),

@@ -78,7 +78,7 @@ class EditControllerTest extends TestCase
         $this->helpersMock->method('dateTime')->willReturn($this->dateTimeHelperMock);
 
         $this->updatedAtMock = $this->createMock(DateTimeImmutable::class);
-        $this->dateTimeHelperMock->method('getTimestamp')->willReturn($this->updatedAtMock);
+        $this->dateTimeHelperMock->method('getUtc')->willReturn($this->updatedAtMock);
     }
 
     public static function setUpBeforeClass(): void

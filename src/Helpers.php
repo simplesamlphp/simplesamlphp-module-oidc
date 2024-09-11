@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc;
 
+use SimpleSAML\Module\oidc\Helpers\Arr;
 use SimpleSAML\Module\oidc\Helpers\Client;
 use SimpleSAML\Module\oidc\Helpers\DateTime;
 use SimpleSAML\Module\oidc\Helpers\Http;
@@ -15,6 +16,7 @@ class Helpers
     protected static ?Client $client = null;
     protected static ?DateTime $dateTIme = null;
     protected static ?Str $str = null;
+    protected static ?Arr $arr = null;
 
     public function http(): Http
     {
@@ -36,5 +38,10 @@ class Helpers
     public function str(): Str
     {
         return static::$str ??= new Str();
+    }
+
+    public function arr(): Arr
+    {
+        return static::$arr ??= new Arr();
     }
 }

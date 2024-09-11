@@ -95,7 +95,7 @@ class CreateController
             $jwksUri = empty($client['jwks_uri']) ? null : (string)$client['jwks_uri'];
             $signedJwksUri = empty($client['signed_jwks_uri']) ? null : (string)$client['signed_jwks_uri'];
             $registrationType = RegistrationTypeEnum::Manual;
-            $createdAt = $this->helpers->dateTime()->getTimestamp();
+            $createdAt = $this->helpers->dateTime()->getUtc();
             $updatedAt = $createdAt;
             $expiresAt = null;
             $isFederated = (bool)$client['is_federated'];

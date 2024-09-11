@@ -163,7 +163,7 @@ class EntityStatementController
 
         /** @var non-empty-string $subject */
         $subject = (string)$subject;
-        $client = $this->clientRepository->findByEntityIdentifier($subject);
+        $client = $this->clientRepository->findFederated($subject);
         if (empty($client)) {
             return $this->prepareJsonErrorResponse(
                 ErrorsEnum::NotFound->value,

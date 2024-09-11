@@ -32,6 +32,9 @@ use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
  */
 class ClientEntity implements ClientEntityInterface
 {
+    use EntityTrait;
+    use ClientTrait;
+
     public const KEY_ID = 'id';
     public const KEY_SECRET = 'secret';
     public const KEY_NAME = 'name';
@@ -55,11 +58,6 @@ class ClientEntity implements ClientEntityInterface
     public const KEY_CREATED_AT = 'created_at';
     public const KEY_EXPIRES_AT = 'expires_at';
     public const KEY_IS_FEDERATED = 'is_federated';
-
-
-
-    use EntityTrait;
-    use ClientTrait;
 
     private string $secret;
 
@@ -291,7 +289,7 @@ class ClientEntity implements ClientEntityInterface
                 json_encode($this->getFederationJwks()),
             'jwks' => is_null($this->jwks) ?
                 null :
-                json_encode($this->jwks()),
+                json_encode($this->getJwks()),
             'jwks_uri' => $this->getJwksUri(),
             'signed_jwks_uri' => $this->getSignedJwksUri(),
             'registration_type' => $this->getRegistrationType()->value,
@@ -422,7 +420,7 @@ class ClientEntity implements ClientEntityInterface
         return $this->federationJwks;
     }
 
-    public function jwks(): ?array
+    public function getJwks(): ?array
     {
         return $this->jwks;
     }

@@ -98,7 +98,6 @@ class RequestParamsResolver
         array $allowedMethods = [HttpMethodsEnum::GET],
     ): mixed {
         $allParams = $this->getAllBasedOnAllowedMethods($request, $allowedMethods);
-
         return $allParams[$paramKey] ?? null;
     }
 

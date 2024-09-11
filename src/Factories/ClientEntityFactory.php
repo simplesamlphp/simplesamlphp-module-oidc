@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Factories;
 
+use DateTimeImmutable;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
+use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\OpenID\Codebooks\ApplicationTypeEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ResponseTypesEnum;
+use SimpleSAML\OpenID\Codebooks\ScopesEnum;
 use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodEnum;
 
 class ClientEntityFactory
@@ -23,49 +27,119 @@ class ClientEntityFactory
     }
 
     /**
-     * Resolve client data from registration metadata. Resolved data can be used to create new ClientEntity instance.
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * Resolve client data from registration metadata.
      *
+     * @param array[] $federationJwks
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @psalm-suppress MixedAssignment
      */
-    public function resolveRegistrationData(
+    public function fromRegistrationData(
         array $metadata,
-        ?ClientEntity $client = null,
+        RegistrationTypeEnum $registrationType,
+        ?DateTimeImmutable $expiresAt = null,
+        ?ClientEntityInterface $existingClient = null,
         ?string $clientIdentifier = null,
-    ): array {
-        $data = [];
+        ?array $federationJwks = null,
+    ): ClientEntityInterface {
 
-        $data[ClientEntity::KEY_ID] = $clientIdentifier ?? $client?->getIdentifier() ?? $this->sspBridge->utils()->random()->generateID();
+        $id = $clientIdentifier ?? $existingClient?->getIdentifier() ??
+        $this->sspBridge->utils()->random()->generateID();
 
-        $data[ClientEntity::KEY_SECRET] = $client?->getSecret() ?? $this->sspBridge->utils()->random()->generateID();
+        $secret = $existingClient?->getSecret() ?? $this->sspBridge->utils()->random()->generateID();
 
-        $data[ClientEntity::KEY_NAME] = $metadata[ClaimsEnum::ClientName->value] ?? $client?->getName() ?? $data[ClientEntity::KEY_ID];
+        $name = (string)($metadata[ClaimsEnum::ClientName->value] ?? $existingClient?->getName() ?? $id);
 
-        $data[ClientEntity::KEY_DESCRIPTION] = $client?->getDescription() ?? '';
+        $description = $existingClient?->getDescription() ?? '';
 
-        $data[ClientEntity::KEY_AUTH_SOURCE] = $client?->getAuthSourceId();
+        $authSource = $existingClient?->getAuthSourceId();
 
-        $data[ClientEntity::KEY_REDIRECT_URI] = $metadata[ClaimsEnum::RedirectUris->value] ??
+        (isset($metadata[ClaimsEnum::RedirectUris->value]) && is_array($metadata[ClaimsEnum::RedirectUris->value])) ||
         throw OidcServerException::accessDenied('redirect URIs missing');
+        $redirectUris = $this->helpers->arr()->ensureStringValues($metadata[ClaimsEnum::RedirectUris->value]);
 
-        $scopes = $metadata[ClaimsEnum::Scope->value] ?? $client?->getScopes();
-        $data[ClientEntity::KEY_SCOPES] = is_array($scopes) ? $scopes :
+        $scopes = $metadata[ClaimsEnum::Scope->value] ?? $existingClient?->getScopes();
+        $scopes = is_array($scopes) ? $this->helpers->arr()->ensureStringValues($scopes) :
         $this->helpers->str()->convertScopesStringToArray((string)$scopes);
+        $scopes = empty($scopes) ? [ScopesEnum::OpenId->value] : $scopes;
 
-        $data[ClientEntity::KEY_IS_ENABLED] = $client?->isEnabled() ?? true;
+        $isEnabled = $existingClient?->isEnabled() ?? true;
 
-        $data[ClientEntity::KEY_IS_CONFIDENTIAL] = $client?->isConfidential() ??
-        $this->guessIsConfidential($metadata);
+        $isConfidential = $existingClient?->isConfidential() ?? $this->guessIsConfidential($metadata);
 
-        $data[ClientEntity::KEY_OWNER] = $client?->getOwner();
+        $owner = $existingClient?->getOwner();
 
-        $data[ClientEntity::KEY_POST_LOGOUT_REDIRECT_URI] = $metadata[ClaimsEnum::PostLogoutRedirectUris->value] ??
-        $client?->getPostLogoutRedirectUri();
+        $postLogoutRedirectUris = isset($metadata[ClaimsEnum::PostLogoutRedirectUris->value]) &&
+        is_array($metadata[ClaimsEnum::PostLogoutRedirectUris->value]) ?
+        $this->helpers->arr()->ensureStringValues($metadata[ClaimsEnum::PostLogoutRedirectUris->value]) :
+        $existingClient?->getPostLogoutRedirectUri() ?? [];
 
-        $data[ClientEntity::KEY_BACKCHANNEL_LOGOUT_URI] = $metadata[ClaimsEnum::BackChannelLogoutUri->value] ??
-        $client?->getBackChannelLogoutUri();
+        $backChannelLogoutUri = isset($metadata[ClaimsEnum::BackChannelLogoutUri->value]) &&
+        is_string($metadata[ClaimsEnum::BackChannelLogoutUri->value]) ?
+        $metadata[ClaimsEnum::BackChannelLogoutUri->value] :
+        $existingClient?->getBackChannelLogoutUri();
 
-        return $data;
+        $entityIdentifier = $clientIdentifier ?? $existingClient?->getEntityIdentifier();
+
+        $clientRegistrationTypes = isset($metadata[ClaimsEnum::ClientRegistrationTypes->value]) &&
+        is_array($metadata[ClaimsEnum::ClientRegistrationTypes->value]) ?
+        $this->helpers->arr()->ensureStringValues($metadata[ClaimsEnum::ClientRegistrationTypes->value]) :
+        $existingClient?->getClientRegistrationTypes();
+
+        $federationJwks = $federationJwks ?? $existingClient?->getFederationJwks();
+
+        /** @var ?array[] $jwks */
+        $jwks = isset($metadata[ClaimsEnum::Jwks->value]) &&
+        is_array($metadata[ClaimsEnum::Jwks->value]) &&
+        array_key_exists(ClaimsEnum::Keys->value, $metadata[ClaimsEnum::Jwks->value]) &&
+        (!empty($metadata[ClaimsEnum::Jwks->value][ClaimsEnum::Jwks->value])) ?
+        $metadata[ClaimsEnum::Jwks->value] :
+        $existingClient?->getJwks();
+
+        $jwksUri = isset($metadata[ClaimsEnum::JwksUri->value]) &&
+        is_string($metadata[ClaimsEnum::JwksUri->value]) ?
+        $metadata[ClaimsEnum::JwksUri->value] :
+        $existingClient?->getJwksUri();
+
+        $signedJwksUri = isset($metadata[ClaimsEnum::SignedJwksUri->value]) &&
+        is_string($metadata[ClaimsEnum::SignedJwksUri->value]) ?
+        $metadata[ClaimsEnum::SignedJwksUri->value] :
+        $existingClient?->getSignedJwksUri();
+
+//        $registrationType = $registrationType;
+
+        $updatedAt = $this->helpers->dateTime()->getUtc();
+
+        $createdAt = $existingClient ? $existingClient->getCreatedAt() : $updatedAt;
+
+//        $expiresAt = $expiresAt;
+
+        $isFederated = $existingClient?->isFederated() ?? false;
+
+        return ClientEntity::fromData(
+            $id,
+            $secret,
+            $name,
+            $description,
+            $redirectUris,
+            $scopes,
+            $isEnabled,
+            $isConfidential,
+            $authSource,
+            $owner,
+            $postLogoutRedirectUris,
+            $backChannelLogoutUri,
+            $entityIdentifier,
+            $clientRegistrationTypes,
+            $federationJwks,
+            $jwks,
+            $jwksUri,
+            $signedJwksUri,
+            $registrationType,
+            $updatedAt,
+            $createdAt,
+            $expiresAt,
+            $isFederated,
+        );
     }
 
     protected function guessIsConfidential(array $metadata): bool

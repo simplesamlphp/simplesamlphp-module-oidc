@@ -4,19 +4,22 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 
-use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Error\ConfigurationError;
+use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Factories\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Forms\ClientForm;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
+use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\EntityTypeEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
@@ -30,10 +33,12 @@ class ClientIdRule extends AbstractRule
 
     public function __construct(
         RequestParamsResolver $requestParamsResolver,
-        protected ClientRepositoryInterface $clientRepository,
+        protected ClientRepository $clientRepository,
         protected ModuleConfig $moduleConfig,
         protected ClientEntityFactory $clientEntityFactory,
         protected Federation $federation,
+        protected Helpers $helpers,
+        protected JwksResolver $jwksResolver,
         protected ?FederationCache $federationCache = null,
     ) {
         parent::__construct($requestParamsResolver);
@@ -91,7 +96,7 @@ class ClientIdRule extends AbstractRule
         } catch (Throwable $exception) {
             throw OidcServerException::invalidRequest(
                 ParamsEnum::Request->value,
-                'request object parse error',
+                'request object error: ' . $exception->getMessage(),
                 $exception,
             );
         }
@@ -112,7 +117,7 @@ class ClientIdRule extends AbstractRule
         throw OidcServerException::invalidRequest(ParamsEnum::Request->value, 'client ID is not valid URI');
 
         // We are ready to resolve trust chain.
-        // TODO mivanci Request Object can contain trust_chain claim. Implement resolving it using that claim. Note
+        // TODO mivanci Request Object can contain trust_chain claim, so also implement resolving using that claim. Note
         // that this is only possible if we have JWKS configured for common TA, so we can check TA Configuration
         // signature.
         try {
@@ -121,15 +126,25 @@ class ClientIdRule extends AbstractRule
                 $this->moduleConfig->getFederationTrustAnchorIds(),
             );
         } catch (ConfigurationError $exception) {
-            throw OidcServerException::serverError('invalid OIDC configuration', $exception);
+            throw OidcServerException::serverError(
+                'invalid OIDC configuration: ' . $exception->getMessage(),
+                $exception,
+            );
         } catch (Throwable $exception) {
             throw OidcServerException::invalidTrustChain(
-                'error while trying to resolve trust chain',
+                'error while trying to resolve trust chain: ' . $exception->getMessage(),
                 null,
                 $exception,
             );
         }
 
+        $clientFederationEntity = $trustChain->getResolvedLeaf();
+
+        if ($clientFederationEntity->getIssuer() !== $clientEntityId) {
+            throw OidcServerException::invalidTrustChain(
+                'client entity ID mismatch in request object and configuration statement',
+            );
+        }
         try {
             $clientMetadata = $trustChain->getResolvedMetadata(EntityTypeEnum::OpenIdRelyingParty);
         } catch (Throwable $exception) {
@@ -144,14 +159,47 @@ class ClientIdRule extends AbstractRule
             throw OidcServerException::invalidTrustChain('no relying party metadata available');
         }
 
-        // TODO mivanci We have client metadata. We now must try and create client entity and persist it.
+        // We have client metadata resolved. Check if the client exists in storage, as it may be previously registered
+        // but marked as expired.
+        $existingClient = $this->clientRepository->findById($clientEntityId);
 
-        $clientData = $this->clientEntityFactory->resolveRegistrationData($clientMetadata);
+        if ($existingClient && ($existingClient->isEnabled() === false)) {
+            throw OidcServerException::accessDenied('client is disabled');
+        }
 
-        dd($clientData);
+        if ($existingClient && ($existingClient->getRegistrationType() !== RegistrationTypeEnum::FederatedAutomatic)) {
+            throw OidcServerException::accessDenied(
+                'unexpected existing client registration type: ' . $existingClient->getRegistrationType()->value,
+            );
+        }
 
-        // TODO Update result for RequestParameterRule (inject value from here)
+        // Resolve client registration metadata
+        $registrationClient = $this->clientEntityFactory->fromRegistrationData(
+            $clientMetadata,
+            RegistrationTypeEnum::FederatedAutomatic,
+            $this->helpers->dateTime()->getFromTimestamp($trustChain->getResolvedExpirationTime()),
+            $existingClient,
+            $clientEntityId,
+            $clientFederationEntity->getJwks(),
+        );
 
-        return new Result($this->getKey(), $client);
+        ($clientJwks = $this->jwksResolver->forClient($registrationClient)) ||
+        throw OidcServerException::accessDenied('client JWKS not available');
+
+        // Verify signature on Request Object using client JWKS.
+        $requestObject->verifyWithKeySet($clientJwks);
+
+        // Signature verified, we can persist (new) client registration.
+        if ($existingClient) {
+            $this->clientRepository->update($registrationClient);
+        } else {
+            $this->clientRepository->add($registrationClient);
+        }
+
+        // We will also update result for RequestParameterRule (inject value from here), since the request object
+        // is already resolved.
+        $currentResultBag->add(new Result(RequestParameterRule::class, $requestObject->getPayload()));
+
+        return new Result($this->getKey(), $registrationClient);
     }
 }
