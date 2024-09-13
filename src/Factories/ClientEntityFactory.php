@@ -5,15 +5,19 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Factories;
 
 use DateTimeImmutable;
+use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\ApplicationTypeEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
+use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Codebooks\ResponseTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ScopesEnum;
 use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodEnum;
@@ -23,6 +27,8 @@ class ClientEntityFactory
     public function __construct(
         private readonly SspBridge $sspBridge,
         private readonly Helpers $helpers,
+        private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
+        private readonly RequestParamsResolver $requestParamsResolver,
     ) {
     }
 
@@ -40,6 +46,7 @@ class ClientEntityFactory
         ?ClientEntityInterface $existingClient = null,
         ?string $clientIdentifier = null,
         ?array $federationJwks = null,
+        ?ServerRequestInterface $authorizationRequest = null,
     ): ClientEntityInterface {
 
         $id = $clientIdentifier ?? $existingClient?->getIdentifier() ??
@@ -60,6 +67,12 @@ class ClientEntityFactory
         $scopes = $metadata[ClaimsEnum::Scope->value] ?? $existingClient?->getScopes();
         $scopes = is_array($scopes) ? $this->helpers->arr()->ensureStringValues($scopes) :
         $this->helpers->str()->convertScopesStringToArray((string)$scopes);
+        // Filter to only allowed scopes
+        $scopes = array_filter(
+            $scopes,
+            fn(string $scope): bool => $this->claimTranslatorExtractor->hasClaimSet($scope),
+        );
+        // Let's ensure there is at least 'openid' scope present.
         $scopes = empty($scopes) ? [ScopesEnum::OpenId->value] : $scopes;
 
         $isEnabled = $existingClient?->isEnabled() ?? true;
@@ -142,8 +155,10 @@ class ClientEntityFactory
         );
     }
 
-    protected function guessIsConfidential(array $metadata): bool
-    {
+    protected function guessIsConfidential(
+        array $metadata,
+        ?ServerRequestInterface $authorizationRequest,
+    ): bool {
         if (
             array_key_exists(ClaimsEnum::ApplicationType->value, $metadata) &&
             $metadata[ClaimsEnum::ApplicationType->value] === ApplicationTypeEnum::Native->value
@@ -178,6 +193,15 @@ class ClientEntityFactory
             // Response type 'id_token' or 'id_token token' is indication of public client.
             return false;
         }
+
+        if (
+            $authorizationRequest &&
+            $this->requestParamsResolver->get(ParamsEnum::CodeChallenge->value, $authorizationRequest)
+        ) {
+            // Usage of code_challenge parameter indicates public client.
+            return false;
+        }
+
 
         // Assume confidential client.
         return true;

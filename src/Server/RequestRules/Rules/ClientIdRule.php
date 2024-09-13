@@ -96,7 +96,7 @@ class ClientIdRule extends AbstractRule
         } catch (Throwable $exception) {
             throw OidcServerException::invalidRequest(
                 ParamsEnum::Request->value,
-                'request object error: ' . $exception->getMessage(),
+                'Request object error: ' . $exception->getMessage(),
                 $exception,
             );
         }
@@ -104,17 +104,17 @@ class ClientIdRule extends AbstractRule
         // We have a Federation compatible Request Object.
         // The Audience (aud) value MUST be or include the OP's Issuer Identifier URL.
         (in_array($this->moduleConfig->getIssuer(), $requestObject->getAudience(), true)) ||
-        throw OidcServerException::invalidRequest(ParamsEnum::Request->value, 'invalid audience');
+        throw OidcServerException::invalidRequest(ParamsEnum::Request->value, 'Invalid audience.');
 
         // Check for reuse of the Request Object. Request Object MUST only be used once.
         (boolval(
             $this->federationCache?->has(self::KEY_REQUEST_OBJECT_JTI, $requestObject->getJwtId()),
-        ) === false) || throw OidcServerException::invalidRequest(ParamsEnum::Request->value, 'request object reused');
+        ) === false) || throw OidcServerException::invalidRequest(ParamsEnum::Request->value, 'Request object reused.');
 
         $clientEntityId =  $requestObject->getIssuer();
         // Make sure that the Client ID is valid URL.
         (preg_match(ClientForm::REGEX_HTTP_URI_PATH, $requestObject->getIssuer())) ||
-        throw OidcServerException::invalidRequest(ParamsEnum::Request->value, 'client ID is not valid URI');
+        throw OidcServerException::invalidRequest(ParamsEnum::Request->value, 'Client ID is not valid URI.');
 
         // We are ready to resolve trust chain.
         // TODO mivanci Request Object can contain trust_chain claim, so also implement resolving using that claim. Note
@@ -142,21 +142,21 @@ class ClientIdRule extends AbstractRule
 
         if ($clientFederationEntity->getIssuer() !== $clientEntityId) {
             throw OidcServerException::invalidTrustChain(
-                'client entity ID mismatch in request object and configuration statement',
+                'Client entity ID mismatch in request object and configuration statement.',
             );
         }
         try {
             $clientMetadata = $trustChain->getResolvedMetadata(EntityTypeEnum::OpenIdRelyingParty);
         } catch (Throwable $exception) {
             throw OidcServerException::invalidTrustChain(
-                'error while trying to resolve relying party metadata',
+                'Error while trying to resolve relying party metadata: ' . $exception->getMessage(),
                 null,
                 $exception,
             );
         }
 
         if (is_null($clientMetadata)) {
-            throw OidcServerException::invalidTrustChain('no relying party metadata available');
+            throw OidcServerException::invalidTrustChain('No relying party metadata available.');
         }
 
         // We have client metadata resolved. Check if the client exists in storage, as it may be previously registered
@@ -164,12 +164,12 @@ class ClientIdRule extends AbstractRule
         $existingClient = $this->clientRepository->findById($clientEntityId);
 
         if ($existingClient && ($existingClient->isEnabled() === false)) {
-            throw OidcServerException::accessDenied('client is disabled');
+            throw OidcServerException::accessDenied('Client is disabled.');
         }
 
         if ($existingClient && ($existingClient->getRegistrationType() !== RegistrationTypeEnum::FederatedAutomatic)) {
             throw OidcServerException::accessDenied(
-                'unexpected existing client registration type: ' . $existingClient->getRegistrationType()->value,
+                'Unexpected existing client registration type: ' . $existingClient->getRegistrationType()->value,
             );
         }
 
@@ -181,10 +181,11 @@ class ClientIdRule extends AbstractRule
             $existingClient,
             $clientEntityId,
             $clientFederationEntity->getJwks(),
+            $request,
         );
 
         ($clientJwks = $this->jwksResolver->forClient($registrationClient)) ||
-        throw OidcServerException::accessDenied('client JWKS not available');
+        throw OidcServerException::accessDenied('Client JWKS not available-.');
 
         // Verify signature on Request Object using client JWKS.
         $requestObject->verifyWithKeySet($clientJwks);
@@ -195,6 +196,14 @@ class ClientIdRule extends AbstractRule
         } else {
             $this->clientRepository->add($registrationClient);
         }
+
+        // Mark Request Object as used.
+        $this->federationCache?->set(
+            $requestObject->getJwtId(),
+            $this->helpers->dateTime()->getSecondsToExpirationTime($requestObject->getExpirationTime()),
+            self::KEY_REQUEST_OBJECT_JTI,
+            $requestObject->getJwtId(),
+        );
 
         // We will also update result for RequestParameterRule (inject value from here), since the request object
         // is already resolved.

@@ -19,12 +19,12 @@
     - fetch endpoint for issuing statements about subordinates (registered clients)
   - Clients can now be configured with new properties:
     - Entity Identifier
-    - Supported Registration Types
+    - Supported OpenID Federation Registration Types
     - Federation JWKS
     - Protocol JWKS, JWKS URI and Signed JWKS URI,
     - Registration type (manual, federated_automatic, or other in the future)
-    - Timestamps: created_at, updated_at, expires_at
     - Is Federated flag (indicates participation in federation context)
+    - Timestamps: created_at, updated_at, expires_at
 - Improved AuthProc filter support
   - Support authproc filters that need to redirect and later resume processing
     - `consent` and `preprodwarning` are two authprocs that redirect for user interaction and are now supported
@@ -74,7 +74,8 @@ removed in version 7.
 Apache to preserve Authorization HTTP headers with Bearer token scheme (stripping of this header in Apache is a
 known 'issue': https://github.com/symfony/symfony/issues/19693). If you don't set this config, you'll now get warnings
 about this situation in your logs.
-- The new authproc filter processing will look in an additional location for filters, in the main `config.php` under key `authproc.oidc`
+- The new authproc filter processing will look in an additional location for filters, in the main `config.php` under 
+key `authproc.oidc`
 
 ## Low impact changes
 

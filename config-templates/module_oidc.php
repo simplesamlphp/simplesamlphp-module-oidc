@@ -358,7 +358,9 @@ $config = [
     // expiry of the artifact. For example, when caching entity statements, cache duration will be based on the 'exp'
     // claim (expiration time). Since those claims are set by issuer (can be long), it could be desirable to limit
     // the maximum time, so that items in cache get refreshed more regularly (and changes propagate more quickly).
-    ModuleConfig::OPTION_FEDERATION_CACHE_MAX_DURATION => 'PT6H',
+    // This is only relevant if federation cache adapter is set up. For duration format info, check
+    // https://www.php.net/manual/en/dateinterval.construct.php.
+    ModuleConfig::OPTION_FEDERATION_CACHE_MAX_DURATION => 'PT6H', // 6 hours
 
     /**
      * PKI settings related to OpenID Federation. These keys will be used, for example, to sign federation
@@ -376,9 +378,15 @@ $config = [
     //ModuleConfig::OPTION_FEDERATION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Rsa\Sha256::class,
 
     // Federation entity statement duration which determines the Expiration Time (exp) claim set in entity
-    // statement JWTs published by this OP. If not set, default of 1 day will be used. For duration format info, check
+    // statement JWSs published by this OP. If not set, default of 1 day will be used. For duration format info, check
     // https://www.php.net/manual/en/dateinterval.construct.php
-    //ModuleConfig::OPTION_FEDERATION_ENTITY_STATEMENT_DURATION => 'P1D', // 1 day
+    ModuleConfig::OPTION_FEDERATION_ENTITY_STATEMENT_DURATION => 'P1D', // 1 day
+
+    // Cache duration for federation entity statements produced by this OP. This can be used to avoid calculating JWS
+    // signature on every HTTP request for OP Configuration statement, Subordinate Statements...
+    // This is only relevant if federation cache adapter is set up. For duration format info, check
+    // https://www.php.net/manual/en/dateinterval.construct.php.
+    ModuleConfig::OPTION_FEDERATION_ENTITY_STATEMENT_CACHE_DURATION => 'PT2M', // 2 minutes
 
     // Common federation entity parameters:
     // https://openid.net/specs/openid-federation-1_0.html#name-common-metadata-parameters

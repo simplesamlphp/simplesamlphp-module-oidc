@@ -87,6 +87,16 @@ class RequestParamsResolver
     }
 
     /**
+     * Get param value from HTTP request or Request Object if present.
+     *
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     */
+    public function get(string $paramKey, ServerRequestInterface $request): mixed
+    {
+        return $this->getAll($request)[$paramKey] ?? null;
+    }
+
+    /**
      * Get param value from HTTP request or Request Object if present, based on allowed methods.
      *
      * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods

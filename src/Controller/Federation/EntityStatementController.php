@@ -11,6 +11,7 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
+use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
@@ -26,6 +27,9 @@ use Symfony\Component\HttpFoundation\Response;
 
 class EntityStatementController
 {
+    protected const KEY_OP_ENTITY_CONFIGURATION_STATEMENT = 'op_entity_configuration_statement';
+    protected const KEY_RP_SUBORDINATE_ENTITY_STATEMENT = 'rp_subordinate_entity_statement';
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -35,6 +39,7 @@ class EntityStatementController
         private readonly JsonWebKeySetService $jsonWebKeySetService,
         private readonly OpMetadataService $opMetadataService,
         private readonly ClientRepository $clientRepository,
+        private readonly ?FederationCache $federationCache,
     ) {
         if (!$this->moduleConfig->getFederationEnabled()) {
             throw OidcServerException::forbidden('federation capabilities not enabled');
@@ -43,12 +48,23 @@ class EntityStatementController
 
     /**
      * Return the JWS with the OP configuration statement.
+     *
      * @return \Symfony\Component\HttpFoundation\Response
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \ReflectionException
      */
     public function configuration(): Response
     {
+        $cachedEntityConfigurationToken = $this->federationCache?->get(
+            null,
+            self::KEY_OP_ENTITY_CONFIGURATION_STATEMENT,
+            $this->moduleConfig->getIssuer(),
+        );
+
+        if (!is_null($cachedEntityConfigurationToken)) {
+            return $this->prepareEntityStatementResponse((string)$cachedEntityConfigurationToken);
+        }
+
         $builder = $this->jsonWebTokenBuilderService->getFederationJwtBuilder()
             ->withHeader(ClaimsEnum::Typ->value, JwtTypeEnum::EntityStatementJwt->value)
             ->relatedTo($this->moduleConfig->getIssuer()) // This is entity configuration (statement about itself).
@@ -122,11 +138,17 @@ class EntityStatementController
         // * trust_mark_owners
 
         $jws = $this->jsonWebTokenBuilderService->getSignedFederationJwt($builder);
-        return new Response(
-            $jws->toString(),
-            200,
-            [HttpHeadersEnum::ContentType->value => ContentTypeEnum::ApplicationEntityStatementJwt->value,],
+
+        $entityConfigurationToken = $jws->toString();
+
+        $this->federationCache?->set(
+            $entityConfigurationToken,
+            $this->moduleConfig->getFederationEntityStatementCacheDuration(),
+            self::KEY_OP_ENTITY_CONFIGURATION_STATEMENT,
+            $this->moduleConfig->getIssuer(),
         );
+
+        return $this->prepareEntityStatementResponse($entityConfigurationToken);
     }
 
     public function fetch(Request $request): Response
@@ -163,6 +185,17 @@ class EntityStatementController
 
         /** @var non-empty-string $subject */
         $subject = (string)$subject;
+
+        $cachedSubordinateStatement = $this->federationCache?->get(
+            null,
+            self::KEY_RP_SUBORDINATE_ENTITY_STATEMENT,
+            $subject,
+        );
+
+        if (!is_null($cachedSubordinateStatement)) {
+            return $this->prepareEntityStatementResponse((string)$cachedSubordinateStatement);
+        }
+
         $client = $this->clientRepository->findFederated($subject);
         if (empty($client)) {
             return $this->prepareJsonErrorResponse(
@@ -219,14 +252,29 @@ class EntityStatementController
         // * metadata_policy_crit
 
         $jws = $this->jsonWebTokenBuilderService->getSignedFederationJwt($builder);
+
+        $subordinateStatementToken = $jws->toString();
+
+        $this->federationCache->set(
+            $subordinateStatementToken,
+            $this->moduleConfig->getFederationEntityStatementCacheDuration(),
+            self::KEY_RP_SUBORDINATE_ENTITY_STATEMENT,
+            $subject,
+        );
+
+        return $this->prepareEntityStatementResponse($subordinateStatementToken);
+    }
+
+    protected function prepareEntityStatementResponse(string $entityStatementToken): Response
+    {
         return new Response(
-            $jws->toString(),
+            $entityStatementToken,
             200,
             [HttpHeadersEnum::ContentType->value => ContentTypeEnum::ApplicationEntityStatementJwt->value,],
         );
     }
 
-    private function prepareJsonErrorResponse(string $error, string $description, int $httpCode = 500): JsonResponse
+    protected function prepareJsonErrorResponse(string $error, string $description, int $httpCode = 500): JsonResponse
     {
         return new JsonResponse(
             [

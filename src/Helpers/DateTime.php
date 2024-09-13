@@ -16,6 +16,11 @@ class DateTime
 
     public function getFromTimestamp(int $timestamp): DateTimeImmutable
     {
-        return (new DateTimeImmutable())->setTimestamp($timestamp);
+        return $this->getUtc()->setTimestamp($timestamp);
+    }
+
+    public function getSecondsToExpirationTime(int $expirationTime): int
+    {
+        return $expirationTime - $this->getUtc()->getTimestamp();
     }
 }

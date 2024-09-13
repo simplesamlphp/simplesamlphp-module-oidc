@@ -76,6 +76,7 @@ class ModuleConfig
     final public const OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS = 'federation_cache_adapter_arguments';
     final public const OPTION_FEDERATION_CACHE_MAX_DURATION = 'federation_cache_max_duration';
     final public const OPTION_FEDERATION_TRUST_ANCHORS = 'federation_trust_anchors';
+    final public const OPTION_FEDERATION_ENTITY_STATEMENT_CACHE_DURATION = 'federation_entity_statement_cache_duration';
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
@@ -446,6 +447,19 @@ class ModuleConfig
                 self::OPTION_FEDERATION_ENTITY_STATEMENT_DURATION,
                 null,
             ) ?? 'P1D',
+        );
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function getFederationEntityStatementCacheDuration(): DateInterval
+    {
+        return new DateInterval(
+            $this->config()->getOptionalString(
+                self::OPTION_FEDERATION_ENTITY_STATEMENT_CACHE_DURATION,
+                null,
+            ) ?? 'PT2M',
         );
     }
 
