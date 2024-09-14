@@ -231,7 +231,12 @@ class Container implements ContainerInterface
         $sspBridge = new SspBridge();
         $this->services[SspBridge::class] = $sspBridge;
 
-        $clientEntityFactory = new ClientEntityFactory($sspBridge, $helpers);
+        $clientEntityFactory = new ClientEntityFactory(
+            $sspBridge,
+            $helpers,
+            $claimTranslatorExtractor,
+            $requestParamsResolver,
+        );
         $this->services[ClientEntityFactory::class] = $clientEntityFactory;
 
         $jwksFactory = new JwksFactory($moduleConfig, $loggerService, $federationCache);

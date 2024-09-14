@@ -12,6 +12,7 @@ use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Factories\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
@@ -38,6 +39,7 @@ class ClientIdRuleTest extends TestCase
     protected Stub $federationCacheStub;
     protected Stub $clientEntityFactoryStub;
     protected Stub $helpersStub;
+    protected Stub $jwksResolverStub;
 
     /**
      * @throws \Exception
@@ -45,7 +47,7 @@ class ClientIdRuleTest extends TestCase
     protected function setUp(): void
     {
         $this->clientEntityStub = $this->createStub(ClientEntityInterface::class);
-        $this->clientRepositoryStub = $this->createStub(ClientRepositoryInterface::class);
+        $this->clientRepositoryStub = $this->createStub(ClientRepository::class);
         $this->requestStub = $this->createStub(ServerRequestInterface::class);
         $this->resultBagStub = $this->createStub(ResultBagInterface::class);
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
@@ -67,6 +69,7 @@ class ClientIdRuleTest extends TestCase
             $this->clientEntityFactoryStub,
             $this->federationStub,
             $this->helpersStub,
+            $this->jwksResolverStub,
             $this->federationCacheStub,
         );
     }

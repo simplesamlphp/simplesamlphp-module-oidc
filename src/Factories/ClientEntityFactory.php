@@ -77,7 +77,10 @@ class ClientEntityFactory
 
         $isEnabled = $existingClient?->isEnabled() ?? true;
 
-        $isConfidential = $existingClient?->isConfidential() ?? $this->guessIsConfidential($metadata);
+        $isConfidential = $existingClient?->isConfidential() ?? $this->guessIsConfidential(
+            $metadata,
+            $authorizationRequest,
+        );
 
         $owner = $existingClient?->getOwner();
 

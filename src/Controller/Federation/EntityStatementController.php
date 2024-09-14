@@ -255,7 +255,7 @@ class EntityStatementController
 
         $subordinateStatementToken = $jws->toString();
 
-        $this->federationCache->set(
+        $this->federationCache?->set(
             $subordinateStatementToken,
             $this->moduleConfig->getFederationEntityStatementCacheDuration(),
             self::KEY_RP_SUBORDINATE_ENTITY_STATEMENT,
