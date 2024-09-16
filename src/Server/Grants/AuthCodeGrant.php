@@ -374,7 +374,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      *
      * @return \League\OAuth2\Server\ResponseTypes\ResponseTypeInterface
      *
-     * TODO refactor to request checkers
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \JsonException
      *

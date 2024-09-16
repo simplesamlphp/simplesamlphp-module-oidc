@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Services;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
 
 /**
  * OpenID Provider Metadata Service - provides information about OIDC authentication server.
@@ -36,36 +37,41 @@ class OpMetadataService
         $signer = $this->moduleConfig->getProtocolSigner();
 
         $this->metadata = [];
-        // TODO mivanci Replace keys with enum values.
-        $this->metadata['issuer'] = $this->moduleConfig->getIssuer();
+        $this->metadata[ClaimsEnum::Issuer->value] = $this->moduleConfig->getIssuer();
         $this->metadata[ClaimsEnum::AuthorizationEndpoint->value] =
         $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdAuthorization->value);
-        $this->metadata['token_endpoint'] = $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdToken->value);
-        $this->metadata['userinfo_endpoint'] = $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdUserInfo->value);
-        $this->metadata['end_session_endpoint'] =
+        $this->metadata[ClaimsEnum::TokenEndpoint->value] =
+        $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdToken->value);
+        $this->metadata[ClaimsEnum::UserinfoEndpoint->value] =
+        $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdUserInfo->value);
+        $this->metadata[ClaimsEnum::EndSessionEndpoint->value] =
         $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdEndSession->value);
-        $this->metadata['jwks_uri'] = $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdJwks->value);
-        $this->metadata['scopes_supported'] = array_keys($this->moduleConfig->getOpenIDScopes());
-        $this->metadata['response_types_supported'] = ['code', 'token', 'id_token', 'id_token token'];
-        $this->metadata['subject_types_supported'] = ['public'];
-        $this->metadata['id_token_signing_alg_values_supported'] = [
+        $this->metadata[ClaimsEnum::JwksUri->value] = $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdJwks->value);
+        $this->metadata[ClaimsEnum::ScopesSupported->value] = array_keys($this->moduleConfig->getOpenIDScopes());
+        $this->metadata[ClaimsEnum::ResponseTypesSupported->value] = ['code', 'token', 'id_token', 'id_token token'];
+        $this->metadata[ClaimsEnum::SubjectTypesSupported->value] = ['public'];
+        $this->metadata[ClaimsEnum::IdTokenSigningAlgValuesSupported->value] = [
             $signer->algorithmId(),
         ];
-        $this->metadata['code_challenge_methods_supported'] = ['plain', 'S256'];
-        $this->metadata['token_endpoint_auth_methods_supported'] = ['client_secret_post', 'client_secret_basic'];
-        $this->metadata['request_parameter_supported'] = true;
-        $this->metadata['request_object_signing_alg_values_supported'] = [
+        $this->metadata[ClaimsEnum::CodeChallengeMethodsSupported->value] = ['plain', 'S256'];
+        $this->metadata[ClaimsEnum::TokenEndpointAuthMethodsSupported->value] = [
+            TokenEndpointAuthMethodsEnum::ClientSecretPost->value,
+            TokenEndpointAuthMethodsEnum::ClientSecretBasic->value,
+            TokenEndpointAuthMethodsEnum::PrivateKeyJwt->value,
+        ];
+        $this->metadata[ClaimsEnum::RequestParameterSupported->value] = true;
+        $this->metadata[ClaimsEnum::RequestObjectSigningAlgValuesSupported->value] = [
             'none',
             $signer->algorithmId(),
         ];
-        $this->metadata['request_uri_parameter_supported'] = false;
-        $this->metadata['grant_types_supported'] = ['authorization_code', 'refresh_token'];
-        $this->metadata['claims_parameter_supported'] = true;
+        $this->metadata[ClaimsEnum::RequestUriParameterSupported->value] = false;
+        $this->metadata[ClaimsEnum::GrantTypesSupported->value] = ['authorization_code', 'refresh_token'];
+        $this->metadata[ClaimsEnum::ClaimsParameterSupported->value] = true;
         if (!(empty($acrValuesSupported = $this->moduleConfig->getAcrValuesSupported()))) {
-            $this->metadata['acr_values_supported'] = $acrValuesSupported;
+            $this->metadata[ClaimsEnum::AcrValuesSupported->value] = $acrValuesSupported;
         }
-        $this->metadata['backchannel_logout_supported'] = true;
-        $this->metadata['backchannel_logout_session_supported'] = true;
+        $this->metadata[ClaimsEnum::BackChannelLogoutSupported->value] = true;
+        $this->metadata[ClaimsEnum::BackChannelLogoutSessionSupported->value] = true;
     }
 
     /**

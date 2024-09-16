@@ -6,7 +6,7 @@ namespace SimpleSAML\Module\oidc\Controller\Federation;
 
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
-use SimpleSAML\OpenID\Codebooks\EntityTypeEnum;
+use SimpleSAML\OpenID\Codebooks\EntityTypesEnum;
 use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Federation;
 use SimpleSAML\OpenID\Jwks;
@@ -69,7 +69,7 @@ class Test
 
         $leafFederationJwks = $leaf->getJwks();
 
-        $resolvedMetadata = $trustChain->getResolvedMetadata(EntityTypeEnum::OpenIdRelyingParty);
+        $resolvedMetadata = $trustChain->getResolvedMetadata(EntityTypesEnum::OpenIdRelyingParty);
         $jwksUri = $resolvedMetadata['jwks_uri'] ?? null;
         $signedJwksUri = $resolvedMetadata['signed_jwks_uri'] ?? null;
 
@@ -88,7 +88,7 @@ class Test
         );
 
         return new JsonResponse(
-            $trustChain->getResolvedMetadata(EntityTypeEnum::OpenIdRelyingParty),
+            $trustChain->getResolvedMetadata(EntityTypesEnum::OpenIdRelyingParty),
         );
     }
 }

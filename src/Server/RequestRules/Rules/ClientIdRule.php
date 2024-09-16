@@ -21,7 +21,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
-use SimpleSAML\OpenID\Codebooks\EntityTypeEnum;
+use SimpleSAML\OpenID\Codebooks\EntityTypesEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Federation;
@@ -146,7 +146,7 @@ class ClientIdRule extends AbstractRule
             );
         }
         try {
-            $clientMetadata = $trustChain->getResolvedMetadata(EntityTypeEnum::OpenIdRelyingParty);
+            $clientMetadata = $trustChain->getResolvedMetadata(EntityTypesEnum::OpenIdRelyingParty);
         } catch (Throwable $exception) {
             throw OidcServerException::invalidTrustChain(
                 'Error while trying to resolve relying party metadata: ' . $exception->getMessage(),

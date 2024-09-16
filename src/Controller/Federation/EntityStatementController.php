@@ -15,11 +15,11 @@ use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
-use SimpleSAML\OpenID\Codebooks\ContentTypeEnum;
-use SimpleSAML\OpenID\Codebooks\EntityTypeEnum;
+use SimpleSAML\OpenID\Codebooks\ContentTypesEnum;
+use SimpleSAML\OpenID\Codebooks\EntityTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ErrorsEnum;
 use SimpleSAML\OpenID\Codebooks\HttpHeadersEnum;
-use SimpleSAML\OpenID\Codebooks\JwtTypeEnum;
+use SimpleSAML\OpenID\Codebooks\JwtTypesEnum;
 use SimpleSAML\OpenID\Codebooks\RequestAuthenticationMethodsEnum;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -66,7 +66,7 @@ class EntityStatementController
         }
 
         $builder = $this->jsonWebTokenBuilderService->getFederationJwtBuilder()
-            ->withHeader(ClaimsEnum::Typ->value, JwtTypeEnum::EntityStatementJwt->value)
+            ->withHeader(ClaimsEnum::Typ->value, JwtTypesEnum::EntityStatementJwt->value)
             ->relatedTo($this->moduleConfig->getIssuer()) // This is entity configuration (statement about itself).
             ->expiresAt(
                 (TimestampGenerator::utcImmutable())->add($this->moduleConfig->getFederationEntityStatementDuration()),
@@ -77,7 +77,7 @@ class EntityStatementController
             ->withClaim(
                 ClaimsEnum::Metadata->value,
                 [
-                    EntityTypeEnum::FederationEntity->value => [
+                    EntityTypesEnum::FederationEntity->value => [
                         // Common https://openid.net/specs/openid-federation-1_0.html#name-common-metadata-parameters
                         ...(array_filter(
                             [
@@ -104,7 +104,7 @@ class EntityStatementController
                         //'jwks',
                     ],
                     // OP metadata with additional federation related claims.
-                    EntityTypeEnum::OpenIdProvider->value => [
+                    EntityTypesEnum::OpenIdProvider->value => [
                         ...$this->opMetadataService->getMetadata(),
                         ClaimsEnum::ClientRegistrationTypesSupported->value => [
                             ClientRegistrationTypesEnum::Automatic->value,
@@ -215,7 +215,7 @@ class EntityStatementController
         }
 
         $builder = $this->jsonWebTokenBuilderService->getFederationJwtBuilder()
-            ->withHeader(ClaimsEnum::Typ->value, JwtTypeEnum::EntityStatementJwt->value)
+            ->withHeader(ClaimsEnum::Typ->value, JwtTypesEnum::EntityStatementJwt->value)
             ->relatedTo($subject)
             ->expiresAt(
                 (TimestampGenerator::utcImmutable())->add($this->moduleConfig->getFederationEntityStatementDuration()),
@@ -226,7 +226,7 @@ class EntityStatementController
             ->withClaim(
                 ClaimsEnum::Metadata->value,
                 [
-                    EntityTypeEnum::OpenIdRelyingParty->value => [
+                    EntityTypesEnum::OpenIdRelyingParty->value => [
                         ClaimsEnum::ClientName->value => $client->getName(),
                         ClaimsEnum::ClientId->value => $client->getIdentifier(),
                         ClaimsEnum::RedirectUris->value => $client->getRedirectUris(),
@@ -270,7 +270,7 @@ class EntityStatementController
         return new Response(
             $entityStatementToken,
             200,
-            [HttpHeadersEnum::ContentType->value => ContentTypeEnum::ApplicationEntityStatementJwt->value,],
+            [HttpHeadersEnum::ContentType->value => ContentTypesEnum::ApplicationEntityStatementJwt->value,],
         );
     }
 
