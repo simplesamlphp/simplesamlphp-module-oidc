@@ -247,7 +247,7 @@ class ClientEntity implements ClientEntityInterface
         $client->jwksUri = empty($state['jwks_uri']) ? null : (string)$state['jwks_uri'];
         $client->signedJwksUri = empty($state['signed_jwks_uri']) ? null : (string)$state['signed_jwks_uri'];
 
-        $client->registrationType = RegistrationTypeEnum::from($state['registration_type']);
+        $client->registrationType = RegistrationTypeEnum::from(trim($state['registration_type']));
 
         $client->updatedAt = empty($state['updated_at']) ? null :
         TimestampGenerator::utcImmutable((string)$state['updated_at']);
