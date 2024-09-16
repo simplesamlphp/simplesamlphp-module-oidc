@@ -197,7 +197,7 @@ class ClaimTranslatorExtractor
     {
         $scope = $claimSet->getScope();
 
-        if (in_array($scope, $this->protectedClaims) && isset($this->claimSets[$scope])) {
+        if (in_array($scope, $this->protectedClaims, true) && isset($this->claimSets[$scope])) {
             throw OidcServerException::serverError(
                 sprintf("%s is a protected scope and is pre-defined by the OpenID Connect specification.", $scope),
             );
@@ -247,7 +247,7 @@ class ClaimTranslatorExtractor
             foreach ($attributes as $samlMatch) {
                 if (array_key_exists($samlMatch, $samlAttributes)) {
                     /** @psalm-suppress MixedAssignment, MixedArgument */
-                    $values = in_array($claim, $this->allowedMultiValueClaims) ?
+                    $values = in_array($claim, $this->allowedMultiValueClaims, true) ?
                     $samlAttributes[$samlMatch] :
                     current($samlAttributes[$samlMatch]);
                     /** @psalm-suppress MixedAssignment */
@@ -309,7 +309,7 @@ class ClaimTranslatorExtractor
 
             $data = array_filter(
                 $claims,
-                fn($key) => in_array($key, $intersected),
+                fn($key) => in_array($key, $intersected, true),
                 ARRAY_FILTER_USE_KEY,
             );
 

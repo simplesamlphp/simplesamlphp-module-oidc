@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\Stores\Session;
+namespace SimpleSAML\Test\Module\oidc\Stores\unit\Session;
 
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\Controller;
+namespace SimpleSAML\Test\Module\oidc\unit\Controller;
 
 use Exception;
 use Laminas\Diactoros\ServerRequest;

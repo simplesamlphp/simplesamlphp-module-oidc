@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\Server\RequestRules\Rules;
+namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -17,6 +17,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestParameterRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Core\RequestObject;
 
@@ -29,6 +30,7 @@ class RequestParameterRuleTest extends TestCase
     protected MockObject $requestObjectMock;
     protected Stub $requestStub;
     protected Stub $loggerServiceStub;
+    protected MockObject $jwksResolverMock;
 
     protected function setUp(): void
     {
@@ -40,13 +42,18 @@ class RequestParameterRuleTest extends TestCase
         ]);
         $this->requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
         $this->requestObjectMock = $this->createMock(RequestObject::class);
+        $this->requestObjectMock->method('getPayload')->willReturn(['payload']);
         $this->requestStub = $this->createStub(ServerRequestInterface::class);
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
+        $this->jwksResolverMock = $this->createMock(JwksResolver::class);
     }
 
     protected function mock(): RequestParameterRule
     {
-        return new RequestParameterRule($this->requestParamsResolverMock);
+        return new RequestParameterRule(
+            $this->requestParamsResolverMock,
+            $this->jwksResolverMock,
+        );
     }
 
     public function testCanCreateInstance(): void
@@ -69,7 +76,8 @@ class RequestParameterRuleTest extends TestCase
 
         $result = $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
         $this->assertInstanceOf(Result::class, $result);
-        $this->assertSame($this->requestObjectMock, $result->getValue());
+        $this->assertIsArray($result->getValue());
+        $this->assertNotEmpty($result->getValue());
     }
 
     public function testMissingClientJwksThrows(): void
@@ -78,7 +86,7 @@ class RequestParameterRuleTest extends TestCase
         $this->requestObjectMock->method('isProtected')->willReturn(true);
         $this->requestParamsResolverMock->expects($this->once())->method('parseRequestObjectToken')
             ->with('token')->willReturn($this->requestObjectMock);
-        $this->clientStub->expects($this->once())->method('jwks')->willReturn(null);
+        $this->clientStub->expects($this->once())->method('getJwks')->willReturn(null);
 
         $this->expectException(OidcServerException::class);
         $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
@@ -92,7 +100,9 @@ class RequestParameterRuleTest extends TestCase
         ->willThrowException(OidcServerException::accessDenied());
         $this->requestParamsResolverMock->expects($this->once())->method('parseRequestObjectToken')
             ->with('token')->willReturn($this->requestObjectMock);
-        $this->clientStub->expects($this->once())->method('jwks')->willReturn(['jwks']);
+        $this->jwksResolverMock->expects($this->once())->method('forClient')
+            ->with($this->clientStub)
+            ->willReturn(['jwks']);
 
         $this->expectException(OidcServerException::class);
         $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
@@ -105,11 +115,16 @@ class RequestParameterRuleTest extends TestCase
         $this->requestObjectMock->expects($this->once())->method('verifyWithKeySet')->with(['jwks']);
         $this->requestParamsResolverMock->expects($this->once())->method('parseRequestObjectToken')
             ->with('token')->willReturn($this->requestObjectMock);
-        $this->clientStub->expects($this->once())->method('jwks')->willReturn(['jwks']);
+
+        $this->jwksResolverMock->expects($this->once())
+            ->method('forClient')
+            ->with($this->clientStub)
+            ->willReturn(['jwks']);
 
         $result = $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
 
         $this->assertInstanceOf(Result::class, $result);
-        $this->assertSame($this->requestObjectMock, $result->getValue());
+        $this->assertIsArray($result->getValue());
+        $this->assertNotEmpty($result->getValue());
     }
 }

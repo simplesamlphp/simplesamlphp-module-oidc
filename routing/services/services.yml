@@ -84,9 +84,12 @@ services:
 
   # Utils
   SimpleSAML\Module\oidc\Utils\RequestParamsResolver: ~
-
+  SimpleSAML\Module\oidc\Utils\ClassInstanceBuilder: ~
+  SimpleSAML\Module\oidc\Utils\JwksResolver: ~
   SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor:
     factory: ['@SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory', 'build']
+  SimpleSAML\Module\oidc\Utils\FederationCache:
+    factory: ['@SimpleSAML\Module\oidc\Factories\CacheFactory', 'forFederation'] # Can return null
 
   # Use (already available) Laminas\Diactoros package as PSR HTTP Factories.
   Laminas\Diactoros\ServerRequestFactory: ~
@@ -98,5 +101,9 @@ services:
   # Symfony
   Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory: ~
 
-  # Ssp OpenId
+  # SSP OpenId
   SimpleSAML\OpenID\Core: ~
+  SimpleSAML\OpenID\Federation:
+    factory: [ '@SimpleSAML\Module\oidc\Factories\FederationFactory', 'build' ]
+  SimpleSAML\OpenID\Jwks:
+    factory: [ '@SimpleSAML\Module\oidc\Factories\JwksFactory', 'build' ]

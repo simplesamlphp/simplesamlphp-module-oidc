@@ -152,6 +152,24 @@ class ClientForm extends Form
         $this->validateJwks($form->getValues()['jwks'] ?? null);
     }
 
+    public function validateJwksUri(Form $form): void
+    {
+        /** @var string[] $uris */
+        $uris = array_filter(
+            [
+                $form->getValues()['jwks_uri'] ?? null,
+                $form->getValues()['signed_jwks_uri'] ?? null,
+            ],
+        );
+        if (!empty($uris)) {
+            $this->validateByMatchingRegex(
+                $uris,
+                self::REGEX_HTTP_URI,
+                'Invalid JWKS URI: ',
+            );
+        }
+    }
+
     public function validateJwks(mixed $jwks): void
     {
         if (is_null($jwks)) {
@@ -246,6 +264,12 @@ class ClientForm extends Form
             $values['jwks'] = null;
         }
 
+        $jwksUri = trim((string)$values['jwks_uri']);
+        $values['jwks_uri'] = empty($jwksUri) ? null : $jwksUri;
+
+        $signedJwksUri = trim((string)$values['signed_jwks_uri']);
+        $values['signed_jwks_uri'] = empty($signedJwksUri) ? null : $signedJwksUri;
+
         return $values;
     }
 
@@ -310,6 +334,7 @@ class ClientForm extends Form
         $this->onValidate[] = $this->validateClientRegistrationTypes(...);
         $this->onValidate[] = $this->validateFederationJwks(...);
         $this->onValidate[] = $this->validateProtocolJwks(...);
+        $this->onValidate[] = $this->validateJwksUri(...);
 
         $this->setMethod('POST');
         $this->addComponent($this->csrfProtection, Form::ProtectorId);
@@ -355,6 +380,11 @@ class ClientForm extends Form
         $this->addTextArea('federation_jwks', '{oidc:client:federation_jwks}', null, 5);
 
         $this->addTextArea('jwks', '{oidc:client:jwks}', null, 5);
+
+        $this->addText('jwks_uri', 'JWKS URI');
+        $this->addText('signed_jwks_uri', 'Signed JWKS URI');
+
+        $this->addCheckbox('is_federated', '{oidc:client:is_federated}');
     }
 
     /**

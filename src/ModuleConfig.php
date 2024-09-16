@@ -24,6 +24,7 @@ use SimpleSAML\Configuration;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ScopesEnum;
 
 class ModuleConfig
@@ -70,6 +71,12 @@ class ModuleConfig
     final public const OPTION_LOGO_URI = 'logo_uri';
     final public const OPTION_POLICY_URI = 'policy_uri';
     final public const OPTION_HOMEPAGE_URI = 'homepage_uri';
+    final public const OPTION_FEDERATION_ENABLED = 'federation_enabled';
+    final public const OPTION_FEDERATION_CACHE_ADAPTER = 'federation_cache_adapter';
+    final public const OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS = 'federation_cache_adapter_arguments';
+    final public const OPTION_FEDERATION_CACHE_MAX_DURATION = 'federation_cache_max_duration';
+    final public const OPTION_FEDERATION_TRUST_ANCHORS = 'federation_trust_anchors';
+    final public const OPTION_FEDERATION_ENTITY_STATEMENT_CACHE_DURATION = 'federation_entity_statement_cache_duration';
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
@@ -233,7 +240,7 @@ class ModuleConfig
                                                  'values with strings only.');
                 }
 
-                if (! in_array($acrValue, $acrValuesSupported)) {
+                if (! in_array($acrValue, $acrValuesSupported, true)) {
                     throw new ConfigurationError('Config option authSourcesToAcrValuesMap should have ' .
                                                  'supported ACR values only.');
                 }
@@ -243,7 +250,7 @@ class ModuleConfig
         $forcedAcrValueForCookieAuthentication = $this->getForcedAcrValueForCookieAuthentication();
 
         if (! is_null($forcedAcrValueForCookieAuthentication)) {
-            if (! in_array($forcedAcrValueForCookieAuthentication, $acrValuesSupported)) {
+            if (! in_array($forcedAcrValueForCookieAuthentication, $acrValuesSupported, true)) {
                 throw new ConfigurationError('Config option forcedAcrValueForCookieAuthentication should have' .
                                              ' null value or string value indicating particular supported ACR.');
             }
@@ -443,6 +450,19 @@ class ModuleConfig
         );
     }
 
+    /**
+     * @throws \Exception
+     */
+    public function getFederationEntityStatementCacheDuration(): DateInterval
+    {
+        return new DateInterval(
+            $this->config()->getOptionalString(
+                self::OPTION_FEDERATION_ENTITY_STATEMENT_CACHE_DURATION,
+                null,
+            ) ?? 'PT2M',
+        );
+    }
+
     public function getFederationAuthorityHints(): ?array
     {
         $authorityHints = $this->config()->getOptionalArray(
@@ -511,6 +531,77 @@ class ModuleConfig
     {
         return new DateInterval(
             $this->config()->getString(self::OPTION_TOKEN_REFRESH_TOKEN_TTL),
+        );
+    }
+
+    public function getFederationEnabled(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_FEDERATION_ENABLED, false);
+    }
+
+    public function getFederationCacheAdapterClass(): ?string
+    {
+        return $this->config()->getOptionalString(self::OPTION_FEDERATION_CACHE_ADAPTER, null);
+    }
+
+    public function getFederationCacheAdapterArguments(): array
+    {
+        return $this->config()->getOptionalArray(self::OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS, []);
+    }
+
+    public function getFederationCacheMaxDuration(): DateInterval
+    {
+        return new DateInterval(
+            $this->config()->getOptionalString(self::OPTION_FEDERATION_CACHE_MAX_DURATION, 'PT6H'),
+        );
+    }
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getFederationTrustAnchors(): array
+    {
+        $trustAnchors = $this->config()->getOptionalArray(self::OPTION_FEDERATION_TRUST_ANCHORS, []);
+
+        if (empty($trustAnchors) && $this->getFederationEnabled()) {
+            throw new ConfigurationError('No Trust Anchors have been configured.');
+        }
+
+        return $trustAnchors;
+    }
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @return non-empty-array<array-key, non-empty-string>
+     * @psalm-suppress LessSpecificReturnStatement, MoreSpecificReturnType
+     */
+    public function getFederationTrustAnchorIds(): array
+    {
+        return array_map('strval', array_keys($this->getFederationTrustAnchors()));
+    }
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getTrustAnchorJwks(string $trustAnchorId): ?array
+    {
+        /** @psalm-suppress MixedAssignment */
+        $jwks = $this->getFederationTrustAnchors()[$trustAnchorId] ?? null;
+
+        if ($jwks === null) {
+            return null;
+        }
+
+        if (
+            is_array($jwks) &&
+            array_key_exists(ClaimsEnum::Keys->value, $jwks) &&
+            (!empty($jwks[ClaimsEnum::Keys->value]))
+        ) {
+            return $jwks;
+        }
+
+        throw new ConfigurationError(
+            sprintf('Unexpected JWKS format for Trust Anchor %s: %s', $trustAnchorId, var_export($jwks, true)),
         );
     }
 }

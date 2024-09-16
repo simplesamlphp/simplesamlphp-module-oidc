@@ -12,6 +12,13 @@
 
     <div class="ui hidden divider"></div>
 
+    <div class="ui segment">
+        {{ 'Registration:'|trans }} {{ client.registrationType.description }} |
+        {{ 'Created at:'|trans }} {{ client.createdAt ? client.createdAt|date() : 'n/a' }} |
+        {{ 'Updated at:'|trans }} {{ client.updatedAt ? client.updatedAt|date() : 'n/a' }} |
+        {{ 'Expires at:'|trans }} {{ client.expiresAt ? client.expiresAt|date() : 'never' }}
+    </div>
+
     <table class="ui definition table">
         <tbody>
         <tr>
@@ -93,10 +100,6 @@
                 </ul>
             </td>
         </tr>
-        <tr>
-            <td class="collapsing">{{ '{oidc:client:owner}'|trans }}</td>
-            <td>{{ client.owner }}</td>
-        </tr>
         {% if client.isConfidential == false %}
         <tr>
             <td class="collapsing">{{ '{oidc:client:allowed_origin}'|trans }}</td>
@@ -110,7 +113,15 @@
         </tr>
         {% endif %}
         <tr >
-            <td class="collapsing">{{ 'Protocol JWKS'|trans }}</td>
+            <td class="collapsing">{{ 'Signed JWKS URI'|trans }}</td>
+            <td>{{ client.signedJwksUri }}</td>
+        </tr>
+        <tr >
+            <td class="collapsing">{{ 'JWKS URI'|trans }}</td>
+            <td>{{ client.jwksUri }}</td>
+        </tr>
+        <tr >
+            <td class="collapsing">{{ 'JWKS'|trans }}</td>
             <td>
                 {% if client.jwks %}
                     <div class="ui comments" >
@@ -123,9 +134,18 @@
                 {% endif %}
             </td>
         </tr>
+        <tr>
+            <td class="collapsing">{{ '{oidc:client:owner}'|trans }}</td>
+            <td>{{ client.owner }}</td>
+        </tr>
 
         <tr>
             <td colspan="2">OpenID Federation related properties</td>
+        </tr>
+
+        <tr>
+            <td class="collapsing">{{ 'Is federated'|trans }}</td>
+            <td>{{ (client.isFederated ? 'Yes' : 'No')|trans }}</td>
         </tr>
         <tr>
             <td class="collapsing">{{ 'Entity Identifier'|trans }}</td>

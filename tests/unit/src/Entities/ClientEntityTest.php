@@ -2,10 +2,11 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\Entities;
+namespace SimpleSAML\Test\Module\oidc\unit\Entities;
 
 use PDO;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 
 /**
@@ -29,6 +30,11 @@ class ClientEntityTest extends TestCase
             'owner' => 'user@test.com',
             'post_logout_redirect_uri' => json_encode([]),
             'backchannel_logout_uri' => null,
+            'registration_type' => RegistrationTypeEnum::Manual->value,
+            'updated_at' => null,
+            'created_at' => null,
+            'expires_at' => null,
+            'is_federated' => false,
         ];
     }
 
@@ -36,7 +42,7 @@ class ClientEntityTest extends TestCase
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \JsonException
      */
-    public function prepareMockedInstance(array $state = null): ClientEntity
+    public function mock(array $state = null): ClientEntity
     {
         $state ??= $this->state;
         return ClientEntity::fromState($state);
@@ -50,7 +56,7 @@ class ClientEntityTest extends TestCase
     {
         $this->assertInstanceOf(
             ClientEntity::class,
-            $this->prepareMockedInstance(),
+            $this->mock(),
         );
 
         $this->assertInstanceOf(
@@ -65,7 +71,7 @@ class ClientEntityTest extends TestCase
      */
     public function testCanGetProperties(): void
     {
-        $clientEntity = $this->prepareMockedInstance();
+        $clientEntity = $this->mock();
 
         $this->assertSame('id', $clientEntity->getIdentifier());
         $this->assertSame('secret', $clientEntity->getSecret());
@@ -92,7 +98,7 @@ class ClientEntityTest extends TestCase
      */
     public function testCanChangeSecret(): void
     {
-        $clientEntity = $this->prepareMockedInstance();
+        $clientEntity = $this->mock();
         $this->assertSame('secret', $clientEntity->getSecret());
         $clientEntity->restoreSecret('new_secret');
         $this->assertSame($clientEntity->getSecret(), 'new_secret');
@@ -105,7 +111,7 @@ class ClientEntityTest extends TestCase
     public function testCanGetState(): void
     {
         $this->assertSame(
-            $this->prepareMockedInstance()->getState(),
+            $this->mock()->getState(),
             [
                 'id' => 'id',
                 'secret' => 'secret',
@@ -123,6 +129,13 @@ class ClientEntityTest extends TestCase
                 'client_registration_types' => null,
                 'federation_jwks' => null,
                 'jwks' => null,
+                'jwks_uri' => null,
+                'signed_jwks_uri' => null,
+                'registration_type' => RegistrationTypeEnum::Manual->value,
+                'updated_at' => null,
+                'created_at' => null,
+                'expires_at' => null,
+                'is_federated' => [$this->state['is_federated'], PDO::PARAM_BOOL],
             ],
         );
     }
@@ -134,7 +147,7 @@ class ClientEntityTest extends TestCase
     public function testCanExportAsArray(): void
     {
         $this->assertSame(
-            $this->prepareMockedInstance()->toArray(),
+            $this->mock()->toArray(),
             [
                 'id' => 'id',
                 'secret' => 'secret',
@@ -152,6 +165,13 @@ class ClientEntityTest extends TestCase
                 'client_registration_types' => null,
                 'federation_jwks' => null,
                 'jwks' => null,
+                'jwks_uri' => null,
+                'signed_jwks_uri' => null,
+                'registration_type' => RegistrationTypeEnum::Manual,
+                'updated_at' => null,
+                'created_at' => null,
+                'expires_at' => null,
+                'is_federated' => false,
             ],
         );
     }

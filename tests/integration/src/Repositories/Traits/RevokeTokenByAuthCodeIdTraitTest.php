@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\Repositories\Traits;
+namespace SimpleSAML\Test\Module\oidc\integration\Repositories\Traits;
 
 use DateTimeImmutable;
 use PDO;

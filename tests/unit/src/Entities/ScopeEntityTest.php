@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\Entities;
+namespace SimpleSAML\Test\Module\oidc\unit\Entities;
 
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;

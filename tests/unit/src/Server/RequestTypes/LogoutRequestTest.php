@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\Server\RequestTypes;
+namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestTypes;
 
 use Lcobucci\JWT\UnencryptedToken;
 use PHPUnit\Framework\MockObject\Stub;

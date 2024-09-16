@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\Server\RequestRules;
+namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules;
 
 use LogicException;
 use PHPUnit\Framework\MockObject\Stub;

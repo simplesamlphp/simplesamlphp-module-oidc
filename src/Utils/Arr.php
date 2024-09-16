@@ -6,7 +6,7 @@ namespace SimpleSAML\Module\oidc\Utils;
 
 /**
  * Helper for arrays.
- *
+ * TODO mivanci move to Helper instance.
  * Class Arr
  * @package SimpleSAML\Module\oidc\Utils
  */

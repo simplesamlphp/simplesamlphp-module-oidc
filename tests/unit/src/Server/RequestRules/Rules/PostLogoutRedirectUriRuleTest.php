@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\Server\RequestRules\Rules;
+namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Signer\Key\InMemory;

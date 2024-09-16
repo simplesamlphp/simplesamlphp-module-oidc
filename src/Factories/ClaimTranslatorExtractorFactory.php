@@ -84,7 +84,7 @@ class ClaimTranslatorExtractorFactory
          * @var array $mapping
          */
         foreach ($translatorTable as $claimKey => $mapping) {
-            if (in_array($claimKey, $claims)) {
+            if (in_array($claimKey, $claims, true)) {
                 $prefixedClaimKey = $prefix . $claimKey;
                 $translatorTable[$prefixedClaimKey] = $mapping;
                 unset($translatorTable[$claimKey]);

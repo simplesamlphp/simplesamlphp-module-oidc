@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\Utils;
+namespace SimpleSAML\Test\Module\oidc\unit\Utils;
 
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use PHPUnit\Framework\MockObject\Stub;

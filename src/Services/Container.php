@@ -32,16 +32,21 @@ use SimpleSAML\Database;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Metadata\MetaDataStorageHandler;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
+use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Factories\AuthorizationServerFactory;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
+use SimpleSAML\Module\oidc\Factories\CacheFactory;
 use SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory;
+use SimpleSAML\Module\oidc\Factories\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Factories\CryptKeyFactory;
+use SimpleSAML\Module\oidc\Factories\FederationFactory;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\AuthCodeGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\ImplicitGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\OAuth2ImplicitGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\RefreshTokenGrantFactory;
 use SimpleSAML\Module\oidc\Factories\IdTokenResponseFactory;
+use SimpleSAML\Module\oidc\Factories\JwksFactory;
 use SimpleSAML\Module\oidc\Factories\ProcessingChainFactory;
 use SimpleSAML\Module\oidc\Factories\ResourceServerFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
@@ -86,8 +91,13 @@ use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Utils\ClassInstanceBuilder;
+use SimpleSAML\Module\oidc\Utils\FederationCache;
+use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Core;
+use SimpleSAML\OpenID\Federation;
+use SimpleSAML\OpenID\Jwks;
 use SimpleSAML\Session;
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
 
@@ -183,7 +193,20 @@ class Container implements ContainerInterface
         $helpers = new Helpers();
 
         $core = new Core();
-        $requestParamsResolver = new RequestParamsResolver($helpers, $core);
+        $this->services[Core::class] = $core;
+        $classInstanceBuilder = new ClassInstanceBuilder();
+        $this->services[ClassInstanceBuilder::class] = $classInstanceBuilder;
+        $cacheFactory = new CacheFactory($moduleConfig, $loggerService, $classInstanceBuilder);
+        $this->services[CacheFactory::class] = $cacheFactory;
+        $federationCache = $cacheFactory->forFederation();
+        $this->services[FederationCache::class] = $federationCache;
+        $federationFactory = new FederationFactory($moduleConfig, $loggerService, $federationCache);
+        $this->services[FederationFactory::class] = $federationFactory;
+        $federation = $federationFactory->build();
+        $this->services[Federation::class] = $federation;
+
+        $requestParamsResolver = new RequestParamsResolver($helpers, $core, $federation);
+        $this->services[RequestParamsResolver::class] = $requestParamsResolver;
 
         $authenticationService = new AuthenticationService(
             $userRepository,
@@ -205,14 +228,43 @@ class Container implements ContainerInterface
 
         $cryptKeyFactory = new CryptKeyFactory($moduleConfig);
 
+        $sspBridge = new SspBridge();
+        $this->services[SspBridge::class] = $sspBridge;
+
+        $clientEntityFactory = new ClientEntityFactory(
+            $sspBridge,
+            $helpers,
+            $claimTranslatorExtractor,
+            $requestParamsResolver,
+        );
+        $this->services[ClientEntityFactory::class] = $clientEntityFactory;
+
+        $jwksFactory = new JwksFactory($moduleConfig, $loggerService, $federationCache);
+        $this->services[JwksFactory::class] = $jwksFactory;
+
+        $jwks = $jwksFactory->build();
+        $this->services[Jwks::class] = $jwks;
+
+        $jwksResolver = new JwksResolver($jwks);
+        $this->services[JwksResolver::class] = $jwksResolver;
+
         $requestRules = [
             new StateRule($requestParamsResolver),
-            new ClientIdRule($requestParamsResolver, $clientRepository),
+            new ClientIdRule(
+                $requestParamsResolver,
+                $clientRepository,
+                $moduleConfig,
+                $clientEntityFactory,
+                $federation,
+                $helpers,
+                $jwksResolver,
+                $federationCache,
+            ),
             new RedirectUriRule($requestParamsResolver),
-            new RequestParameterRule($requestParamsResolver),
+            new RequestParameterRule($requestParamsResolver, $jwksResolver),
             new PromptRule($requestParamsResolver, $authSimpleFactory, $authenticationService),
             new MaxAgeRule($requestParamsResolver, $authSimpleFactory, $authenticationService),
-            new ScopeRule($requestParamsResolver, $scopeRepository),
+            new ScopeRule($requestParamsResolver, $scopeRepository, $helpers),
             new RequiredOpenIdScopeRule($requestParamsResolver),
             new CodeChallengeRule($requestParamsResolver),
             new CodeChallengeMethodRule($requestParamsResolver, $codeChallengeVerifiersRepository),

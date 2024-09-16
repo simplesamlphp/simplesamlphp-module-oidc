@@ -16,12 +16,15 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Entities;
 
+use DateTimeImmutable;
 use League\OAuth2\Server\Entities\Traits\ClientTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use PDO;
 // use SimpleSAML\Module\oidc\Codebooks\ClaimValues\ClientRegistrationTypesEnum;
+use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
 
 /**
@@ -31,6 +34,30 @@ class ClientEntity implements ClientEntityInterface
 {
     use EntityTrait;
     use ClientTrait;
+
+    public const KEY_ID = 'id';
+    public const KEY_SECRET = 'secret';
+    public const KEY_NAME = 'name';
+    public const KEY_DESCRIPTION = 'description';
+    public const KEY_AUTH_SOURCE = 'auth_source';
+    public const KEY_REDIRECT_URI = 'redirect_uri';
+    public const KEY_SCOPES = 'scopes';
+    public const KEY_IS_ENABLED = 'is_enabled';
+    public const KEY_IS_CONFIDENTIAL = 'is_confidential';
+    public const KEY_OWNER = 'owner';
+    public const KEY_POST_LOGOUT_REDIRECT_URI = 'post_logout_redirect_uri';
+    public const KEY_BACKCHANNEL_LOGOUT_URI = 'backchannel_logout_uri';
+    public const KEY_ENTITY_IDENTIFIER = 'entity_identifier';
+    public const KEY_CLIENT_REGISTRATION_TYPES = 'client_registration_types';
+    public const KEY_FEDERATION_JWKS = 'federation_jwks';
+    public const KEY_JWKS = 'jwks';
+    public const KEY_JWKS_URI = 'jwks_uri';
+    public const KEY_SIGNED_JWKS_URI = 'signed_jwks_uri';
+    public const KEY_REGISTRATION_TYPE = 'registration_type';
+    public const KEY_UPDATED_AT = 'updated_at';
+    public const KEY_CREATED_AT = 'created_at';
+    public const KEY_EXPIRES_AT = 'expires_at';
+    public const KEY_IS_FEDERATED = 'is_federated';
 
     private string $secret;
 
@@ -66,6 +93,13 @@ class ClientEntity implements ClientEntityInterface
      * @var ?array[]|null
      */
     private ?array $jwks = null;
+    private ?string $jwksUri = null;
+    private ?string $signedJwksUri = null;
+    private RegistrationTypeEnum $registrationType;
+    private ?DateTimeImmutable $updatedAt;
+    private ?DateTimeImmutable $createdAt;
+    private ?DateTimeImmutable $expiresAt;
+    private bool $isFederated;
 
     /**
      * Constructor.
@@ -99,6 +133,13 @@ class ClientEntity implements ClientEntityInterface
         ?array $clientRegistrationTypes = null,
         ?array $federationJwks = null,
         ?array $jwks = null,
+        ?string $jwksUri = null,
+        ?string $signedJwksUri = null,
+        RegistrationTypeEnum $registrationType = RegistrationTypeEnum::Manual,
+        ?DateTimeImmutable $updatedAt = null,
+        ?DateTimeImmutable $createdAt = null,
+        ?DateTimeImmutable $expiresAt = null,
+        bool $isFederated = false,
     ): ClientEntityInterface {
         $client = new self();
 
@@ -118,11 +159,19 @@ class ClientEntity implements ClientEntityInterface
         $client->clientRegistrationTypes = $clientRegistrationTypes;
         $client->federationJwks = $federationJwks;
         $client->jwks = $jwks;
+        $client->jwksUri = $jwksUri;
+        $client->signedJwksUri = $signedJwksUri;
+        $client->registrationType = $registrationType;
+        $client->updatedAt = $updatedAt;
+        $client->createdAt = $createdAt;
+        $client->expiresAt = $expiresAt;
+        $client->isFederated = $isFederated;
 
         return $client;
     }
 
     /**
+     * TODO mivanci Move to dedicated factory class.
      * @throws \JsonException
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -135,7 +184,8 @@ class ClientEntity implements ClientEntityInterface
             !is_string($state['secret']) ||
             !is_string($state['name']) ||
             !is_string($state['redirect_uri']) ||
-            !is_string($state['scopes'])
+            !is_string($state['scopes']) ||
+            !is_string($state['registration_type'])
         ) {
             throw OidcServerException::serverError('Invalid Client Entity state');
         }
@@ -194,6 +244,20 @@ class ClientEntity implements ClientEntityInterface
         json_decode((string)$state['jwks'], true, 512, JSON_THROW_ON_ERROR);
         $client->jwks = $jwks;
 
+        $client->jwksUri = empty($state['jwks_uri']) ? null : (string)$state['jwks_uri'];
+        $client->signedJwksUri = empty($state['signed_jwks_uri']) ? null : (string)$state['signed_jwks_uri'];
+
+        $client->registrationType = RegistrationTypeEnum::from(trim($state['registration_type']));
+
+        $client->updatedAt = empty($state['updated_at']) ? null :
+        TimestampGenerator::utcImmutable((string)$state['updated_at']);
+        $client->createdAt = empty($state['created_at']) ? null :
+        TimestampGenerator::utcImmutable((string)$state['created_at']);
+        $client->expiresAt = empty($state['expires_at']) ? null :
+        TimestampGenerator::utcImmutable((string)$state['expires_at']);
+
+        $client->isFederated = (bool)$state['is_federated'];
+
         return $client;
     }
 
@@ -225,7 +289,14 @@ class ClientEntity implements ClientEntityInterface
                 json_encode($this->getFederationJwks()),
             'jwks' => is_null($this->jwks) ?
                 null :
-                json_encode($this->jwks()),
+                json_encode($this->getJwks()),
+            'jwks_uri' => $this->getJwksUri(),
+            'signed_jwks_uri' => $this->getSignedJwksUri(),
+            'registration_type' => $this->getRegistrationType()->value,
+            'updated_at' => $this->getUpdatedAt()?->format('Y-m-d H:i:s'),
+            'created_at' => $this->getCreatedAt()?->format('Y-m-d H:i:s'),
+            'expires_at' => $this->getExpiresAt()?->format('Y-m-d H:i:s'),
+            'is_federated' => [$this->isFederated(), PDO::PARAM_BOOL],
         ];
     }
 
@@ -248,6 +319,13 @@ class ClientEntity implements ClientEntityInterface
             'client_registration_types' => $this->clientRegistrationTypes,
             'federation_jwks' => $this->federationJwks,
             'jwks' => $this->jwks,
+            'jwks_uri' => $this->jwksUri,
+            'signed_jwks_uri' => $this->signedJwksUri,
+            'registration_type' => $this->registrationType,
+            'updated_at' => $this->updatedAt,
+            'created_at' => $this->createdAt,
+            'expires_at' => $this->expiresAt,
+            'is_federated' => $this->isFederated,
         ];
     }
 
@@ -342,8 +420,48 @@ class ClientEntity implements ClientEntityInterface
         return $this->federationJwks;
     }
 
-    public function jwks(): ?array
+    public function getJwks(): ?array
     {
         return $this->jwks;
+    }
+
+    public function getJwksUri(): ?string
+    {
+        return $this->jwksUri;
+    }
+
+    public function getSignedJwksUri(): ?string
+    {
+        return $this->signedJwksUri;
+    }
+
+    public function getRegistrationType(): RegistrationTypeEnum
+    {
+        return $this->registrationType;
+    }
+
+    public function getUpdatedAt(): ?DateTimeImmutable
+    {
+        return $this->updatedAt;
+    }
+
+    public function getCreatedAt(): ?DateTimeImmutable
+    {
+        return $this->createdAt;
+    }
+
+    public function getExpiresAt(): ?DateTimeImmutable
+    {
+        return $this->expiresAt;
+    }
+
+    public function isExpired(): bool
+    {
+        return $this->expiresAt !== null && $this->expiresAt < new DateTimeImmutable();
+    }
+
+    public function isFederated(): bool
+    {
+        return $this->isFederated;
     }
 }

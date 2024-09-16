@@ -9,6 +9,7 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Core;
+use SimpleSAML\OpenID\Federation;
 
 /**
  * Resolve authorization params from HTTP request (based or not based on used method), and from Request Object param if
@@ -19,6 +20,7 @@ class RequestParamsResolver
     public function __construct(
         protected Helpers $helpers,
         protected Core $core,
+        protected Federation $federation,
     ) {
     }
 
@@ -85,6 +87,16 @@ class RequestParamsResolver
     }
 
     /**
+     * Get param value from HTTP request or Request Object if present.
+     *
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     */
+    public function get(string $paramKey, ServerRequestInterface $request): mixed
+    {
+        return $this->getAll($request)[$paramKey] ?? null;
+    }
+
+    /**
      * Get param value from HTTP request or Request Object if present, based on allowed methods.
      *
      * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods
@@ -96,7 +108,6 @@ class RequestParamsResolver
         array $allowedMethods = [HttpMethodsEnum::GET],
     ): mixed {
         $allParams = $this->getAllBasedOnAllowedMethods($request, $allowedMethods);
-
         return $allParams[$paramKey] ?? null;
     }
 
@@ -151,14 +162,28 @@ class RequestParamsResolver
     }
 
     /**
-     * Parse the Request Object token. Note that this won't do any validation of it.
+     * Parse the Request Object token according to OpenID Core specification.
+     * Note that this won't do signature validation of it.
      *
-     * @see \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestParameterRule
      * @param string $token
      * @return \SimpleSAML\OpenID\Core\RequestObject
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     * @see \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestParameterRule
      */
     public function parseRequestObjectToken(string $token): Core\RequestObject
     {
-        return $this->core->getRequestObjectFactory()->fromToken($token);
+        return $this->core->requestObjectFactory()->fromToken($token);
+    }
+
+    /**
+     * Parse the Request Object token according to OpenID Federation specification.
+     * Note that this won't do signature validation of it.
+     *
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     * @throws \SimpleSAML\OpenID\Exceptions\RequestObjectException
+     */
+    public function parseFederationRequestObjectToken(string $token): Federation\RequestObject
+    {
+        return $this->federation->requestObjectFactory()->fromToken($token);
     }
 }

@@ -133,18 +133,70 @@
         {% endif %}
 
         <div class="field">
+            <label for="frm-signed_jwks_uri">{{ 'Signed JWKS URI'|trans }}</label>
+
+            {{ form['signed_jwks_uri'].control | raw }}
+            <small class="helper">
+                {% trans %}URL to a JWS document containing protocol public keys in JWKS format (claim 'keys'). Example:
+                    https://example.org/signed-jwks{% endtrans %}
+            </small>
+        </div>
+
+        <div class="field">
+            <label for="frm-jwks_uri">{{ 'JWKS URI'|trans }}</label>
+
+            {{ form['jwks_uri'].control | raw }}
+            <small class="helper">
+                {% trans %}URL to a JWKS document containing protocol public keys. Will be used if Signed JWKS URI
+                    is not set. Example: https://example.org/jwks{% endtrans %}
+            </small>
+        </div>
+
+        <div class="field">
             <label for="frm-jwks">{{ 'JWKS'|trans }}</label>
 
             {{ form['jwks'].control | raw }}
             <small class="helper">
-                {% trans %}JSON object (string) representing protocol JWKS. This can be used, for example, to check
-                    integrity of Request Object parameter. Note that this should be different from Federation JWKS.
-                    Example:
+                {% trans %}JSON object (string) representing JWKS document containing protocol public keys. Note that
+                    this should be different from Federation JWKS. Will be used if JWKS URI is not set. Example:
                     {"keys":[{"kty": "RSA","n": "...","e": "AQAB","kid": "pro123","use": "sig","alg": "RS256"}]}{% endtrans %}
             </small>
         </div>
 
         <h3 class="ui dividing header">OpenID Federation related properties</h3>
+
+        <div class="field">
+            <label for="frm-is_federated">{{ 'Is federated'|trans }}</label>
+            <div class="inline fields">
+                <div class="field">
+                    <div class="ui radio checkbox">
+                        <input type="radio"
+                               id="frm-enabled"
+                               name="is_federated"
+                               {% if form['is_federated'].value == true %}checked=""{% endif %}
+                               tabindex="0"
+                               value="1"
+                               class="hidden">
+                        <label for="frm-enabled">{{ 'Yes'|trans }}</label>
+                    </div>
+                </div>
+                <div class="field">
+                    <div class="ui radio checkbox">
+                        <input type="radio"
+                               id="frm-disabled"
+                               name="is_federated"
+                               {% if form['is_federated'].value == false %}checked=""{% endif %}
+                               tabindex="0"
+                               value="0"
+                               class="hidden">
+                        <label for="frm-disabled">{{ 'No'|trans }}</label>
+                    </div>
+                </div>
+            </div>
+            <small class="helper">
+                {% trans %}Choose if the client is allowed to participate in federation context or not.{% endtrans %}
+            </small>
+        </div>
 
         <div class="field">
             <label for="frm-entity_identifier">{{ 'Entity Identifier'|trans }}</label>
@@ -259,6 +311,41 @@
             return true;
         };
 
+        $.fn.form.settings.rules.httpUri = function(value) {
+            var uri = value.trim();
+
+            if (uri.length) {
+                return null !== uri.match({{ regexHttpUri | raw }});
+            }
+
+            return true;
+        };
+
+
+
+        $.fn.form.settings.rules.jwksJson = function(value) {
+            var jwksJson = value.trim();
+
+            if (!jwksJson.length) {
+                return true;
+            }
+
+            try {
+                var parsed = JSON.parse(jwksJson);
+
+                if (parsed && typeof parsed === 'object' && 'keys' in parsed) {
+                    var keys = parsed['keys'];
+                    return Array.isArray(keys) && keys.length > 0;
+                }
+
+                return false;
+            } catch (e) {
+                // If an error occurs during parsing, it's not valid JSON
+                console.error(e);
+                return false;
+            }
+        };
+
         var formEl = $('.ui.form');
         formEl.checkbox();
 
@@ -330,8 +417,44 @@
                         identifier: 'entity_identifier',
                         rules: [
                             {
-                                type: 'entityIdentifier',
+                                type: 'httpUri',
                                 prompt: '{{ "Entity Identifier URI not valid."|trans }}'
+                            }
+                        ]
+                    },
+                    signed_jwks_uri: {
+                        identifier: 'signed_jwks_uri',
+                        rules: [
+                            {
+                                type: 'httpUri',
+                                prompt: '{{ "Signed JWKS URI not valid."|trans }}'
+                            }
+                        ]
+                    },
+                    jwks_uri: {
+                        identifier: 'jwks_uri',
+                        rules: [
+                            {
+                                type: 'httpUri',
+                                prompt: '{{ "JWKS URI not valid."|trans }}'
+                            }
+                        ]
+                    },
+                    jwks: {
+                        identifier: 'jwks',
+                        rules: [
+                            {
+                                type: 'jwksJson',
+                                prompt: '{{ "JWKS not valid."|trans }}'
+                            }
+                        ]
+                    },
+                    federation_jwks: {
+                        identifier: 'federation_jwks',
+                        rules: [
+                            {
+                                type: 'jwksJson',
+                                prompt: '{{ "JWKS not valid."|trans }}'
                             }
                         ]
                     }

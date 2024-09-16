@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\Server\Grants;
+namespace SimpleSAML\Test\Module\oidc\Server\unit\Grants;
 
 use DateInterval;
 use PHPUnit\Framework\MockObject\Stub;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\Server\RequestRules\Rules;
+namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
 use LogicException;
@@ -11,6 +11,7 @@ use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
@@ -44,6 +45,8 @@ class ScopeRuleTest extends TestCase
 
     protected Stub $loggerServiceStub;
     protected Stub $requestParamsResolverStub;
+    protected Stub $helpersStub;
+    protected Stub $strHelperMock;
 
     /**
      * @throws \Exception
@@ -61,6 +64,9 @@ class ScopeRuleTest extends TestCase
         ];
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
+        $this->helpersStub = $this->createStub(Helpers::class);
+        $this->strHelperMock = $this->createMock(Helpers\Str::class);
+        $this->helpersStub->method('str')->willReturn($this->strHelperMock);
     }
 
     protected function mock(): ScopeRule
@@ -68,6 +74,7 @@ class ScopeRuleTest extends TestCase
         return new ScopeRule(
             $this->requestParamsResolverStub,
             $this->scopeRepositoryStub,
+            $this->helpersStub,
         );
     }
 
@@ -106,7 +113,11 @@ class ScopeRuleTest extends TestCase
     public function testValidScopes(): void
     {
         $resultBag = $this->prepareValidResultBag();
-        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('openid profile');
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')
+            ->willReturn('openid profile');
+        $this->strHelperMock->expects($this->once())->method('convertScopesStringToArray')
+            ->with('openid profile')
+            ->willReturn(['openid', 'profile']);
         $this->scopeRepositoryStub
             ->method('getScopeEntityByIdentifier')
             ->willReturn(
@@ -129,7 +140,11 @@ class ScopeRuleTest extends TestCase
     public function testInvalidScopeThrows(): void
     {
         $resultBag = $this->prepareValidResultBag();
-        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('openid');
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')
+            ->willReturn('openid');
+        $this->strHelperMock->expects($this->once())->method('convertScopesStringToArray')
+            ->with('openid')
+            ->willReturn(['openid']);
         $this->scopeRepositoryStub
             ->method('getScopeEntityByIdentifier')
             ->willReturn(

@@ -32,4 +32,9 @@ interface ResultBagInterface
      * Remove result from the result bag.
      */
     public function remove(string $key): void;
+
+    /**
+     * Check if specific result exists in result bag.
+     */
+    public function has(string $key): bool;
 }

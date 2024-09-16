@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\Utils;
+namespace SimpleSAML\Test\Module\oidc\unit\Utils;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -14,6 +14,7 @@ use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Core\Factories\RequestObjectFactory;
 use SimpleSAML\OpenID\Core\RequestObject;
+use SimpleSAML\OpenID\Federation;
 
 #[CoversClass(RequestParamsResolver::class)]
 class RequestParamsResolverTest extends TestCase
@@ -24,6 +25,7 @@ class RequestParamsResolverTest extends TestCase
     protected MockObject $requestMock;
     protected MockObject $requestObjectMock;
     protected MockObject $requestObjectFactoryMock;
+    protected MockObject $federationMock;
 
     protected array $queryParams = [
         'a' => 'b',
@@ -50,14 +52,20 @@ class RequestParamsResolverTest extends TestCase
         $this->requestObjectFactoryMock = $this->createMock(RequestObjectFactory::class);
         $this->requestObjectFactoryMock->method('fromToken')->willReturn($this->requestObjectMock);
         $this->coreMock = $this->createMock(Core::class);
-        $this->coreMock->method('getRequestObjectFactory')->willReturn($this->requestObjectFactoryMock);
+        $this->coreMock->method('requestObjectFactory')->willReturn($this->requestObjectFactoryMock);
+        $this->federationMock = $this->createMock(Federation::class);
     }
 
-    protected function mock(MockObject $helpersMock = null, MockObject $coreMock = null): RequestParamsResolver
-    {
+    protected function mock(
+        MockObject $helpersMock = null,
+        MockObject $coreMock = null,
+        MockObject $federationMock = null,
+    ): RequestParamsResolver {
         $helpersMock ??= $this->helpersMock;
         $coreMock ??= $this->coreMock;
-        return new RequestParamsResolver($helpersMock, $coreMock);
+        $federationMock ??= $this->federationMock;
+
+        return new RequestParamsResolver($helpersMock, $coreMock, $federationMock);
     }
 
     public function testCanCreateInstance(): void

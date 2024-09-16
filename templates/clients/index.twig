@@ -46,6 +46,12 @@
                         <div class="sub header">
                             {{ client.description }}
                         </div>
+                        <div class="sub header">
+                            {{ 'Registration:'|trans }} {{ client.registrationType.description }} |
+                            {{ 'Created at:'|trans }} {{ client.createdAt ? client.createdAt|date() : 'n/a' }} |
+                            {{ 'Updated at:'|trans }} {{ client.updatedAt ? client.updatedAt|date() : 'n/a' }} |
+                            {{ 'Expires at:'|trans }} {{ client.expiresAt ? client.expiresAt|date() : 'never' }}
+                        </div>
                     </div>
                 </td>
                 <td class="collapsing">

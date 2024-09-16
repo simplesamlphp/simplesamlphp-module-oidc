@@ -279,6 +279,89 @@ $config = [
      * disabled.
      */
 
+    // Enable or disable federation capabilities. Default is disabled (false).
+    ModuleConfig::OPTION_FEDERATION_ENABLED => false,
+
+    // Trust Anchors which are valid for this entity. The key represents the Trust Anchor Entity ID, while the value can
+    // be the Trust Anchor's JWKS array value, or null. If JWKS is provided, it will be used to validate Trust Anchor
+    // Configuration Statement in addition to using JWKS acquired during Trust Chain resolution. If JWKS is not
+    // provided (value null), the validity of Trust Anchor Configuration Statement will "only" be validated
+    // by the JWKS acquired during Trust Chain resolution, meaning that security will rely "only" on
+    // protection implied from using TLS on endpoints used during Trust Chain resolution.
+    ModuleConfig::OPTION_FEDERATION_TRUST_ANCHORS => [
+//        'https://ta.example.org/' => [
+//            'keys' => [
+//                [
+//                    'alg' => 'RS256',
+//                    'use' => 'sig',
+//                    'kty' => 'RSA',
+//                    'n' => 'abc...def',
+//                    'e' => 'AQAB',
+//                    'kid' => '123',
+//                ],
+//                [
+//                    'alg' => 'RS256',
+//                    'use' => 'sig',
+//                    'kty' => 'RSA',
+//                    'n' => 'ghi...jkl',
+//                    'e' => 'AQAB',
+//                    'kid' => '456',
+//                ],
+//            ],
+//        ],
+//        'https://ta2.example.org/' => null,
+    ],
+
+    // Federation authority hints. An array of strings representing the Entity Identifiers of Intermediate Entities
+    // (or Trust Anchors). Required if this entity has a Superior entity above it.
+    ModuleConfig::OPTION_FEDERATION_AUTHORITY_HINTS => [
+        //'https://intermediate.example.org/',
+    ],
+
+    // (optional) Dedicated federation cache adapter, used to cache federation artifacts like trust chains, entity
+    // statements, etc. Setting this is recommended in production environments. If set to null, no caching will
+    // be used. Can be set to any Symfony Cache Adapter class, like in examples below. If set, make sure to
+    // also give proper adapter arguments for its instantiation below.
+    // @see https://symfony.com/doc/current/components/cache.html#available-cache-adapters
+    ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER => null,
+    //ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\FilesystemAdapter::class,
+    //ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\MemcachedAdapter::class,
+
+    // Federation cache adapter arguments used for adapter instantiation. Refer to documentation for particular
+    // adapter on which arguments are needed to create its instance, in the order of constructor arguments.
+    // See examples below.
+    ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS => [
+        // Adapter arguments here...
+    ],
+    // Example for FileSystemAdapter:
+    //ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS => [
+    //    'openidFederation', // Namespace, subdirectory of main cache directory
+    //    60 * 60 * 6, // Default lifetime in seconds (used when particular cache item doesn't define its own lifetime)
+    //    '/path/to/main/cache/directory' // Must be writable. Can be set to null to use system temporary directory.
+    //],
+    // Example for MemcachedAdapter:
+    //ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS => [
+    //    // First argument is a connection instance, so we can use the helper method to create it. In this example a
+    //    // single server is used. Refer to documentation on how to use multiple servers, and / or to provide other
+    //    // options.
+    //    \Symfony\Component\Cache\Adapter\MemcachedAdapter::createConnection(
+    //        'memcached://localhost'
+    //    // the DSN can include config options (pass them as a query string):
+    //    // 'memcached://localhost:11222?retry_timeout=10'
+    //    // 'memcached://localhost:11222?socket_recv_size=1&socket_send_size=2'
+    //    ),
+    //    'openidFederation', // Namespace, key prefix.
+    //    60 * 60 * 6, // Default lifetime in seconds (used when particular cache item doesn't define its own lifetime)
+    //],
+
+    // Maximum federation cache item duration. Federation cache item duration will typically be resolved based on the
+    // expiry of the artifact. For example, when caching entity statements, cache duration will be based on the 'exp'
+    // claim (expiration time). Since those claims are set by issuer (can be long), it could be desirable to limit
+    // the maximum time, so that items in cache get refreshed more regularly (and changes propagate more quickly).
+    // This is only relevant if federation cache adapter is set up. For duration format info, check
+    // https://www.php.net/manual/en/dateinterval.construct.php.
+    ModuleConfig::OPTION_FEDERATION_CACHE_MAX_DURATION => 'PT6H', // 6 hours
+
     /**
      * PKI settings related to OpenID Federation. These keys will be used, for example, to sign federation
      * entity statements. Note that these keys SHOULD NOT be the same as the ones used in OIDC protocol itself.
@@ -295,15 +378,15 @@ $config = [
     //ModuleConfig::OPTION_FEDERATION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Rsa\Sha256::class,
 
     // Federation entity statement duration which determines the Expiration Time (exp) claim set in entity
-    // statement JWTs published by this OP. If not set, default of 1 day will be used. For duration format info, check
+    // statement JWSs published by this OP. If not set, default of 1 day will be used. For duration format info, check
     // https://www.php.net/manual/en/dateinterval.construct.php
-    //ModuleConfig::OPTION_FEDERATION_ENTITY_STATEMENT_DURATION => 'P1D', // 1 day
+    ModuleConfig::OPTION_FEDERATION_ENTITY_STATEMENT_DURATION => 'P1D', // 1 day
 
-    // Federation authority hints. An array of strings representing the Entity Identifiers of Intermediate Entities
-    // or Trust Anchors. Required if this entity has a Superior entity above it.
-    ModuleConfig::OPTION_FEDERATION_AUTHORITY_HINTS => [
-        //'https://edugain.org/federation',
-    ],
+    // Cache duration for federation entity statements produced by this OP. This can be used to avoid calculating JWS
+    // signature on every HTTP request for OP Configuration statement, Subordinate Statements...
+    // This is only relevant if federation cache adapter is set up. For duration format info, check
+    // https://www.php.net/manual/en/dateinterval.construct.php.
+    ModuleConfig::OPTION_FEDERATION_ENTITY_STATEMENT_CACHE_DURATION => 'PT2M', // 2 minutes
 
     // Common federation entity parameters:
     // https://openid.net/specs/openid-federation-1_0.html#name-common-metadata-parameters

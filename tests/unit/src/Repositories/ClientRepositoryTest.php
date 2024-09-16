@@ -13,9 +13,8 @@ declare(strict_types=1);
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-namespace SimpleSAML\Test\Module\oidc\Repositories;
+namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
-use League\OAuth2\Server\Exception\OAuthServerException;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
@@ -102,12 +101,10 @@ class ClientRepositoryTest extends TestCase
      */
     public function testGetDisabledClientEntity(): void
     {
-        $this->expectException(OAuthServerException::class);
-
         $client = self::getClient('clientid', false);
         self::$repository->add($client);
 
-        self::$repository->getClientEntity('clientid');
+        $this->assertNull(self::$repository->getClientEntity('clientid'));
     }
 
     /**

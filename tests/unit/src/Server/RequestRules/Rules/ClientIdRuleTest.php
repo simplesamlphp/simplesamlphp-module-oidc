@@ -2,19 +2,25 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\Server\RequestRules\Rules;
+namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
-use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Factories\ClientEntityFactory;
+use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\FederationCache;
+use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\OpenID\Federation;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule
@@ -27,6 +33,12 @@ class ClientIdRuleTest extends TestCase
     protected Stub $resultBagStub;
     protected Stub $loggerServiceStub;
     protected Stub $requestParamsResolverStub;
+    protected Stub $moduleConfigStub;
+    protected Stub $federationStub;
+    protected Stub $federationCacheStub;
+    protected Stub $clientEntityFactoryStub;
+    protected Stub $helpersStub;
+    protected Stub $jwksResolverStub;
 
     /**
      * @throws \Exception
@@ -34,11 +46,17 @@ class ClientIdRuleTest extends TestCase
     protected function setUp(): void
     {
         $this->clientEntityStub = $this->createStub(ClientEntityInterface::class);
-        $this->clientRepositoryStub = $this->createStub(ClientRepositoryInterface::class);
+        $this->clientRepositoryStub = $this->createStub(ClientRepository::class);
         $this->requestStub = $this->createStub(ServerRequestInterface::class);
         $this->resultBagStub = $this->createStub(ResultBagInterface::class);
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
+        $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
+        $this->federationStub = $this->createStub(Federation::class);
+        $this->federationCacheStub = $this->createStub(FederationCache::class);
+        $this->clientEntityFactoryStub = $this->createStub(ClientEntityFactory::class);
+        $this->helpersStub = $this->createStub(Helpers::class);
+        $this->jwksResolverStub = $this->createStub(JwksResolver::class);
     }
 
     protected function mock(): ClientIdRule
@@ -46,6 +64,12 @@ class ClientIdRuleTest extends TestCase
         return new ClientIdRule(
             $this->requestParamsResolverStub,
             $this->clientRepositoryStub,
+            $this->moduleConfigStub,
+            $this->clientEntityFactoryStub,
+            $this->federationStub,
+            $this->helpersStub,
+            $this->jwksResolverStub,
+            $this->federationCacheStub,
         );
     }
 

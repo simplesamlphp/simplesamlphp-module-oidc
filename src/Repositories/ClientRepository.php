@@ -15,8 +15,8 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Module\oidc\Repositories;
 
-use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
+use PDO;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -43,8 +43,12 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
             return null;
         }
 
+        if ($client->isExpired()) {
+            return null;
+        }
+
         if (false === $client->isEnabled()) {
-            throw OAuthServerException::accessDenied('Client is disabled');
+            return null;
         }
 
         return $client;
@@ -103,16 +107,24 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         return ClientEntity::fromState($row);
     }
 
-    public function findByEntityIdentifier(string $entityIdentifier, ?string $owner = null): ?ClientEntityInterface
+    public function findFederated(string $entityIdentifier, ?string $owner = null): ?ClientEntityInterface
     {
         /**
          * @var string $query
          * @var array $params
          */
         [$query, $params] = $this->addOwnerWhereClause(
-            "SELECT * FROM {$this->getTableName()} WHERE entity_identifier = :entity_identifier",
+            <<<EOS
+            SELECT * FROM {$this->getTableName()}
+            WHERE
+                entity_identifier = :entity_identifier AND
+                is_enabled = :is_enabled AND
+                is_federated = :is_federated
+            EOS,
             [
                 'entity_identifier' => $entityIdentifier,
+                'is_enabled' => [true, PDO::PARAM_BOOL],
+                'is_federated' => [true, PDO::PARAM_BOOL],
             ],
             $owner,
         );
@@ -236,7 +248,14 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
                 entity_identifier,
                 client_registration_types,
                 federation_jwks,
-                jwks
+                jwks,
+                jwks_uri,
+                signed_jwks_uri,
+                registration_type,
+                updated_at,
+                created_at,
+                expires_at,
+                is_federated
             )
             VALUES (
                 :id,
@@ -254,7 +273,14 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
                 :entity_identifier,
                 :client_registration_types,
                 :federation_jwks,
-                :jwks
+                :jwks,
+                :jwks_uri,
+                :signed_jwks_uri,
+                :registration_type,
+                :updated_at,
+                :created_at,
+                :expires_at,
+                :is_federated
             )
 EOS
             ,
@@ -301,7 +327,14 @@ EOS
                 entity_identifier = :entity_identifier,
                 client_registration_types = :client_registration_types,
                 federation_jwks = :federation_jwks,
-                jwks = :jwks
+                jwks = :jwks,
+                jwks_uri = :jwks_uri,
+                signed_jwks_uri = :signed_jwks_uri,
+                registration_type = :registration_type,
+                updated_at = :updated_at,
+                created_at = :created_at,
+                expires_at = :expires_at,
+                is_federated = :is_federated
             WHERE id = :id
 EOF
             ,
