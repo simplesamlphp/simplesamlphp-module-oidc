@@ -109,7 +109,7 @@ class ClientIdRule extends AbstractRule
         // Check for reuse of the Request Object. Request Object MUST only be used once (by OpenID Federation spec).
         if ($this->federationCache) {
             ($this->federationCache->has(self::KEY_REQUEST_OBJECT_JTI, $requestObject->getJwtId()) === false)
-            || throw OidcServerException::invalidRequest(ParamsEnum::Request->value, 'Request object reused.');
+            || throw OidcServerException::invalidRequest(ParamsEnum::Request->value, 'Request Object reused.');
         }
 
         $clientEntityId = $requestObject->getIssuer();

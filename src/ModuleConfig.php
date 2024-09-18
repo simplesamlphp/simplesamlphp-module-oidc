@@ -606,4 +606,14 @@ class ModuleConfig
             sprintf('Unexpected JWKS format for Trust Anchor %s: %s', $trustAnchorId, var_export($jwks, true)),
         );
     }
+
+    public function getProtocolCacheAdapterClass(): ?string
+    {
+        return $this->config()->getOptionalString(self::OPTION_PROTOCOL_CACHE_ADAPTER, null);
+    }
+
+    public function getProtocolCacheAdapterArguments(): array
+    {
+        return $this->config()->getOptionalArray(self::OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS, []);
+    }
 }

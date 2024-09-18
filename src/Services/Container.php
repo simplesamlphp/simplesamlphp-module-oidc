@@ -96,6 +96,7 @@ use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\ClassInstanceBuilder;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
+use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Federation;
@@ -202,6 +203,8 @@ class Container implements ContainerInterface
         $this->services[CacheFactory::class] = $cacheFactory;
         $federationCache = $cacheFactory->forFederation();
         $this->services[FederationCache::class] = $federationCache;
+        $protocolCache = $cacheFactory->forProtocol();
+        $this->services[ProtocolCache::class] = $protocolCache;
         $federationFactory = new FederationFactory($moduleConfig, $loggerService, $federationCache);
         $this->services[FederationFactory::class] = $federationFactory;
         $federation = $federationFactory->build();
@@ -279,7 +282,13 @@ class Container implements ContainerInterface
             new UiLocalesRule($requestParamsResolver),
             new AcrValuesRule($requestParamsResolver),
             new ScopeOfflineAccessRule($requestParamsResolver),
-            new ClientAuthenticationRule($requestParamsResolver, $moduleConfig, $jwksResolver),
+            new ClientAuthenticationRule(
+                $requestParamsResolver,
+                $moduleConfig,
+                $jwksResolver,
+                $helpers,
+                $protocolCache,
+            ),
             new CodeVerifierRule($requestParamsResolver),
         ];
         $requestRuleManager = new RequestRulesManager($requestRules, $loggerService);

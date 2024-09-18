@@ -22,7 +22,7 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Core\RequestObject;
 
 #[CoversClass(RequestObjectRule::class)]
-class RequestParameterRuleTest extends TestCase
+class RequestObjectRuleTest extends TestCase
 {
     protected Stub $clientStub;
     protected Stub $resultBagStub;

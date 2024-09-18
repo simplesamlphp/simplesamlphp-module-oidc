@@ -36,6 +36,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
+use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Federation;
 
@@ -57,6 +58,7 @@ class RequestRulesManagerFactory
         private readonly Helpers $helpers,
         private readonly JwksResolver $jwksResolver,
         private readonly ?FederationCache $federationCache = null,
+        private readonly ?ProtocolCache $protocolCache = null,
     ) {
     }
 
@@ -104,7 +106,13 @@ class RequestRulesManagerFactory
             new UiLocalesRule($this->requestParamsResolver),
             new AcrValuesRule($this->requestParamsResolver),
             new ScopeOfflineAccessRule($this->requestParamsResolver),
-            new ClientAuthenticationRule($this->requestParamsResolver, $this->moduleConfig, $this->jwksResolver),
+            new ClientAuthenticationRule(
+                $this->requestParamsResolver,
+                $this->moduleConfig,
+                $this->jwksResolver,
+                $this->helpers,
+                $this->protocolCache,
+            ),
             new CodeVerifierRule($this->requestParamsResolver),
         ];
     }

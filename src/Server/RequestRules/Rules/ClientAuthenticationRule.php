@@ -6,6 +6,7 @@ namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
@@ -13,6 +14,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
+use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\ClientAssertionTypesEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
@@ -20,10 +22,14 @@ use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 class ClientAuthenticationRule extends AbstractRule
 {
+    protected const KEY_CLIENT_ASSERTION_JTI = 'client_assertion_jti';
+
     public function __construct(
         RequestParamsResolver $requestParamsResolver,
         protected ModuleConfig $moduleConfig,
         protected JwksResolver $jwksResolver,
+        protected Helpers $helpers,
+        protected ?ProtocolCache $protocolCache,
     ) {
         parent::__construct($requestParamsResolver);
     }
@@ -87,8 +93,14 @@ class ClientAuthenticationRule extends AbstractRule
 
         $clientAssertion = $this->requestParamsResolver->parseClientAssertionToken($clientAssertionParam);
 
-        /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
-        $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
+        // Check if the Client Assertion token has already been used. Only applicable if we have cache available.
+        if ($this->protocolCache) {
+            ($this->protocolCache->has(self::KEY_CLIENT_ASSERTION_JTI, $clientAssertion->getJwtId()) === false)
+            || throw OidcServerException::invalidRequest(
+                ParamsEnum::ClientAssertion->value,
+                'Client Assertion reused.',
+            );
+        }
 
         ($jwks = $this->jwksResolver->forClient($client)) || throw OidcServerException::accessDenied(
             'Can not validate Client Assertion, client JWKS not available.',
@@ -121,6 +133,14 @@ class ClientAuthenticationRule extends AbstractRule
 
         (!empty(array_intersect($expectedAudience, $clientAssertion->getAudience()))) ||
         throw OidcServerException::accessDenied('Invalid Client Assertion Audience claim.');
+
+        // Everything seems ok. Save it in cache so we can check for reuse.
+        $this->protocolCache?->set(
+            $clientAssertion->getJwtId(),
+            $this->helpers->dateTime()->getSecondsToExpirationTime($clientAssertion->getExpirationTime()),
+            self::KEY_CLIENT_ASSERTION_JTI,
+            $clientAssertion->getJwtId(),
+        );
 
         return new Result($this->getKey(), ParamsEnum::ClientAssertion->value);
     }
