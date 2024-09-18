@@ -69,16 +69,18 @@ use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AddClaimsToIdTokenRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientAuthenticationRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeVerifierRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
-use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestParameterRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredNonceRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
@@ -261,7 +263,7 @@ class Container implements ContainerInterface
                 $federationCache,
             ),
             new RedirectUriRule($requestParamsResolver),
-            new RequestParameterRule($requestParamsResolver, $jwksResolver),
+            new RequestObjectRule($requestParamsResolver, $jwksResolver),
             new PromptRule($requestParamsResolver, $authSimpleFactory, $authenticationService),
             new MaxAgeRule($requestParamsResolver, $authSimpleFactory, $authenticationService),
             new ScopeRule($requestParamsResolver, $scopeRepository, $helpers),
@@ -277,6 +279,8 @@ class Container implements ContainerInterface
             new UiLocalesRule($requestParamsResolver),
             new AcrValuesRule($requestParamsResolver),
             new ScopeOfflineAccessRule($requestParamsResolver),
+            new ClientAuthenticationRule($requestParamsResolver, $moduleConfig, $jwksResolver),
+            new CodeVerifierRule($requestParamsResolver),
         ];
         $requestRuleManager = new RequestRulesManager($requestRules, $loggerService);
         $this->services[RequestRulesManager::class] = $requestRuleManager;

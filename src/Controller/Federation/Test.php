@@ -79,12 +79,10 @@ class Test
         $cachedSignedJwks = $signedJwksUri ? $this->jwks->jwksFetcher()->fromCache($signedJwksUri) : null;
         $signedJwks = $signedJwksUri ? $this->jwks->jwksFetcher()
             ->fromSignedJwksUri($signedJwksUri, $leafFederationJwks) : null;
-        var_export(json_decode(json_encode($jwks->jwks?->jsonSerialize()), true));
         dd(
-            var_export(json_decode(json_encode($jwks->jwks->jsonSerialize()), true)),
-            $cachedJwks?->jsonSerialize(),
-            $signedJwks->jwks->jsonSerialize(),
-            $cachedSignedJwks?->jsonSerialize(),
+            $signedJwksUri,
+            $cachedSignedJwks,
+            $signedJwks,
         );
 
         return new JsonResponse(

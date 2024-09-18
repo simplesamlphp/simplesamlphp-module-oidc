@@ -352,7 +352,7 @@ class AuthenticationService
             'entityid' => $state['Destination']['entityid'] ?? '',
         ];
 
-        $state['ReturnURL'] = $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdAuthorization->value);
+        $state['ReturnURL'] = $this->moduleConfig->getModuleUrl(RoutesEnum::Authorization->value);
         $state['Destination'] = $spMetadata;
         $state['Source'] = $idpMetadata;
 

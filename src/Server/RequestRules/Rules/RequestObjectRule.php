@@ -15,7 +15,7 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
-class RequestParameterRule extends AbstractRule
+class RequestObjectRule extends AbstractRule
 {
     public function __construct(
         RequestParamsResolver $requestParamsResolver,

@@ -12,16 +12,18 @@ use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AddClaimsToIdTokenRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientAuthenticationRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeVerifierRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
-use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestParameterRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredNonceRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
@@ -86,7 +88,7 @@ class RequestRulesManagerFactory
                 $this->federationCache,
             ),
             new RedirectUriRule($this->requestParamsResolver),
-            new RequestParameterRule($this->requestParamsResolver, $this->jwksResolver),
+            new RequestObjectRule($this->requestParamsResolver, $this->jwksResolver),
             new PromptRule($this->requestParamsResolver, $this->authSimpleFactory, $this->authenticationService),
             new MaxAgeRule($this->requestParamsResolver, $this->authSimpleFactory, $this->authenticationService),
             new ScopeRule($this->requestParamsResolver, $this->scopeRepository, $this->helpers),
@@ -102,6 +104,8 @@ class RequestRulesManagerFactory
             new UiLocalesRule($this->requestParamsResolver),
             new AcrValuesRule($this->requestParamsResolver),
             new ScopeOfflineAccessRule($this->requestParamsResolver),
+            new ClientAuthenticationRule($this->requestParamsResolver, $this->moduleConfig, $this->jwksResolver),
+            new CodeVerifierRule($this->requestParamsResolver),
         ];
     }
 }

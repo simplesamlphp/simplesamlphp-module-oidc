@@ -39,14 +39,14 @@ class OpMetadataService
         $this->metadata = [];
         $this->metadata[ClaimsEnum::Issuer->value] = $this->moduleConfig->getIssuer();
         $this->metadata[ClaimsEnum::AuthorizationEndpoint->value] =
-        $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdAuthorization->value);
+        $this->moduleConfig->getModuleUrl(RoutesEnum::Authorization->value);
         $this->metadata[ClaimsEnum::TokenEndpoint->value] =
-        $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdToken->value);
+        $this->moduleConfig->getModuleUrl(RoutesEnum::Token->value);
         $this->metadata[ClaimsEnum::UserinfoEndpoint->value] =
-        $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdUserInfo->value);
+        $this->moduleConfig->getModuleUrl(RoutesEnum::UserInfo->value);
         $this->metadata[ClaimsEnum::EndSessionEndpoint->value] =
-        $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdEndSession->value);
-        $this->metadata[ClaimsEnum::JwksUri->value] = $this->moduleConfig->getModuleUrl(RoutesEnum::OpenIdJwks->value);
+        $this->moduleConfig->getModuleUrl(RoutesEnum::EndSession->value);
+        $this->metadata[ClaimsEnum::JwksUri->value] = $this->moduleConfig->getModuleUrl(RoutesEnum::Jwks->value);
         $this->metadata[ClaimsEnum::ScopesSupported->value] = array_keys($this->moduleConfig->getOpenIDScopes());
         $this->metadata[ClaimsEnum::ResponseTypesSupported->value] = ['code', 'token', 'id_token', 'id_token token'];
         $this->metadata[ClaimsEnum::SubjectTypesSupported->value] = ['public'];

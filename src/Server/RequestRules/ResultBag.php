@@ -43,7 +43,9 @@ class ResultBag implements ResultBagInterface
         $result = $this->get($key);
 
         if ($result === null) {
-            throw new LogicException(sprintf('Checker error: expected existing result, but none found (%s)', $key));
+            throw new LogicException(
+                sprintf('Request rule error: expected existing result, but none found (%s)', $key),
+            );
         }
 
         return $result;

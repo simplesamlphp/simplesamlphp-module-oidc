@@ -1,13 +1,12 @@
 # TODO
 - upgrade to v9 of oauth2-server https://github.com/thephpleague/oauth2-server/releases/tag/9.0.0
-- key rollover
-- token introspection
-- implement store for different entities?: i.e. client data can use RDB like mysql, whilst short term data
-  like tokens can utilize faster stores like memcache, redis...
-- move checkers to templates (generics) for proper static type handling
+- implement key rollover
+- implement token introspection
+- implement dynamic client registration
+- move request rules to templates (generics) for proper static type handling
 - remove dependency on laminas/laminas-httphandlerrunner
 - create a bridge towards SSP utility classes, so they can be easily mocked
-- ?move away from SSP database as store; move to custom store interface
+- move away from SSP database as store; move to DBAL
 
 # Version 5 to 6
 
@@ -33,13 +32,14 @@
 - Authorization endpoint now also supports sending request parameters using HTTP POST method, in addition to GET.
 - Added support for passing authorization request parameters as JWTs, specifically - passing a Request Object by Value:
 https://openid.net/specs/openid-connect-core-1_0.html#RequestObject
-- TODO Added support for `private_key_jwt` client authentication method at token endpoint:
+- Added support for `private_key_jwt` client authentication method at token endpoint:
 https://openid.net/specs/openid-connect-core-1_0.html#ClientAuthentication
 
 ## New configuration options
 
 - (optional) Issuer - you can now override the issuer (OP identifier). If not set, it falls back to current scheme, host
 and optionally a port (as in all previous module versions).
+- protocol caching adapter and its arguments
 - (optional) OpenID Federation related options (needed if federation capabilities are to be used):
   - enabled or disabled federation capabilities
   - valid trust anchors

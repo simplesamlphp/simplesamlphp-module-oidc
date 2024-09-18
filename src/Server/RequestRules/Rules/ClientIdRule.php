@@ -106,12 +106,13 @@ class ClientIdRule extends AbstractRule
         (in_array($this->moduleConfig->getIssuer(), $requestObject->getAudience(), true)) ||
         throw OidcServerException::invalidRequest(ParamsEnum::Request->value, 'Invalid audience.');
 
-        // Check for reuse of the Request Object. Request Object MUST only be used once.
-        (boolval(
-            $this->federationCache?->has(self::KEY_REQUEST_OBJECT_JTI, $requestObject->getJwtId()),
-        ) === false) || throw OidcServerException::invalidRequest(ParamsEnum::Request->value, 'Request object reused.');
+        // Check for reuse of the Request Object. Request Object MUST only be used once (by OpenID Federation spec).
+        if ($this->federationCache) {
+            ($this->federationCache->has(self::KEY_REQUEST_OBJECT_JTI, $requestObject->getJwtId()) === false)
+            || throw OidcServerException::invalidRequest(ParamsEnum::Request->value, 'Request object reused.');
+        }
 
-        $clientEntityId =  $requestObject->getIssuer();
+        $clientEntityId = $requestObject->getIssuer();
         // Make sure that the Client ID is valid URL.
         (preg_match(ClientForm::REGEX_HTTP_URI_PATH, $requestObject->getIssuer())) ||
         throw OidcServerException::invalidRequest(ParamsEnum::Request->value, 'Client ID is not valid URI.');
@@ -185,7 +186,7 @@ class ClientIdRule extends AbstractRule
         );
 
         ($clientJwks = $this->jwksResolver->forClient($registrationClient)) ||
-        throw OidcServerException::accessDenied('Client JWKS not available-.');
+        throw OidcServerException::accessDenied('Client JWKS not available.');
 
         // Verify signature on Request Object using client JWKS.
         $requestObject->verifyWithKeySet($clientJwks);
@@ -207,7 +208,7 @@ class ClientIdRule extends AbstractRule
 
         // We will also update result for RequestParameterRule (inject value from here), since the request object
         // is already resolved.
-        $currentResultBag->add(new Result(RequestParameterRule::class, $requestObject->getPayload()));
+        $currentResultBag->add(new Result(RequestObjectRule::class, $requestObject->getPayload()));
 
         return new Result($this->getKey(), $registrationClient);
     }

@@ -77,7 +77,7 @@ class ClientEntityFactory
 
         $isEnabled = $existingClient?->isEnabled() ?? true;
 
-        $isConfidential = $existingClient?->isConfidential() ?? $this->guessIsConfidential(
+        $isConfidential = $existingClient?->isConfidential() ?? $this->determineIsConfidential(
             $metadata,
             $authorizationRequest,
         );
@@ -158,7 +158,7 @@ class ClientEntityFactory
         );
     }
 
-    protected function guessIsConfidential(
+    protected function determineIsConfidential(
         array $metadata,
         ?ServerRequestInterface $authorizationRequest,
     ): bool {
@@ -204,7 +204,6 @@ class ClientEntityFactory
             // Usage of code_challenge parameter indicates public client.
             return false;
         }
-
 
         // Assume confidential client.
         return true;

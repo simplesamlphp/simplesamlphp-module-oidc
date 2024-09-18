@@ -35,14 +35,16 @@ use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientAuthenticationRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeVerifierRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
-use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestParameterRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeOfflineAccessRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
@@ -57,6 +59,8 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\ScopeHelper;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
+
+use function array_key_exists;
 
 class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     // phpcs:ignore
@@ -90,8 +94,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      * @psalm-suppress PropertyNotSetInConstructor
      */
     protected $refreshTokenRepository;
-
-    protected bool $requireCodeChallengeForPublicClients = true;
 
     /**
      * @var bool
@@ -131,6 +133,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
     /** @var HttpMethodsEnum[]  */
     protected array $allowedAuthorizationHttpMethods = [HttpMethodsEnum::GET, HttpMethodsEnum::POST];
+
+    /** @var HttpMethodsEnum[]  */
+    protected array $allowedTokenHttpMethods = [HttpMethodsEnum::POST];
 
     /**
      * @psalm-type AuthCodePayloadObject = object{
@@ -185,14 +190,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $this->allowedAuthorizationHttpMethods,
         );
 
-        return (\array_key_exists('response_type', $requestParams)
+        return (array_key_exists('response_type', $requestParams)
             && $requestParams['response_type'] === 'code'
             && isset($requestParams['client_id']));
-    }
-
-    protected function shouldCheckPkce(OAuth2ClientEntityInterface $client): bool
-    {
-        return $this->requireCodeChallengeForPublicClients && !$client->isConfidential();
     }
 
     /**
@@ -366,7 +366,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     }
 
     /**
-     * Reimplementation respondToAccessTokenRequest because of nonce feature.
+     * Reimplementation of respondToAccessTokenRequest because of features like nonce, private_key_jwt, acr...
      *
      * @param \Psr\Http\Message\ServerRequestInterface $request
      * @param \League\OAuth2\Server\ResponseTypes\ResponseTypeInterface $responseType
@@ -376,6 +376,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      *
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \JsonException
+     * @throws \Throwable
      *
      */
     public function respondToAccessTokenRequest(
@@ -383,14 +384,51 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         ResponseTypeInterface $responseType,
         DateInterval $accessTokenTTL,
     ): ResponseTypeInterface {
-        [$clientId] = $this->getClientCredentials($request);
+        // OAuth2 implementation
+        //[$clientId] = $this->getClientCredentials($request);
 
-        $client = $this->getClientEntityOrFail((string)$clientId, $request);
+        $rulesToExecute = [
+            ClientIdRule::class,
+            RedirectUriRule::class,
+            ClientAuthenticationRule::class,
+            CodeVerifierRule::class,
+        ];
 
-        // Only validate the client if it is confidential
-        if ($client->isConfidential()) {
-            $this->validateClient($request);
+        $resultBag = $this->requestRulesManager->check(
+            $request,
+            $rulesToExecute,
+            false,
+            $this->allowedTokenHttpMethods,
+        );
+
+        /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
+        $client = $resultBag->getOrFail(ClientIdRule::class)->getValue();
+        /** @var ?string $clientAuthenticationParam */
+        $clientAuthenticationParam = $resultBag->getOrFail(ClientAuthenticationRule::class)->getValue();
+        /** @var ?string $codeVerifier */
+        $codeVerifier = $resultBag->getOrFail(CodeVerifierRule::class)->getValue();
+
+        $utilizedClientAuthenticationParams = [];
+
+        if (!is_null($clientAuthenticationParam)) {
+            $utilizedClientAuthenticationParams[] = $clientAuthenticationParam;
         }
+        if (!is_null($codeVerifier)) {
+            $utilizedClientAuthenticationParams[] = ParamsEnum::CodeVerifier->value;
+        }
+
+        if (empty($utilizedClientAuthenticationParams)) {
+            throw OidcServerException::accessDenied('Client authentication not performed.');
+        }
+
+        // OAuth2 implementation
+        //$client = $this->getClientEntityOrFail((string)$clientId, $request);
+
+        // OAuth2 implementation
+        // Only validate the client if it is confidential
+//        if ($client->isConfidential()) {
+//            $this->validateClient($request);
+//        }
 
         $encryptedAuthCode = $this->getRequestParameter('code', $request);
 
@@ -416,11 +454,11 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         } catch (LogicException $e) {
             throw OAuthServerException::invalidRequest('code', 'Cannot decrypt the authorization code', $e);
         }
-
-        $codeVerifier = $this->getRequestParameter('code_verifier', $request);
+        // OAuth2 implementation
+//        $codeVerifier = $this->getRequestParameter('code_verifier', $request);
 
         // If a code challenge isn't present but a code verifier is, reject the request to block PKCE downgrade attack
-        if ($this->shouldCheckPkce($client) && empty($authCodePayload->code_challenge) && $codeVerifier !== null) {
+        if (empty($authCodePayload->code_challenge) && $codeVerifier !== null) {
             throw OAuthServerException::invalidRequest(
                 'code_challenge',
                 'code_verifier received when no code_challenge is present',
@@ -433,14 +471,15 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                 throw OAuthServerException::invalidRequest('code_verifier');
             }
 
+            // OAuth2 implementation
             // Validate code_verifier according to RFC-7636
             // @see: https://tools.ietf.org/html/rfc7636#section-4.1
-            if (preg_match('/^[A-Za-z0-9-._~]{43,128}$/', $codeVerifier) !== 1) {
-                throw OAuthServerException::invalidRequest(
-                    'code_verifier',
-                    'Code Verifier must follow the specifications of RFC-7636.',
-                );
-            }
+//            if (preg_match('/^[A-Za-z0-9-._~]{43,128}$/', $codeVerifier) !== 1) {
+//                throw OAuthServerException::invalidRequest(
+//                    'code_verifier',
+//                    'Code Verifier must follow the specifications of RFC-7636.',
+//                );
+//            }
 
             if (property_exists($authCodePayload, 'code_challenge_method')) {
                 if (isset($this->codeChallengeVerifiers[$authCodePayload->code_challenge_method])) {
@@ -608,7 +647,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         ResultBagInterface $resultBag,
     ): OAuth2AuthorizationRequest {
         $rulesToExecute = [
-            RequestParameterRule::class,
+            RequestObjectRule::class,
             PromptRule::class,
             MaxAgeRule::class,
             ScopeRule::class,
@@ -616,6 +655,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             AcrValuesRule::class,
             ScopeOfflineAccessRule::class,
             RequiredOpenIdScopeRule::class,
+            CodeChallengeRule::class,
+            CodeChallengeMethodRule::class,
         ];
 
         // Since we have already validated redirect_uri, and we have state, make it available for other checkers.
@@ -631,12 +672,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         // Some rules have to have certain things available in order to work properly...
         $this->requestRulesManager->setData('default_scope', $this->defaultScope);
         $this->requestRulesManager->setData('scope_delimiter_string', self::SCOPE_DELIMITER_STRING);
-
-        $shouldCheckPkce = $this->shouldCheckPkce($client);
-        if ($shouldCheckPkce) {
-            $rulesToExecute[] = CodeChallengeRule::class;
-            $rulesToExecute[] = CodeChallengeMethodRule::class;
-        }
 
         $resultBag = $this->requestRulesManager->check(
             $request,
@@ -659,9 +694,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $oAuth2AuthorizationRequest->setState($state);
         }
 
-        if ($shouldCheckPkce) {
-            /** @var string $codeChallenge */
-            $codeChallenge = $resultBag->getOrFail(CodeChallengeRule::class)->getValue();
+        /** @var ?string $codeChallenge */
+        $codeChallenge = $resultBag->getOrFail(CodeChallengeRule::class)->getValue();
+        if ($codeChallenge) {
             /** @var string $codeChallengeMethod */
             $codeChallengeMethod = $resultBag->getOrFail(CodeChallengeMethodRule::class)->getValue();
 
@@ -675,7 +710,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         $authorizationRequest = AuthorizationRequest::fromOAuth2AuthorizationRequest($oAuth2AuthorizationRequest);
 
-        // TODO mivanci Search for $request->method usages and replace with helper or param resolver when appropriate.
         $nonce = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
             ParamsEnum::Nonce->value,
             $request,
