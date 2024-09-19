@@ -258,8 +258,8 @@ $config = [
     // also give proper adapter arguments for its instantiation below.
     // @see https://symfony.com/doc/current/components/cache.html#available-cache-adapters
     ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => null,
-    //ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\FilesystemAdapter::class,
-    //ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\MemcachedAdapter::class,
+    //ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\FilesystemAdapter::class,
+    //ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\MemcachedAdapter::class,
 
     // Federation cache adapter arguments used for adapter instantiation. Refer to documentation for particular
     // adapter on which arguments are needed to create its instance, in the order of constructor arguments.

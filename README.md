@@ -273,16 +273,23 @@ A permission can be disabled by commenting it out.
 
 Users can visit the `https://example.com/simplesaml/module.php/oidc/clients/` to create and view their clients.
 
-## OIDC Discovery
+## OIDC Discovery Endpoint
 
 The module offers an OpenID Connect Discovery endpoint at URL:
 
     https://yourserver/simplesaml/module.php/oidc/.well-known/openid-configuration
 
-### .well-known URL
+## OpenID Federation Configuration Endpoint
 
-You can configure you web server (Apache, Nginx) in a way to serve the mentioned autodiscovery URL in a '.well-known'
-form. Here are some sample configurations:
+The module offers an OpenID Federation configuration endpoint at URL:
+
+    https://yourserver/simplesaml/module.php/oidc/.well-known/openid-federation
+
+### .well-known URLs
+
+You can configure you web server (Apache, Nginx) in a way to serve the mentioned URLs in a '.well-known'
+form. Below are some sample configurations for `openid-configuration`, but you can take the same approach for 
+`openid-federation`.
 
 #### nginx 
     location = /.well-known/openid-configuration {
@@ -293,7 +300,7 @@ form. Here are some sample configurations:
 #### Apache
 
     RewriteEngine On
-    RewriteRule ^/.well-known/openid-configuration(.*) /path/to/simplesamlphp/module.php/oidc/.well-known/openid-configuration$1 [P,L]
+    RewriteRule ^/.well-known/openid-configuration(.*) /simplesaml/module.php/oidc/.well-known/openid-configuration$1 [PT]
 
 ## Using Docker
 
