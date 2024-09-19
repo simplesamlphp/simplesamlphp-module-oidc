@@ -18,7 +18,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @psalm-suppress UnevaluatedCode, UnusedVariable, MixedAssignment, MixedArgument, PossiblyNullPropertyFetch,
- * @psalm-suppress PossiblyNullReference
+ * @psalm-suppress PossiblyNullReference, PossiblyUnusedProperty
  */
 class Test
 {
