@@ -70,7 +70,7 @@ class ClientAuthenticationRule extends AbstractRule
         // No client_secret provided, meaning client_secret_post or client_secret_basic client authentication methods
         // were not used. Let's check for private_key_jwt method.
         $clientAssertionParam = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
-            ParamsEnum::Request->value,
+            ParamsEnum::ClientAssertion->value,
             $request,
             $allowedServerRequestMethods,
         );

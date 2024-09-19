@@ -6,6 +6,7 @@ namespace SimpleSAML\Module\oidc\Controller\Federation;
 
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
+use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 use SimpleSAML\OpenID\Codebooks\EntityTypesEnum;
 use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Federation;
@@ -22,6 +23,7 @@ use Symfony\Component\HttpFoundation\Response;
 class Test
 {
     public function __construct(
+        protected ProtocolCache $protocolCache,
         protected FederationCache $federationCache,
         protected LoggerService $loggerService,
         protected Jwks $jwks,
@@ -32,11 +34,9 @@ class Test
     public function __invoke(): Response
     {
 
-//        $cache = new Psr16Cache(new FilesystemAdapter(
-//            'oidc-federation',
-//            60,
-//            $this->moduleConfig->sspConfig()->getPathValue('cachedir'),
-//        ));
+        //$this->protocolCache->set('value', 10, 'test');
+        //dd($this->protocolCache, $this->protocolCache->get(null, 'test'));
+
 
         $requestObjectFactory = (new Core())->requestObjectFactory();
 
