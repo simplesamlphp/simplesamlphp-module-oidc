@@ -15,14 +15,14 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
-use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestParameterRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Core\RequestObject;
 
-#[CoversClass(RequestParameterRule::class)]
-class RequestParameterRuleTest extends TestCase
+#[CoversClass(RequestObjectRule::class)]
+class RequestObjectRuleTest extends TestCase
 {
     protected Stub $clientStub;
     protected Stub $resultBagStub;
@@ -48,9 +48,9 @@ class RequestParameterRuleTest extends TestCase
         $this->jwksResolverMock = $this->createMock(JwksResolver::class);
     }
 
-    protected function mock(): RequestParameterRule
+    protected function mock(): RequestObjectRule
     {
-        return new RequestParameterRule(
+        return new RequestObjectRule(
             $this->requestParamsResolverMock,
             $this->jwksResolverMock,
         );
@@ -58,7 +58,7 @@ class RequestParameterRuleTest extends TestCase
 
     public function testCanCreateInstance(): void
     {
-        $this->assertInstanceOf(RequestParameterRule::class, $this->mock());
+        $this->assertInstanceOf(RequestObjectRule::class, $this->mock());
     }
 
     public function testRequestParamCanBeAbsent(): void

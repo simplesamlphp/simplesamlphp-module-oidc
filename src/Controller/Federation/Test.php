@@ -6,7 +6,8 @@ namespace SimpleSAML\Module\oidc\Controller\Federation;
 
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
-use SimpleSAML\OpenID\Codebooks\EntityTypeEnum;
+use SimpleSAML\Module\oidc\Utils\ProtocolCache;
+use SimpleSAML\OpenID\Codebooks\EntityTypesEnum;
 use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Federation;
 use SimpleSAML\OpenID\Jwks;
@@ -17,11 +18,12 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @psalm-suppress UnevaluatedCode, UnusedVariable, MixedAssignment, MixedArgument, PossiblyNullPropertyFetch,
- * @psalm-suppress PossiblyNullReference
+ * @psalm-suppress PossiblyNullReference, PossiblyUnusedProperty
  */
 class Test
 {
     public function __construct(
+        protected ProtocolCache $protocolCache,
         protected FederationCache $federationCache,
         protected LoggerService $loggerService,
         protected Jwks $jwks,
@@ -32,11 +34,9 @@ class Test
     public function __invoke(): Response
     {
 
-//        $cache = new Psr16Cache(new FilesystemAdapter(
-//            'oidc-federation',
-//            60,
-//            $this->moduleConfig->sspConfig()->getPathValue('cachedir'),
-//        ));
+        //$this->protocolCache->set('value', 10, 'test');
+        //dd($this->protocolCache, $this->protocolCache->get(null, 'test'));
+
 
         $requestObjectFactory = (new Core())->requestObjectFactory();
 
@@ -69,7 +69,7 @@ class Test
 
         $leafFederationJwks = $leaf->getJwks();
 
-        $resolvedMetadata = $trustChain->getResolvedMetadata(EntityTypeEnum::OpenIdRelyingParty);
+        $resolvedMetadata = $trustChain->getResolvedMetadata(EntityTypesEnum::OpenIdRelyingParty);
         $jwksUri = $resolvedMetadata['jwks_uri'] ?? null;
         $signedJwksUri = $resolvedMetadata['signed_jwks_uri'] ?? null;
 
@@ -79,16 +79,14 @@ class Test
         $cachedSignedJwks = $signedJwksUri ? $this->jwks->jwksFetcher()->fromCache($signedJwksUri) : null;
         $signedJwks = $signedJwksUri ? $this->jwks->jwksFetcher()
             ->fromSignedJwksUri($signedJwksUri, $leafFederationJwks) : null;
-        var_export(json_decode(json_encode($jwks->jwks?->jsonSerialize()), true));
         dd(
-            var_export(json_decode(json_encode($jwks->jwks->jsonSerialize()), true)),
-            $cachedJwks?->jsonSerialize(),
-            $signedJwks->jwks->jsonSerialize(),
-            $cachedSignedJwks?->jsonSerialize(),
+            $signedJwksUri,
+            $cachedSignedJwks,
+            $signedJwks,
         );
 
         return new JsonResponse(
-            $trustChain->getResolvedMetadata(EntityTypeEnum::OpenIdRelyingParty),
+            $trustChain->getResolvedMetadata(EntityTypesEnum::OpenIdRelyingParty),
         );
     }
 }

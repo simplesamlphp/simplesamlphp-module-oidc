@@ -77,6 +77,8 @@ class ModuleConfig
     final public const OPTION_FEDERATION_CACHE_MAX_DURATION = 'federation_cache_max_duration';
     final public const OPTION_FEDERATION_TRUST_ANCHORS = 'federation_trust_anchors';
     final public const OPTION_FEDERATION_ENTITY_STATEMENT_CACHE_DURATION = 'federation_entity_statement_cache_duration';
+    final public const OPTION_PROTOCOL_CACHE_ADAPTER = 'protocol_cache_adapter';
+    final public const OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS = 'protocol_cache_adapter_arguments';
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
@@ -603,5 +605,15 @@ class ModuleConfig
         throw new ConfigurationError(
             sprintf('Unexpected JWKS format for Trust Anchor %s: %s', $trustAnchorId, var_export($jwks, true)),
         );
+    }
+
+    public function getProtocolCacheAdapterClass(): ?string
+    {
+        return $this->config()->getOptionalString(self::OPTION_PROTOCOL_CACHE_ADAPTER, null);
+    }
+
+    public function getProtocolCacheAdapterArguments(): array
+    {
+        return $this->config()->getOptionalArray(self::OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS, []);
     }
 }

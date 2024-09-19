@@ -19,31 +19,31 @@ use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 
 /** @psalm-suppress InvalidArgument */
 return function (RoutingConfigurator $routes): void {
-    $routes->add(RoutesEnum::OpenIdConfiguration->name, RoutesEnum::OpenIdConfiguration->value)
+    $routes->add(RoutesEnum::Configuration->name, RoutesEnum::Configuration->value)
         ->controller(ConfigurationDiscoveryController::class);
 
     /**
      * OpenID Connect Core protocol routes.
      */
-    $routes->add(RoutesEnum::OpenIdAuthorization->name, RoutesEnum::OpenIdAuthorization->value)
+    $routes->add(RoutesEnum::Authorization->name, RoutesEnum::Authorization->value)
         ->controller([AuthorizationController::class, 'authorization']);
-    $routes->add(RoutesEnum::OpenIdToken->name, RoutesEnum::OpenIdToken->value)
+    $routes->add(RoutesEnum::Token->name, RoutesEnum::Token->value)
         ->controller([AccessTokenController::class, 'token']);
-    $routes->add(RoutesEnum::OpenIdUserInfo->name, RoutesEnum::OpenIdUserInfo->value)
+    $routes->add(RoutesEnum::UserInfo->name, RoutesEnum::UserInfo->value)
         ->controller([UserInfoController::class, 'userInfo']);
-    $routes->add(RoutesEnum::OpenIdEndSession->name, RoutesEnum::OpenIdEndSession->value)
+    $routes->add(RoutesEnum::EndSession->name, RoutesEnum::EndSession->value)
         ->controller([EndSessionController::class, 'endSession']);
-    $routes->add(RoutesEnum::OpenIdJwks->name, RoutesEnum::OpenIdJwks->value)
+    $routes->add(RoutesEnum::Jwks->name, RoutesEnum::Jwks->value)
         ->controller([JwksController::class, 'jwks']);
 
     /**
      * OpenID Federation related routes.
      */
-    $routes->add(RoutesEnum::OpenIdFederationConfiguration->name, RoutesEnum::OpenIdFederationConfiguration->value)
+    $routes->add(RoutesEnum::FederationConfiguration->name, RoutesEnum::FederationConfiguration->value)
         ->controller([EntityStatementController::class, 'configuration'])
         ->methods([HttpMethodsEnum::GET->value]);
 
-    $routes->add(RoutesEnum::OpenIdFederationFetch->name, RoutesEnum::OpenIdFederationFetch->value)
+    $routes->add(RoutesEnum::FederationFetch->name, RoutesEnum::FederationFetch->value)
         ->controller([EntityStatementController::class, 'fetch'])
         ->methods([HttpMethodsEnum::GET->value]);
 

@@ -13,11 +13,10 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
-class CodeChallengeRule extends AbstractRule
+class CodeVerifierRule extends AbstractRule
 {
     /**
      * @inheritDoc
-     * @throws \Throwable
      */
     public function checkRule(
         ServerRequestInterface $request,
@@ -29,45 +28,33 @@ class CodeChallengeRule extends AbstractRule
     ): ?ResultInterface {
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
-        /** @var string $redirectUri */
-        $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
-        /** @var string|null $state */
-        $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
-        $codeChallenge = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
-            ParamsEnum::CodeChallenge->value,
+        $codeVerifier = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
+            ParamsEnum::CodeVerifier->value,
             $request,
             $allowedServerRequestMethods,
         );
 
-        if ($codeChallenge === null) {
-            if (! $client->isConfidential()) {
+        if (is_null($codeVerifier)) {
+            if (!$client->isConfidential()) {
                 throw OidcServerException::invalidRequest(
-                    ParamsEnum::CodeChallenge->value,
-                    'Code Challenge must be provided for public clients.',
-                    null,
-                    $redirectUri,
-                    $state,
-                    $useFragmentInHttpErrorResponses,
+                    'code_verifier',
+                    'Code Verifier must be provided for public clients.',
                 );
             }
 
             return new Result($this->getKey(), null);
         }
 
-        // Validate code_challenge according to RFC-7636
-        // @see: https://tools.ietf.org/html/rfc7636#section-4.2
-        if (preg_match('/^[A-Za-z0-9-._~]{43,128}$/', $codeChallenge) !== 1) {
+        // Validate code_verifier according to RFC-7636
+        // @see: https://tools.ietf.org/html/rfc7636#section-4.1
+        if (preg_match('/^[A-Za-z0-9-._~]{43,128}$/', $codeVerifier) !== 1) {
             throw OidcServerException::invalidRequest(
-                ParamsEnum::CodeChallenge->value,
-                'Code Challenge must follow the specifications of RFC-7636.',
-                null,
-                $redirectUri,
-                $state,
-                $useFragmentInHttpErrorResponses,
+                'code_verifier',
+                'Code Verifier must follow the specifications of RFC-7636.',
             );
         }
 
-        return new Result($this->getKey(), $codeChallenge);
+        return new Result($this->getKey(), $codeVerifier);
     }
 }

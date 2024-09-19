@@ -32,11 +32,11 @@ class OpMetadataServiceTest extends TestCase
         $this->moduleConfigMock->method('getModuleUrl')
             ->willReturnCallback(function ($path) {
                 $paths = [
-                    RoutesEnum::OpenIdAuthorization->value => 'http://localhost/authorization',
-                    RoutesEnum::OpenIdToken->value => 'http://localhost/token',
-                    RoutesEnum::OpenIdUserInfo->value => 'http://localhost/userinfo',
-                    RoutesEnum::OpenIdJwks->value => 'http://localhost/jwks',
-                    RoutesEnum::OpenIdEndSession->value => 'http://localhost/end-session',
+                    RoutesEnum::Authorization->value => 'http://localhost/authorization',
+                    RoutesEnum::Token->value => 'http://localhost/token',
+                    RoutesEnum::UserInfo->value => 'http://localhost/userinfo',
+                    RoutesEnum::Jwks->value => 'http://localhost/jwks',
+                    RoutesEnum::EndSession->value => 'http://localhost/end-session',
                 ];
 
                 return $paths[$path] ?? null;
@@ -85,7 +85,11 @@ class OpMetadataServiceTest extends TestCase
                 'subject_types_supported' => ['public'],
                 'id_token_signing_alg_values_supported' => ['RS256'],
                 'code_challenge_methods_supported' => ['plain', 'S256'],
-                'token_endpoint_auth_methods_supported' => ['client_secret_post', 'client_secret_basic'],
+                'token_endpoint_auth_methods_supported' => [
+                    'client_secret_post',
+                    'client_secret_basic',
+                    'private_key_jwt',
+                ],
                 'request_parameter_supported' => true,
                 'request_object_signing_alg_values_supported' => ['none', 'RS256'],
                 'request_uri_parameter_supported' => false,

@@ -24,7 +24,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AddClaimsToIdTokenRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
-use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestParameterRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredNonceRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
@@ -113,7 +113,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant
         parent::validateAuthorizationRequestWithCheckerResultBag($request, $resultBag);
 
         $rulesToExecute = [
-            RequestParameterRule::class,
+            RequestObjectRule::class,
             PromptRule::class,
             MaxAgeRule::class,
             RequiredOpenIdScopeRule::class,

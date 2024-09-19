@@ -14,13 +14,13 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
-use SimpleSAML\OpenID\Codebooks\ApplicationTypeEnum;
+use SimpleSAML\OpenID\Codebooks\ApplicationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Codebooks\ResponseTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ScopesEnum;
-use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodEnum;
+use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
 
 class ClientEntityFactory
 {
@@ -77,7 +77,7 @@ class ClientEntityFactory
 
         $isEnabled = $existingClient?->isEnabled() ?? true;
 
-        $isConfidential = $existingClient?->isConfidential() ?? $this->guessIsConfidential(
+        $isConfidential = $existingClient?->isConfidential() ?? $this->determineIsConfidential(
             $metadata,
             $authorizationRequest,
         );
@@ -158,13 +158,13 @@ class ClientEntityFactory
         );
     }
 
-    protected function guessIsConfidential(
+    protected function determineIsConfidential(
         array $metadata,
         ?ServerRequestInterface $authorizationRequest,
     ): bool {
         if (
             array_key_exists(ClaimsEnum::ApplicationType->value, $metadata) &&
-            $metadata[ClaimsEnum::ApplicationType->value] === ApplicationTypeEnum::Native->value
+            $metadata[ClaimsEnum::ApplicationType->value] === ApplicationTypesEnum::Native->value
         ) {
             // Native application type is strong indication of public client.
             return false;
@@ -172,7 +172,7 @@ class ClientEntityFactory
 
         if (
             array_key_exists(ClaimsEnum::TokenEndpointAuthMethod->value, $metadata) &&
-            $metadata[ClaimsEnum::TokenEndpointAuthMethod->value] === TokenEndpointAuthMethodEnum::None->value
+            $metadata[ClaimsEnum::TokenEndpointAuthMethod->value] === TokenEndpointAuthMethodsEnum::None->value
         ) {
             // Value 'none' for token auth method is strong indication of public client.
             return false;
@@ -204,7 +204,6 @@ class ClientEntityFactory
             // Usage of code_challenge parameter indicates public client.
             return false;
         }
-
 
         // Assume confidential client.
         return true;

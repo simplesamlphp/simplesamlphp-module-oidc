@@ -8,11 +8,13 @@ use LogicException;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
@@ -33,6 +35,8 @@ class CodeChallengeRuleTest extends TestCase
     protected string $codeChallenge = '123123123123123123123123123123123123123123123123123123123123';
     protected Stub $loggerServiceStub;
     protected Stub $requestParamsResolverStub;
+    protected Stub $clientStub;
+    protected Result $clientIdResult;
 
     /**
      * @throws \Exception
@@ -45,6 +49,8 @@ class CodeChallengeRuleTest extends TestCase
         $this->stateResult = new Result(StateRule::class, '123');
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
+        $this->clientStub = $this->createStub(ClientEntityInterface::class);
+        $this->clientIdResult = new Result(ClientIdRule::class, $this->clientStub);
     }
 
     protected function mock(): CodeChallengeRule
@@ -78,12 +84,14 @@ class CodeChallengeRuleTest extends TestCase
     /**
      * @throws \Throwable
      */
-    public function testCheckRuleNoCodeChallengeThrows(): void
+    public function testCheckRuleNoCodeReturnsNullForConfidentialClients(): void
     {
+        $this->clientStub->method('isConfidential')->willReturn(true);
         $resultBag = $this->prepareValidResultBag();
         $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn(null);
-        $this->expectException(OidcServerException::class);
-        $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
+        $result = $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
+        $this->assertInstanceOf(ResultInterface::class, $result);
+        $this->assertNull($result->getValue());
     }
 
     /**
@@ -117,6 +125,7 @@ class CodeChallengeRuleTest extends TestCase
         $resultBag = new ResultBag();
         $resultBag->add($this->redirectUriResult);
         $resultBag->add($this->stateResult);
+        $resultBag->add($this->clientIdResult);
         return $resultBag;
     }
 }

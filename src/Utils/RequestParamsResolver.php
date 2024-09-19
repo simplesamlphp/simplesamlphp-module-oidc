@@ -168,7 +168,7 @@ class RequestParamsResolver
      * @param string $token
      * @return \SimpleSAML\OpenID\Core\RequestObject
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException
-     * @see \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestParameterRule
+     * @see \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule
      */
     public function parseRequestObjectToken(string $token): Core\RequestObject
     {
@@ -185,5 +185,16 @@ class RequestParamsResolver
     public function parseFederationRequestObjectToken(string $token): Federation\RequestObject
     {
         return $this->federation->requestObjectFactory()->fromToken($token);
+    }
+
+    /**
+     * Parse the Client Assertion token according to OpenID Core specification.
+     * Note that this won't do signature validation of it.
+     *
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     */
+    public function parseClientAssertionToken(string $clientAssertionParam): Core\ClientAssertion
+    {
+        return $this->core->clientAssertionFactory()->fromToken($clientAssertionParam);
     }
 }
