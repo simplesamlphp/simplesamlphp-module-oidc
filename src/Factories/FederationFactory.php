@@ -29,10 +29,7 @@ class FederationFactory
     {
         $supportedAlgorithms = new SupportedAlgorithms(
             new SignatureAlgorithmBag(
-                SignatureAlgorithmEnum::from(
-                    $this->moduleConfig->getFederationSigner()?->algorithmId() ??
-                        SignatureAlgorithmEnum::RS256->value,
-                ),
+                SignatureAlgorithmEnum::from($this->moduleConfig->getFederationSigner()->algorithmId()),
             ),
         );
 

@@ -401,22 +401,25 @@ class ModuleConfig
      * @throws \ReflectionException
      * @throws \SimpleSAML\Error\ConfigurationError
      */
-    public function getFederationSigner(): ?Signer
+    public function getFederationSigner(): Signer
     {
-        /** @psalm-var ?class-string $signerClassname */
-        $signerClassname = $this->config()->getOptionalString(self::OPTION_FEDERATION_TOKEN_SIGNER, null);
+        /** @psalm-var class-string $signerClassname */
+        $signerClassname = $this->config()->getOptionalString(
+            self::OPTION_FEDERATION_TOKEN_SIGNER,
+            Sha256::class,
+        );
 
-        return is_null($signerClassname) ? null : $this->instantiateSigner($signerClassname);
+        return $this->instantiateSigner($signerClassname);
     }
 
-    public function getFederationPrivateKeyPath(): ?string
+    public function getFederationPrivateKeyPath(): string
     {
         $keyName = $this->config()->getOptionalString(
             self::OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
-            null,
+            self::DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
         );
 
-        return is_null($keyName) ? null : $this->sspBridge->utils()->config()->getCertPath($keyName);
+        return $this->sspBridge->utils()->config()->getCertPath($keyName);
     }
 
     public function getFederationPrivateKeyPassPhrase(): ?string
@@ -426,17 +429,17 @@ class ModuleConfig
 
     /**
      * Return the path to the federation public certificate
-     * @return ?string The file system path or null if not set.
+     * @return string The file system path or null if not set.
      * @throws \Exception
      */
-    public function getFederationCertPath(): ?string
+    public function getFederationCertPath(): string
     {
         $certName = $this->config()->getOptionalString(
             self::OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME,
-            null,
+            self::DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME,
         );
 
-        return is_null($certName) ? null : $this->sspBridge->utils()->config()->getCertPath($certName);
+        return $this->sspBridge->utils()->config()->getCertPath($certName);
     }
 
     /**
