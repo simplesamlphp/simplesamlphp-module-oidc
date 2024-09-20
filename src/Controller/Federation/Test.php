@@ -64,20 +64,21 @@ class Test
             ->for(
 //                'https://trust-anchor.testbed.oidcfed.incubator.geant.org/oidc/rp/',
 //                'https://relying-party-php.testbed.oidcfed.incubator.geant.org/',
-                'https://gorp.testbed.oidcfed.incubator.geant.org',
+//                'https://gorp.testbed.oidcfed.incubator.geant.org',
+                'https://maiv1.incubator.geant.org',
                 [
                     'https://trust-anchor.testbed.oidcfed.incubator.geant.org/',
                 ],
             );
 
         $leaf = $trustChain->getResolvedLeaf();
-dd($leaf);
+
         $leafFederationJwks = $leaf->getJwks();
 
         $resolvedMetadata = $trustChain->getResolvedMetadata(EntityTypesEnum::OpenIdRelyingParty);
         $jwksUri = $resolvedMetadata['jwks_uri'] ?? null;
         $signedJwksUri = $resolvedMetadata['signed_jwks_uri'] ?? null;
-
+        dd($leaf, $leafFederationJwks, $resolvedMetadata, $jwksUri, $signedJwksUri);
         $cachedJwks = $jwksUri ? $this->jwks->jwksFetcher()->fromCache($jwksUri) : null;
         $jwks = $jwksUri ? $this->jwks->jwksFetcher()->fromJwksUri($jwksUri) : null;
 

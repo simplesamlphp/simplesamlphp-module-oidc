@@ -125,7 +125,7 @@ class JsonWebTokenBuilderService
             ClaimsEnum::Kid->value => FingerprintGenerator::forFile($this->moduleConfig->getFederationCertPath()),
         ];
 
-        return $this->getSignedJwt($builder, $this->protocolJwtConfig, $headers);
+        return $this->getSignedJwt($builder, $this->federationJwtConfig, $headers);
     }
 
     /**
