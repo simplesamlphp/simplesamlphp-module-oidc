@@ -121,6 +121,10 @@ class JsonWebTokenBuilderService
      */
     public function getSignedFederationJwt(Builder $builder): UnencryptedToken
     {
+        if (is_null($this->federationJwtConfig)) {
+            throw OidcServerException::serverError('Federation JWT PKI configuration is not set.');
+        }
+
         $headers = [
             ClaimsEnum::Kid->value => FingerprintGenerator::forFile($this->moduleConfig->getFederationCertPath()),
         ];
