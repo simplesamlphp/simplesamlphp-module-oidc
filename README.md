@@ -63,32 +63,40 @@ you have at least the following parameters set:
 > [!NOTE]  
 > The module has been tested against and supports the SQLite, PostgreSQL and MySQL databases.
 
-### Create RSA key pair
+### Create Protocol / Federation RSA key pairs
 
 During the authentication flow, generated ID Token and Access Token will be in a form of signed JSON Web token (JWS).
-Because of the signing part, you need to create a public/private RSA key pair.
+Because of the signing part, you need to create a public/private RSA key pair. This public/private RSA key pair
+is referred to as "OIDC protocol" keys. On the other hand, if you will be using OpenID Federation capabilities,
+you should create separate key pair dedicated for OpenID Federation operations, like signing Entity Statement JWS.
+Below are sample commands to create key pairs with default file names, both "protocol" and "federation" version.
 
 To generate the private key, you can run this command in the terminal:
 
     openssl genrsa -out cert/oidc_module.key 3072
+    openssl genrsa -out cert/oidc_module_federation.key 3072
 
 If you want to provide a passphrase for your private key, run this command instead:
 
     openssl genrsa -passout pass:myPassPhrase -out cert/oidc_module.key 3072
+    openssl genrsa -passout pass:myPassPhrase -out cert/oidc_module_federation.key 3072
 
 Now you need to extract the public key from the private key:
 
     openssl rsa -in cert/oidc_module.key -pubout -out cert/oidc_module.crt
+    openssl rsa -in cert/oidc_module_federation.key -pubout -out cert/oidc_module.crt
 
 or use your passphrase if provided on private key generation:
 
     openssl rsa -in cert/oidc_module.key -passin pass:myPassPhrase -pubout -out cert/oidc_module.crt
+    openssl rsa -in cert/oidc_module_federation.key -passin pass:myPassPhrase -pubout -out cert/oidc_module_federation.crt
 
-If you use a passphrase, make sure to also configure it in the `module_oidc.php` config file.
+If you use different files names or a passphrase, make sure to configure it in the `module_oidc.php` config file.
 
 ### Enabling the module
 
-At this point we can enable the module by adding `'oidc' => true` to the list of enabled modules in the main simplesamlphp configuration file, `config/config.php`. 
+At this point we can enable the module by adding `'oidc' => true` to the list of enabled modules in the main
+SimpleSAMLphp configuration file, `config/config.php`. 
 
     'module.enable' => [
         'exampleauth' => false,
@@ -96,10 +104,11 @@ At this point we can enable the module by adding `'oidc' => true` to the list of
         'admin' => true,
         'saml' => true,
         // enable oidc module
-        'oidc' => true
+        'oidc' => true,
     ],
 
-This is required the enable the module on the _Federation_ tab in the admin web interface, which can be used in the next two steps to finalize the installation.
+This is required the enable the module on the _Federation_ tab in the admin web interface, which can be used in the
+next two steps to finalize the installation.
 
 ### Run database migrations
 
@@ -273,16 +282,23 @@ A permission can be disabled by commenting it out.
 
 Users can visit the `https://example.com/simplesaml/module.php/oidc/clients/` to create and view their clients.
 
-## OIDC Discovery
+## OIDC Discovery Endpoint
 
 The module offers an OpenID Connect Discovery endpoint at URL:
 
     https://yourserver/simplesaml/module.php/oidc/.well-known/openid-configuration
 
-### .well-known URL
+## OpenID Federation Configuration Endpoint
 
-You can configure you web server (Apache, Nginx) in a way to serve the mentioned autodiscovery URL in a '.well-known'
-form. Here are some sample configurations:
+The module offers an OpenID Federation configuration endpoint at URL:
+
+    https://yourserver/simplesaml/module.php/oidc/.well-known/openid-federation
+
+### .well-known URLs
+
+You can configure you web server (Apache, Nginx) in a way to serve the mentioned URLs in a '.well-known'
+form. Below are some sample configurations for `openid-configuration`, but you can take the same approach for 
+`openid-federation`.
 
 #### nginx 
     location = /.well-known/openid-configuration {
@@ -293,7 +309,7 @@ form. Here are some sample configurations:
 #### Apache
 
     RewriteEngine On
-    RewriteRule ^/.well-known/openid-configuration(.*) /path/to/simplesamlphp/module.php/oidc/.well-known/openid-configuration$1 [P,L]
+    RewriteRule ^/.well-known/openid-configuration(.*) /simplesaml/module.php/oidc/.well-known/openid-configuration$1 [PT]
 
 ## Using Docker
 

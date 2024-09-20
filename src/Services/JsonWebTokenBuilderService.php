@@ -49,15 +49,11 @@ class JsonWebTokenBuilderService
 
         // According to OpenID Federation specification, we need to use different signing keys for federation related
         // functions. Since we won't force OP implementor to enable federation support, this part is optional.
-        if (
-            ($federationSigner = $this->moduleConfig->getFederationSigner()) &&
-            ($federationPrivateKeyPath = $this->moduleConfig->getFederationPrivateKeyPath()) &&
-            file_exists($federationPrivateKeyPath)
-        ) {
+        if ($this->moduleConfig->getFederationEnabled()) {
             $this->federationJwtConfig = Configuration::forAsymmetricSigner(
-                $federationSigner,
+                $this->moduleConfig->getFederationSigner(),
                 InMemory::file(
-                    $federationPrivateKeyPath,
+                    $this->moduleConfig->getFederationPrivateKeyPath(),
                     $this->moduleConfig->getFederationPrivateKeyPassPhrase() ?? '',
                 ),
                 InMemory::plainText('empty', 'empty'),
@@ -121,19 +117,19 @@ class JsonWebTokenBuilderService
     /**
      * Get signed JWT using the OpenID Federation JWT signing configuration.
      *
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \Exception
      */
     public function getSignedFederationJwt(Builder $builder): UnencryptedToken
     {
-        if (is_null($federationCertPath = $this->moduleConfig->getFederationCertPath())) {
-            throw OidcServerException::serverError('Federation certificate path not set.');
+        if (is_null($this->federationJwtConfig)) {
+            throw OidcServerException::serverError('Federation JWT PKI configuration is not set.');
         }
 
         $headers = [
-            ClaimsEnum::Kid->value => FingerprintGenerator::forFile($federationCertPath),
+            ClaimsEnum::Kid->value => FingerprintGenerator::forFile($this->moduleConfig->getFederationCertPath()),
         ];
 
-        return $this->getSignedJwt($builder, $this->protocolJwtConfig, $headers);
+        return $this->getSignedJwt($builder, $this->federationJwtConfig, $headers);
     }
 
     /**

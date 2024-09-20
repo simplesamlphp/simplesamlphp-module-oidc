@@ -153,26 +153,6 @@ class EntityStatementController
 
     public function fetch(Request $request): Response
     {
-        $issuer = $request->query->get(ClaimsEnum::Iss->value);
-
-        if (empty($issuer)) {
-            return $this->prepareJsonErrorResponse(
-                ErrorsEnum::InvalidRequest->value,
-                sprintf('Missing parameter %s', ClaimsEnum::Iss->value),
-                400,
-            );
-        }
-
-        $issuer = (string) $issuer;
-
-        if (!hash_equals($issuer, $this->moduleConfig->getIssuer())) {
-            return $this->prepareJsonErrorResponse(
-                ErrorsEnum::InvalidIssuer->value,
-                sprintf('Invalid issuer (%s)', $issuer),
-                404,
-            );
-        }
-
         $subject = $request->query->get(ClaimsEnum::Sub->value);
 
         if (empty($subject)) {

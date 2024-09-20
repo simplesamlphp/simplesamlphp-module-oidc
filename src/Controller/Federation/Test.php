@@ -23,6 +23,7 @@ use Symfony\Component\HttpFoundation\Response;
 class Test
 {
     public function __construct(
+        protected Federation $federation,
         protected ProtocolCache $protocolCache,
         protected FederationCache $federationCache,
         protected LoggerService $loggerService,
@@ -51,17 +52,22 @@ class Test
 //        dd($requestObject, $requestObject->getPayload(), $requestObject->getHeader());
 //        $cache->clear();
 
-        $trustChain = (new Federation(
-            maxCacheDuration: $this->maxCacheDuration,
-            cache: $this->federationCache->cache,
-            logger: $this->loggerService,
-        ))
+        $trustChain = $this->federation
             ->trustChainResolver()
+//            ->for(
+//                'https://08-dap.localhost.markoivancic.from.hr/openid/entities/ALeaf/',
+//                [
+//                    'https://08-dap.localhost.markoivancic.from.hr/openid/entities/ABTrustAnchor/',
+//                    'https://08-dap.localhost.markoivancic.from.hr/openid/entities/CTrustAnchor/',
+//                ],
+//            );
             ->for(
-                'https://08-dap.localhost.markoivancic.from.hr/openid/entities/ALeaf/',
+//                'https://trust-anchor.testbed.oidcfed.incubator.geant.org/oidc/rp/',
+//                'https://relying-party-php.testbed.oidcfed.incubator.geant.org/',
+//                'https://gorp.testbed.oidcfed.incubator.geant.org',
+                'https://maiv1.incubator.geant.org',
                 [
-                    'https://08-dap.localhost.markoivancic.from.hr/openid/entities/ABTrustAnchor/',
-                    'https://08-dap.localhost.markoivancic.from.hr/openid/entities/CTrustAnchor/',
+                    'https://trust-anchor.testbed.oidcfed.incubator.geant.org/',
                 ],
             );
 
@@ -72,7 +78,7 @@ class Test
         $resolvedMetadata = $trustChain->getResolvedMetadata(EntityTypesEnum::OpenIdRelyingParty);
         $jwksUri = $resolvedMetadata['jwks_uri'] ?? null;
         $signedJwksUri = $resolvedMetadata['signed_jwks_uri'] ?? null;
-
+        dd($leaf, $leafFederationJwks, $resolvedMetadata, $jwksUri, $signedJwksUri);
         $cachedJwks = $jwksUri ? $this->jwks->jwksFetcher()->fromCache($jwksUri) : null;
         $jwks = $jwksUri ? $this->jwks->jwksFetcher()->fromJwksUri($jwksUri) : null;
 

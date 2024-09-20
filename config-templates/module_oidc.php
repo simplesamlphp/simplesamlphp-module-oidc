@@ -258,8 +258,8 @@ $config = [
     // also give proper adapter arguments for its instantiation below.
     // @see https://symfony.com/doc/current/components/cache.html#available-cache-adapters
     ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => null,
-    //ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\FilesystemAdapter::class,
-    //ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\MemcachedAdapter::class,
+    //ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\FilesystemAdapter::class,
+    //ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\MemcachedAdapter::class,
 
     // Federation cache adapter arguments used for adapter instantiation. Refer to documentation for particular
     // adapter on which arguments are needed to create its instance, in the order of constructor arguments.
@@ -385,13 +385,13 @@ $config = [
     // The federation private key passphrase (optional).
     //ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_PASSPHRASE => 'secret',
     // The federation certificate and private key filenames, with given defaults.
-    //ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME =>
-    //    ModuleConfig::DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
-    //ModuleConfig::OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME =>
-    //    ModuleConfig::DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME,
+    ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME =>
+        ModuleConfig::DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
+    ModuleConfig::OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME =>
+        ModuleConfig::DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME,
 
     // Federation token signer, with given default.
-    //ModuleConfig::OPTION_FEDERATION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Rsa\Sha256::class,
+    ModuleConfig::OPTION_FEDERATION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Rsa\Sha256::class,
 
     // Federation entity statement duration which determines the Expiration Time (exp) claim set in entity
     // statement JWSs published by this OP. If not set, default of 1 day will be used. For duration format info, check
