@@ -104,7 +104,8 @@ services:
   Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory: ~
 
   # SSP OpenId
-  SimpleSAML\OpenID\Core: ~
+  SimpleSAML\OpenID\Core:
+    factory: [ '@SimpleSAML\Module\oidc\Factories\CoreFactory', 'build' ]
   SimpleSAML\OpenID\Federation:
     factory: [ '@SimpleSAML\Module\oidc\Factories\FederationFactory', 'build' ]
   SimpleSAML\OpenID\Jwks:
