@@ -107,7 +107,7 @@ class ClientEntityFactory
         $jwks = isset($metadata[ClaimsEnum::Jwks->value]) &&
         is_array($metadata[ClaimsEnum::Jwks->value]) &&
         array_key_exists(ClaimsEnum::Keys->value, $metadata[ClaimsEnum::Jwks->value]) &&
-        (!empty($metadata[ClaimsEnum::Jwks->value][ClaimsEnum::Jwks->value])) ?
+        (!empty($metadata[ClaimsEnum::Jwks->value][ClaimsEnum::Keys->value])) ?
         $metadata[ClaimsEnum::Jwks->value] :
         $existingClient?->getJwks();
 
