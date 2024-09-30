@@ -91,7 +91,7 @@ class BearerTokenValidatorTest extends TestCase
         self::$publicCryptKey = new CryptKey(self::$publicKeyPath);
         self::$privateCryptKey = new CryptKey(self::$privateKeyPath);
 
-        self::$clientEntity = ClientEntity::fromData(
+        self::$clientEntity = new ClientEntity(
             'client1123',
             'secret1',
             'name1',

@@ -32,7 +32,6 @@ abstract class AbstractDatabaseRepository
     public function __construct(protected ModuleConfig $moduleConfig)
     {
         $this->config = $this->moduleConfig->config();
-        // TODO mivanci move to Doctrine DBAL stores
         $this->database = Database::getInstance();
     }
 

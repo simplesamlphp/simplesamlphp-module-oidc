@@ -8,7 +8,6 @@ use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
-use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 
 /**
@@ -23,9 +22,7 @@ class AllowedOriginRepositoryTest extends TestCase
         'https://sample.com',
     ];
 
-    private static AllowedOriginRepository $repository;
-
-    private static ModuleConfig $moduleConfig;
+    private AllowedOriginRepository $repository;
 
     /**
      * @throws \Exception
@@ -43,38 +40,37 @@ class AllowedOriginRepositoryTest extends TestCase
 
         Configuration::loadFromArray($config, '', 'simplesaml');
         (new DatabaseMigration())->migrate();
+    }
 
-        self::$moduleConfig = new ModuleConfig();
-
-        $client = ClientRepositoryTest::getClient(self::CLIENT_ID);
-        (new ClientRepository(self::$moduleConfig))->add($client);
-
-        self::$repository = new AllowedOriginRepository(self::$moduleConfig);
+    protected function setUp(): void
+    {
+        $moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->repository = new AllowedOriginRepository($moduleConfigMock);
     }
 
     public function tearDown(): void
     {
-        self::$repository->delete(self::CLIENT_ID);
+        $this->repository->delete(self::CLIENT_ID);
     }
 
     public function testGetTableName(): void
     {
-        $this->assertSame('phpunit_oidc_allowed_origin', self::$repository->getTableName());
+        $this->assertSame('phpunit_oidc_allowed_origin', $this->repository->getTableName());
     }
 
     public function testSetGetHasDelete(): void
     {
-        self::$repository->set(self::CLIENT_ID, []);
-        $this->assertSame([], self::$repository->get(self::CLIENT_ID));
+        $this->repository->set(self::CLIENT_ID, []);
+        $this->assertSame([], $this->repository->get(self::CLIENT_ID));
 
-        self::$repository->set(self::CLIENT_ID, self::ORIGINS);
-        $this->assertSame(self::ORIGINS, self::$repository->get(self::CLIENT_ID));
-        $this->assertTrue(self::$repository->has(self::ORIGINS[0]));
-        $this->assertTrue(self::$repository->has(self::ORIGINS[1]));
-        $this->assertFalse(self::$repository->has('https://invalid.org'));
+        $this->repository->set(self::CLIENT_ID, self::ORIGINS);
+        $this->assertSame(self::ORIGINS, $this->repository->get(self::CLIENT_ID));
+        $this->assertTrue($this->repository->has(self::ORIGINS[0]));
+        $this->assertTrue($this->repository->has(self::ORIGINS[1]));
+        $this->assertFalse($this->repository->has('https://invalid.org'));
 
-        self::$repository->delete(self::CLIENT_ID);
-        $this->assertFalse(self::$repository->has(self::ORIGINS[0]));
-        $this->assertFalse(self::$repository->has(self::ORIGINS[1]));
+        $this->repository->delete(self::CLIENT_ID);
+        $this->assertFalse($this->repository->has(self::ORIGINS[0]));
+        $this->assertFalse($this->repository->has(self::ORIGINS[1]));
     }
 }

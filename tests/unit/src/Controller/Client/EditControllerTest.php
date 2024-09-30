@@ -16,6 +16,7 @@ use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Controller\Client\EditController;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
+use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Forms\ClientForm;
@@ -47,6 +48,7 @@ class EditControllerTest extends TestCase
     protected MockObject $helpersMock;
     protected MockObject $dateTimeHelperMock;
     protected MockObject $updatedAtMock;
+    protected MockObject $clientEntityFactoryMock;
 
     /**
      * @throws \PHPUnit\Framework\MockObject\Exception
@@ -79,6 +81,8 @@ class EditControllerTest extends TestCase
 
         $this->updatedAtMock = $this->createMock(DateTimeImmutable::class);
         $this->dateTimeHelperMock->method('getUtc')->willReturn($this->updatedAtMock);
+
+        $this->clientEntityFactoryMock = $this->createMock(ClientEntityFactory::class);
     }
 
     public static function setUpBeforeClass(): void
@@ -98,6 +102,7 @@ class EditControllerTest extends TestCase
             $this->sessionMessageServiceMock,
             $this->authContextServiceMock,
             $this->helpersMock,
+            $this->clientEntityFactoryMock,
         );
     }
 
@@ -250,29 +255,11 @@ class EditControllerTest extends TestCase
 
         $this->formFactoryMock->expects($this->once())->method('build')->willReturn($this->clientFormMock);
 
+        $this->clientEntityFactoryMock->expects($this->once())->method('fromData')
+            ->willReturn($this->clientEntityMock);
+
         $this->clientRepositoryMock->expects($this->once())->method('update')->with(
-            ClientEntity::fromData(
-                'clientid',
-                'validsecret',
-                'name',
-                'description',
-                ['http://localhost/redirect'],
-                ['openid'],
-                true,
-                false,
-                'auth_source',
-                'existingOwner',
-                [],
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                RegistrationTypeEnum::Manual,
-                $this->updatedAtMock,
-            ),
+            $this->clientEntityMock,
             null,
         );
 
@@ -294,7 +281,8 @@ class EditControllerTest extends TestCase
     public function testItSendsOwnerArgToRepoOnUpdate(): void
     {
         $this->authContextServiceMock->expects($this->atLeastOnce())->method('isSspAdmin')->willReturn(false);
-        $this->authContextServiceMock->method('getAuthUserId')->willReturn('authedUserId');
+        $this->authContextServiceMock->expects($this->atLeastOnce())->method('getAuthUserId')
+            ->willReturn('authedUserId');
         $data = [
             'id' => 'clientid',
             'secret' => 'validsecret',
@@ -364,29 +352,11 @@ class EditControllerTest extends TestCase
 
         $this->formFactoryMock->expects($this->once())->method('build')->willReturn($this->clientFormMock);
 
+        $this->clientEntityFactoryMock->expects($this->once())->method('fromData')
+            ->willReturn($this->clientEntityMock);
+
         $this->clientRepositoryMock->expects($this->once())->method('update')->with(
-            ClientEntity::fromData(
-                'clientid',
-                'validsecret',
-                'name',
-                'description',
-                ['http://localhost/redirect'],
-                ['openid'],
-                true,
-                false,
-                'auth_source',
-                'existingOwner',
-                [],
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                RegistrationTypeEnum::Manual,
-                $this->updatedAtMock,
-            ),
+            $this->clientEntityMock,
             'authedUserId',
         );
 

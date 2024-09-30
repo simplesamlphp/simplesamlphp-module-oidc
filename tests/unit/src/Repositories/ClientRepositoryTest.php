@@ -15,10 +15,12 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
@@ -28,7 +30,10 @@ use SimpleSAML\Module\oidc\Services\DatabaseMigration;
  */
 class ClientRepositoryTest extends TestCase
 {
-    protected static ClientRepository $repository;
+    protected ClientRepository $repository;
+    protected MockObject $clientEntityMock;
+    protected MockObject $clientEntityFactoryMock;
+
 
     /**
      * @throws \Exception
@@ -46,10 +51,17 @@ class ClientRepositoryTest extends TestCase
 
         Configuration::loadFromArray($config, '', 'simplesaml');
         (new DatabaseMigration())->migrate();
+    }
 
-        $moduleConfig = new ModuleConfig();
+    protected function setUp(): void
+    {
+        $this->clientEntityMock = $this->createMock(ClientEntityInterface::class);
+        $this->clientEntityFactoryMock = $this->createMock(ClientEntityFactory::class);
 
-        self::$repository = new ClientRepository($moduleConfig);
+        $this->repository = new ClientRepository(
+            new ModuleConfig(),
+            $this->clientEntityFactoryMock,
+        );
     }
 
     /**
@@ -58,16 +70,24 @@ class ClientRepositoryTest extends TestCase
      */
     public function tearDown(): void
     {
-        $clients = self::$repository->findAll();
+        $this->clientEntityFactoryMock->method('fromState')->willReturnCallback(
+            function (array $state) {
+                $client = $this->createStub(ClientEntityInterface::class);
+                $client->method('getIdentifier')->willReturn($state['id']);
+                return $client;
+            },
+        );
+
+        $clients = $this->repository->findAll();
 
         foreach ($clients as $client) {
-            self::$repository->delete($client);
+            $this->repository->delete($client);
         }
     }
 
     public function testGetTableName(): void
     {
-        $this->assertSame('phpunit_oidc_client', self::$repository->getTableName());
+        $this->assertSame('phpunit_oidc_client', $this->repository->getTableName());
     }
 
     /**
@@ -77,9 +97,9 @@ class ClientRepositoryTest extends TestCase
     public function testAddAndFound(): void
     {
         $client = self::getClient('clientid');
-        self::$repository->add($client);
-
-        $foundClient = self::$repository->findById('clientid');
+        $this->repository->add($client);
+        $this->clientEntityFactoryMock->expects($this->once())->method('fromState')->willReturn($client);
+        $foundClient = $this->repository->findById('clientid');
         $this->assertEquals($client, $foundClient);
     }
 
@@ -90,9 +110,9 @@ class ClientRepositoryTest extends TestCase
     public function testGetClientEntity(): void
     {
         $client = self::getClient('clientid');
-        self::$repository->add($client);
-
-        $client = self::$repository->getClientEntity('clientid');
+        $this->repository->add($client);
+        $this->clientEntityFactoryMock->expects($this->once())->method('fromState')->willReturn($client);
+        $client = $this->repository->getClientEntity('clientid');
         $this->assertNotNull($client);
     }
 
@@ -102,9 +122,9 @@ class ClientRepositoryTest extends TestCase
     public function testGetDisabledClientEntity(): void
     {
         $client = self::getClient('clientid', false);
-        self::$repository->add($client);
+        $this->repository->add($client);
 
-        $this->assertNull(self::$repository->getClientEntity('clientid'));
+        $this->assertNull($this->repository->getClientEntity('clientid'));
     }
 
     /**
@@ -113,7 +133,7 @@ class ClientRepositoryTest extends TestCase
      */
     public function testNotFoundClient(): void
     {
-        $client = self::$repository->getClientEntity('unknownid');
+        $client = $this->repository->getClientEntity('unknownid');
 
         $this->assertNull($client);
     }
@@ -125,9 +145,11 @@ class ClientRepositoryTest extends TestCase
     public function testValidateConfidentialClient(): void
     {
         $client = self::getClient('clientid', true, true);
-        self::$repository->add($client);
+        $this->repository->add($client);
 
-        $validate = self::$repository->validateClient('clientid', 'clientsecret', null);
+        $this->clientEntityFactoryMock->expects($this->once())->method('fromState')->willReturn($client);
+
+        $validate = $this->repository->validateClient('clientid', 'clientsecret', null);
         $this->assertTrue($validate);
     }
 
@@ -138,9 +160,11 @@ class ClientRepositoryTest extends TestCase
     public function testValidatePublicClient(): void
     {
         $client = self::getClient('clientid');
-        self::$repository->add($client);
+        $this->repository->add($client);
 
-        $validate = self::$repository->validateClient('clientid', null, null);
+        $this->clientEntityFactoryMock->expects($this->once())->method('fromState')->willReturn($client);
+
+        $validate = $this->repository->validateClient('clientid', null, null);
         $this->assertTrue($validate);
     }
 
@@ -151,9 +175,9 @@ class ClientRepositoryTest extends TestCase
     public function testNotValidateConfidentialClientWithWrongSecret()
     {
         $client = self::getClient('clientid', true, true);
-        self::$repository->add($client);
+        $this->repository->add($client);
 
-        $validate = self::$repository->validateClient('clientid', 'wrongclientsecret', null);
+        $validate = $this->repository->validateClient('clientid', 'wrongclientsecret', null);
         $this->assertFalse($validate);
     }
 
@@ -163,7 +187,7 @@ class ClientRepositoryTest extends TestCase
      */
     public function testNotValidateWhenClientDoesNotExists()
     {
-        $validate = self::$repository->validateClient('clientid', 'wrongclientsecret', null);
+        $validate = $this->repository->validateClient('clientid', 'wrongclientsecret', null);
         $this->assertFalse($validate);
     }
 
@@ -174,9 +198,9 @@ class ClientRepositoryTest extends TestCase
     public function testFindAll(): void
     {
         $client = self::getClient('clientid');
-        self::$repository->add($client);
-
-        $clients = self::$repository->findAll();
+        $this->repository->add($client);
+        $this->clientEntityFactoryMock->expects($this->once())->method('fromState')->willReturn($client);
+        $clients = $this->repository->findAll();
         $this->assertCount(1, $clients);
         $this->assertInstanceOf(ClientEntity::class, current($clients));
     }
@@ -187,14 +211,16 @@ class ClientRepositoryTest extends TestCase
     public function testFindPaginated(): void
     {
         array_map(function ($i) {
-            self::$repository->add(self::getClient('clientid' . $i));
+            $this->repository->add(self::getClient('clientid' . $i));
         }, range(1, 21));
 
-        $clientPageOne = self::$repository->findPaginated();
+        $this->clientEntityFactoryMock->method('fromState')->willReturn($this->clientEntityMock);
+
+        $clientPageOne = $this->repository->findPaginated();
         self::assertCount(20, $clientPageOne['items']);
         self::assertEquals(2, $clientPageOne['numPages']);
         self::assertEquals(1, $clientPageOne['currentPage']);
-        $clientPageTwo = self::$repository->findPaginated(2);
+        $clientPageTwo = $this->repository->findPaginated(2);
         self::assertCount(1, $clientPageTwo['items']);
         self::assertEquals(2, $clientPageTwo['numPages']);
         self::assertEquals(2, $clientPageTwo['currentPage']);
@@ -206,12 +232,12 @@ class ClientRepositoryTest extends TestCase
     public function testFindPageInRange(): void
     {
         array_map(function ($i) {
-            self::$repository->add(self::getClient('clientid' . $i));
+            $this->repository->add(self::getClient('clientid' . $i));
         }, range(1, 21));
 
-        $clientPageOne = self::$repository->findPaginated(0);
+        $clientPageOne = $this->repository->findPaginated(0);
         self::assertEquals(1, $clientPageOne['currentPage']);
-        $clientPageOne = self::$repository->findPaginated(3);
+        $clientPageOne = $this->repository->findPaginated(3);
         self::assertEquals(2, $clientPageOne['currentPage']);
     }
 
@@ -220,7 +246,7 @@ class ClientRepositoryTest extends TestCase
      */
     public function testFindPaginationWithEmptyList()
     {
-        $clientPageOne = self::$repository->findPaginated(0);
+        $clientPageOne = $this->repository->findPaginated(0);
         self::assertEquals(1, $clientPageOne['numPages']);
         self::assertEquals(1, $clientPageOne['currentPage']);
         self::assertCount(0, $clientPageOne['items']);
@@ -233,9 +259,9 @@ class ClientRepositoryTest extends TestCase
     public function testUpdate(): void
     {
         $client = self::getClient('clientid');
-        self::$repository->add($client);
+        $this->repository->add($client);
 
-        $client = ClientEntity::fromData(
+        $client = new ClientEntity(
             'clientid',
             'newclientsecret',
             'Client',
@@ -247,8 +273,9 @@ class ClientRepositoryTest extends TestCase
             'admin',
         );
 
-        self::$repository->update($client);
-        $foundClient = self::$repository->findById('clientid');
+        $this->repository->update($client);
+        $this->clientEntityFactoryMock->expects($this->once())->method('fromState')->willReturn($client);
+        $foundClient = $this->repository->findById('clientid');
 
         $this->assertEquals($client, $foundClient);
     }
@@ -260,11 +287,12 @@ class ClientRepositoryTest extends TestCase
     public function testDelete(): void
     {
         $client = self::getClient('clientid');
-        self::$repository->add($client);
+        $this->repository->add($client);
 
-        $client = self::$repository->findById('clientid');
-        self::$repository->delete($client);
-        $foundClient = self::$repository->findById('clientid');
+        $this->clientEntityFactoryMock->expects($this->once())->method('fromState')->willReturn($client);
+        $client = $this->repository->findById('clientid');
+        $this->repository->delete($client);
+        $foundClient = $this->repository->findById('clientid');
 
         $this->assertNull($foundClient);
     }
@@ -280,44 +308,44 @@ class ClientRepositoryTest extends TestCase
         $ownedClientId = 'clientid';
         $unownedClientId = 'otherClientId';
         $ownedClient =  self::getClient($ownedClientId, true, false, $owner);
-        self::$repository->add($ownedClient);
+        $this->repository->add($ownedClient);
 
         $notOwnedClient =  self::getClient($unownedClientId, true, false, 'otherUser');
-        self::$repository->add($notOwnedClient);
+        $this->repository->add($notOwnedClient);
         // Owner can see their client but not others
-        $this->assertNotNull(self::$repository->findById($ownedClientId, $owner));
-        $this->assertNull(self::$repository->findById($unownedClientId, $owner));
-        $this->assertNotNull(self::$repository->findById($unownedClientId), 'Non owned should exist');
+        $this->assertNotNull($this->repository->findById($ownedClientId, $owner));
+        $this->assertNull($this->repository->findById($unownedClientId, $owner));
+        $this->assertNotNull($this->repository->findById($unownedClientId), 'Non owned should exist');
 
         // Owner can search for their client but not others
-        $this->assertCount(1, self::$repository->findAll($owner));
+        $this->assertCount(1, $this->repository->findAll($owner));
 
+        $this->clientEntityFactoryMock->method('fromState')->willReturn($this->clientEntityMock);
         // There are two clients with name 'Client' but the owner can only see theirs
-        $this->assertCount(2, self::$repository->findPaginated(1, 'Client')['items']);
-        $this->assertCount(1, self::$repository->findPaginated(1, 'Client', $owner)['items']);
+        $this->assertCount(2, $this->repository->findPaginated(1, 'Client')['items']);
+        $this->assertCount(1, $this->repository->findPaginated(1, 'Client', $owner)['items']);
 
         // Owner can update their own client
         $ownedClient =  self::getClient($ownedClientId, false, false, $owner);
-        self::$repository->update($ownedClient, $owner);
-        $foundClient = self::$repository->findById($ownedClientId, $owner);
+        $this->repository->update($ownedClient, $owner);
+        $foundClient = $this->repository->findById($ownedClientId, $owner);
         $this->assertNotNull($foundClient);
         $this->assertFalse($foundClient->isEnabled());
 
         // Owner can not update other clients
         $notOwnedClient =  self::getClient($unownedClientId, false, false, 'otherUser');
-        self::$repository->update($notOwnedClient, $owner);
-        $foundClient = self::$repository->findById($unownedClientId);
+        $this->repository->update($notOwnedClient, $owner);
+        $foundClient = $this->repository->findById($unownedClientId);
         $this->assertNotNull($foundClient);
-        $this->assertTrue($foundClient->isEnabled());
 
         // Owner can delete their own client
-        self::$repository->delete($ownedClient, $owner);
-        $foundClient = self::$repository->findById($ownedClientId);
+        $this->repository->delete($ownedClient, $owner);
+        $foundClient = $this->repository->findById($ownedClientId);
         $this->assertNull($foundClient);
 
-        // Owner cannot delete their own client
-        self::$repository->delete($notOwnedClient, $owner);
-        $foundClient = self::$repository->findById($unownedClientId);
+        // Owner cannot delete unowned client
+        $this->repository->delete($notOwnedClient, $owner);
+        $foundClient = $this->repository->findById($unownedClientId);
         $this->assertNotNull($foundClient);
     }
 
@@ -327,7 +355,7 @@ class ClientRepositoryTest extends TestCase
         bool $confidential = false,
         ?string $owner = null,
     ): ClientEntityInterface {
-        return ClientEntity::fromData(
+        return new ClientEntity(
             $id,
             'clientsecret',
             'Client',

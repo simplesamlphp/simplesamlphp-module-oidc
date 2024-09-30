@@ -317,7 +317,7 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         bool $confidential = false,
         ?string $owner = null,
     ): ClientEntityInterface {
-        return ClientEntity::fromData(
+        return new ClientEntity(
             $id,
             'clientsecret',
             'Client',

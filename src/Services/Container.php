@@ -37,8 +37,8 @@ use SimpleSAML\Module\oidc\Factories\AuthorizationServerFactory;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Factories\CacheFactory;
 use SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory;
-use SimpleSAML\Module\oidc\Factories\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Factories\CryptKeyFactory;
+use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Factories\FederationFactory;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\AuthCodeGrantFactory;
@@ -120,37 +120,6 @@ class Container implements ContainerInterface
 
         $loggerService = new LoggerService();
         $this->services[LoggerService::class] = $loggerService;
-
-        $clientRepository = new ClientRepository($moduleConfig);
-        $this->services[ClientRepository::class] = $clientRepository;
-
-        $userRepository = new UserRepository($moduleConfig);
-        $this->services[UserRepository::class] = $userRepository;
-
-        $authCodeRepository = new AuthCodeRepository($moduleConfig);
-        $this->services[AuthCodeRepository::class] = $authCodeRepository;
-
-        $refreshTokenRepository = new RefreshTokenRepository($moduleConfig);
-        $this->services[RefreshTokenRepository::class] = $refreshTokenRepository;
-
-        $accessTokenRepository = new AccessTokenRepository($moduleConfig);
-        $this->services[AccessTokenRepository::class] = $accessTokenRepository;
-
-        $scopeRepository = new ScopeRepository($moduleConfig);
-        $this->services[ScopeRepository::class] = $scopeRepository;
-
-        $allowedOriginRepository = new AllowedOriginRepository($moduleConfig);
-        $this->services[AllowedOriginRepository::class] = $allowedOriginRepository;
-
-        $database = Database::getInstance();
-        $this->services[Database::class] = $database;
-
-        $databaseMigration = new DatabaseMigration($database);
-        $this->services[DatabaseMigration::class] = $databaseMigration;
-
-        $databaseLegacyOAuth2Import = new DatabaseLegacyOAuth2Import($clientRepository);
-        $this->services[DatabaseLegacyOAuth2Import::class] = $databaseLegacyOAuth2Import;
-
         $authSimpleFactory = new AuthSimpleFactory($moduleConfig);
         $this->services[AuthSimpleFactory::class] = $authSimpleFactory;
 
@@ -213,6 +182,47 @@ class Container implements ContainerInterface
         $requestParamsResolver = new RequestParamsResolver($helpers, $core, $federation);
         $this->services[RequestParamsResolver::class] = $requestParamsResolver;
 
+        $sspBridge = new SspBridge();
+        $this->services[SspBridge::class] = $sspBridge;
+
+        $clientEntityFactory = new ClientEntityFactory(
+            $sspBridge,
+            $helpers,
+            $claimTranslatorExtractor,
+            $requestParamsResolver,
+        );
+        $this->services[ClientEntityFactory::class] = $clientEntityFactory;
+
+        $clientRepository = new ClientRepository($moduleConfig, $clientEntityFactory);
+        $this->services[ClientRepository::class] = $clientRepository;
+
+        $userRepository = new UserRepository($moduleConfig);
+        $this->services[UserRepository::class] = $userRepository;
+
+        $authCodeRepository = new AuthCodeRepository($moduleConfig, $clientRepository);
+        $this->services[AuthCodeRepository::class] = $authCodeRepository;
+
+        $accessTokenRepository = new AccessTokenRepository($moduleConfig, $clientRepository);
+        $this->services[AccessTokenRepository::class] = $accessTokenRepository;
+
+        $refreshTokenRepository = new RefreshTokenRepository($moduleConfig, $accessTokenRepository);
+        $this->services[RefreshTokenRepository::class] = $refreshTokenRepository;
+
+        $scopeRepository = new ScopeRepository($moduleConfig);
+        $this->services[ScopeRepository::class] = $scopeRepository;
+
+        $allowedOriginRepository = new AllowedOriginRepository($moduleConfig);
+        $this->services[AllowedOriginRepository::class] = $allowedOriginRepository;
+
+        $database = Database::getInstance();
+        $this->services[Database::class] = $database;
+
+        $databaseMigration = new DatabaseMigration($database);
+        $this->services[DatabaseMigration::class] = $databaseMigration;
+
+        $databaseLegacyOAuth2Import = new DatabaseLegacyOAuth2Import($clientRepository, $clientEntityFactory);
+        $this->services[DatabaseLegacyOAuth2Import::class] = $databaseLegacyOAuth2Import;
+
         $authenticationService = new AuthenticationService(
             $userRepository,
             $authSimpleFactory,
@@ -232,17 +242,6 @@ class Container implements ContainerInterface
         $this->services[CodeChallengeVerifiersRepository::class] = $codeChallengeVerifiersRepository;
 
         $cryptKeyFactory = new CryptKeyFactory($moduleConfig);
-
-        $sspBridge = new SspBridge();
-        $this->services[SspBridge::class] = $sspBridge;
-
-        $clientEntityFactory = new ClientEntityFactory(
-            $sspBridge,
-            $helpers,
-            $claimTranslatorExtractor,
-            $requestParamsResolver,
-        );
-        $this->services[ClientEntityFactory::class] = $clientEntityFactory;
 
         $jwksFactory = new JwksFactory($moduleConfig, $loggerService, $federationCache);
         $this->services[JwksFactory::class] = $jwksFactory;

@@ -11,6 +11,7 @@ use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Controller\Client\CreateController;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
+use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Forms\ClientForm;
@@ -36,6 +37,8 @@ class CreateControllerTest extends TestCase
     protected Stub $serverRequestStub;
     protected Stub $templateStub;
     protected MockObject $helpersMock;
+    protected MockObject $clientEntityFactoryMock;
+    protected MockObject $clientEntityMock;
 
     /**
      * @throws \PHPUnit\Framework\MockObject\Exception
@@ -54,17 +57,21 @@ class CreateControllerTest extends TestCase
         $this->templateStub = $this->createStub(Template::class);
 
         $this->helpersMock = $this->createMock(Helpers::class);
+
+        $this->clientEntityFactoryMock = $this->createMock(ClientEntityFactory::class);
+
+        $this->clientEntityMock = $this->createMock(ClientEntity::class);
     }
 
     public function testCanInstantiate(): void
     {
-        $controller = $this->getStubbedInstance();
+        $controller = $this->mock();
         $this->assertInstanceOf(CreateController::class, $controller);
     }
 
-    protected function getStubbedInstance(): CreateController
+    protected function mock(): CreateController
     {
-        return new \SimpleSAML\Module\oidc\Controller\Client\CreateController(
+        return new CreateController(
             $this->clientRepositoryMock,
             $this->allowedOriginRepositoryMock,
             $this->templateFactoryMock,
@@ -72,6 +79,7 @@ class CreateControllerTest extends TestCase
             $this->sessionMessageServiceMock,
             $this->authContextServiceMock,
             $this->helpersMock,
+            $this->clientEntityFactoryMock,
         );
     }
 
@@ -107,7 +115,7 @@ class CreateControllerTest extends TestCase
             ->with($this->equalTo(ClientForm::class))
             ->willReturn($this->clientFormMock);
 
-        $controller = $this->getStubbedInstance();
+        $controller = $this->mock();
         $this->assertSame($this->templateStub, $controller->__invoke());
     }
 
@@ -116,6 +124,26 @@ class CreateControllerTest extends TestCase
      */
     public function testCanCreateNewClientFromFormData(): void
     {
+        $clientData = [
+            'name' => 'name',
+            'description' => 'description',
+            'auth_source' => 'auth_source',
+            'redirect_uri' => ['http://localhost/redirect'],
+            'scopes' => ['openid'],
+            'is_enabled' => true,
+            'is_confidential' => false,
+            'allowed_origin' => [],
+            'post_logout_redirect_uri' => [],
+            'backchannel_logout_uri' => null,
+            'entity_identifier' => null,
+            'client_registration_types' => null,
+            'federation_jwks' => null,
+            'jwks' => null,
+            'jwks_uri' => null,
+            'signed_jwks_uri' => null,
+            'is_federated' => false,
+        ];
+
         $this->clientFormMock
             ->expects($this->once())
             ->method('setAction')
@@ -127,32 +155,16 @@ class CreateControllerTest extends TestCase
         $this->clientFormMock
             ->expects($this->once())
             ->method('getValues')
-            ->willReturn(
-                [
-                     'name' => 'name',
-                     'description' => 'description',
-                     'auth_source' => 'auth_source',
-                     'redirect_uri' => ['http://localhost/redirect'],
-                     'scopes' => ['openid'],
-                     'is_enabled' => true,
-                     'is_confidential' => false,
-                     'allowed_origin' => [],
-                     'post_logout_redirect_uri' => [],
-                     'backchannel_logout_uri' => null,
-                     'entity_identifier' => null,
-                     'client_registration_types' => null,
-                     'federation_jwks' => null,
-                     'jwks' => null,
-                     'jwks_uri' => null,
-                     'signed_jwks_uri' => null,
-                     'is_federated' => false,
-                 ],
-            );
+            ->willReturn($clientData);
 
         $this->formFactoryMock
             ->expects($this->once())
             ->method('build')
             ->willReturn($this->clientFormMock);
+
+        $this->clientEntityFactoryMock->expects($this->once())
+            ->method('fromData')
+            ->willReturn($this->clientEntityMock);
 
         $this->clientRepositoryMock
             ->expects($this->once())
@@ -168,8 +180,7 @@ class CreateControllerTest extends TestCase
             ->method('addMessage')
             ->with('{oidc:client:added}');
 
-        $controller = $this->getStubbedInstance();
-        $this->assertInstanceOf(RedirectResponse::class, $controller->__invoke());
+        $this->assertInstanceOf(RedirectResponse::class, $this->mock()->__invoke());
     }
 
     /**
@@ -178,7 +189,8 @@ class CreateControllerTest extends TestCase
     public function testCanSetOwnerInNewClient(): void
     {
         $this->authContextServiceMock->expects($this->once())->method('isSspAdmin')->willReturn(false);
-        $this->authContextServiceMock->method('getAuthUserId')->willReturn('ownerUsername');
+        $this->authContextServiceMock->expects($this->once())
+            ->method('getAuthUserId')->willReturn('ownerUsername');
 
         $this->clientFormMock
             ->expects($this->once())
@@ -219,6 +231,14 @@ class CreateControllerTest extends TestCase
             ->method('build')
             ->willReturn($this->clientFormMock);
 
+        $this->clientEntityMock->expects($this->once())
+            ->method('getOwner')
+            ->willReturn('ownerUsername');
+
+        $this->clientEntityFactoryMock->expects($this->once())
+            ->method('fromData')
+            ->willReturn($this->clientEntityMock);
+
         $this->clientRepositoryMock->expects($this->once())->method('add')
             ->with($this->callback(fn($client) => is_callable([$client, 'getOwner']) &&
                 $client->getOwner() == 'ownerUsername'));
@@ -228,7 +248,6 @@ class CreateControllerTest extends TestCase
             ->method('addMessage')
             ->with('{oidc:client:added}');
 
-        $controller = $this->getStubbedInstance();
-        $this->assertInstanceOf(RedirectResponse::class, $controller->__invoke());
+        $this->assertInstanceOf(RedirectResponse::class, $this->mock()->__invoke());
     }
 }

@@ -21,11 +21,19 @@ use RuntimeException;
 use SimpleSAML\Error\Error;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeRepositoryInterface
 {
+    public function __construct(
+        ModuleConfig $moduleConfig,
+        protected readonly ClientRepository $clientRepository,
+    ) {
+        parent::__construct($moduleConfig);
+    }
+
     final public const TABLE_NAME = 'oidc_auth_code';
 
     public function getTableName(): string
@@ -83,8 +91,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
 
         /** @var array $data */
         $data = current($rows);
-        $clientRepository = new ClientRepository($this->moduleConfig);
-        $data['client'] = $clientRepository->findById((string)$data['client_id']);
+        $data['client'] = $this->clientRepository->findById((string)$data['client_id']);
 
         return AuthCodeEntity::fromState($data);
     }

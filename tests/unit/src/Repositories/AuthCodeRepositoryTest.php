@@ -17,14 +17,14 @@ namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
 use DateTimeImmutable;
 use Exception;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
+use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
-use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
-use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
@@ -38,7 +38,9 @@ class AuthCodeRepositoryTest extends TestCase
     final public const AUTH_CODE_ID = 'auth_code_id';
     final public const REDIRECT_URI = 'http://localhost/redirect';
 
-    protected static AuthCodeRepository $repository;
+    protected AuthCodeRepository $repository;
+    protected MockObject $clientEntityMock;
+    protected MockObject $clientRepositoryMock;
 
     /**
      * @throws \Exception
@@ -56,20 +58,24 @@ class AuthCodeRepositoryTest extends TestCase
 
         Configuration::loadFromArray($config, '', 'simplesaml');
         (new DatabaseMigration())->migrate();
+    }
 
-        $moduleConfig = new ModuleConfig();
+    protected function setUp(): void
+    {
+        $this->clientEntityMock = $this->createMock(ClientEntity::class);
+        $this->clientEntityMock->method('getIdentifier')->willReturn(self::CLIENT_ID);
+        $this->clientRepositoryMock = $this->createMock(ClientRepository::class);
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
 
-        $client = ClientRepositoryTest::getClient(self::CLIENT_ID);
-        (new ClientRepository($moduleConfig))->add($client);
-        $user = UserEntity::fromData(self::USER_ID);
-        (new UserRepository($moduleConfig))->add($user);
-
-        self::$repository = new AuthCodeRepository($moduleConfig);
+        $this->repository = new AuthCodeRepository(
+            $this->createMock(ModuleConfig::class),
+            $this->clientRepositoryMock,
+        );
     }
 
     public function testGetTableName(): void
     {
-        $this->assertSame('phpunit_oidc_auth_code', self::$repository->getTableName());
+        $this->assertSame('phpunit_oidc_auth_code', $this->repository->getTableName());
     }
 
     /**
@@ -84,10 +90,10 @@ class AuthCodeRepositoryTest extends TestCase
             ScopeEntity::fromData('openid'),
         ];
 
-        $authCode = self::$repository->getNewAuthCode();
+        $authCode = $this->repository->getNewAuthCode();
 
         $authCode->setIdentifier(self::AUTH_CODE_ID);
-        $authCode->setClient(ClientRepositoryTest::getClient(self::CLIENT_ID));
+        $authCode->setClient($this->clientEntityMock);
         $authCode->setUserIdentifier(self::USER_ID);
         $authCode->setExpiryDateTime(DateTimeImmutable::createFromMutable(TimestampGenerator::utc('yesterday')));
         $authCode->setRedirectUri(self::REDIRECT_URI);
@@ -95,9 +101,9 @@ class AuthCodeRepositoryTest extends TestCase
             $authCode->addScope($scope);
         }
 
-        self::$repository->persistNewAuthCode($authCode);
+        $this->repository->persistNewAuthCode($authCode);
 
-        $foundAuthCode = self::$repository->findById(self::AUTH_CODE_ID);
+        $foundAuthCode = $this->repository->findById(self::AUTH_CODE_ID);
 
         $this->assertEquals($authCode, $foundAuthCode);
     }
@@ -107,7 +113,7 @@ class AuthCodeRepositoryTest extends TestCase
      */
     public function testAddAndNotFound(): void
     {
-        $notFoundAuthCode = self::$repository->findById('nocode');
+        $notFoundAuthCode = $this->repository->findById('nocode');
 
         $this->assertNull($notFoundAuthCode);
     }
@@ -118,8 +124,8 @@ class AuthCodeRepositoryTest extends TestCase
      */
     public function testRevokeCode(): void
     {
-        self::$repository->revokeAuthCode(self::AUTH_CODE_ID);
-        $isRevoked = self::$repository->isAuthCodeRevoked(self::AUTH_CODE_ID);
+        $this->repository->revokeAuthCode(self::AUTH_CODE_ID);
+        $isRevoked = $this->repository->isAuthCodeRevoked(self::AUTH_CODE_ID);
 
         $this->assertTrue($isRevoked);
     }
@@ -131,14 +137,14 @@ class AuthCodeRepositoryTest extends TestCase
     {
         $this->expectException(Exception::class);
 
-        self::$repository->revokeAuthCode('nocode');
+        $this->repository->revokeAuthCode('nocode');
     }
 
     public function testErrorCheckIsRevokedInvalidAuthCode(): void
     {
         $this->expectException(Exception::class);
 
-        self::$repository->isAuthCodeRevoked('nocode');
+        $this->repository->isAuthCodeRevoked('nocode');
     }
 
     /**
@@ -146,8 +152,8 @@ class AuthCodeRepositoryTest extends TestCase
      */
     public function testRemoveExpired(): void
     {
-        self::$repository->removeExpired();
-        $notFoundAuthCode = self::$repository->findById(self::AUTH_CODE_ID);
+        $this->repository->removeExpired();
+        $notFoundAuthCode = $this->repository->findById(self::AUTH_CODE_ID);
 
         $this->assertNull($notFoundAuthCode);
     }

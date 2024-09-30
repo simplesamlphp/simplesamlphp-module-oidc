@@ -7,8 +7,8 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Controller\Federation;
 
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
-use SimpleSAML\Module\oidc\Factories\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Factories\CoreFactory;
+use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;

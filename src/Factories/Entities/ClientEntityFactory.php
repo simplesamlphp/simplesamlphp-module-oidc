@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Module\oidc\Factories;
+namespace SimpleSAML\Module\oidc\Factories\Entities;
 
 use DateTimeImmutable;
 use Psr\Http\Message\ServerRequestInterface;
@@ -30,6 +30,66 @@ class ClientEntityFactory
         private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
         private readonly RequestParamsResolver $requestParamsResolver,
     ) {
+    }
+
+    /**
+     * @param string[] $redirectUri
+     * @param string[] $scopes
+     * @param string[] $postLogoutRedirectUri
+     * @param string[] $clientRegistrationTypes
+     * @param array[] $federationJwks
+     * @param array[] $jwks
+     */
+    public function fromData(
+        string $id,
+        string $secret,
+        string $name,
+        string $description,
+        array $redirectUri,
+        array $scopes,
+        bool $isEnabled,
+        bool $isConfidential = false,
+        ?string $authSource = null,
+        ?string $owner = null,
+        array $postLogoutRedirectUri = [],
+        ?string $backChannelLogoutUri = null,
+        ?string $entityIdentifier = null,
+        ?array $clientRegistrationTypes = null,
+        ?array $federationJwks = null,
+        ?array $jwks = null,
+        ?string $jwksUri = null,
+        ?string $signedJwksUri = null,
+        RegistrationTypeEnum $registrationType = RegistrationTypeEnum::Manual,
+        ?DateTimeImmutable $updatedAt = null,
+        ?DateTimeImmutable $createdAt = null,
+        ?DateTimeImmutable $expiresAt = null,
+        bool $isFederated = false,
+    ): ClientEntityInterface {
+        return new ClientEntity(
+            $id,
+            $secret,
+            $name,
+            $description,
+            $redirectUri,
+            $scopes,
+            $isEnabled,
+            $isConfidential,
+            $authSource,
+            $owner,
+            $postLogoutRedirectUri,
+            $backChannelLogoutUri,
+            $entityIdentifier,
+            $clientRegistrationTypes,
+            $federationJwks,
+            $jwks,
+            $jwksUri,
+            $signedJwksUri,
+            $registrationType,
+            $updatedAt,
+            $createdAt,
+            $expiresAt,
+            $isFederated,
+        );
     }
 
     /**
@@ -131,7 +191,7 @@ class ClientEntityFactory
 
         $isFederated = $existingClient?->isFederated() ?? false;
 
-        return ClientEntity::fromData(
+        return $this->fromData(
             $id,
             $secret,
             $name,
@@ -207,5 +267,117 @@ class ClientEntityFactory
 
         // Assume confidential client.
         return true;
+    }
+
+    /**
+     * @throws \JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function fromState(array $state): ClientEntityInterface
+    {
+        if (
+            !is_string($state[ClientEntity::KEY_ID]) ||
+            !is_string($state[ClientEntity::KEY_SECRET]) ||
+            !is_string($state[ClientEntity::KEY_NAME]) ||
+            !is_string($state[ClientEntity::KEY_REDIRECT_URI]) ||
+            !is_string($state[ClientEntity::KEY_SCOPES]) ||
+            !is_string($state[ClientEntity::KEY_REGISTRATION_TYPE])
+        ) {
+            throw OidcServerException::serverError('Invalid Client Entity state');
+        }
+
+        $id = $state[ClientEntity::KEY_ID];
+        $secret = $state[ClientEntity::KEY_SECRET];
+        $name = $state[ClientEntity::KEY_NAME];
+        $description = (string)($state[ClientEntity::KEY_DESCRIPTION] ?? '');
+
+        /** @var string[] $redirectUris */
+        $redirectUris = json_decode($state[ClientEntity::KEY_REDIRECT_URI], true, 512, JSON_THROW_ON_ERROR);
+
+        /** @var string[] $scopes */
+        $scopes = json_decode($state[ClientEntity::KEY_SCOPES], true, 512, JSON_THROW_ON_ERROR);
+
+        $isEnabled = (bool) $state[ClientEntity::KEY_IS_ENABLED];
+
+        $isConfidential = (bool) ($state[ClientEntity::KEY_IS_CONFIDENTIAL] ?? false);
+
+        $authSource = empty($state[ClientEntity::KEY_AUTH_SOURCE]) ?
+        null :
+        (string)$state[ClientEntity::KEY_AUTH_SOURCE];
+
+        $owner = empty($state[ClientEntity::KEY_OWNER]) ? null : (string)$state[ClientEntity::KEY_OWNER];
+
+        /** @var string[] $postLogoutRedirectUris */
+        $postLogoutRedirectUris = json_decode(
+            (string)($state[ClientEntity::KEY_POST_LOGOUT_REDIRECT_URI] ?? "[]"),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        $backChannelLogoutUri = empty($state[ClientEntity::KEY_BACKCHANNEL_LOGOUT_URI]) ?
+        null :
+        (string)$state[ClientEntity::KEY_BACKCHANNEL_LOGOUT_URI];
+
+        $entityIdentifier = empty($state[ClientEntity::KEY_ENTITY_IDENTIFIER]) ?
+        null :
+        (string)$state[ClientEntity::KEY_ENTITY_IDENTIFIER];
+
+        /** @var ?string[] $clientRegistrationTypes */
+        $clientRegistrationTypes = empty($state[ClientEntity::KEY_CLIENT_REGISTRATION_TYPES]) ?
+        null :
+        json_decode((string)$state[ClientEntity::KEY_CLIENT_REGISTRATION_TYPES], true, 512, JSON_THROW_ON_ERROR);
+
+        /** @var ?array[] $federationJwks */
+        $federationJwks = empty($state[ClientEntity::KEY_FEDERATION_JWKS]) ?
+        null :
+        json_decode((string)$state[ClientEntity::KEY_FEDERATION_JWKS], true, 512, JSON_THROW_ON_ERROR);
+
+        /** @var ?array[] $jwks */
+        $jwks = empty($state[ClientEntity::KEY_JWKS]) ?
+        null :
+        json_decode((string)$state[ClientEntity::KEY_JWKS], true, 512, JSON_THROW_ON_ERROR);
+
+        $jwksUri = empty($state[ClientEntity::KEY_JWKS_URI]) ? null : (string)$state[ClientEntity::KEY_JWKS_URI];
+        $signedJwksUri = empty($state[ClientEntity::KEY_SIGNED_JWKS_URI]) ?
+        null :
+        (string)$state[ClientEntity::KEY_SIGNED_JWKS_URI];
+
+        $registrationType = RegistrationTypeEnum::from(trim($state[ClientEntity::KEY_REGISTRATION_TYPE]));
+
+        $updatedAt = empty($state[ClientEntity::KEY_UPDATED_AT]) ? null :
+        $this->helpers->dateTime()->getUtc((string)$state[ClientEntity::KEY_UPDATED_AT]);
+        $createdAt = empty($state[ClientEntity::KEY_CREATED_AT]) ? null :
+        $this->helpers->dateTime()->getUtc((string)$state[ClientEntity::KEY_CREATED_AT]);
+        $expiresAt = empty($state[ClientEntity::KEY_EXPIRES_AT]) ? null :
+        $this->helpers->dateTime()->getUtc((string)$state[ClientEntity::KEY_EXPIRES_AT]);
+
+        $isFederated = (bool)$state[ClientEntity::KEY_IS_FEDERATED];
+
+        return $this->fromData(
+            $id,
+            $secret,
+            $name,
+            $description,
+            $redirectUris,
+            $scopes,
+            $isEnabled,
+            $isConfidential,
+            $authSource,
+            $owner,
+            $postLogoutRedirectUris,
+            $backChannelLogoutUri,
+            $entityIdentifier,
+            $clientRegistrationTypes,
+            $federationJwks,
+            $jwks,
+            $jwksUri,
+            $signedJwksUri,
+            $registrationType,
+            $updatedAt,
+            $createdAt,
+            $expiresAt,
+            $isFederated,
+        );
     }
 }
