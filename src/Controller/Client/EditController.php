@@ -19,7 +19,7 @@ namespace SimpleSAML\Module\oidc\Controller\Client;
 use Laminas\Diactoros\Response\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;
 use SimpleSAML\Module\oidc\Controller\Traits\AuthenticatedGetClientFromRequestTrait;
-use SimpleSAML\Module\oidc\Entities\ClientEntity;
+use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Forms\ClientForm;
@@ -44,6 +44,7 @@ class EditController
         private readonly SessionMessagesService $messages,
         AuthContextService $authContextService,
         private readonly Helpers $helpers,
+        private readonly ClientEntityFactory $clientEntityFactory,
     ) {
         $this->clientRepository = $clientRepository;
         $this->authContextService = $authContextService;
@@ -106,7 +107,7 @@ class EditController
             $expiresAt = $client->getExpiresAt();
             $isFederated = (bool)$data['is_federated'];
 
-            $this->clientRepository->update(ClientEntity::fromData(
+            $this->clientRepository->update($this->clientEntityFactory->fromData(
                 $client->getIdentifier(),
                 $client->getSecret(),
                 $data['name'],

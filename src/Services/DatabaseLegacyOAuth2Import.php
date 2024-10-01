@@ -16,7 +16,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Services;
 
-use SimpleSAML\Module\oidc\Entities\ClientEntity;
+use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Modules\OAuth2\Repositories\ClientRepository as OAuth2ClientRepository;
 
@@ -25,8 +25,10 @@ use SimpleSAML\Modules\OAuth2\Repositories\ClientRepository as OAuth2ClientRepos
  */
 class DatabaseLegacyOAuth2Import
 {
-    public function __construct(private readonly ClientRepository $clientRepository)
-    {
+    public function __construct(
+        private readonly ClientRepository $clientRepository,
+        private readonly ClientEntityFactory $clientEntityFactory,
+    ) {
     }
 
     /**
@@ -48,7 +50,7 @@ class DatabaseLegacyOAuth2Import
                 continue;
             }
 
-            $this->clientRepository->add(ClientEntity::fromData(
+            $this->clientRepository->add($this->clientEntityFactory->fromData(
                 $client['id'],
                 $client['secret'],
                 $client['name'],

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Entities;
 
+use DateTimeImmutable;
 use PDO;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
@@ -14,7 +15,31 @@ use SimpleSAML\Module\oidc\Entities\ClientEntity;
  */
 class ClientEntityTest extends TestCase
 {
-    protected array $state;
+    protected array $state = [];
+    protected string $id = 'id';
+    protected string $secret = 'secret';
+    protected string $name = 'name';
+    protected string $description = 'description';
+    protected array $redirectUri = ['https://localhost/redirect'];
+    protected array $scopes = [];
+    protected bool $isEnabled = true;
+    protected bool $isConfidential = false;
+    protected ?string $authSource = 'auth_source';
+    protected string $owner = 'user@test.com';
+    protected array $postLogoutRedirectUri = [];
+    protected ?string $backChannelLogoutUri = null;
+    protected ?string $entityIdentifier = null;
+    protected ?array $clientRegistrationTypes = null;
+    protected ?array $federationJwks = null;
+    protected ?array $jwks = null;
+    protected ?string $jwksUri = null;
+    protected ?string $signedJwksUri = null;
+    protected RegistrationTypeEnum $registrationType = RegistrationTypeEnum::Manual;
+    protected ?DateTimeImmutable $updatedAt = null;
+    protected ?DateTimeImmutable $createdAt = null;
+    protected ?DateTimeImmutable $expiresAt = null;
+    protected bool $isFederated = false;
+
     protected function setUp(): void
     {
         $this->state = [
@@ -42,10 +67,33 @@ class ClientEntityTest extends TestCase
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \JsonException
      */
-    public function mock(array $state = null): ClientEntity
+    public function mock(): ClientEntity
     {
-        $state ??= $this->state;
-        return ClientEntity::fromState($state);
+        return new ClientEntity(
+            $this->id,
+            $this->secret,
+            $this->name,
+            $this->description,
+            $this->redirectUri,
+            $this->scopes,
+            $this->isEnabled,
+            $this->isConfidential,
+            $this->authSource,
+            $this->owner,
+            $this->postLogoutRedirectUri,
+            $this->backChannelLogoutUri,
+            $this->entityIdentifier,
+            $this->clientRegistrationTypes,
+            $this->federationJwks,
+            $this->jwks,
+            $this->jwksUri,
+            $this->signedJwksUri,
+            $this->registrationType,
+            $this->updatedAt,
+            $this->createdAt,
+            $this->expiresAt,
+            $this->isFederated,
+        );
     }
 
     /**
@@ -61,7 +109,7 @@ class ClientEntityTest extends TestCase
 
         $this->assertInstanceOf(
             ClientEntity::class,
-            ClientEntity::fromData('id', 'secret', 'name', 'description', ['redirectUri'], [], true),
+            new ClientEntity('id', 'secret', 'name', 'description', ['redirectUri'], [], true),
         );
     }
 

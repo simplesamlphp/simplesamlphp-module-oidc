@@ -17,14 +17,15 @@ namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
 use DateTimeImmutable;
 use Exception;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
-use SimpleSAML\Module\oidc\Entities\UserEntity;
+use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
-use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
@@ -37,7 +38,14 @@ class AccessTokenRepositoryTest extends TestCase
     final public const USER_ID = 'access_token_user_id';
     final public const ACCESS_TOKEN_ID = 'access_token_id';
 
-    protected static AccessTokenRepository $repository;
+    protected AccessTokenRepository $repository;
+
+    protected MockObject $moduleConfigMock;
+    protected MockObject $clientRepositoryMock;
+    protected MockObject $clientEntityFactoryMock;
+
+    protected static bool $dbSeeded = false;
+    protected ClientEntityInterface $clientEntity;
 
     /**
      * @throws \Exception
@@ -55,20 +63,25 @@ class AccessTokenRepositoryTest extends TestCase
 
         Configuration::loadFromArray($config, '', 'simplesaml');
         (new DatabaseMigration())->migrate();
+    }
 
-        $moduleConfig = new ModuleConfig();
+    protected function setUp(): void
+    {
+        $this->moduleConfigMock =  $this->createMock(ModuleConfig::class);
+        $this->clientEntityFactoryMock = $this->createMock(ClientEntityFactory::class);
 
-        $client = ClientRepositoryTest::getClient(self::CLIENT_ID);
-        (new ClientRepository($moduleConfig))->add($client);
-        $user = UserEntity::fromData(self::USER_ID);
-        (new UserRepository($moduleConfig))->add($user);
+        $this->clientRepositoryMock = $this->createMock(ClientRepository::class);
+        $this->clientEntity = ClientRepositoryTest::getClient(self::CLIENT_ID);
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntity);
 
-        self::$repository = new AccessTokenRepository($moduleConfig);
+        $this->clientEntityFactoryMock->method('fromState')->willReturn($this->clientEntity);
+
+        $this->repository = new AccessTokenRepository($this->moduleConfigMock, $this->clientRepositoryMock);
     }
 
     public function testGetTableName(): void
     {
-        $this->assertSame('phpunit_oidc_access_token', self::$repository->getTableName());
+        $this->assertSame('phpunit_oidc_access_token', $this->repository->getTableName());
     }
 
     /**
@@ -84,8 +97,8 @@ class AccessTokenRepositoryTest extends TestCase
             ScopeEntity::fromData('openid'),
         ];
 
-        $accessToken = self::$repository->getNewToken(
-            ClientRepositoryTest::getClient(self::CLIENT_ID),
+        $accessToken = $this->repository->getNewToken(
+            $this->clientEntity,
             $scopes,
             self::USER_ID,
         );
@@ -94,9 +107,9 @@ class AccessTokenRepositoryTest extends TestCase
             TimestampGenerator::utc('yesterday'),
         ));
 
-        self::$repository->persistNewAccessToken($accessToken);
+        $this->repository->persistNewAccessToken($accessToken);
 
-        $foundAccessToken = self::$repository->findById(self::ACCESS_TOKEN_ID);
+        $foundAccessToken = $this->repository->findById(self::ACCESS_TOKEN_ID);
 
         $this->assertEquals($accessToken, $foundAccessToken);
     }
@@ -106,7 +119,7 @@ class AccessTokenRepositoryTest extends TestCase
      */
     public function testAddAndNotFound(): void
     {
-        $notFoundAccessToken = self::$repository->findById('notoken');
+        $notFoundAccessToken = $this->repository->findById('notoken');
 
         $this->assertNull($notFoundAccessToken);
     }
@@ -117,8 +130,8 @@ class AccessTokenRepositoryTest extends TestCase
      */
     public function testRevokeToken(): void
     {
-        self::$repository->revokeAccessToken(self::ACCESS_TOKEN_ID);
-        $isRevoked = self::$repository->isAccessTokenRevoked(self::ACCESS_TOKEN_ID);
+        $this->repository->revokeAccessToken(self::ACCESS_TOKEN_ID);
+        $isRevoked = $this->repository->isAccessTokenRevoked(self::ACCESS_TOKEN_ID);
 
         $this->assertTrue($isRevoked);
     }
@@ -131,7 +144,7 @@ class AccessTokenRepositoryTest extends TestCase
     {
         $this->expectException(Exception::class);
 
-        self::$repository->revokeAccessToken('notoken');
+        $this->repository->revokeAccessToken('notoken');
     }
 
     /**
@@ -141,7 +154,7 @@ class AccessTokenRepositoryTest extends TestCase
     {
         $this->expectException(Exception::class);
 
-        self::$repository->isAccessTokenRevoked('notoken');
+        $this->repository->isAccessTokenRevoked('notoken');
     }
 
     /**
@@ -150,8 +163,8 @@ class AccessTokenRepositoryTest extends TestCase
      */
     public function testRemoveExpired(): void
     {
-        self::$repository->removeExpired();
-        $notFoundAccessToken = self::$repository->findById(self::ACCESS_TOKEN_ID);
+        $this->repository->removeExpired();
+        $notFoundAccessToken = $this->repository->findById(self::ACCESS_TOKEN_ID);
 
         $this->assertNull($notFoundAccessToken);
     }

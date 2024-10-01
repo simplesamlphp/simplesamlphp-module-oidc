@@ -19,10 +19,18 @@ use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use PDO;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 
 class ClientRepository extends AbstractDatabaseRepository implements ClientRepositoryInterface
 {
+    public function __construct(
+        ModuleConfig $moduleConfig,
+        protected readonly ClientEntityFactory $clientEntityFactory,
+    ) {
+        parent::__construct($moduleConfig);
+    }
+
     final public const TABLE_NAME = 'oidc_client';
 
     public function getTableName(): string
@@ -104,7 +112,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
             return null;
         }
 
-        return ClientEntity::fromState($row);
+        return $this->clientEntityFactory->fromState($row);
     }
 
     public function findFederated(string $entityIdentifier, ?string $owner = null): ?ClientEntityInterface
@@ -141,7 +149,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
             return null;
         }
 
-        return ClientEntity::fromState($row);
+        return $this->clientEntityFactory->fromState($row);
     }
 
     private function addOwnerWhereClause(string $query, array $params, ?string $owner = null): array
@@ -182,7 +190,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
         /** @var array $state */
         foreach ($stmt->fetchAll() as $state) {
-            $clients[] = ClientEntity::fromState($state);
+            $clients[] = $this->clientEntityFactory->fromState($state);
         }
 
         return $clients;
@@ -219,7 +227,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
             $params,
         );
 
-        $clients = array_map(fn(array $state) => ClientEntity::fromState($state), $stmt->fetchAll());
+        $clients = array_map(fn(array $state) => $this->clientEntityFactory->fromState($state), $stmt->fetchAll());
 
         return [
             'numPages' => $numPages,

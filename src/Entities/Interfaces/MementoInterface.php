@@ -17,8 +17,6 @@ namespace SimpleSAML\Module\oidc\Entities\Interfaces;
 
 interface MementoInterface
 {
-    public static function fromState(array $state): MementoInterface;
-
     /**
      * @return array
      */

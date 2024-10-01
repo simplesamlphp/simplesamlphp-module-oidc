@@ -18,7 +18,7 @@ namespace SimpleSAML\Module\oidc\Controller\Client;
 
 use Laminas\Diactoros\Response\RedirectResponse;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
-use SimpleSAML\Module\oidc\Entities\ClientEntity;
+use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Forms\ClientForm;
@@ -42,6 +42,7 @@ class CreateController
         private readonly SessionMessagesService $messages,
         private readonly AuthContextService $authContextService,
         private readonly Helpers $helpers,
+        private readonly ClientEntityFactory $clientEntityFactory,
     ) {
     }
 
@@ -100,7 +101,7 @@ class CreateController
             $expiresAt = null;
             $isFederated = (bool)$client['is_federated'];
 
-            $this->clientRepository->add(ClientEntity::fromData(
+            $this->clientRepository->add($this->clientEntityFactory->fromData(
                 $client['id'],
                 $client['secret'],
                 $client['name'],

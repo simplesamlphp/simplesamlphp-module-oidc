@@ -10,23 +10,6 @@ use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 
 interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInterface
 {
-    /**
-     * @param string[] $redirectUri
-     * @param string[] $scopes
-     */
-    public static function fromData(
-        string $id,
-        string $secret,
-        string $name,
-        string $description,
-        array $redirectUri,
-        array $scopes,
-        bool $isEnabled,
-        bool $isConfidential = false,
-        ?string $authSource = null,
-        ?string $owner = null,
-    ): self;
-
     public function toArray(): array;
 
     public function getSecret(): string;

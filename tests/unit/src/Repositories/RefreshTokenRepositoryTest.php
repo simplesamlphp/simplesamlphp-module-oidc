@@ -16,16 +16,14 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
 use DateTimeImmutable;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
-use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
-use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
-use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
@@ -39,7 +37,9 @@ class RefreshTokenRepositoryTest extends TestCase
     final public const ACCESS_TOKEN_ID = 'refresh_token_access_token_id';
     final public const REFRESH_TOKEN_ID = 'refresh_token_id';
 
-    protected static RefreshTokenRepository $repository;
+    protected RefreshTokenRepository $repository;
+    protected MockObject $accessTokenMock;
+    protected MockObject $accessTokenRepositoryMock;
 
     /**
      * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
@@ -60,25 +60,23 @@ class RefreshTokenRepositoryTest extends TestCase
 
         Configuration::loadFromArray($config, '', 'simplesaml');
         (new DatabaseMigration())->migrate();
+    }
 
-        $moduleConfig = new ModuleConfig();
+    protected function setUp(): void
+    {
+        $this->accessTokenMock = $this->createMock(AccessTokenEntity::class);
+        $this->accessTokenMock->method('getIdentifier')->willReturn(self::ACCESS_TOKEN_ID);
+        $this->accessTokenRepositoryMock = $this->createMock(AccessTokenRepository::class);
 
-        $client = ClientRepositoryTest::getClient(self::CLIENT_ID);
-        (new ClientRepository($moduleConfig))->add($client);
-        $user = UserEntity::fromData(self::USER_ID);
-        (new UserRepository($moduleConfig))->add($user);
-
-        $accessToken = AccessTokenEntity::fromData($client, [], self::USER_ID);
-        $accessToken->setIdentifier(self::ACCESS_TOKEN_ID);
-        $accessToken->setExpiryDateTime(new DateTimeImmutable('yesterday'));
-        (new AccessTokenRepository($moduleConfig))->persistNewAccessToken($accessToken);
-
-        self::$repository = new RefreshTokenRepository($moduleConfig);
+        $this->repository = new RefreshTokenRepository(
+            new ModuleConfig(),
+            $this->accessTokenRepositoryMock,
+        );
     }
 
     public function testGetTableName(): void
     {
-        $this->assertSame('phpunit_oidc_refresh_token', self::$repository->getTableName());
+        $this->assertSame('phpunit_oidc_refresh_token', $this->repository->getTableName());
     }
 
     /**
@@ -89,17 +87,15 @@ class RefreshTokenRepositoryTest extends TestCase
      */
     public function testAddAndFound(): void
     {
-        $moduleConfig = new ModuleConfig();
-        $accessToken = (new AccessTokenRepository($moduleConfig))->findById(self::ACCESS_TOKEN_ID);
-
-        $refreshToken = self::$repository->getNewRefreshToken();
+        $refreshToken = $this->repository->getNewRefreshToken();
         $refreshToken->setIdentifier(self::REFRESH_TOKEN_ID);
         $refreshToken->setExpiryDateTime(DateTimeImmutable::createFromMutable(TimestampGenerator::utc('yesterday')));
-        $refreshToken->setAccessToken($accessToken);
+        $refreshToken->setAccessToken($this->accessTokenMock);
 
-        self::$repository->persistNewRefreshToken($refreshToken);
+        $this->repository->persistNewRefreshToken($refreshToken);
 
-        $foundRefreshToken = self::$repository->findById(self::REFRESH_TOKEN_ID);
+        $this->accessTokenRepositoryMock->method('findById')->willReturn($this->accessTokenMock);
+        $foundRefreshToken = $this->repository->findById(self::REFRESH_TOKEN_ID);
 
         $this->assertEquals($refreshToken, $foundRefreshToken);
     }
@@ -109,7 +105,7 @@ class RefreshTokenRepositoryTest extends TestCase
      */
     public function testAddAndNotFound(): void
     {
-        $notFoundRefreshToken = self::$repository->findById('notoken');
+        $notFoundRefreshToken = $this->repository->findById('notoken');
 
         $this->assertNull($notFoundRefreshToken);
     }
@@ -119,8 +115,9 @@ class RefreshTokenRepositoryTest extends TestCase
      */
     public function testRevokeToken(): void
     {
-        self::$repository->revokeRefreshToken(self::REFRESH_TOKEN_ID);
-        $isRevoked = self::$repository->isRefreshTokenRevoked(self::REFRESH_TOKEN_ID);
+        $this->accessTokenRepositoryMock->method('findById')->willReturn($this->accessTokenMock);
+        $this->repository->revokeRefreshToken(self::REFRESH_TOKEN_ID);
+        $isRevoked = $this->repository->isRefreshTokenRevoked(self::REFRESH_TOKEN_ID);
 
         $this->assertTrue($isRevoked);
     }
@@ -132,7 +129,7 @@ class RefreshTokenRepositoryTest extends TestCase
     {
         $this->expectException(RuntimeException::class);
 
-        self::$repository->revokeRefreshToken('notoken');
+        $this->repository->revokeRefreshToken('notoken');
     }
 
     /**
@@ -142,7 +139,7 @@ class RefreshTokenRepositoryTest extends TestCase
     {
         $this->expectException(RuntimeException::class);
 
-        self::$repository->isRefreshTokenRevoked('notoken');
+        $this->repository->isRefreshTokenRevoked('notoken');
     }
 
     /**
@@ -151,8 +148,8 @@ class RefreshTokenRepositoryTest extends TestCase
      */
     public function testRemoveExpired(): void
     {
-        self::$repository->removeExpired();
-        $notFoundRefreshToken = self::$repository->findById(self::REFRESH_TOKEN_ID);
+        $this->repository->removeExpired();
+        $notFoundRefreshToken = $this->repository->findById(self::REFRESH_TOKEN_ID);
 
         $this->assertNull($notFoundRefreshToken);
     }

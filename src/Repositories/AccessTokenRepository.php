@@ -22,6 +22,7 @@ use RuntimeException;
 use SimpleSAML\Error\Error;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
@@ -31,6 +32,13 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
     use RevokeTokenByAuthCodeIdTrait;
 
     final public const TABLE_NAME = 'oidc_access_token';
+
+    public function __construct(
+        ModuleConfig $moduleConfig,
+        protected readonly ClientRepository $clientRepository,
+    ) {
+        parent::__construct($moduleConfig);
+    }
 
     public function getTableName(): string
     {
@@ -99,8 +107,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
 
         /** @var array $data */
         $data = current($rows);
-        $clientRepository = new ClientRepository($this->moduleConfig);
-        $data['client'] = $clientRepository->findById((string)$data['client_id']);
+        $data['client'] = $this->clientRepository->findById((string)$data['client_id']);
 
         return AccessTokenEntity::fromState($data);
     }
