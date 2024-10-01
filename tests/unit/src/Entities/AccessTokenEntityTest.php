@@ -70,39 +70,24 @@ class AccessTokenEntityTest extends TestCase
         $this->scopes = [$this->scopeEntityOpenId, $this->scopeEntityProfile,];
 
         $this->expiresAt = date('Y-m-d H:i:s', strtotime('+10 minutes'));
-
-        $this->state = [
-            'id' => $this->id,
-            'scopes' => json_encode($this->scopes, JSON_THROW_ON_ERROR),
-            'expires_at' => $this->expiresAt,
-            'user_id' => $this->userId,
-            'client' => $this->clientEntityStub,
-            'is_revoked' => $this->isRevoked,
-            'auth_code_id' => $this->authCodeId,
-            'requested_claims' => json_encode($this->requestedClaims, JSON_THROW_ON_ERROR),
-        ];
     }
 
-    /**
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
-     * @throws \JsonException
-     */
-    public function testCanCreateInstanceFromState(): void
+    public function mock(): AccessTokenEntity
     {
-        $this->assertInstanceOf(AccessTokenEntity::class, AccessTokenEntity::fromState($this->state));
+        return new AccessTokenEntity(
+            $this->clientEntityStub,
+            $this->scopes,
+            $this->userId,
+            $this->authCodeId,
+            $this->requestedClaims,
+        );
     }
 
-    public function testCanCreateInstanceFromData(): void
+    public function testCanCreateInstance(): void
     {
         $this->assertInstanceOf(
             AccessTokenEntity::class,
-            AccessTokenEntity::fromData(
-                $this->clientEntityStub,
-                $this->scopes,
-                $this->userId,
-                $this->authCodeId,
-                $this->requestedClaims,
-            ),
+            $this->mock(),
         );
     }
 
@@ -112,13 +97,12 @@ class AccessTokenEntityTest extends TestCase
      */
     public function testHasProperState(): void
     {
-        $accessTokenEntity = AccessTokenEntity::fromState($this->state);
-        $accessTokenEntityState = $accessTokenEntity->getState();
+        $accessTokenEntityState = $this->mock()->getState();
 
         $this->assertSame($this->id, $accessTokenEntityState['id']);
         $this->assertSame(json_encode($this->scopes, JSON_THROW_ON_ERROR), $accessTokenEntityState['scopes']);
 
-        $this->assertSame($this->requestedClaims, $accessTokenEntity->getRequestedClaims());
+        $this->assertSame($this->requestedClaims, $this->mock()->getRequestedClaims());
     }
 
     /**
@@ -127,14 +111,12 @@ class AccessTokenEntityTest extends TestCase
      */
     public function testHasImmutableStringRepresentation(): void
     {
-        $accessTokenEntity = AccessTokenEntity::fromState($this->state);
+        $this->assertNull($this->mock()->toString());
 
-        $this->assertNull($accessTokenEntity->toString());
+        $stringRepresentation = (string) $this->mock();
 
-        $stringRepresentation = (string) $accessTokenEntity;
+        $this->assertIsString($this->mock()->toString());
 
-        $this->assertIsString($accessTokenEntity->toString());
-
-        $this->assertSame($stringRepresentation, $accessTokenEntity->toString());
+        $this->assertSame($stringRepresentation, $this->mock()->toString());
     }
 }

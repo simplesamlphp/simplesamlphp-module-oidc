@@ -18,19 +18,17 @@ namespace SimpleSAML\Module\oidc\Entities;
 
 use DateTimeImmutable;
 use Lcobucci\JWT\Token;
+use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\Traits\AccessTokenTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\TokenEntityTrait;
 use PDO;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
-use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\Entities\Traits\AssociateWithAuthCodeTrait;
 use SimpleSAML\Module\oidc\Entities\Traits\RevokeTokenTrait;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
-use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 use Stringable;
 
 /**
@@ -57,86 +55,34 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
     protected array $requestedClaims;
 
     /**
-     * Constructor.
-     */
-    private function __construct()
-    {
-    }
-
-    /**
-     * Create new Access Token from data.
-     *
      * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
      */
-    public static function fromData(
+    public function __construct(
+        string $id,
         OAuth2ClientEntityInterface $clientEntity,
         array $scopes,
+        DateTimeImmutable $expiryDateTime,
+        CryptKey $privateKey,
+        protected JsonWebTokenBuilderService $jsonWebTokenBuilderService,
         int|string $userIdentifier = null,
         string $authCodeId = null,
         array $requestedClaims = null,
-    ): self {
-        $accessToken = new self();
-
-        $accessToken->setClient($clientEntity);
-        $accessToken->setUserIdentifier($userIdentifier);
-        $accessToken->setAuthCodeId($authCodeId);
+        bool $isRevoked = false,
+    ) {
+        $this->setIdentifier($id);
+        $this->setClient($clientEntity);
         foreach ($scopes as $scope) {
-            $accessToken->addScope($scope);
+            $this->addScope($scope);
         }
-        $accessToken->setRequestedClaims($requestedClaims ?? []);
-
-        return $accessToken;
-    }
-
-    /**
-     * @throws \Exception
-     * @throws \JsonException
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
-     */
-    public static function fromState(array $state): self
-    {
-        $accessToken = new self();
-
-        if (
-            !is_string($state['scopes']) ||
-            !is_string($state['id']) ||
-            !is_string($state['expires_at']) ||
-            !is_a($state['client'], ClientEntityInterface::class)
-        ) {
-            throw OidcServerException::serverError('Invalid Access Token Entity state');
+        $this->setExpiryDateTime($expiryDateTime);
+        $this->setPrivateKey($privateKey);
+        $this->initJwtConfiguration();
+        $this->setUserIdentifier($userIdentifier);
+        $this->setAuthCodeId($authCodeId);
+        $this->setRequestedClaims($requestedClaims ?? []);
+        if ($isRevoked) {
+            $this->revoke();
         }
-
-        $stateScopes = json_decode($state['scopes'], true, 512, JSON_THROW_ON_ERROR);
-        if (!is_array($stateScopes)) {
-            throw OidcServerException::serverError('Invalid Access Token Entity state: scopes');
-        }
-
-        /** @psalm-var string $scope */
-        $scopes = array_map(fn(string $scope) => ScopeEntity::fromData($scope), $stateScopes);
-
-        $accessToken->identifier = $state['id'];
-        $accessToken->scopes = $scopes;
-        // TODO mivanci move to new 'utcImmutable' method in TimestampGenerator.
-        $accessToken->expiryDateTime = DateTimeImmutable::createFromMutable(
-            TimestampGenerator::utc($state['expires_at']),
-        );
-        $accessToken->userIdentifier = empty($state['user_id']) ? null : (string)$state['user_id'];
-        $accessToken->client = $state['client'];
-        $accessToken->isRevoked = (bool) $state['is_revoked'];
-        $accessToken->authCodeId = empty($state['auth_code_id']) ? null : (string)$state['auth_code_id'];
-
-        $stateRequestedClaims = json_decode(
-            empty($state['requested_claims']) ? '[]' : (string)$state['requested_claims'],
-            true,
-            512,
-            JSON_THROW_ON_ERROR,
-        );
-        if (!is_array($stateRequestedClaims)) {
-            throw OidcServerException::serverError('Invalid Access Token Entity state: requested claims');
-        }
-        $accessToken->requestedClaims = $stateRequestedClaims;
-
-        return $accessToken;
     }
 
     /**
@@ -199,9 +145,8 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
      */
     protected function convertToJWT(): Token
     {
-        $jwtBuilderService = new JsonWebTokenBuilderService();
         /** @psalm-suppress ArgumentTypeCoercion */
-        $jwtBuilder = $jwtBuilderService->getProtocolJwtBuilder()
+        $jwtBuilder = $this->jsonWebTokenBuilderService->getProtocolJwtBuilder()
             ->permittedFor($this->getClient()->getIdentifier())
             ->identifiedBy((string)$this->getIdentifier())
             ->issuedAt(new DateTimeImmutable())
@@ -210,6 +155,6 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
             ->relatedTo((string) $this->getUserIdentifier())
             ->withClaim('scopes', $this->getScopes());
 
-        return $jwtBuilderService->getSignedProtocolJwt($jwtBuilder);
+        return $this->jsonWebTokenBuilderService->getSignedProtocolJwt($jwtBuilder);
     }
 }

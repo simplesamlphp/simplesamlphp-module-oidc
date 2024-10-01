@@ -16,15 +16,18 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Repositories;
 
+use DateTimeImmutable;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface as OAuth2AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use RuntimeException;
 use SimpleSAML\Error\Error;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
+use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 class AccessTokenRepository extends AbstractDatabaseRepository implements AccessTokenRepositoryInterface
@@ -36,6 +39,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
     public function __construct(
         ModuleConfig $moduleConfig,
         protected readonly ClientRepository $clientRepository,
+        protected readonly AccessTokenEntityFactory $accessTokenEntityFactory,
     ) {
         parent::__construct($moduleConfig);
     }
@@ -47,6 +51,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
 
     /**
      * {@inheritdoc}
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function getNewToken(
         OAuth2ClientEntityInterface $clientEntity,
@@ -54,6 +59,8 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         $userIdentifier = null,
         string $authCodeId = null,
         array $requestedClaims = null,
+        string $id = null,
+        DateTimeImmutable $expiryDateTime = null,
     ): AccessTokenEntityInterface {
         if (!is_null($userIdentifier)) {
             $userIdentifier = (string)$userIdentifier;
@@ -61,7 +68,21 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         if (empty($userIdentifier)) {
             $userIdentifier = null;
         }
-        return AccessTokenEntity::fromData($clientEntity, $scopes, $userIdentifier, $authCodeId, $requestedClaims);
+        if (
+            is_null($id) ||
+            is_null($expiryDateTime)
+        ) {
+            throw OidcServerException::serverError('Invalid access token data provided.');
+        }
+        return $this->accessTokenEntityFactory->fromData(
+            $id,
+            $clientEntity,
+            $scopes,
+            $expiryDateTime,
+            $userIdentifier,
+            $authCodeId,
+            $requestedClaims,
+        );
     }
 
     /**
@@ -109,7 +130,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         $data = current($rows);
         $data['client'] = $this->clientRepository->findById((string)$data['client_id']);
 
-        return AccessTokenEntity::fromState($data);
+        return $this->accessTokenEntityFactory->fromState($data);
     }
 
     /**

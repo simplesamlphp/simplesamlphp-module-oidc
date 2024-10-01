@@ -24,6 +24,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
+use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
@@ -158,6 +159,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         DateInterval $authCodeTTL,
         protected RequestRulesManager $requestRulesManager,
         protected RequestParamsResolver $requestParamsResolver,
+        AccessTokenEntityFactory $accessTokenEntityFactory,
     ) {
         parent::__construct($authCodeRepository, $refreshTokenRepository, $authCodeTTL);
 
@@ -174,6 +176,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         $plainVerifier = new PlainVerifier();
         $this->codeChallengeVerifiers[$plainVerifier->getMethod()] = $plainVerifier;
+
+        $this->accessTokenEntityFactory = $accessTokenEntityFactory;
     }
 
     /**
