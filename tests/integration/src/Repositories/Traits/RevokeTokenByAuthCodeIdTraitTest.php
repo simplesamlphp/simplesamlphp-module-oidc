@@ -14,6 +14,7 @@ use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
+use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AbstractDatabaseRepository;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
@@ -117,11 +118,16 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
             }
         };
 
-        $this->repository = new AccessTokenRepository($moduleConfig);
+        $clientEntityMock = $this->createMock(ClientEntityInterface::class);
+        $clientEntityMock->method('getIdentifier')->willReturn(self::CLIENT_ID);
+        $clientEntityFactoryMock = $this->createMock(ClientEntityFactory::class);
+        $clientEntityFactoryMock->method('fromState')->willReturn($clientEntityMock);
+
+        $clientRepositoryMock = new ClientRepository($moduleConfig, $clientEntityFactoryMock);
+        $this->repository = new AccessTokenRepository($moduleConfig, $clientRepositoryMock);
 
 
         $client = self::clientRepositoryGetClient(self::CLIENT_ID);
-        $clientRepositoryMock = new ClientRepository($moduleConfig);
         $this->mock->getDatabase()->write('DELETE from ' . $clientRepositoryMock->getTableName());
         $clientRepositoryMock->add($client);
 
@@ -202,7 +208,7 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
             //phpcs:ignore Generic.Files.LineLength.TooLong
             throw new \Exception('To connect to localhost with mysql use IP 127.0.0.1, otherwise mysql tries to use a file socket');
         }
-        $mysqlConfig = [
+        return [
             'database.dsn' =>
                 sprintf('mysql:host=%s;port=%s;dbname=database', $hostAddress, $hostPort),
             'database.username' => 'username',
@@ -214,9 +220,6 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
                 PDO::ATTR_TIMEOUT => 2, // Timeout quickly if there are docker issues
             ],
         ];
-
-
-        return $mysqlConfig;
     }
 
     /**
