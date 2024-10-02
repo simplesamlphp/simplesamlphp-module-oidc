@@ -7,7 +7,6 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\Validators;
 use Laminas\Diactoros\ServerRequest;
 use Laminas\Diactoros\StreamFactory;
 use League\OAuth2\Server\CryptKey;
-use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface as OAuth2AccessTokenRepositoryInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -19,7 +18,6 @@ use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
-
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 
 use function chmod;
@@ -111,7 +109,7 @@ class BearerTokenValidatorTest extends TestCase
             'scopes' => '{"openid":"openid","profile":"profile"}',
             'expires_at' => date('Y-m-d H:i:s', time() + 60),
             'user_id' => 'user123',
-            'client' => self::$clientEntity,
+            'client_id' => self::$clientEntity->getIdentifier(),
             'is_revoked' => false,
             'auth_code_id' => 'authCode123',
         ];

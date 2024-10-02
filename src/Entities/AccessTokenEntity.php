@@ -17,6 +17,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Entities;
 
 use DateTimeImmutable;
+use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Token;
 use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
@@ -68,6 +69,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         string $authCodeId = null,
         array $requestedClaims = null,
         bool $isRevoked = false,
+        Configuration $jwtConfiguration = null,
     ) {
         $this->setIdentifier($id);
         $this->setClient($clientEntity);
@@ -76,13 +78,13 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         }
         $this->setExpiryDateTime($expiryDateTime);
         $this->setPrivateKey($privateKey);
-        $this->initJwtConfiguration();
         $this->setUserIdentifier($userIdentifier);
         $this->setAuthCodeId($authCodeId);
         $this->setRequestedClaims($requestedClaims ?? []);
         if ($isRevoked) {
             $this->revoke();
         }
+        $jwtConfiguration !== null ? $this->jwtConfiguration = $jwtConfiguration : $this->initJwtConfiguration();
     }
 
     /**
