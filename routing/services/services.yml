@@ -70,6 +70,9 @@ services:
   SimpleSAML\Module\oidc\Factories\IdTokenResponseFactory:
     arguments:
       $privateKey: '@oidc.key.private'
+  SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory:
+    arguments:
+      $privateKey: '@oidc.key.private'
 
   SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator:
     arguments:

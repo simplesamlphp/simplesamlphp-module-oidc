@@ -360,6 +360,7 @@ class Container implements ContainerInterface
         $refreshTokenGrantFactory = new RefreshTokenGrantFactory(
             $moduleConfig,
             $refreshTokenRepository,
+            $accessTokenEntityFactory,
         );
         $this->services[RefreshTokenGrant::class] = $refreshTokenGrantFactory->build();
 
