@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\integration\Repositories\Traits;
 
 use DateTimeImmutable;
+use DateTimeZone;
 use PDO;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -24,7 +25,6 @@ use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
-use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 use Testcontainers\Container\MySQLContainer;
 use Testcontainers\Container\PostgresContainer;
 use Testcontainers\Wait\WaitForHealthCheck;
@@ -52,10 +52,7 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
     public static array $mysqlConfig;
     public static array $sqliteConfig;
 
-    /**
-     * @var AbstractDatabaseRepository
-     */
-    protected $mock;
+    protected AbstractDatabaseRepository $mock;
 
     /**
      * @var \SimpleSAML\Module\oidc\Entities\ScopeEntity
@@ -256,9 +253,6 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         ];
     }
 
-    /**
-     * @return void
-     */
     #[DataProvider('databaseToTest')]
     public function testItGenerateQuery(string $database): void
     {
@@ -280,7 +274,6 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
     }
 
     /**
-     * @return void
      * @throws \JsonException
      * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
      * @throws \SimpleSAML\Error\Error
@@ -298,11 +291,9 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
             self::USER_ID,
             self::AUTH_CODE_ID,
             self::REQUESTED_CLAIMS,
+            self::ACCESS_TOKEN_ID,
+            (new DateTimeImmutable('yesterday', new DateTimeZone('UTC'))),
         );
-        $accessToken->setIdentifier(self::ACCESS_TOKEN_ID);
-        $accessToken->setExpiryDateTime(DateTimeImmutable::createFromMutable(
-            TimestampGenerator::utc('yesterday'),
-        ));
 
         $this->accessTokenRepository->persistNewAccessToken($accessToken);
 
