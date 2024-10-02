@@ -15,6 +15,7 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Module\oidc\Factories\Grant;
 
+use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant;
@@ -30,6 +31,7 @@ class ImplicitGrantFactory
         private readonly RequestRulesManager $requestRulesManager,
         private readonly AccessTokenRepository $accessTokenRepository,
         private readonly RequestParamsResolver $requestParamsResolver,
+        private readonly AccessTokenEntityFactory $accessTokenEntityFactory,
     ) {
     }
 
@@ -42,6 +44,7 @@ class ImplicitGrantFactory
             $this->requestRulesManager,
             $this->requestParamsResolver,
             '#',
+            $this->accessTokenEntityFactory,
         );
     }
 }

@@ -49,7 +49,7 @@ class UiLocalesRuleTest extends TestCase
         $this->requestParamsResolverStub->method('getBasedOnAllowedMethods')->willReturn('en');
 
         $result = $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
-        new Result(\SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule::class);
+        new Result(UiLocalesRule::class);
 
         $this->assertEquals('en', $result->getValue());
     }

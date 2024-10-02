@@ -16,18 +16,19 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
 use DateTimeImmutable;
+use DateTimeZone;
 use Exception;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
+use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
-use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Repositories\AccessTokenRepository
@@ -43,6 +44,7 @@ class AccessTokenRepositoryTest extends TestCase
     protected MockObject $moduleConfigMock;
     protected MockObject $clientRepositoryMock;
     protected MockObject $clientEntityFactoryMock;
+    protected MockObject $accessTokenEntityFactoryMock;
 
     protected static bool $dbSeeded = false;
     protected ClientEntityInterface $clientEntity;
@@ -76,7 +78,13 @@ class AccessTokenRepositoryTest extends TestCase
 
         $this->clientEntityFactoryMock->method('fromState')->willReturn($this->clientEntity);
 
-        $this->repository = new AccessTokenRepository($this->moduleConfigMock, $this->clientRepositoryMock);
+        $this->accessTokenEntityFactoryMock = $this->createMock(AccessTokenEntityFactory::class);
+
+        $this->repository = new AccessTokenRepository(
+            $this->moduleConfigMock,
+            $this->clientRepositoryMock,
+            $this->clientEntityFactoryMock,
+        );
     }
 
     public function testGetTableName(): void
@@ -101,11 +109,11 @@ class AccessTokenRepositoryTest extends TestCase
             $this->clientEntity,
             $scopes,
             self::USER_ID,
+            null,
+            null,
+            self::ACCESS_TOKEN_ID,
+            new DateTimeImmutable('yesterday', new DateTimeZone('UTC'))
         );
-        $accessToken->setIdentifier(self::ACCESS_TOKEN_ID);
-        $accessToken->setExpiryDateTime(DateTimeImmutable::createFromMutable(
-            TimestampGenerator::utc('yesterday'),
-        ));
 
         $this->repository->persistNewAccessToken($accessToken);
 

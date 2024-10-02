@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\Server\unit\LogoutHandlers;
+namespace SimpleSAML\Test\Module\oidc\unit\Server\LogoutHandlers;
 
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;

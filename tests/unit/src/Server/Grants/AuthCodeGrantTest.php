@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\Server\unit\Grants;
+namespace SimpleSAML\Test\Module\oidc\unit\Server\Grants;
 
 use DateInterval;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
@@ -27,6 +28,7 @@ class AuthCodeGrantTest extends TestCase
     protected Stub $requestRulesManagerStub;
     protected Stub $moduleConfigStub;
     protected Stub $requestParamsResolverStub;
+    protected Stub $accessTokenEntityFactoryStub;
 
     /**
      * @throws \Exception
@@ -40,6 +42,7 @@ class AuthCodeGrantTest extends TestCase
         $this->requestRulesManagerStub = $this->createStub(RequestRulesManager::class);
         $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
+        $this->accessTokenEntityFactoryStub = $this->createStub(AccessTokenEntityFactory::class);
     }
 
     /**
@@ -56,6 +59,7 @@ class AuthCodeGrantTest extends TestCase
                 $this->authCodeTtl,
                 $this->requestRulesManagerStub,
                 $this->requestParamsResolverStub,
+                $this->accessTokenEntityFactoryStub,
             ),
         );
     }

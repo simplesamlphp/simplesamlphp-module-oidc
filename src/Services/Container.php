@@ -340,6 +340,7 @@ class Container implements ContainerInterface
             $refreshTokenRepository,
             $requestRuleManager,
             $requestParamsResolver,
+            $accessTokenEntityFactory,
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 
@@ -352,6 +353,7 @@ class Container implements ContainerInterface
             $requestRuleManager,
             $accessTokenRepository,
             $requestParamsResolver,
+            $accessTokenEntityFactory,
         );
         $this->services[ImplicitGrant::class] = $implicitGrantFactory->build();
 

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\Server\unit\Associations;
+namespace SimpleSAML\Test\Module\oidc\unit\Server\Associations;
 
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation;

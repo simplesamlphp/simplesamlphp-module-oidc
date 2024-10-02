@@ -39,9 +39,6 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
     protected $publicKey;
 
     /**
-     * @param \League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface $accessTokenRepository
-     * @param \League\OAuth2\Server\CryptKey $publicKey
-     * @param \DateInterval|null $jwtValidAtDateLeeway
      * @throws \Exception
      */
     public function __construct(
