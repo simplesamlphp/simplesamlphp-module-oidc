@@ -15,19 +15,18 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
-use DateTimeImmutable;
 use Exception;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
+use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
-use SimpleSAML\Module\oidc\Entities\ScopeEntity;
+use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
-use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Repositories\AccessTokenRepository
@@ -43,9 +42,12 @@ class AccessTokenRepositoryTest extends TestCase
     protected MockObject $moduleConfigMock;
     protected MockObject $clientRepositoryMock;
     protected MockObject $clientEntityFactoryMock;
+    protected MockObject $accessTokenEntityFactoryMock;
+    protected MockObject $accessTokenEntityMock;
 
     protected static bool $dbSeeded = false;
     protected ClientEntityInterface $clientEntity;
+    protected array $accessTokenState;
 
     /**
      * @throws \Exception
@@ -76,7 +78,26 @@ class AccessTokenRepositoryTest extends TestCase
 
         $this->clientEntityFactoryMock->method('fromState')->willReturn($this->clientEntity);
 
-        $this->repository = new AccessTokenRepository($this->moduleConfigMock, $this->clientRepositoryMock);
+        $this->accessTokenEntityMock = $this->createMock(AccessTokenEntity::class);
+        $this->accessTokenEntityFactoryMock = $this->createMock(AccessTokenEntityFactory::class);
+        $this->accessTokenEntityFactoryMock->method('fromData')->willReturn($this->accessTokenEntityMock);
+        $this->accessTokenEntityFactoryMock->method('fromState')->willReturn($this->accessTokenEntityMock);
+
+        $this->accessTokenState = [
+            'id' => self::ACCESS_TOKEN_ID,
+            'scopes' => '{"openid":"openid","profile":"profile"}',
+            'expires_at' => date('Y-m-d H:i:s', time() - 60), // expired...
+            'user_id' => 'user123',
+            'client_id' => self::CLIENT_ID,
+            'is_revoked' => false,
+            'auth_code_id' => 'authCode123',
+        ];
+
+        $this->repository = new AccessTokenRepository(
+            $this->moduleConfigMock,
+            $this->clientRepositoryMock,
+            $this->accessTokenEntityFactoryMock,
+        );
     }
 
     public function testGetTableName(): void
@@ -93,25 +114,13 @@ class AccessTokenRepositoryTest extends TestCase
      */
     public function testAddAndFound(): void
     {
-        $scopes = [
-            ScopeEntity::fromData('openid'),
-        ];
+        $this->accessTokenEntityMock->method('getState')->willReturn($this->accessTokenState);
 
-        $accessToken = $this->repository->getNewToken(
-            $this->clientEntity,
-            $scopes,
-            self::USER_ID,
-        );
-        $accessToken->setIdentifier(self::ACCESS_TOKEN_ID);
-        $accessToken->setExpiryDateTime(DateTimeImmutable::createFromMutable(
-            TimestampGenerator::utc('yesterday'),
-        ));
-
-        $this->repository->persistNewAccessToken($accessToken);
+        $this->repository->persistNewAccessToken($this->accessTokenEntityMock);
 
         $foundAccessToken = $this->repository->findById(self::ACCESS_TOKEN_ID);
 
-        $this->assertEquals($accessToken, $foundAccessToken);
+        $this->assertEquals($this->accessTokenEntityMock, $foundAccessToken);
     }
 
     /**
@@ -130,6 +139,12 @@ class AccessTokenRepositoryTest extends TestCase
      */
     public function testRevokeToken(): void
     {
+        $this->accessTokenEntityMock->expects($this->once())->method('revoke');
+        $state = $this->accessTokenState;
+        $state['is_revoked'] = true;
+        $this->accessTokenEntityMock->method('getState')->willReturn($state);
+        $this->accessTokenEntityMock->method('isRevoked')->willReturn(true);
+
         $this->repository->revokeAccessToken(self::ACCESS_TOKEN_ID);
         $isRevoked = $this->repository->isAccessTokenRevoked(self::ACCESS_TOKEN_ID);
 

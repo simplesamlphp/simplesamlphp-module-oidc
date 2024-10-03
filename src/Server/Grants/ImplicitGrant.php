@@ -14,6 +14,7 @@ use RuntimeException;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
+use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
@@ -53,9 +54,11 @@ class ImplicitGrant extends OAuth2ImplicitGrant
         RequestRulesManager $requestRulesManager,
         protected RequestParamsResolver $requestParamsResolver,
         string $queryDelimiter,
+        AccessTokenEntityFactory $accessTokenEntityFactory,
     ) {
         parent::__construct($accessTokenTTL, $queryDelimiter, $requestRulesManager);
         $this->accessTokenRepository = $accessTokenRepository;
+        $this->accessTokenEntityFactory = $accessTokenEntityFactory;
     }
 
     /**

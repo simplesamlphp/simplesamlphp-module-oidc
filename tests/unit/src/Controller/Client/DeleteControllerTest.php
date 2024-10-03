@@ -49,7 +49,7 @@ class DeleteControllerTest extends TestCase
         $this->templateStub = $this->createStub(Template::class);
     }
 
-    protected function getStubbedInstance(): \SimpleSAML\Module\oidc\Controller\Client\DeleteController
+    protected function getStubbedInstance(): DeleteController
     {
         return new DeleteController(
             $this->clientRepositoryMock,
@@ -62,7 +62,7 @@ class DeleteControllerTest extends TestCase
     public function testCanInstantiate(): void
     {
         $controller = $this->getStubbedInstance();
-        $this->assertInstanceOf(\SimpleSAML\Module\oidc\Controller\Client\DeleteController::class, $controller);
+        $this->assertInstanceOf(DeleteController::class, $controller);
     }
 
     /**

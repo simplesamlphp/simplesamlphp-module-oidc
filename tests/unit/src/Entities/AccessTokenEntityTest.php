@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Entities;
 
+use DateTimeImmutable;
+use DateTimeZone;
+use Lcobucci\JWT\UnencryptedToken;
+use League\OAuth2\Server\CryptKey;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
+use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Entities\AccessTokenEntity
@@ -28,21 +34,19 @@ class AccessTokenEntityTest extends TestCase
     protected array $requestedClaims = ['key' => 'value'];
     protected string $clientId = 'client123';
 
-
-    /**
-     * @var \SimpleSAML\Module\oidc\Entities\ClientEntity
-     */
     protected ClientEntity $clientEntityStub;
 
-    /**
-     * @var \SimpleSAML\Module\oidc\Entities\ScopeEntity
-     */
     protected ScopeEntity $scopeEntityOpenId;
 
     /**
      * @var \SimpleSAML\Module\oidc\Entities\ScopeEntity
      */
     protected ScopeEntity $scopeEntityProfile;
+    protected CryptKey $privateKey;
+    protected MockObject $jsonWebTokenBuilderServiceMock;
+    protected MockObject $unencryptedTokenMock;
+    protected DateTimeImmutable $expiryDateTime;
+//    protected Stub $jwtConfigurationStub;
 
     /**
      * @throws \Exception
@@ -50,13 +54,6 @@ class AccessTokenEntityTest extends TestCase
      */
     protected function setUp(): void
     {
-        // Plant certdir config for JsonWebTokenBuilderService (since we don't inject it)
-        Configuration::clearInternalState();
-        $config = [
-            'certdir' => dirname(__DIR__, 4) . '/docker/ssp/',
-        ];
-        Configuration::loadFromArray($config, '', 'simplesaml');
-
         $this->clientEntityStub = $this->createStub(ClientEntity::class);
         $this->clientEntityStub->method('getIdentifier')->willReturn($this->clientId);
 
@@ -67,42 +64,47 @@ class AccessTokenEntityTest extends TestCase
         $this->scopeEntityProfile->method('getIdentifier')->willReturn('profile');
         $this->scopeEntityProfile->method('jsonSerialize')->willReturn('profile');
 
-        $this->scopes = [$this->scopeEntityOpenId, $this->scopeEntityProfile,];
-
-        $this->expiresAt = date('Y-m-d H:i:s', strtotime('+10 minutes'));
-
-        $this->state = [
-            'id' => $this->id,
-            'scopes' => json_encode($this->scopes, JSON_THROW_ON_ERROR),
-            'expires_at' => $this->expiresAt,
-            'user_id' => $this->userId,
-            'client' => $this->clientEntityStub,
-            'is_revoked' => $this->isRevoked,
-            'auth_code_id' => $this->authCodeId,
-            'requested_claims' => json_encode($this->requestedClaims, JSON_THROW_ON_ERROR),
+        $this->scopes = [
+            $this->scopeEntityOpenId->getIdentifier() => $this->scopeEntityOpenId,
+            $this->scopeEntityProfile->getIdentifier() => $this->scopeEntityProfile,
         ];
+
+        $this->expiryDateTime = (new DateTimeImmutable('now', new DateTimeZone('UTC')))
+            ->add(new \DateInterval('PT1M'));
+
+        $this->jsonWebTokenBuilderServiceMock = $this->createMock(JsonWebTokenBuilderService::class);
+        $this->unencryptedTokenMock = $this->createMock(UnencryptedToken::class);
+        $this->jsonWebTokenBuilderServiceMock->method('getSignedProtocolJwt')
+            ->willReturn($this->unencryptedTokenMock);
+
+        //$this->jwtConfigurationStub = $this->createStub(\Lcobucci\JWT\Configuration::class); // Final class :(
+        $certFolder = dirname(__DIR__, 4) . '/docker/ssp/';
+        $privateKeyPath = $certFolder . ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME;
+        $this->privateKey = new CryptKey($privateKeyPath);
     }
 
-    /**
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
-     * @throws \JsonException
-     */
-    public function testCanCreateInstanceFromState(): void
+    public function mock(): AccessTokenEntity
     {
-        $this->assertInstanceOf(AccessTokenEntity::class, AccessTokenEntity::fromState($this->state));
+        return new AccessTokenEntity(
+            $this->id,
+            $this->clientEntityStub,
+            $this->scopes,
+            $this->expiryDateTime,
+            $this->privateKey,
+            $this->jsonWebTokenBuilderServiceMock,
+            $this->userId,
+            $this->authCodeId,
+            $this->requestedClaims,
+            $this->isRevoked,
+            //            $this->jwtConfigurationStub,
+        );
     }
 
-    public function testCanCreateInstanceFromData(): void
+    public function testCanCreateInstance(): void
     {
         $this->assertInstanceOf(
             AccessTokenEntity::class,
-            AccessTokenEntity::fromData(
-                $this->clientEntityStub,
-                $this->scopes,
-                $this->userId,
-                $this->authCodeId,
-                $this->requestedClaims,
-            ),
+            $this->mock(),
         );
     }
 
@@ -112,13 +114,12 @@ class AccessTokenEntityTest extends TestCase
      */
     public function testHasProperState(): void
     {
-        $accessTokenEntity = AccessTokenEntity::fromState($this->state);
-        $accessTokenEntityState = $accessTokenEntity->getState();
+        $accessTokenEntityState = $this->mock()->getState();
 
         $this->assertSame($this->id, $accessTokenEntityState['id']);
         $this->assertSame(json_encode($this->scopes, JSON_THROW_ON_ERROR), $accessTokenEntityState['scopes']);
 
-        $this->assertSame($this->requestedClaims, $accessTokenEntity->getRequestedClaims());
+        $this->assertSame($this->requestedClaims, $this->mock()->getRequestedClaims());
     }
 
     /**
@@ -127,14 +128,14 @@ class AccessTokenEntityTest extends TestCase
      */
     public function testHasImmutableStringRepresentation(): void
     {
-        $accessTokenEntity = AccessTokenEntity::fromState($this->state);
+        $this->unencryptedTokenMock->method('toString')->willReturn('token');
+        $instance = $this->mock();
+        $this->assertNull($instance->toString());
 
-        $this->assertNull($accessTokenEntity->toString());
+        $stringRepresentation = (string) $instance;
 
-        $stringRepresentation = (string) $accessTokenEntity;
+        $this->assertIsString($instance->toString());
 
-        $this->assertIsString($accessTokenEntity->toString());
-
-        $this->assertSame($stringRepresentation, $accessTokenEntity->toString());
+        $this->assertSame($stringRepresentation, $instance->toString());
     }
 }

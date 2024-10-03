@@ -6,9 +6,12 @@ namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use Exception;
 use League\OAuth2\Server\Grant\RefreshTokenGrant as OAuth2RefreshTokenGrant;
+use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
 use League\OAuth2\Server\RequestEvent;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
 
 use function is_null;
 use function json_decode;
@@ -16,6 +19,8 @@ use function time;
 
 class RefreshTokenGrant extends OAuth2RefreshTokenGrant
 {
+    use IssueAccessTokenTrait;
+
     /** @psalm-suppress PropertyNotSetInConstructor */
     protected $revokeRefreshTokens;
 
@@ -39,6 +44,14 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
 
     /** @psalm-suppress PropertyNotSetInConstructor */
     protected $clientRepository;
+
+    public function __construct(
+        RefreshTokenRepositoryInterface $refreshTokenRepository,
+        AccessTokenEntityFactory $accessTokenEntityFactory,
+    ) {
+        parent::__construct($refreshTokenRepository);
+        $this->accessTokenEntityFactory = $accessTokenEntityFactory;
+    }
 
     /**
      * @throws \JsonException

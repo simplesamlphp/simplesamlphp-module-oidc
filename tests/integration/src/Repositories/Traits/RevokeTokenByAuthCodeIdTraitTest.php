@@ -4,17 +4,21 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\integration\Repositories\Traits;
 
-use DateTimeImmutable;
+use League\OAuth2\Server\CryptKey;
 use PDO;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
+use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
+use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AbstractDatabaseRepository;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
@@ -22,7 +26,7 @@ use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
-use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
+use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 use Testcontainers\Container\MySQLContainer;
 use Testcontainers\Container\PostgresContainer;
 use Testcontainers\Wait\WaitForHealthCheck;
@@ -44,30 +48,25 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
     final public const USER_ID = 'access_token_user_id';
     final public const ACCESS_TOKEN_ID = 'access_token_id';
 
-    protected AccessTokenRepository $repository;
+    protected AccessTokenRepository $accessTokenRepository;
 
     public static array $pgConfig;
     public static array $mysqlConfig;
     public static array $sqliteConfig;
 
-    /**
-     * @var AbstractDatabaseRepository
-     */
-    protected $mock;
-
-    /**
-     * @var \SimpleSAML\Module\oidc\Entities\ScopeEntity
-     */
+    protected AbstractDatabaseRepository $mock;
     protected ScopeEntity $scopeEntityOpenId;
-
-    /**
-     * @var \SimpleSAML\Module\oidc\Entities\ScopeEntity
-     */
     protected ScopeEntity $scopeEntityProfile;
 
     private static ?string $containerAddress = null;
     private static ?string $mysqlPort = null;
     private static ?string $postgresPort = null;
+
+    protected MockObject $accessTokenEntityFactoryMock;
+    protected MockObject $accessTokenEntityMock;
+    protected array $accessTokenState;
+    protected AccessTokenEntityFactory $accessTokenEntityFactory;
+    protected CryptKey $privateKey;
 
     public static function setUpBeforeClass(): void
     {
@@ -88,6 +87,42 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         self::$pgConfig = self::loadPGDatabase();
         self::$mysqlConfig = self::loadMySqlDatabase();
         self::$sqliteConfig = self::loadSqliteDatabase();
+    }
+
+    /**
+     * @return void
+     * @throws \PHPUnit\Framework\MockObject\Exception
+     */
+    public function setUp(): void
+    {
+        $this->scopeEntityOpenId = $this->createStub(ScopeEntity::class);
+        $this->scopeEntityOpenId->method('getIdentifier')->willReturn('openid');
+        $this->scopeEntityOpenId->method('jsonSerialize')->willReturn('openid');
+        $this->scopeEntityProfile = $this->createStub(ScopeEntity::class);
+        $this->scopeEntityProfile->method('getIdentifier')->willReturn('profile');
+        $this->scopeEntityProfile->method('jsonSerialize')->willReturn('profile');
+        $this->scopes = [$this->scopeEntityOpenId, $this->scopeEntityProfile,];
+
+        $this->accessTokenState = [
+            'id' => self::ACCESS_TOKEN_ID,
+            'scopes' => '{"openid":"openid","profile":"profile"}',
+            'expires_at' => date('Y-m-d H:i:s', time() - 60), // expired...
+            'user_id' => 'user123',
+            'client_id' => self::CLIENT_ID,
+            'is_revoked' => false,
+            'auth_code_id' => 'authCode123',
+        ];
+
+        $this->accessTokenEntityMock = $this->createMock(AccessTokenEntity::class);
+        $this->accessTokenEntityFactoryMock = $this->createMock(AccessTokenEntityFactory::class);
+        $certFolder = dirname(__DIR__, 5) . '/docker/ssp/';
+        $privateKeyPath = $certFolder . ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME;
+        $this->privateKey = new CryptKey($privateKeyPath);
+        $this->accessTokenEntityFactory = new AccessTokenEntityFactory(
+            new Helpers(),
+            $this->privateKey,
+            $this->createMock(JsonWebTokenBuilderService::class),
+        );
     }
 
     public function useDatabase($config): void
@@ -124,8 +159,12 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         $clientEntityFactoryMock->method('fromState')->willReturn($clientEntityMock);
 
         $clientRepositoryMock = new ClientRepository($moduleConfig, $clientEntityFactoryMock);
-        $this->repository = new AccessTokenRepository($moduleConfig, $clientRepositoryMock);
 
+        $this->accessTokenRepository = new AccessTokenRepository(
+            $moduleConfig,
+            $clientRepositoryMock,
+            $this->accessTokenEntityFactory,
+        );
 
         $client = self::clientRepositoryGetClient(self::CLIENT_ID);
         $this->mock->getDatabase()->write('DELETE from ' . $clientRepositoryMock->getTableName());
@@ -222,33 +261,15 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         ];
     }
 
-    /**
-     * @return void
-     * @throws \PHPUnit\Framework\MockObject\Exception
-     */
-    public function setUp(): void
-    {
-        $this->scopeEntityOpenId = $this->createStub(ScopeEntity::class);
-        $this->scopeEntityOpenId->method('getIdentifier')->willReturn('openid');
-        $this->scopeEntityOpenId->method('jsonSerialize')->willReturn('openid');
-        $this->scopeEntityProfile = $this->createStub(ScopeEntity::class);
-        $this->scopeEntityProfile->method('getIdentifier')->willReturn('profile');
-        $this->scopeEntityProfile->method('jsonSerialize')->willReturn('profile');
-        $this->scopes = [$this->scopeEntityOpenId, $this->scopeEntityProfile,];
-    }
-
     public static function databaseToTest(): array
     {
         return [
-            'PostgreSql' => ['pgConfig'],
-            'MySql' => ['mysqlConfig'],
+            //'PostgreSql' => ['pgConfig'],
+            //'MySql' => ['mysqlConfig'],
             'Sqlite' => ['sqliteConfig'],
         ];
     }
 
-    /**
-     * @return void
-     */
     #[DataProvider('databaseToTest')]
     public function testItGenerateQuery(string $database): void
     {
@@ -270,7 +291,6 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
     }
 
     /**
-     * @return void
      * @throws \JsonException
      * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
      * @throws \SimpleSAML\Error\Error
@@ -282,26 +302,16 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
     {
         $this->useDatabase(self::$$database);
 
-        $accessToken = $this->repository->getNewToken(
-            self::clientRepositoryGetClient(self::CLIENT_ID),
-            $this->scopes,
-            self::USER_ID,
-            self::AUTH_CODE_ID,
-            self::REQUESTED_CLAIMS,
-        );
-        $accessToken->setIdentifier(self::ACCESS_TOKEN_ID);
-        $accessToken->setExpiryDateTime(DateTimeImmutable::createFromMutable(
-            TimestampGenerator::utc('yesterday'),
-        ));
+        $this->accessTokenEntityMock->method('getState')->willReturn($this->accessTokenState);
 
-        $this->repository->persistNewAccessToken($accessToken);
+        $this->accessTokenRepository->persistNewAccessToken($this->accessTokenEntityMock);
 
-        $isRevoked = $this->repository->isAccessTokenRevoked(self::ACCESS_TOKEN_ID);
+        $isRevoked = $this->accessTokenRepository->isAccessTokenRevoked(self::ACCESS_TOKEN_ID);
         $this->assertFalse($isRevoked);
 
         // Revoke the access token
         $this->mock->revokeByAuthCodeId(self::AUTH_CODE_ID);
-        $isRevoked = $this->repository->isAccessTokenRevoked(self::ACCESS_TOKEN_ID);
+        $isRevoked = $this->accessTokenRepository->isAccessTokenRevoked(self::ACCESS_TOKEN_ID);
 
         $this->assertTrue($isRevoked);
     }

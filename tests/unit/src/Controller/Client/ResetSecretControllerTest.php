@@ -42,7 +42,7 @@ class ResetSecretControllerTest extends TestCase
         $this->clientEntityMock = $this->createMock(ClientEntity::class);
     }
 
-    protected function prepareStubbedInstance(): \SimpleSAML\Module\oidc\Controller\Client\ResetSecretController
+    protected function prepareStubbedInstance(): ResetSecretController
     {
         return new ResetSecretController(
             $this->clientRepositoryMock,

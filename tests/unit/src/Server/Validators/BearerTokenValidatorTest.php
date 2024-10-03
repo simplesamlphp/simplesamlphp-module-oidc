@@ -7,16 +7,18 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\Validators;
 use Laminas\Diactoros\ServerRequest;
 use Laminas\Diactoros\StreamFactory;
 use League\OAuth2\Server\CryptKey;
-use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface as OAuth2AccessTokenRepositoryInterface;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
+use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 
 use function chmod;
 
@@ -34,21 +36,22 @@ class BearerTokenValidatorTest extends TestCase
     protected static string $publicKey;
     protected static CryptKey $publicCryptKey;
     protected static string $publicKeyPath;
-    protected OAuth2AccessTokenRepositoryInterface $accessTokenRepositoryStub;
+    protected MockObject $accessTokenRepositoryMock;
     protected static array $accessTokenState;
     protected static AccessTokenEntity $accessTokenEntity;
     protected static string $accessToken;
     protected static ClientEntityInterface $clientEntity;
     protected ServerRequestInterface $serverRequest;
+    protected MockObject $publicKeyMock;
 
     /**
      * @throws \Exception
      */
     public function setUp(): void
     {
-        $this->accessTokenRepositoryStub = $this->createStub(AccessTokenRepository::class);
+        $this->accessTokenRepositoryMock = $this->createMock(AccessTokenRepository::class);
         $this->serverRequest = new ServerRequest();
-        $this->bearerTokenValidator = new BearerTokenValidator($this->accessTokenRepositoryStub, self::$publicCryptKey);
+        $this->bearerTokenValidator = new BearerTokenValidator($this->accessTokenRepositoryMock, self::$publicCryptKey);
     }
 
     /**
@@ -106,13 +109,21 @@ class BearerTokenValidatorTest extends TestCase
             'scopes' => '{"openid":"openid","profile":"profile"}',
             'expires_at' => date('Y-m-d H:i:s', time() + 60),
             'user_id' => 'user123',
-            'client' => self::$clientEntity,
+            'client_id' => self::$clientEntity->getIdentifier(),
             'is_revoked' => false,
             'auth_code_id' => 'authCode123',
         ];
 
-        self::$accessTokenEntity = AccessTokenEntity::fromState(self::$accessTokenState);
-        self::$accessTokenEntity->setPrivateKey(self::$privateCryptKey);
+        self::$accessTokenEntity = new AccessTokenEntity(
+            'accessToken123',
+            self::$clientEntity,
+            [ScopeEntity::fromData('openid'), ScopeEntity::fromData('profile')],
+            (new \DateTimeImmutable())->add(new \DateInterval('PT60S')),
+            self::$privateCryptKey,
+            new JsonWebTokenBuilderService(),
+            'user123',
+            'authCode123',
+        );
 
         self::$accessToken = (string) self::$accessTokenEntity;
     }
@@ -185,11 +196,16 @@ class BearerTokenValidatorTest extends TestCase
      */
     public function testThrowsForExpiredAccessToken()
     {
-        $accessTokenState = self::$accessTokenState;
-        $accessTokenState['expires_at'] = date('Y-m-d H:i:s', time() - 60);
-
-        $accessTokenEntity = AccessTokenEntity::fromState($accessTokenState);
-        $accessTokenEntity->setPrivateKey(self::$privateCryptKey);
+        $accessTokenEntity = new AccessTokenEntity(
+            'accessToken123',
+            self::$clientEntity,
+            [ScopeEntity::fromData('openid'), ScopeEntity::fromData('profile')],
+            (new \DateTimeImmutable())->sub(new \DateInterval('PT60S')),
+            self::$privateCryptKey,
+            new JsonWebTokenBuilderService(),
+            'user123',
+            'authCode123',
+        );
 
         $accessToken = (string) $accessTokenEntity;
 
@@ -206,10 +222,10 @@ class BearerTokenValidatorTest extends TestCase
      */
     public function testThrowsForRevokedAccessToken()
     {
-        $this->accessTokenRepositoryStub->method('isAccessTokenRevoked')->willReturn(true);
+        $this->accessTokenRepositoryMock->method('isAccessTokenRevoked')->willReturn(true);
 
         $bearerTokenValidator = new BearerTokenValidator(
-            $this->accessTokenRepositoryStub,
+            $this->accessTokenRepositoryMock,
             self::$publicCryptKey,
         );
 
@@ -226,11 +242,16 @@ class BearerTokenValidatorTest extends TestCase
      */
     public function testThrowsForEmptyAccessTokenJti()
     {
-        $accessTokenState = self::$accessTokenState;
-        $accessTokenState['id'] = '';
-
-        $accessTokenEntity = AccessTokenEntity::fromState($accessTokenState);
-        $accessTokenEntity->setPrivateKey(self::$privateCryptKey);
+        $accessTokenEntity = new AccessTokenEntity(
+            '',
+            self::$clientEntity,
+            [ScopeEntity::fromData('openid'), ScopeEntity::fromData('profile')],
+            (new \DateTimeImmutable())->add(new \DateInterval('PT60S')),
+            self::$privateCryptKey,
+            new JsonWebTokenBuilderService(),
+            'user123',
+            'authCode123',
+        );
 
         $accessToken = (string) $accessTokenEntity;
 

@@ -10,6 +10,7 @@ use League\OAuth2\Server\Entities\ClientEntityInterface;
 use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use League\OAuth2\Server\Grant\AbstractGrant;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
+use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
@@ -30,6 +31,8 @@ trait IssueAccessTokenTrait
      * @var \League\OAuth2\Server\CryptKey
      */
     protected $privateKey;
+
+    protected AccessTokenEntityFactory $accessTokenEntityFactory;
 
     /**
      * Issue an access token.
@@ -57,21 +60,19 @@ trait IssueAccessTokenTrait
             );
         }
 
-        $accessToken = $this->accessTokenRepository->getNewToken(
-            $client,
-            $scopes,
-            $userIdentifier,
-            $authCodeId,
-            $requestedClaims,
-        );
-        $accessToken->setExpiryDateTime((new DateTimeImmutable())->add($accessTokenTTL));
-        $accessToken->setPrivateKey($this->privateKey);
-
         while ($maxGenerationAttempts-- > 0) {
-            $accessToken->setIdentifier($this->generateUniqueIdentifier());
             try {
+                $accessToken = $this->accessTokenEntityFactory->fromData(
+                    $this->generateUniqueIdentifier(),
+                    $client,
+                    $scopes,
+                    (new DateTimeImmutable())->add($accessTokenTTL),
+                    $userIdentifier,
+                    $authCodeId,
+                    $requestedClaims,
+                );
                 $this->accessTokenRepository->persistNewAccessToken($accessToken);
-                break;
+                return $accessToken;
             } catch (UniqueTokenIdentifierConstraintViolationException $e) {
                 if ($maxGenerationAttempts === 0) {
                     throw $e;
@@ -79,7 +80,7 @@ trait IssueAccessTokenTrait
             }
         }
 
-        return $accessToken;
+        throw OidcServerException::serverError('Unable to issue Access Token.');
     }
 
     /**

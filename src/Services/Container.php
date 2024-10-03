@@ -38,6 +38,7 @@ use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Factories\CacheFactory;
 use SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory;
 use SimpleSAML\Module\oidc\Factories\CryptKeyFactory;
+use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Factories\FederationFactory;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
@@ -202,7 +203,26 @@ class Container implements ContainerInterface
         $authCodeRepository = new AuthCodeRepository($moduleConfig, $clientRepository);
         $this->services[AuthCodeRepository::class] = $authCodeRepository;
 
-        $accessTokenRepository = new AccessTokenRepository($moduleConfig, $clientRepository);
+        $cryptKeyFactory = new CryptKeyFactory($moduleConfig);
+
+        $publicKey = $cryptKeyFactory->buildPublicKey();
+        $privateKey = $cryptKeyFactory->buildPrivateKey();
+
+        $jsonWebTokenBuilderService = new JsonWebTokenBuilderService($moduleConfig);
+        $this->services[JsonWebTokenBuilderService::class] = $jsonWebTokenBuilderService;
+
+        $accessTokenEntityFactory = new AccessTokenEntityFactory(
+            $helpers,
+            $privateKey,
+            $jsonWebTokenBuilderService,
+        );
+        $this->services[AccessTokenEntityFactory::class] = $accessTokenEntityFactory;
+
+        $accessTokenRepository = new AccessTokenRepository(
+            $moduleConfig,
+            $clientRepository,
+            $accessTokenEntityFactory,
+        );
         $this->services[AccessTokenRepository::class] = $accessTokenRepository;
 
         $refreshTokenRepository = new RefreshTokenRepository($moduleConfig, $accessTokenRepository);
@@ -240,8 +260,6 @@ class Container implements ContainerInterface
 
         $codeChallengeVerifiersRepository = new CodeChallengeVerifiersRepository();
         $this->services[CodeChallengeVerifiersRepository::class] = $codeChallengeVerifiersRepository;
-
-        $cryptKeyFactory = new CryptKeyFactory($moduleConfig);
 
         $jwksFactory = new JwksFactory($moduleConfig, $loggerService, $federationCache);
         $this->services[JwksFactory::class] = $jwksFactory;
@@ -293,12 +311,6 @@ class Container implements ContainerInterface
         $requestRuleManager = new RequestRulesManager($requestRules, $loggerService);
         $this->services[RequestRulesManager::class] = $requestRuleManager;
 
-        $publicKey = $cryptKeyFactory->buildPublicKey();
-        $privateKey = $cryptKeyFactory->buildPrivateKey();
-
-        $jsonWebTokenBuilderService = new JsonWebTokenBuilderService($moduleConfig);
-        $this->services[JsonWebTokenBuilderService::class] = $jsonWebTokenBuilderService;
-
         $idTokenBuilder = new IdTokenBuilder($jsonWebTokenBuilderService, $claimTranslatorExtractor);
         $this->services[IdTokenBuilder::class] = $idTokenBuilder;
 
@@ -328,6 +340,7 @@ class Container implements ContainerInterface
             $refreshTokenRepository,
             $requestRuleManager,
             $requestParamsResolver,
+            $accessTokenEntityFactory,
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 
@@ -340,12 +353,14 @@ class Container implements ContainerInterface
             $requestRuleManager,
             $accessTokenRepository,
             $requestParamsResolver,
+            $accessTokenEntityFactory,
         );
         $this->services[ImplicitGrant::class] = $implicitGrantFactory->build();
 
         $refreshTokenGrantFactory = new RefreshTokenGrantFactory(
             $moduleConfig,
             $refreshTokenRepository,
+            $accessTokenEntityFactory,
         );
         $this->services[RefreshTokenGrant::class] = $refreshTokenGrantFactory->build();
 
