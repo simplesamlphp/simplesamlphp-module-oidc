@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\integration\Repositories\Traits;
 
-use DateTimeImmutable;
-use DateTimeZone;
 use League\OAuth2\Server\CryptKey;
 use PDO;
 use PHPUnit\Framework\Attributes\DataProvider;
