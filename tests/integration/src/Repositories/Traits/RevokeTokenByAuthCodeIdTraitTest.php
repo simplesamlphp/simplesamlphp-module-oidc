@@ -109,7 +109,7 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
             'expires_at' => date('Y-m-d H:i:s', time() - 60), // expired...
             'user_id' => 'user123',
             'client_id' => self::CLIENT_ID,
-            'is_revoked' => false,
+            'is_revoked' => [false, PDO::PARAM_BOOL],
             'auth_code_id' => 'authCode123',
             'requested_claims' => '[]',
         ];
