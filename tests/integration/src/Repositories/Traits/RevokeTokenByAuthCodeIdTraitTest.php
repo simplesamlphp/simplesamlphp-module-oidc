@@ -264,8 +264,8 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
     public static function databaseToTest(): array
     {
         return [
-            //'PostgreSql' => ['pgConfig'],
-            //'MySql' => ['mysqlConfig'],
+            'PostgreSql' => ['pgConfig'],
+            'MySql' => ['mysqlConfig'],
             'Sqlite' => ['sqliteConfig'],
         ];
     }
