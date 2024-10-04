@@ -111,6 +111,7 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
             'client_id' => self::CLIENT_ID,
             'is_revoked' => false,
             'auth_code_id' => 'authCode123',
+            'requested_claims' => '[]',
         ];
 
         $this->accessTokenEntityMock = $this->createMock(AccessTokenEntity::class);
