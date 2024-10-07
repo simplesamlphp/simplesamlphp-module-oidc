@@ -16,17 +16,19 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
 use DateTimeImmutable;
+use DateTimeZone;
 use Exception;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
+use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
+use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
-use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Repositories\AuthCodeRepository
@@ -41,6 +43,9 @@ class AuthCodeRepositoryTest extends TestCase
     protected AuthCodeRepository $repository;
     protected MockObject $clientEntityMock;
     protected MockObject $clientRepositoryMock;
+    protected MockObject $authCodeEntityFactoryMock;
+    /** @var \League\OAuth2\Server\Entities\ScopeEntityInterface[]  */
+    protected array $scopes;
 
     /**
      * @throws \Exception
@@ -67,9 +72,14 @@ class AuthCodeRepositoryTest extends TestCase
         $this->clientRepositoryMock = $this->createMock(ClientRepository::class);
         $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
 
+        $this->scopes = [ScopeEntity::fromData('openid')];
+
+        $this->authCodeEntityFactoryMock = $this->createMock(AuthCodeEntityFactory::class);
+
         $this->repository = new AuthCodeRepository(
             $this->createMock(ModuleConfig::class),
             $this->clientRepositoryMock,
+            $this->authCodeEntityFactoryMock,
         );
     }
 
@@ -90,18 +100,24 @@ class AuthCodeRepositoryTest extends TestCase
             ScopeEntity::fromData('openid'),
         ];
 
-        $authCode = $this->repository->getNewAuthCode();
-
-        $authCode->setIdentifier(self::AUTH_CODE_ID);
-        $authCode->setClient($this->clientEntityMock);
-        $authCode->setUserIdentifier(self::USER_ID);
-        $authCode->setExpiryDateTime(DateTimeImmutable::createFromMutable(TimestampGenerator::utc('yesterday')));
-        $authCode->setRedirectUri(self::REDIRECT_URI);
-        foreach ($scopes as $scope) {
-            $authCode->addScope($scope);
-        }
+        $authCode = new AuthCodeEntity(
+            self::AUTH_CODE_ID,
+            $this->clientEntityMock,
+            $this->scopes,
+            new DateTimeImmutable('yesterday', new DateTimeZone('UTC')),
+            self::USER_ID,
+            self::REDIRECT_URI,
+        );
 
         $this->repository->persistNewAuthCode($authCode);
+
+        $this->authCodeEntityFactoryMock->expects($this->once())->method('fromState')
+            ->with(
+                $this->callback(
+                    fn(array $state): bool => $state['id'] === self::AUTH_CODE_ID,
+                ),
+            )
+            ->willReturn($authCode);
 
         $foundAuthCode = $this->repository->findById(self::AUTH_CODE_ID);
 
@@ -124,6 +140,34 @@ class AuthCodeRepositoryTest extends TestCase
      */
     public function testRevokeCode(): void
     {
+
+        $authCode = new AuthCodeEntity(
+            self::AUTH_CODE_ID,
+            $this->clientEntityMock,
+            $this->scopes,
+            new DateTimeImmutable('yesterday', new DateTimeZone('UTC')),
+            self::USER_ID,
+            self::REDIRECT_URI,
+        );
+
+        $revokedAuthCode = clone $authCode;
+        $revokedAuthCode->revoke();
+
+        $callNumber = 1;
+        $this->authCodeEntityFactoryMock->expects($this->exactly(2))
+            ->method('fromState')
+            ->with(
+                $this->callback(
+                    function (array $state) use (&$callNumber): bool {
+                        if ($callNumber === 1) {
+                            $callNumber++;
+                            return $state['is_revoked'] === 0;
+                        }
+                        return $state['is_revoked'] === 1;
+                    },
+                ),
+            )->willReturn($authCode, $revokedAuthCode);
+
         $this->repository->revokeAuthCode(self::AUTH_CODE_ID);
         $isRevoked = $this->repository->isAuthCodeRevoked(self::AUTH_CODE_ID);
 
