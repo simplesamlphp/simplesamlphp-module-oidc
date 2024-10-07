@@ -39,6 +39,7 @@ use SimpleSAML\Module\oidc\Factories\CacheFactory;
 use SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory;
 use SimpleSAML\Module\oidc\Factories\CryptKeyFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
+use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Factories\FederationFactory;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
@@ -200,7 +201,14 @@ class Container implements ContainerInterface
         $userRepository = new UserRepository($moduleConfig);
         $this->services[UserRepository::class] = $userRepository;
 
-        $authCodeRepository = new AuthCodeRepository($moduleConfig, $clientRepository);
+        $authCodeEntityFactory = new AuthCodeEntityFactory($helpers);
+        $this->services[AuthCodeEntityFactory::class] = $authCodeEntityFactory;
+
+        $authCodeRepository = new AuthCodeRepository(
+            $moduleConfig,
+            $clientRepository,
+            $authCodeEntityFactory,
+        );
         $this->services[AuthCodeRepository::class] = $authCodeRepository;
 
         $cryptKeyFactory = new CryptKeyFactory($moduleConfig);
@@ -341,6 +349,7 @@ class Container implements ContainerInterface
             $requestRuleManager,
             $requestParamsResolver,
             $accessTokenEntityFactory,
+            $authCodeEntityFactory,
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 

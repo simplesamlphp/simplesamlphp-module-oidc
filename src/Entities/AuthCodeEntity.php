@@ -16,16 +16,14 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Entities;
 
 use DateTimeImmutable;
+use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\TokenEntityTrait;
 use PDO;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
-use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\MementoInterface;
 use SimpleSAML\Module\oidc\Entities\Traits\OidcAuthCodeTrait;
 use SimpleSAML\Module\oidc\Entities\Traits\RevokeTokenTrait;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
 {
@@ -35,49 +33,26 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
     use RevokeTokenTrait;
 
     /**
-     * @throws \Exception
-     * @throws \JsonException
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
      */
-    public static function fromState(array $state): self
-    {
-        $authCode = new self();
-
-        if (
-            !is_string($state['scopes']) ||
-            !is_string($state['id']) ||
-            !is_string($state['expires_at']) ||
-            !is_a($state['client'], ClientEntityInterface::class)
-        ) {
-            throw OidcServerException::serverError('Invalid Auth Code Entity state');
-        }
-
-        $stateScopes = json_decode($state['scopes'], true, 512, JSON_THROW_ON_ERROR);
-
-        if (!is_array($stateScopes)) {
-            throw OidcServerException::serverError('Invalid Auth Code Entity state: scopes');
-        }
-
-        $scopes = array_map(
-            /**
-             * @return ScopeEntity
-             */
-            fn(string $scope) => ScopeEntity::fromData($scope),
-            $stateScopes,
-        );
-
-        $authCode->identifier = $state['id'];
-        $authCode->scopes = $scopes;
-        $authCode->expiryDateTime = DateTimeImmutable::createFromMutable(
-            TimestampGenerator::utc($state['expires_at']),
-        );
-        $authCode->userIdentifier = empty($state['user_id']) ? null : (string)$state['user_id'];
-        $authCode->client = $state['client'];
-        $authCode->isRevoked = (bool) $state['is_revoked'];
-        $authCode->redirectUri = empty($state['redirect_uri']) ? null : (string)$state['redirect_uri'];
-        $authCode->nonce = empty($state['nonce']) ? null : (string)$state['nonce'];
-
-        return $authCode;
+    public function __construct(
+        string $id,
+        OAuth2ClientEntityInterface $client,
+        array $scopes,
+        DateTimeImmutable $expiryDateTime,
+        string $userIdentifier = null,
+        string $redirectUri = null,
+        string $nonce = null,
+        bool $isRevoked = false,
+    ) {
+        $this->identifier = $id;
+        $this->client = $client;
+        $this->scopes = $scopes;
+        $this->expiryDateTime = $expiryDateTime;
+        $this->userIdentifier = $userIdentifier;
+        $this->redirectUri = $redirectUri;
+        $this->nonce = $nonce;
+        $this->isRevoked = $isRevoked;
     }
 
     /**

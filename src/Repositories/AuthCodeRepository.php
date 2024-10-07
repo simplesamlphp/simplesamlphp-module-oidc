@@ -21,6 +21,7 @@ use RuntimeException;
 use SimpleSAML\Error\Error;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
+use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
@@ -30,6 +31,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
     public function __construct(
         ModuleConfig $moduleConfig,
         protected readonly ClientRepository $clientRepository,
+        protected readonly AuthCodeEntityFactory $authCodeEntityFactory,
     ) {
         parent::__construct($moduleConfig);
     }
@@ -46,7 +48,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
      */
     public function getNewAuthCode(): AuthCodeEntityInterface
     {
-        return new AuthCodeEntity();
+        throw new RuntimeException('Not implemented. Use AuthCodeEntityFactory instead.');
     }
 
     /**
@@ -93,7 +95,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
         $data = current($rows);
         $data['client'] = $this->clientRepository->findById((string)$data['client_id']);
 
-        return AuthCodeEntity::fromState($data);
+        return $this->authCodeEntityFactory->fromState($data);
     }
 
     /**
