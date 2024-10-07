@@ -349,6 +349,7 @@ class Container implements ContainerInterface
             $requestRuleManager,
             $requestParamsResolver,
             $accessTokenEntityFactory,
+            $authCodeEntityFactory,
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 

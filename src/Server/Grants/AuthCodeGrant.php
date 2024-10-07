@@ -25,6 +25,7 @@ use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
+use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
@@ -160,6 +161,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         protected RequestRulesManager $requestRulesManager,
         protected RequestParamsResolver $requestParamsResolver,
         AccessTokenEntityFactory $accessTokenEntityFactory,
+        protected AuthCodeEntityFactory $authCodeEntityFactory,
     ) {
         parent::__construct($authCodeRepository, $refreshTokenRepository, $authCodeTTL);
 
@@ -317,27 +319,17 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             throw OidcServerException::serverError('Unexpected auth code repository entity type.');
         }
 
-        $authCode = $this->authCodeRepository->getNewAuthCode();
-
-        if (!is_a($authCode, AuthCodeEntityInterface::class)) {
-            throw OidcServerException::serverError('Unexpected auth code entity type.');
-        }
-
-        $authCode->setExpiryDateTime((new DateTimeImmutable())->add($authCodeTTL));
-        $authCode->setClient($client);
-        $authCode->setUserIdentifier($userIdentifier);
-        $authCode->setRedirectUri($redirectUri);
-        if (null !== $nonce) {
-            $authCode->setNonce($nonce);
-        }
-
-        foreach ($scopes as $scope) {
-            $authCode->addScope($scope);
-        }
-
         while ($maxGenerationAttempts-- > 0) {
-            $authCode->setIdentifier($this->generateUniqueIdentifier());
             try {
+                $authCode = $this->authCodeEntityFactory->fromData(
+                    $this->generateUniqueIdentifier(),
+                    $client,
+                    $scopes,
+                    (new DateTimeImmutable())->add($authCodeTTL),
+                    $userIdentifier,
+                    $redirectUri,
+                    $nonce,
+                );
                 $this->authCodeRepository->persistNewAuthCode($authCode);
 
                 return $authCode;
