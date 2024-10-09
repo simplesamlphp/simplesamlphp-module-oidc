@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Utils;
 
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Entities\ClaimSetEntity;
+use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Utils\Attributes;
 
@@ -15,6 +17,35 @@ use SimpleSAML\Utils\Attributes;
 class ClaimTranslatorExtractorTest extends TestCase
 {
     protected static string $userIdAttr = 'uid';
+    protected Stub $claimSetEntityFactoryStub;
+
+    protected function setUp(): void
+    {
+        $this->claimSetEntityFactoryStub = $this->createStub(ClaimSetEntityFactory::class);
+        $this->claimSetEntityFactoryStub->method('build')
+            ->willReturnCallback(
+                function (string $scope, array $claims): Stub {
+                    $claimSetEntityStub = $this->createStub(ClaimSetEntity::class);
+                    $claimSetEntityStub->method('getScope')->willReturn($scope);
+                    $claimSetEntityStub->method('getClaims')->willReturn($claims);
+                    return $claimSetEntityStub;
+                },
+            );
+    }
+
+    protected function mock(
+        array $claimSets = [],
+        array $translationTable = [],
+        array $allowedMultiValueClaims = [],
+    ): ClaimTranslatorExtractor {
+        return new ClaimTranslatorExtractor(
+            self::$userIdAttr,
+            $this->claimSetEntityFactoryStub,
+            $claimSets,
+            $translationTable,
+            $allowedMultiValueClaims,
+        );
+    }
 
     /**
      * Test various type conversions work, including types in subobjects
@@ -87,7 +118,7 @@ class ClaimTranslatorExtractorTest extends TestCase
                 'stringAttribute' => 'someString',
             ],
         );
-        $claimTranslator = new ClaimTranslatorExtractor(self::$userIdAttr, [$claimSet], $translate);
+        $claimTranslator = $this->mock([$claimSet], $translate);
         $releasedClaims = $claimTranslator->extract(
             ['typeConversion'],
             $userAttributes,
@@ -123,7 +154,7 @@ class ClaimTranslatorExtractorTest extends TestCase
                 'postalAddress' => 'myAddress',
             ],
         );
-        $claimTranslator = new ClaimTranslatorExtractor(self::$userIdAttr);
+        $claimTranslator = $this->mock();
         $releasedClaims = $claimTranslator->extract(
             ['address'],
             $userAttributes,
@@ -174,7 +205,7 @@ class ClaimTranslatorExtractorTest extends TestCase
                 'is_phone_number_verified' => 'no',
             ],
         );
-        $claimTranslator = new ClaimTranslatorExtractor(self::$userIdAttr, [], $translate);
+        $claimTranslator = $this->mock([], $translate);
         $releasedClaims = $claimTranslator->extract(
             ['address', 'profile', 'email', 'phone'],
             $userAttributes,
@@ -206,7 +237,7 @@ class ClaimTranslatorExtractorTest extends TestCase
             ],
         ];
         $userAttributes = (new Attributes())->normalizeAttributesArray(['testClaim' => '7890F',]);
-        $claimTranslator = new ClaimTranslatorExtractor(self::$userIdAttr, [$claimSet], $translate);
+        $claimTranslator = $this->mock([$claimSet], $translate);
         $claimTranslator->extract(['typeConversion'], $userAttributes);
     }
 
@@ -215,7 +246,7 @@ class ClaimTranslatorExtractorTest extends TestCase
      */
     public function testExtractRequestClaimsUserInfo(): void
     {
-        $claimTranslator = new ClaimTranslatorExtractor(self::$userIdAttr);
+        $claimTranslator = $this->mock();
         $requestClaims = [
             "userinfo" => [
                 "name" => ['essential' => true],
@@ -231,7 +262,7 @@ class ClaimTranslatorExtractorTest extends TestCase
      */
     public function testExtractRequestClaimsIdToken(): void
     {
-        $claimTranslator = new ClaimTranslatorExtractor(self::$userIdAttr);
+        $claimTranslator = $this->mock();
         $requestClaims = [
             "id_token" => [
                 "name" => ['essential' => true],

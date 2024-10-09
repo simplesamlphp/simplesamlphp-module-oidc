@@ -21,12 +21,14 @@ use Lcobucci\JWT\Validation\Constraint\StrictValidAt;
 use Lcobucci\JWT\Validation\Validator;
 use League\OAuth2\Server\CryptKey;
 use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
+use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\IdentityProviderInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
@@ -56,6 +58,7 @@ class IdTokenResponseTest extends TestCase
     protected MockObject $sspConfigurationMock;
     protected CryptKey $privateKey;
     protected IdTokenBuilder $idTokenBuilder;
+    protected Stub $claimSetEntityFactoryStub;
 
     /**
      * @throws \PHPUnit\Framework\MockObject\Exception
@@ -107,9 +110,11 @@ class IdTokenResponseTest extends TestCase
 
         $this->privateKey = new CryptKey($this->certFolder . '/oidc_module.key', null, false);
 
+        $this->claimSetEntityFactoryStub = $this->createStub(ClaimSetEntityFactory::class);
+
         $this->idTokenBuilder = new IdTokenBuilder(
             new JsonWebTokenBuilderService($this->moduleConfigMock),
-            new ClaimTranslatorExtractor(self::USER_ID_ATTR),
+            new ClaimTranslatorExtractor(self::USER_ID_ATTR, $this->claimSetEntityFactoryStub),
         );
     }
 

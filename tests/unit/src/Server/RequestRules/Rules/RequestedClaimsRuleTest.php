@@ -7,7 +7,9 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Entities\ClaimSetEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
@@ -28,6 +30,7 @@ class RequestedClaimsRuleTest extends TestCase
     protected Stub $loggerServiceStub;
     protected static string $userIdAttr = 'uid';
     protected Stub $requestParamsResolverStub;
+    protected Stub $claimSetEntityFactoryStub;
 
 
     /**
@@ -42,13 +45,21 @@ class RequestedClaimsRuleTest extends TestCase
         $this->resultBag->add(new Result(ClientIdRule::class, $this->clientStub));
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
+        $this->claimSetEntityFactoryStub = $this->createStub(ClaimSetEntityFactory::class);
+        $this->claimSetEntityFactoryStub->method('build')
+            ->willReturnCallback(function (string $scope, array $claims) {
+                $claimSetEntityStub = $this->createStub(ClaimSetEntity::class);
+                $claimSetEntityStub->method('getScope')->willReturn($scope);
+                $claimSetEntityStub->method('getClaims')->willReturn($claims);
+                return $claimSetEntityStub;
+            });
     }
 
     protected function mock(): RequestedClaimsRule
     {
         return new RequestedClaimsRule(
             $this->requestParamsResolverStub,
-            new ClaimTranslatorExtractor(self::$userIdAttr),
+            new ClaimTranslatorExtractor(self::$userIdAttr, $this->claimSetEntityFactoryStub),
         );
     }
 
