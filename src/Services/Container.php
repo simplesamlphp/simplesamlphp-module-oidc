@@ -40,6 +40,7 @@ use SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory;
 use SimpleSAML\Module\oidc\Factories\CryptKeyFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
+use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Factories\FederationFactory;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
@@ -153,8 +154,12 @@ class Container implements ContainerInterface
         $metadataStorageHandler = MetaDataStorageHandler::getMetadataHandler();
         $this->services[MetaDataStorageHandler::class] = $metadataStorageHandler;
 
+        $claimSetEntityFactory = new ClaimSetEntityFactory();
+        $this->services[ClaimSetEntityFactory::class] = $claimSetEntityFactory;
+
         $claimTranslatorExtractor = (new ClaimTranslatorExtractorFactory(
             $moduleConfig,
+            $claimSetEntityFactory,
         ))->build();
         $this->services[ClaimTranslatorExtractor::class] = $claimTranslatorExtractor;
 

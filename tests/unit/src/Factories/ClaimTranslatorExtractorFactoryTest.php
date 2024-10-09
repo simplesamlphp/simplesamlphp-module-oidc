@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Factories;
 
 use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
+use SimpleSAML\Module\oidc\Entities\ClaimSetEntity;
 use SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory;
+use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
@@ -17,6 +20,7 @@ use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 class ClaimTranslatorExtractorFactoryTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
+    protected MockObject $claimSetEntityFactory;
 
     /**
      * @throws \Exception
@@ -62,18 +66,23 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
                     ],
                 ],
             );
+
+        $this->claimSetEntityFactory = $this->createMock(ClaimSetEntityFactory::class);
     }
 
-    protected function prepareMockedInstance(): ClaimTranslatorExtractorFactory
+    protected function mock(): ClaimTranslatorExtractorFactory
     {
-        return new ClaimTranslatorExtractorFactory($this->moduleConfigMock);
+        return new ClaimTranslatorExtractorFactory(
+            $this->moduleConfigMock,
+            $this->claimSetEntityFactory,
+        );
     }
 
     public function testCanCreateInstance(): void
     {
         $this->assertInstanceOf(
             ClaimTranslatorExtractorFactory::class,
-            $this->prepareMockedInstance(),
+            $this->mock(),
         );
     }
 
@@ -84,7 +93,7 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
     {
         $this->assertInstanceOf(
             ClaimTranslatorExtractor::class,
-            $this->prepareMockedInstance()->build(),
+            $this->mock()->build(),
         );
     }
 
@@ -93,7 +102,18 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
      */
     public function testExtractor(): void
     {
-        $claimTranslatorExtractor = $this->prepareMockedInstance()->build();
+        $this->claimSetEntityFactory->expects($this->atLeastOnce())
+            ->method('build')
+            ->willReturnCallback(
+                function (string $scope, array $claims): Stub {
+                    $claimSetStub = $this->createStub(ClaimSetEntity::class);
+                    $claimSetStub->method('getScope')->willReturn($scope);
+                    $claimSetStub->method('getClaims')->willReturn($claims);
+                    return $claimSetStub;
+                },
+            );
+
+        $claimTranslatorExtractor = $this->mock()->build();
 
         $this->assertSame(
             $claimTranslatorExtractor->getClaimSet('customScope2')->getClaims(),
