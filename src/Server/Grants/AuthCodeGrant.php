@@ -21,6 +21,7 @@ use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
@@ -753,6 +754,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     ): ?RefreshTokenEntityInterface {
         if (! is_a($this->refreshTokenRepository, RefreshTokenRepositoryInterface::class)) {
             throw OidcServerException::serverError('Unexpected refresh token repository entity type.');
+        }
+        if (! is_a($accessToken, AccessTokenEntityInterface::class)) {
+            throw OidcServerException::serverError('Unexpected access token entity type.');
         }
 
         $maxGenerationAttempts = self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
