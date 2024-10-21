@@ -168,6 +168,7 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
             $moduleConfig,
             $clientRepositoryMock,
             $this->accessTokenEntityFactory,
+            new Helpers(),
         );
 
         $client = self::clientRepositoryGetClient(self::CLIENT_ID);

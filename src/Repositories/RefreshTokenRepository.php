@@ -19,13 +19,14 @@ namespace SimpleSAML\Module\oidc\Repositories;
 use League\OAuth2\Server\Entities\RefreshTokenEntityInterface as OAuth2RefreshTokenEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use RuntimeException;
+use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\RefreshTokenEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\RefreshTokenEntityFactory;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
-use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 class RefreshTokenRepository extends AbstractDatabaseRepository implements RefreshTokenRepositoryInterface
 {
@@ -37,6 +38,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         ModuleConfig $moduleConfig,
         protected readonly AccessTokenRepository $accessTokenRepository,
         protected readonly RefreshTokenEntityFactory $refreshTokenEntityFactory,
+        protected readonly Helpers $helpers,
     ) {
         parent::__construct($moduleConfig);
     }
@@ -144,7 +146,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         $this->database->write(
             "DELETE FROM {$this->getTableName()} WHERE expires_at < :now",
             [
-                'now' => TimestampGenerator::utc()->format('Y-m-d H:i:s'),
+                'now' => $this->helpers->dateTime()->getUtc()->format(DateFormatsEnum::DB_DATETIME->value),
             ],
         );
     }

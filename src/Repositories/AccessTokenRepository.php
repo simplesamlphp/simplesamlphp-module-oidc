@@ -21,14 +21,15 @@ use League\OAuth2\Server\Entities\AccessTokenEntityInterface as OAuth2AccessToke
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use RuntimeException;
 use SimpleSAML\Error\Error;
+use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 class AccessTokenRepository extends AbstractDatabaseRepository implements AccessTokenRepositoryInterface
 {
@@ -40,6 +41,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         ModuleConfig $moduleConfig,
         protected readonly ClientRepository $clientRepository,
         protected readonly AccessTokenEntityFactory $accessTokenEntityFactory,
+        protected readonly Helpers $helpers,
     ) {
         parent::__construct($moduleConfig);
     }
@@ -182,7 +184,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
                     WHERE $accessTokenTableName.id = $refreshTokenTableName.access_token_id AND expires_at > :now
                 )",
             [
-                'now' => TimestampGenerator::utc()->format('Y-m-d H:i:s'),
+                'now' => $this->helpers->dateTime()->getUtc()->format(DateFormatsEnum::DB_DATETIME->value),
             ],
         );
     }

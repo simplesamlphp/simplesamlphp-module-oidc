@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Controller\Federation;
 
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -12,7 +13,6 @@ use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
-use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ContentTypesEnum;
@@ -39,6 +39,7 @@ class EntityStatementController
         private readonly JsonWebKeySetService $jsonWebKeySetService,
         private readonly OpMetadataService $opMetadataService,
         private readonly ClientRepository $clientRepository,
+        private readonly Helpers $helpers,
         private readonly ?FederationCache $federationCache,
     ) {
         if (!$this->moduleConfig->getFederationEnabled()) {
@@ -69,7 +70,7 @@ class EntityStatementController
             ->withHeader(ClaimsEnum::Typ->value, JwtTypesEnum::EntityStatementJwt->value)
             ->relatedTo($this->moduleConfig->getIssuer()) // This is entity configuration (statement about itself).
             ->expiresAt(
-                (TimestampGenerator::utcImmutable())->add($this->moduleConfig->getFederationEntityStatementDuration()),
+                $this->helpers->dateTime()->getUtc()->add($this->moduleConfig->getFederationEntityStatementDuration()),
             )->withClaim(
                 ClaimsEnum::Jwks->value,
                 ['keys' => array_values($this->jsonWebKeySetService->federationKeys()),],
@@ -198,7 +199,7 @@ class EntityStatementController
             ->withHeader(ClaimsEnum::Typ->value, JwtTypesEnum::EntityStatementJwt->value)
             ->relatedTo($subject)
             ->expiresAt(
-                (TimestampGenerator::utcImmutable())->add($this->moduleConfig->getFederationEntityStatementDuration()),
+                $this->helpers->dateTime()->getUtc()->add($this->moduleConfig->getFederationEntityStatementDuration()),
             )->withClaim(
                 ClaimsEnum::Jwks->value,
                 $jwks,

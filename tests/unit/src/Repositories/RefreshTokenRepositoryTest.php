@@ -24,6 +24,7 @@ use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\RefreshTokenEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\RefreshTokenEntityFactory;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
@@ -79,6 +80,7 @@ class RefreshTokenRepositoryTest extends TestCase
             new ModuleConfig(),
             $this->accessTokenRepositoryMock,
             $this->refreshTokenEntityFactoryMock,
+            new Helpers(),
         );
     }
 

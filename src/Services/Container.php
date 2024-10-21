@@ -230,6 +230,7 @@ class Container implements ContainerInterface
             $moduleConfig,
             $clientRepository,
             $authCodeEntityFactory,
+            $helpers,
         );
         $this->services[AuthCodeRepository::class] = $authCodeRepository;
 
@@ -253,6 +254,7 @@ class Container implements ContainerInterface
             $moduleConfig,
             $clientRepository,
             $accessTokenEntityFactory,
+            $helpers,
         );
         $this->services[AccessTokenRepository::class] = $accessTokenRepository;
 
@@ -263,6 +265,7 @@ class Container implements ContainerInterface
             $moduleConfig,
             $accessTokenRepository,
             $refreshTokenEntityFactory,
+            $helpers,
         );
         $this->services[RefreshTokenRepository::class] = $refreshTokenRepository;
 

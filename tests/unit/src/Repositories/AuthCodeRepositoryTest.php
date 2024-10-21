@@ -21,10 +21,12 @@ use Exception;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
+use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
@@ -44,6 +46,8 @@ class AuthCodeRepositoryTest extends TestCase
     protected MockObject $clientEntityMock;
     protected MockObject $clientRepositoryMock;
     protected MockObject $authCodeEntityFactoryMock;
+    protected MockObject $helpersMock;
+    protected MockObject $dateTimeHelperMock;
     /** @var \League\OAuth2\Server\Entities\ScopeEntityInterface[]  */
     protected array $scopes;
 
@@ -76,10 +80,15 @@ class AuthCodeRepositoryTest extends TestCase
 
         $this->authCodeEntityFactoryMock = $this->createMock(AuthCodeEntityFactory::class);
 
+        $this->helpersMock = $this->createMock(Helpers::class);
+        $this->dateTimeHelperMock = $this->createMock(Helpers\DateTime::class);
+        $this->helpersMock->method('dateTime')->willReturn($this->dateTimeHelperMock);
+
         $this->repository = new AuthCodeRepository(
             $this->createMock(ModuleConfig::class),
             $this->clientRepositoryMock,
             $this->authCodeEntityFactoryMock,
+            $this->helpersMock,
         );
     }
 
@@ -192,6 +201,11 @@ class AuthCodeRepositoryTest extends TestCase
      */
     public function testRemoveExpired(): void
     {
+        $dateTimeMock = $this->createMock(DateTimeImmutable::class);
+        $dateTimeMock->expects($this->once())->method('format')
+            ->willReturn(date(DateFormatsEnum::DB_DATETIME->value));
+        $this->dateTimeHelperMock->expects($this->once())->method('getUtc')->willReturn($dateTimeMock);
+
         $this->repository->removeExpired();
         $notFoundAuthCode = $this->repository->findById(self::AUTH_CODE_ID);
 
