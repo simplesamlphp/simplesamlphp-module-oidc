@@ -27,7 +27,6 @@ use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
-use SimpleSAML\Module\oidc\Factories\Entities\RefreshTokenEntityFactory;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
@@ -58,7 +57,7 @@ use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AcrResponseTypeInterf
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\SessionIdResponseTypeInterface;
-use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Utils\Arr;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\ScopeHelper;
@@ -165,8 +164,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         protected RequestParamsResolver $requestParamsResolver,
         AccessTokenEntityFactory $accessTokenEntityFactory,
         protected AuthCodeEntityFactory $authCodeEntityFactory,
-        protected RefreshTokenEntityFactory $refreshTokenEntityFactory,
-        protected LoggerService $logger,
+        protected RefreshTokenIssuer $refreshTokenIssuer,
     ) {
         parent::__construct($authCodeRepository, $refreshTokenRepository, $authCodeTTL);
 
@@ -752,37 +750,15 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         OAuth2AccessTokenEntityInterface $accessToken,
         string $authCodeId = null,
     ): ?RefreshTokenEntityInterface {
-        if (! is_a($this->refreshTokenRepository, RefreshTokenRepositoryInterface::class)) {
-            throw OidcServerException::serverError('Unexpected refresh token repository entity type.');
-        }
         if (! is_a($accessToken, AccessTokenEntityInterface::class)) {
             throw OidcServerException::serverError('Unexpected access token entity type.');
         }
 
-        $maxGenerationAttempts = self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
-
-        while ($maxGenerationAttempts-- > 0) {
-            try {
-                $refreshToken = $this->refreshTokenEntityFactory->fromData(
-                    $this->generateUniqueIdentifier(),
-                    (new DateTimeImmutable())->add($this->refreshTokenTTL),
-                    $accessToken,
-                    $authCodeId,
-                );
-                $this->refreshTokenRepository->persistNewRefreshToken($refreshToken);
-                return $refreshToken;
-            } catch (UniqueTokenIdentifierConstraintViolationException $e) {
-                if ($maxGenerationAttempts === 0) {
-                    throw $e;
-                }
-            }
-        }
-
-        $this->logger->error('Unable to issue refresh token.', [
-            'accessTokenId' => $accessToken->getIdentifier(),
-            'authCodeId' => $authCodeId,
-        ]);
-
-        return null;
+        return $this->refreshTokenIssuer->issue(
+            $accessToken,
+            $this->refreshTokenTTL,
+            $authCodeId,
+            self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS,
+        );
     }
 }

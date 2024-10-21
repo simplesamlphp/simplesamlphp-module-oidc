@@ -93,6 +93,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
+use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
@@ -354,6 +355,14 @@ class Container implements ContainerInterface
 
         $this->services[Helpers::class] = $helpers;
 
+        $refreshTokenIssuer = new RefreshTokenIssuer(
+            $helpers,
+            $refreshTokenRepository,
+            $refreshTokenEntityFactory,
+            $loggerService,
+        );
+        $this->services[RefreshTokenIssuer::class] = $refreshTokenIssuer;
+
         $authCodeGrantFactory = new AuthCodeGrantFactory(
             $moduleConfig,
             $authCodeRepository,
@@ -363,8 +372,7 @@ class Container implements ContainerInterface
             $requestParamsResolver,
             $accessTokenEntityFactory,
             $authCodeEntityFactory,
-            $refreshTokenEntityFactory,
-            $loggerService,
+            $refreshTokenIssuer,
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 
@@ -385,6 +393,7 @@ class Container implements ContainerInterface
             $moduleConfig,
             $refreshTokenRepository,
             $accessTokenEntityFactory,
+            $refreshTokenIssuer,
         );
         $this->services[RefreshTokenGrant::class] = $refreshTokenGrantFactory->build();
 

@@ -2,22 +2,17 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Module\oidc\Utils;
+namespace SimpleSAML\Module\oidc\Helpers;
 
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use Throwable;
 
-/**
- * TODO mivanci Move to Helpers\Random
- */
-class UniqueIdentifierGenerator
+class Random
 {
     /**
-     * Generate a new unique identifier.
-     *
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
-    public static function hitMe(int $length = 40): string
+    public function getIdentifier(int $length = 40): string
     {
         if ($length < 1) {
             throw OidcServerException::serverError('Random string length can not be less than 1');

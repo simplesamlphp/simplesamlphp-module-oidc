@@ -5,19 +5,17 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Server\Grants;
 
 use DateInterval;
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
-use SimpleSAML\Module\oidc\Factories\Entities\RefreshTokenEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
-use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
 /**
@@ -34,8 +32,7 @@ class AuthCodeGrantTest extends TestCase
     protected Stub $requestParamsResolverStub;
     protected Stub $accessTokenEntityFactoryStub;
     protected Stub $authCodeEntityFactoryStub;
-    protected Stub $refreshTokenEntityFactoryStub;
-    protected MockObject $loggerMock;
+    protected Stub $refreshTokenIssuerStub;
 
     /**
      * @throws \Exception
@@ -51,8 +48,7 @@ class AuthCodeGrantTest extends TestCase
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
         $this->accessTokenEntityFactoryStub = $this->createStub(AccessTokenEntityFactory::class);
         $this->authCodeEntityFactoryStub = $this->createStub(AuthcodeEntityFactory::class);
-        $this->refreshTokenEntityFactoryStub = $this->createStub(RefreshTokenEntityFactory::class);
-        $this->loggerMock = $this->createMock(LoggerService::class);
+        $this->refreshTokenIssuerStub = $this->createStub(RefreshTokenIssuer::class);
     }
 
     /**
@@ -71,8 +67,7 @@ class AuthCodeGrantTest extends TestCase
                 $this->requestParamsResolverStub,
                 $this->accessTokenEntityFactoryStub,
                 $this->authCodeEntityFactoryStub,
-                $this->refreshTokenEntityFactoryStub,
-                $this->loggerMock,
+                $this->refreshTokenIssuerStub,
             ),
         );
     }

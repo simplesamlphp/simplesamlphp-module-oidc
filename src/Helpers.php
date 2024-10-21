@@ -8,6 +8,7 @@ use SimpleSAML\Module\oidc\Helpers\Arr;
 use SimpleSAML\Module\oidc\Helpers\Client;
 use SimpleSAML\Module\oidc\Helpers\DateTime;
 use SimpleSAML\Module\oidc\Helpers\Http;
+use SimpleSAML\Module\oidc\Helpers\Random;
 use SimpleSAML\Module\oidc\Helpers\Str;
 
 class Helpers
@@ -17,6 +18,7 @@ class Helpers
     protected static ?DateTime $dateTIme = null;
     protected static ?Str $str = null;
     protected static ?Arr $arr = null;
+    protected static ?Random $random = null;
 
     public function http(): Http
     {
@@ -43,5 +45,10 @@ class Helpers
     public function arr(): Arr
     {
         return static::$arr ??= new Arr();
+    }
+
+    public function random(): Random
+    {
+        return static::$random ??= new Random();
     }
 }
