@@ -43,6 +43,7 @@ use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\RefreshTokenEntityFactory;
+use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
 use SimpleSAML\Module\oidc\Factories\FederationFactory;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\AuthCodeGrantFactory;
@@ -205,7 +206,14 @@ class Container implements ContainerInterface
         $clientRepository = new ClientRepository($moduleConfig, $clientEntityFactory);
         $this->services[ClientRepository::class] = $clientRepository;
 
-        $userRepository = new UserRepository($moduleConfig);
+        $userEntityFactory = new UserEntityFactory($helpers);
+        $this->services[UserEntityFactory::class] = $userEntityFactory;
+
+        $userRepository = new UserRepository(
+            $moduleConfig,
+            $helpers,
+            $userEntityFactory,
+        );
         $this->services[UserRepository::class] = $userRepository;
 
         $authCodeEntityFactory = new AuthCodeEntityFactory($helpers);
@@ -277,6 +285,7 @@ class Container implements ContainerInterface
             $stateService,
             $helpers,
             $requestParamsResolver,
+            $userEntityFactory,
         );
         $this->services[AuthenticationService::class] = $authenticationService;
 

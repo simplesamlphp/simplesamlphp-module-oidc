@@ -21,6 +21,7 @@ use SimpleSAML\Error\NotFound;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
+use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
 use SimpleSAML\Module\oidc\Factories\ProcessingChainFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -81,6 +82,7 @@ class AuthenticationServiceTest extends TestCase
     protected MockObject $helpersMock;
     protected MockObject $clientHelperMock;
     protected MockObject $requestParamsResolverMock;
+    protected MockObject $userEntityFactoryMock;
 
     /**
      * @return void
@@ -134,6 +136,8 @@ class AuthenticationServiceTest extends TestCase
         $this->requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
         $this->requestParamsResolverMock->method('getAll')->with($this->serverRequestMock)
             ->willReturn(self::AUTHZ_REQUEST_PARAMS);
+
+        $this->userEntityFactoryMock = $this->createMock(UserEntityFactory::class);
     }
 
     /**
@@ -156,6 +160,7 @@ class AuthenticationServiceTest extends TestCase
                      $this->stateServiceMock,
                      $this->helpersMock,
                      $this->requestParamsResolverMock,
+                     $this->userEntityFactoryMock,
                 ],
             )->onlyMethods([])
             ->getMock();
@@ -185,6 +190,14 @@ class AuthenticationServiceTest extends TestCase
         $clientId = 'client123';
         $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
         $this->clientEntityMock->expects($this->once())->method('getIdentifier')->willReturn($clientId);
+
+        $this->userEntityMock->method('getIdentifier')->willReturn(self::USERNAME);
+        $this->userEntityMock->method('getClaims')->willReturn(self::USER_ENTITY_ATTRIBUTES);
+
+        $this->userEntityFactoryMock->expects($this->once())->method('fromData')
+            ->with(self::USERNAME, self::USER_ENTITY_ATTRIBUTES)
+            ->willReturn($this->userEntityMock);
+
         $userEntity = $this->mock()->getAuthenticateUser(self::STATE);
 
         $this->assertSame(
@@ -403,6 +416,7 @@ class AuthenticationServiceTest extends TestCase
                                      $this->stateServiceMock,
                                      $this->helpersMock,
                                      $this->requestParamsResolverMock,
+                                     $this->userEntityFactoryMock,
                                  ])
             ->onlyMethods(['runAuthProcs', 'prepareStateArray'])
             ->getMock();
@@ -493,6 +507,7 @@ class AuthenticationServiceTest extends TestCase
             $this->stateServiceMock,
             $this->helpersMock,
             $this->requestParamsResolverMock,
+            $this->userEntityFactoryMock,
         ) extends AuthenticationService {
             public function runAuthProcsPublic(array &$state): void
             {

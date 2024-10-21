@@ -171,8 +171,8 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         $this->mock->getDatabase()->write('DELETE from ' . $clientRepositoryMock->getTableName());
         $clientRepositoryMock->add($client);
 
-
-        $user = UserEntity::fromData(self::USER_ID);
+        $createUpdatedAt = new \DateTimeImmutable();
+        $user = new UserEntity(self::USER_ID, $createUpdatedAt, $createUpdatedAt, []);
         $userRepositoryMock = new UserRepository($moduleConfig);
         $this->mock->getDatabase()->write('DELETE from ' . $userRepositoryMock->getTableName());
         $userRepositoryMock->add($user);

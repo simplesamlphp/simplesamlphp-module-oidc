@@ -15,9 +15,14 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
+use DateTimeImmutable;
+use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
+use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
@@ -28,6 +33,9 @@ use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 class UserRepositoryTest extends TestCase
 {
     protected static UserRepository $repository;
+    protected Stub $helpersStub;
+    protected MockObject $userEntityFactoryMock;
+    protected MockObject $userEntityMock;
 
     /**
      * @throws \Exception
@@ -47,8 +55,15 @@ class UserRepositoryTest extends TestCase
         (new DatabaseMigration())->migrate();
 
         $moduleConfig = new ModuleConfig();
+        $this->helpersStub = $this->createStub(Helpers::class);
+        $this->userEntityFactoryMock = $this->createMock(UserEntityFactory::class);
+        $this->userEntityMock = $this->createMock(UserEntity::class);
 
-        self::$repository = new UserRepository($moduleConfig);
+        self::$repository = new UserRepository(
+            $moduleConfig,
+            $this->helpersStub,
+            $this->userEntityFactoryMock,
+        );
     }
 
     public function testGetTableName(): void
@@ -60,9 +75,18 @@ class UserRepositoryTest extends TestCase
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \Exception
      */
-    public function testAddAndFound(): void
+    public function testCanAddFindDelete(): void
     {
-        self::$repository->add(UserEntity::fromData('uniqueid'));
+        $createdUpdatedAt = new DateTimeImmutable();
+        self::$repository->add(new UserEntity('uniqueid', $createdUpdatedAt, $createdUpdatedAt));
+
+        $this->userEntityMock->method('getIdentifier')->willReturn('uniqueid');
+        $this->userEntityFactoryMock->expects($this->once())
+            ->method('fromState')
+            ->with($this->callback(function (array $state) {
+                return $state['id'] === 'uniqueid';
+            }))
+        ->willReturn($this->userEntityMock);
         $user = self::$repository->getUserEntityByIdentifier('uniqueid');
 
         $this->assertNotNull($user);
@@ -93,15 +117,11 @@ class UserRepositoryTest extends TestCase
         $this->assertNotSame($user, $user2);
     }
 
-    /**
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
-     */
-    public function testDelete(): void
+    public function testCanDelete(): void
     {
-        $user = self::$repository->getUserEntityByIdentifier('uniqueid');
-        self::$repository->delete($user);
-        $user = self::$repository->getUserEntityByIdentifier('uniqueid');
-
-        $this->assertNull($user);
+        $this->userEntityMock->method('getIdentifier')->willReturn('uniqueid');
+        $this->assertNotNull(self::$repository->getUserEntityByIdentifier('uniqueid'));
+        self::$repository->delete($this->userEntityMock);
+        $this->assertNull(self::$repository->getUserEntityByIdentifier('uniqueid'));
     }
 }
