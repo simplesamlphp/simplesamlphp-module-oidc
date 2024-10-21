@@ -35,6 +35,9 @@ services:
   SimpleSAML\Module\oidc\Bridges\:
     resource: '../../src/Bridges/*'
 
+  SimpleSAML\Module\oidc\Server\TokenIssuers\:
+    resource: '../../src/Server/TokenIssuers/*'
+
   SimpleSAML\Module\oidc\ModuleConfig: ~
   SimpleSAML\Module\oidc\Helpers: ~
   SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection: ~

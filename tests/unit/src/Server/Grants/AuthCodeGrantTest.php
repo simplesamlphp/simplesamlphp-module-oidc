@@ -15,6 +15,7 @@ use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
+use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
 /**
@@ -30,7 +31,8 @@ class AuthCodeGrantTest extends TestCase
     protected Stub $moduleConfigStub;
     protected Stub $requestParamsResolverStub;
     protected Stub $accessTokenEntityFactoryStub;
-    protected Stub $authCodeEntityFactory;
+    protected Stub $authCodeEntityFactoryStub;
+    protected Stub $refreshTokenIssuerStub;
 
     /**
      * @throws \Exception
@@ -45,7 +47,8 @@ class AuthCodeGrantTest extends TestCase
         $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
         $this->accessTokenEntityFactoryStub = $this->createStub(AccessTokenEntityFactory::class);
-        $this->authCodeEntityFactory = $this->createStub(AuthcodeEntityFactory::class);
+        $this->authCodeEntityFactoryStub = $this->createStub(AuthcodeEntityFactory::class);
+        $this->refreshTokenIssuerStub = $this->createStub(RefreshTokenIssuer::class);
     }
 
     /**
@@ -63,7 +66,8 @@ class AuthCodeGrantTest extends TestCase
                 $this->requestRulesManagerStub,
                 $this->requestParamsResolverStub,
                 $this->accessTokenEntityFactoryStub,
-                $this->authCodeEntityFactory,
+                $this->authCodeEntityFactoryStub,
+                $this->refreshTokenIssuerStub,
             ),
         );
     }

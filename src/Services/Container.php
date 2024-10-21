@@ -42,6 +42,7 @@ use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
+use SimpleSAML\Module\oidc\Factories\Entities\RefreshTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\FederationFactory;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\AuthCodeGrantFactory;
@@ -92,6 +93,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
+use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
@@ -238,7 +240,14 @@ class Container implements ContainerInterface
         );
         $this->services[AccessTokenRepository::class] = $accessTokenRepository;
 
-        $refreshTokenRepository = new RefreshTokenRepository($moduleConfig, $accessTokenRepository);
+        $refreshTokenEntityFactory = new RefreshTokenEntityFactory($helpers);
+        $this->services[RefreshTokenEntityFactory::class] = $refreshTokenEntityFactory;
+
+        $refreshTokenRepository = new RefreshTokenRepository(
+            $moduleConfig,
+            $accessTokenRepository,
+            $refreshTokenEntityFactory,
+        );
         $this->services[RefreshTokenRepository::class] = $refreshTokenRepository;
 
         $scopeRepository = new ScopeRepository($moduleConfig);
@@ -346,6 +355,14 @@ class Container implements ContainerInterface
 
         $this->services[Helpers::class] = $helpers;
 
+        $refreshTokenIssuer = new RefreshTokenIssuer(
+            $helpers,
+            $refreshTokenRepository,
+            $refreshTokenEntityFactory,
+            $loggerService,
+        );
+        $this->services[RefreshTokenIssuer::class] = $refreshTokenIssuer;
+
         $authCodeGrantFactory = new AuthCodeGrantFactory(
             $moduleConfig,
             $authCodeRepository,
@@ -355,6 +372,7 @@ class Container implements ContainerInterface
             $requestParamsResolver,
             $accessTokenEntityFactory,
             $authCodeEntityFactory,
+            $refreshTokenIssuer,
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 
@@ -375,6 +393,7 @@ class Container implements ContainerInterface
             $moduleConfig,
             $refreshTokenRepository,
             $accessTokenEntityFactory,
+            $refreshTokenIssuer,
         );
         $this->services[RefreshTokenGrant::class] = $refreshTokenGrantFactory->build();
 

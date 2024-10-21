@@ -21,6 +21,7 @@ use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
@@ -56,6 +57,7 @@ use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AcrResponseTypeInterf
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\SessionIdResponseTypeInterface;
+use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Utils\Arr;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\ScopeHelper;
@@ -162,6 +164,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         protected RequestParamsResolver $requestParamsResolver,
         AccessTokenEntityFactory $accessTokenEntityFactory,
         protected AuthCodeEntityFactory $authCodeEntityFactory,
+        protected RefreshTokenIssuer $refreshTokenIssuer,
     ) {
         parent::__construct($authCodeRepository, $refreshTokenRepository, $authCodeTTL);
 
@@ -747,34 +750,15 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         OAuth2AccessTokenEntityInterface $accessToken,
         string $authCodeId = null,
     ): ?RefreshTokenEntityInterface {
-        if (! is_a($this->refreshTokenRepository, RefreshTokenRepositoryInterface::class)) {
-            throw OidcServerException::serverError('Unexpected refresh token repository entity type.');
+        if (! is_a($accessToken, AccessTokenEntityInterface::class)) {
+            throw OidcServerException::serverError('Unexpected access token entity type.');
         }
 
-        $refreshToken = $this->refreshTokenRepository->getNewRefreshToken();
-
-        if ($refreshToken === null) {
-            return null;
-        }
-
-        $refreshToken->setExpiryDateTime((new DateTimeImmutable())->add($this->refreshTokenTTL));
-        $refreshToken->setAccessToken($accessToken);
-        $refreshToken->setAuthCodeId($authCodeId);
-
-        $maxGenerationAttempts = self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
-
-        while ($maxGenerationAttempts-- > 0) {
-            $refreshToken->setIdentifier($this->generateUniqueIdentifier());
-            try {
-                $this->refreshTokenRepository->persistNewRefreshToken($refreshToken);
-                break;
-            } catch (UniqueTokenIdentifierConstraintViolationException $e) {
-                if ($maxGenerationAttempts === 0) {
-                    throw $e;
-                }
-            }
-        }
-
-        return $refreshToken;
+        return $this->refreshTokenIssuer->issue(
+            $accessToken,
+            $this->refreshTokenTTL,
+            $authCodeId,
+            self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS,
+        );
     }
 }

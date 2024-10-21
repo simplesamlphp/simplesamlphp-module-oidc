@@ -16,16 +16,18 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
 use DateTimeImmutable;
+use DateTimeZone;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entities\RefreshTokenEntity;
+use SimpleSAML\Module\oidc\Factories\Entities\RefreshTokenEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
-use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository
@@ -40,6 +42,8 @@ class RefreshTokenRepositoryTest extends TestCase
     protected RefreshTokenRepository $repository;
     protected MockObject $accessTokenMock;
     protected MockObject $accessTokenRepositoryMock;
+    protected MockObject $refreshTokenEntityFactoryMock;
+    protected MockObject $refreshTokenEntityMock;
 
     /**
      * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
@@ -67,10 +71,14 @@ class RefreshTokenRepositoryTest extends TestCase
         $this->accessTokenMock = $this->createMock(AccessTokenEntity::class);
         $this->accessTokenMock->method('getIdentifier')->willReturn(self::ACCESS_TOKEN_ID);
         $this->accessTokenRepositoryMock = $this->createMock(AccessTokenRepository::class);
+        $this->refreshTokenEntityFactoryMock = $this->createMock(RefreshTokenEntityFactory::class);
+
+        $this->refreshTokenEntityMock = $this->createMock(RefreshTokenEntity::class);
 
         $this->repository = new RefreshTokenRepository(
             new ModuleConfig(),
             $this->accessTokenRepositoryMock,
+            $this->refreshTokenEntityFactoryMock,
         );
     }
 
@@ -87,12 +95,18 @@ class RefreshTokenRepositoryTest extends TestCase
      */
     public function testAddAndFound(): void
     {
-        $refreshToken = $this->repository->getNewRefreshToken();
-        $refreshToken->setIdentifier(self::REFRESH_TOKEN_ID);
-        $refreshToken->setExpiryDateTime(DateTimeImmutable::createFromMutable(TimestampGenerator::utc('yesterday')));
-        $refreshToken->setAccessToken($this->accessTokenMock);
-
+        $refreshToken = new RefreshTokenEntity(
+            self::REFRESH_TOKEN_ID,
+            new DateTimeImmutable('yesterday', new DateTimeZone('UTC')),
+            $this->accessTokenMock,
+        );
         $this->repository->persistNewRefreshToken($refreshToken);
+
+        $this->refreshTokenEntityFactoryMock->expects($this->once())
+            ->method('fromState')
+            ->with($this->callback(function (array $state): bool {
+                return $state['id'] === self::REFRESH_TOKEN_ID;
+            }))->willReturn($refreshToken);
 
         $this->accessTokenRepositoryMock->method('findById')->willReturn($this->accessTokenMock);
         $foundRefreshToken = $this->repository->findById(self::REFRESH_TOKEN_ID);
@@ -115,7 +129,17 @@ class RefreshTokenRepositoryTest extends TestCase
      */
     public function testRevokeToken(): void
     {
+        $revokedRefreshTokenMock = $this->createMock(RefreshTokenEntity::class);
+        $revokedRefreshTokenMock->method('isRevoked')->willReturn(true);
         $this->accessTokenRepositoryMock->method('findById')->willReturn($this->accessTokenMock);
+        $this->refreshTokenEntityMock->expects($this->once())->method('revoke');
+        $this->refreshTokenEntityFactoryMock->expects($this->atLeastOnce())
+            ->method('fromState')
+            ->with($this->callback(function (array $state): bool {
+                return $state['id'] === self::REFRESH_TOKEN_ID;
+            }))
+            ->willReturnOnConsecutiveCalls($this->refreshTokenEntityMock, $revokedRefreshTokenMock);
+
         $this->repository->revokeRefreshToken(self::REFRESH_TOKEN_ID);
         $isRevoked = $this->repository->isRefreshTokenRevoked(self::REFRESH_TOKEN_ID);
 

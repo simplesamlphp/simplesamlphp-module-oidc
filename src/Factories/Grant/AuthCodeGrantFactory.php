@@ -24,6 +24,7 @@ use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
+use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
 class AuthCodeGrantFactory
@@ -37,6 +38,7 @@ class AuthCodeGrantFactory
         private readonly RequestParamsResolver $requestParamsResolver,
         private readonly AccessTokenEntityFactory $accessTokenEntityFactory,
         private readonly AuthCodeEntityFactory $authCodeEntityFactory,
+        private readonly RefreshTokenIssuer $refreshTokenIssuer,
     ) {
     }
 
@@ -54,6 +56,7 @@ class AuthCodeGrantFactory
             $this->requestParamsResolver,
             $this->accessTokenEntityFactory,
             $this->authCodeEntityFactory,
+            $this->refreshTokenIssuer,
         );
         $authCodeGrant->setRefreshTokenTTL($this->moduleConfig->getRefreshTokenDuration());
 

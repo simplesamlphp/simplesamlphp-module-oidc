@@ -21,6 +21,7 @@ use League\OAuth2\Server\Exception\OAuthServerException;
 use RuntimeException;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\RefreshTokenEntity;
+use SimpleSAML\Module\oidc\Factories\Entities\RefreshTokenEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
@@ -35,6 +36,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
     public function __construct(
         ModuleConfig $moduleConfig,
         protected readonly AccessTokenRepository $accessTokenRepository,
+        protected readonly RefreshTokenEntityFactory $refreshTokenEntityFactory,
     ) {
         parent::__construct($moduleConfig);
     }
@@ -52,7 +54,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
      */
     public function getNewRefreshToken(): RefreshTokenEntityInterface
     {
-        return new RefreshTokenEntity();
+        throw new RuntimeException('Not implemented. Use RefreshTokenEntityFactory instead.');
     }
 
     /**
@@ -99,7 +101,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         $data = current($rows);
         $data['access_token'] = $this->accessTokenRepository->findById((string)$data['access_token_id']);
 
-        return RefreshTokenEntity::fromState($data);
+        return $this->refreshTokenEntityFactory->fromState($data);
     }
 
     /**

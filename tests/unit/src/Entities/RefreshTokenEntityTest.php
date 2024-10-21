@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Entities;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use PDO;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -16,33 +18,37 @@ use SimpleSAML\Module\oidc\Entities\RefreshTokenEntity;
  */
 class RefreshTokenEntityTest extends TestCase
 {
+    protected string $id;
+    protected DateTimeImmutable $expiryDateTime;
     protected MockObject $accessTokenEntityMock;
-    protected array $state;
+    protected false $isRevoked;
+    protected string $authCodeId;
 
     /**
      * @throws \Exception
      */
     protected function setUp(): void
     {
+        $this->id = 'id';
+        $this->expiryDateTime = new DateTimeImmutable('1970-01-01 00:00:00', new DateTimeZone('UTC'));
         $this->accessTokenEntityMock = $this->createMock(AccessTokenEntity::class);
         $this->accessTokenEntityMock->method('getIdentifier')->willReturn('access_token_id');
-
-        $this->state = [
-            'id' => 'id',
-            'expires_at' => '1970-01-01 00:00:00',
-            'access_token' => $this->accessTokenEntityMock,
-            'is_revoked' => false,
-            'auth_code_id' => '123',
-        ];
+        $this->isRevoked = false;
+        $this->authCodeId = 'auth_code_id';
     }
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
-    protected function prepareMockedInstance(array $state = null): RefreshTokenEntityInterface
+    protected function mock(): RefreshTokenEntityInterface
     {
-        $state ??= $this->state;
-        return RefreshTokenEntity::fromState($state);
+        return new RefreshTokenEntity(
+            $this->id,
+            $this->expiryDateTime,
+            $this->accessTokenEntityMock,
+            $this->authCodeId,
+            $this->isRevoked,
+        );
     }
 
     /**
@@ -52,7 +58,7 @@ class RefreshTokenEntityTest extends TestCase
     {
         $this->assertInstanceOf(
             RefreshTokenEntity::class,
-            $this->prepareMockedInstance(),
+            $this->mock(),
         );
     }
 
@@ -62,13 +68,13 @@ class RefreshTokenEntityTest extends TestCase
     public function testCanGetState(): void
     {
         $this->assertSame(
-            $this->prepareMockedInstance()->getState(),
+            $this->mock()->getState(),
             [
-                'id' => 'id',
+                'id' => $this->id,
                 'expires_at' => '1970-01-01 00:00:00',
-                'access_token_id' => 'access_token_id',
-                'is_revoked' => [$this->state['is_revoked'], PDO::PARAM_BOOL],
-                'auth_code_id' => '123',
+                'access_token_id' => $this->accessTokenEntityMock->getIdentifier(),
+                'is_revoked' => [$this->isRevoked, PDO::PARAM_BOOL],
+                'auth_code_id' => $this->authCodeId,
             ],
         );
     }
