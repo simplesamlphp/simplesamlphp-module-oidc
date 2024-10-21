@@ -19,12 +19,13 @@ namespace SimpleSAML\Module\oidc\Repositories;
 use League\OAuth2\Server\Entities\AuthCodeEntityInterface as OAuth2AuthCodeEntityInterface;
 use RuntimeException;
 use SimpleSAML\Error\Error;
+use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
-use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeRepositoryInterface
 {
@@ -32,6 +33,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
         ModuleConfig $moduleConfig,
         protected readonly ClientRepository $clientRepository,
         protected readonly AuthCodeEntityFactory $authCodeEntityFactory,
+        protected readonly Helpers $helpers,
     ) {
         parent::__construct($moduleConfig);
     }
@@ -139,7 +141,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
         $this->database->write(
             "DELETE FROM {$this->getTableName()} WHERE expires_at < :now",
             [
-                'now' => TimestampGenerator::utc()->format('Y-m-d H:i:s'),
+                'now' => $this->helpers->dateTime()->getUtc()->format(DateFormatsEnum::DB_DATETIME->value),
             ],
         );
     }

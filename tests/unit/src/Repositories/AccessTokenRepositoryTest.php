@@ -15,14 +15,17 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
+use DateTimeImmutable;
 use Exception;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
+use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
@@ -44,6 +47,8 @@ class AccessTokenRepositoryTest extends TestCase
     protected MockObject $clientEntityFactoryMock;
     protected MockObject $accessTokenEntityFactoryMock;
     protected MockObject $accessTokenEntityMock;
+    protected MockObject $helpersMock;
+    protected MockObject $dateTimeHelperMock;
 
     protected static bool $dbSeeded = false;
     protected ClientEntityInterface $clientEntity;
@@ -93,10 +98,15 @@ class AccessTokenRepositoryTest extends TestCase
             'auth_code_id' => 'authCode123',
         ];
 
+        $this->helpersMock = $this->createMock(Helpers::class);
+        $this->dateTimeHelperMock = $this->createMock(Helpers\DateTime::class);
+        $this->helpersMock->method('dateTime')->willReturn($this->dateTimeHelperMock);
+
         $this->repository = new AccessTokenRepository(
             $this->moduleConfigMock,
             $this->clientRepositoryMock,
             $this->accessTokenEntityFactoryMock,
+            $this->helpersMock,
         );
     }
 
@@ -178,6 +188,12 @@ class AccessTokenRepositoryTest extends TestCase
      */
     public function testRemoveExpired(): void
     {
+        $dateTimeMock = $this->createMock(DateTimeImmutable::class);
+        $dateTimeMock->expects($this->once())->method('format')
+            ->willReturn(date(DateFormatsEnum::DB_DATETIME->value));
+        $this->dateTimeHelperMock->expects($this->once())->method('getUtc')
+            ->willReturn($dateTimeMock);
+
         $this->repository->removeExpired();
         $notFoundAccessToken = $this->repository->findById(self::ACCESS_TOKEN_ID);
 
