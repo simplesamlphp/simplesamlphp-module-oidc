@@ -29,6 +29,7 @@ use SimpleSAML\Module\oidc\Controller\EndSessionController;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
+use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
 use SimpleSAML\Module\oidc\Factories\ProcessingChainFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -66,6 +67,7 @@ class AuthenticationService
         private readonly StateService $stateService,
         private readonly Helpers $helpers,
         private readonly RequestParamsResolver $requestParamsResolver,
+        private readonly UserEntityFactory $userEntityFactory,
     ) {
         $this->userIdAttr = $this->moduleConfig->getUserIdentifierAttribute();
     }
@@ -140,13 +142,14 @@ class AuthenticationService
         }
 
         $userId = (string)$claims[$this->userIdAttr][0];
+
         $user = $this->userRepository->getUserEntityByIdentifier($userId);
 
         if ($user) {
             $user->setClaims($claims);
             $this->userRepository->update($user);
         } else {
-            $user = UserEntity::fromData($userId, $claims);
+            $user = $this->userEntityFactory->fromData($userId, $claims);
             $this->userRepository->add($user);
         }
 

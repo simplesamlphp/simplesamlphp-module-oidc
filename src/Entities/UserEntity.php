@@ -16,85 +16,22 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Entities;
 
-use DateTime;
+use DateTimeImmutable;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClaimSetInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\MementoInterface;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 /**
  * @psalm-suppress PropertyNotSetInConstructor
  */
 class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInterface
 {
-    /**
-     * @var string
-     */
-    private string $identifier;
-
-    /**
-     * @var array
-     */
-    private array $claims;
-
-    /**
-     * @var DateTime
-     */
-    private DateTime $createdAt;
-
-    /**
-     * @var DateTime
-     */
-    private DateTime $updatedAt;
-
-    private function __construct()
-    {
-    }
-
-    /**
-     * @throws \Exception
-     */
-    public static function fromData(string $identifier, array $claims = []): self
-    {
-        $user = new self();
-
-        $user->identifier = $identifier;
-        $user->createdAt = TimestampGenerator::utc();
-        $user->updatedAt = $user->createdAt;
-        $user->claims = $claims;
-
-        return $user;
-    }
-
-    /**
-     * @throws \Exception
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
-     */
-    public static function fromState(array $state): self
-    {
-        $user = new self();
-
-        if (
-            !is_string($state['id']) ||
-            !is_string($state['claims']) ||
-            !is_string($state['updated_at']) ||
-            !is_string($state['created_at'])
-        ) {
-            throw OidcServerException::serverError('Invalid user entity data');
-        }
-
-        $user->identifier = $state['id'];
-        $claims = json_decode($state['claims'], true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
-
-        if (!is_array($claims)) {
-            throw OidcServerException::serverError('Invalid user entity data');
-        }
-        $user->claims = $claims;
-        $user->updatedAt = TimestampGenerator::utc($state['updated_at']);
-        $user->createdAt = TimestampGenerator::utc($state['created_at']);
-
-        return $user;
+    public function __construct(
+        private readonly string $identifier,
+        private readonly DateTimeImmutable $createdAt,
+        private DateTimeImmutable $updatedAt,
+        private array $claims = [],
+    ) {
     }
 
     /**
@@ -120,23 +57,24 @@ class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInter
         return $this->claims;
     }
 
-    /**
-     * @throws \Exception
-     */
     public function setClaims(array $claims): self
     {
         $this->claims = $claims;
-        $this->updatedAt = TimestampGenerator::utc();
-
         return $this;
     }
 
-    public function getUpdatedAt(): DateTime
+    public function getUpdatedAt(): DateTimeImmutable
     {
         return $this->updatedAt;
     }
 
-    public function getCreatedAt(): DateTime
+    public function setUpdatedAt(DateTimeImmutable $updatedAt): self
+    {
+        $this->updatedAt = $updatedAt;
+        return $this;
+    }
+
+    public function getCreatedAt(): DateTimeImmutable
     {
         return $this->createdAt;
     }

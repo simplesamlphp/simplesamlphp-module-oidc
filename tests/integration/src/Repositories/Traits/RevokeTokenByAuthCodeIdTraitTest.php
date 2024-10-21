@@ -18,6 +18,7 @@ use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
+use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AbstractDatabaseRepository;
@@ -171,9 +172,14 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         $this->mock->getDatabase()->write('DELETE from ' . $clientRepositoryMock->getTableName());
         $clientRepositoryMock->add($client);
 
-
-        $user = UserEntity::fromData(self::USER_ID);
-        $userRepositoryMock = new UserRepository($moduleConfig);
+        $createUpdatedAt = new \DateTimeImmutable();
+        $helpers = new Helpers();
+        $user = new UserEntity(self::USER_ID, $createUpdatedAt, $createUpdatedAt, []);
+        $userRepositoryMock = new UserRepository(
+            $moduleConfig,
+            $helpers,
+            new UserEntityFactory($helpers),
+        );
         $this->mock->getDatabase()->write('DELETE from ' . $userRepositoryMock->getTableName());
         $userRepositoryMock->add($user);
     }

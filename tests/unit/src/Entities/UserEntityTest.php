@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Entities;
 
+use DateTimeImmutable;
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 
@@ -14,6 +16,13 @@ class UserEntityTest extends TestCase
 {
     protected array $state;
 
+    protected string $identifier = 'id';
+
+    protected array $claims = [];
+
+    protected Stub $createdAt;
+    protected Stub $updatedAt;
+
     protected function setUp(): void
     {
         $this->state = [
@@ -22,15 +31,28 @@ class UserEntityTest extends TestCase
             'updated_at' => '1970-01-01 00:00:00',
             'created_at' => '1970-01-01 00:00:00',
         ];
+
+        $this->createdAt = $this->createStub(DateTimeImmutable::class);
+        $this->updatedAt = $this->createStub(DateTimeImmutable::class);
     }
 
-    /**
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
-     */
-    protected function prepareMockedInstance(array $state = null): UserEntity
-    {
-        $state ??= $this->state;
-        return UserEntity::fromState($state);
+    protected function mock(
+        ?string $identifier = null,
+        ?array $claims = null,
+        ?Stub $createdAt = null,
+        ?Stub $updatedAt = null,
+    ): UserEntity {
+        $identifier ??= $this->identifier;
+        $claims ??= $this->claims;
+        $createdAt ??= $this->createdAt;
+        $updatedAt ??= $this->updatedAt;
+
+        return new UserEntity(
+            $identifier,
+            $createdAt,
+            $updatedAt,
+            $claims,
+        );
     }
 
     /**
@@ -41,12 +63,7 @@ class UserEntityTest extends TestCase
     {
         $this->assertInstanceOf(
             UserEntity::class,
-            $this->prepareMockedInstance(),
-        );
-
-        $this->assertInstanceOf(
-            UserEntity::class,
-            UserEntity::fromData('id'),
+            $this->mock(),
         );
     }
 
@@ -56,14 +73,9 @@ class UserEntityTest extends TestCase
      */
     public function testCanGetProperties(): void
     {
-        $userEntity = $this->prepareMockedInstance();
+        $userEntity = $this->mock();
         $this->assertSame($userEntity->getIdentifier(), 'id');
         $this->assertSame($userEntity->getClaims(), []);
-        $this->assertSame($userEntity->getCreatedAt()->format('Y-m-d H:i:s'), '1970-01-01 00:00:00');
-        $this->assertSame($userEntity->getUpdatedAt()->format('Y-m-d H:i:s'), '1970-01-01 00:00:00');
-
-        $userEntity->setClaims(['claim']);
-        $this->assertSame($userEntity->getClaims(), ['claim']);
     }
 
     /**
@@ -72,12 +84,12 @@ class UserEntityTest extends TestCase
     public function testCanGetState(): void
     {
         $this->assertSame(
-            $this->prepareMockedInstance()->getState(),
+            $this->mock()->getState(),
             [
                 'id' => 'id',
                 'claims' => json_encode([]),
-                'updated_at' => '1970-01-01 00:00:00',
-                'created_at' => '1970-01-01 00:00:00',
+                'updated_at' => '',
+                'created_at' => '',
             ],
         );
     }

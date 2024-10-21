@@ -68,10 +68,13 @@ class IdTokenResponseTest extends TestCase
     protected function setUp(): void
     {
         $this->certFolder = dirname(__DIR__, 5) . '/docker/ssp/';
-        $this->userEntity = UserEntity::fromData(self::SUBJECT, [
-            'cn'  => ['Homer Simpson'],
-            'mail' => ['myEmail@example.com'],
-        ]);
+        $createdUpdatedAt = new DateTimeImmutable();
+        $this->userEntity = new UserEntity(
+            self::SUBJECT,
+            $createdUpdatedAt,
+            $createdUpdatedAt,
+            ['cn'  => ['Homer Simpson'], 'mail' => ['myEmail@example.com'],],
+        );
         $this->scopes = [
             ScopeEntity::fromData('openid'),
             ScopeEntity::fromData('email'),

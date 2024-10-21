@@ -16,16 +16,28 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Repositories;
 
+use DateTimeImmutable;
 use Exception;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\Repositories\UserRepositoryInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
+use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
+use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\IdentityProviderInterface;
 
 class UserRepository extends AbstractDatabaseRepository implements UserRepositoryInterface, IdentityProviderInterface
 {
     final public const TABLE_NAME = 'oidc_user';
+
+    public function __construct(
+        ModuleConfig $moduleConfig,
+        protected readonly Helpers $helpers,
+        protected readonly UserEntityFactory $userEntityFactory,
+    ) {
+        parent::__construct($moduleConfig);
+    }
 
     public function getTableName(): string
     {
@@ -57,7 +69,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
             return null;
         }
 
-        return UserEntity::fromState($row);
+        return $this->userEntityFactory->fromState($row);
     }
 
     /**
@@ -95,8 +107,10 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
         );
     }
 
-    public function update(UserEntity $user): void
+    public function update(UserEntity $user, ?DateTimeImmutable $updatedAt = null): void
     {
+        $user->setUpdatedAt($updatedAt ?? $this->helpers->dateTime()->getUtc());
+
         $stmt = sprintf(
             "UPDATE %s SET claims = :claims, updated_at = :updated_at, created_at = :created_at WHERE id = :id",
             $this->getTableName(),
