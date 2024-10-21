@@ -117,7 +117,7 @@ class BearerTokenValidatorTest extends TestCase
         self::$accessTokenEntity = new AccessTokenEntity(
             'accessToken123',
             self::$clientEntity,
-            [ScopeEntity::fromData('openid'), ScopeEntity::fromData('profile')],
+            [new ScopeEntity('openid'), new ScopeEntity('profile')],
             (new \DateTimeImmutable())->add(new \DateInterval('PT60S')),
             self::$privateCryptKey,
             new JsonWebTokenBuilderService(),
@@ -199,7 +199,7 @@ class BearerTokenValidatorTest extends TestCase
         $accessTokenEntity = new AccessTokenEntity(
             'accessToken123',
             self::$clientEntity,
-            [ScopeEntity::fromData('openid'), ScopeEntity::fromData('profile')],
+            [new ScopeEntity('openid'), new ScopeEntity('profile')],
             (new \DateTimeImmutable())->sub(new \DateInterval('PT60S')),
             self::$privateCryptKey,
             new JsonWebTokenBuilderService(),
@@ -245,7 +245,7 @@ class BearerTokenValidatorTest extends TestCase
         $accessTokenEntity = new AccessTokenEntity(
             '',
             self::$clientEntity,
-            [ScopeEntity::fromData('openid'), ScopeEntity::fromData('profile')],
+            [new ScopeEntity('openid'), new ScopeEntity('profile')],
             (new \DateTimeImmutable())->add(new \DateInterval('PT60S')),
             self::$privateCryptKey,
             new JsonWebTokenBuilderService(),

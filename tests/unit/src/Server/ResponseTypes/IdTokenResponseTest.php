@@ -76,8 +76,8 @@ class IdTokenResponseTest extends TestCase
             ['cn'  => ['Homer Simpson'], 'mail' => ['myEmail@example.com'],],
         );
         $this->scopes = [
-            ScopeEntity::fromData('openid'),
-            ScopeEntity::fromData('email'),
+            new ScopeEntity('openid'),
+            new ScopeEntity('email'),
         ];
         $this->expiration = (new DateTimeImmutable())->setTimestamp(time() + 3600);
 
@@ -184,7 +184,7 @@ class IdTokenResponseTest extends TestCase
                 ],
             );
         $this->accessTokenEntityMock->method('getScopes')->willReturn(
-            [ScopeEntity::fromData('openid')],
+            [new ScopeEntity('openid')],
         );
         $idTokenResponse->setAccessToken($this->accessTokenEntityMock);
         $response = $idTokenResponse->generateHttpResponse(new Response());
@@ -198,7 +198,7 @@ class IdTokenResponseTest extends TestCase
     {
         $this->accessTokenEntityMock->method('getRequestedClaims')->willReturn([]);
         $this->accessTokenEntityMock->method('getScopes')->willReturn(
-            [ScopeEntity::fromData('profile')],
+            [new ScopeEntity('profile')],
         );
         $idTokenResponse = $this->prepareMockedInstance();
         $idTokenResponse->setAccessToken($this->accessTokenEntityMock);

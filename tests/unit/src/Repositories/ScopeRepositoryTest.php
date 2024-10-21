@@ -18,6 +18,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
+use SimpleSAML\Module\oidc\Factories\Entities\ScopeEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
@@ -48,11 +49,11 @@ class ScopeRepositoryTest extends TestCase
      */
     public function testGetScopeEntityByIdentifier(): void
     {
-        $scopeRepository = new ScopeRepository(new ModuleConfig());
+        $scopeRepository = new ScopeRepository(new ModuleConfig(), new ScopeEntityFactory());
 
         $scope = $scopeRepository->getScopeEntityByIdentifier('openid');
 
-        $expected = ScopeEntity::fromData(
+        $expected = new ScopeEntity(
             'openid',
             'openid',
         );
@@ -65,7 +66,7 @@ class ScopeRepositoryTest extends TestCase
      */
     public function testGetUnknownScope(): void
     {
-        $scopeRepository = new ScopeRepository(new ModuleConfig());
+        $scopeRepository = new ScopeRepository(new ModuleConfig(), new ScopeEntityFactory());
 
         $this->assertNull($scopeRepository->getScopeEntityByIdentifier('none'));
     }
@@ -75,17 +76,17 @@ class ScopeRepositoryTest extends TestCase
      */
     public function testFinalizeScopes(): void
     {
-        $scopeRepository = new ScopeRepository(new ModuleConfig());
+        $scopeRepository = new ScopeRepository(new ModuleConfig(), new ScopeEntityFactory());
         $scopes = [
-            ScopeEntity::fromData('openid'),
-            ScopeEntity::fromData('basic'),
+            new ScopeEntity('openid'),
+            new ScopeEntity('basic'),
         ];
         $client = ClientRepositoryTest::getClient('clientid');
 
         $finalizedScopes = $scopeRepository->finalizeScopes($scopes, 'any', $client);
 
         $expectedScopes = [
-            ScopeEntity::fromData('openid'),
+            new ScopeEntity('openid'),
         ];
         $this->assertEquals($expectedScopes, $finalizedScopes);
     }

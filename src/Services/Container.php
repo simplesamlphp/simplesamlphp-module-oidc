@@ -43,6 +43,7 @@ use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\RefreshTokenEntityFactory;
+use SimpleSAML\Module\oidc\Factories\Entities\ScopeEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
 use SimpleSAML\Module\oidc\Factories\FederationFactory;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
@@ -216,7 +217,13 @@ class Container implements ContainerInterface
         );
         $this->services[UserRepository::class] = $userRepository;
 
-        $authCodeEntityFactory = new AuthCodeEntityFactory($helpers);
+        $scopeEntityFactory = new ScopeEntityFactory();
+        $this->services[ScopeEntityFactory::class] = $scopeEntityFactory;
+
+        $authCodeEntityFactory = new AuthCodeEntityFactory(
+            $helpers,
+            $scopeEntityFactory,
+        );
         $this->services[AuthCodeEntityFactory::class] = $authCodeEntityFactory;
 
         $authCodeRepository = new AuthCodeRepository(
@@ -238,6 +245,7 @@ class Container implements ContainerInterface
             $helpers,
             $privateKey,
             $jsonWebTokenBuilderService,
+            $scopeEntityFactory,
         );
         $this->services[AccessTokenEntityFactory::class] = $accessTokenEntityFactory;
 
@@ -258,7 +266,7 @@ class Container implements ContainerInterface
         );
         $this->services[RefreshTokenRepository::class] = $refreshTokenRepository;
 
-        $scopeRepository = new ScopeRepository($moduleConfig);
+        $scopeRepository = new ScopeRepository($moduleConfig, $scopeEntityFactory);
         $this->services[ScopeRepository::class] = $scopeRepository;
 
         $allowedOriginRepository = new AllowedOriginRepository($moduleConfig);

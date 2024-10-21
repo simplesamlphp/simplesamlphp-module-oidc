@@ -72,7 +72,7 @@ class AuthCodeRepositoryTest extends TestCase
         $this->clientRepositoryMock = $this->createMock(ClientRepository::class);
         $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
 
-        $this->scopes = [ScopeEntity::fromData('openid')];
+        $this->scopes = [new ScopeEntity('openid')];
 
         $this->authCodeEntityFactoryMock = $this->createMock(AuthCodeEntityFactory::class);
 
@@ -96,10 +96,6 @@ class AuthCodeRepositoryTest extends TestCase
      */
     public function testAddAndFound(): void
     {
-        $scopes = [
-            ScopeEntity::fromData('openid'),
-        ];
-
         $authCode = new AuthCodeEntity(
             self::AUTH_CODE_ID,
             $this->clientEntityMock,

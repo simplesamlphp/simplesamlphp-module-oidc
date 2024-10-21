@@ -8,7 +8,6 @@ use DateTimeImmutable;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
-use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
@@ -16,6 +15,7 @@ class AuthCodeEntityFactory
 {
     public function __construct(
         protected readonly Helpers $helpers,
+        protected readonly ScopeEntityFactory $scopeEntityFactory,
     ) {
     }
 
@@ -68,9 +68,9 @@ class AuthCodeEntityFactory
 
         $scopes = array_map(
             /**
-             * @return ScopeEntity
+             * @return \SimpleSAML\Module\oidc\Entities\ScopeEntity
              */
-            fn(string $scope) => ScopeEntity::fromData($scope),
+            fn(string $scope) => $this->scopeEntityFactory->fromData($scope),
             $stateScopes,
         );
 

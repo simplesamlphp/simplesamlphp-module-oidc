@@ -44,8 +44,8 @@ class RequiredOpenIdScopeRuleTest extends TestCase
         $this->stateResult = new Result(StateRule::class, '123');
         $this->requestStub = $this->createStub(ServerRequestInterface::class);
         $this->scopeEntities = [
-            'openid' => ScopeEntity::fromData('openid'),
-            'profile' => ScopeEntity::fromData('profile'),
+            'openid' => new ScopeEntity('openid'),
+            'profile' => new ScopeEntity('profile'),
         ];
         $this->scopeResult = new Result(ScopeRule::class, $this->scopeEntities);
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
@@ -108,7 +108,7 @@ class RequiredOpenIdScopeRuleTest extends TestCase
         $resultBag->add($this->redirectUriResult);
         $resultBag->add($this->stateResult);
         $invalidScopeEntities = [
-            'profile' => ScopeEntity::fromData('profile'),
+            'profile' => new ScopeEntity('profile'),
         ];
         $resultBag->add(new Result(ScopeRule::class, $invalidScopeEntities));
 

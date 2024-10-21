@@ -20,12 +20,21 @@ use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
+use SimpleSAML\Module\oidc\Factories\Entities\ScopeEntityFactory;
+use SimpleSAML\Module\oidc\ModuleConfig;
 
 use function array_key_exists;
 use function in_array;
 
 class ScopeRepository extends AbstractDatabaseRepository implements ScopeRepositoryInterface
 {
+    public function __construct(
+        ModuleConfig $moduleConfig,
+        protected readonly ScopeEntityFactory $scopeEntityFactory,
+    ) {
+        parent::__construct($moduleConfig);
+    }
+
     public function getTableName(): ?string
     {
         return null;
@@ -52,7 +61,7 @@ class ScopeRepository extends AbstractDatabaseRepository implements ScopeReposit
         /** @var string[] $claims */
         $claims = $scope['claims'] ?? [];
 
-        return ScopeEntity::fromData(
+        return $this->scopeEntityFactory->fromData(
             $identifier,
             $description,
             $icon,

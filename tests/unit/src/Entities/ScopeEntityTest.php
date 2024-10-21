@@ -9,26 +9,26 @@ use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 
 class ScopeEntityTest extends TestCase
 {
-    protected function prepareMockedInstance(
+    protected function mock(
         string $id = 'id',
         string $description = 'description',
         string $icon = 'icon',
         array $attributes = ['attrid' => 'attrval'],
     ): ScopeEntity {
-        return ScopeEntity::fromData($id, $description, $icon, $attributes);
+        return new ScopeEntity($id, $description, $icon, $attributes);
     }
 
     public function testItIsInitializable(): void
     {
         $this->assertInstanceOf(
             ScopeEntity::class,
-            $this->prepareMockedInstance(),
+            $this->mock(),
         );
     }
 
     public function testCanGetProperties(): void
     {
-        $scopeEntity = $this->prepareMockedInstance();
+        $scopeEntity = $this->mock();
         $this->assertSame('id', $scopeEntity->getIdentifier());
         $this->assertSame('description', $scopeEntity->getDescription());
         $this->assertSame('icon', $scopeEntity->getIcon());

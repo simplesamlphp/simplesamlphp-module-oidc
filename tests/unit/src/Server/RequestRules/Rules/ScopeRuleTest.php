@@ -59,8 +59,8 @@ class ScopeRuleTest extends TestCase
         $this->stateResult = new Result(StateRule::class, '123');
         $this->requestStub = $this->createStub(ServerRequestInterface::class);
         $this->scopeEntities = [
-            'openid' => ScopeEntity::fromData('openid'),
-            'profile' => ScopeEntity::fromData('profile'),
+            'openid' => new ScopeEntity('openid'),
+            'profile' => new ScopeEntity('profile'),
         ];
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
