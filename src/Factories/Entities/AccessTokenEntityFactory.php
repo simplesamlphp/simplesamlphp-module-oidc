@@ -9,7 +9,6 @@ use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
-use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
@@ -20,6 +19,7 @@ class AccessTokenEntityFactory
         protected readonly Helpers $helpers,
         protected readonly CryptKey $privateKey,
         protected readonly JsonWebTokenBuilderService $jsonWebTokenBuilderService,
+        protected readonly ScopeEntityFactory $scopeEntityFactory,
     ) {
     }
 
@@ -71,7 +71,7 @@ class AccessTokenEntityFactory
         }
 
         /** @psalm-var string $scope */
-        $scopes = array_map(fn(string $scope) => ScopeEntity::fromData($scope), $stateScopes);
+        $scopes = array_map(fn(string $scope) => $this->scopeEntityFactory->fromData($scope), $stateScopes);
 
         $id = $state['id'];
         $expiryDateTime = $this->helpers->dateTime()->getUtc($state['expires_at']);

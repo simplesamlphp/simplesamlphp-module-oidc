@@ -18,6 +18,7 @@ use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
+use SimpleSAML\Module\oidc\Factories\Entities\ScopeEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -124,6 +125,7 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
             new Helpers(),
             $this->privateKey,
             $this->createMock(JsonWebTokenBuilderService::class),
+            new ScopeEntityFactory(),
         );
     }
 

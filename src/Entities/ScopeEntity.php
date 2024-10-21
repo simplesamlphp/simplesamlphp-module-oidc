@@ -27,41 +27,15 @@ class ScopeEntity implements ScopeEntityInterface
     use EntityTrait;
 
     /**
-     * @var string|null
+     * @param string[] $claims
      */
-    private ?string $icon = null;
-
-    /**
-     * @var string|null
-     */
-    private ?string $description = null;
-
-    /**
-     * @var array<string>
-     */
-    private array $claims;
-
-    private function __construct()
-    {
-    }
-
-    /**
-     * @param array<string> $claims
-     */
-    public static function fromData(
+    public function __construct(
         string $identifier,
-        string $description = null,
-        string $icon = null,
-        array $claims = [],
-    ): self {
-        $scope = new self();
-
-        $scope->identifier = $identifier;
-        $scope->description = $description;
-        $scope->icon = $icon;
-        $scope->claims = $claims;
-
-        return $scope;
+        protected ?string $description = null,
+        protected ?string $icon = null,
+        protected array $claims = [],
+    ) {
+        $this->identifier = $identifier;
     }
 
     public function getIcon(): ?string
