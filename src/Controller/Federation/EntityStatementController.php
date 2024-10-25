@@ -20,7 +20,6 @@ use SimpleSAML\OpenID\Codebooks\EntityTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ErrorsEnum;
 use SimpleSAML\OpenID\Codebooks\HttpHeadersEnum;
 use SimpleSAML\OpenID\Codebooks\JwtTypesEnum;
-use SimpleSAML\OpenID\Codebooks\RequestAuthenticationMethodsEnum;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -99,6 +98,7 @@ class EntityStatementController
                         //'federation_trust_mark_list_endpoint',
                         //'federation_trust_mark_endpoint',
                         //'federation_historical_keys_endpoint',
+                        //'endpoint_auth_signing_alg_values_supported'
                         // Common https://openid.net/specs/openid-federation-1_0.html#name-common-metadata-parameters
                         //'signed_jwks_uri',
                         //'jwks_uri',
@@ -109,14 +109,6 @@ class EntityStatementController
                         ...$this->opMetadataService->getMetadata(),
                         ClaimsEnum::ClientRegistrationTypesSupported->value => [
                             ClientRegistrationTypesEnum::Automatic->value,
-                        ],
-                        ClaimsEnum::RequestAuthenticationMethodsSupported->value => [
-                            ClaimsEnum::AuthorizationEndpoint->value => [
-                                RequestAuthenticationMethodsEnum::RequestObject->value,
-                            ],
-                        ],
-                        ClaimsEnum::RequestAuthenticationSigningAlgValuesSupported->value => [
-                            $this->moduleConfig->getProtocolSigner()->algorithmId(),
                         ],
                     ],
                 ],

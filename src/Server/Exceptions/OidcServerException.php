@@ -253,7 +253,7 @@ class OidcServerException extends OAuthServerException
     ): OidcServerException {
         $errorMessage = 'Trust chain validation failed.';
 
-        $e = new self($errorMessage, 12, 'validation_failed', 400, $hint, $redirectUri, $previous, $state);
+        $e = new self($errorMessage, 12, 'trust_chain_validation_failed', 400, $hint, $redirectUri, $previous, $state);
         $e->useFragmentInHttpResponses($useFragment);
 
         return $e;
