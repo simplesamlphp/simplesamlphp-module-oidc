@@ -355,6 +355,12 @@ $config = [
         //'https://intermediate.example.org/',
     ],
 
+    // (optional) Federation Trust Mark tokens. An array of tokens (signed JWTs), each representing a Trust Mark
+    // issued to this entity.
+    ModuleConfig::OPTION_FEDERATION_TRUST_MARK_TOKENS => [
+//        'eyJ...GHg',
+    ],
+
     // (optional) Dedicated federation cache adapter, used to cache federation artifacts like trust chains, entity
     // statements, etc. It will also be used for token reuse check in federation context. Setting this option is
     // recommended in production environments. If set to null, no caching will be used. Can be set to any

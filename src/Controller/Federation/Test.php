@@ -68,31 +68,31 @@ class Test
         $trustChain = $this->federation
             ->trustChainResolver()
             ->for(
-//                'https://08-dap.localhost.markoivancic.from.hr/openid/entities/ALeaf/',
+                'https://08-dap.localhost.markoivancic.from.hr/openid/entities/ALeaf/',
 //                'https://trust-anchor.testbed.oidcfed.incubator.geant.org/oidc/rp/',
 //                'https://relying-party-php.testbed.oidcfed.incubator.geant.org/',
-                'https://gorp.testbed.oidcfed.incubator.geant.org',
+//                'https://gorp.testbed.oidcfed.incubator.geant.org',
 //                'https://maiv1.incubator.geant.org',
                 [
-                    'https://trust-anchor.testbed.oidcfed.incubator.geant.org/',
-//                    'https://08-dap.localhost.markoivancic.from.hr/openid/entities/ABTrustAnchor/',
+//                    'https://trust-anchor.testbed.oidcfed.incubator.geant.org/',
+                    'https://08-dap.localhost.markoivancic.from.hr/openid/entities/ABTrustAnchor/',
 //                    'https://08-dap.localhost.markoivancic.from.hr/openid/entities/CTrustAnchor/',
                 ],
             );
 
         $leaf = $trustChain->getResolvedLeaf();
-        dd($leaf);
-//        $leafFederationJwks = $leaf->getJwks();
+//        dd($leaf);
+        $leafFederationJwks = $leaf->getJwks();
 //        dd($leafFederationJwks);
-        /** @psalm-suppress PossiblyNullArgument */
-//        $resolvedMetadata = $trustChain->getResolvedMetadata(EntityTypesEnum::OpenIdRelyingParty);
-//        $clientEntity = $this->clientEntityFactory->fromRegistrationData(
-//            $resolvedMetadata,
-//            RegistrationTypeEnum::FederatedAutomatic,
-//        );
+//        /** @psalm-suppress PossiblyNullArgument */
+        $resolvedMetadata = $trustChain->getResolvedMetadata(EntityTypesEnum::OpenIdRelyingParty);
+        $clientEntity = $this->clientEntityFactory->fromRegistrationData(
+            $resolvedMetadata,
+            RegistrationTypeEnum::FederatedAutomatic,
+        );
 //        dd($resolvedMetadata, $clientEntity);
-//        $jwksUri = $resolvedMetadata['jwks_uri'] ?? null;
-//        $signedJwksUri = $resolvedMetadata['signed_jwks_uri'] ?? null;
+        $jwksUri = $resolvedMetadata['jwks_uri'] ?? null;
+        $signedJwksUri = $resolvedMetadata['signed_jwks_uri'] ?? null;
 //        dd($leaf, $leafFederationJwks, $resolvedMetadata, $jwksUri, $signedJwksUri);
 //        $cachedJwks = $jwksUri ? $this->jwks->jwksFetcher()->fromCache($jwksUri) : null;
 //        $jwks = $jwksUri ? $this->jwks->jwksFetcher()->fromJwksUri($jwksUri) : null;
@@ -112,10 +112,10 @@ class Test
 //        ],
 //];
 //        $signedJwksUri = 'https://08-dap.localhost.markoivancic.from.hr/openid/entities/ALeaf/signed-jwks';
-//        $signedJwks = $signedJwksUri ? $this->jwks->jwksFetcher()
-//            ->fromSignedJwksUri($signedJwksUri, $leafFederationJwks) : null;
-//        $cachedSignedJwks = $signedJwksUri ? $this->jwks->jwksFetcher()->fromCache($signedJwksUri) : null;
-//        dd($signedJwksUri, $cachedSignedJwks, $signedJwks);
+        $signedJwks = $signedJwksUri ? $this->jwks->jwksFetcher()
+            ->fromSignedJwksUri($signedJwksUri, $leafFederationJwks) : null;
+        $cachedSignedJwks = $signedJwksUri ? $this->jwks->jwksFetcher()->fromCache($signedJwksUri) : null;
+        dd($signedJwksUri, $cachedSignedJwks, $signedJwks);
 //        dd(
 //            $signedJwksUri,
 //            $cachedSignedJwks,

@@ -76,6 +76,7 @@ class ModuleConfig
     final public const OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS = 'federation_cache_adapter_arguments';
     final public const OPTION_FEDERATION_CACHE_MAX_DURATION = 'federation_cache_max_duration';
     final public const OPTION_FEDERATION_TRUST_ANCHORS = 'federation_trust_anchors';
+    final public const OPTION_FEDERATION_TRUST_MARK_TOKENS = 'federation_trust_mark_tokens';
     final public const OPTION_FEDERATION_ENTITY_STATEMENT_CACHE_DURATION = 'federation_entity_statement_cache_duration';
     final public const OPTION_PROTOCOL_CACHE_ADAPTER = 'protocol_cache_adapter';
     final public const OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS = 'protocol_cache_adapter_arguments';
@@ -476,6 +477,16 @@ class ModuleConfig
         );
 
         return empty($authorityHints) ? null : $authorityHints;
+    }
+
+    public function getFederationTrustMarkTokens(): ?array
+    {
+        $trustMarks = $this->config()->getOptionalArray(
+            self::OPTION_FEDERATION_TRUST_MARK_TOKENS,
+            null,
+        );
+
+        return empty($trustMarks) ? null : $trustMarks;
     }
 
     public function getOrganizationName(): ?string
