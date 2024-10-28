@@ -59,6 +59,9 @@ class OpMetadataService
             TokenEndpointAuthMethodsEnum::ClientSecretBasic->value,
             TokenEndpointAuthMethodsEnum::PrivateKeyJwt->value,
         ];
+        $this->metadata[ClaimsEnum::TokenEndpointAuthSigningAlgValuesSupported->value] = [
+            $signer->algorithmId(),
+        ];
         $this->metadata[ClaimsEnum::RequestParameterSupported->value] = true;
         $this->metadata[ClaimsEnum::RequestObjectSigningAlgValuesSupported->value] = [
             'none',

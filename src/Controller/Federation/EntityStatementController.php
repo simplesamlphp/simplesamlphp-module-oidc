@@ -20,7 +20,7 @@ use SimpleSAML\OpenID\Codebooks\EntityTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ErrorsEnum;
 use SimpleSAML\OpenID\Codebooks\HttpHeadersEnum;
 use SimpleSAML\OpenID\Codebooks\JwtTypesEnum;
-use SimpleSAML\OpenID\Codebooks\RequestAuthenticationMethodsEnum;
+use SimpleSAML\OpenID\Federation;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -40,6 +40,7 @@ class EntityStatementController
         private readonly OpMetadataService $opMetadataService,
         private readonly ClientRepository $clientRepository,
         private readonly Helpers $helpers,
+        private readonly Federation $federation,
         private readonly ?FederationCache $federationCache,
     ) {
         if (!$this->moduleConfig->getFederationEnabled()) {
@@ -53,6 +54,8 @@ class EntityStatementController
      * @return \Symfony\Component\HttpFoundation\Response
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \ReflectionException
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     * @throws \Psr\SimpleCache\InvalidArgumentException
      */
     public function configuration(): Response
     {
@@ -99,6 +102,7 @@ class EntityStatementController
                         //'federation_trust_mark_list_endpoint',
                         //'federation_trust_mark_endpoint',
                         //'federation_historical_keys_endpoint',
+                        //'endpoint_auth_signing_alg_values_supported'
                         // Common https://openid.net/specs/openid-federation-1_0.html#name-common-metadata-parameters
                         //'signed_jwks_uri',
                         //'jwks_uri',
@@ -109,14 +113,6 @@ class EntityStatementController
                         ...$this->opMetadataService->getMetadata(),
                         ClaimsEnum::ClientRegistrationTypesSupported->value => [
                             ClientRegistrationTypesEnum::Automatic->value,
-                        ],
-                        ClaimsEnum::RequestAuthenticationMethodsSupported->value => [
-                            ClaimsEnum::AuthorizationEndpoint->value => [
-                                RequestAuthenticationMethodsEnum::RequestObject->value,
-                            ],
-                        ],
-                        ClaimsEnum::RequestAuthenticationSigningAlgValuesSupported->value => [
-                            $this->moduleConfig->getProtocolSigner()->algorithmId(),
                         ],
                     ],
                 ],
@@ -129,14 +125,32 @@ class EntityStatementController
             $builder = $builder->withClaim(ClaimsEnum::AuthorityHints->value, $authorityHints);
         }
 
+        if (
+            is_array($trustMarkTokens = $this->moduleConfig->getFederationTrustMarkTokens()) &&
+            (!empty($trustMarkTokens))
+        ) {
+            $trustMarks = array_map(function (string $token): array {
+                $trustMarkEntity = $this->federation->trustMarkFactory()->fromToken($token);
+
+                if ($trustMarkEntity->getSubject() !== $this->moduleConfig->getIssuer()) {
+                    throw OidcServerException::serverError(sprintf(
+                        'Trust Mark %s is not intended for this entity.',
+                        $trustMarkEntity->getIdentifier(),
+                    ));
+                }
+
+                return [
+                    ClaimsEnum::Id->value => $trustMarkEntity->getIdentifier(),
+                    ClaimsEnum::TrustMark->value => $token,
+                ];
+            }, $trustMarkTokens);
+
+            $builder = $builder->withClaim(ClaimsEnum::TrustMarks->value, $trustMarks);
+        }
+
+        // TODO mivanci Continue
         // Remaining claims, add if / when ready.
         // * crit
-        // * trust_marks
-        // * trust_mark_issuers
-        // * source_endpoint
-
-        // Note: claims which should only be present in Trust Anchors
-        // * trust_mark_owners
 
         $jws = $this->jsonWebTokenBuilderService->getSignedFederationJwt($builder);
 
@@ -227,6 +241,7 @@ class EntityStatementController
                 ],
             );
 
+        // TODO mivanci Continue
         // Note: claims which can be present in subordinate statements:
         // * metadata_policy
         // * constraints

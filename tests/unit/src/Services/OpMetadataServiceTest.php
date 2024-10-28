@@ -90,6 +90,9 @@ class OpMetadataServiceTest extends TestCase
                     'client_secret_basic',
                     'private_key_jwt',
                 ],
+                'token_endpoint_auth_signing_alg_values_supported' => [
+                    'RS256',
+                ],
                 'request_parameter_supported' => true,
                 'request_object_signing_alg_values_supported' => ['none', 'RS256'],
                 'request_uri_parameter_supported' => false,
