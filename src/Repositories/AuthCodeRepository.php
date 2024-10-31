@@ -18,6 +18,7 @@ namespace SimpleSAML\Module\oidc\Repositories;
 
 use League\OAuth2\Server\Entities\AuthCodeEntityInterface as OAuth2AuthCodeEntityInterface;
 use RuntimeException;
+use SimpleSAML\Database;
 use SimpleSAML\Error\Error;
 use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
@@ -26,16 +27,19 @@ use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
+use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeRepositoryInterface
 {
     public function __construct(
         ModuleConfig $moduleConfig,
+        Database $database,
+        ?ProtocolCache $protocolCache,
         protected readonly ClientRepository $clientRepository,
         protected readonly AuthCodeEntityFactory $authCodeEntityFactory,
         protected readonly Helpers $helpers,
     ) {
-        parent::__construct($moduleConfig);
+        parent::__construct($moduleConfig, $database, $protocolCache);
     }
 
     final public const TABLE_NAME = 'oidc_auth_code';

@@ -162,10 +162,19 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         $clientEntityFactoryMock = $this->createMock(ClientEntityFactory::class);
         $clientEntityFactoryMock->method('fromState')->willReturn($clientEntityMock);
 
-        $clientRepositoryMock = new ClientRepository($moduleConfig, $clientEntityFactoryMock);
+        $database = Database::getInstance();
+
+        $clientRepositoryMock = new ClientRepository(
+            $moduleConfig,
+            $database,
+            null,
+            $clientEntityFactoryMock
+        );
 
         $this->accessTokenRepository = new AccessTokenRepository(
             $moduleConfig,
+            $database,
+            null,
             $clientRepositoryMock,
             $this->accessTokenEntityFactory,
             new Helpers(),
@@ -180,6 +189,8 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         $user = new UserEntity(self::USER_ID, $createUpdatedAt, $createUpdatedAt, []);
         $userRepositoryMock = new UserRepository(
             $moduleConfig,
+            $database,
+            null,
             $helpers,
             new UserEntityFactory($helpers),
         );

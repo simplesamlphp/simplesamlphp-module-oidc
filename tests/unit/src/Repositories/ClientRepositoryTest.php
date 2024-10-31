@@ -18,6 +18,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
+use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
@@ -58,8 +59,12 @@ class ClientRepositoryTest extends TestCase
         $this->clientEntityMock = $this->createMock(ClientEntityInterface::class);
         $this->clientEntityFactoryMock = $this->createMock(ClientEntityFactory::class);
 
+        $database = Database::getInstance();
+
         $this->repository = new ClientRepository(
             new ModuleConfig(),
+            $database,
+            null,
             $this->clientEntityFactoryMock,
         );
     }

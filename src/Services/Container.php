@@ -204,7 +204,15 @@ class Container implements ContainerInterface
         );
         $this->services[ClientEntityFactory::class] = $clientEntityFactory;
 
-        $clientRepository = new ClientRepository($moduleConfig, $clientEntityFactory);
+        $database = Database::getInstance();
+        $this->services[Database::class] = $database;
+
+        $clientRepository = new ClientRepository(
+            $moduleConfig,
+            $database,
+            $protocolCache,
+            $clientEntityFactory,
+        );
         $this->services[ClientRepository::class] = $clientRepository;
 
         $userEntityFactory = new UserEntityFactory($helpers);
@@ -212,6 +220,8 @@ class Container implements ContainerInterface
 
         $userRepository = new UserRepository(
             $moduleConfig,
+            $database,
+            $protocolCache,
             $helpers,
             $userEntityFactory,
         );
@@ -228,6 +238,8 @@ class Container implements ContainerInterface
 
         $authCodeRepository = new AuthCodeRepository(
             $moduleConfig,
+            $database,
+            $protocolCache,
             $clientRepository,
             $authCodeEntityFactory,
             $helpers,
@@ -252,6 +264,8 @@ class Container implements ContainerInterface
 
         $accessTokenRepository = new AccessTokenRepository(
             $moduleConfig,
+            $database,
+            $protocolCache,
             $clientRepository,
             $accessTokenEntityFactory,
             $helpers,
@@ -263,6 +277,8 @@ class Container implements ContainerInterface
 
         $refreshTokenRepository = new RefreshTokenRepository(
             $moduleConfig,
+            $database,
+            $protocolCache,
             $accessTokenRepository,
             $refreshTokenEntityFactory,
             $helpers,
@@ -272,11 +288,12 @@ class Container implements ContainerInterface
         $scopeRepository = new ScopeRepository($moduleConfig, $scopeEntityFactory);
         $this->services[ScopeRepository::class] = $scopeRepository;
 
-        $allowedOriginRepository = new AllowedOriginRepository($moduleConfig);
+        $allowedOriginRepository = new AllowedOriginRepository(
+            $moduleConfig,
+            $database,
+            $protocolCache,
+        );
         $this->services[AllowedOriginRepository::class] = $allowedOriginRepository;
-
-        $database = Database::getInstance();
-        $this->services[Database::class] = $database;
 
         $databaseMigration = new DatabaseMigration($database);
         $this->services[DatabaseMigration::class] = $databaseMigration;

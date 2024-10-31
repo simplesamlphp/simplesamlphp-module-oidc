@@ -20,6 +20,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
+use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
@@ -59,8 +60,12 @@ class UserRepositoryTest extends TestCase
         $this->userEntityFactoryMock = $this->createMock(UserEntityFactory::class);
         $this->userEntityMock = $this->createMock(UserEntity::class);
 
+        $database = Database::getInstance();
+
         self::$repository = new UserRepository(
             $moduleConfig,
+            $database,
+            null,
             $this->helpersStub,
             $this->userEntityFactoryMock,
         );

@@ -26,18 +26,12 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use function array_key_exists;
 use function in_array;
 
-class ScopeRepository extends AbstractDatabaseRepository implements ScopeRepositoryInterface
+class ScopeRepository implements ScopeRepositoryInterface
 {
     public function __construct(
-        ModuleConfig $moduleConfig,
+        protected readonly ModuleConfig $moduleConfig,
         protected readonly ScopeEntityFactory $scopeEntityFactory,
     ) {
-        parent::__construct($moduleConfig);
-    }
-
-    public function getTableName(): ?string
-    {
-        return null;
     }
 
     /**

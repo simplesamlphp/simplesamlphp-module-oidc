@@ -21,11 +21,13 @@ use Exception;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\Repositories\UserRepositoryInterface;
+use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\IdentityProviderInterface;
+use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 class UserRepository extends AbstractDatabaseRepository implements UserRepositoryInterface, IdentityProviderInterface
 {
@@ -33,10 +35,12 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
 
     public function __construct(
         ModuleConfig $moduleConfig,
+        Database $database,
+        ?ProtocolCache $protocolCache,
         protected readonly Helpers $helpers,
         protected readonly UserEntityFactory $userEntityFactory,
     ) {
-        parent::__construct($moduleConfig);
+        parent::__construct($moduleConfig, $database, $protocolCache);
     }
 
     public function getTableName(): string
