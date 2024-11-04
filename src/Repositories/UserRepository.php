@@ -85,7 +85,15 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
             return null;
         }
 
-        return $this->userEntityFactory->fromState($row);
+        $userEntity = $this->userEntityFactory->fromState($row);
+
+        $this->protocolCache?->set(
+            $userEntity->getState(),
+            $this->moduleConfig->getProtocolUserEntityCacheDuration(),
+            $this->getCacheKey($userEntity->getIdentifier()),
+        );
+
+        return $userEntity;
     }
 
     /**
