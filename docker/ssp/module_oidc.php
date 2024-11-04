@@ -115,4 +115,9 @@ $config = [
     ModuleConfig::OPTION_AUTH_FORCED_ACR_VALUE_FOR_COOKIE_AUTHENTICATION => null,
 
     ModuleConfig::OPTION_CRON_TAG => 'hourly',
+
+    ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\FilesystemAdapter::class,
+    ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS => [
+        // Use defaults
+    ],
 ];
