@@ -29,7 +29,6 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
-use Symfony\Component\VarDumper\Cloner\Data;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Repositories\UserRepository
@@ -84,9 +83,8 @@ class UserRepositoryTest extends TestCase
         Database|MockObject $database = null,
         ProtocolCache|MockObject $protocolCache = null,
         Helpers|MockObject $helpers = null,
-        UserEntityFactory|MockObject $userEntityFactory = null
-    ): UserRepository
-    {
+        UserEntityFactory|MockObject $userEntityFactory = null,
+    ): UserRepository {
         $moduleConfig ??= $this->moduleConfigMock;
         $database ??= $this->database; // Let's use real database instance for tests by default.
         $protocolCache ??= null; // Let's not use cache for tests by default.
@@ -201,11 +199,19 @@ class UserRepositoryTest extends TestCase
             ->method('get')
             ->willReturn(null);
 
+        $this->protocolCacheMock->expects($this->once())
+            ->method('set')
+            ->with($this->userEntityState);
+
         $this->pdoStatementMock->method('fetchAll')->willReturn([$this->userEntityState]);
 
         $this->databaseMock->expects($this->once())
             ->method('read')
             ->willReturn($this->pdoStatementMock);
+
+        $this->userEntityMock->expects($this->once())
+            ->method('getState')
+            ->willReturn($this->userEntityState);
 
         $this->userEntityFactoryMock->expects($this->once())
             ->method('fromState')
@@ -293,7 +299,7 @@ class UserRepositoryTest extends TestCase
                 $this->stringContains('DELETE'),
                 $this->callback(function (array $params) {
                     return $params['id'] === 'uniqueid';
-                })
+                }),
             );
 
         $this->mock(
