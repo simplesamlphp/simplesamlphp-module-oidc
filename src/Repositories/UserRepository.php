@@ -114,7 +114,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
 
         $this->protocolCache?->set(
             $userEntity->getState(),
-            $this->moduleConfig->getUserEntityCacheDuration(),
+            $this->moduleConfig->getProtocolUserEntityCacheDuration(),
             $this->getCacheKey($userEntity->getIdentifier()),
         );
     }
@@ -147,7 +147,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
 
         $this->protocolCache?->set(
             $userEntity->getState(),
-            $this->moduleConfig->getUserEntityCacheDuration(),
+            $this->moduleConfig->getProtocolUserEntityCacheDuration(),
             $this->getCacheKey($userEntity->getIdentifier()),
         );
     }

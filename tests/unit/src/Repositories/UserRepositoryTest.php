@@ -16,6 +16,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
 use DateTimeImmutable;
+use PDOStatement;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -27,6 +28,8 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
+use SimpleSAML\Module\oidc\Utils\ProtocolCache;
+use Symfony\Component\VarDumper\Cloner\Data;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Repositories\UserRepository
@@ -37,6 +40,17 @@ class UserRepositoryTest extends TestCase
     protected Stub $helpersStub;
     protected MockObject $userEntityFactoryMock;
     protected MockObject $userEntityMock;
+    protected MockObject $moduleConfigMock;
+    protected ?MockObject $protocolCacheMock;
+    protected MockObject $databaseMock;
+    protected MockObject $pdoStatementMock;
+    protected Database $database;
+    protected array $userEntityState = [
+        'id' => 'uniqueid',
+        'claims' => '[]',
+        'updated_at' => '2024-11-04 11:07:26',
+        'created_at' => '2024-11-04 11:07:26',
+    ];
 
     /**
      * @throws \Exception
@@ -53,27 +67,44 @@ class UserRepositoryTest extends TestCase
         ];
 
         Configuration::loadFromArray($config, '', 'simplesaml');
-        (new DatabaseMigration())->migrate();
+        $this->database = Database::getInstance();
+        (new DatabaseMigration($this->database))->migrate();
 
-        $moduleConfig = new ModuleConfig();
+        $this->databaseMock = $this->createMock(Database::class);
+        $this->pdoStatementMock = $this->createMock(PDOStatement::class);
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->helpersStub = $this->createStub(Helpers::class);
         $this->userEntityFactoryMock = $this->createMock(UserEntityFactory::class);
         $this->userEntityMock = $this->createMock(UserEntity::class);
+        $this->protocolCacheMock = $this->createMock(ProtocolCache::class);
+    }
 
-        $database = Database::getInstance();
+    protected function mock(
+        ModuleConfig|MockObject $moduleConfig = null,
+        Database|MockObject $database = null,
+        ProtocolCache|MockObject $protocolCache = null,
+        Helpers|MockObject $helpers = null,
+        UserEntityFactory|MockObject $userEntityFactory = null
+    ): UserRepository
+    {
+        $moduleConfig ??= $this->moduleConfigMock;
+        $database ??= $this->database; // Let's use real database instance for tests by default.
+        $protocolCache ??= null; // Let's not use cache for tests by default.
+        $helpers ??= $this->helpersStub;
+        $userEntityFactory ??= $this->userEntityFactoryMock;
 
-        self::$repository = new UserRepository(
+        return new UserRepository(
             $moduleConfig,
             $database,
-            null,
-            $this->helpersStub,
-            $this->userEntityFactoryMock,
+            $protocolCache,
+            $helpers,
+            $userEntityFactory,
         );
     }
 
     public function testGetTableName(): void
     {
-        $this->assertSame('phpunit_oidc_user', self::$repository->getTableName());
+        $this->assertSame('phpunit_oidc_user', $this->mock()->getTableName());
     }
 
     /**
@@ -82,17 +113,21 @@ class UserRepositoryTest extends TestCase
      */
     public function testCanAddFindDelete(): void
     {
-        $createdUpdatedAt = new DateTimeImmutable();
-        self::$repository->add(new UserEntity('uniqueid', $createdUpdatedAt, $createdUpdatedAt));
+        $repository = $this->mock();
 
-        $this->userEntityMock->method('getIdentifier')->willReturn('uniqueid');
+        $createdUpdatedAt = new DateTimeImmutable();
+        $userEntity = new UserEntity('uniqueid', $createdUpdatedAt, $createdUpdatedAt);
+
+        $repository->add($userEntity);
+
         $this->userEntityFactoryMock->expects($this->once())
             ->method('fromState')
             ->with($this->callback(function (array $state) {
                 return $state['id'] === 'uniqueid';
             }))
-        ->willReturn($this->userEntityMock);
-        $user = self::$repository->getUserEntityByIdentifier('uniqueid');
+        ->willReturn($userEntity);
+
+        $user = $repository->getUserEntityByIdentifier('uniqueid');
 
         $this->assertNotNull($user);
         $this->assertSame($user->getIdentifier(), 'uniqueid');
@@ -103,7 +138,7 @@ class UserRepositoryTest extends TestCase
      */
     public function testNotFound(): void
     {
-        $user = self::$repository->getUserEntityByIdentifier('unknownid');
+        $user = $this->mock()->getUserEntityByIdentifier('unknownid');
 
         $this->assertNull($user);
     }
@@ -114,19 +149,156 @@ class UserRepositoryTest extends TestCase
      */
     public function testUpdate(): void
     {
-        $user = self::$repository->getUserEntityByIdentifier('uniqueid');
-        $user->setClaims(['uid' => ['johndoe']]);
-        self::$repository->update($user);
+        $repository = $this->mock();
 
-        $user2 = self::$repository->getUserEntityByIdentifier('uniqueid');
+        $user = $repository->getUserEntityByIdentifier('uniqueid');
+        $user->setClaims(['uid' => ['johndoe']]);
+        $repository->update($user);
+
+        $user2 = $repository->getUserEntityByIdentifier('uniqueid');
         $this->assertNotSame($user, $user2);
     }
 
     public function testCanDelete(): void
     {
+        $repository = $this->mock();
+
         $this->userEntityMock->method('getIdentifier')->willReturn('uniqueid');
-        $this->assertNotNull(self::$repository->getUserEntityByIdentifier('uniqueid'));
-        self::$repository->delete($this->userEntityMock);
-        $this->assertNull(self::$repository->getUserEntityByIdentifier('uniqueid'));
+        $this->assertNotNull($repository->getUserEntityByIdentifier('uniqueid'));
+        $repository->delete($this->userEntityMock);
+        $this->assertNull($repository->getUserEntityByIdentifier('uniqueid'));
+    }
+
+    public function testCanGetWhenUserEntityIsCached(): void
+    {
+        $this->protocolCacheMock->expects($this->once())
+            ->method('get')
+            ->willReturn($this->userEntityState);
+
+        $this->databaseMock->expects($this->never())->method('read');
+
+        $this->userEntityFactoryMock->expects($this->once())
+            ->method('fromState')
+            ->with($this->callback(function (array $state) {
+                return $state['id'] === 'uniqueid';
+            }))
+            ->willReturn($this->userEntityMock);
+
+        $repository = $this->mock(
+            database: $this->databaseMock,
+            protocolCache: $this->protocolCacheMock,
+        );
+
+        $this->assertSame(
+            $this->userEntityMock,
+            $repository->getUserEntityByIdentifier('uniqueid'),
+        );
+    }
+
+    public function testCanGetWhenUserEntityIsNotCached(): void
+    {
+        $this->protocolCacheMock->expects($this->once())
+            ->method('get')
+            ->willReturn(null);
+
+        $this->pdoStatementMock->method('fetchAll')->willReturn([$this->userEntityState]);
+
+        $this->databaseMock->expects($this->once())
+            ->method('read')
+            ->willReturn($this->pdoStatementMock);
+
+        $this->userEntityFactoryMock->expects($this->once())
+            ->method('fromState')
+            ->with($this->callback(function (array $state) {
+                return $state['id'] === 'uniqueid';
+            }))
+            ->willReturn($this->userEntityMock);
+
+        $repository = $this->mock(
+            database: $this->databaseMock,
+            protocolCache: $this->protocolCacheMock,
+        );
+
+        $this->assertSame(
+            $this->userEntityMock,
+            $repository->getUserEntityByIdentifier('uniqueid'),
+        );
+    }
+
+    public function testWillAddToDatabaseAndCache(): void
+    {
+        $this->moduleConfigMock->method('getProtocolUserEntityCacheDuration')
+            ->willReturn(new \DateInterval('PT1H'));
+
+        $this->userEntityMock->expects($this->exactly(2))
+            ->method('getState')
+            ->willReturn($this->userEntityState);
+
+        $this->protocolCacheMock->expects($this->once())
+            ->method('set')
+            ->with($this->userEntityState);
+
+        $this->databaseMock->expects($this->once())
+            ->method('write')
+            ->with(
+                $this->isType('string'),
+                $this->userEntityState,
+            );
+
+        $this->mock(
+            database: $this->databaseMock,
+            protocolCache: $this->protocolCacheMock,
+        )->add($this->userEntityMock);
+    }
+
+    public function testWillUpdateDatabaseAndCache(): void
+    {
+        $this->moduleConfigMock->method('getProtocolUserEntityCacheDuration')
+            ->willReturn(new \DateInterval('PT1H'));
+
+        $this->userEntityMock->expects($this->exactly(2))
+            ->method('getState')
+            ->willReturn($this->userEntityState);
+
+        $this->protocolCacheMock->expects($this->once())
+            ->method('set')
+            ->with($this->userEntityState);
+
+        $this->databaseMock->expects($this->once())
+            ->method('write')
+            ->with(
+                $this->isType('string'),
+                $this->userEntityState,
+            );
+
+        $this->mock(
+            database: $this->databaseMock,
+            protocolCache: $this->protocolCacheMock,
+        )->update($this->userEntityMock);
+    }
+
+    public function testWillDeleteFromDatabaseAndCache(): void
+    {
+        $this->userEntityMock->expects($this->exactly(2))
+            ->method('getIdentifier')
+            ->willReturn('uniqueid');
+
+        $this->protocolCacheMock->expects($this->once())
+            ->method('delete')
+            ->with($this->stringContains('uniqueid'));
+
+        $this->databaseMock->expects($this->once())
+            ->method('write')
+            ->with(
+                $this->stringContains('DELETE'),
+                $this->callback(function (array $params) {
+                    return $params['id'] === 'uniqueid';
+                })
+            );
+
+        $this->mock(
+            database: $this->databaseMock,
+            protocolCache: $this->protocolCacheMock,
+        )->delete($this->userEntityMock);
     }
 }

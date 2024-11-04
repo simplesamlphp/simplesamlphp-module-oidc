@@ -638,7 +638,7 @@ class ModuleConfig
      *
      * @throws \Exception
      */
-    public function getUserEntityCacheDuration(): DateInterval
+    public function getProtocolUserEntityCacheDuration(): DateInterval
     {
         return new DateInterval(
             $this->config()->getOptionalString(

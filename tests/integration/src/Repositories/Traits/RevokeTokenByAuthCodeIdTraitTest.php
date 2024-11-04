@@ -138,7 +138,7 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
 
         $moduleConfig = new ModuleConfig();
 
-        $this->mock = new class ($moduleConfig) extends AbstractDatabaseRepository {
+        $this->mock = new class ($moduleConfig, $database, null) extends AbstractDatabaseRepository {
             use RevokeTokenByAuthCodeIdTrait;
 
             public function getTableName(): ?string
