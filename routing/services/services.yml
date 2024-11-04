@@ -116,3 +116,7 @@ services:
     factory: [ '@SimpleSAML\Module\oidc\Factories\FederationFactory', 'build' ]
   SimpleSAML\OpenID\Jwks:
     factory: [ '@SimpleSAML\Module\oidc\Factories\JwksFactory', 'build' ]
+
+  # SSP
+  SimpleSAML\Database:
+    factory: [ 'SimpleSAML\Database', 'getInstance' ]

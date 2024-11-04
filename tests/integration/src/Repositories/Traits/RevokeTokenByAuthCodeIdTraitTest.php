@@ -168,7 +168,7 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
             $moduleConfig,
             $database,
             null,
-            $clientEntityFactoryMock
+            $clientEntityFactoryMock,
         );
 
         $this->accessTokenRepository = new AccessTokenRepository(

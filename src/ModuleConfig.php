@@ -80,6 +80,7 @@ class ModuleConfig
     final public const OPTION_FEDERATION_ENTITY_STATEMENT_CACHE_DURATION = 'federation_entity_statement_cache_duration';
     final public const OPTION_PROTOCOL_CACHE_ADAPTER = 'protocol_cache_adapter';
     final public const OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS = 'protocol_cache_adapter_arguments';
+    final public const OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION = 'protocol_user_entity_cache_duration';
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
@@ -629,5 +630,21 @@ class ModuleConfig
     public function getProtocolCacheAdapterArguments(): array
     {
         return $this->config()->getOptionalArray(self::OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS, []);
+    }
+
+    /**
+     * Get cache duration for user entities (user data). If not set in configuration, it will fall back to SSP session
+     * duration.
+     *
+     * @throws \Exception
+     */
+    public function getUserEntityCacheDuration(): DateInterval
+    {
+        return new DateInterval(
+            $this->config()->getOptionalString(
+                self::OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION,
+                null,
+            ) ?? "PT{$this->sspConfig()->getInteger('session.duration')}S",
+        );
     }
 }
