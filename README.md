@@ -190,7 +190,8 @@ $config = [
 Default translation table from SAML attributes to OIDC claims is based on
 [REFEDS wiki article: "Mapping SAML attributes to OIDC Claims"](https://wiki.refeds.org/display/GROUPS/Mapping+SAML+attributes+to+OIDC+Claims).
 
-You can change or extend this table in the `module_oidc.php` config file, for example:
+You can change or extend this table in the `module_oidc.php` config file, like in example below. Note that translation
+examples use friendly attribute names. If other attribute name format is used, adjust configuration accordingly. 
 
 ```php
 <?php
