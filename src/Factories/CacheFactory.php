@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Factories;
 
+use SimpleSAML\Module\oidc\Exceptions\OidcException;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\OidcException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ClassInstanceBuilder;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
@@ -23,7 +23,7 @@ class CacheFactory
     }
 
     /**
-     * @throws \SimpleSAML\Module\oidc\OidcException
+     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
      */
     protected function buildAdapterInstance(
         string $class,
@@ -47,7 +47,7 @@ class CacheFactory
     }
 
     /**
-     * @throws \SimpleSAML\Module\oidc\OidcException
+     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
      */
     public function forFederation(): ?FederationCache
     {
@@ -66,7 +66,7 @@ class CacheFactory
     }
 
     /**
-     * @throws \SimpleSAML\Module\oidc\OidcException
+     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
      */
     public function forProtocol(): ?ProtocolCache
     {

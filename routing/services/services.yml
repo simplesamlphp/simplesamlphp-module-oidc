@@ -29,6 +29,9 @@ services:
   SimpleSAML\Module\oidc\Factories\:
     resource: '../../src/Factories/*'
 
+  SimpleSAML\Module\oidc\Admin\:
+    resource: '../../src/Admin/*'
+
   SimpleSAML\Module\oidc\Stores\:
     resource: '../../src/Stores/*'
 

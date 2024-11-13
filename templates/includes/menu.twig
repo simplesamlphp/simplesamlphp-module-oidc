@@ -1,0 +1,13 @@
+{% if menu|default %}
+    <div class="menu">
+        <ul>
+            {% for item in menu.items %}
+            <li>
+                <a href="{{ item.hrefPath }}"
+                   class="{{ item.hrefPath == menu.activeHrefPath ? 'active' : '' }}"
+                > {{ item.label }} </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+{% endif %}

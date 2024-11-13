@@ -1,0 +1,35 @@
+{% set showMenu = showMenu ?? false %}
+{% set moduleName = 'OIDC'|trans %}
+{% set subPageTitle = subPageTitle ?? '' %}
+{% set pagetitle = 'OIDC' ~ (subPageTitle ? ' | ' ~ subPageTitle : '')  %}
+
+{% extends "base.twig" %}
+
+{% block preload %}
+    <link rel="stylesheet" href="{{ asset('css/src/default.css', 'oidc') }}">
+{% endblock %}
+
+{% block content %}
+
+    <h2>{{ moduleName }}</h2>
+
+    <div class="oidc-container">
+
+        {% if showMenu %}
+            {% include '@oidc/includes/menu.twig' %}
+        {% endif %}
+
+        <div class="content">
+            <h3>{{ subPageTitle }}</h3>
+
+{#            TODO mivanci status messages#}
+
+            {% block oidcContent %}{% endblock %}
+        </div>
+    </div>
+
+{% endblock content -%}
+
+{% block postload %}{% endblock postload %}
+
+{% block oidcPostload %}{% endblock %}

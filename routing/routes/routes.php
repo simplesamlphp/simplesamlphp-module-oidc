@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Controller\AccessTokenController;
+use SimpleSAML\Module\oidc\Controller\AdminController;
 use SimpleSAML\Module\oidc\Controller\AuthorizationController;
 use SimpleSAML\Module\oidc\Controller\ConfigurationDiscoveryController;
 use SimpleSAML\Module\oidc\Controller\EndSessionController;
@@ -19,6 +20,15 @@ use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 
 /** @psalm-suppress InvalidArgument */
 return function (RoutingConfigurator $routes): void {
+    /**
+     * Admin area routes.
+     */
+    $routes->add(RoutesEnum::AdminConfigOverview->name, RoutesEnum::AdminConfigOverview->value)
+        ->controller([AdminController::class, 'configOverview']);
+
+    /**
+     * OpenID Connect Discovery routes.
+     */
     $routes->add(RoutesEnum::Configuration->name, RoutesEnum::Configuration->value)
         ->controller(ConfigurationDiscoveryController::class);
 

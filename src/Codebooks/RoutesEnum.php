@@ -6,6 +6,10 @@ namespace SimpleSAML\Module\oidc\Codebooks;
 
 enum RoutesEnum: string
 {
+    // Admin area
+    case AdminConfigOverview = 'admin/config-overview';
+
+    // Protocols
     case Authorization = 'authorization';
     case Configuration = '.well-known/openid-configuration';
     case FederationConfiguration = '.well-known/openid-federation';

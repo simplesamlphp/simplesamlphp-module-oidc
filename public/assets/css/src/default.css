@@ -1,0 +1,71 @@
+.wrap {
+    max-width: 1300px;
+}
+
+h2 {
+    margin: 0.3em;
+}
+
+h3 {
+    margin-bottom: 0.5em;
+    font-size: 1.2em;
+    font-weight: 600;
+    color: #1c1c1c;
+}
+
+h4 {
+    margin: 0.4em 0;
+    font-size: 1.0em;
+    font-weight: 600;
+    color: #1c1c1c;
+}
+
+/* Container to hold menu and content */
+.oidc-container {
+    display: flex;
+    max-width: inherit;
+    margin: 0 auto;
+}
+
+/* Style for the left menu */
+.menu {
+    min-width: 200px;
+    /*background-color: #f4f4f4;*/
+    /*border-right: solid 1px #bbb;*/
+    width: auto;
+}
+
+/* Style for the menu items */
+.menu ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+.menu ul li {
+    padding: 0.25rem;
+}
+
+.menu ul li a {
+    text-decoration: none;
+    color: #333;
+    display: block;
+    padding: 0.5rem;
+}
+
+.menu ul li a:hover {
+    background-color: #ddd;
+    padding: 0.5rem;
+}
+
+.menu ul li a.active {
+    background-color: #eeeeee;
+    padding: 0.5rem;
+}
+
+/* Style for the content area */
+.content {
+    flex-grow: 1;
+    padding: 20px;
+    max-width: inherit;
+    background-color: #fff;
+}
