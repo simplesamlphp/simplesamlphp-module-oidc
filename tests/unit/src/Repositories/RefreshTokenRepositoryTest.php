@@ -21,6 +21,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use SimpleSAML\Configuration;
+use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\RefreshTokenEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\RefreshTokenEntityFactory;
@@ -76,8 +77,12 @@ class RefreshTokenRepositoryTest extends TestCase
 
         $this->refreshTokenEntityMock = $this->createMock(RefreshTokenEntity::class);
 
+        $database = Database::getInstance();
+
         $this->repository = new RefreshTokenRepository(
             new ModuleConfig(),
+            $database,
+            null,
             $this->accessTokenRepositoryMock,
             $this->refreshTokenEntityFactoryMock,
             new Helpers(),

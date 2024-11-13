@@ -19,6 +19,7 @@ namespace SimpleSAML\Module\oidc\Repositories;
 use League\OAuth2\Server\Entities\RefreshTokenEntityInterface as OAuth2RefreshTokenEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use RuntimeException;
+use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\RefreshTokenEntity;
@@ -27,6 +28,7 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
+use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 class RefreshTokenRepository extends AbstractDatabaseRepository implements RefreshTokenRepositoryInterface
 {
@@ -36,11 +38,13 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
 
     public function __construct(
         ModuleConfig $moduleConfig,
+        Database $database,
+        ?ProtocolCache $protocolCache,
         protected readonly AccessTokenRepository $accessTokenRepository,
         protected readonly RefreshTokenEntityFactory $refreshTokenEntityFactory,
         protected readonly Helpers $helpers,
     ) {
-        parent::__construct($moduleConfig);
+        parent::__construct($moduleConfig, $database, $protocolCache);
     }
 
     /**

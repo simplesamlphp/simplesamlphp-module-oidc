@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
+use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
@@ -45,7 +46,12 @@ class AllowedOriginRepositoryTest extends TestCase
     protected function setUp(): void
     {
         $moduleConfigMock = $this->createMock(ModuleConfig::class);
-        $this->repository = new AllowedOriginRepository($moduleConfigMock);
+        $database = Database::getInstance();
+        $this->repository = new AllowedOriginRepository(
+            $moduleConfigMock,
+            $database,
+            null,
+        );
     }
 
     public function tearDown(): void

@@ -21,6 +21,7 @@ use Exception;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
+use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
@@ -84,8 +85,12 @@ class AuthCodeRepositoryTest extends TestCase
         $this->dateTimeHelperMock = $this->createMock(Helpers\DateTime::class);
         $this->helpersMock->method('dateTime')->willReturn($this->dateTimeHelperMock);
 
+        $database = Database::getInstance();
+
         $this->repository = new AuthCodeRepository(
             $this->createMock(ModuleConfig::class),
+            $database,
+            null,
             $this->clientRepositoryMock,
             $this->authCodeEntityFactoryMock,
             $this->helpersMock,

@@ -20,6 +20,7 @@ use DateTimeImmutable;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface as OAuth2AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use RuntimeException;
+use SimpleSAML\Database;
 use SimpleSAML\Error\Error;
 use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
@@ -30,6 +31,7 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 class AccessTokenRepository extends AbstractDatabaseRepository implements AccessTokenRepositoryInterface
 {
@@ -39,11 +41,13 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
 
     public function __construct(
         ModuleConfig $moduleConfig,
+        Database $database,
+        ?ProtocolCache $protocolCache,
         protected readonly ClientRepository $clientRepository,
         protected readonly AccessTokenEntityFactory $accessTokenEntityFactory,
         protected readonly Helpers $helpers,
     ) {
-        parent::__construct($moduleConfig);
+        parent::__construct($moduleConfig, $database, $protocolCache);
     }
 
     public function getTableName(): string

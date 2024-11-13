@@ -17,18 +17,22 @@ namespace SimpleSAML\Module\oidc\Repositories;
 
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use PDO;
+use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 class ClientRepository extends AbstractDatabaseRepository implements ClientRepositoryInterface
 {
     public function __construct(
         ModuleConfig $moduleConfig,
+        Database $database,
+        ?ProtocolCache $protocolCache,
         protected readonly ClientEntityFactory $clientEntityFactory,
     ) {
-        parent::__construct($moduleConfig);
+        parent::__construct($moduleConfig, $database, $protocolCache);
     }
 
     final public const TABLE_NAME = 'oidc_client';
@@ -389,7 +393,7 @@ EOF
      */
     private function getItemsPerPage(): int
     {
-        return $this->config
+        return $this->moduleConfig->config()
             ->getOptionalIntegerRange(ModuleConfig::OPTION_ADMIN_UI_PAGINATION_ITEMS_PER_PAGE, 1, 100, 20);
     }
 

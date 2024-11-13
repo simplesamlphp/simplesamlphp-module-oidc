@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controller\Federation;
 
+use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Factories\CoreFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
@@ -33,6 +34,7 @@ class Test
         protected ?FederationCache $federationCache,
         protected LoggerService $loggerService,
         protected Jwks $jwks,
+        protected Database $database,
         protected ClientEntityFactory $clientEntityFactory,
         protected CoreFactory $coreFactory,
         protected \DateInterval $maxCacheDuration = new \DateInterval('PT30S'),

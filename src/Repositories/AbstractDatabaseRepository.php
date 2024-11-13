@@ -15,24 +15,21 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Module\oidc\Repositories;
 
-use SimpleSAML\Configuration;
 use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 abstract class AbstractDatabaseRepository
 {
-    protected Configuration $config;
-
-    protected Database $database;
-
     /**
      * ClientRepository constructor.
      * @throws \Exception
      */
-    public function __construct(protected ModuleConfig $moduleConfig)
-    {
-        $this->config = $this->moduleConfig->config();
-        $this->database = Database::getInstance();
+    public function __construct(
+        protected readonly ModuleConfig $moduleConfig,
+        protected readonly Database $database,
+        protected readonly ?ProtocolCache $protocolCache,
+    ) {
     }
 
     abstract public function getTableName(): ?string;

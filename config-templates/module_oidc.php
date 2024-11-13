@@ -288,6 +288,13 @@ $config = [
     //    60 * 60 * 6, // Default lifetime in seconds (used when particular cache item doesn't define its own lifetime)
     //],
 
+    // Cache duration for user entities (authenticated users data). If not set, cache duration will be the same as
+    // session duration. This is used to avoid fetching user data from database on every authentication event.
+    // This is only relevant if protocol cache adapter is set up. For duration format info, check
+    // https://www.php.net/manual/en/dateinterval.construct.php.
+//    ModuleConfig::OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION => 'PT1H', // 1 hour
+    ModuleConfig::OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION => null, // fallback to session duration
+
     /**
      * Cron related options.
      */

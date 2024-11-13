@@ -21,11 +21,13 @@ use Exception;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\Repositories\UserRepositoryInterface;
+use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\IdentityProviderInterface;
+use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 class UserRepository extends AbstractDatabaseRepository implements UserRepositoryInterface, IdentityProviderInterface
 {
@@ -33,15 +35,22 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
 
     public function __construct(
         ModuleConfig $moduleConfig,
+        Database $database,
+        ?ProtocolCache $protocolCache,
         protected readonly Helpers $helpers,
         protected readonly UserEntityFactory $userEntityFactory,
     ) {
-        parent::__construct($moduleConfig);
+        parent::__construct($moduleConfig, $database, $protocolCache);
     }
 
     public function getTableName(): string
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
+    }
+
+    public function getCacheKey(string $identifier): string
+    {
+        return $this->getTableName() . '_' . $identifier;
     }
 
     /**
@@ -52,6 +61,13 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
      */
     public function getUserEntityByIdentifier(string $identifier): ?UserEntity
     {
+        /** @var ?array $cachedState */
+        $cachedState = $this->protocolCache?->get(null, $this->getCacheKey($identifier));
+
+        if (is_array($cachedState)) {
+            return $this->userEntityFactory->fromState($cachedState);
+        }
+
         $stmt = $this->database->read(
             "SELECT * FROM {$this->getTableName()} WHERE id = :id",
             [
@@ -69,7 +85,15 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
             return null;
         }
 
-        return $this->userEntityFactory->fromState($row);
+        $userEntity = $this->userEntityFactory->fromState($row);
+
+        $this->protocolCache?->set(
+            $userEntity->getState(),
+            $this->moduleConfig->getProtocolUserEntityCacheDuration(),
+            $this->getCacheKey($userEntity->getIdentifier()),
+        );
+
+        return $userEntity;
     }
 
     /**
@@ -95,21 +119,29 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
             $stmt,
             $userEntity->getState(),
         );
+
+        $this->protocolCache?->set(
+            $userEntity->getState(),
+            $this->moduleConfig->getProtocolUserEntityCacheDuration(),
+            $this->getCacheKey($userEntity->getIdentifier()),
+        );
     }
 
-    public function delete(UserEntity $user): void
+    public function delete(UserEntity $userEntity): void
     {
         $this->database->write(
             "DELETE FROM {$this->getTableName()} WHERE id = :id",
             [
-                'id' => $user->getIdentifier(),
+                'id' => $userEntity->getIdentifier(),
             ],
         );
+
+        $this->protocolCache?->delete($this->getCacheKey($userEntity->getIdentifier()));
     }
 
-    public function update(UserEntity $user, ?DateTimeImmutable $updatedAt = null): void
+    public function update(UserEntity $userEntity, ?DateTimeImmutable $updatedAt = null): void
     {
-        $user->setUpdatedAt($updatedAt ?? $this->helpers->dateTime()->getUtc());
+        $userEntity->setUpdatedAt($updatedAt ?? $this->helpers->dateTime()->getUtc());
 
         $stmt = sprintf(
             "UPDATE %s SET claims = :claims, updated_at = :updated_at, created_at = :created_at WHERE id = :id",
@@ -118,7 +150,13 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
 
         $this->database->write(
             $stmt,
-            $user->getState(),
+            $userEntity->getState(),
+        );
+
+        $this->protocolCache?->set(
+            $userEntity->getState(),
+            $this->moduleConfig->getProtocolUserEntityCacheDuration(),
+            $this->getCacheKey($userEntity->getIdentifier()),
         );
     }
 }
