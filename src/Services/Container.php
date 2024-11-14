@@ -161,6 +161,7 @@ class Container implements ContainerInterface
             $moduleConfig,
             $oidcMenu,
             $sspBridge,
+            $sessionMessagesService,
         );
         $this->services[TemplateFactory::class] = $templateFactory;
 

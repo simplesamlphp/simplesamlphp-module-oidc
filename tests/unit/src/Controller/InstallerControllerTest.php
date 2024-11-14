@@ -66,7 +66,7 @@ class InstallerControllerTest extends TestCase
     {
         $this->databaseMigrationMock
             ->expects($this->once())
-            ->method('isUpdated')
+            ->method('isMigrated')
             ->willReturn(true);
 
         $this->assertInstanceOf(

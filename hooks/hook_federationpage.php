@@ -27,7 +27,7 @@ function oidc_hook_federationpage(Template $template): void
     $href = Module::getModuleURL('oidc/admin-clients/index.php');
     $text = Translate::noop('OpenID Connect Registry');
 
-    if (! (new DatabaseMigration())->isUpdated()) {
+    if (! (new DatabaseMigration())->isMigrated()) {
         $href = Module::getModuleURL('oidc/install.php');
         $text = Translate::noop('OpenID Connect Installation');
     }

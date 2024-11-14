@@ -8,6 +8,8 @@ enum RoutesEnum: string
 {
     // Admin area
     case AdminConfigOverview = 'admin/config-overview';
+    case AdminRunMigrations = 'admin/run-migrations';
+    case AdminClients = 'admin/clients';
 
     // Protocols
     case Authorization = 'authorization';

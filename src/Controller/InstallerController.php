@@ -42,7 +42,7 @@ class InstallerController
      */
     public function __invoke(ServerRequest $request): Template|RedirectResponse
     {
-        if ($this->databaseMigration->isUpdated()) {
+        if ($this->databaseMigration->isMigrated()) {
             return new RedirectResponse((new HTTP())->addURLParameters('admin-clients/index.php', []));
         }
 

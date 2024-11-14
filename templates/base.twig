@@ -24,7 +24,13 @@
         <div class="content">
             <h3>{{ subPageTitle }}</h3>
 
-{#            TODO mivanci status messages#}
+            {% if sessionMessages is defined and sessionMessages is not empty %}
+                <div class="message-box">
+                    {% for message in sessionMessages %}
+                        {{ message|trans }}<br>
+                    {% endfor %}
+                </div>
+            {% endif %}
 
             {% block oidcContent %}{% endblock %}
         </div>

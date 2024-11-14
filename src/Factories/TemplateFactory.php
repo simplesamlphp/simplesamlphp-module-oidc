@@ -22,6 +22,7 @@ use SimpleSAML\Module\oidc\Admin\Menu;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\XHTML\Template;
 
 class TemplateFactory
@@ -34,6 +35,7 @@ class TemplateFactory
         protected readonly ModuleConfig $moduleConfig,
         protected readonly Menu $oidcMenu,
         protected readonly SspBridge $sspBridge,
+        protected readonly SessionMessagesService $sessionMessagesService,
     ) {
     }
 
@@ -60,6 +62,7 @@ class TemplateFactory
             'moduleConfiguration' => $this->moduleConfig,
             'oidcMenu' => $this->oidcMenu,
             'showMenu' => $this->showMenu,
+            'sessionMessages' => $this->sessionMessagesService->getMessages(),
         ];
 
         if ($this->sspBridge->module()->isModuleEnabled('admin')) {
@@ -85,6 +88,13 @@ class TemplateFactory
             $this->oidcMenu->buildItem(
                 $this->moduleConfig->getModuleUrl(RoutesEnum::AdminConfigOverview->value),
                 \SimpleSAML\Locale\Translate::noop('Config Overview '),
+            ),
+        );
+
+        $this->oidcMenu->addItem(
+            $this->oidcMenu->buildItem(
+                $this->moduleConfig->getModuleUrl(RoutesEnum::AdminClients->value),
+                \SimpleSAML\Locale\Translate::noop('Clients '),
             ),
         );
     }

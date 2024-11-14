@@ -161,6 +161,14 @@ class ModuleConfig
         return $issuer;
     }
 
+    /**
+     * @throws \Exception
+     */
+    public function getDefaultAuthSourceId(): string
+    {
+        return $this->config()->getString(self::OPTION_AUTH_SOURCE);
+    }
+
     public function getModuleUrl(string $path = null): string
     {
         $base = $this->sspBridge->module()->getModuleURL(self::MODULE_NAME);

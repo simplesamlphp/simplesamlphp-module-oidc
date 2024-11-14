@@ -65,7 +65,23 @@ h4 {
 /* Style for the content area */
 .content {
     flex-grow: 1;
-    padding: 20px;
+    padding-left: 20px;
     max-width: inherit;
     background-color: #fff;
 }
+
+ul.config {
+    list-style: disc outside none;
+}
+
+/* Text colors */
+.black-text { color: black; }
+.red-text { color: red; }
+.lightcoral-text { color: lightcoral; }
+.green-text { color: green; }
+.yellow-text { color: yellow; }
+.blue-text { color: blue; }
+.magenta-text { color: magenta; }
+.cyan-text { color: cyan; }
+.lightcyan-text { color: lightcyan; }
+.white-text { color: white; }

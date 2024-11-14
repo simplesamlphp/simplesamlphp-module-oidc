@@ -25,6 +25,9 @@ return function (RoutingConfigurator $routes): void {
      */
     $routes->add(RoutesEnum::AdminConfigOverview->name, RoutesEnum::AdminConfigOverview->value)
         ->controller([AdminController::class, 'configOverview']);
+    $routes->add(RoutesEnum::AdminRunMigrations->name, RoutesEnum::AdminRunMigrations->value)
+        ->controller([AdminController::class, 'runMigrations'])
+        ->methods([HttpMethodsEnum::POST->value]);
 
     /**
      * OpenID Connect Discovery routes.
