@@ -1,13 +1,15 @@
-{% if menu|default %}
+{% if oidcMenu|default %}
     <div class="menu">
         <ul>
-            {% for item in menu.items %}
+            {% for item in oidcMenu.items %}
             <li>
                 <a href="{{ item.hrefPath }}"
-                   class="{{ item.hrefPath == menu.activeHrefPath ? 'active' : '' }}"
+                   class="{{ item.hrefPath == oidcMenu.activeHrefPath ? 'active' : '' }}"
                 > {{ item.label }} </a>
             </li>
             {% endfor %}
         </ul>
     </div>
+
+
 {% endif %}

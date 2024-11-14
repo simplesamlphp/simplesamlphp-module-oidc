@@ -81,7 +81,7 @@ class DeleteControllerTest extends TestCase
         $this->serverRequestMock->expects($this->once())->method('getMethod')->willReturn('get');
         $this->clientRepositoryMock->expects($this->once())->method('findById')->with('clientid')
             ->willReturn($this->clientEntityMock);
-        $this->templateFactoryMock->expects($this->once())->method('render')
+        $this->templateFactoryMock->expects($this->once())->method('build')
             ->with('oidc:clients/delete.twig', ['client' => $this->clientEntityMock])
             ->willReturn($this->templateStub);
 

@@ -84,7 +84,7 @@ class InstallerControllerTest extends TestCase
         $this->serverRequestMock->expects($this->once())->method('getMethod')->willReturn('GET');
         $this->templateFactoryMock
             ->expects($this->once())
-            ->method('render')
+            ->method('build')
             ->with('oidc:install.twig', ['oauth2_enabled' => false,])
             ->willReturn($this->templateMock);
 
@@ -104,7 +104,7 @@ class InstallerControllerTest extends TestCase
         $this->databaseMigrationMock->expects($this->never())->method('migrate');
         $this->templateFactoryMock
             ->expects($this->once())
-            ->method('render')
+            ->method('build')
             ->with('oidc:install.twig', ['oauth2_enabled' => false,])
             ->willReturn($this->templateMock);
 

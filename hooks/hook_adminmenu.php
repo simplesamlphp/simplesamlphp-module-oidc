@@ -25,8 +25,22 @@ function oidc_hook_adminmenu(Template &$template): void
         ],
     ];
 
-    // Put our entry before the "Log out" entry.
-    array_splice($template->data[$menuKey], -1, 0, $oidcMenuEntry);
+    // Put OIDC entry before the 'Log out' entry, if it exists.
+    $logoutEntryKey = 'logout';
+    $logoutEntryValue = null;
+    if (
+        array_key_exists($logoutEntryKey, $template->data[$menuKey]) &&
+        is_array($template->data[$menuKey][$logoutEntryKey])
+    ) {
+        $logoutEntryValue = $template->data[$menuKey][$logoutEntryKey];
+        unset($template->data[$menuKey][$logoutEntryKey]);
+    }
+
+    $template->data[$menuKey] += $oidcMenuEntry;
+
+    if ($logoutEntryValue !== null) {
+        $template->data[$menuKey][$logoutEntryKey] = $logoutEntryValue;
+    }
 
     $template->getLocalization()->addModuleDomain(ModuleConfig::MODULE_NAME);
 }

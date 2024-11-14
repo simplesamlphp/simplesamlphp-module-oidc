@@ -31,6 +31,7 @@ use SimpleSAML\Configuration;
 use SimpleSAML\Database;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Metadata\MetaDataStorageHandler;
+use SimpleSAML\Module\oidc\Admin\Menu;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Factories\AuthorizationServerFactory;
@@ -149,7 +150,18 @@ class Container implements ContainerInterface
         $sessionMessagesService = new SessionMessagesService($session);
         $this->services[SessionMessagesService::class] = $sessionMessagesService;
 
-        $templateFactory = new TemplateFactory($simpleSAMLConfiguration);
+        $sspBridge = new SspBridge();
+        $this->services[SspBridge::class] = $sspBridge;
+
+        $oidcMenu = new Menu();
+        $this->services[Menu::class] = $oidcMenu;
+
+        $templateFactory = new TemplateFactory(
+            $simpleSAMLConfiguration,
+            $moduleConfig,
+            $oidcMenu,
+            $sspBridge,
+        );
         $this->services[TemplateFactory::class] = $templateFactory;
 
         $opMetadataService = new OpMetadataService($moduleConfig);
@@ -192,9 +204,6 @@ class Container implements ContainerInterface
 
         $requestParamsResolver = new RequestParamsResolver($helpers, $core, $federation);
         $this->services[RequestParamsResolver::class] = $requestParamsResolver;
-
-        $sspBridge = new SspBridge();
-        $this->services[SspBridge::class] = $sspBridge;
 
         $clientEntityFactory = new ClientEntityFactory(
             $sspBridge,

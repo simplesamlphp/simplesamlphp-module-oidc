@@ -160,7 +160,7 @@ class EditControllerTest extends TestCase
         $this->clientFormMock->expects($this->once())->method('setDefaults')->with($data);
         $this->clientFormMock->expects($this->once())->method('isSuccess')->willReturn(false);
         $this->formFactoryMock->expects($this->once())->method('build')->willReturn($this->clientFormMock);
-        $this->templateFactoryMock->expects($this->once())->method('render')->with(
+        $this->templateFactoryMock->expects($this->once())->method('build')->with(
             'oidc:clients/edit.twig',
             [
                 'form' => $this->clientFormMock,

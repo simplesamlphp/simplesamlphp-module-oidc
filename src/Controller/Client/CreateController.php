@@ -135,7 +135,7 @@ class CreateController
             return new RedirectResponse((new HTTP())->addURLParameters('show.php', ['client_id' => $client['id']]));
         }
 
-        return $this->templateFactory->render('oidc:clients/new.twig', [
+        return $this->templateFactory->build('oidc:clients/new.twig', [
             'form' => $form,
             'regexUri' => ClientForm::REGEX_URI,
             'regexAllowedOriginUrl' => ClientForm::REGEX_ALLOWED_ORIGIN_URL,

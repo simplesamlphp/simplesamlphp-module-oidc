@@ -17,25 +17,100 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Factories;
 
 use SimpleSAML\Configuration;
+use SimpleSAML\Locale\Translate;
+use SimpleSAML\Module\oidc\Admin\Menu;
+use SimpleSAML\Module\oidc\Bridges\SspBridge;
+use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\XHTML\Template;
 
 class TemplateFactory
 {
-    private readonly Configuration $configuration;
+    protected bool $showMenu = true;
+    protected bool $includeDefaultMenuItems = true;
 
-    public function __construct(Configuration $configuration)
-    {
-        $this->configuration = new Configuration($configuration->toArray(), 'oidc');
+    public function __construct(
+        protected readonly Configuration $sspConfiguration,
+        protected readonly ModuleConfig $moduleConfig,
+        protected readonly Menu $oidcMenu,
+        protected readonly SspBridge $sspBridge,
+    ) {
     }
 
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
      */
-    public function render(string $templateName, array $data = []): Template
-    {
-        $template = new Template($this->configuration, $templateName);
+    public function build(
+        string $templateName,
+        array $data = [],
+        string $activeHrefPath = null,
+    ): Template {
+        $template = new Template($this->sspConfiguration, $templateName);
+
+        if ($this->includeDefaultMenuItems) {
+            $this->includeDefaultMenuItems();
+        }
+
+        if ($activeHrefPath) {
+            $this->setActiveHrefPath($activeHrefPath);
+        }
+
+        $template->data = [
+            'sspConfiguration' => $this->sspConfiguration,
+            'moduleConfiguration' => $this->moduleConfig,
+            'oidcMenu' => $this->oidcMenu,
+            'showMenu' => $this->showMenu,
+        ];
+
+        if ($this->sspBridge->module()->isModuleEnabled('admin')) {
+            $template->addTemplatesFromModule('admin');
+            $sspMenu = $this->sspBridge->module()->admin()->buildSspAdminMenu();
+            $sspMenu->addOption(
+                'logout',
+                $this->sspBridge->utils()->auth()->getAdminLogoutURL(),
+                Translate::noop('Log out'),
+            );
+            $template = $sspMenu->insert($template);
+            $template->data['frontpage_section'] = ModuleConfig::MODULE_NAME;
+        }
+
         $template->data += $data;
 
         return $template;
+    }
+
+    protected function includeDefaultMenuItems(): void
+    {
+        $this->oidcMenu->addItem(
+            $this->oidcMenu->buildItem(
+                $this->moduleConfig->getModuleUrl(RoutesEnum::AdminConfigOverview->value),
+                \SimpleSAML\Locale\Translate::noop('Config Overview '),
+            ),
+        );
+    }
+
+    public function setShowMenu(bool $showMenu): TemplateFactory
+    {
+        $this->showMenu = $showMenu;
+        return $this;
+    }
+
+    public function setIncludeDefaultMenuItems(bool $includeDefaultMenuItems): TemplateFactory
+    {
+        $this->includeDefaultMenuItems = $includeDefaultMenuItems;
+        return $this;
+    }
+
+    public function setActiveHrefPath(?string $activeHrefPath): TemplateFactory
+    {
+        $this->oidcMenu->setActiveHrefPath(
+            $activeHrefPath ? $this->moduleConfig->getModuleUrl($activeHrefPath) : null,
+        );
+        return $this;
+    }
+
+    public function getActiveHrefPath(): ?string
+    {
+        return $this->oidcMenu->getActiveHrefPath();
     }
 }

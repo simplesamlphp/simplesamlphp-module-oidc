@@ -44,7 +44,7 @@ class IndexController
         $authedUser = $this->authContextService->isSspAdmin() ? null : $this->authContextService->getAuthUserId();
         $pagination = $this->clientRepository->findPaginated($page, $query, $authedUser);
 
-        return $this->templateFactory->render('oidc:clients/index.twig', [
+        return $this->templateFactory->build('oidc:clients/index.twig', [
             'clients' => $pagination['items'],
             'numPages' => $pagination['numPages'],
             'currentPage' => $pagination['currentPage'],

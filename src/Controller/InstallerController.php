@@ -61,7 +61,7 @@ class InstallerController
             return new RedirectResponse((new HTTP())->addURLParameters('admin-clients/index.php', []));
         }
 
-        return $this->templateFactory->render('oidc:install.twig', [
+        return $this->templateFactory->build('oidc:install.twig', [
             'oauth2_enabled' => $oauth2Enabled,
         ]);
     }

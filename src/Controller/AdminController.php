@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Controller;
 
 use SimpleSAML\Module\oidc\Admin\Authorization;
+use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use Symfony\Component\HttpFoundation\Response;
@@ -21,11 +22,10 @@ class AdminController
 
     public function configOverview(): Response
     {
-        return $this->templateFactory->render(
+        return $this->templateFactory->build(
             'oidc:config/overview.twig',
-            [
-                'moduleConfig' => $this->moduleConfig,
-            ],
+            ['moduleConfig' => $this->moduleConfig],
+            RoutesEnum::AdminConfigOverview->value,
         );
     }
 }

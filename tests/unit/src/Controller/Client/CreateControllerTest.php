@@ -99,7 +99,7 @@ class CreateControllerTest extends TestCase
 
         $this->templateFactoryMock
             ->expects($this->once())
-            ->method('render')
+            ->method('build')
             ->with('oidc:clients/new.twig', [
                 'form' => $this->clientFormMock,
                 'regexUri' => ClientForm::REGEX_URI,

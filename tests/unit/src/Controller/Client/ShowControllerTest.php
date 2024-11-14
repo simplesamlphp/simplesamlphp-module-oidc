@@ -90,7 +90,7 @@ class ShowControllerTest extends TestCase
             ->willReturn([]);
         $this->templateFactoryMock
             ->expects($this->once())
-            ->method('render')
+            ->method('build')
             ->with(
                 'oidc:clients/show.twig',
                 [

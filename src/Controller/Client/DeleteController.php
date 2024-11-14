@@ -71,7 +71,7 @@ class DeleteController
             return new RedirectResponse((new HTTP())->addURLParameters('index.php', []));
         }
 
-        return $this->templateFactory->render('oidc:clients/delete.twig', [
+        return $this->templateFactory->build('oidc:clients/delete.twig', [
             'client' => $client,
         ]);
     }

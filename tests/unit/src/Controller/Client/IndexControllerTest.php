@@ -75,7 +75,7 @@ class IndexControllerTest extends TestCase
                 ],
             );
 
-        $this->templateFactoryMock->expects($this->once())->method('render')->with(
+        $this->templateFactoryMock->expects($this->once())->method('build')->with(
             'oidc:clients/index.twig',
             [
                 'clients' => [],
