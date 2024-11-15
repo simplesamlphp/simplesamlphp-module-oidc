@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Module\oidc\Controller\Federation;
+namespace SimpleSAML\Module\oidc\Controllers\Federation;
 
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Helpers;

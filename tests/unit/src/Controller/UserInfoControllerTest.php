@@ -11,8 +11,8 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Error\UserNotFound;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
-use SimpleSAML\Module\oidc\Controller\Traits\RequestTrait;
-use SimpleSAML\Module\oidc\Controller\UserInfoController;
+use SimpleSAML\Module\oidc\Controllers\Traits\RequestTrait;
+use SimpleSAML\Module\oidc\Controllers\UserInfoController;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
@@ -22,7 +22,7 @@ use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
 /**
- * @covers \SimpleSAML\Module\oidc\Controller\UserInfoController
+ * @covers \SimpleSAML\Module\oidc\Controllers\UserInfoController
  */
 class UserInfoControllerTest extends TestCase
 {

@@ -14,26 +14,24 @@ declare(strict_types=1);
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Module\oidc\Controller\Client;
+namespace SimpleSAML\Module\oidc\Controllers\Client;
 
 use Laminas\Diactoros\Response\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;
 use SimpleSAML\Error;
-use SimpleSAML\Module\oidc\Controller\Traits\AuthenticatedGetClientFromRequestTrait;
-use SimpleSAML\Module\oidc\Factories\TemplateFactory;
+use SimpleSAML\Module\oidc\Controllers\Traits\AuthenticatedGetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\Utils\HTTP;
-use SimpleSAML\XHTML\Template;
+use SimpleSAML\Utils\Random;
 
-class DeleteController
+class ResetSecretController
 {
     use AuthenticatedGetClientFromRequestTrait;
 
     public function __construct(
         ClientRepository $clientRepository,
-        private readonly TemplateFactory $templateFactory,
         private readonly SessionMessagesService $messages,
         AuthContextService $authContextService,
     ) {
@@ -43,19 +41,16 @@ class DeleteController
 
     /**
      * @throws \Exception
-     * @throws \JsonException
-     * @throws \SimpleSAML\Error\BadRequest
-     * @throws \SimpleSAML\Error\ConfigurationError
      * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\BadRequest
      * @throws \SimpleSAML\Error\NotFound
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
-    public function __invoke(ServerRequest $request): Template|RedirectResponse
+    public function __invoke(ServerRequest $request): RedirectResponse
     {
         $client = $this->getClientFromRequest($request);
         $body = $request->getParsedBody();
         $clientSecret = empty($body['secret']) ? null : (string)$body['secret'];
-        $authedUser = $this->authContextService->isSspAdmin() ? null : $this->authContextService->getAuthUserId();
+
         if ('POST' === mb_strtoupper($request->getMethod())) {
             if (!$clientSecret) {
                 throw new Error\BadRequest('Client secret is missing.');
@@ -65,14 +60,14 @@ class DeleteController
                 throw new Error\BadRequest('Client secret is invalid.');
             }
 
-            $this->clientRepository->delete($client, $authedUser);
-            $this->messages->addMessage('{oidc:client:removed}');
-
-            return new RedirectResponse((new HTTP())->addURLParameters('index.php', []));
+            $client->restoreSecret((new Random())->generateID());
+            $authedUser = $this->authContextService->isSspAdmin() ? null : $this->authContextService->getAuthUserId();
+            $this->clientRepository->update($client, $authedUser);
+            $this->messages->addMessage('{oidc:client:secret_updated}');
         }
 
-        return $this->templateFactory->build('oidc:clients/delete.twig', [
-            'client' => $client,
-        ]);
+        return new RedirectResponse(
+            (new HTTP())->addURLParameters('show.php', ['client_id' => $client->getIdentifier()]),
+        );
     }
 }

@@ -8,11 +8,11 @@ use Laminas\Diactoros\ServerRequest;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
-use SimpleSAML\Module\oidc\Controller\JwksController;
+use SimpleSAML\Module\oidc\Controllers\JwksController;
 use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
 
 /**
- * @covers \SimpleSAML\Module\oidc\Controller\JwksController
+ * @covers \SimpleSAML\Module\oidc\Controllers\JwksController
  */
 class JwksControllerTest extends TestCase
 {

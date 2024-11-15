@@ -14,7 +14,7 @@ declare(strict_types=1);
  * file that was distributed with this source code.
  */
 
-use SimpleSAML\Module\oidc\Controller\ConfigurationDiscoveryController;
+use SimpleSAML\Module\oidc\Controllers\ConfigurationDiscoveryController;
 use SimpleSAML\Module\oidc\Services\RoutingService;
 
 RoutingService::call(ConfigurationDiscoveryController::class, false, true);

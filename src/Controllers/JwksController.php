@@ -14,7 +14,7 @@ declare(strict_types=1);
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Module\oidc\Controller;
+namespace SimpleSAML\Module\oidc\Controllers;
 
 use Laminas\Diactoros\Response\JsonResponse;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;

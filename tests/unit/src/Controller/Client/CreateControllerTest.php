@@ -9,7 +9,7 @@ use Laminas\Diactoros\ServerRequest;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
-use SimpleSAML\Module\oidc\Controller\Client\CreateController;
+use SimpleSAML\Module\oidc\Controllers\Client\CreateController;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
@@ -23,7 +23,7 @@ use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\XHTML\Template;
 
 /**
- * @covers \SimpleSAML\Module\oidc\Controller\Client\CreateController
+ * @covers \SimpleSAML\Module\oidc\Controllers\Client\CreateController
  */
 class CreateControllerTest extends TestCase
 {

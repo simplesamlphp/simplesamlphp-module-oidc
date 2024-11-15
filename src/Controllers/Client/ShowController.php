@@ -13,10 +13,10 @@ declare(strict_types=1);
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-namespace SimpleSAML\Module\oidc\Controller\Client;
+namespace SimpleSAML\Module\oidc\Controllers\Client;
 
 use Laminas\Diactoros\ServerRequest;
-use SimpleSAML\Module\oidc\Controller\Traits\AuthenticatedGetClientFromRequestTrait;
+use SimpleSAML\Module\oidc\Controllers\Traits\AuthenticatedGetClientFromRequestTrait;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;

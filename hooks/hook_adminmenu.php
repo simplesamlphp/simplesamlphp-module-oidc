@@ -20,7 +20,7 @@ function oidc_hook_adminmenu(Template &$template): void
 
     $oidcMenuEntry = [
         ModuleConfig::MODULE_NAME => [
-            'url' => $moduleConfig->getModuleUrl(RoutesEnum::AdminConfigOverview->value),
+            'url' => $moduleConfig->getModuleUrl(RoutesEnum::AdminConfigProtocol->value),
             'name' => Translate::noop('OIDC'),
         ],
     ];

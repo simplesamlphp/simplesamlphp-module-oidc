@@ -7,11 +7,11 @@ namespace SimpleSAML\Test\Module\oidc\unit\Controller;
 use Laminas\Diactoros\ServerRequest;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use SimpleSAML\Module\oidc\Controller\ConfigurationDiscoveryController;
+use SimpleSAML\Module\oidc\Controllers\ConfigurationDiscoveryController;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
 
 /**
- * @covers \SimpleSAML\Module\oidc\Controller\ConfigurationDiscoveryController
+ * @covers \SimpleSAML\Module\oidc\Controllers\ConfigurationDiscoveryController
  */
 class ConfigurationDiscoveryControllerTest extends TestCase
 {

@@ -14,7 +14,7 @@ declare(strict_types=1);
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Module\oidc\Controller;
+namespace SimpleSAML\Module\oidc\Controllers;
 
 use Laminas\Diactoros\Response\JsonResponse;
 use League\OAuth2\Server\Exception\OAuthServerException;
@@ -23,7 +23,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Error;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
-use SimpleSAML\Module\oidc\Controller\Traits\RequestTrait;
+use SimpleSAML\Module\oidc\Controllers\Traits\RequestTrait;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;

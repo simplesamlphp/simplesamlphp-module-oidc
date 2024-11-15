@@ -14,7 +14,7 @@ declare(strict_types=1);
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Module\oidc\Controller\Client;
+namespace SimpleSAML\Module\oidc\Controllers\Client;
 
 use Laminas\Diactoros\ServerRequest;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;

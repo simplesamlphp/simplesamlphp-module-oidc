@@ -13,7 +13,7 @@ declare(strict_types=1);
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-namespace SimpleSAML\Module\oidc\Controller;
+namespace SimpleSAML\Module\oidc\Controllers;
 
 use Laminas\Diactoros\Response\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;

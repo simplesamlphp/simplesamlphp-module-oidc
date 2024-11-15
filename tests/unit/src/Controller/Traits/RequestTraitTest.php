@@ -12,12 +12,12 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseFactoryInterface;
 use ReflectionMethod;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
-use SimpleSAML\Module\oidc\Controller\Traits\RequestTrait;
+use SimpleSAML\Module\oidc\Controllers\Traits\RequestTrait;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 /**
- * @covers \SimpleSAML\Module\oidc\Controller\Traits\RequestTrait
+ * @covers \SimpleSAML\Module\oidc\Controllers\Traits\RequestTrait
  */
 class RequestTraitTest extends TestCase
 {

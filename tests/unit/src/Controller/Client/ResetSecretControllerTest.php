@@ -9,7 +9,7 @@ use Laminas\Diactoros\ServerRequest;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Error\BadRequest;
-use SimpleSAML\Module\oidc\Controller\Client\ResetSecretController;
+use SimpleSAML\Module\oidc\Controllers\Client\ResetSecretController;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -17,7 +17,7 @@ use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 
 /**
- * @covers \SimpleSAML\Module\oidc\Controller\Client\ResetSecretController
+ * @covers \SimpleSAML\Module\oidc\Controllers\Client\ResetSecretController
  *
  * @backupGlobals enabled
  */

@@ -11,7 +11,7 @@ use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\UriInterface;
 use SimpleSAML\Error\BadRequest;
-use SimpleSAML\Module\oidc\Controller\Client\DeleteController;
+use SimpleSAML\Module\oidc\Controllers\Client\DeleteController;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
@@ -20,7 +20,7 @@ use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\XHTML\Template;
 
 /**
- * @covers \SimpleSAML\Module\oidc\Controller\Client\DeleteController
+ * @covers \SimpleSAML\Module\oidc\Controllers\Client\DeleteController
  */
 class DeleteControllerTest extends TestCase
 {

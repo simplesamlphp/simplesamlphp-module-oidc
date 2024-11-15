@@ -394,7 +394,7 @@ class ClientForm extends Form
     {
         return array_map(
             fn(array $item): mixed => $item['description'],
-            $this->moduleConfig->getOpenIDScopes(),
+            $this->moduleConfig->getScopes(),
         );
     }
 

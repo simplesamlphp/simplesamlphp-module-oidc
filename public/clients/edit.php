@@ -14,7 +14,7 @@ declare(strict_types=1);
  * file that was distributed with this source code.
  */
 
-use SimpleSAML\Module\oidc\Controller\Client\EditController;
+use SimpleSAML\Module\oidc\Controllers\Client\EditController;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\Module\oidc\Services\RoutingService;
 

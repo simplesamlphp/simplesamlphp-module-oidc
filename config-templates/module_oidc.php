@@ -383,13 +383,13 @@ $config = [
         // Adapter arguments here...
     ],
 
-    // Maximum federation cache item duration. Federation cache item duration will typically be resolved based on the
-    // expiry of the artifact. For example, when caching entity statements, cache duration will be based on the 'exp'
-    // claim (expiration time). Since those claims are set by issuer (can be long), it could be desirable to limit
-    // the maximum time, so that items in cache get refreshed more regularly (and changes propagate more quickly).
-    // This is only relevant if federation cache adapter is set up. For duration format info, check
-    // https://www.php.net/manual/en/dateinterval.construct.php.
-    ModuleConfig::OPTION_FEDERATION_CACHE_MAX_DURATION => 'PT6H', // 6 hours
+    // Maximum federation cache duration for fetched artifacts. Federation cache duration will typically be resolved
+    // based on the expiry of the fetched artifact. For example, when caching fetched entity statements, cache
+    // duration will be based on the 'exp' claim (expiration time). Since those claims are set by issuer (can
+    // be long), it could be desirable to limit the maximum time, so that items in cache get refreshed more
+    // regularly (and changes propagate more quickly). This is only relevant if federation cache adapter
+    // is set up. For duration format info, check https://www.php.net/manual/en/dateinterval.construct.php.
+    ModuleConfig::OPTION_FEDERATION_CACHE_MAX_DURATION_FOR_FETCHED => 'PT6H', // 6 hours
 
     /**
      * PKI settings related to OpenID Federation. These keys will be used, for example, to sign federation
@@ -412,10 +412,10 @@ $config = [
     ModuleConfig::OPTION_FEDERATION_ENTITY_STATEMENT_DURATION => 'P1D', // 1 day
 
     // Cache duration for federation entity statements produced by this OP. This can be used to avoid calculating JWS
-    // signature on every HTTP request for OP Configuration statement, Subordinate Statements...
-    // This is only relevant if federation cache adapter is set up. For duration format info, check
+    // signature on every HTTP request for OP Configuration statement, Subordinate Statements... This is only
+    // relevant if federation cache adapter is set up. For duration format info, check
     // https://www.php.net/manual/en/dateinterval.construct.php.
-    ModuleConfig::OPTION_FEDERATION_ENTITY_STATEMENT_CACHE_DURATION => 'PT2M', // 2 minutes
+    ModuleConfig::OPTION_FEDERATION_CACHE_DURATION_FOR_PRODUCED => 'PT2M', // 2 minutes
 
     // Common federation entity parameters:
     // https://openid.net/specs/openid-federation-1_0.html#name-common-metadata-parameters

@@ -8,7 +8,7 @@ use Laminas\Diactoros\ServerRequest;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Error\BadRequest;
-use SimpleSAML\Module\oidc\Controller\Client\ShowController;
+use SimpleSAML\Module\oidc\Controllers\Client\ShowController;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
@@ -18,7 +18,7 @@ use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\XHTML\Template;
 
 /**
- * @covers \SimpleSAML\Module\oidc\Controller\Client\ShowController
+ * @covers \SimpleSAML\Module\oidc\Controllers\Client\ShowController
  *
  * @backupGlobals enabled
  */

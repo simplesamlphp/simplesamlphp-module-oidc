@@ -7,37 +7,48 @@
 declare(strict_types=1);
 
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
-use SimpleSAML\Module\oidc\Controller\AccessTokenController;
-use SimpleSAML\Module\oidc\Controller\AdminController;
-use SimpleSAML\Module\oidc\Controller\AuthorizationController;
-use SimpleSAML\Module\oidc\Controller\ConfigurationDiscoveryController;
-use SimpleSAML\Module\oidc\Controller\EndSessionController;
-use SimpleSAML\Module\oidc\Controller\Federation\EntityStatementController;
-use SimpleSAML\Module\oidc\Controller\JwksController;
-use SimpleSAML\Module\oidc\Controller\UserInfoController;
+use SimpleSAML\Module\oidc\Controllers\AccessTokenController;
+use SimpleSAML\Module\oidc\Controllers\Admin\ClientController;
+use SimpleSAML\Module\oidc\Controllers\Admin\ConfigController;
+use SimpleSAML\Module\oidc\Controllers\AuthorizationController;
+use SimpleSAML\Module\oidc\Controllers\ConfigurationDiscoveryController;
+use SimpleSAML\Module\oidc\Controllers\EndSessionController;
+use SimpleSAML\Module\oidc\Controllers\Federation\EntityStatementController;
+use SimpleSAML\Module\oidc\Controllers\JwksController;
+use SimpleSAML\Module\oidc\Controllers\UserInfoController;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 
 /** @psalm-suppress InvalidArgument */
 return function (RoutingConfigurator $routes): void {
-    /**
-     * Admin area routes.
-     */
-    $routes->add(RoutesEnum::AdminConfigOverview->name, RoutesEnum::AdminConfigOverview->value)
-        ->controller([AdminController::class, 'configOverview']);
-    $routes->add(RoutesEnum::AdminRunMigrations->name, RoutesEnum::AdminRunMigrations->value)
-        ->controller([AdminController::class, 'runMigrations'])
-        ->methods([HttpMethodsEnum::POST->value]);
 
-    /**
-     * OpenID Connect Discovery routes.
-     */
+    /*****************************************************************************************************************
+     * Admin area
+     ****************************************************************************************************************/
+
+    $routes->add(RoutesEnum::AdminMigrations->name, RoutesEnum::AdminMigrations->value)
+        ->controller([ConfigController::class, 'migrations'])
+        ->methods([HttpMethodsEnum::GET->value]);
+    $routes->add(RoutesEnum::AdminMigrationsRun->name, RoutesEnum::AdminMigrationsRun->value)
+        ->controller([ConfigController::class, 'runMigrations'])
+        ->methods([HttpMethodsEnum::POST->value]);
+    $routes->add(RoutesEnum::AdminConfigProtocol->name, RoutesEnum::AdminConfigProtocol->value)
+        ->controller([ConfigController::class, 'protocolSettings']);
+    $routes->add(RoutesEnum::AdminConfigFederation->name, RoutesEnum::AdminConfigFederation->value)
+        ->controller([ConfigController::class, 'federationSettings']);
+
+    // Client management
+
+    $routes->add(RoutesEnum::AdminClients->name, RoutesEnum::AdminClients->value)
+        ->controller([ClientController::class, 'index']);
+
+    /*****************************************************************************************************************
+     * OpenID Connect
+     ****************************************************************************************************************/
+
     $routes->add(RoutesEnum::Configuration->name, RoutesEnum::Configuration->value)
         ->controller(ConfigurationDiscoveryController::class);
 
-    /**
-     * OpenID Connect Core protocol routes.
-     */
     $routes->add(RoutesEnum::Authorization->name, RoutesEnum::Authorization->value)
         ->controller([AuthorizationController::class, 'authorization']);
     $routes->add(RoutesEnum::Token->name, RoutesEnum::Token->value)
@@ -49,9 +60,10 @@ return function (RoutingConfigurator $routes): void {
     $routes->add(RoutesEnum::Jwks->name, RoutesEnum::Jwks->value)
         ->controller([JwksController::class, 'jwks']);
 
-    /**
-     * OpenID Federation related routes.
-     */
+    /*****************************************************************************************************************
+     * OpenID Federation
+     ****************************************************************************************************************/
+
     $routes->add(RoutesEnum::FederationConfiguration->name, RoutesEnum::FederationConfiguration->value)
         ->controller([EntityStatementController::class, 'configuration'])
         ->methods([HttpMethodsEnum::GET->value]);
@@ -62,5 +74,5 @@ return function (RoutingConfigurator $routes): void {
 
     // TODO mivanci delete
     $routes->add('test', 'test')
-        ->controller(\SimpleSAML\Module\oidc\Controller\Federation\Test::class);
+        ->controller(\SimpleSAML\Module\oidc\Controllers\Federation\Test::class);
 };

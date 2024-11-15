@@ -12,7 +12,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 use SimpleSAML\Auth\ProcessingChain;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
-use SimpleSAML\Module\oidc\Controller\AuthorizationController;
+use SimpleSAML\Module\oidc\Controllers\AuthorizationController;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
@@ -23,7 +23,7 @@ use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 
 /**
- * @covers \SimpleSAML\Module\oidc\Controller\AuthorizationController
+ * @covers \SimpleSAML\Module\oidc\Controllers\AuthorizationController
  */
 class AuthorizationControllerTest extends TestCase
 {

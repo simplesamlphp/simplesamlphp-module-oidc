@@ -106,6 +106,7 @@ use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Federation;
 use SimpleSAML\OpenID\Jwks;
@@ -156,12 +157,19 @@ class Container implements ContainerInterface
         $oidcMenu = new Menu();
         $this->services[Menu::class] = $oidcMenu;
 
+        $routes = new Routes(
+            $moduleConfig,
+            $sspBridge,
+        );
+        $this->services[Routes::class] = $routes;
+
         $templateFactory = new TemplateFactory(
             $simpleSAMLConfiguration,
             $moduleConfig,
             $oidcMenu,
             $sspBridge,
             $sessionMessagesService,
+            $routes,
         );
         $this->services[TemplateFactory::class] = $templateFactory;
 

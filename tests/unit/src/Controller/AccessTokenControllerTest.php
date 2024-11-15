@@ -11,14 +11,14 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
-use SimpleSAML\Module\oidc\Controller\AccessTokenController;
-use SimpleSAML\Module\oidc\Controller\Traits\RequestTrait;
+use SimpleSAML\Module\oidc\Controllers\AccessTokenController;
+use SimpleSAML\Module\oidc\Controllers\Traits\RequestTrait;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 
 /**
- * @covers \SimpleSAML\Module\oidc\Controller\AccessTokenController
+ * @covers \SimpleSAML\Module\oidc\Controllers\AccessTokenController
  */
 class AccessTokenControllerTest extends TestCase
 {

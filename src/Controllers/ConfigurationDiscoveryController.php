@@ -14,7 +14,7 @@ declare(strict_types=1);
  * file that was distributed with this source code.
  */
 
-namespace SimpleSAML\Module\oidc\Controller;
+namespace SimpleSAML\Module\oidc\Controllers;
 
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
 use Symfony\Component\HttpFoundation\JsonResponse;

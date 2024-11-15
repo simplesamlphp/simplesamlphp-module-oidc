@@ -6,7 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Controller\Federation;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use SimpleSAML\Module\oidc\Controller\Federation\EntityStatementController;
+use SimpleSAML\Module\oidc\Controllers\Federation\EntityStatementController;
 
 #[CoversClass(EntityStatementController::class)]
 class EntityStatementControllerTest extends TestCase

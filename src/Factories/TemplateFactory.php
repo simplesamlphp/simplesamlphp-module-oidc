@@ -23,6 +23,7 @@ use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
+use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\XHTML\Template;
 
 class TemplateFactory
@@ -36,6 +37,7 @@ class TemplateFactory
         protected readonly Menu $oidcMenu,
         protected readonly SspBridge $sspBridge,
         protected readonly SessionMessagesService $sessionMessagesService,
+        protected readonly Routes $routes,
     ) {
     }
 
@@ -63,6 +65,7 @@ class TemplateFactory
             'oidcMenu' => $this->oidcMenu,
             'showMenu' => $this->showMenu,
             'sessionMessages' => $this->sessionMessagesService->getMessages(),
+            'routes' => $this->routes,
         ];
 
         if ($this->sspBridge->module()->isModuleEnabled('admin')) {
@@ -86,15 +89,29 @@ class TemplateFactory
     {
         $this->oidcMenu->addItem(
             $this->oidcMenu->buildItem(
-                $this->moduleConfig->getModuleUrl(RoutesEnum::AdminConfigOverview->value),
-                \SimpleSAML\Locale\Translate::noop('Config Overview '),
+                $this->moduleConfig->getModuleUrl(RoutesEnum::AdminMigrations->value),
+                Translate::noop('Database Migrations'),
+            ),
+        );
+
+        $this->oidcMenu->addItem(
+            $this->oidcMenu->buildItem(
+                $this->moduleConfig->getModuleUrl(RoutesEnum::AdminConfigProtocol->value),
+                Translate::noop('Protocol Settings'),
+            ),
+        );
+
+        $this->oidcMenu->addItem(
+            $this->oidcMenu->buildItem(
+                $this->moduleConfig->getModuleUrl(RoutesEnum::AdminConfigFederation->value),
+                Translate::noop('Federation Settings'),
             ),
         );
 
         $this->oidcMenu->addItem(
             $this->oidcMenu->buildItem(
                 $this->moduleConfig->getModuleUrl(RoutesEnum::AdminClients->value),
-                \SimpleSAML\Locale\Translate::noop('Clients '),
+                Translate::noop('Clients'),
             ),
         );
     }

@@ -40,7 +40,7 @@ class ClaimTranslatorExtractorFactory
         $translatorTable = $this->moduleConfig->config()
             ->getOptionalArray(ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE, []);
 
-        $privateScopes = $this->moduleConfig->getOpenIDPrivateScopes();
+        $privateScopes = $this->moduleConfig->getPrivateScopes();
 
         $claimSet = [];
         $allowedMultipleValueClaims = [];

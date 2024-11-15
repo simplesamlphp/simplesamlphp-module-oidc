@@ -74,10 +74,10 @@ class ModuleConfig
     final public const OPTION_FEDERATION_ENABLED = 'federation_enabled';
     final public const OPTION_FEDERATION_CACHE_ADAPTER = 'federation_cache_adapter';
     final public const OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS = 'federation_cache_adapter_arguments';
-    final public const OPTION_FEDERATION_CACHE_MAX_DURATION = 'federation_cache_max_duration';
+    final public const OPTION_FEDERATION_CACHE_MAX_DURATION_FOR_FETCHED = 'federation_cache_max_duration_for_fetched';
     final public const OPTION_FEDERATION_TRUST_ANCHORS = 'federation_trust_anchors';
     final public const OPTION_FEDERATION_TRUST_MARK_TOKENS = 'federation_trust_mark_tokens';
-    final public const OPTION_FEDERATION_ENTITY_STATEMENT_CACHE_DURATION = 'federation_entity_statement_cache_duration';
+    final public const OPTION_FEDERATION_CACHE_DURATION_FOR_PRODUCED = 'federation_cache_duration_for_produced';
     final public const OPTION_PROTOCOL_CACHE_ADAPTER = 'protocol_cache_adapter';
     final public const OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS = 'protocol_cache_adapter_arguments';
     final public const OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION = 'protocol_user_entity_cache_duration';
@@ -131,72 +131,6 @@ class ModuleConfig
     }
 
     /**
-     * Get SimpleSAMLphp Configuration (config.php) instance.
-     */
-    public function sspConfig(): Configuration
-    {
-        return $this->sspConfig;
-    }
-
-    /**
-     * Get module config Configuration instance.
-     */
-    public function config(): Configuration
-    {
-        return $this->moduleConfig;
-    }
-
-    /**
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
-     * @return non-empty-string
-     */
-    public function getIssuer(): string
-    {
-        $issuer = $this->config()->getOptionalString(self::OPTION_ISSUER, null) ??
-        $this->sspBridge->utils()->http()->getSelfURLHost();
-
-        if (empty($issuer)) {
-            throw OidcServerException::serverError('Issuer can not be empty.');
-        }
-        return $issuer;
-    }
-
-    /**
-     * @throws \Exception
-     */
-    public function getDefaultAuthSourceId(): string
-    {
-        return $this->config()->getString(self::OPTION_AUTH_SOURCE);
-    }
-
-    public function getModuleUrl(string $path = null): string
-    {
-        $base = $this->sspBridge->module()->getModuleURL(self::MODULE_NAME);
-
-        if ($path) {
-            $base .= "/$path";
-        }
-
-        return $base;
-    }
-
-    /**
-     * @throws \Exception
-     */
-    public function getOpenIDScopes(): array
-    {
-        return array_merge(self::$standardScopes, $this->getOpenIDPrivateScopes());
-    }
-
-    /**
-     * @throws \Exception
-     */
-    public function getOpenIDPrivateScopes(): array
-    {
-        return $this->config()->getOptionalArray(self::OPTION_AUTH_CUSTOM_SCOPES, []);
-    }
-
-    /**
      * @return void
      * @throws \Exception
      *
@@ -204,7 +138,7 @@ class ModuleConfig
      */
     private function validate(): void
     {
-        $privateScopes = $this->getOpenIDPrivateScopes();
+        $privateScopes = $this->getPrivateScopes();
         array_walk(
             $privateScopes,
             /**
@@ -237,24 +171,24 @@ class ModuleConfig
         foreach ($authSourcesToAcrValuesMap as $authSource => $acrValues) {
             if (! is_string($authSource)) {
                 throw new ConfigurationError('Config option authSourcesToAcrValuesMap should have string keys ' .
-                                             'indicating auth sources.');
+                    'indicating auth sources.');
             }
 
             if (! is_array($acrValues)) {
                 throw new ConfigurationError('Config option authSourcesToAcrValuesMap should have array ' .
-                                             'values containing supported ACRs for each auth source key.');
+                    'values containing supported ACRs for each auth source key.');
             }
 
             /** @psalm-suppress MixedAssignment */
             foreach ($acrValues as $acrValue) {
                 if (! is_string($acrValue)) {
                     throw new ConfigurationError('Config option authSourcesToAcrValuesMap should have array ' .
-                                                 'values with strings only.');
+                        'values with strings only.');
                 }
 
                 if (! in_array($acrValue, $acrValuesSupported, true)) {
                     throw new ConfigurationError('Config option authSourcesToAcrValuesMap should have ' .
-                                                 'supported ACR values only.');
+                        'supported ACR values only.');
                 }
             }
         }
@@ -264,26 +198,42 @@ class ModuleConfig
         if (! is_null($forcedAcrValueForCookieAuthentication)) {
             if (! in_array($forcedAcrValueForCookieAuthentication, $acrValuesSupported, true)) {
                 throw new ConfigurationError('Config option forcedAcrValueForCookieAuthentication should have' .
-                                             ' null value or string value indicating particular supported ACR.');
+                    ' null value or string value indicating particular supported ACR.');
             }
         }
     }
 
-    /**
-     * Get signer for OIDC protocol.
-     *
-     * @throws \ReflectionException
-     * @throws \Exception
-     */
-    public function getProtocolSigner(): Signer
+    public function moduleName(): string
     {
-        /** @psalm-var class-string $signerClassname */
-        $signerClassname = $this->config()->getOptionalString(
-            self::OPTION_TOKEN_SIGNER,
-            Sha256::class,
-        );
+        return self::MODULE_NAME;
+    }
 
-        return $this->instantiateSigner($signerClassname);
+    /**
+     * Get SimpleSAMLphp Configuration (config.php) instance.
+     */
+    public function sspConfig(): Configuration
+    {
+        return $this->sspConfig;
+    }
+
+    /**
+     * Get module config Configuration instance.
+     */
+    public function config(): Configuration
+    {
+        return $this->moduleConfig;
+    }
+
+    // TODO mivanci Move to dedicated \SimpleSAML\Module\oidc\Utils\Routes::getModuleUrl
+    public function getModuleUrl(string $path = null): string
+    {
+        $base = $this->sspBridge->module()->getModuleURL(self::MODULE_NAME);
+
+        if ($path) {
+            $base .= "/$path";
+        }
+
+        return $base;
     }
 
     /**
@@ -303,18 +253,77 @@ class ModuleConfig
         return $signer;
     }
 
+    /*****************************************************************************************************************
+     * OpenID Connect related config.
+     ****************************************************************************************************************/
+
     /**
-     * Get the path to the public certificate used in OIDC protocol.
-     * @return string The file system path
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @return non-empty-string
+     */
+    public function getIssuer(): string
+    {
+        $issuer = $this->config()->getOptionalString(self::OPTION_ISSUER, null) ??
+        $this->sspBridge->utils()->http()->getSelfURLHost();
+
+        if (empty($issuer)) {
+            throw OidcServerException::serverError('Issuer can not be empty.');
+        }
+        return $issuer;
+    }
+
+    public function getAuthCodeDuration(): DateInterval
+    {
+        return new DateInterval(
+            $this->config()->getString(self::OPTION_TOKEN_AUTHORIZATION_CODE_TTL),
+        );
+    }
+
+    public function getAccessTokenDuration(): DateInterval
+    {
+        return new DateInterval(
+            $this->config()->getString(self::OPTION_TOKEN_ACCESS_TOKEN_TTL),
+        );
+    }
+
+    public function getRefreshTokenDuration(): DateInterval
+    {
+        return new DateInterval(
+            $this->config()->getString(self::OPTION_TOKEN_REFRESH_TOKEN_TTL),
+        );
+    }
+
+    /**
      * @throws \Exception
      */
-    public function getProtocolCertPath(): string
+    public function getDefaultAuthSourceId(): string
     {
-        $certName = $this->config()->getOptionalString(
-            self::OPTION_PKI_CERTIFICATE_FILENAME,
-            self::DEFAULT_PKI_CERTIFICATE_FILENAME,
+        return $this->config()->getString(self::OPTION_AUTH_SOURCE);
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function getUserIdentifierAttribute(): string
+    {
+        return $this->config()->getString(ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE);
+    }
+
+    /**
+     * Get signer for OIDC protocol.
+     *
+     * @throws \ReflectionException
+     * @throws \Exception
+     */
+    public function getProtocolSigner(): Signer
+    {
+        /** @psalm-var class-string $signerClassname */
+        $signerClassname = $this->config()->getOptionalString(
+            self::OPTION_TOKEN_SIGNER,
+            Sha256::class,
         );
-        return $this->sspBridge->utils()->config()->getCertPath($certName);
+
+        return $this->instantiateSigner($signerClassname);
     }
 
     /**
@@ -341,23 +350,17 @@ class ModuleConfig
     }
 
     /**
-     * Used in services.yml.
-     * @return string
-     */
-    public function getEncryptionKey(): string
-    {
-        return $this->sspBridge->utils()->config()->getSecretSalt();
-    }
-
-    /**
-     * Get autproc filters defined in the OIDC configuration.
-     *
-     * @return array
+     * Get the path to the public certificate used in OIDC protocol.
+     * @return string The file system path
      * @throws \Exception
      */
-    public function getAuthProcFilters(): array
+    public function getProtocolCertPath(): string
     {
-        return $this->config()->getOptionalArray(self::OPTION_AUTH_PROCESSING_FILTERS, []);
+        $certName = $this->config()->getOptionalString(
+            self::OPTION_PKI_CERTIFICATE_FILENAME,
+            self::DEFAULT_PKI_CERTIFICATE_FILENAME,
+        );
+        return $this->sspBridge->utils()->config()->getCertPath($certName);
     }
 
     /**
@@ -402,9 +405,72 @@ class ModuleConfig
     /**
      * @throws \Exception
      */
-    public function getUserIdentifierAttribute(): string
+    public function getScopes(): array
     {
-        return $this->config()->getString(ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE);
+        return array_merge(self::$standardScopes, $this->getPrivateScopes());
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function getPrivateScopes(): array
+    {
+        return $this->config()->getOptionalArray(self::OPTION_AUTH_CUSTOM_SCOPES, []);
+    }
+
+    /**
+     * @return string
+     */
+    public function getEncryptionKey(): string
+    {
+        return $this->sspBridge->utils()->config()->getSecretSalt();
+    }
+
+    /**
+     * Get autproc filters defined in the OIDC configuration.
+     *
+     * @return array
+     * @throws \Exception
+     */
+    public function getAuthProcFilters(): array
+    {
+        return $this->config()->getOptionalArray(self::OPTION_AUTH_PROCESSING_FILTERS, []);
+    }
+
+    public function getProtocolCacheAdapterClass(): ?string
+    {
+        return $this->config()->getOptionalString(self::OPTION_PROTOCOL_CACHE_ADAPTER, null);
+    }
+
+    public function getProtocolCacheAdapterArguments(): array
+    {
+        return $this->config()->getOptionalArray(self::OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS, []);
+    }
+
+    /**
+     * Get cache duration for user entities (user data). If not set in configuration, it will fall back to SSP session
+     * duration.
+     *
+     * @throws \Exception
+     */
+    public function getProtocolUserEntityCacheDuration(): DateInterval
+    {
+        return new DateInterval(
+            $this->config()->getOptionalString(
+                self::OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION,
+                null,
+            ) ?? "PT{$this->sspConfig()->getInteger('session.duration')}S",
+        );
+    }
+
+
+    /*****************************************************************************************************************
+     * OpenID Connect related config.
+     ****************************************************************************************************************/
+
+    public function getFederationEnabled(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_FEDERATION_ENABLED, false);
     }
 
     /**
@@ -472,7 +538,7 @@ class ModuleConfig
     {
         return new DateInterval(
             $this->config()->getOptionalString(
-                self::OPTION_FEDERATION_ENTITY_STATEMENT_CACHE_DURATION,
+                self::OPTION_FEDERATION_CACHE_DURATION_FOR_PRODUCED,
                 null,
             ) ?? 'PT2M',
         );
@@ -538,32 +604,6 @@ class ModuleConfig
         );
     }
 
-    public function getAccessTokenDuration(): DateInterval
-    {
-        return new DateInterval(
-            $this->config()->getString(self::OPTION_TOKEN_ACCESS_TOKEN_TTL),
-        );
-    }
-
-    public function getAuthCodeDuration(): DateInterval
-    {
-        return new DateInterval(
-            $this->config()->getString(self::OPTION_TOKEN_AUTHORIZATION_CODE_TTL),
-        );
-    }
-
-    public function getRefreshTokenDuration(): DateInterval
-    {
-        return new DateInterval(
-            $this->config()->getString(self::OPTION_TOKEN_REFRESH_TOKEN_TTL),
-        );
-    }
-
-    public function getFederationEnabled(): bool
-    {
-        return $this->config()->getOptionalBoolean(self::OPTION_FEDERATION_ENABLED, false);
-    }
-
     public function getFederationCacheAdapterClass(): ?string
     {
         return $this->config()->getOptionalString(self::OPTION_FEDERATION_CACHE_ADAPTER, null);
@@ -577,7 +617,7 @@ class ModuleConfig
     public function getFederationCacheMaxDuration(): DateInterval
     {
         return new DateInterval(
-            $this->config()->getOptionalString(self::OPTION_FEDERATION_CACHE_MAX_DURATION, 'PT6H'),
+            $this->config()->getOptionalString(self::OPTION_FEDERATION_CACHE_MAX_DURATION_FOR_FETCHED, 'PT6H'),
         );
     }
 
@@ -627,32 +667,6 @@ class ModuleConfig
 
         throw new ConfigurationError(
             sprintf('Unexpected JWKS format for Trust Anchor %s: %s', $trustAnchorId, var_export($jwks, true)),
-        );
-    }
-
-    public function getProtocolCacheAdapterClass(): ?string
-    {
-        return $this->config()->getOptionalString(self::OPTION_PROTOCOL_CACHE_ADAPTER, null);
-    }
-
-    public function getProtocolCacheAdapterArguments(): array
-    {
-        return $this->config()->getOptionalArray(self::OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS, []);
-    }
-
-    /**
-     * Get cache duration for user entities (user data). If not set in configuration, it will fall back to SSP session
-     * duration.
-     *
-     * @throws \Exception
-     */
-    public function getProtocolUserEntityCacheDuration(): DateInterval
-    {
-        return new DateInterval(
-            $this->config()->getOptionalString(
-                self::OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION,
-                null,
-            ) ?? "PT{$this->sspConfig()->getInteger('session.duration')}S",
         );
     }
 }

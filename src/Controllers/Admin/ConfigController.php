@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Module\oidc\Controller;
+namespace SimpleSAML\Module\oidc\Controllers\Admin;
 
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Admin\Authorization;
@@ -14,7 +14,7 @@ use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
 
-class AdminController
+class ConfigController
 {
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
@@ -26,15 +26,14 @@ class AdminController
         $this->authorization->requireSspAdmin(true);
     }
 
-    public function configOverview(): Response
+    public function migrations(): Response
     {
         return $this->templateFactory->build(
-            'oidc:config/overview.twig',
+            'oidc:config/migrations.twig',
             [
-                'moduleConfig' => $this->moduleConfig,
                 'databaseMigration' => $this->databaseMigration,
             ],
-            RoutesEnum::AdminConfigOverview->value,
+            RoutesEnum::AdminMigrations->value,
         );
     }
 
@@ -43,13 +42,35 @@ class AdminController
         if ($this->databaseMigration->isMigrated()) {
             $message = Translate::noop('Database is already migrated.');
             $this->sessionMessagesService->addMessage($message);
-            return new RedirectResponse($this->moduleConfig->getModuleUrl(RoutesEnum::AdminConfigOverview->value));
+            return new RedirectResponse($this->moduleConfig->getModuleUrl(RoutesEnum::AdminMigrations->value));
         }
 
         $this->databaseMigration->migrate();
         $message = Translate::noop('Database migrated successfully.');
         $this->sessionMessagesService->addMessage($message);
 
-        return new RedirectResponse($this->moduleConfig->getModuleUrl(RoutesEnum::AdminConfigOverview->value));
+        return new RedirectResponse($this->moduleConfig->getModuleUrl(RoutesEnum::AdminMigrations->value));
+    }
+
+    public function protocolSettings(): Response
+    {
+        return $this->templateFactory->build(
+            'oidc:config/protocol.twig',
+            [
+                'moduleConfig' => $this->moduleConfig,
+            ],
+            RoutesEnum::AdminConfigProtocol->value,
+        );
+    }
+
+    public function federationSettings(): Response
+    {
+        return $this->templateFactory->build(
+            'oidc:config/federation.twig',
+            [
+                'moduleConfig' => $this->moduleConfig,
+            ],
+            RoutesEnum::AdminConfigFederation->value,
+        );
     }
 }

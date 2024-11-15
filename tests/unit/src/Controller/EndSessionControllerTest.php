@@ -13,7 +13,7 @@ use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
-use SimpleSAML\Module\oidc\Controller\EndSessionController;
+use SimpleSAML\Module\oidc\Controllers\EndSessionController;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
@@ -27,7 +27,7 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * @covers \SimpleSAML\Module\oidc\Controller\EndSessionController
+ * @covers \SimpleSAML\Module\oidc\Controllers\EndSessionController
  */
 class EndSessionControllerTest extends TestCase
 {

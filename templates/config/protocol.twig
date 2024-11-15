@@ -1,29 +1,8 @@
-{% set subPageTitle = 'Config Overview'|trans %}
+{% set subPageTitle = 'Protocol Settings'|trans %}
 
 {% extends "@oidc/base.twig" %}
 
 {% block oidcContent %}
-
-    <h4>{{ 'Database Migrations'|trans }}</h4>
-
-    {% if databaseMigration.isMigrated %}
-        <p><i class="fa fa-check" title="OK"></i>{{ 'All database migrations are implemented.'|trans }}</p>
-    {% else %}
-        <p class="red-text">
-            <i class="fa fa-ban" title="Not OK"></i>
-            {% trans %}There are database migrations that have not been implemented.
-                Use the button below to run them now.{% endtrans %}
-        </p>
-
-        <form method="post" class="pure-form" action="{{ moduleURL('oidc/admin/run-migrations') }}">
-            <input type="hidden" name="fromUi" value="1">
-            <input type="hidden" name="migrate" value="1">
-            <button class="pure-button pure-button-red ">{{ 'Run migrations'|trans }}</button>
-        </form>
-        <br>
-    {% endif %}
-
-    <h4>{{ 'Protocol Settings'|trans }}</h4>
 
     <table class="table pure-table pure-table-bordered ">
         <thead>
@@ -66,6 +45,10 @@
                 <td> {{ moduleConfig.getUserIdentifierAttribute }}</td>
             </tr>
             <tr>
+                <td>{{ 'Signing Algorithm'|trans }}</td>
+                <td> {{ moduleConfig.getProtocolSigner.algorithmId }}</td>
+            </tr>
+            <tr>
                 <td>{{ 'PKI'|trans }}</td>
                 <td>
                     <ul class="config">
@@ -83,10 +66,6 @@
                 </td>
             </tr>
             <tr>
-                <td>{{ 'Signing Algorithm'|trans }}</td>
-                <td> {{ moduleConfig.getProtocolSigner.algorithmId }}</td>
-            </tr>
-            <tr>
                 <td>{{ 'Supported ACRs'|trans }}</td>
                 <td>
                     {% if moduleConfig.getAcrValuesSupported is not empty %}
@@ -100,26 +79,43 @@
                     {% endif %}
                 </td>
             </tr>
+            <tr>
+                <td>{{ 'Authentication Sources to ACRs Map'|trans }}</td>
+                <td>
+                    // TODO mivanci
+                </td>
+            </tr>
+            <tr>
+                <td>{{ 'Scopes'|trans }}</td>
+                <td>
+                    // TODO mivanci
+                </td>
+            </tr>
+            <tr>
+                <td>{{ 'Authentication Processing Filters'|trans }}</td>
+                <td>
+                    // TODO mivanci
+                </td>
+            </tr>
+            <tr>
+                <td>{{ 'Protocol Cache Adapter'|trans }}</td>
+                <td>
+                    // TODO mivanci
+                </td>
+            </tr>
+            <tr>
+                <td>{{ 'User Entity Cache Duration'|trans }}</td>
+                <td>
+                    // TODO mivanci
+                </td>
+            </tr>
         </tbody>
     </table>
 
     <br>
-    <h4>{{ 'Federation Settings'|trans }}</h4>
-
-    <table class="table pure-table pure-table-bordered ">
-        <thead>
-        <tr>
-            <th>{{ 'Setting'|trans }}</th>
-            <th>{{ 'Value'|trans }}</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr>
-            <td>{{ 'Federation Enabled:'|trans }}</td>
-            <td> {{ moduleConfig.getFederationEnabled ? 'Yes'|trans : 'No'|trans }}</td>
-        </tr>
-
-        </tbody>
-    </table>
+    <h4>{{ 'Discovery URL'|trans }}</h4>
+    <p>
+        <a href="{{ routes.urlConfiguration }}" target="_blank">{{ routes.urlConfiguration }}</a>
+    </p>
 
 {% endblock oidcContent -%}

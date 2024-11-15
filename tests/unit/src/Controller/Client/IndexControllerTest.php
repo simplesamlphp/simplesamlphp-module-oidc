@@ -9,14 +9,14 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\UriInterface;
-use SimpleSAML\Module\oidc\Controller\Client\IndexController;
+use SimpleSAML\Module\oidc\Controllers\Client\IndexController;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\XHTML\Template;
 
 /**
- * @covers \SimpleSAML\Module\oidc\Controller\Client\IndexController
+ * @covers \SimpleSAML\Module\oidc\Controllers\Client\IndexController
  */
 class IndexControllerTest extends TestCase
 {

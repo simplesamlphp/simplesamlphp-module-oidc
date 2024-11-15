@@ -8,7 +8,7 @@ use Laminas\Diactoros\Response\RedirectResponse;
 use Laminas\Diactoros\ServerRequest;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use SimpleSAML\Module\oidc\Controller\InstallerController;
+use SimpleSAML\Module\oidc\Controllers\InstallerController;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Services\DatabaseLegacyOAuth2Import;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
@@ -16,7 +16,7 @@ use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\XHTML\Template;
 
 /**
- * @covers \SimpleSAML\Module\oidc\Controller\InstallerController
+ * @covers \SimpleSAML\Module\oidc\Controllers\InstallerController
  */
 class InstallerControllerTest extends TestCase
 {

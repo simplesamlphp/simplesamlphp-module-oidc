@@ -14,7 +14,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\UriInterface;
 use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
-use SimpleSAML\Module\oidc\Controller\Client\EditController;
+use SimpleSAML\Module\oidc\Controllers\Client\EditController;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
@@ -29,7 +29,7 @@ use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\XHTML\Template;
 
 /**
- * @covers \SimpleSAML\Module\oidc\Controller\Client\EditController
+ * @covers \SimpleSAML\Module\oidc\Controllers\Client\EditController
  */
 class EditControllerTest extends TestCase
 {
