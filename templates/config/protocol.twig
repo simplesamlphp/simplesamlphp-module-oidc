@@ -4,118 +4,107 @@
 
 {% block oidcContent %}
 
-    <table class="table pure-table pure-table-bordered ">
-        <thead>
-        <tr>
-            <th>{{ 'Setting'|trans }}</th>
-            <th>{{ 'Value'|trans }}</th>
-        </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td>{{ 'Issuer'|trans }}</td>
-                <td> {{ moduleConfig.getIssuer }}</td>
-            </tr>
-            <tr>
-                <td>{{ 'Tokens Time-To-Live'|trans }}</td>
-                <td>
-                    <ul class="config">
-                        <li>
-                            {{ 'Authorization Code:'|trans }}
-                            {{ moduleConfig.getAuthCodeDuration|date("%mm %dd %hh %i' %s''") }}
-                        </li>
-                        <li>
-                            {{ 'Access Token:'|trans }}
-                            {{ moduleConfig.getAccessTokenDuration|date("%mm %dd %hh %i' %s''") }}
-                        </li>
-                        <li>
-                            {{ 'Refresh Token:'|trans }}
-                            {{ moduleConfig.getRefreshTokenDuration|date("%mm %dd %hh %i' %s''") }}
-                        </li>
-                    </ul>
-
-                </td>
-            </tr>
-            <tr>
-                <td>{{ 'Default Authentication Source'|trans }}</td>
-                <td> {{ moduleConfig.getDefaultAuthSourceId }}</td>
-            </tr>
-            <tr>
-                <td>{{ 'User Identifier Attribute'|trans }}</td>
-                <td> {{ moduleConfig.getUserIdentifierAttribute }}</td>
-            </tr>
-            <tr>
-                <td>{{ 'Signing Algorithm'|trans }}</td>
-                <td> {{ moduleConfig.getProtocolSigner.algorithmId }}</td>
-            </tr>
-            <tr>
-                <td>{{ 'PKI'|trans }}</td>
-                <td>
-                    <ul class="config">
-                        <li>Private Key: {{ moduleConfig.getProtocolPrivateKeyPath }}</li>
-                        <li>
-                            Private Key Password Set:
-                            {{ moduleConfig.getProtocolPrivateKeyPassPhrase ? 'Yes'|trans : 'No'|trans }}
-                        </li>
-                        <li>
-                            {{ 'Public Key:'|trans }}
-                            {{ moduleConfig.getProtocolCertPath }}
-                        </li>
-                    </ul>
-
-                </td>
-            </tr>
-            <tr>
-                <td>{{ 'Supported ACRs'|trans }}</td>
-                <td>
-                    {% if moduleConfig.getAcrValuesSupported is not empty %}
-                        <ul class="config">
-                        {% for acr in moduleConfig.getAcrValuesSupported %}
-                            <li>{{ acr }}</li>
-                        {% endfor %}
-                        </ul>
-                    {% else %}
-                        {{ 'None defined'|trans }}
-                    {% endif %}
-                </td>
-            </tr>
-            <tr>
-                <td>{{ 'Authentication Sources to ACRs Map'|trans }}</td>
-                <td>
-                    // TODO mivanci
-                </td>
-            </tr>
-            <tr>
-                <td>{{ 'Scopes'|trans }}</td>
-                <td>
-                    // TODO mivanci
-                </td>
-            </tr>
-            <tr>
-                <td>{{ 'Authentication Processing Filters'|trans }}</td>
-                <td>
-                    // TODO mivanci
-                </td>
-            </tr>
-            <tr>
-                <td>{{ 'Protocol Cache Adapter'|trans }}</td>
-                <td>
-                    // TODO mivanci
-                </td>
-            </tr>
-            <tr>
-                <td>{{ 'User Entity Cache Duration'|trans }}</td>
-                <td>
-                    // TODO mivanci
-                </td>
-            </tr>
-        </tbody>
-    </table>
-
-    <br>
-    <h4>{{ 'Discovery URL'|trans }}</h4>
+    <h4>{{ 'Entity'|trans }}</h4>
     <p>
+        {{ 'Discovery URL'|trans }}:
         <a href="{{ routes.urlConfiguration }}" target="_blank">{{ routes.urlConfiguration }}</a>
     </p>
+    <p>
+        {{ 'Issuer'|trans }}: {{ moduleConfig.getIssuer }}
+    </p>
+
+    <h4>{{ 'Tokens Time-To-Live (TTL)'|trans }}</h4>
+    <p>
+        {{ 'Authorization Code'|trans }}:
+        {{ moduleConfig.getAuthCodeDuration|date("%mm %dd %hh %i' %s''") }}
+        <br>
+        {{ 'Access Token'|trans }}:
+        {{ moduleConfig.getAccessTokenDuration|date("%mm %dd %hh %i' %s''") }}
+        <br>
+        {{ 'Refresh Token'|trans }}:
+        {{ moduleConfig.getRefreshTokenDuration|date("%mm %dd %hh %i' %s''") }}
+    </p>
+
+    <h4>{{ 'PKI'|trans }}</h4>
+    <p>
+        {{ 'Private Key'|trans }}: {{ moduleConfig.getProtocolPrivateKeyPath }}
+        <br>
+        {{ 'Private Key Password Set'|trans }}:
+        {{ moduleConfig.getProtocolPrivateKeyPassPhrase ? 'Yes'|trans : 'No'|trans }}
+        <br>
+        {{ 'Public Key'|trans }}: {{ moduleConfig.getProtocolCertPath }}
+    </p>
+    <p>
+        {{ 'Signing Algorithm'|trans }}: {{ moduleConfig.getProtocolSigner.algorithmId }}
+    </p>
+
+    <h4>{{ 'Authentication'|trans }}</h4>
+    <p>
+        {{ 'Default Authentication Source'|trans }}: {{ moduleConfig.getDefaultAuthSourceId }}
+        <br>
+        {{ 'User Identifier Attribute'|trans }}: {{ moduleConfig.getUserIdentifierAttribute }}
+    </p>
+    <p>
+        {{ 'Authentication Processing Filters'|trans }}:
+        {% if moduleConfig.getAuthProcFilters is not empty %}
+            {% for authproc in moduleConfig.getAuthProcFilters %}
+                <br>
+                - {{ authproc.class|default('[class-not-set]') }}
+            {% endfor %}
+        {% else %}
+            {{ 'N/A'|trans }}
+        {% endif %}
+    </p>
+
+    <h4>{{ 'Authentication Context Class References (ACRs)'|trans }}</h4>
+    <p>
+        {{ 'Supported ACRs'|trans }}:
+        {% if moduleConfig.getAcrValuesSupported is not empty %}
+            {% for acr in moduleConfig.getAcrValuesSupported %}
+                <br>
+                - {{ acr }}
+            {% endfor %}
+        {% else %}
+            {{ 'N/A'|trans }}
+        {% endif %}
+
+    </p>
+    <p>
+        {{ 'Authentication Sources to ACRs Map'|trans }}:
+        {% if moduleConfig.getAuthSourcesToAcrValuesMap is not empty %}
+            {% for authsource, acrs in moduleConfig.getAuthSourcesToAcrValuesMap %}
+                <br>
+                - {{ authsource }}:
+                {% for acr in acrs %}
+                    {{ acr }}{{ loop.last ? '' : ',' }}
+                {% endfor %}
+            {% endfor %}
+        {% else %}
+            {{ 'N/A'|trans }}
+        {% endif %}
+    </p>
+    <p>
+        {{ 'Forced ACR For Cookie Authentication'|trans }}:
+        {{ moduleConfig.getForcedAcrValueForCookieAuthentication|default('N/A'|trans) }}
+    </p>
+
+
+    <h4>{{ 'Scopes'|trans }}</h4>
+    <p>
+        {% for scope, claims in moduleConfig.getScopes %}
+            {{ scope }}{{ loop.last ? '' : ', ' }}
+            {# TODO mivanci Add claims or extract scopes to sepparate page. #}
+        {% endfor %}
+    </p>
+
+    <h4>{{ 'Cache'|trans }}</h4>
+    <p>
+        {{ 'Cache Adapter'|trans }}:
+        {{ moduleConfig.getProtocolCacheAdapterClass|default('N/A'|trans) }}
+        <br>
+        {{ 'User Entity Cache Duration'|trans }}:
+        {{ moduleConfig.getProtocolUserEntityCacheDuration|date("%mm %dd %hh %i' %s''") }}
+    </p>
+
 
 {% endblock oidcContent -%}

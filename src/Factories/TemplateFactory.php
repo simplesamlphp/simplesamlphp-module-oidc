@@ -111,7 +111,7 @@ class TemplateFactory
         $this->oidcMenu->addItem(
             $this->oidcMenu->buildItem(
                 $this->moduleConfig->getModuleUrl(RoutesEnum::AdminClients->value),
-                Translate::noop('Clients'),
+                Translate::noop('Client Registry'),
             ),
         );
     }

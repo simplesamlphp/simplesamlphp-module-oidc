@@ -70,8 +70,12 @@ h4 {
     background-color: #fff;
 }
 
-ul.config {
+ul.disc {
     list-style: disc outside none;
+}
+
+em {
+    font-style: italic;
 }
 
 /* Text colors */
@@ -85,3 +89,26 @@ ul.config {
 .cyan-text { color: cyan; }
 .lightcyan-text { color: lightcyan; }
 .white-text { color: white; }
+
+/* Button sizes */
+.button-small {
+    font-size: 75%;
+}
+
+/* Client Table */
+table.client-table {
+    width: 100%;
+}
+
+.client-col.col-info {
+    width: 79%;
+}
+
+.client-col.col-actions {
+    width: 21%;
+}
+
+.client-col.col-property {
+    width: 25%;
+    font-weight: bolder;
+}

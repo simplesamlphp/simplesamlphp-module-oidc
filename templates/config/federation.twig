@@ -3,87 +3,117 @@
 {% extends "@oidc/base.twig" %}
 
 {% block oidcContent %}
-
-    <table class="table pure-table pure-table-bordered ">
-        <thead>
-        <tr>
-            <th>{{ 'Setting'|trans }}</th>
-            <th>{{ 'Value'|trans }}</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr>
-            <td>{{ 'Federation Enabled'|trans }}</td>
-            <td> {{ moduleConfig.getFederationEnabled ? 'Yes'|trans : 'No'|trans }}</td>
-        </tr>
-        <tr>
-            <td>{{ 'Trust Anchors'|trans }}</td>
-            <td>
-                // TODO mivanci
-            </td>
-        </tr>
-        <tr>
-            <td>{{ 'Authority Hints'|trans }}</td>
-            <td>
-                // TODO mivanci
-            </td>
-        </tr>
-        <tr>
-            <td>{{ 'Trust Marks'|trans }}</td>
-            <td>
-                // TODO mivanci
-            </td>
-        </tr>
-        <tr>
-            <td>{{ 'Signing Algorithm'|trans }}</td>
-            <td>
-                // TODO mivanci
-            </td>
-        </tr>
-        <tr>
-            <td>{{ 'PKI'|trans }}</td>
-            <td>
-                // TODO mivanci
-            </td>
-        </tr>
-        <tr>
-            <td>{{ 'Entity Statement Duration'|trans }}</td>
-            <td>
-                // TODO mivanci
-            </td>
-        </tr>
-        <tr>
-            <td>{{ 'Cache Adapter'|trans }}</td>
-            <td>
-                // TODO mivanci
-            </td>
-        </tr>
-        <tr>
-            <td>{{ 'Maximum Cache Duration For Fetched Artifacts'|trans }}</td>
-            <td>
-                // TODO mivanci
-            </td>
-        </tr>
-        <tr>
-            <td>{{ 'Cache Duration For Produced Artifacts'|trans }}</td>
-            <td>
-                // TODO mivanci
-            </td>
-        </tr>
-        <tr>
-            <td>{{ 'Common Federation Entity Parameters'|trans }}</td>
-            <td>
-                // TODO mivanci
-            </td>
-        </tr>
-
-        </tbody>
-    </table>
-
-    <br>
-    <h4>{{ 'Entity Configuration URL'|trans }}</h4>
     <p>
+        {{ 'Federation Enabled'|trans }}:
+        {{ moduleConfig.getFederationEnabled ? 'Yes'|trans : 'No'|trans }}
+    </p>
+
+    <h4>{{ 'Entity'|trans }}</h4>
+    <p>
+        {{ 'Configuration URL'|trans }}:
         <a href="{{ routes.urlFederationConfiguration }}" target="_blank">{{ routes.urlFederationConfiguration }}</a>
+    </p>
+    <p>
+        {{ 'Issuer'|trans }}: {{ moduleConfig.getIssuer }}
+        <br>
+        {{ 'Organization Name'|trans }}: {{ moduleConfig.getOrganizationName }}
+        <br>
+        {{ 'Logo URI'|trans }}:
+        <a href="{{ moduleConfig.getLogoUri }}" target="_blank">{{ moduleConfig.getLogoUri }}</a>
+        <br>
+        {{ 'Policy URI'|trans }}:
+        <a href="{{ moduleConfig.getPolicyUri }}" target="_blank">{{ moduleConfig.getPolicyUri }}</a>
+        <br>
+        {{ 'Homepage URI'|trans }}:
+        <a href="{{ moduleConfig.getHomepageUri }}" target="_blank">{{ moduleConfig.getHomepageUri }}</a>
+        <br>
+        {{ 'Contacts'|trans }}:
+        {% if moduleConfig.getContacts is not empty %}
+            {% for contact in moduleConfig.getContacts %}
+                <br>
+                - {{ contact }}
+            {% endfor %}
+        {% else %}
+            {{ 'N/A'|trans }}
+        {% endif %}
+    </p>
+    <p>
+        {{ 'Entity Statement Duration'|trans }}:
+        {{ moduleConfig.getFederationEntityStatementDuration|date("%mm %dd %hh %i' %s''") }}
+    </p>
+
+    <h4>{{ 'PKI'|trans }}</h4>
+    <p>
+        {{ 'Private Key'|trans }}: {{ moduleConfig.getFederationPrivateKeyPath }}
+        <br>
+        {{ 'Private Key Password Set'|trans }}:
+        {{ moduleConfig.getFederationPrivateKeyPassPhrase ? 'Yes'|trans : 'No'|trans }}
+        <br>
+        {{ 'Public Key'|trans }}: {{ moduleConfig.getFederationCertPath }}
+    </p>
+    <p>
+        {{ 'Signing Algorithm'|trans }}: {{ moduleConfig.getFederationSigner.algorithmId }}
+    </p>
+
+    <h4>{{ 'Trust Anchors'|trans }}</h4>
+    {% if moduleConfig.getFederationTrustAnchors is not empty %}
+        {% for trustAnchorId, jwks in moduleConfig.getFederationTrustAnchors %}
+            <p>
+                - {{ trustAnchorId }}
+                <br>
+                {{ 'JWKS'|trans }}:
+                {% if jwks|default is not empty %}
+                    <code class="code-box code-box-content">
+                        {{- jwks|json_encode(constant('JSON_PRETTY_PRINT')) -}}
+                    </code>
+                {% else %}
+                    {{ 'N/A'|trans }}
+                {% endif %}
+            </p>
+        {% endfor %}
+    {% else %}
+        <p>{{ 'N/A'|trans }}</p>
+    {% endif %}
+
+    <h4>{{ 'Authority Hints'|trans }}</h4>
+    <p>
+    {% if moduleConfig.getFederationAuthorityHints|default is not empty %}
+            {% for authorityHint in moduleConfig.getFederationAuthorityHints %}
+                {% if not loop.first %}
+                <br>
+                {% endif %}
+                - {{ authorityHint }}
+            {% endfor %}
+    {% else %}
+        {{ 'N/A'|trans }}
+    {% endif %}
+    </p>
+
+    <h4>{{ 'Trust Marks'|trans }}</h4>
+    {% if trustMarks|default is not empty %}
+        {% for trustMark in trustMarks %}
+            <p>
+                - {{ trustMark.getPayload.id }}
+                <code class="code-box code-box-content">
+                    {{- trustMark.getPayload|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_SLASHES')) -}}
+                </code>
+            </p>
+        {% endfor %}
+    {% else %}
+        <p>{{ 'N/A'|trans }}</p>
+    {% endif %}
+
+    <h4>{{ 'Cache'|trans }}</h4>
+    <p>
+        {{ 'Cache Adapter'|trans }}:
+        {{ moduleConfig.getFederationCacheAdapterClass|default('N/A'|trans) }}
+        <br>
+        {{ 'Maximum Cache Duration For Fetched Artifacts'|trans }}:
+        {{ moduleConfig.getFederationCacheMaxDurationForFetched|date("%mm %dd %hh %i' %s''") }}
+        <br>
+        {{ 'Cache Duration For Produced Artifacts'|trans }}:
+        {{ moduleConfig.getFederationEntityStatementCacheDurationForProduced|date("%mm %dd %hh %i' %s''") }}
+
     </p>
 
 {% endblock oidcContent -%}

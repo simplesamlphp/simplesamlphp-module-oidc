@@ -8,18 +8,25 @@ use SimpleSAML\Error\Exception;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
+use SimpleSAML\Module\oidc\Services\AuthContextService;
 
 class Authorization
 {
     public function __construct(
         protected readonly SspBridge $sspBridge,
+        protected readonly AuthContextService $authContextService,
     ) {
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->sspBridge->utils()->auth()->isAdmin();
     }
 
     /**
      * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
      */
-    public function requireSspAdmin(bool $forceAdminAuthentication = false): void
+    public function requireAdmin(bool $forceAdminAuthentication = false): void
     {
         if ($forceAdminAuthentication) {
             try {
@@ -33,8 +40,33 @@ class Authorization
             }
         }
 
-        if (! $this->sspBridge->utils()->auth()->isAdmin()) {
+        if (! $this->isAdmin()) {
             throw new AuthorizationException(Translate::noop('SimpleSAMLphp admin access required.'));
         }
+    }
+
+    /**
+     * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
+     */
+    public function requireAdminOrUserWithPermission(string $permission): void
+    {
+        if ($this->isAdmin()) {
+            return;
+        }
+
+        try {
+            $this->authContextService->requirePermission($permission);
+        } catch (Exception $exception) {
+            throw new AuthorizationException(
+                Translate::noop('User not authorized.'),
+                $exception->getCode(),
+                $exception,
+            );
+        }
+    }
+
+    public function getUserId(): string
+    {
+        return $this->authContextService->getAuthUserId();
     }
 }

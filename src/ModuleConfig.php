@@ -534,7 +534,7 @@ class ModuleConfig
     /**
      * @throws \Exception
      */
-    public function getFederationEntityStatementCacheDuration(): DateInterval
+    public function getFederationEntityStatementCacheDurationForProduced(): DateInterval
     {
         return new DateInterval(
             $this->config()->getOptionalString(
@@ -614,7 +614,7 @@ class ModuleConfig
         return $this->config()->getOptionalArray(self::OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS, []);
     }
 
-    public function getFederationCacheMaxDuration(): DateInterval
+    public function getFederationCacheMaxDurationForFetched(): DateInterval
     {
         return new DateInterval(
             $this->config()->getOptionalString(self::OPTION_FEDERATION_CACHE_MAX_DURATION_FOR_FETCHED, 'PT6H'),

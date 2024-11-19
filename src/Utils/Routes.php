@@ -23,7 +23,6 @@ class Routes
         return $this->sspBridge->module()->getModuleUrl($resource, $parameters);
     }
 
-
     /*****************************************************************************************************************
      * Admin area
      ****************************************************************************************************************/
@@ -52,7 +51,13 @@ class Routes
 
     public function urlAdminClients(array $parameters = []): string
     {
-        return $this->getModuleUrl(RoutesEnum::AdminMigrationsRun->value, $parameters);
+        return $this->getModuleUrl(RoutesEnum::AdminClients->value, $parameters);
+    }
+
+    public function urlAdminClientsShow(string $clientId, array $parameters = []): string
+    {
+        $parameters['client_id'] = $clientId;
+        return $this->getModuleUrl(RoutesEnum::AdminClientsShow->value, $parameters);
     }
 
     /*****************************************************************************************************************

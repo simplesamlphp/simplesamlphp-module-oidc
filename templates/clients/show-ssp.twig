@@ -1,0 +1,99 @@
+{% set subPageTitle = 'Client '|trans ~ client.getIdentifier %}
+
+{% extends "@oidc/base.twig" %}
+
+{% block oidcContent %}
+
+    <div class="pure-g">
+        <div class="pure-u-1-2">
+            <span class="{{ client.enabled ? 'green-text' : 'red-text'}}">
+            <i class="fa {{ client.enabled ? 'fa-check' : 'fa-ban'}}"></i>
+                {{ client.enabled ? 'enabled'|trans : 'disabled'|trans }}
+            </span>
+        </div>
+        <div class="pure-u-1-2">
+            <div class="right">
+                <a class="pure-button " href="{{ routes.urlAdminClients }}">
+                    <i class="fa fa-chevron-left"></i>
+                    {{ 'Back'|trans }}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="">
+        {{ 'Registration:'|trans }} {{ client.registrationType.description }} |
+        {{ 'Created at:'|trans }} {{ client.createdAt ? client.createdAt|date() : 'n/a' }} |
+        {{ 'Updated at:'|trans }} {{ client.updatedAt ? client.updatedAt|date() : 'n/a' }} |
+        {{ 'Expires at:'|trans }} {{ client.expiresAt ? client.expiresAt|date() : 'never' }}
+    </div>
+
+    <br>
+    <div class="">
+        <table class="pure-table pure-table-striped client-table">
+            <colgroup>
+                <col class="">
+                <col class="">
+            </colgroup>
+            <tbody>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Name and description'|trans }}
+                </td>
+                <td>
+                    {{ client.name }} <br>
+                    <small>{{ client.description }}</small>
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+
+                </td>
+                <td>
+
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+
+                </td>
+                <td>
+
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+
+                </td>
+                <td>
+
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+
+                </td>
+                <td>
+
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+
+                </td>
+                <td>
+
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+
+                </td>
+                <td>
+
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+{% endblock oidcContent -%}

@@ -158,7 +158,7 @@ class EntityStatementController
 
         $this->federationCache?->set(
             $entityConfigurationToken,
-            $this->moduleConfig->getFederationEntityStatementCacheDuration(),
+            $this->moduleConfig->getFederationEntityStatementCacheDurationForProduced(),
             self::KEY_OP_ENTITY_CONFIGURATION_STATEMENT,
             $this->moduleConfig->getIssuer(),
         );
@@ -253,7 +253,7 @@ class EntityStatementController
 
         $this->federationCache?->set(
             $subordinateStatementToken,
-            $this->moduleConfig->getFederationEntityStatementCacheDuration(),
+            $this->moduleConfig->getFederationEntityStatementCacheDurationForProduced(),
             self::KEY_RP_SUBORDINATE_ENTITY_STATEMENT,
             $subject,
         );

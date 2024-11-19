@@ -11,6 +11,7 @@ use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
+use SimpleSAML\OpenID\Federation;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -22,8 +23,9 @@ class ConfigController
         protected readonly Authorization $authorization,
         protected readonly DatabaseMigration $databaseMigration,
         protected readonly SessionMessagesService $sessionMessagesService,
+        protected readonly Federation $federation,
     ) {
-        $this->authorization->requireSspAdmin(true);
+        $this->authorization->requireAdmin(true);
     }
 
     public function migrations(): Response
@@ -65,10 +67,21 @@ class ConfigController
 
     public function federationSettings(): Response
     {
+        $trustMarks = null;
+        if (is_array($trustMarkTokens = $this->moduleConfig->getFederationTrustMarkTokens())) {
+            $trustMarks = array_map(
+                function (string $token): Federation\TrustMark {
+                    return $this->federation->trustMarkFactory()->fromToken($token);
+                },
+                $trustMarkTokens,
+            );
+        }
+
         return $this->templateFactory->build(
             'oidc:config/federation.twig',
             [
                 'moduleConfig' => $this->moduleConfig,
+                'trustMarks' => $trustMarks,
             ],
             RoutesEnum::AdminConfigFederation->value,
         );
