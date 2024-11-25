@@ -11,8 +11,8 @@ use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
+use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Federation;
-use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 class ConfigController
@@ -24,6 +24,7 @@ class ConfigController
         protected readonly DatabaseMigration $databaseMigration,
         protected readonly SessionMessagesService $sessionMessagesService,
         protected readonly Federation $federation,
+        protected readonly Routes $routes,
     ) {
         $this->authorization->requireAdmin(true);
     }
@@ -44,14 +45,14 @@ class ConfigController
         if ($this->databaseMigration->isMigrated()) {
             $message = Translate::noop('Database is already migrated.');
             $this->sessionMessagesService->addMessage($message);
-            return new RedirectResponse($this->moduleConfig->getModuleUrl(RoutesEnum::AdminMigrations->value));
+            return $this->routes->getRedirectResponseToModuleUrl(RoutesEnum::AdminMigrations->value);
         }
 
         $this->databaseMigration->migrate();
         $message = Translate::noop('Database migrated successfully.');
         $this->sessionMessagesService->addMessage($message);
 
-        return new RedirectResponse($this->moduleConfig->getModuleUrl(RoutesEnum::AdminMigrations->value));
+        return $this->routes->getRedirectResponseToModuleUrl(RoutesEnum::AdminMigrations->value);
     }
 
     public function protocolSettings(): Response

@@ -19,6 +19,7 @@ enum RoutesEnum: string
 
     case AdminClients = 'admin/clients';
     case AdminClientsShow = 'admin/clients/show';
+    case AdminClientsResetSecret = 'admin/clients/reset-secret';
 
     /*****************************************************************************************************************
      * OpenID Connect

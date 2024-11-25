@@ -43,6 +43,9 @@ return function (RoutingConfigurator $routes): void {
         ->controller([ClientController::class, 'index']);
     $routes->add(RoutesEnum::AdminClientsShow->name, RoutesEnum::AdminClientsShow->value)
         ->controller([ClientController::class, 'show']);
+    $routes->add(RoutesEnum::AdminClientsResetSecret->name, RoutesEnum::AdminClientsResetSecret->value)
+        ->controller([ClientController::class, 'resetSecret'])
+        ->methods([HttpMethodsEnum::POST->value]);
 
     /*****************************************************************************************************************
      * OpenID Connect

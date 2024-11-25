@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Utils;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 
 class Routes
 {
@@ -21,6 +22,19 @@ class Routes
         $resource = $this->moduleConfig->moduleName() . '/' . $resource;
 
         return $this->sspBridge->module()->getModuleUrl($resource, $parameters);
+    }
+
+    public function getRedirectResponseToModuleUrl(
+        string $resource = '',
+        array $parameters = [],
+        int $status = 302,
+        array $headers = [],
+    ): RedirectResponse {
+        return new RedirectResponse(
+            $this->getModuleUrl($resource, $parameters),
+            $status,
+            $headers,
+        );
     }
 
     /*****************************************************************************************************************
@@ -58,6 +72,12 @@ class Routes
     {
         $parameters['client_id'] = $clientId;
         return $this->getModuleUrl(RoutesEnum::AdminClientsShow->value, $parameters);
+    }
+
+    public function urlAdminClientsResetSecret(string $clientId, array $parameters = []): string
+    {
+        $parameters['client_id'] = $clientId;
+        return $this->getModuleUrl(RoutesEnum::AdminClientsResetSecret->value, $parameters);
     }
 
     /*****************************************************************************************************************

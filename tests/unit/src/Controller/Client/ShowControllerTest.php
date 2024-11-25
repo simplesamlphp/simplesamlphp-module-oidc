@@ -92,7 +92,7 @@ class ShowControllerTest extends TestCase
             ->expects($this->once())
             ->method('build')
             ->with(
-                'oidc:clients/show.twig',
+                'oidc:clients/show-old.twig',
                 [
                     'client' => $this->clientEntityMock,
                     'allowedOrigins' => [],

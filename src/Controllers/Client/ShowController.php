@@ -49,7 +49,7 @@ class ShowController
         $client = $this->getClientFromRequest($request);
         $allowedOrigins = $this->allowedOriginRepository->get($client->getIdentifier());
 
-        return $this->templateFactory->build('oidc:clients/show.twig', [
+        return $this->templateFactory->build('oidc:clients/show-old.twig', [
             'client' => $client,
             'allowedOrigins' => $allowedOrigins,
         ]);

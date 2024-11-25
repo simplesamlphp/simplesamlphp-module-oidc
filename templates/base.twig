@@ -38,6 +38,11 @@
 
 {% endblock content -%}
 
-{% block postload %}{% endblock postload %}
+{% block postload %}
+
+    {{ parent() }}
+
+    <script src="{{ asset('js/src/default.js', 'oidc') }}"></script>
+{% endblock postload %}
 
 {% block oidcPostload %}{% endblock %}
