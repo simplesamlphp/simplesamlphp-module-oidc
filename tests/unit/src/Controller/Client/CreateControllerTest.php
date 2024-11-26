@@ -100,7 +100,7 @@ class CreateControllerTest extends TestCase
         $this->templateFactoryMock
             ->expects($this->once())
             ->method('build')
-            ->with('oidc:clients/new.twig', [
+            ->with('oidc:clients/new-old.twig', [
                 'form' => $this->clientFormMock,
                 'regexUri' => ClientForm::REGEX_URI,
                 'regexAllowedOriginUrl' => ClientForm::REGEX_ALLOWED_ORIGIN_URL,

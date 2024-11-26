@@ -41,10 +41,20 @@ return function (RoutingConfigurator $routes): void {
 
     $routes->add(RoutesEnum::AdminClients->name, RoutesEnum::AdminClients->value)
         ->controller([ClientController::class, 'index']);
+    $routes->add(RoutesEnum::AdminClientsAdd->name, RoutesEnum::AdminClientsAdd->value)
+        ->controller([ClientController::class, 'add'])
+        ->methods([HttpMethodsEnum::GET->value]);
+    $routes->add(RoutesEnum::AdminClientsAddPersist->name, RoutesEnum::AdminClientsAddPersist->value)
+        ->controller([ClientController::class, 'addPersist'])
+        ->methods([HttpMethodsEnum::POST->value]);
     $routes->add(RoutesEnum::AdminClientsShow->name, RoutesEnum::AdminClientsShow->value)
-        ->controller([ClientController::class, 'show']);
+        ->controller([ClientController::class, 'show'])
+        ->methods([HttpMethodsEnum::GET->value]);
     $routes->add(RoutesEnum::AdminClientsResetSecret->name, RoutesEnum::AdminClientsResetSecret->value)
         ->controller([ClientController::class, 'resetSecret'])
+        ->methods([HttpMethodsEnum::POST->value]);
+    $routes->add(RoutesEnum::AdminClientsDelete->name, RoutesEnum::AdminClientsDelete->value)
+        ->controller([ClientController::class, 'delete'])
         ->methods([HttpMethodsEnum::POST->value]);
 
     /*****************************************************************************************************************

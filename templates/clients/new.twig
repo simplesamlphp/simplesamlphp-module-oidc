@@ -1,15 +1,9 @@
-{% extends "@oidc/clients/_form.twig" %}
+{% set subPageTitle = 'Add Client '|trans %}
 
-{% set pagetitle = 'Create new OpenID Connect Client' | trans %}
+{% extends "@oidc/base.twig" %}
 
-{% block pre_breadcrump %}
-    <span class="divider">/</span>
-    <a class="section" href="./index.php">{{ 'OpenID Connect Client Registry'|trans }}</a>
-{% endblock %}
+{% block oidcContent %}
 
-{% block action %}
-    <div class="ui submit primary icon labeled button">
-        <i class="plus icon"></i>
-        {{ '{oidc:create}'|trans }}
-    </div>
-{% endblock %}
+    // TODO
+
+{% endblock oidcContent -%}

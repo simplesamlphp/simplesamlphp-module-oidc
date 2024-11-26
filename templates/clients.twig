@@ -22,7 +22,7 @@
         </div>
         <div class="pure-u-1-2">
             <div class="right">
-                <a class="pure-button " href="{{ routes.urlAdminClients }}">
+                <a class="pure-button " href="{{ routes.urlAdminClientsAdd }}">
                     <i class="fa fa-plus green-text"></i>
                     {{ 'Add Client'|trans }}
                 </a>
@@ -61,18 +61,23 @@
                 </td>
                 <td>
                     <div class="pure-button-group button-small" role="group" aria-label="Actions">
-                        <a class="pure-button" href="{{ routes.urlAdminClientsShow(client.getIdentifier) }}">
-                            <i class="fa fa-eye"></i>
-                        </a>
-                        <a class="pure-button" href="#">
-                            <i class="fa fa-pen-to-square"></i>
-                        </a>
-                        <a class="pure-button confirm-action"
-                           data-confirm="{{ 'Are you sure you want to delete this client?'|trans }}"
-                           data-id="{{ client.getIdentifier }}"
-                           href="#">
-                            <i class="fa fa-trash-can"></i>
-                        </a>
+                        <form method="post"
+                              class="pure-form"
+                              action="{{ routes.urlAdminClientsDelete(client.getIdentifier) }}">
+                            <a class="pure-button" href="{{ routes.urlAdminClientsShow(client.getIdentifier) }}">
+                                <i class="fa fa-eye"></i>
+                            </a>
+                            <a class="pure-button" href="#">
+                                <i class="fa fa-pen-to-square"></i>
+                            </a>
+                            <input type="hidden" name="secret" value="{{ client.secret }}">
+                            <button type="submit" class="pure-button confirm-action"
+                                    data-confirm-text="{{ 'Are you sure you want to delete this client?'|trans }}"
+                                    data-confirm-id="{{ client.getIdentifier }}"
+                            >
+                                <i class="fa fa-trash-can"></i>
+                            </button>
+                        </form>
                     </div>
                 </td>
             </tr>

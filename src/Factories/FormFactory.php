@@ -31,10 +31,8 @@ class FormFactory
      * @param class-string $classname Form classname
      *
      * @throws \SimpleSAML\Error\Exception
-     *
-     * @return mixed
      */
-    public function build(string $classname): mixed
+    public function build(string $classname): Form
     {
         if (!is_a($classname, Form::class, true)) {
             throw new Exception("Invalid form: $classname");

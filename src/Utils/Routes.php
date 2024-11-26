@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Utils;
 
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
+use SimpleSAML\Module\oidc\Codebooks\ParametersEnum;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -70,14 +71,30 @@ class Routes
 
     public function urlAdminClientsShow(string $clientId, array $parameters = []): string
     {
-        $parameters['client_id'] = $clientId;
+        $parameters[ParametersEnum::ClientId->value] = $clientId;
         return $this->getModuleUrl(RoutesEnum::AdminClientsShow->value, $parameters);
+    }
+
+    public function urlAdminClientsAdd(array $parameters = []): string
+    {
+        return $this->getModuleUrl(RoutesEnum::AdminClientsAdd->value, $parameters);
+    }
+
+    public function urlAdminClientsAddPersist(array $parameters = []): string
+    {
+        return $this->getModuleUrl(RoutesEnum::AdminClientsAddPersist->value, $parameters);
     }
 
     public function urlAdminClientsResetSecret(string $clientId, array $parameters = []): string
     {
-        $parameters['client_id'] = $clientId;
+        $parameters[ParametersEnum::ClientId->value] = $clientId;
         return $this->getModuleUrl(RoutesEnum::AdminClientsResetSecret->value, $parameters);
+    }
+
+    public function urlAdminClientsDelete(string $clientId, array $parameters = []): string
+    {
+        $parameters[ParametersEnum::ClientId->value] = $clientId;
+        return $this->getModuleUrl(RoutesEnum::AdminClientsDelete->value, $parameters);
     }
 
     /*****************************************************************************************************************

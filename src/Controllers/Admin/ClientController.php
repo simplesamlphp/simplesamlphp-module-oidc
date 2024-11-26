@@ -11,10 +11,13 @@ use SimpleSAML\Module\oidc\Codebooks\ParametersEnum;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Exceptions\OidcException;
+use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
+use SimpleSAML\Module\oidc\Forms\ClientForm;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use Symfony\Component\HttpFoundation\Request;
@@ -27,9 +30,11 @@ class ClientController
         protected readonly Authorization $authorization,
         protected readonly ClientRepository $clientRepository,
         protected readonly AllowedOriginRepository $allowedOriginRepository,
+        protected readonly FormFactory $formFactory,
         protected readonly SspBridge $sspBridge,
         protected readonly SessionMessagesService $sessionMessagesService,
         protected readonly Routes $routes,
+        protected readonly LoggerService $logger,
     ) {
         $this->authorization->requireAdminOrUserWithPermission(AuthContextService::PERM_CLIENT);
     }
@@ -98,7 +103,7 @@ class ClientController
         $oldSecret = $request->request->get('secret');
 
         if ($oldSecret !== $client->getSecret()) {
-            throw new OidcException('Client secret does not match.');
+            throw new OidcException('Client secret does not match on secret reset.');
         }
 
         $client->restoreSecret($this->sspBridge->utils()->random()->generateID());
@@ -106,11 +111,56 @@ class ClientController
         $this->clientRepository->update($client, $authedUserId);
 
         $message = Translate::noop('Client secret has been reset.');
+        $this->logger->info($message, $client->getState());
         $this->sessionMessagesService->addMessage($message);
 
         return $this->routes->getRedirectResponseToModuleUrl(
             RoutesEnum::AdminClientsShow->value,
             [ParametersEnum::ClientId->value => $client->getIdentifier()],
+        );
+    }
+
+    /**
+     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
+     */
+    public function delete(Request $request): Response
+    {
+        $client = $this->getClientFromRequest($request);
+
+        $secret = $request->request->get('secret');
+
+        if ($secret !== $client->getSecret()) {
+            throw new OidcException('Client secret does not match on delete.');
+        }
+
+        $authedUserId = $this->authorization->isAdmin() ? null : $this->authorization->getUserId();
+
+        $this->clientRepository->delete($client, $authedUserId);
+
+        $message = Translate::noop('Client has been deleted.');
+        $this->logger->warning($message, $client->getState());
+        $this->sessionMessagesService->addMessage($message);
+
+        return $this->routes->getRedirectResponseToModuleUrl(
+            RoutesEnum::AdminClients->value,
+        );
+    }
+
+    public function add(): Response
+    {
+        $form = $this->formFactory->build(ClientForm::class);
+        $form->setAction($this->routes->urlAdminClientsAddPersist());
+
+        return $this->templateFactory->build(
+            'oidc:clients/new.twig',
+            [
+                'form' => $form,
+                'regexUri' => ClientForm::REGEX_URI,
+                'regexAllowedOriginUrl' => ClientForm::REGEX_ALLOWED_ORIGIN_URL,
+                'regexHttpUri' => ClientForm::REGEX_HTTP_URI,
+                'regexHttpUriPath' => ClientForm::REGEX_HTTP_URI_PATH,
+            ],
+            RoutesEnum::AdminClients->value,
         );
     }
 }
