@@ -1,0 +1,32 @@
+
+{% if form.hasErrors %}
+    <div class="message-box warning">
+        <ul>
+            {% for error in form.getErrors %}
+                <li>{{ error | trans }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+{% endif %}
+
+<p>{{ form.hasErrors ? 'yes' : 'no' }}</p>
+
+<form method="post"
+      action="{{ actionRoute }}"
+        class="pure-form pure-form-stacked">
+
+    {{ form['_token_'].control | raw }}
+
+    <fieldset>
+        <label for="frm-name">{{ 'Name'|trans }}</label>
+        {{ form.name.label |raw }}
+        {{ form.name.control | raw }}
+        {% if form.name.hasErrors %}
+        <span class="pure-form-message red-text">{{ form.name.getError }}</span>
+        {% endif %}
+
+
+        <br>
+        <button type="submit" class="pure-button ">{{ (actionText|default('Submit'))|trans }}</button>
+    </fieldset>
+</form>

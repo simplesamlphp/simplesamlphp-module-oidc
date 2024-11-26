@@ -18,6 +18,7 @@ namespace SimpleSAML\Module\oidc\Forms;
 
 use Nette\Forms\Form;
 use SimpleSAML\Auth\Source;
+use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
@@ -341,11 +342,11 @@ class ClientForm extends Form
 
         $this->addText('name', '{oidc:client:name}')
             ->setMaxLength(255)
-            ->setRequired('Set a name');
+            ->setRequired(Translate::noop('Name is required.'));
 
         $this->addTextArea('description', '{oidc:client:description}', null, 5);
         $this->addTextArea('redirect_uri', '{oidc:client:redirect_uri}', null, 5)
-            ->setRequired('Write one redirect URI at least');
+            ->setRequired(Translate::noop('At least one redirect URI is required.'));
 
         $this->addCheckbox('is_enabled', '{oidc:client:is_enabled}');
 
@@ -355,14 +356,14 @@ class ClientForm extends Form
         $this->addSelect('auth_source', '{oidc:client:auth_source}:')
             ->setHtmlAttribute('class', 'ui fluid dropdown clearable')
             ->setItems(Source::getSources(), false)
-            ->setPrompt('Pick an AuthSource');
+            ->setPrompt(Translate::noop('Pick an AuthSource'));
 
         $scopes = $this->getScopes();
 
         $this->addMultiSelect('scopes', '{oidc:client:scopes}')
             ->setHtmlAttribute('class', 'ui fluid dropdown')
             ->setItems($scopes)
-            ->setRequired('Select one scope at least');
+            ->setRequired(Translate::noop('At least one scope is required.'));
 
         $this->addText('owner', '{oidc:client:owner}')
             ->setMaxLength(190);

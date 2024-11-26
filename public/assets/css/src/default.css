@@ -114,3 +114,7 @@ table.client-table {
 }
 
 .confirm-action {}
+
+form.pure-form-stacked input {
+    width: 100%;
+}

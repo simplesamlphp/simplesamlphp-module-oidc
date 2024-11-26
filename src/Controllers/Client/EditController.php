@@ -101,6 +101,7 @@ class EditController
             $jwks = is_array($data['jwks']) ? $data['jwks'] : null;
             $jwksUri = empty($data['jwks_uri']) ? null : (string)$data['jwks_uri'];
             $signedJwksUri = empty($data['signed_jwks_uri']) ? null : (string)$data['signed_jwks_uri'];
+
             $registrationType = $client->getRegistrationType();
             $updatedAt = $this->helpers->dateTime()->getUtc();
             $createdAt = $client->getCreatedAt();

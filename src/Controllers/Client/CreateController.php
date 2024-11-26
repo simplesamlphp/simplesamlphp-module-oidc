@@ -95,6 +95,7 @@ class CreateController
             $jwks = is_array($client['jwks']) ? $client['jwks'] : null;
             $jwksUri = empty($client['jwks_uri']) ? null : (string)$client['jwks_uri'];
             $signedJwksUri = empty($client['signed_jwks_uri']) ? null : (string)$client['signed_jwks_uri'];
+
             $registrationType = RegistrationTypeEnum::Manual;
             $createdAt = $this->helpers->dateTime()->getUtc();
             $updatedAt = $createdAt;

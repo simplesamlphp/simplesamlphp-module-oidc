@@ -4,16 +4,21 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers\Admin;
 
+use Nette\Forms\Form;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Admin\Authorization;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Codebooks\ParametersEnum;
+use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
+use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Exceptions\OidcException;
+use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Forms\ClientForm;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
@@ -29,11 +34,13 @@ class ClientController
         protected readonly TemplateFactory $templateFactory,
         protected readonly Authorization $authorization,
         protected readonly ClientRepository $clientRepository,
+        protected readonly ClientEntityFactory $clientEntityFactory,
         protected readonly AllowedOriginRepository $allowedOriginRepository,
         protected readonly FormFactory $formFactory,
         protected readonly SspBridge $sspBridge,
         protected readonly SessionMessagesService $sessionMessagesService,
         protected readonly Routes $routes,
+        protected readonly Helpers $helpers,
         protected readonly LoggerService $logger,
     ) {
         $this->authorization->requireAdminOrUserWithPermission(AuthContextService::PERM_CLIENT);
@@ -146,21 +153,132 @@ class ClientController
         );
     }
 
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
+     */
     public function add(): Response
     {
         $form = $this->formFactory->build(ClientForm::class);
-        $form->setAction($this->routes->urlAdminClientsAddPersist());
+
+        if ($form->isSuccess()) {
+            $createdAt = $this->helpers->dateTime()->getUtc();
+            $updatedAt = $createdAt;
+
+            $owner = $this->authorization->isAdmin() ? null : $this->authorization->getUserId();
+
+            $client = $this->buildClientFromFormData(
+                $form,
+                $this->sspBridge->utils()->random()->generateID(),
+                $this->sspBridge->utils()->random()->generateID(),
+                RegistrationTypeEnum::Manual,
+                $updatedAt,
+                $createdAt,
+                null,
+                $owner,
+            );
+
+            $this->clientRepository->add($client);
+
+            // Also persist allowed origins for this client.
+            is_array($allowedOrigins = $form->getValues('array')['allowed_origin'] ?? []) ||
+            throw new OidcException('Unexpected value for allowed origins.');
+            /** @var string[] $allowedOrigins */
+            $this->allowedOriginRepository->set($client->getIdentifier(), $allowedOrigins);
+
+            $this->sessionMessagesService->addMessage(Translate::noop('Client has been added.'));
+
+            return $this->routes->getRedirectResponseToModuleUrl(
+                RoutesEnum::AdminClientsShow->value,
+                [ParametersEnum::ClientId->value => $client->getIdentifier()],
+            );
+        }
 
         return $this->templateFactory->build(
             'oidc:clients/new.twig',
             [
                 'form' => $form,
+                'actionRoute' => $this->routes->urlAdminClientsAdd(),
                 'regexUri' => ClientForm::REGEX_URI,
                 'regexAllowedOriginUrl' => ClientForm::REGEX_ALLOWED_ORIGIN_URL,
                 'regexHttpUri' => ClientForm::REGEX_HTTP_URI,
                 'regexHttpUriPath' => ClientForm::REGEX_HTTP_URI_PATH,
             ],
             RoutesEnum::AdminClients->value,
+        );
+    }
+
+    /**
+     * TODO mivanci Move to ClientEntityFactory::fromRegistrationData on dynamic client registration implementation.
+     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
+     */
+    protected function buildClientFromFormData(
+        Form $form,
+        string $identifier,
+        string $secret,
+        RegistrationTypeEnum $registrationType,
+        \DateTimeImmutable $updatedAt,
+        ?\DateTimeImmutable $createdAt = null,
+        ?\DateTimeImmutable $expiresAt = null,
+        ?string $owner = null,
+    ): ClientEntityInterface {
+        /** @var array $data */
+        $data = $form->getValues('array');
+
+        if (
+            !is_string($data[ClientEntity::KEY_NAME]) ||
+            !is_string($data[ClientEntity::KEY_DESCRIPTION]) ||
+            !is_array($data[ClientEntity::KEY_REDIRECT_URI]) ||
+            !is_array($data[ClientEntity::KEY_SCOPES]) ||
+            !is_array($data[ClientEntity::KEY_POST_LOGOUT_REDIRECT_URI])
+        ) {
+            throw new OidcException('Invalid Client Entity data');
+        }
+
+        /** @var string[] $redirectUris */
+        $redirectUris = $data[ClientEntity::KEY_REDIRECT_URI];
+        /** @var string[] $scopes */
+        $scopes = $data[ClientEntity::KEY_SCOPES];
+        /** @var string[] $postLogoutRedirectUris */
+        $postLogoutRedirectUris = $data[ClientEntity::KEY_POST_LOGOUT_REDIRECT_URI];
+        /** @var ?string[] $clientRegistrationTypes */
+        $clientRegistrationTypes = is_array($data[ClientEntity::KEY_CLIENT_REGISTRATION_TYPES]) ?
+        $data[ClientEntity::KEY_CLIENT_REGISTRATION_TYPES] : null;
+        /** @var ?array[] $federationJwks */
+        $federationJwks = is_array($data[ClientEntity::KEY_FEDERATION_JWKS]) ?
+        $data[ClientEntity::KEY_FEDERATION_JWKS] : null;
+        /** @var ?array[] $jwks */
+        $jwks = is_array($data[ClientEntity::KEY_JWKS]) ? $data[ClientEntity::KEY_JWKS] : null;
+        $jwksUri = empty($data[ClientEntity::KEY_JWKS_URI]) ? null : (string)$data[ClientEntity::KEY_JWKS_URI];
+        $signedJwksUri = empty($data[ClientEntity::KEY_SIGNED_JWKS_URI]) ?
+        null : (string)$data[ClientEntity::KEY_SIGNED_JWKS_URI];
+        $isFederated = (bool)$data[ClientEntity::KEY_IS_FEDERATED];
+
+        return $this->clientEntityFactory->fromData(
+            $identifier,
+            $secret,
+            $data['name'],
+            $data['description'],
+            $redirectUris,
+            $scopes,
+            (bool) $data['is_enabled'],
+            (bool) $data['is_confidential'],
+            empty($data['auth_source']) ? null : (string)$data['auth_source'],
+            $owner,
+            $postLogoutRedirectUris,
+            empty($data['backchannel_logout_uri']) ? null : (string)$data['backchannel_logout_uri'],
+            empty($data['entity_identifier']) ? null : (string)$data['entity_identifier'],
+            $clientRegistrationTypes,
+            $federationJwks,
+            $jwks,
+            $jwksUri,
+            $signedJwksUri,
+            $registrationType,
+            $updatedAt,
+            $createdAt,
+            $expiresAt,
+            $isFederated,
         );
     }
 }

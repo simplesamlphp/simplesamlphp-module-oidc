@@ -43,10 +43,7 @@ return function (RoutingConfigurator $routes): void {
         ->controller([ClientController::class, 'index']);
     $routes->add(RoutesEnum::AdminClientsAdd->name, RoutesEnum::AdminClientsAdd->value)
         ->controller([ClientController::class, 'add'])
-        ->methods([HttpMethodsEnum::GET->value]);
-    $routes->add(RoutesEnum::AdminClientsAddPersist->name, RoutesEnum::AdminClientsAddPersist->value)
-        ->controller([ClientController::class, 'addPersist'])
-        ->methods([HttpMethodsEnum::POST->value]);
+        ->methods([HttpMethodsEnum::GET->value, HttpMethodsEnum::POST->value]);
     $routes->add(RoutesEnum::AdminClientsShow->name, RoutesEnum::AdminClientsShow->value)
         ->controller([ClientController::class, 'show'])
         ->methods([HttpMethodsEnum::GET->value]);

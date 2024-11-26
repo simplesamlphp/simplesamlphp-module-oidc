@@ -80,11 +80,6 @@ class Routes
         return $this->getModuleUrl(RoutesEnum::AdminClientsAdd->value, $parameters);
     }
 
-    public function urlAdminClientsAddPersist(array $parameters = []): string
-    {
-        return $this->getModuleUrl(RoutesEnum::AdminClientsAddPersist->value, $parameters);
-    }
-
     public function urlAdminClientsResetSecret(string $clientId, array $parameters = []): string
     {
         $parameters[ParametersEnum::ClientId->value] = $clientId;
