@@ -16,6 +16,7 @@ declare(strict_types=1);
 
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\XHTML\Template;
 
@@ -24,12 +25,17 @@ use SimpleSAML\XHTML\Template;
  */
 function oidc_hook_federationpage(Template $template): void
 {
-    $href = Module::getModuleURL('oidc/admin-clients/index.php');
-    $text = Translate::noop('OpenID Connect Registry');
+    $routes = new Module\oidc\Utils\Routes(
+        new ModuleConfig(),
+        new Module\oidc\Bridges\SspBridge(),
+    );
+
+    $href = $routes->urlAdminClients();
+    $text = Translate::noop('OIDC Client Registry');
 
     if (! (new DatabaseMigration())->isMigrated()) {
-        $href = Module::getModuleURL('oidc/install.php');
-        $text = Translate::noop('OpenID Connect Installation');
+        $href = $routes->urlAdminMigrations();
+        $text = Translate::noop('OIDC Installation');
     }
 
     if (!is_array($template->data['links'])) {

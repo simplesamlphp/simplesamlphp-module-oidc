@@ -144,7 +144,7 @@ class EditController
             );
         }
 
-        return $this->templateFactory->build('oidc:clients/edit.twig', [
+        return $this->templateFactory->build('oidc:clients/edit-old.twig', [
             'form' => $form,
             'regexUri' => ClientForm::REGEX_URI,
             'regexAllowedOriginUrl' => ClientForm::REGEX_ALLOWED_ORIGIN_URL,

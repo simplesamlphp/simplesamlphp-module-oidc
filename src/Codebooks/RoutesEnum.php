@@ -19,6 +19,7 @@ enum RoutesEnum: string
 
     case AdminClients = 'admin/clients';
     case AdminClientsShow = 'admin/clients/show';
+    case AdminClientsEdit = 'admin/clients/edit';
     case AdminClientsAdd = 'admin/clients/add';
     case AdminClientsResetSecret = 'admin/clients/reset-secret';
     case AdminClientsDelete = 'admin/clients/delete';

@@ -75,6 +75,12 @@ class Routes
         return $this->getModuleUrl(RoutesEnum::AdminClientsShow->value, $parameters);
     }
 
+    public function urlAdminClientsEdit(string $clientId, array $parameters = []): string
+    {
+        $parameters[ParametersEnum::ClientId->value] = $clientId;
+        return $this->getModuleUrl(RoutesEnum::AdminClientsEdit->value, $parameters);
+    }
+
     public function urlAdminClientsAdd(array $parameters = []): string
     {
         return $this->getModuleUrl(RoutesEnum::AdminClientsAdd->value, $parameters);

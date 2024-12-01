@@ -67,7 +67,7 @@
                             <a class="pure-button" href="{{ routes.urlAdminClientsShow(client.getIdentifier) }}">
                                 <i class="fa fa-eye"></i>
                             </a>
-                            <a class="pure-button" href="#">
+                            <a class="pure-button" href="{{ routes.urlAdminClientsEdit(client.getIdentifier) }}">
                                 <i class="fa fa-pen-to-square"></i>
                             </a>
                             <input type="hidden" name="secret" value="{{ client.secret }}">

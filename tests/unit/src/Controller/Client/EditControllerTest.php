@@ -161,7 +161,7 @@ class EditControllerTest extends TestCase
         $this->clientFormMock->expects($this->once())->method('isSuccess')->willReturn(false);
         $this->formFactoryMock->expects($this->once())->method('build')->willReturn($this->clientFormMock);
         $this->templateFactoryMock->expects($this->once())->method('build')->with(
-            'oidc:clients/edit.twig',
+            'oidc:clients/edit-old.twig',
             [
                 'form' => $this->clientFormMock,
                 'regexUri' => ClientForm::REGEX_URI,

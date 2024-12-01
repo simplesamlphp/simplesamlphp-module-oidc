@@ -79,7 +79,12 @@ key `authproc.oidc`
 
 ## Low impact changes
 
-Below are some internal changes that should not have impact for the OIDC OP implementors. However, if you are using
+In an effort to move to SimpleSAMLphp way of working with user interface (UI), the client management UI was updated
+to extend from the SimpleSAMLphp base template. In addition, we have also introduced some configuration overview pages
+where you can take a quick view of some of the configuration values for the module. OIDC related pages are now available
+from the main SimpleSAMLphp menu in Administration area.  
+
+Below are also some internal changes that should not have impact for the OIDC OP implementors. However, if you are using
 this module as a library or extending from it, you will probably encounter breaking changes, since a lot of code
 has been refactored:
 

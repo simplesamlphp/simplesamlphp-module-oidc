@@ -9,8 +9,6 @@
     </div>
 {% endif %}
 
-<p>{{ form.hasErrors ? 'yes' : 'no' }}</p>
-
 <form method="post"
       action="{{ actionRoute }}"
         class="pure-form pure-form-stacked">
@@ -19,12 +17,178 @@
 
     <fieldset>
         <label for="frm-name">{{ 'Name'|trans }}</label>
-        {{ form.name.label |raw }}
         {{ form.name.control | raw }}
         {% if form.name.hasErrors %}
         <span class="pure-form-message red-text">{{ form.name.getError }}</span>
         {% endif %}
 
+        <label for="frm-description">{{ 'Description'|trans }}</label>
+        {{ form.description.control | raw }}
+        {% if form.description.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.description.getError }}</span>
+        {% endif %}
+
+        <label for="">{{ 'Status'|trans }}</label>
+        <label for="radio-option-enabled" class="pure-radio">
+            <input type="radio"
+                   name="is_enabled"
+                   id="radio-option-enabled"
+                   {% if form.is_enabled.value %}checked=""{% endif %}
+                   value="1" /> {{ 'Enabled'|trans }}
+        </label>
+        <label for="radio-option-disabled" class="pure-radio">
+            <input type="radio"
+                   name="is_enabled"
+                   id="radio-option-disabled"
+                   {% if not form.is_enabled.value %}checked=""{% endif %}
+                   value="0" /> {{ 'Disabled'|trans }}
+        </label>
+
+        <label for="">{{ 'Type'|trans }}</label>
+        <label for="radio-option-confidential" class="pure-radio">
+            <input type="radio"
+                   name="is_confidential"
+                   id="radio-option-confidential"
+                   {% if form.is_confidential.value %}checked=""{% endif %}
+                   value="1" /> {{ 'Confidential'|trans }}
+        </label>
+        <label for="radio-option-public" class="pure-radio">
+            <input type="radio"
+                   name="is_confidential"
+                   id="radio-option-public"
+                   {% if not form.is_confidential.value %}checked=""{% endif %}
+                   value="0" /> {{ 'Public'|trans }}
+        </label>
+        <span class="pure-form-message">
+            {% trans %}Choose if client is confidential or public. Confidential clients are capable of maintaining the confidentiality of their credentials (e.g., client implemented on a secure server with restricted access to the client credentials), or capable of secure client authentication using other means. Public clients are incapable of maintaining the confidentiality of their credentials (e.g., clients executing on the device used by the resource owner, such as an installed native application or a web browser-based application), and incapable of secure client authentication via any other means.{% endtrans %}
+        </span>
+
+        <label for="frm-redirect_uri">{{ 'Redirect URIs'|trans }}</label>
+        {{ form.redirect_uri.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}Allowed redirect URIs to which the authorization response will be sent. Must be a valid URI, one per line. Example: https://example.org/foo?bar=1{% endtrans %}
+        </span>
+        {% if form.redirect_uri.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.redirect_uri.getError }}</span>
+        {% endif %}
+
+        <label for="frm-auth_source">{{ 'Authentication Source'|trans }}</label>
+        {{ form.auth_source.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}Authentication source for this particular client. If no authentication source is selected, the default one from configuration file will be used.{% endtrans %}
+        </span>
+        {% if form.auth_source.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.auth_source.getError }}</span>
+        {% endif %}
+
+        <label for="frm-scopes">{{ 'Scopes'|trans }}</label>
+        {{ form.scopes.control | raw }}
+        {% if form.scopes.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.scopes.getError }}</span>
+        {% endif %}
+
+        <label for="frm-backchannel_logout_uri">{{ 'Back-Channel Logout URI'|trans }}</label>
+        {{ form.backchannel_logout_uri.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}Enter if client supports Back-Channel Logout specification. When logout is initiated at the OpenID Provider, it will send a Logout Token to this URI in order to notify the client about that event. Must be a valid URI. Example: https://example.org/foo?bar=1{% endtrans %}
+        </span>
+        {% if form.backchannel_logout_uri.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.backchannel_logout_uri.getError }}</span>
+        {% endif %}
+
+        <label for="frm-post_logout_redirect_uri">{{ 'Post-Logout Redirect URIs'|trans }}</label>
+        {{ form.post_logout_redirect_uri.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}Allowed redirect URIs to use after client initiated logout. Must be a valid URI, one per line. Example: https://example.org/foo?bar=1{% endtrans %}
+        </span>
+        {% if form.post_logout_redirect_uri.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.post_logout_redirect_uri.getError }}</span>
+        {% endif %}
+
+        <label for="frm-allowed_origin">{{ 'Allowed Origins (for public client)'|trans }}</label>
+        {{ form.allowed_origin.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}URLs as allowed origins for CORS requests, for public clients running in browser. Must have http:// or https:// scheme, and at least one 'domain.top-level-domain' pair, or more subdomains. Top-level-domain may end with '.'. No userinfo, path, query or fragment components allowed. May end with port number. One per line. Example: https://example.org{% endtrans %}
+        </span>
+        {% if form.allowed_origin.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.allowed_origin.getError }}</span>
+        {% endif %}
+
+        <label for="frm-signed_jwks_uri">{{ 'Signed JWKS URI'|trans }}</label>
+        {{ form.signed_jwks_uri.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}URL to a JWS document containing protocol public keys in JWKS format (claim 'keys'). Example: https://example.org/signed-jwks{% endtrans %}
+        </span>
+        {% if form.signed_jwks_uri.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.signed_jwks_uri.getError }}</span>
+        {% endif %}
+
+        <label for="frm-jwks_uri">{{ 'JWKS URI'|trans }}</label>
+        {{ form.jwks_uri.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}URL to a JWKS document containing protocol public keys. Will be used if Signed JWKS URI is not set. Example: https://example.org/jwks{% endtrans %}
+        </span>
+        {% if form.jwks_uri.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.jwks_uri.getError }}</span>
+        {% endif %}
+
+        <label for="frm-jwks">{{ 'JWKS'|trans }}</label>
+        {{ form.jwks.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}JSON object (string) representing JWKS document containing protocol public keys. Note that this should be different from Federation JWKS. Will be used if JWKS URI is not set. Example: {"keys":[{"kty": "RSA","n": "...","e": "AQAB","kid": "pro123","use": "sig","alg": "RS256"}]}{% endtrans %}
+        </span>
+        {% if form.jwks.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.jwks.getError }}</span>
+        {% endif %}
+
+        <br>
+        <h4>{{ 'OpenID Federation Related Properties'|trans }}</h4>
+
+        <label for="">{{ 'Is Federated'|trans }}</label>
+        <label for="radio-option-federated-yes" class="pure-radio">
+            <input type="radio"
+                   name="is_federated"
+                   id="radio-option-federated-yes"
+                   {% if form.is_federated.value %}checked=""{% endif %}
+                   value="1" /> {{ 'Yes'|trans }}
+        </label>
+        <label for="radio-option-federated-no" class="pure-radio">
+            <input type="radio"
+                   name="is_federated"
+                   id="radio-option-federated-no"
+                   {% if not form.is_federated.value %}checked=""{% endif %}
+                   value="0" /> {{ 'No'|trans }}
+        </label>
+        <span class="pure-form-message">
+            {% trans %}Choose if the client is allowed to participate in federation context or not.{% endtrans %}
+        </span>
+
+        <label for="frm-entity_identifier">{{ 'Entity Identifier'|trans }}</label>
+        {{ form.entity_identifier.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}A globally unique URI that is bound to the entity. URI must have https or http scheme and host / domain. It can contain path, but no query, or fragment component.{% endtrans %}
+        </span>
+        {% if form.entity_identifier.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.entity_identifier.getError }}</span>
+        {% endif %}
+
+        <label for="frm-client_registration_types">{{ 'Registration Types'|trans }}</label>
+        {{ form.client_registration_types.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}One or more values from the list. If not selected, falls back to 'automatic'{% endtrans %}
+        </span>
+        {% if form.client_registration_types.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.client_registration_types.getError }}</span>
+        {% endif %}
+
+        <label for="frm-federation_jwks">{{ 'Federation JWKS'|trans }}</label>
+        {{ form.federation_jwks.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}JSON object (string) representing federation JWKS. This can be used, for example, in entity statements. Note that this should be different from Protocol JWKS. Example: {"keys":[{"kty": "RSA","n": "...","e": "AQAB","kid": "fed123","use": "sig","alg": "RS256"}]}{% endtrans %}
+        </span>
+        {% if form.federation_jwks.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.federation_jwks.getError }}</span>
+        {% endif %}
 
         <br>
         <button type="submit" class="pure-button ">{{ (actionText|default('Submit'))|trans }}</button>

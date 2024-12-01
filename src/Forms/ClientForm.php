@@ -341,11 +341,14 @@ class ClientForm extends Form
         $this->addComponent($this->csrfProtection, Form::ProtectorId);
 
         $this->addText('name', '{oidc:client:name}')
+            ->setHtmlAttribute('class', 'full-width')
             ->setMaxLength(255)
             ->setRequired(Translate::noop('Name is required.'));
 
-        $this->addTextArea('description', '{oidc:client:description}', null, 5);
+        $this->addTextArea('description', '{oidc:client:description}', null, 3)
+            ->setHtmlAttribute('class', 'full-width');
         $this->addTextArea('redirect_uri', '{oidc:client:redirect_uri}', null, 5)
+            ->setHtmlAttribute('class', 'full-width')
             ->setRequired(Translate::noop('At least one redirect URI is required.'));
 
         $this->addCheckbox('is_enabled', '{oidc:client:is_enabled}');
@@ -354,38 +357,49 @@ class ClientForm extends Form
 
         // TODO mivanci Source::getSource() move to SSP Bridge.
         $this->addSelect('auth_source', '{oidc:client:auth_source}:')
-            ->setHtmlAttribute('class', 'ui fluid dropdown clearable')
+            ->setHtmlAttribute('class', 'full-width')
             ->setItems(Source::getSources(), false)
-            ->setPrompt(Translate::noop('Pick an AuthSource'));
+            ->setPrompt(Translate::noop('-'));
 
         $scopes = $this->getScopes();
 
-        $this->addMultiSelect('scopes', '{oidc:client:scopes}')
-            ->setHtmlAttribute('class', 'ui fluid dropdown')
-            ->setItems($scopes)
+        $this->addMultiSelect('scopes', '{oidc:client:scopes}', $scopes, 10)
+            ->setHtmlAttribute('class', 'full-width')
             ->setRequired(Translate::noop('At least one scope is required.'));
 
         $this->addText('owner', '{oidc:client:owner}')
             ->setMaxLength(190);
-        $this->addTextArea('post_logout_redirect_uri', '{oidc:client:post_logout_redirect_uri}', null, 5);
-        $this->addTextArea('allowed_origin', '{oidc:client:allowed_origin}', null, 5);
+        $this->addTextArea('post_logout_redirect_uri', '{oidc:client:post_logout_redirect_uri}', null, 5)
+            ->setHtmlAttribute('class', 'full-width');
+        $this->addTextArea('allowed_origin', '{oidc:client:allowed_origin}', null, 5)
+            ->setHtmlAttribute('class', 'full-width');
 
-        $this->addText('backchannel_logout_uri', '{oidc:client:backchannel_logout_uri}');
+        $this->addText('backchannel_logout_uri', '{oidc:client:backchannel_logout_uri}')
+            ->setHtmlAttribute('class', 'full-width');
 
-        $this->addText('entity_identifier', 'Entity Identifier');
+        $this->addText('entity_identifier', 'Entity Identifier')
+            ->setHtmlAttribute('class', 'full-width');
 
-        $this->addMultiSelect('client_registration_types', 'Registration types')
-            ->setHtmlAttribute('class', 'ui fluid dropdown')
-            ->setItems($this->getClientRegistrationTypes());
+        $this->addMultiSelect(
+            'client_registration_types',
+            'Registration types',
+            $this->getClientRegistrationTypes(),
+            2,
+        )->setHtmlAttribute('class', 'full-width');
 
-        $this->addTextArea('federation_jwks', '{oidc:client:federation_jwks}', null, 5);
+        $this->addTextArea('federation_jwks', '{oidc:client:federation_jwks}', null, 5)
+            ->setHtmlAttribute('class', 'full-width');
 
-        $this->addTextArea('jwks', '{oidc:client:jwks}', null, 5);
+        $this->addTextArea('jwks', '{oidc:client:jwks}', null, 5)
+            ->setHtmlAttribute('class', 'full-width');
 
-        $this->addText('jwks_uri', 'JWKS URI');
-        $this->addText('signed_jwks_uri', 'Signed JWKS URI');
+        $this->addText('jwks_uri', 'JWKS URI')
+            ->setHtmlAttribute('class', 'full-width');
+        $this->addText('signed_jwks_uri', 'Signed JWKS URI')
+            ->setHtmlAttribute('class', 'full-width');
 
-        $this->addCheckbox('is_federated', '{oidc:client:is_federated}');
+        $this->addCheckbox('is_federated', '{oidc:client:is_federated}')
+            ->setHtmlAttribute('class', 'full-width');
     }
 
     /**

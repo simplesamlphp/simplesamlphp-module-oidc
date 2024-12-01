@@ -168,7 +168,7 @@ class ClientController
 
             $owner = $this->authorization->isAdmin() ? null : $this->authorization->getUserId();
 
-            $client = $this->buildClientFromFormData(
+            $client = $this->buildClientEntityFromFormData(
                 $form,
                 $this->sspBridge->utils()->random()->generateID(),
                 $this->sspBridge->utils()->random()->generateID(),
@@ -178,6 +178,8 @@ class ClientController
                 null,
                 $owner,
             );
+
+            // TODO mivanci Check if the entity identifier already exists.
 
             $this->clientRepository->add($client);
 
@@ -210,10 +212,74 @@ class ClientController
     }
 
     /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
+     * @throws \JsonException
+     */
+    public function edit(Request $request): Response
+    {
+        $originalClient = $this->getClientFromRequest($request);
+        $clientAllowedOrigins = $this->allowedOriginRepository->get($originalClient->getIdentifier());
+        $form = $this->formFactory->build(ClientForm::class);
+
+        $clientData = $originalClient->toArray();
+        $clientData['allowed_origin'] = $clientAllowedOrigins;
+        $form->setDefaults($clientData);
+
+        if ($form->isSuccess()) {
+            $updatedAt = $this->helpers->dateTime()->getUtc();
+
+            $updatedClient = $this->buildClientEntityFromFormData(
+                $form,
+                $originalClient->getIdentifier(),
+                $originalClient->getSecret(),
+                $originalClient->getRegistrationType(),
+                $updatedAt,
+                $originalClient->getCreatedAt(),
+                $originalClient->getExpiresAt(),
+                $originalClient->getOwner(),
+            );
+
+            // TODO mivanci Check if the entity identifier already exists for other client.
+
+            $this->clientRepository->update($updatedClient);
+
+            // Also persist allowed origins for this client.
+            is_array($allowedOrigins = $form->getValues('array')['allowed_origin'] ?? []) ||
+            throw new OidcException('Unexpected value for allowed origins.');
+            /** @var string[] $allowedOrigins */
+            $this->allowedOriginRepository->set($originalClient->getIdentifier(), $allowedOrigins);
+
+            $this->sessionMessagesService->addMessage(Translate::noop('Client has been updated.'));
+
+            return $this->routes->getRedirectResponseToModuleUrl(
+                RoutesEnum::AdminClientsShow->value,
+                [ParametersEnum::ClientId->value => $originalClient->getIdentifier()],
+            );
+        }
+
+        return $this->templateFactory->build(
+            'oidc:clients/edit.twig',
+            [
+                'originalClient' => $originalClient,
+                'form' => $form,
+                'actionRoute' => $this->routes->urlAdminClientsEdit($originalClient->getIdentifier()),
+                'regexUri' => ClientForm::REGEX_URI,
+                'regexAllowedOriginUrl' => ClientForm::REGEX_ALLOWED_ORIGIN_URL,
+                'regexHttpUri' => ClientForm::REGEX_HTTP_URI,
+                'regexHttpUriPath' => ClientForm::REGEX_HTTP_URI_PATH,
+            ],
+            RoutesEnum::AdminClients->value,
+        );
+    }
+
+    /**
      * TODO mivanci Move to ClientEntityFactory::fromRegistrationData on dynamic client registration implementation.
      * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
      */
-    protected function buildClientFromFormData(
+    protected function buildClientEntityFromFormData(
         Form $form,
         string $identifier,
         string $secret,

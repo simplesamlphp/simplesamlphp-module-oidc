@@ -47,6 +47,9 @@ return function (RoutingConfigurator $routes): void {
     $routes->add(RoutesEnum::AdminClientsShow->name, RoutesEnum::AdminClientsShow->value)
         ->controller([ClientController::class, 'show'])
         ->methods([HttpMethodsEnum::GET->value]);
+    $routes->add(RoutesEnum::AdminClientsEdit->name, RoutesEnum::AdminClientsEdit->value)
+        ->controller([ClientController::class, 'edit'])
+        ->methods([HttpMethodsEnum::GET->value, HttpMethodsEnum::POST->value]);
     $routes->add(RoutesEnum::AdminClientsResetSecret->name, RoutesEnum::AdminClientsResetSecret->value)
         ->controller([ClientController::class, 'resetSecret'])
         ->methods([HttpMethodsEnum::POST->value]);

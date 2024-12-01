@@ -115,6 +115,6 @@ table.client-table {
 
 .confirm-action {}
 
-form.pure-form-stacked input {
+form.pure-form-stacked .full-width {
     width: 100%;
 }
