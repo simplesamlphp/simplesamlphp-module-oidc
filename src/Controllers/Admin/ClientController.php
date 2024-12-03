@@ -107,7 +107,7 @@ class ClientController
     {
         $client = $this->getClientFromRequest($request);
 
-        $oldSecret = $request->request->get('secret');
+        $oldSecret = $request->request->getString('secret');
 
         if ($oldSecret !== $client->getSecret()) {
             throw new OidcException('Client secret does not match on secret reset.');
@@ -134,7 +134,7 @@ class ClientController
     {
         $client = $this->getClientFromRequest($request);
 
-        $secret = $request->request->get('secret');
+        $secret = $request->request->getString('secret');
 
         if ($secret !== $client->getSecret()) {
             throw new OidcException('Client secret does not match on delete.');
@@ -179,26 +179,38 @@ class ClientController
                 $owner,
             );
 
-            // TODO mivanci Check if the entity identifier already exists.
+            if ($this->clientRepository->findById($client->getIdentifier())) {
+                $message = Translate::noop('Client with generated ID already exists.');
+                $this->logger->warning($message, $client->getState());
+                $this->sessionMessagesService->addMessage($message);
+            } elseif (
+                ($entityIdentifier = $client->getEntityIdentifier()) &&
+                $this->clientRepository->findByEntityIdentifier($entityIdentifier)
+            ) {
+                $message = Translate::noop('Client with given entity identifier already exists.');
+                $this->logger->warning($message, $client->getState());
+                $this->sessionMessagesService->addMessage($message);
+            } else {
+                $this->clientRepository->add($client);
 
-            $this->clientRepository->add($client);
+                // Also persist allowed origins for this client.
+                is_array($allowedOrigins = $form->getValues('array')['allowed_origin'] ?? []) ||
+                throw new OidcException('Unexpected value for allowed origins.');
+                /** @var string[] $allowedOrigins */
+                $this->allowedOriginRepository->set($client->getIdentifier(), $allowedOrigins);
+                $message = Translate::noop('Client has been added.');
+                $this->logger->info($message, $client->getState());
+                $this->sessionMessagesService->addMessage($message);
 
-            // Also persist allowed origins for this client.
-            is_array($allowedOrigins = $form->getValues('array')['allowed_origin'] ?? []) ||
-            throw new OidcException('Unexpected value for allowed origins.');
-            /** @var string[] $allowedOrigins */
-            $this->allowedOriginRepository->set($client->getIdentifier(), $allowedOrigins);
-
-            $this->sessionMessagesService->addMessage(Translate::noop('Client has been added.'));
-
-            return $this->routes->getRedirectResponseToModuleUrl(
-                RoutesEnum::AdminClientsShow->value,
-                [ParametersEnum::ClientId->value => $client->getIdentifier()],
-            );
+                return $this->routes->getRedirectResponseToModuleUrl(
+                    RoutesEnum::AdminClientsShow->value,
+                    [ParametersEnum::ClientId->value => $client->getIdentifier()],
+                );
+            }
         }
 
         return $this->templateFactory->build(
-            'oidc:clients/new.twig',
+            'oidc:clients/add.twig',
             [
                 'form' => $form,
                 'actionRoute' => $this->routes->urlAdminClientsAdd(),
@@ -242,22 +254,33 @@ class ClientController
                 $originalClient->getOwner(),
             );
 
-            // TODO mivanci Check if the entity identifier already exists for other client.
+            // We have to make sure that the Entity Identifier is unique.
+            if (
+                ($updatedClientEntityIdentifier = $updatedClient->getEntityIdentifier()) &&
+                ($clientByEntityIdentifier = $this->clientRepository->findByEntityIdentifier(
+                    $updatedClientEntityIdentifier,
+                )) &&
+                $updatedClient->getIdentifier() !== $clientByEntityIdentifier->getIdentifier()
+            ) {
+                $message = Translate::noop('Client with given entity identifier already exists.');
+                $this->logger->warning($message, $updatedClient->getState());
+                $this->sessionMessagesService->addMessage($message);
+            } else {
+                $this->clientRepository->update($updatedClient);
 
-            $this->clientRepository->update($updatedClient);
+                // Also persist allowed origins for this client.
+                is_array($allowedOrigins = $form->getValues('array')['allowed_origin'] ?? []) ||
+                throw new OidcException('Unexpected value for allowed origins.');
+                /** @var string[] $allowedOrigins */
+                $this->allowedOriginRepository->set($originalClient->getIdentifier(), $allowedOrigins);
 
-            // Also persist allowed origins for this client.
-            is_array($allowedOrigins = $form->getValues('array')['allowed_origin'] ?? []) ||
-            throw new OidcException('Unexpected value for allowed origins.');
-            /** @var string[] $allowedOrigins */
-            $this->allowedOriginRepository->set($originalClient->getIdentifier(), $allowedOrigins);
+                $this->sessionMessagesService->addMessage(Translate::noop('Client has been updated.'));
 
-            $this->sessionMessagesService->addMessage(Translate::noop('Client has been updated.'));
-
-            return $this->routes->getRedirectResponseToModuleUrl(
-                RoutesEnum::AdminClientsShow->value,
-                [ParametersEnum::ClientId->value => $originalClient->getIdentifier()],
-            );
+                return $this->routes->getRedirectResponseToModuleUrl(
+                    RoutesEnum::AdminClientsShow->value,
+                    [ParametersEnum::ClientId->value => $originalClient->getIdentifier()],
+                );
+            }
         }
 
         return $this->templateFactory->build(

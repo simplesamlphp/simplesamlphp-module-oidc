@@ -191,7 +191,7 @@ class EntityStatementController
             return $this->prepareEntityStatementResponse((string)$cachedSubordinateStatement);
         }
 
-        $client = $this->clientRepository->findFederated($subject);
+        $client = $this->clientRepository->findByEntityIdentifier($subject);
         if (empty($client)) {
             return $this->prepareJsonErrorResponse(
                 ErrorsEnum::NotFound->value,
