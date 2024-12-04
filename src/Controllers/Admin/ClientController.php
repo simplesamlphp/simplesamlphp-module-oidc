@@ -121,7 +121,7 @@ class ClientController
         $this->logger->info($message, $client->getState());
         $this->sessionMessagesService->addMessage($message);
 
-        return $this->routes->getRedirectResponseToModuleUrl(
+        return $this->routes->newRedirectResponseToModuleUrl(
             RoutesEnum::AdminClientsShow->value,
             [ParametersEnum::ClientId->value => $client->getIdentifier()],
         );
@@ -148,7 +148,7 @@ class ClientController
         $this->logger->warning($message, $client->getState());
         $this->sessionMessagesService->addMessage($message);
 
-        return $this->routes->getRedirectResponseToModuleUrl(
+        return $this->routes->newRedirectResponseToModuleUrl(
             RoutesEnum::AdminClients->value,
         );
     }
@@ -202,7 +202,7 @@ class ClientController
                 $this->logger->info($message, $client->getState());
                 $this->sessionMessagesService->addMessage($message);
 
-                return $this->routes->getRedirectResponseToModuleUrl(
+                return $this->routes->newRedirectResponseToModuleUrl(
                     RoutesEnum::AdminClientsShow->value,
                     [ParametersEnum::ClientId->value => $client->getIdentifier()],
                 );
@@ -276,7 +276,7 @@ class ClientController
 
                 $this->sessionMessagesService->addMessage(Translate::noop('Client has been updated.'));
 
-                return $this->routes->getRedirectResponseToModuleUrl(
+                return $this->routes->newRedirectResponseToModuleUrl(
                     RoutesEnum::AdminClientsShow->value,
                     [ParametersEnum::ClientId->value => $originalClient->getIdentifier()],
                 );

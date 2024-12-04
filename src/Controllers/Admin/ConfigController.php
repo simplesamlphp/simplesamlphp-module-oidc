@@ -45,14 +45,14 @@ class ConfigController
         if ($this->databaseMigration->isMigrated()) {
             $message = Translate::noop('Database is already migrated.');
             $this->sessionMessagesService->addMessage($message);
-            return $this->routes->getRedirectResponseToModuleUrl(RoutesEnum::AdminMigrations->value);
+            return $this->routes->newRedirectResponseToModuleUrl(RoutesEnum::AdminMigrations->value);
         }
 
         $this->databaseMigration->migrate();
         $message = Translate::noop('Database migrated successfully.');
         $this->sessionMessagesService->addMessage($message);
 
-        return $this->routes->getRedirectResponseToModuleUrl(RoutesEnum::AdminMigrations->value);
+        return $this->routes->newRedirectResponseToModuleUrl(RoutesEnum::AdminMigrations->value);
     }
 
     public function protocolSettings(): Response

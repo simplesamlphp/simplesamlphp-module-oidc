@@ -13,6 +13,7 @@ use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
+use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ContentTypesEnum;
@@ -21,7 +22,6 @@ use SimpleSAML\OpenID\Codebooks\ErrorsEnum;
 use SimpleSAML\OpenID\Codebooks\HttpHeadersEnum;
 use SimpleSAML\OpenID\Codebooks\JwtTypesEnum;
 use SimpleSAML\OpenID\Federation;
-use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -40,6 +40,7 @@ class EntityStatementController
         private readonly OpMetadataService $opMetadataService,
         private readonly ClientRepository $clientRepository,
         private readonly Helpers $helpers,
+        private readonly Routes $routes,
         private readonly Federation $federation,
         private readonly ?FederationCache $federationCache,
     ) {
@@ -171,7 +172,7 @@ class EntityStatementController
         $subject = $request->query->get(ClaimsEnum::Sub->value);
 
         if (empty($subject)) {
-            return $this->prepareJsonErrorResponse(
+            return $this->routes->newJsonErrorResponse(
                 ErrorsEnum::InvalidRequest->value,
                 sprintf('Missing parameter %s', ClaimsEnum::Sub->value),
                 400,
@@ -193,7 +194,7 @@ class EntityStatementController
 
         $client = $this->clientRepository->findByEntityIdentifier($subject);
         if (empty($client)) {
-            return $this->prepareJsonErrorResponse(
+            return $this->routes->newJsonErrorResponse(
                 ErrorsEnum::NotFound->value,
                 sprintf('Subject not found (%s)', $subject),
                 404,
@@ -202,7 +203,7 @@ class EntityStatementController
 
         $jwks = $client->getFederationJwks();
         if (empty($jwks)) {
-            return $this->prepareJsonErrorResponse(
+            return $this->routes->newJsonErrorResponse(
                 ErrorsEnum::InvalidClient->value,
                 sprintf('Subject does not contain JWKS claim (%s)', $subject),
                 401,
@@ -263,21 +264,10 @@ class EntityStatementController
 
     protected function prepareEntityStatementResponse(string $entityStatementToken): Response
     {
-        return new Response(
+        return $this->routes->newResponse(
             $entityStatementToken,
             200,
             [HttpHeadersEnum::ContentType->value => ContentTypesEnum::ApplicationEntityStatementJwt->value,],
-        );
-    }
-
-    protected function prepareJsonErrorResponse(string $error, string $description, int $httpCode = 500): JsonResponse
-    {
-        return new JsonResponse(
-            [
-                'error' => $error,
-                'error_description' => $description,
-            ],
-            $httpCode,
         );
     }
 }

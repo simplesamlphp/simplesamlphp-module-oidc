@@ -8,7 +8,9 @@ use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Codebooks\ParametersEnum;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class Routes
 {
@@ -25,7 +27,11 @@ class Routes
         return $this->sspBridge->module()->getModuleUrl($resource, $parameters);
     }
 
-    public function getRedirectResponseToModuleUrl(
+    /*****************************************************************************************************************
+     * Response factory methods.
+     ****************************************************************************************************************/
+
+    public function newRedirectResponseToModuleUrl(
         string $resource = '',
         array $parameters = [],
         int $status = 302,
@@ -38,8 +44,38 @@ class Routes
         );
     }
 
+    public function newResponse(
+        ?string $content = '',
+        int $status = 200,
+        array $headers = [],
+    ): Response {
+        return new Response($content, $status, $headers);
+    }
+
+    public function newJsonResponse(
+        mixed $data = null,
+        int $status = 200,
+        array $headers = [],
+        bool $json = false,
+    ): JsonResponse {
+        return new JsonResponse($data, $status, $headers, $json);
+    }
+
+    public function newJsonErrorResponse(
+        string $error,
+        string $description,
+        int $httpCode = 500,
+        array $headers = [],
+    ): JsonResponse {
+        return $this->newJsonResponse(
+            ['error' => $error, 'error_description' => $description],
+            $httpCode,
+            $headers,
+        );
+    }
+
     /*****************************************************************************************************************
-     * Admin area
+     * Admin area URLs.
      ****************************************************************************************************************/
 
     public function urlAdminConfigProtocol(array $parameters = []): string
@@ -99,7 +135,7 @@ class Routes
     }
 
     /*****************************************************************************************************************
-     * OpenID Connect
+     * OpenID Connect URLs.
      ****************************************************************************************************************/
 
     public function urlConfiguration(array $parameters = []): string
@@ -133,7 +169,7 @@ class Routes
     }
 
     /*****************************************************************************************************************
-     * OpenID Federation
+     * OpenID Federation URLs.
      ****************************************************************************************************************/
 
     public function urlFederationConfiguration(array $parameters = []): string
