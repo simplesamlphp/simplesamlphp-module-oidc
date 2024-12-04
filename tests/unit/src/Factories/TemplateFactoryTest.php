@@ -81,7 +81,7 @@ class TemplateFactoryTest extends TestCase
 
     public function testCanBuildTemplate(): void
     {
-        $template = $this->sut()->build('oidc:clients/index.twig', [], 'path');
+        $template = $this->sut()->build('oidc:clients.twig', [], 'path');
 
         $this->assertInstanceOf(Template::class, $template);
     }
@@ -93,7 +93,7 @@ class TemplateFactoryTest extends TestCase
         $this->sspBridgeModuleAdminMock->expects($this->once())->method('buildSspAdminMenu')
         ->willReturn(new \SimpleSAML\Module\admin\Controller\Menu()); // SSP Admin Menu is final so can't be mocked.
 
-        $this->sut()->build('oidc:clients/index.twig');
+        $this->sut()->build('oidc:clients.twig');
     }
 
     public function testCanSetActiveHrefPath(): void
@@ -111,5 +111,7 @@ class TemplateFactoryTest extends TestCase
         $sut = $this->sut();
         $this->assertInstanceOf(TemplateFactory::class, $sut->setShowMenu(true));
         $this->assertInstanceOf(TemplateFactory::class, $sut->setIncludeDefaultMenuItems(true));
+        $this->assertInstanceOf(TemplateFactory::class, $sut->setShowModuleName(true));
+        $this->assertInstanceOf(TemplateFactory::class, $sut->setShowSubPageTitle(true));
     }
 }

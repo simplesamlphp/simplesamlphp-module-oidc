@@ -197,8 +197,14 @@ class EndSessionController
             return new RedirectResponse($postLogoutRedirectUri);
         }
 
-        return $this->templateFactory->build('oidc:/logout.twig', [
-            'wasLogoutActionCalled' => $wasLogoutActionCalled,
-        ]);
+        return $this->templateFactory->build(
+            templateName:  'oidc:/logout.twig',
+            data: [
+                'wasLogoutActionCalled' => $wasLogoutActionCalled,
+            ],
+            showMenu: false,
+            showModuleName: false,
+            showSubPageTitle: false,
+        );
     }
 }

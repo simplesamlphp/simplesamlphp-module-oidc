@@ -30,6 +30,8 @@ class TemplateFactory
 {
     protected bool $showMenu = true;
     protected bool $includeDefaultMenuItems = true;
+    protected bool $showModuleName = true;
+    protected bool $showSubPageTitle = true;
 
     public function __construct(
         protected readonly Configuration $sspConfiguration,
@@ -48,10 +50,19 @@ class TemplateFactory
         string $templateName,
         array $data = [],
         string $activeHrefPath = null,
+        ?bool $includeDefaultMenuItems = null,
+        ?bool $showMenu = null,
+        ?bool $showModuleName = null,
+        ?bool $showSubPageTitle = null,
     ): Template {
         $template = new Template($this->sspConfiguration, $templateName);
 
-        if ($this->includeDefaultMenuItems) {
+        $includeDefaultMenuItems ??= $this->includeDefaultMenuItems;
+        $showMenu ??= $this->showMenu;
+        $showModuleName ??= $this->showModuleName;
+        $showSubPageTitle ??= $this->showSubPageTitle;
+
+        if ($includeDefaultMenuItems) {
             $this->includeDefaultMenuItems();
         }
 
@@ -63,12 +74,14 @@ class TemplateFactory
             'sspConfiguration' => $this->sspConfiguration,
             'moduleConfiguration' => $this->moduleConfig,
             'oidcMenu' => $this->oidcMenu,
-            'showMenu' => $this->showMenu,
+            'showMenu' => $showMenu,
+            'showModuleName' => $showModuleName,
+            'showSubpageTitle' => $showSubPageTitle,
             'sessionMessages' => $this->sessionMessagesService->getMessages(),
             'routes' => $this->routes,
         ];
 
-        if ($this->sspBridge->module()->isModuleEnabled('admin')) {
+        if ($this->showMenu && $this->sspBridge->module()->isModuleEnabled('admin')) {
             $template->addTemplatesFromModule('admin');
             $sspMenu = $this->sspBridge->module()->admin()->buildSspAdminMenu();
             $sspMenu->addOption(
@@ -139,5 +152,17 @@ class TemplateFactory
     public function getActiveHrefPath(): ?string
     {
         return $this->oidcMenu->getActiveHrefPath();
+    }
+
+    public function setShowModuleName(bool $showModuleName): ?TemplateFactory
+    {
+        $this->showModuleName = $showModuleName;
+        return $this;
+    }
+
+    public function setShowSubPageTitle(bool $showSubPageTitle): TemplateFactory
+    {
+        $this->showSubPageTitle = $showSubPageTitle;
+        return $this;
     }
 }

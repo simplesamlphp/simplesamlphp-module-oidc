@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\unit\Controller;
+namespace SimpleSAML\Test\Module\oidc\unit\Controllers;
 
 use Laminas\Diactoros\ServerRequest;
 use PHPUnit\Framework\MockObject\MockObject;

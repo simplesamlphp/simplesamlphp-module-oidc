@@ -11,9 +11,13 @@
 
 {% block content %}
 
-    {%- include "@admin/includes/menu.twig" %}
+    {% if showMenu %}
+        {%- include "@admin/includes/menu.twig" %}
+    {% endif %}
 
-    <h2>{{ moduleName }}</h2>
+    {% if showModuleName %}
+        <h2>{{ moduleName }}</h2>
+    {% endif %}
 
     <div class="oidc-container">
 
@@ -22,7 +26,9 @@
         {% endif %}
 
         <div class="content">
-            <h3>{{ subPageTitle }}</h3>
+            {% if showSubpageTitle %}
+                <h3>{{ subPageTitle }}</h3>
+            {% endif %}
 
             {% if sessionMessages is defined and sessionMessages is not empty %}
                 <div class="message-box">
