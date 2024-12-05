@@ -7,6 +7,7 @@
 - remove dependency on laminas/laminas-httphandlerrunner
 - create a bridge towards SSP utility classes, so they can be easily mocked
 - move away from SSP database as store; move to DBAL
+- move to phpstan instead of psalm (as SSP)
 
 # Version 5 to 6
 
