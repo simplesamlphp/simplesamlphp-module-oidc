@@ -1,231 +1,274 @@
-{% extends "@oidc/oidc_base.twig" %}
+{% set subPageTitle = 'Client '|trans ~ client.getIdentifier %}
 
-{% set pagetitle = 'Show OpenID Connect Client' | trans %}
+{% extends "@oidc/base.twig" %}
 
-{% block pre_breadcrump %}
-    <span class="divider">/</span>
-    <a class="section" href="./index.php">{{ 'OpenID Connect Client Registry'|trans }}</a>
-{% endblock %}
+{% block oidcContent %}
 
-{% block content %}
-    <h2 class="ui header">{{ pagetitle }}</h2>
+    <div class="pure-g">
+        <div class="pure-u-1-2">
+            <span class="{{ client.enabled ? 'green-text' : 'red-text'}}">
+            <i class="fa {{ client.enabled ? 'fa-check' : 'fa-ban'}}"></i>
+                {{ client.enabled ? 'enabled'|trans : 'disabled'|trans }}
+            </span>
+        </div>
+        <div class="pure-u-1-2">
+            <div class="right">
+                <form method="post"
+                      class="pure-form"
+                      action="{{ routes.urlAdminClientsDelete(client.getIdentifier) }}">
+                    <a class="pure-button " href="{{ routes.urlAdminClients }}">
+                        <i class="fa fa-chevron-left"></i>
+                        {{ 'Back'|trans }}
+                    </a>
+                    <a class="pure-button " href="{{ routes.urlAdminClientsEdit(client.getIdentifier) }}">
+                        <i class="fa fa-pen-to-square"></i>
+                        {{ 'Edit'|trans }}
+                    </a>
+                    <input type="hidden" name="secret" value="{{ client.secret }}">
+                    <button type="submit" class="pure-button confirm-action"
+                            data-confirm-text="{{ 'Are you sure you want to delete this client?'|trans }}"
+                            data-confirm-id="{{ client.getIdentifier }}"
+                    >
+                        <i class="fa fa-trash-can"></i>
+                        {{ 'Delete'|trans }}
+                    </button>
+                </form>
 
-    <div class="ui hidden divider"></div>
 
-    <div class="ui segment">
+            </div>
+        </div>
+    </div>
+
+    <div class="">
         {{ 'Registration:'|trans }} {{ client.registrationType.description }} |
         {{ 'Created at:'|trans }} {{ client.createdAt ? client.createdAt|date() : 'n/a' }} |
         {{ 'Updated at:'|trans }} {{ client.updatedAt ? client.updatedAt|date() : 'n/a' }} |
         {{ 'Expires at:'|trans }} {{ client.expiresAt ? client.expiresAt|date() : 'never' }}
     </div>
 
-    <table class="ui definition table">
-        <tbody>
-        <tr>
-            <td class="collapsing">{{ '{oidc:client:name}'|trans }}</td>
-            <td>
-                {{ client.name }}
-            </td>
-        </tr>
-        <tr>
-            <td class="collapsing">{{ '{oidc:client:description}'|trans }}</td>
-            <td>{{ client.description }}</td>
-        </tr>
-        <tr>
-            <td class="collapsing">{{ '{oidc:client:state}'|trans }}</td>
-            <td>
-                <span class="ui {{ client.isEnabled ? 'green' : 'red'}} tiny label">
-                    {{ (client.isEnabled ? '{oidc:client:is_enabled}' : '{oidc:client:deactivated}')|trans }}
-                </span>
-            </td>
-        </tr>
-        <tr>
-            <td class="collapsing">{{ '{oidc:client:type}'|trans }}</td>
-            <td>{{ (client.isConfidential ? '{oidc:client:confidential}' : '{oidc:client:public}')|trans }}</td>
-        </tr>
-        <tr>
-            <td class="collapsing">{{ '{oidc:client:identifier}'|trans }}</td>
-            <td>{{ client.identifier }}
-                <i data-clipboard-text="{{ client.identifier }}"
-                   data-html="{{ '{oidc:copy}'|trans }}"
-                   class="copy link icon"></i>
-            </td>
-        </tr>
-        {% if client.isConfidential %}
-        <tr>
-            <td class="collapsing">{{ '{oidc:client:secret}'|trans }}</td>
-            <td>
-                {{ client.secret }}
-                <i data-clipboard-text="{{ client.secret }}"
-                   data-html="{{ '{oidc:copy}'|trans }}"
-                   class="copy link icon"></i>
-            </td>
-        </tr>
-        {% endif %}
-        <tr>
-            <td class="collapsing">{{ '{oidc:client:auth_source}'|trans }}</td>
-            <td>{{ client.authSourceId }}</td>
-        </tr>
-        <tr>
-            <td class="collapsing">{{ '{oidc:client:redirect_uri}'|trans }}</td>
-            <td>
-                <ul class="list">
-                    {% for uri in client.redirectUri %}
-                        <li>{{ uri }}</li>
-                    {% endfor %}
-                </ul>
-            </td>
-        </tr>
-        <tr>
-            <td class="collapsing">{{ '{oidc:client:scopes}'|trans }}</td>
-            <td>
-                <ul class="list">
-                    {% for key, scope in client.scopes %}
-                        <li>{{ scope }}</li>
-                    {% endfor %}
-                </ul>
-            </td>
-        </tr>
-        <tr>
-            <td class="collapsing">{{ '{oidc:client:backchannel_logout_uri}'|trans }}</td>
-            <td>{{ client.backChannelLogoutUri }}</td>
-        </tr>
-        <tr>
-            <td class="collapsing">{{ '{oidc:client:post_logout_redirect_uri}'|trans }}</td>
-            <td>
-                <ul class="list">
-                    {% for uri in client.postLogoutRedirectUri %}
-                        <li>{{ uri }}</li>
-                    {% endfor %}
-                </ul>
-            </td>
-        </tr>
-        {% if client.isConfidential == false %}
-        <tr>
-            <td class="collapsing">{{ '{oidc:client:allowed_origin}'|trans }}</td>
-            <td>
-                <ul class="list">
-                    {% for allowedOrigin in allowedOrigins %}
-                        <li>{{ allowedOrigin }}</li>
-                    {% endfor %}
-                </ul>
-            </td>
-        </tr>
-        {% endif %}
-        <tr >
-            <td class="collapsing">{{ 'Signed JWKS URI'|trans }}</td>
-            <td>{{ client.signedJwksUri }}</td>
-        </tr>
-        <tr >
-            <td class="collapsing">{{ 'JWKS URI'|trans }}</td>
-            <td>{{ client.jwksUri }}</td>
-        </tr>
-        <tr >
-            <td class="collapsing">{{ 'JWKS'|trans }}</td>
-            <td>
-                {% if client.jwks %}
-                    <div class="ui comments" >
-                        <div class="comment">
-                            <div class="text">
-                                {{ client.jwks|json_encode(constant('JSON_PRETTY_PRINT')) }}
-                            </div>
-                        </div>
-                    </div>
-                {% endif %}
-            </td>
-        </tr>
-        <tr>
-            <td class="collapsing">{{ '{oidc:client:owner}'|trans }}</td>
-            <td>{{ client.owner }}</td>
-        </tr>
-
-        <tr>
-            <td colspan="2">OpenID Federation related properties</td>
-        </tr>
-
-        <tr>
-            <td class="collapsing">{{ 'Is federated'|trans }}</td>
-            <td>{{ (client.isFederated ? 'Yes' : 'No')|trans }}</td>
-        </tr>
-        <tr>
-            <td class="collapsing">{{ 'Entity Identifier'|trans }}</td>
-            <td>{{ client.entityIdentifier }}</td>
-        </tr>
-        <tr>
-            <td class="collapsing">{{ 'Client registration types'|trans }}</td>
-            <td>
-                <ul class="list">
-                    {% for clientRegistrationType in client.clientRegistrationTypes %}
-                        <li>{{ clientRegistrationType }}</li>
-                    {% endfor %}
-                </ul>
-            </td>
-        </tr>
-        <tr >
-            <td class="collapsing">{{ 'Federation JWKS'|trans }}</td>
-            <td>
-                {% if client.federationJwks %}
-                    <div class="ui comments" >
-                        <div class="comment">
-                            <div class="text">
-                                {{ client.federationJwks|json_encode(constant('JSON_PRETTY_PRINT')) }}
-                            </div>
-                        </div>
-                    </div>
-                {% endif %}
-            </td>
-        </tr>
-        </tbody>
-        <tfoot>
-        <tr class="full-width">
-            <th></th>
-            <th>
-                <div class="ui buttons">
-                    <a href="./index.php" class="ui small primary labeled icon button">
-                        <i class="arrow left icon"></i> {{ '{oidc:return}'|trans }}
-                    </a>
-                    <a href="./edit.php?client_id={{ client.identifier }}" class="ui small labeled icon button">
-                        <i class="edit icon"></i> {{ '{oidc:edit}'|trans }}
-                    </a>
-                    {% if client.isConfidential %}
-                    <div class="ui small teal labeled icon button">
-                        <i class="refresh icon"></i> {{ '{oidc:client:reset_secret}'|trans }}
-                    </div>
-                    <div class="ui flowing popup top left transition hidden">
-                        <h4 class="ui header">{{ '{oidc:client:reset_secret}'|trans }}</h4>
-                        <p>{{ '{oidc:client:reset_secret_warning}'|trans }}</p>
-                        <form method="post" action="./reset.php?client_id={{ client.identifier }}">
-                            <input type="hidden" name="secret" value="{{ client.secret }}">
-                            <input type="submit" class="ui button" value="{{ '{oidc:confirm}'|trans }}">
-                        </form>
-                    </div>
+    <br>
+    <div class="">
+        <table class="pure-table pure-table-striped client-table">
+            <colgroup>
+                <col class="">
+                <col class="">
+            </colgroup>
+            <tbody>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Name and description'|trans }}
+                </td>
+                <td>
+                    {{ client.name }} <br>
+                    <small>{{ client.description }}</small>
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Type' }}
+                </td>
+                <td>
+                    {{ (client.isConfidential ? 'Confidential' : 'Public')|trans }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Identifier'|trans }}
+                </td>
+                <td>
+                    {{ client.identifier }}
+                </td>
+            </tr>
+            {% if client.isConfidential %}
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Secret'|trans }}
+                </td>
+                <td>
+                    <form method="post"
+                          class="pure-form"
+                          action="{{ routes.urlAdminClientsResetSecret(client.getIdentifier) }}">
+                        {{- client.secret -}}
+                        <input type="hidden" name="secret" value="{{ client.secret }}">
+                        <button type="submit" class="pure-button button-small confirm-action"
+                                data-confirm-text="{{ 'Are you sure you want to reset client secret?'|trans }}"
+                                data-confirm-id="{{ client.getIdentifier }}"
+                        >
+                            <i class="fa fa-rotate"></i> {{ 'Reset'|trans }}
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endif %}
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Authentication Source'|trans }}
+                </td>
+                <td>
+                    {{ client.authSourceId|default('N/A'|trans) }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Redirect URIs'|trans }}
+                </td>
+                <td>
+                    <ul class="disc">
+                        {% for uri in client.redirectUri %}
+                            <li>{{ uri }}</li>
+                        {% endfor %}
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Scopes'|trans }}
+                </td>
+                <td>
+                    <ul class="disc">
+                        {% for key, scope in client.scopes %}
+                            <li>{{ scope }}</li>
+                        {% endfor %}
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Back-channel Logout URI'|trans }}
+                </td>
+                <td>
+                    {{ client.backChannelLogoutUri|default('N/A') }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Post-logout Redirect URIs'|trans }}
+                </td>
+                <td>
+                    {% if client.postLogoutRedirectUri is not empty %}
+                        <ul class="disc">
+                            {% for uri in client.postLogoutRedirectUri %}
+                                <li>{{ uri }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        {{ 'N/A'|trans }}
                     {% endif %}
-                </div>
-            </th>
-        </tr>
-        </tfoot>
-    </table>
+                </td>
+            </tr>
 
-{% endblock %}
+            {% if not client.isConfidential %}
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Allowed Origins'|trans }}
+                </td>
+                <td>
+                    {% if allowedOrigins is not empty %}
+                    <ul class="disc">
+                        {% for allowedOrigin in allowedOrigins %}
+                            <li>{{ allowedOrigin }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                        {{ 'N/A'|trans }}
+                    {% endif %}
+                </td>
+            </tr>
+            {% endif %}
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Signed JWKS URI'|trans }}
+                </td>
+                <td>
+                    {{ client.signedJwksUri|default('N/A'|trans) }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'JWKS URI'|trans }}
+                </td>
+                <td>
+                    {{ client.jwksUri|default('N/A'|trans) }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'JWKS'|trans }}
+                </td>
+                <td>
+                    {% if client.jwks %}
+                        <code class="code-box-content">
+                            {{- client.jwks|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_SLASHES')) -}}
+                        </code>
+                    {% else %}
+                        {{ 'N/A'|trans }}
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Owner'|trans }}
+                </td>
+                <td>
+                    {{ client.owner|default('Administrator'|trans) }}
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
 
-{% block postload %}
-    {{ parent() }}
-    <script src="{{ asset('clipboard/clipboard.min.js', 'oidc') }}"></script>
-    <script>
-        $('.copy.link').popup();
-
-        new ClipboardJS('.copy.link')
-            .on('success', function (e) {
-                e.clearSelection();
-                $(e.trigger).popup('change content', '{{ '{oidc:copied}'|trans }}')
-            })
-        ;
-
-        $('.teal.button')
-            .popup({
-                on: 'click',
-                setFluidWidth: false
-            })
-        ;
-    </script>
-{% endblock %}
+    <br>
+    <h4>{{ 'OpenID Federation Related Properties'|trans }}</h4>
+    <div class="">
+        <table class="pure-table pure-table-striped client-table">
+            <colgroup>
+                <col class="">
+                <col class="">
+            </colgroup>
+            <tbody>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Is Federated'|trans }}
+                </td>
+                <td>
+                    {{ (client.isFederated ? 'Yes' : 'No')|trans }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Entity Identifier'|trans }}
+                </td>
+                <td>
+                    {{ client.entityIdentifier|default('N/A'|trans) }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Client Registration Types'|trans }}
+                </td>
+                <td>
+                    <ul class="disc">
+                        {% for clientRegistrationType in client.clientRegistrationTypes %}
+                            <li>{{ clientRegistrationType }}</li>
+                        {% endfor %}
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Federation JWKS'|trans }}
+                </td>
+                <td>
+                    {% if client.federationJwks %}
+                        <code class="code-box-content">
+                            {{- client.federationJwks|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_SLASHES')) -}}
+                        </code>
+                    {% else %}
+                        {{ 'N/A'|trans }}
+                    {% endif %}
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+{% endblock oidcContent -%}

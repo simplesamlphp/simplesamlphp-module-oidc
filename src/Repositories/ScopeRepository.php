@@ -40,7 +40,7 @@ class ScopeRepository implements ScopeRepositoryInterface
      */
     public function getScopeEntityByIdentifier($identifier): ScopeEntity|ScopeEntityInterface|null
     {
-        $scopes = $this->moduleConfig->getOpenIDScopes();
+        $scopes = $this->moduleConfig->getScopes();
 
         if (false === array_key_exists($identifier, $scopes)) {
             return null;

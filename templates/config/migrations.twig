@@ -1,0 +1,30 @@
+{% set subPageTitle = 'Database Migrations'|trans %}
+
+{% extends "@oidc/base.twig" %}
+
+{% block oidcContent %}
+
+    {% if databaseMigration.isMigrated %}
+        <p><i class="fa fa-check" title="OK"></i>{{ 'All database migrations are implemented.'|trans }}</p>
+    {% else %}
+        <p class="red-text">
+            <i class="fa fa-ban" title="Not OK"></i>
+            {% trans %}There are database migrations that have not been implemented.
+                Use the button below to run them now.{% endtrans %}
+        </p>
+
+        <form method="post" class="pure-form" action="{{ routes.urlAdminMigrationsRun }}">
+            <input type="hidden" name="fromUi" value="1">
+            <input type="hidden" name="migrate" value="1">
+            <button class="pure-button pure-button-red ">{{ 'Run migrations'|trans }}</button>
+        </form>
+        <br>
+    {% endif %}
+
+    <div class="message-box">
+        Before running the migrations, make sure that the database user has proper privileges to change the scheme
+        (for example, <kbd>alter, create, drop, index</kbd>). After running the migrations, it is a good practice to remove
+        those privileges.
+    </div>
+
+{% endblock oidcContent -%}

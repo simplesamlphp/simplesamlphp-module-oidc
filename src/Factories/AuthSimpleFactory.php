@@ -44,7 +44,7 @@ class AuthSimpleFactory
      */
     public function getDefaultAuthSource(): Simple
     {
-        return new Simple($this->getDefaultAuthSourceId());
+        return new Simple($this->moduleConfig->getDefaultAuthSourceId());
     }
 
     /**
@@ -54,14 +54,6 @@ class AuthSimpleFactory
      */
     public function resolveAuthSourceId(ClientEntityInterface $client): string
     {
-        return $client->getAuthSourceId() ?? $this->getDefaultAuthSourceId();
-    }
-
-    /**
-     * @throws \Exception
-     */
-    public function getDefaultAuthSourceId(): string
-    {
-        return $this->moduleConfig->config()->getString(ModuleConfig::OPTION_AUTH_SOURCE);
+        return $client->getAuthSourceId() ?? $this->moduleConfig->getDefaultAuthSourceId();
     }
 }

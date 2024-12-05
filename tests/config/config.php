@@ -87,7 +87,7 @@ $config = [
      * qualified path to a file containing the certificate or key in PEM
      * format, such as 'cert.pem' or '/path/to/cert.pem'. If the path is
      * relative, it will be searched for in the directory defined by the
-     * '' parameter below. When 'certdir' is specified as a relative
+     * 'certdir' parameter below. When 'certdir' is specified as a relative
      * path, it will be interpreted as relative to the SimpleSAMLphp root
      * directory. Note that locations with no prefix included will be treated
      * as file locations.
@@ -564,6 +564,7 @@ $config = [
         'core' => true,
         'admin' => true,
         'saml' => true,
+        'oidc' => true,
     ],
 
 
@@ -630,6 +631,8 @@ $config = [
      * Set this to TRUE if the user only accesses your service
      * through https. If the user can access the service through
      * both http and https, this must be set to FALSE.
+     *
+     * If unset, SimpleSAMLphp will try to automatically determine the right value
      */
     'session.cookie.secure' => true,
 
@@ -993,12 +996,6 @@ $config = [
 
         // Adopts language from attribute to use in UI
         30 => 'core:LanguageAdaptor',
-
-        45 => [
-            'class'         => 'core:StatisticsWithAttribute',
-            'attributename' => 'realm',
-            'type'          => 'saml20-idp-SSO',
-        ],
 
         /* When called without parameters, it will fallback to filter attributes 'the old way'
          * by checking the 'attributes' parameter in metadata on IdP hosted and SP remote.

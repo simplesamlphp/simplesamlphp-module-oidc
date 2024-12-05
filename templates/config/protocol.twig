@@ -1,0 +1,110 @@
+{% set subPageTitle = 'Protocol Settings'|trans %}
+
+{% extends "@oidc/base.twig" %}
+
+{% block oidcContent %}
+
+    <h4>{{ 'Entity'|trans }}</h4>
+    <p>
+        {{ 'Discovery URL'|trans }}:
+        <a href="{{ routes.urlConfiguration }}" target="_blank">{{ routes.urlConfiguration }}</a>
+    </p>
+    <p>
+        {{ 'Issuer'|trans }}: {{ moduleConfig.getIssuer }}
+    </p>
+
+    <h4>{{ 'Tokens Time-To-Live (TTL)'|trans }}</h4>
+    <p>
+        {{ 'Authorization Code'|trans }}:
+        {{ moduleConfig.getAuthCodeDuration|date("%mm %dd %hh %i' %s''") }}
+        <br>
+        {{ 'Access Token'|trans }}:
+        {{ moduleConfig.getAccessTokenDuration|date("%mm %dd %hh %i' %s''") }}
+        <br>
+        {{ 'Refresh Token'|trans }}:
+        {{ moduleConfig.getRefreshTokenDuration|date("%mm %dd %hh %i' %s''") }}
+    </p>
+
+    <h4>{{ 'PKI'|trans }}</h4>
+    <p>
+        {{ 'Private Key'|trans }}: {{ moduleConfig.getProtocolPrivateKeyPath }}
+        <br>
+        {{ 'Private Key Password Set'|trans }}:
+        {{ moduleConfig.getProtocolPrivateKeyPassPhrase ? 'Yes'|trans : 'No'|trans }}
+        <br>
+        {{ 'Public Key'|trans }}: {{ moduleConfig.getProtocolCertPath }}
+    </p>
+    <p>
+        {{ 'Signing Algorithm'|trans }}: {{ moduleConfig.getProtocolSigner.algorithmId }}
+    </p>
+
+    <h4>{{ 'Authentication'|trans }}</h4>
+    <p>
+        {{ 'Default Authentication Source'|trans }}: {{ moduleConfig.getDefaultAuthSourceId }}
+        <br>
+        {{ 'User Identifier Attribute'|trans }}: {{ moduleConfig.getUserIdentifierAttribute }}
+    </p>
+    <p>
+        {{ 'Authentication Processing Filters'|trans }}:
+        {% if moduleConfig.getAuthProcFilters is not empty %}
+            {% for authproc in moduleConfig.getAuthProcFilters %}
+                <br>
+                - {{ authproc.class|default('[class-not-set]') }}
+            {% endfor %}
+        {% else %}
+            {{ 'N/A'|trans }}
+        {% endif %}
+    </p>
+
+    <h4>{{ 'Authentication Context Class References (ACRs)'|trans }}</h4>
+    <p>
+        {{ 'Supported ACRs'|trans }}:
+        {% if moduleConfig.getAcrValuesSupported is not empty %}
+            {% for acr in moduleConfig.getAcrValuesSupported %}
+                <br>
+                - {{ acr }}
+            {% endfor %}
+        {% else %}
+            {{ 'N/A'|trans }}
+        {% endif %}
+
+    </p>
+    <p>
+        {{ 'Authentication Sources to ACRs Map'|trans }}:
+        {% if moduleConfig.getAuthSourcesToAcrValuesMap is not empty %}
+            {% for authsource, acrs in moduleConfig.getAuthSourcesToAcrValuesMap %}
+                <br>
+                - {{ authsource }}:
+                {% for acr in acrs %}
+                    {{ acr }}{{ loop.last ? '' : ',' }}
+                {% endfor %}
+            {% endfor %}
+        {% else %}
+            {{ 'N/A'|trans }}
+        {% endif %}
+    </p>
+    <p>
+        {{ 'Forced ACR For Cookie Authentication'|trans }}:
+        {{ moduleConfig.getForcedAcrValueForCookieAuthentication|default('N/A'|trans) }}
+    </p>
+
+
+    <h4>{{ 'Scopes'|trans }}</h4>
+    <p>
+        {% for scope, claims in moduleConfig.getScopes %}
+            {{ scope }}{{ loop.last ? '' : ', ' }}
+            {# TODO mivanci Add claims or extract scopes to sepparate page. #}
+        {% endfor %}
+    </p>
+
+    <h4>{{ 'Cache'|trans }}</h4>
+    <p>
+        {{ 'Cache Adapter'|trans }}:
+        {{ moduleConfig.getProtocolCacheAdapterClass|default('N/A'|trans) }}
+        <br>
+        {{ 'User Entity Cache Duration'|trans }}:
+        {{ moduleConfig.getProtocolUserEntityCacheDuration|date("%mm %dd %hh %i' %s''") }}
+    </p>
+
+
+{% endblock oidcContent -%}

@@ -35,18 +35,21 @@ class DatabaseMigration
         $this->database = $database ?? Database::getInstance();
     }
 
-    public function isUpdated(): bool
+    public function isMigrated(): bool
+    {
+        return empty($this->getNotImplementedVersions());
+    }
+
+    public function getNotImplementedVersions(): array
     {
         $implementedVersions = $this->versions();
-        $notImplementedVersions = array_filter(get_class_methods($this), function ($method) use ($implementedVersions) {
+        return array_filter(get_class_methods($this), function ($method) use ($implementedVersions) {
             if (preg_match('/^version(\d+)/', $method, $matches)) {
                 return !in_array($matches[1], $implementedVersions, true);
             }
 
             return false;
         });
-
-        return empty($notImplementedVersions);
     }
 
     public function versions(): array

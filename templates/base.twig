@@ -1,0 +1,54 @@
+{% set showMenu = showMenu ?? false %}
+{% set moduleName = 'OIDC'|trans %}
+{% set subPageTitle = subPageTitle ?? '' %}
+{% set pagetitle = 'OIDC' ~ (subPageTitle ? ' | ' ~ subPageTitle : '')  %}
+
+{% extends "base.twig" %}
+
+{% block preload %}
+    <link rel="stylesheet" href="{{ asset('css/src/default.css', 'oidc') }}">
+{% endblock %}
+
+{% block content %}
+
+    {% if showMenu %}
+        {%- include "@admin/includes/menu.twig" %}
+    {% endif %}
+
+    {% if showModuleName %}
+        <h2>{{ moduleName }}</h2>
+    {% endif %}
+
+    <div class="oidc-container">
+
+        {% if showMenu %}
+            {% include '@oidc/includes/menu.twig' %}
+        {% endif %}
+
+        <div class="content">
+            {% if showSubpageTitle %}
+                <h3>{{ subPageTitle }}</h3>
+            {% endif %}
+
+            {% if sessionMessages is defined and sessionMessages is not empty %}
+                <div class="message-box">
+                    {% for message in sessionMessages %}
+                        {{ message|trans }}<br>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% block oidcContent %}{% endblock %}
+        </div>
+    </div>
+
+{% endblock content -%}
+
+{% block postload %}
+
+    {{ parent() }}
+
+    <script src="{{ asset('js/src/default.js', 'oidc') }}"></script>
+{% endblock postload %}
+
+{% block oidcPostload %}{% endblock %}

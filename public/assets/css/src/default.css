@@ -1,0 +1,111 @@
+
+h3 {
+    margin-bottom: 0.5em;
+    font-size: 1.2em;
+    font-weight: 600;
+    color: #1c1c1c;
+}
+
+h4 {
+    margin: 0.4em 0;
+    font-size: 1.0em;
+    font-weight: 600;
+    color: #1c1c1c;
+}
+
+/* Container to hold menu and content */
+.oidc-container {
+    display: flex;
+    max-width: inherit;
+    margin: 0 auto;
+}
+
+/* Style for the left menu */
+.menu {
+    min-width: 200px;
+    width: auto;
+}
+
+/* Style for the menu items */
+.menu ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+.menu ul li {
+    padding: 0.25rem;
+}
+
+.menu ul li a {
+    text-decoration: none;
+    color: #333;
+    display: block;
+    padding: 0.5rem;
+}
+
+.menu ul li a:hover {
+    background-color: #ddd;
+    padding: 0.5rem;
+}
+
+.menu ul li a.active {
+    background-color: #eeeeee;
+    padding: 0.5rem;
+}
+
+/* Style for the content area */
+.content {
+    flex-grow: 1;
+    padding-left: 20px;
+    max-width: inherit;
+    background-color: #fff;
+}
+
+ul.disc {
+    list-style: disc outside none;
+}
+
+em {
+    font-style: italic;
+}
+
+/* Text colors */
+.black-text { color: black; }
+.red-text { color: red; }
+.lightcoral-text { color: lightcoral; }
+.green-text { color: green; }
+.yellow-text { color: yellow; }
+.blue-text { color: blue; }
+.magenta-text { color: magenta; }
+.cyan-text { color: cyan; }
+.lightcyan-text { color: lightcyan; }
+.white-text { color: white; }
+
+/* Button sizes */
+.button-small {
+    font-size: 75%;
+}
+
+/* Client Table */
+table.client-table {
+    width: 100%;
+}
+
+.client-col.col-info {
+    width: 79%;
+}
+
+.client-col.col-actions {
+    width: 21%;
+}
+
+.client-col.col-property {
+    width: 25%;
+    font-weight: bolder;
+}
+
+.confirm-action {}
+
+form.pure-form-stacked .full-width {
+    width: 100%;
+}

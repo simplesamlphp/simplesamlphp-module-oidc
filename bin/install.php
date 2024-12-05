@@ -22,7 +22,7 @@ try {
     $database = Database::getInstance();
     $databaseMigration = new DatabaseMigration($database);
 
-    if ($databaseMigration->isUpdated()) {
+    if ($databaseMigration->isMigrated()) {
         echo 'Database is up to date, skipping.' . PHP_EOL;
         return 0;
     }

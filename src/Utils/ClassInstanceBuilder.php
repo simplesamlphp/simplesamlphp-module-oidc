@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Utils;
 
 use ReflectionClass;
-use SimpleSAML\Module\oidc\OidcException;
+use SimpleSAML\Module\oidc\Exceptions\OidcException;
 
 class ClassInstanceBuilder
 {
     /**
-     * @throws \SimpleSAML\Module\oidc\OidcException
+     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
      * @throws \ReflectionException
      */
     public function build(string $class, array $args): mixed

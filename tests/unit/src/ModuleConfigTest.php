@@ -134,7 +134,7 @@ class ModuleConfigTest extends TestCase
 
     public function testCanGetOpenIdScopes(): void
     {
-        $this->assertNotEmpty($this->mock()->getOpenIDScopes());
+        $this->assertNotEmpty($this->mock()->getScopes());
     }
 
     public function testCanGetProtocolSigner(): void

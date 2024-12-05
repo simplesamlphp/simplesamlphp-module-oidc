@@ -34,7 +34,7 @@ PHP version requirement changes in minor releases for SimpleSAMLphp.
 
 ### Upgrading?
 
-If you are upgrading from a previous version, checkout the [upgrade guide](UPGRADE.md).
+If you are upgrading from a previous version, make sure to check the [upgrade guide](UPGRADE.md).
 
 ## Installation
 
@@ -107,14 +107,12 @@ SimpleSAMLphp configuration file, `config/config.php`.
         'oidc' => true,
     ],
 
-This is required the enable the module on the _Federation_ tab in the admin web interface, which can be used in the
-next two steps to finalize the installation.
+Once the module is enabled, the database migrations must be run.
 
 ### Run database migrations
 
 The module comes with some default SQL migrations which set up needed tables in the configured database. To run them,
-open the _Federation_ tab from your _SimpleSAMLphp_ installation and select the option _OpenID Connect Installation_
-inside the _Tools_ section. Once there, all you need to do is press the _Install_ button and the schema will be created.
+go to `OIDC` > `Database Migrations`, and press the available button.
 
 Alternatively, in case of automatic / scripted deployments, you can run the 'install.php' script from the command line:
 
@@ -124,8 +122,7 @@ Alternatively, in case of automatic / scripted deployments, you can run the 'ins
 
 The module lets you manage (create, read, update and delete) approved RPs from the module user interface itself.
 
-Once the database schema has been created, you can open the _Federation_ tab from your _SimpleSAMLphp_ installation
-and select the option _OpenID Connect Client Registry_ inside the _Tools_ section.
+Once the database schema has been created, you can go to `OIDC` > `Client Registry`. 
 
 Note that clients can be marked as confidential or public. If the client is not marked as confidential (it is public),
 and is using Authorization Code flow, it will have to provide PKCE parameters during the flow.

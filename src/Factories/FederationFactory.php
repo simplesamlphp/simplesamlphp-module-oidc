@@ -40,7 +40,7 @@ class FederationFactory
 
         return new Federation(
             supportedAlgorithms: $supportedAlgorithms,
-            maxCacheDuration: $this->moduleConfig->getFederationCacheMaxDuration(),
+            maxCacheDuration: $this->moduleConfig->getFederationCacheMaxDurationForFetched(),
             cache: $this->federationCache?->cache,
             logger: $this->loggerService,
         );

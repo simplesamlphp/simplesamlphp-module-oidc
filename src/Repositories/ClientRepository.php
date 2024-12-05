@@ -119,7 +119,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         return $this->clientEntityFactory->fromState($row);
     }
 
-    public function findFederated(string $entityIdentifier, ?string $owner = null): ?ClientEntityInterface
+    public function findByEntityIdentifier(string $entityIdentifier, ?string $owner = null): ?ClientEntityInterface
     {
         /**
          * @var string $query

@@ -50,7 +50,7 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
                 ),
             );
         $this->moduleConfigMock
-            ->method('getOpenIDPrivateScopes')
+            ->method('getPrivateScopes')
             ->willReturn(
                 [
                     'customScope1' => [

@@ -1,15 +1,29 @@
-{% extends "@oidc/clients/_form.twig" %}
+{% set subPageTitle = 'Edit Client '|trans ~ originalClient.getIdentifier %}
 
-{% set pagetitle = 'Edit new OpenID Connect Client' | trans %}
+{% extends "@oidc/base.twig" %}
 
-{% block pre_breadcrump %}
-    <span class="divider">/</span>
-    <a class="section" href="./index.php">{{ 'OpenID Connect Client Registry'|trans }}</a>
-{% endblock %}
+{% block oidcContent %}
 
-{% block action %}
-    <div class="ui submit primary icon labeled button">
-        <i class="save icon"></i>
-        {{ '{oidc:save}'|trans }}
+    <div class="pure-g">
+        <div class="pure-u-1-2">
+
+        </div>
+        <div class="pure-u-1-2">
+            <div class="right">
+                <a class="pure-button " href="{{ routes.urlAdminClientsShow(originalClient.getIdentifier) }}">
+                    <i class="fa fa-chevron-left"></i>
+                    {{ 'Back'|trans }}
+                </a>
+            </div>
+        </div>
     </div>
+
+    {% include "@oidc/clients/includes/form.twig" %}
+
+{% endblock oidcContent -%}
+
+{% block postload %}
+    {{ parent() }}
+
+    <script src="{{ asset('js/src/client-form.js', 'oidc') }}"></script>
 {% endblock %}

@@ -1,0 +1,117 @@
+{% set subPageTitle = 'Client Registry'|trans %}
+
+{% extends "@oidc/base.twig" %}
+
+{% block oidcContent %}
+
+    <div class="pure-g">
+        <div class="pure-u-1-2">
+            <div class="">
+                <form class="pure-form" method="get" action="{{ routes.urlAdminClients }}">
+                    <label>
+                        <input type="text"
+                               class="pure-input"
+                               name="q"
+                               placeholder="Search"
+                               value="{{ query|default }}"
+                        />
+                    </label>
+                    <a class="pure-button" href="{{ routes.urlAdminClients }}">Reset</a>
+                </form>
+            </div>
+        </div>
+        <div class="pure-u-1-2">
+            <div class="right">
+                <a class="pure-button " href="{{ routes.urlAdminClientsAdd }}">
+                    <i class="fa fa-plus green-text"></i>
+                    {{ 'Add Client'|trans }}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <br>
+    {% if clients is empty %}
+        <p>
+            {{ 'No clients registered.'|trans }}
+        </p>
+    {% else %}
+    <div class="">
+        <table class="pure-table pure-table-striped client-table">
+            <colgroup>
+                <col class="client-col col-info">
+                <col class="client-col col-actions">
+            </colgroup>
+            <tbody>
+            {% for client in clients %}
+            <tr class="">
+                <td>
+                    <i class="fa {{ client.enabled ? 'fa-check green-text' : 'fa-ban red-text'}}"
+                       title="{{ client.enabled ? 'enabled'|trans : 'disabled'|trans }}"></i>
+                    {{ client.name }}
+                    <br>
+                    <small>{{ client.description }}</small>
+                    <br>
+                    <small>
+                        {{ 'Registration:'|trans }} {{ client.registrationType.description }} |
+                        {{ 'Created at:'|trans }} {{ client.createdAt ? client.createdAt|date() : 'n/a' }} |
+                        {{ 'Updated at:'|trans }} {{ client.updatedAt ? client.updatedAt|date() : 'n/a' }} |
+                        {{ 'Expires at:'|trans }} {{ client.expiresAt ? client.expiresAt|date() : 'never' }}
+                    </small>
+                </td>
+                <td>
+                    <div class="pure-button-group button-small" role="group" aria-label="Actions">
+                        <form method="post"
+                              class="pure-form"
+                              action="{{ routes.urlAdminClientsDelete(client.getIdentifier) }}">
+                            <a class="pure-button" href="{{ routes.urlAdminClientsShow(client.getIdentifier) }}">
+                                <i class="fa fa-eye"></i>
+                            </a>
+                            <a class="pure-button" href="{{ routes.urlAdminClientsEdit(client.getIdentifier) }}">
+                                <i class="fa fa-pen-to-square"></i>
+                            </a>
+                            <input type="hidden" name="secret" value="{{ client.secret }}">
+                            <button type="submit" class="pure-button confirm-action"
+                                    data-confirm-text="{{ 'Are you sure you want to delete this client?'|trans }}"
+                                    data-confirm-id="{{ client.getIdentifier }}"
+                            >
+                                <i class="fa fa-trash-can"></i>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+
+        <br>
+        <div class="">
+            <div class="pure-button-group" role="group" aria-label="Actions">
+                <a class="pure-button"
+                   href="{{ routes.urlAdminClients }}?{{ {page: currentPage - 1, q: query} | url_encode }}"
+                   {{ currentPage == 1 ? 'disabled' }}
+                >
+                    <i class="fa fa-chevron-left"></i>
+                </a>
+                {% for i in range(1, numPages) %}
+                    <a class="pure-button {{ currentPage == i ? 'pure-button-active' }}"
+                       {{ currentPage == i ? 'disabled' }}
+                       href="{{ routes.urlAdminClients }}?{{ {page: i, q: query} | url_encode }}">
+                        {{ i }}
+                    </a>
+                {% endfor %}
+                <a class="pure-button"
+                   {{ currentPage == numPages ? 'disabled' }}
+                   href="{{ routes.urlAdminClients }}?{{ {page: currentPage + 1, q: query} | url_encode }}">
+                    <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+
+
+
+        </div>
+    </div>
+    {% endif %}
+
+{% endblock oidcContent -%}

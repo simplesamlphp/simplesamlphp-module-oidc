@@ -25,7 +25,7 @@ use SimpleSAML\Error;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Error\NoState;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
-use SimpleSAML\Module\oidc\Controller\EndSessionController;
+use SimpleSAML\Module\oidc\Controllers\EndSessionController;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;

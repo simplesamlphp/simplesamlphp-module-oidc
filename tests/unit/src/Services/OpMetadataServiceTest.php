@@ -25,7 +25,7 @@ class OpMetadataServiceTest extends TestCase
     {
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
 
-        $this->moduleConfigMock->expects($this->once())->method('getOpenIDScopes')
+        $this->moduleConfigMock->expects($this->once())->method('getScopes')
             ->willReturn(['openid' => 'openid']);
         $this->moduleConfigMock->expects($this->once())->method('getIssuer')
             ->willReturn('http://localhost');
