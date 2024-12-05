@@ -6,6 +6,7 @@ namespace SimpleSAML\Module\oidc\Server\Exceptions;
 
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ResponseInterface;
+use SimpleSAML\OpenID\Codebooks\ErrorsEnum;
 use Throwable;
 
 use function http_build_query;
@@ -253,7 +254,16 @@ class OidcServerException extends OAuthServerException
     ): OidcServerException {
         $errorMessage = 'Trust chain validation failed.';
 
-        $e = new self($errorMessage, 12, 'trust_chain_validation_failed', 400, $hint, $redirectUri, $previous, $state);
+        $e = new self(
+            $errorMessage,
+            12,
+            ErrorsEnum::InvalidTrustChain->value,
+            400,
+            $hint,
+            $redirectUri,
+            $previous,
+            $state,
+        );
         $e->useFragmentInHttpResponses($useFragment);
 
         return $e;
