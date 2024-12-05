@@ -48,8 +48,8 @@ trait IssueAccessTokenTrait
         ClientEntityInterface $client,
         $userIdentifier = null,
         array $scopes = [],
-        string $authCodeId = null,
-        array $requestedClaims = null,
+        ?string $authCodeId = null,
+        ?array $requestedClaims = null,
     ): AccessTokenEntityInterface {
         $maxGenerationAttempts = AbstractGrant::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
 

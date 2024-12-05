@@ -79,11 +79,11 @@ class UserRepositoryTest extends TestCase
     }
 
     protected function mock(
-        ModuleConfig|MockObject $moduleConfig = null,
-        Database|MockObject $database = null,
-        ProtocolCache|MockObject $protocolCache = null,
-        Helpers|MockObject $helpers = null,
-        UserEntityFactory|MockObject $userEntityFactory = null,
+        ?ModuleConfig $moduleConfig = null,
+        ?Database $database = null,
+        ?ProtocolCache $protocolCache = null,
+        ?Helpers $helpers = null,
+        ?UserEntityFactory $userEntityFactory = null,
     ): UserRepository {
         $moduleConfig ??= $this->moduleConfigMock;
         $database ??= $this->database; // Let's use real database instance for tests by default.

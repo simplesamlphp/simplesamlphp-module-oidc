@@ -63,10 +63,10 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         OAuth2ClientEntityInterface $clientEntity,
         array $scopes,
         $userIdentifier = null,
-        string $authCodeId = null,
-        array $requestedClaims = null,
-        string $id = null,
-        DateTimeImmutable $expiryDateTime = null,
+        ?string $authCodeId = null,
+        ?array $requestedClaims = null,
+        ?string $id = null,
+        ?DateTimeImmutable $expiryDateTime = null,
     ): AccessTokenEntityInterface {
         if (!is_null($userIdentifier)) {
             $userIdentifier = (string)$userIdentifier;

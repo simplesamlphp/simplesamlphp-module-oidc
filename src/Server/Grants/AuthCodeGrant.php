@@ -314,7 +314,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         string $userIdentifier,
         string $redirectUri,
         array $scopes = [],
-        string $nonce = null,
+        ?string $nonce = null,
     ): AuthCodeEntityInterface {
         $maxGenerationAttempts = self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
 
@@ -748,7 +748,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      */
     protected function issueRefreshToken(
         OAuth2AccessTokenEntityInterface $accessToken,
-        string $authCodeId = null,
+        ?string $authCodeId = null,
     ): ?RefreshTokenEntityInterface {
         if (! is_a($accessToken, AccessTokenEntityInterface::class)) {
             throw OidcServerException::serverError('Unexpected access token entity type.');

@@ -65,11 +65,11 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         DateTimeImmutable $expiryDateTime,
         CryptKey $privateKey,
         protected JsonWebTokenBuilderService $jsonWebTokenBuilderService,
-        int|string $userIdentifier = null,
-        string $authCodeId = null,
-        array $requestedClaims = null,
-        bool $isRevoked = false,
-        Configuration $jwtConfiguration = null,
+        int|string|null $userIdentifier = null,
+        ?string $authCodeId = null,
+        ?array $requestedClaims = null,
+        ?bool $isRevoked = false,
+        ?Configuration $jwtConfiguration = null,
     ) {
         $this->setIdentifier($id);
         $this->setClient($clientEntity);

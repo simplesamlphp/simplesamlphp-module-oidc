@@ -49,7 +49,7 @@ class TemplateFactory
     public function build(
         string $templateName,
         array $data = [],
-        string $activeHrefPath = null,
+        ?string $activeHrefPath = null,
         ?bool $includeDefaultMenuItems = null,
         ?bool $showMenu = null,
         ?bool $showModuleName = null,

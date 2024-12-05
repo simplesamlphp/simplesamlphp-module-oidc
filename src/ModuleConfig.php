@@ -118,7 +118,7 @@ class ModuleConfig
     public function __construct(
         string $fileName = self::DEFAULT_FILE_NAME, // Primarily used for easy (unit) testing overrides.
         array $overrides = [], // Primarily used for easy (unit) testing overrides.
-        Configuration $sspConfig = null,
+        ?Configuration $sspConfig = null,
         private readonly SspBridge $sspBridge = new SspBridge(),
     ) {
         $this->moduleConfig = Configuration::loadFromArray(
@@ -225,7 +225,7 @@ class ModuleConfig
     }
 
     // TODO mivanci Move to dedicated \SimpleSAML\Module\oidc\Utils\Routes::getModuleUrl
-    public function getModuleUrl(string $path = null): string
+    public function getModuleUrl(?string $path = null): string
     {
         $base = $this->sspBridge->module()->getModuleURL(self::MODULE_NAME);
 

@@ -40,9 +40,9 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
         OAuth2ClientEntityInterface $client,
         array $scopes,
         DateTimeImmutable $expiryDateTime,
-        string $userIdentifier = null,
-        string $redirectUri = null,
-        string $nonce = null,
+        ?string $userIdentifier = null,
+        ?string $redirectUri = null,
+        ?string $nonce = null,
         bool $isRevoked = false,
     ) {
         $this->identifier = $id;
