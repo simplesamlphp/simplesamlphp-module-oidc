@@ -1,10 +1,3 @@
-.wrap {
-    /*max-width: 1300px;*/
-}
-
-/*h2 {*/
-/*    margin: 0.3em;*/
-/*}*/
 
 h3 {
     margin-bottom: 0.5em;
@@ -30,8 +23,6 @@ h4 {
 /* Style for the left menu */
 .menu {
     min-width: 200px;
-    /*background-color: #f4f4f4;*/
-    /*border-right: solid 1px #bbb;*/
     width: auto;
 }
 
