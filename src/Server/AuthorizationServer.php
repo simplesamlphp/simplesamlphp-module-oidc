@@ -49,8 +49,8 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         ScopeRepositoryInterface $scopeRepository,
         CryptKey|string $privateKey,
         Key|string $encryptionKey,
-        ResponseTypeInterface $responseType = null,
-        RequestRulesManager $requestRulesManager = null,
+        ?ResponseTypeInterface $responseType = null,
+        ?RequestRulesManager $requestRulesManager = null,
     ) {
         parent::__construct(
             $clientRepository,

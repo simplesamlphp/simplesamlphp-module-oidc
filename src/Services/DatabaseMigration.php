@@ -30,7 +30,7 @@ class DatabaseMigration
 {
     private readonly Database $database;
 
-    public function __construct(Database $database = null)
+    public function __construct(?Database $database = null)
     {
         $this->database = $database ?? Database::getInstance();
     }

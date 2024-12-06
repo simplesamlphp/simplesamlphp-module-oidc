@@ -6,6 +6,7 @@ namespace SimpleSAML\Module\oidc\Server\Exceptions;
 
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ResponseInterface;
+use SimpleSAML\OpenID\Codebooks\ErrorsEnum;
 use Throwable;
 
 use function http_build_query;
@@ -57,10 +58,10 @@ class OidcServerException extends OAuthServerException
         int $code,
         string $errorType,
         int $httpStatusCode = 400,
-        string $hint = null,
-        string $redirectUri = null,
-        Throwable $previous = null,
-        string $state = null,
+        ?string $hint = null,
+        ?string $redirectUri = null,
+        ?Throwable $previous = null,
+        ?string $state = null,
     ) {
         parent::__construct($message, $code, $errorType, $httpStatusCode, $hint, $redirectUri, $previous);
 
@@ -93,8 +94,8 @@ class OidcServerException extends OAuthServerException
      * @return self
      */
     public static function unsupportedResponseType(
-        string $redirectUri = null,
-        string $state = null,
+        ?string $redirectUri = null,
+        ?string $state = null,
         bool $useFragment = false,
     ): OidcServerException {
         $errorMessage = 'The response type is not supported by the authorization server.';
@@ -117,7 +118,7 @@ class OidcServerException extends OAuthServerException
     public static function invalidScope(
         $scope,
         $redirectUri = null,
-        string $state = null,
+        ?string $state = null,
         bool $useFragment = false,
     ): OidcServerException {
         // OAuthServerException correctly implements this error, however, it misses state parameter.
@@ -142,9 +143,9 @@ class OidcServerException extends OAuthServerException
     public static function invalidRequest(
         $parameter,
         $hint = null,
-        Throwable $previous = null,
-        string $redirectUri = null,
-        string $state = null,
+        ?Throwable $previous = null,
+        ?string $redirectUri = null,
+        ?string $state = null,
         bool $useFragment = false,
     ): OidcServerException {
         $e = parent::invalidRequest($parameter, $hint, $previous);
@@ -167,8 +168,8 @@ class OidcServerException extends OAuthServerException
     public static function accessDenied(
         $hint = null,
         $redirectUri = null,
-        Throwable $previous = null,
-        string $state = null,
+        ?Throwable $previous = null,
+        ?string $state = null,
         bool $useFragment = false,
     ): OidcServerException {
         $e = parent::accessDenied($hint, $redirectUri, $previous);
@@ -190,10 +191,10 @@ class OidcServerException extends OAuthServerException
      * @return self
      */
     public static function loginRequired(
-        string $hint = null,
-        string $redirectUri = null,
-        Throwable $previous = null,
-        string $state = null,
+        ?string $hint = null,
+        ?string $redirectUri = null,
+        ?Throwable $previous = null,
+        ?string $state = null,
         bool $useFragment = false,
     ): OidcServerException {
         $errorMessage = "End-User is not already authenticated.";
@@ -216,10 +217,10 @@ class OidcServerException extends OAuthServerException
      * @return self
      */
     public static function requestNotSupported(
-        string $hint = null,
-        string $redirectUri = null,
-        Throwable $previous = null,
-        string $state = null,
+        ?string $hint = null,
+        ?string $redirectUri = null,
+        ?Throwable $previous = null,
+        ?string $state = null,
         bool $useFragment = false,
     ): OidcServerException {
         $errorMessage = "Request object not supported.";
@@ -239,21 +240,30 @@ class OidcServerException extends OAuthServerException
      * @return self
      * @psalm-suppress LessSpecificImplementedReturnType
      */
-    public static function invalidRefreshToken($hint = null, Throwable $previous = null): OidcServerException
+    public static function invalidRefreshToken($hint = null, ?Throwable $previous = null): OidcServerException
     {
         return new self('The refresh token is invalid.', 8, 'invalid_grant', 400, $hint, null, $previous);
     }
 
     public static function invalidTrustChain(
-        string $hint = null,
-        string $redirectUri = null,
-        Throwable $previous = null,
-        string $state = null,
+        ?string $hint = null,
+        ?string $redirectUri = null,
+        ?Throwable $previous = null,
+        ?string $state = null,
         bool $useFragment = false,
     ): OidcServerException {
         $errorMessage = 'Trust chain validation failed.';
 
-        $e = new self($errorMessage, 12, 'trust_chain_validation_failed', 400, $hint, $redirectUri, $previous, $state);
+        $e = new self(
+            $errorMessage,
+            12,
+            ErrorsEnum::InvalidTrustChain->value,
+            400,
+            $hint,
+            $redirectUri,
+            $previous,
+            $state,
+        );
         $e->useFragmentInHttpResponses($useFragment);
 
         return $e;
@@ -268,7 +278,7 @@ class OidcServerException extends OAuthServerException
      * @return self
      * @psalm-suppress LessSpecificImplementedReturnType
      */
-    public static function forbidden(string $hint = null, Throwable $previous = null): OidcServerException
+    public static function forbidden(?string $hint = null, ?Throwable $previous = null): OidcServerException
     {
         return new self(
             'Request understood, but refused to process it.',
@@ -304,7 +314,7 @@ class OidcServerException extends OAuthServerException
     /**
      * @param string|null $redirectUri Set to string, or unset it with null
      */
-    public function setRedirectUri(string $redirectUri = null): void
+    public function setRedirectUri(?string $redirectUri = null): void
     {
         $this->redirectUri = $redirectUri;
     }
@@ -337,7 +347,7 @@ class OidcServerException extends OAuthServerException
     /**
      * @param string|null $state Set to string, or unset it with null
      */
-    public function setState(string $state = null): void
+    public function setState(?string $state = null): void
     {
         if ($state === null) {
             unset($this->payload['state']);

@@ -29,7 +29,7 @@ class BackChannelLogoutHandler
      * @param \GuzzleHttp\HandlerStack|null $handlerStack For easier testing
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
-    public function handle(array $relyingPartyAssociations, HandlerStack $handlerStack = null): void
+    public function handle(array $relyingPartyAssociations, ?HandlerStack $handlerStack = null): void
     {
         $clientConfig = ['timeout' => 3, 'verify' => false, 'handler' => $handlerStack];
 

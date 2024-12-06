@@ -27,9 +27,9 @@ class AuthCodeEntityFactory
         OAuth2ClientEntityInterface $client,
         array $scopes,
         DateTimeImmutable $expiryDateTime,
-        string $userIdentifier = null,
-        string $redirectUri = null,
-        string $nonce = null,
+        ?string $userIdentifier = null,
+        ?string $redirectUri = null,
+        ?string $nonce = null,
         bool $isRevoked = false,
     ): AuthCodeEntity {
         return new AuthCodeEntity(

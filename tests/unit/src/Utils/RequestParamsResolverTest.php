@@ -57,9 +57,9 @@ class RequestParamsResolverTest extends TestCase
     }
 
     protected function mock(
-        MockObject $helpersMock = null,
-        MockObject $coreMock = null,
-        MockObject $federationMock = null,
+        ?MockObject $helpersMock = null,
+        ?MockObject $coreMock = null,
+        ?MockObject $federationMock = null,
     ): RequestParamsResolver {
         $helpersMock ??= $this->helpersMock;
         $coreMock ??= $this->coreMock;

@@ -13,8 +13,8 @@ class ScopeEntityFactory
      */
     public function fromData(
         string $identifier,
-        string $description = null,
-        string $icon = null,
+        ?string $description = null,
+        ?string $icon = null,
         array $claims = [],
     ): ScopeEntity {
         return new ScopeEntity(

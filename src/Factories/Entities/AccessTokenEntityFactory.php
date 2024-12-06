@@ -31,10 +31,10 @@ class AccessTokenEntityFactory
         OAuth2ClientEntityInterface $clientEntity,
         array $scopes,
         DateTimeImmutable $expiryDateTime,
-        int|string $userIdentifier = null,
-        string $authCodeId = null,
-        array $requestedClaims = null,
-        bool $isRevoked = false,
+        int|string|null $userIdentifier = null,
+        ?string $authCodeId = null,
+        ?array $requestedClaims = null,
+        ?bool $isRevoked = false,
     ): AccessTokenEntity {
         return new AccessTokenEntity(
             $id,

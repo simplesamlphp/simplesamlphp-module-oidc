@@ -26,7 +26,7 @@ PHP version requirement changes in minor releases for SimpleSAMLphp.
 
 | OIDC module | Tested SimpleSAMLphp |  PHP   | Note                        |
 |:------------|:---------------------|:------:|-----------------------------|
-| v6.\*       | v2.2.\*              | \>=8.2 | Recommended                 |
+| v6.\*       | v2.3.\*              | \>=8.2 | Recommended                 |
 | v5.\*       | v2.1.\*              | \>=8.1 |                             |
 | v4.\*       | v2.0.\*              | \>=8.0 |                             |
 | v3.\*       | v2.0.\*              | \>=7.4 | Abandoned from August 2023. |
@@ -329,7 +329,7 @@ docker run --name ssp-oidc-dev \
   --mount type=bind,source="$(pwd)/docker/ssp/oidc_module.crt",target=/var/simplesamlphp/cert/oidc_module.crt,readonly \
   --mount type=bind,source="$(pwd)/docker/ssp/oidc_module.key",target=/var/simplesamlphp/cert/oidc_module.key,readonly \
   --mount type=bind,source="$(pwd)/docker/apache-override.cf",target=/etc/apache2/sites-enabled/ssp-override.cf,readonly \
-   -p 443:443 cirrusid/simplesamlphp:v2.2.2
+   -p 443:443 cirrusid/simplesamlphp:v2.3.5
 ```
 
 Visit https://localhost/simplesaml/ and confirm you get the default page.

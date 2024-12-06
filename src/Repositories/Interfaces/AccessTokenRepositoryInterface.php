@@ -29,7 +29,7 @@ interface AccessTokenRepositoryInterface extends OAuth2AccessTokenRepositoryInte
         OAuth2ClientEntityInterface $clientEntity,
         array $scopes,
         $userIdentifier = null,
-        string $authCodeId = null,
-        array $requestedClaims = null,
+        ?string $authCodeId = null,
+        ?array $requestedClaims = null,
     ): AccessTokenEntityInterface;
 }

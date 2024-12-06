@@ -44,7 +44,7 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
     public function __construct(
         AccessTokenRepositoryInterface $accessTokenRepository,
         CryptKey $publicKey,
-        DateInterval $jwtValidAtDateLeeway = null,
+        ?DateInterval $jwtValidAtDateLeeway = null,
         protected LoggerService $loggerService = new LoggerService(),
     ) {
         parent::__construct($accessTokenRepository, $jwtValidAtDateLeeway);

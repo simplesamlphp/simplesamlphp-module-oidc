@@ -91,7 +91,7 @@ has been refactored:
 
 - upgraded to v5 of lcobucci/jwt https://github.com/lcobucci/jwt
 - upgraded to v3 of laminas/laminas-diactoros https://github.com/laminas/laminas-diactoros
-- SimpleSAMLphp version used during development was bumped to v2.2
+- SimpleSAMLphp version used during development was bumped to v2.3
 - In Authorization Code Flow, a new validation was added which checks for 'openid' value in 'scope' parameter. Up to
 now, 'openid' value was dynamically added if not present. In Implicit Code Flow this validation was already present. 
 

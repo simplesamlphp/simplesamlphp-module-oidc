@@ -20,7 +20,7 @@ class Menu
         array_push($this->items, ...$items);
     }
 
-    public function addItem(Item $menuItem, int $offset = null): void
+    public function addItem(Item $menuItem, ?int $offset = null): void
     {
         $offset ??= count($this->items);
 

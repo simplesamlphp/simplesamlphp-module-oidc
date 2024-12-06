@@ -35,7 +35,7 @@ class RefreshTokenIssuer extends AbstractTokenIssuer
     public function issue(
         Oauth2TokenEntityInterface $accessToken,
         DateInterval $refreshTokenTtl,
-        string $authCodeId = null,
+        ?string $authCodeId = null,
         int $maxGenerationAttempts = self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS,
     ): ?RefreshTokenEntityInterface {
         if (! is_a($accessToken, AccessTokenEntityInterface::class)) {
