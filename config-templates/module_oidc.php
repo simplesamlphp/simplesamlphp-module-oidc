@@ -368,6 +368,33 @@ $config = [
 //        'eyJ...GHg',
     ],
 
+    // (optional) Federation participation limit by Trust Marks. This is an array with the following format:
+    // [
+    //    'trust-anchor-id' => [
+    //         'limit-id' => [
+    //              'trust-mark-id',
+    //              'trust-mark-id-2',
+    //          ],
+    //     ],
+    // ],
+    // Check example below on how this can be used. If federation participation limit is configured for particular
+    // Trust Anchor ID, at least one combination of "limit ID" => "trust mark list" should be defined.
+    ModuleConfig::OPTION_FEDERATION_PARTICIPATION_LIMIT_BY_TRUST_MARKS => [
+        // We are limiting federation participation using Trust Marks for 'https://ta.example.org/'.
+        'https://ta.example.org/' => [
+            // Entities must have (at least) one Trust Mark from the list below.
+            \SimpleSAML\Module\oidc\Codebooks\LimitsEnum::OneOf->value => [
+                'trust-mark-id',
+                'trust-mark-id-2',
+            ],
+            // Entities must have all Trust Marks from the list below.
+            \SimpleSAML\Module\oidc\Codebooks\LimitsEnum::AllOf->value => [
+                'trust-mark-id-3',
+                'trust-mark-id-4',
+            ],
+        ],
+    ],
+
     // (optional) Dedicated federation cache adapter, used to cache federation artifacts like trust chains, entity
     // statements, etc. It will also be used for token reuse check in federation context. Setting this option is
     // recommended in production environments. If set to null, no caching will be used. Can be set to any

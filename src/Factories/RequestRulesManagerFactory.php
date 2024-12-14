@@ -36,6 +36,7 @@ use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
+use SimpleSAML\Module\oidc\Utils\FederationParticipationValidator;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
@@ -58,6 +59,7 @@ class RequestRulesManagerFactory
         private readonly Federation $federation,
         private readonly Helpers $helpers,
         private readonly JwksResolver $jwksResolver,
+        private readonly FederationParticipationValidator $federationParticipationValidator,
         private readonly ?FederationCache $federationCache = null,
         private readonly ?ProtocolCache $protocolCache = null,
     ) {
@@ -88,6 +90,7 @@ class RequestRulesManagerFactory
                 $this->federation,
                 $this->helpers,
                 $this->jwksResolver,
+                $this->federationParticipationValidator,
                 $this->federationCache,
             ),
             new RedirectUriRule($this->requestParamsResolver),

@@ -24,6 +24,10 @@ enum RoutesEnum: string
     case AdminClientsResetSecret = 'admin/clients/reset-secret';
     case AdminClientsDelete = 'admin/clients/delete';
 
+    // Testing
+    case AdminTestTrustChainResolution = 'admin/test/trust-chain-resolution';
+
+
     /*****************************************************************************************************************
      * OpenID Connect
      ****************************************************************************************************************/

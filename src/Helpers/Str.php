@@ -16,4 +16,16 @@ class Str
     {
         return array_filter(explode($delimiter, trim($scopes)), fn($scope) => !empty($scope));
     }
+
+    /**
+     * @param non-empty-string $pattern
+     * @return string[]
+     */
+    public function convertTextToArray(string $text, string $pattern = "/[\t\r\n]+/"): array
+    {
+        return array_filter(
+            preg_split($pattern, $text),
+            fn(string $line): bool => !empty(trim($line)),
+        );
+    }
 }

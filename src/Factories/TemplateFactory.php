@@ -109,6 +109,13 @@ class TemplateFactory
 
         $this->oidcMenu->addItem(
             $this->oidcMenu->buildItem(
+                $this->moduleConfig->getModuleUrl(RoutesEnum::AdminClients->value),
+                Translate::noop('Client Registry'),
+            ),
+        );
+
+        $this->oidcMenu->addItem(
+            $this->oidcMenu->buildItem(
                 $this->moduleConfig->getModuleUrl(RoutesEnum::AdminConfigProtocol->value),
                 Translate::noop('Protocol Settings'),
             ),
@@ -123,8 +130,8 @@ class TemplateFactory
 
         $this->oidcMenu->addItem(
             $this->oidcMenu->buildItem(
-                $this->moduleConfig->getModuleUrl(RoutesEnum::AdminClients->value),
-                Translate::noop('Client Registry'),
+                $this->moduleConfig->getModuleUrl(RoutesEnum::AdminTestTrustChainResolution->value),
+                Translate::noop('Test Trust Chain Resolution'),
             ),
         );
     }

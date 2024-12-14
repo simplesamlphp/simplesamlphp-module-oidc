@@ -414,6 +414,7 @@ class ClientForm extends Form
     }
 
     /**
+     * TODO mivanci Move to Str helper.
      * @return string[]
      */
     protected function convertTextToArrayWithLinesAsValues(string $text): array

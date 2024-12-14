@@ -65,25 +65,25 @@ class Test
 //        $requestObject = $requestObjectFactory->fromToken($unprotectedJws);
 
 //        dd($requestObject, $requestObject->getPayload(), $requestObject->getHeader());
-//        $cache->clear();
+        $this->federationCache?->cache->clear();
 
         $trustChain = $this->federation
             ->trustChainResolver()
             ->for(
-                'https://08-dap.localhost.markoivancic.from.hr/openid/entities/ALeaf/',
+//                'https://08-dap.localhost.markoivancic.from.hr/openid/entities/ALeaf/',
 //                'https://trust-anchor.testbed.oidcfed.incubator.geant.org/oidc/rp/',
 //                'https://relying-party-php.testbed.oidcfed.incubator.geant.org/',
-//                'https://gorp.testbed.oidcfed.incubator.geant.org',
+                'https://gorp.testbed.oidcfed.incubator.geant.org',
 //                'https://maiv1.incubator.geant.org',
                 [
-//                    'https://trust-anchor.testbed.oidcfed.incubator.geant.org/',
+                    'https://trust-anchor.testbed.oidcfed.incubator.geant.org/',
                     'https://08-dap.localhost.markoivancic.from.hr/openid/entities/ABTrustAnchor/',
-//                    'https://08-dap.localhost.markoivancic.from.hr/openid/entities/CTrustAnchor/',
+                    'https://08-dap.localhost.markoivancic.from.hr/openid/entities/CTrustAnchor/',
                 ],
-            );
-
+            )->getAll();
+dd($trustChain);
         $leaf = $trustChain->getResolvedLeaf();
-//        dd($leaf);
+        dd($leaf->getPayload());
         $leafFederationJwks = $leaf->getJwks();
 //        dd($leafFederationJwks);
 //        /** @psalm-suppress PossiblyNullArgument */

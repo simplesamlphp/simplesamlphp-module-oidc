@@ -103,6 +103,7 @@ use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\ClassInstanceBuilder;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
+use SimpleSAML\Module\oidc\Utils\FederationParticipationValidator;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
@@ -346,6 +347,11 @@ class Container implements ContainerInterface
 
         $jwksResolver = new JwksResolver($jwks);
         $this->services[JwksResolver::class] = $jwksResolver;
+        $federationParticipationValidator = new FederationParticipationValidator(
+            $moduleConfig,
+            $loggerService,
+        );
+        $this->services[FederationParticipationValidator::class] = $federationParticipationValidator;
 
         $requestRules = [
             new StateRule($requestParamsResolver),
@@ -357,6 +363,7 @@ class Container implements ContainerInterface
                 $federation,
                 $helpers,
                 $jwksResolver,
+                $federationParticipationValidator,
                 $federationCache,
             ),
             new RedirectUriRule($requestParamsResolver),

@@ -134,6 +134,13 @@ class Routes
         return $this->getModuleUrl(RoutesEnum::AdminClientsDelete->value, $parameters);
     }
 
+    // Testing
+
+    public function urlAdminTestTrustChainResolution(array $parameters = []): string
+    {
+        return $this->getModuleUrl(RoutesEnum::AdminTestTrustChainResolution->value, $parameters);
+    }
+
     /*****************************************************************************************************************
      * OpenID Connect URLs.
      ****************************************************************************************************************/
