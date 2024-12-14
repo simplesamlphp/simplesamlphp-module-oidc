@@ -81,6 +81,8 @@ class ModuleConfig
     final public const OPTION_PROTOCOL_CACHE_ADAPTER = 'protocol_cache_adapter';
     final public const OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS = 'protocol_cache_adapter_arguments';
     final public const OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION = 'protocol_user_entity_cache_duration';
+    final public const OPTION_FEDERATION_PARTICIPATION_LIMIT_BY_TRUST_MARKS =
+    'federation_participation_limit_by_trust_marks';
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
@@ -465,7 +467,7 @@ class ModuleConfig
 
 
     /*****************************************************************************************************************
-     * OpenID Connect related config.
+     * OpenID Federation related config.
      ****************************************************************************************************************/
 
     public function getFederationEnabled(): bool
@@ -668,5 +670,34 @@ class ModuleConfig
         throw new ConfigurationError(
             sprintf('Unexpected JWKS format for Trust Anchor %s: %s', $trustAnchorId, var_export($jwks, true)),
         );
+    }
+
+    public function getFederationParticipationLimitByTrustMarks(): array
+    {
+        return $this->config()->getOptionalArray(
+            self::OPTION_FEDERATION_PARTICIPATION_LIMIT_BY_TRUST_MARKS,
+            [],
+        );
+    }
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getTrustMarksNeededForFederationParticipationFor(string $trustAnchorId): array
+    {
+        $participationLimit = $this->getFederationParticipationLimitByTrustMarks()[$trustAnchorId] ?? [];
+        if (!is_array($participationLimit)) {
+            throw new ConfigurationError('Invalid configuration for federation participation limit.');
+        }
+
+        return $participationLimit;
+    }
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function isFederationParticipationLimitedByTrustMarksFor(string $trustAnchorId): bool
+    {
+        return !empty($this->getTrustMarksNeededForFederationParticipationFor($trustAnchorId));
     }
 }

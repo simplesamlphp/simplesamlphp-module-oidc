@@ -10,6 +10,7 @@ use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Controllers\AccessTokenController;
 use SimpleSAML\Module\oidc\Controllers\Admin\ClientController;
 use SimpleSAML\Module\oidc\Controllers\Admin\ConfigController;
+use SimpleSAML\Module\oidc\Controllers\Admin\TestController;
 use SimpleSAML\Module\oidc\Controllers\AuthorizationController;
 use SimpleSAML\Module\oidc\Controllers\ConfigurationDiscoveryController;
 use SimpleSAML\Module\oidc\Controllers\EndSessionController;
@@ -56,6 +57,12 @@ return function (RoutingConfigurator $routes): void {
     $routes->add(RoutesEnum::AdminClientsDelete->name, RoutesEnum::AdminClientsDelete->value)
         ->controller([ClientController::class, 'delete'])
         ->methods([HttpMethodsEnum::POST->value]);
+
+    // Testing
+
+    $routes->add(RoutesEnum::AdminTestTrustChainResolution->name, RoutesEnum::AdminTestTrustChainResolution->value)
+        ->controller([TestController::class, 'trustChainResolution'])
+        ->methods([HttpMethodsEnum::GET->value, HttpMethodsEnum::POST->value]);
 
     /*****************************************************************************************************************
      * OpenID Connect

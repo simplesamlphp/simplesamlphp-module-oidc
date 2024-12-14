@@ -99,6 +99,8 @@ services:
     factory: ['@SimpleSAML\Module\oidc\Factories\ResourceServerFactory', 'build']
 
   # Utils
+  SimpleSAML\Module\oidc\Utils\Debug\ArrayLogger: ~
+  SimpleSAML\Module\oidc\Utils\FederationParticipationValidator: ~
   SimpleSAML\Module\oidc\Utils\Routes: ~
   SimpleSAML\Module\oidc\Utils\RequestParamsResolver: ~
   SimpleSAML\Module\oidc\Utils\ClassInstanceBuilder: ~

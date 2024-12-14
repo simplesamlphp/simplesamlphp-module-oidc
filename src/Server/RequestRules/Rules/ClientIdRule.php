@@ -19,6 +19,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
+use SimpleSAML\Module\oidc\Utils\FederationParticipationValidator;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\EntityTypesEnum;
@@ -39,6 +40,7 @@ class ClientIdRule extends AbstractRule
         protected Federation $federation,
         protected Helpers $helpers,
         protected JwksResolver $jwksResolver,
+        protected FederationParticipationValidator $federationParticipationValidator,
         protected ?FederationCache $federationCache = null,
     ) {
         parent::__construct($requestParamsResolver);
@@ -125,7 +127,7 @@ class ClientIdRule extends AbstractRule
             $trustChain = $this->federation->trustChainResolver()->for(
                 $clientEntityId,
                 $this->moduleConfig->getFederationTrustAnchorIds(),
-            );
+            )->getShortest();
         } catch (ConfigurationError $exception) {
             throw OidcServerException::serverError(
                 'invalid OIDC configuration: ' . $exception->getMessage(),
@@ -191,7 +193,16 @@ class ClientIdRule extends AbstractRule
         // Verify signature on Request Object using client JWKS.
         $requestObject->verifyWithKeySet($clientJwks);
 
-        // Signature verified, we can persist (new) client registration.
+        // Check if federation participation is limited by Trust Marks.
+        if (
+            $this->moduleConfig->isFederationParticipationLimitedByTrustMarksFor(
+                $trustChain->getResolvedTrustAnchor()->getIssuer(),
+            )
+        ) {
+            $this->federationParticipationValidator->byTrustMarksFor($trustChain);
+        }
+
+        // All is verified, We can persist (new) client registration.
         if ($existingClient) {
             $this->clientRepository->update($registrationClient);
         } else {
