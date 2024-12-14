@@ -59,7 +59,6 @@ class ArrayLoggerTest extends TestCase
         $sut->log(LogLevel::DEBUG, 'debug message');
 
         $this->assertCount(9, $sut->getEntries());
-
     }
 
     public function testWontLogLessThanEmergency(): void

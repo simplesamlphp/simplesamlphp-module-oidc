@@ -61,9 +61,9 @@ class TestController
             $isFormSubmitted = true;
 
             !empty($leafEntityId = $request->request->getString('leafEntityId')) ||
-                throw new OidcException('Empty leaf entity ID.');
+            throw new OidcException('Empty leaf entity ID.');
             !empty($rawTrustAnchorIds = $request->request->getString('trustAnchorIds')) ||
-                throw new OidcException('Empty Trust Anchor IDs.');
+            throw new OidcException('Empty Trust Anchor IDs.');
 
             /** @var non-empty-array<non-empty-string> $trustAnchorIds */
             $trustAnchorIds = $this->helpers->str()->convertTextToArray($rawTrustAnchorIds);
@@ -76,7 +76,7 @@ class TestController
                     foreach (EntityTypesEnum::cases() as $entityTypeEnum) {
                         try {
                             $metadataEntries[$entityTypeEnum->value] =
-                                $trustChain->getResolvedMetadata($entityTypeEnum);
+                            $trustChain->getResolvedMetadata($entityTypeEnum);
                         } catch (\Throwable $exception) {
                             $this->arrayLogger->error(
                                 'Metadata resolving error: ' . $exception->getMessage(),
