@@ -327,32 +327,14 @@ $config = [
     ModuleConfig::OPTION_FEDERATION_ENABLED => false,
 
     // Trust Anchors which are valid for this entity. The key represents the Trust Anchor Entity ID, while the value can
-    // be the Trust Anchor's JWKS array value, or null. If JWKS is provided, it will be used to validate Trust Anchor
-    // Configuration Statement in addition to using JWKS acquired during Trust Chain resolution. If JWKS is not
-    // provided (value null), the validity of Trust Anchor Configuration Statement will "only" be validated
-    // by the JWKS acquired during Trust Chain resolution, meaning that security will rely "only" on
-    // protection implied from using TLS on endpoints used during Trust Chain resolution.
+    // be the Trust Anchor's JWKS JSON object string value, or null. If JWKS is provided, it will be used to validate
+    // Trust Anchor Configuration Statement in addition to using JWKS acquired during Trust Chain resolution. If
+    // JWKS is not provided (value null), the validity of Trust Anchor Configuration Statement will "only" be
+    // validated by the JWKS acquired during Trust Chain resolution, meaning that security will rely "only"
+    // on protection implied from using TLS on endpoints used during Trust Chain resolution.
     ModuleConfig::OPTION_FEDERATION_TRUST_ANCHORS => [
-//        'https://ta.example.org/' => [
-//            'keys' => [
-//                [
-//                    'alg' => 'RS256',
-//                    'use' => 'sig',
-//                    'kty' => 'RSA',
-//                    'n' => 'abc...def',
-//                    'e' => 'AQAB',
-//                    'kid' => '123',
-//                ],
-//                [
-//                    'alg' => 'RS256',
-//                    'use' => 'sig',
-//                    'kty' => 'RSA',
-//                    'n' => 'ghi...jkl',
-//                    'e' => 'AQAB',
-//                    'kid' => '456',
-//                ],
-//            ],
-//        ],
+        // phpcs:ignore
+//        'https://ta.example.org/' => '{"keys":[{"kty": "RSA","alg": "RS256","use": "sig","kid": "Nzb...9Xs","e": "AQAB","n": "pnXB...ub9J"}]}',
 //        'https://ta2.example.org/' => null,
     ],
 

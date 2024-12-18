@@ -141,6 +141,19 @@ class ClientIdRule extends AbstractRule
             );
         }
 
+        // Validate TA with locally saved JWKS, if available.
+        $trustAnchorEntityConfiguration = $trustChain->getResolvedTrustAnchor();
+        $localTrustAnchorJwksJson = $this->moduleConfig
+            ->getTrustAnchorJwksJson($trustAnchorEntityConfiguration->getIssuer());
+        if (!is_null($localTrustAnchorJwksJson)) {
+            /** @psalm-suppress MixedArgument */
+            $localTrustAnchorJwks = $this->federation->helpers()->json()->decode($localTrustAnchorJwksJson);
+            if (!is_array($localTrustAnchorJwks)) {
+                throw OidcServerException::serverError('Unexpected JWKS format.');
+            }
+            $trustAnchorEntityConfiguration->verifyWithKeySet($localTrustAnchorJwks);
+        }
+
         $clientFederationEntity = $trustChain->getResolvedLeaf();
 
         if ($clientFederationEntity->getIssuer() !== $clientEntityId) {
