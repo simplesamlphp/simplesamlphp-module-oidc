@@ -24,7 +24,6 @@ use SimpleSAML\Configuration;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ScopesEnum;
 
 class ModuleConfig
@@ -650,20 +649,16 @@ class ModuleConfig
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
      */
-    public function getTrustAnchorJwks(string $trustAnchorId): ?array
+    public function getTrustAnchorJwksJson(string $trustAnchorId): ?string
     {
         /** @psalm-suppress MixedAssignment */
         $jwks = $this->getFederationTrustAnchors()[$trustAnchorId] ?? null;
 
-        if ($jwks === null) {
+        if (is_null($jwks)) {
             return null;
         }
 
-        if (
-            is_array($jwks) &&
-            array_key_exists(ClaimsEnum::Keys->value, $jwks) &&
-            (!empty($jwks[ClaimsEnum::Keys->value]))
-        ) {
+        if (is_string($jwks)) {
             return $jwks;
         }
 
