@@ -32,5 +32,12 @@ abstract class AbstractDatabaseRepository
     ) {
     }
 
+    public function getCacheKey(string $identifier): string
+    {
+        return is_string($tableName = $this->getTableName()) ?
+        $tableName . '_' . $identifier :
+        $identifier;
+    }
+
     abstract public function getTableName(): ?string;
 }

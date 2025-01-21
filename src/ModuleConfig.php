@@ -80,6 +80,7 @@ class ModuleConfig
     final public const OPTION_PROTOCOL_CACHE_ADAPTER = 'protocol_cache_adapter';
     final public const OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS = 'protocol_cache_adapter_arguments';
     final public const OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION = 'protocol_user_entity_cache_duration';
+    final public const OPTION_PROTOCOL_CLIENT_ENTITY_CACHE_DURATION = 'protocol_client_entity_cache_duration';
     final public const OPTION_FEDERATION_PARTICIPATION_LIMIT_BY_TRUST_MARKS =
     'federation_participation_limit_by_trust_marks';
 
@@ -461,6 +462,21 @@ class ModuleConfig
                 self::OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION,
                 null,
             ) ?? "PT{$this->sspConfig()->getInteger('session.duration')}S",
+        );
+    }
+
+    /**
+     * Get cache duration for client entities (user data), with given default
+     *
+     * @throws \Exception
+     */
+    public function getProtocolClientEntityCacheDuration(): DateInterval
+    {
+        return new DateInterval(
+            $this->config()->getOptionalString(
+                self::OPTION_PROTOCOL_CLIENT_ENTITY_CACHE_DURATION,
+                null,
+            ) ?? 'PT10M',
         );
     }
 

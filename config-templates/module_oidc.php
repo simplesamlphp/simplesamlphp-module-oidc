@@ -258,42 +258,46 @@ $config = [
     // also give proper adapter arguments for its instantiation below.
     // @see https://symfony.com/doc/current/components/cache.html#available-cache-adapters
     ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => null,
-    //ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\FilesystemAdapter::class,
-    //ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\MemcachedAdapter::class,
+//    ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\FilesystemAdapter::class,
+//    ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\MemcachedAdapter::class,
 
-    // Federation cache adapter arguments used for adapter instantiation. Refer to documentation for particular
+    // Protocol cache adapter arguments used for adapter instantiation. Refer to documentation for particular
     // adapter on which arguments are needed to create its instance, in the order of constructor arguments.
     // See examples below.
     ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS => [
         // Adapter arguments here...
     ],
     // Example for FileSystemAdapter:
-    //ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS => [
-    //    'openidFederation', // Namespace, subdirectory of main cache directory
-    //    60 * 60 * 6, // Default lifetime in seconds (used when particular cache item doesn't define its own lifetime)
-    //    '/path/to/main/cache/directory' // Must be writable. Can be set to null to use system temporary directory.
-    //],
-    // Example for MemcachedAdapter:
-    //ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS => [
-    //    // First argument is a connection instance, so we can use the helper method to create it. In this example a
-    //    // single server is used. Refer to documentation on how to use multiple servers, and / or to provide other
-    //    // options.
-    //    \Symfony\Component\Cache\Adapter\MemcachedAdapter::createConnection(
-    //        'memcached://localhost'
-    //    // the DSN can include config options (pass them as a query string):
-    //    // 'memcached://localhost:11222?retry_timeout=10'
-    //    // 'memcached://localhost:11222?socket_recv_size=1&socket_send_size=2'
-    //    ),
-    //    'openidFederation', // Namespace, key prefix.
-    //    60 * 60 * 6, // Default lifetime in seconds (used when particular cache item doesn't define its own lifetime)
-    //],
+//    ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS => [
+//        'openidFederation', // Namespace, subdirectory of main cache directory
+//        60 * 60 * 6, // Default lifetime in seconds (used when particular cache item doesn't define its own lifetime)
+//        '/path/to/main/cache/directory' // Must be writable. Can be set to null to use system temporary directory.
+//    ],
+//     Example for MemcachedAdapter:
+//    ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS => [
+//        // First argument is a connection instance, so we can use the helper method to create it. In this example a
+//        // single server is used. Refer to documentation on how to use multiple servers, and / or to provide other
+//        // options.
+//        \Symfony\Component\Cache\Adapter\MemcachedAdapter::createConnection(
+//            'memcached://localhost'
+//        // the DSN can include config options (pass them as a query string):
+//        // 'memcached://localhost:11222?retry_timeout=10'
+//        // 'memcached://localhost:11222?socket_recv_size=1&socket_send_size=2'
+//        ),
+//        'openidProtocol', // Namespace, key prefix.
+//        60 * 60 * 6, // Default lifetime in seconds (used when particular cache item doesn't define its own lifetime)
+//    ],
 
+    /**
+    * Protocol cache duration for particular entities. This is only relevant if protocol cache adapter is set up.
+    * For duration format info, check https://www.php.net/manual/en/dateinterval.construct.php.
+    */
     // Cache duration for user entities (authenticated users data). If not set, cache duration will be the same as
-    // session duration. This is used to avoid fetching user data from database on every authentication event.
-    // This is only relevant if protocol cache adapter is set up. For duration format info, check
-    // https://www.php.net/manual/en/dateinterval.construct.php.
+    // session duration.
 //    ModuleConfig::OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION => 'PT1H', // 1 hour
-    ModuleConfig::OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION => null, // fallback to session duration
+    ModuleConfig::OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION => null, // Fallback to session duration
+    // Cache duration for client entities, with given default.
+    ModuleConfig::OPTION_PROTOCOL_CLIENT_ENTITY_CACHE_DURATION => 'PT10M', // 10 minutes
 
     /**
      * Cron related options.

@@ -48,11 +48,6 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
 
-    public function getCacheKey(string $identifier): string
-    {
-        return $this->getTableName() . '_' . $identifier;
-    }
-
     /**
      * @param string $identifier
      *
