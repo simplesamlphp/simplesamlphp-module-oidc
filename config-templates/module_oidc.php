@@ -298,6 +298,8 @@ $config = [
     ModuleConfig::OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION => null, // Fallback to session duration
     // Cache duration for client entities, with given default.
     ModuleConfig::OPTION_PROTOCOL_CLIENT_ENTITY_CACHE_DURATION => 'PT10M', // 10 minutes
+    // Cache duration for Authorization Code, Access Token, and Refresh Token will fall back to their TTL.
+
 
     /**
      * Cron related options.

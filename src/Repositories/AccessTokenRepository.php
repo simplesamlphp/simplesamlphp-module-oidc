@@ -98,7 +98,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
      */
     public function persistNewAccessToken(OAuth2AccessTokenEntityInterface $accessTokenEntity): void
     {
-        if (!$accessTokenEntity instanceof AccessTokenEntity) {
+        if (!($accessTokenEntity instanceof AccessTokenEntity)) {
             throw new Error('Invalid AccessTokenEntity');
         }
 
@@ -112,6 +112,14 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
             $stmt,
             $accessTokenEntity->getState(),
         );
+
+        $this->protocolCache?->set(
+            $accessTokenEntity->getState(),
+            $this->helpers->dateTime()->getSecondsToExpirationTime(
+                $accessTokenEntity->getExpiryDateTime()->getTimestamp(),
+            ),
+            $this->getCacheKey((string)$accessTokenEntity->getIdentifier()),
+        );
     }
 
     /**
@@ -121,6 +129,13 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
      */
     public function findById(string $tokenId): ?AccessTokenEntity
     {
+        /** @var ?array $cachedState */
+        $cachedState = $this->protocolCache?->get(null, $this->getCacheKey($tokenId));
+
+        if (is_array($cachedState)) {
+            return $this->accessTokenEntityFactory->fromState($cachedState);
+        }
+
         $stmt = $this->database->read(
             "SELECT * FROM {$this->getTableName()} WHERE id = :id",
             [
@@ -136,7 +151,17 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         $data = current($rows);
         $data['client'] = $this->clientRepository->findById((string)$data['client_id']);
 
-        return $this->accessTokenEntityFactory->fromState($data);
+        $accessTokenEntity = $this->accessTokenEntityFactory->fromState($data);
+
+        $this->protocolCache?->set(
+            $accessTokenEntity->getState(),
+            $this->helpers->dateTime()->getSecondsToExpirationTime(
+                $accessTokenEntity->getExpiryDateTime()->getTimestamp(),
+            ),
+            $this->getCacheKey((string)$accessTokenEntity->getIdentifier()),
+        );
+
+        return $accessTokenEntity;
     }
 
     /**
@@ -208,6 +233,14 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         $this->database->write(
             $stmt,
             $accessTokenEntity->getState(),
+        );
+
+        $this->protocolCache?->set(
+            $accessTokenEntity->getState(),
+            $this->helpers->dateTime()->getSecondsToExpirationTime(
+                $accessTokenEntity->getExpiryDateTime()->getTimestamp(),
+            ),
+            $this->getCacheKey((string)$accessTokenEntity->getIdentifier()),
         );
     }
 }
