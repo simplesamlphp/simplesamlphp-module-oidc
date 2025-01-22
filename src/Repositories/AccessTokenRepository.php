@@ -129,26 +129,25 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
      */
     public function findById(string $tokenId): ?AccessTokenEntity
     {
-        /** @var ?array $cachedState */
-        $cachedState = $this->protocolCache?->get(null, $this->getCacheKey($tokenId));
+        /** @var ?array $data */
+        $data = $this->protocolCache?->get(null, $this->getCacheKey($tokenId));
 
-        if (is_array($cachedState)) {
-            return $this->accessTokenEntityFactory->fromState($cachedState);
+        if (!is_array($data)) {
+            $stmt = $this->database->read(
+                "SELECT * FROM {$this->getTableName()} WHERE id = :id",
+                [
+                    'id' => $tokenId,
+                ],
+            );
+
+            if (empty($rows = $stmt->fetchAll())) {
+                return null;
+            }
+
+            /** @var array $data */
+            $data = current($rows);
         }
 
-        $stmt = $this->database->read(
-            "SELECT * FROM {$this->getTableName()} WHERE id = :id",
-            [
-                'id' => $tokenId,
-            ],
-        );
-
-        if (empty($rows = $stmt->fetchAll())) {
-            return null;
-        }
-
-        /** @var array $data */
-        $data = current($rows);
         $data['client'] = $this->clientRepository->findById((string)$data['client_id']);
 
         $accessTokenEntity = $this->accessTokenEntityFactory->fromState($data);
