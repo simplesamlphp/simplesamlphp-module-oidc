@@ -2,10 +2,11 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\integration\Repositories\Traits;
+namespace SimpleSAML\Test\Module\oidc\integration\Repositories;
 
 use League\OAuth2\Server\CryptKey;
 use PDO;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -25,7 +26,6 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AbstractDatabaseRepository;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
-use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
@@ -34,10 +34,8 @@ use Testcontainers\Container\PostgresContainer;
 use Testcontainers\Wait\WaitForHealthCheck;
 use Testcontainers\Wait\WaitForLog;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait
- */
-class RevokeTokenByAuthCodeIdTraitTest extends TestCase
+#[CoversClass(AccessTokenRepository::class)]
+class AccessTokenRepositoryTest extends TestCase
 {
     protected array $state;
     protected array $scopes;
@@ -139,16 +137,9 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         $moduleConfig = new ModuleConfig();
 
         $this->mock = new class ($moduleConfig, $database, null) extends AbstractDatabaseRepository {
-            use RevokeTokenByAuthCodeIdTrait;
-
             public function getTableName(): ?string
             {
                 return $this->database->applyPrefix('oidc_access_token');
-            }
-
-            public function generateQueryWrapper(string $authCodeId, array $revokedParam): array
-            {
-                return $this->generateQuery($authCodeId, $revokedParam);
             }
 
             public function getDatabase(): Database
@@ -289,26 +280,6 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
             'MySql' => ['mysqlConfig'],
             'Sqlite' => ['sqliteConfig'],
         ];
-    }
-
-    #[DataProvider('databaseToTest')]
-    public function testItGenerateQuery(string $database): void
-    {
-        $this->useDatabase(self::$$database);
-
-        $revokedParam = [self::IS_REVOKED, PDO::PARAM_BOOL];
-        $expected = [
-            'UPDATE phpunit_oidc_access_token SET is_revoked = :is_revoked WHERE auth_code_id = :auth_code_id',
-            [
-                'auth_code_id' => self::AUTH_CODE_ID,
-                'is_revoked' => $revokedParam,
-            ],
-        ];
-
-        $this->assertEquals(
-            $expected,
-            $this->mock->generateQueryWrapper(self::AUTH_CODE_ID, $revokedParam),
-        );
     }
 
     /**
