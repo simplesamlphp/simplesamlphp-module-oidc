@@ -81,6 +81,14 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
             $stmt,
             $this->preparePdoState($refreshTokenEntity->getState()),
         );
+
+        $this->protocolCache?->set(
+            $refreshTokenEntity->getState(),
+            $this->helpers->dateTime()->getSecondsToExpirationTime(
+                $refreshTokenEntity->getExpiryDateTime()->getTimestamp(),
+            ),
+            $this->getCacheKey((string)$refreshTokenEntity->getIdentifier()),
+        );
     }
 
     /**
@@ -90,22 +98,38 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
      */
     public function findById(string $tokenId): ?RefreshTokenEntityInterface
     {
-        $stmt = $this->database->read(
-            "SELECT * FROM {$this->getTableName()} WHERE id = :id",
-            [
-                'id' => $tokenId,
-            ],
-        );
+        /** @var ?array $data */
+        $data = $this->protocolCache?->get(null, $this->getCacheKey($tokenId));
 
-        if (empty($rows = $stmt->fetchAll())) {
-            return null;
+        if (!is_array($data)) {
+            $stmt = $this->database->read(
+                "SELECT * FROM {$this->getTableName()} WHERE id = :id",
+                [
+                    'id' => $tokenId,
+                ],
+            );
+
+            if (empty($rows = $stmt->fetchAll())) {
+                return null;
+            }
+
+            /** @var array $data */
+            $data = current($rows);
         }
 
-        /** @var array $data */
-        $data = current($rows);
         $data['access_token'] = $this->accessTokenRepository->findById((string)$data['access_token_id']);
 
-        return $this->refreshTokenEntityFactory->fromState($data);
+        $refreshTokenEntity = $this->refreshTokenEntityFactory->fromState($data);
+
+        $this->protocolCache?->set(
+            $refreshTokenEntity->getState(),
+            $this->helpers->dateTime()->getSecondsToExpirationTime(
+                $refreshTokenEntity->getExpiryDateTime()->getTimestamp(),
+            ),
+            $this->getCacheKey((string)$refreshTokenEntity->getIdentifier()),
+        );
+
+        return $refreshTokenEntity;
     }
 
     /**
@@ -179,6 +203,14 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         $this->database->write(
             $stmt,
             $this->preparePdoState($refreshTokenEntity->getState()),
+        );
+
+        $this->protocolCache?->set(
+            $refreshTokenEntity->getState(),
+            $this->helpers->dateTime()->getSecondsToExpirationTime(
+                $refreshTokenEntity->getExpiryDateTime()->getTimestamp(),
+            ),
+            $this->getCacheKey($refreshTokenEntity->getIdentifier()),
         );
     }
 
