@@ -302,7 +302,7 @@ class AccessTokenRepositoryTest extends TestCase
         $this->assertFalse($isRevoked);
 
         // Revoke the access token
-        $this->mock->revokeByAuthCodeId(self::AUTH_CODE_ID);
+        $this->accessTokenRepository->revokeByAuthCodeId(self::AUTH_CODE_ID);
         $isRevoked = $this->accessTokenRepository->isAccessTokenRevoked(self::ACCESS_TOKEN_ID);
 
         $this->assertTrue($isRevoked);
