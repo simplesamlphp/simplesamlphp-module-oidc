@@ -109,7 +109,7 @@ class AccessTokenRepositoryTest extends TestCase
             'expires_at' => date('Y-m-d H:i:s', time() - 60), // expired...
             'user_id' => self::USER_ID,
             'client_id' => self::CLIENT_ID,
-            'is_revoked' => [false, PDO::PARAM_BOOL],
+            'is_revoked' => false,
             'auth_code_id' => self::AUTH_CODE_ID,
             'requested_claims' => '[]',
         ];
