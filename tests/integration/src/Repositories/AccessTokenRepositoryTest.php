@@ -116,7 +116,7 @@ class AccessTokenRepositoryTest extends TestCase
 
         $this->accessTokenEntityMock = $this->createMock(AccessTokenEntity::class);
         $this->accessTokenEntityFactoryMock = $this->createMock(AccessTokenEntityFactory::class);
-        $certFolder = dirname(__DIR__, 5) . '/docker/ssp/';
+        $certFolder = dirname(__DIR__, 4) . '/docker/ssp/';
         $privateKeyPath = $certFolder . ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME;
         $this->privateKey = new CryptKey($privateKeyPath);
         $this->accessTokenEntityFactory = new AccessTokenEntityFactory(
