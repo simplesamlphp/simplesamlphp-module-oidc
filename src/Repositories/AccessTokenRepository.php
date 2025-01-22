@@ -19,6 +19,7 @@ namespace SimpleSAML\Module\oidc\Repositories;
 use DateTimeImmutable;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface as OAuth2AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
+use PDO;
 use RuntimeException;
 use SimpleSAML\Database;
 use SimpleSAML\Error\Error;
@@ -29,14 +30,11 @@ use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
-use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 class AccessTokenRepository extends AbstractDatabaseRepository implements AccessTokenRepositoryInterface
 {
-    use RevokeTokenByAuthCodeIdTrait;
-
     final public const TABLE_NAME = 'oidc_access_token';
 
     public function __construct(
@@ -110,7 +108,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
 
         $this->database->write(
             $stmt,
-            $accessTokenEntity->getState(),
+            $this->preparePdoState($accessTokenEntity->getState()),
         );
 
         $this->protocolCache?->set(
@@ -181,6 +179,22 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
     }
 
     /**
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
+     */
+    public function revokeByAuthCodeId(string $authCodeId): void
+    {
+        $stmt = $this->database->read(
+            "SELECT id FROM {$this->getTableName()} WHERE auth_code_id = :auth_code_id",
+            ['auth_code_id' => $authCodeId],
+        );
+
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN, 0) as $id) {
+            $this->revokeAccessToken((string)$id);
+        }
+    }
+
+    /**
      * {@inheritdoc}
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -231,7 +245,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
 
         $this->database->write(
             $stmt,
-            $accessTokenEntity->getState(),
+            $this->preparePdoState($accessTokenEntity->getState()),
         );
 
         $this->protocolCache?->set(
@@ -241,5 +255,13 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
             ),
             $this->getCacheKey((string)$accessTokenEntity->getIdentifier()),
         );
+    }
+
+    protected function preparePdoState(array $state): array
+    {
+        $isRevoked = (bool)($state['is_revoked'] ?? true);
+        $state['is_revoked'] = [$isRevoked, PDO::PARAM_BOOL];
+
+        return $state;
     }
 }

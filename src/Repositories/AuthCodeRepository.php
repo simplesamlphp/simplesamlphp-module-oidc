@@ -17,6 +17,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Repositories;
 
 use League\OAuth2\Server\Entities\AuthCodeEntityInterface as OAuth2AuthCodeEntityInterface;
+use PDO;
 use RuntimeException;
 use SimpleSAML\Database;
 use SimpleSAML\Error\Error;
@@ -76,7 +77,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
 
         $this->database->write(
             $stmt,
-            $authCodeEntity->getState(),
+            $this->preparePdoState($authCodeEntity->getState()),
         );
     }
 
@@ -174,7 +175,16 @@ EOS
 
         $this->database->write(
             $stmt,
-            $authCodeEntity->getState(),
+            $this->preparePdoState($authCodeEntity->getState()),
         );
+    }
+
+    protected function preparePdoState(array $state): array
+    {
+        $isRevoked = (bool)($state['is_revoked'] ?? true);
+
+        $state['is_revoked'] = [$isRevoked, PDO::PARAM_BOOL];
+
+        return $state;
     }
 }

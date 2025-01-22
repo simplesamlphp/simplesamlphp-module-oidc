@@ -18,6 +18,7 @@ namespace SimpleSAML\Module\oidc\Repositories;
 
 use League\OAuth2\Server\Entities\RefreshTokenEntityInterface as OAuth2RefreshTokenEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
+use PDO;
 use RuntimeException;
 use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
@@ -27,13 +28,10 @@ use SimpleSAML\Module\oidc\Factories\Entities\RefreshTokenEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
-use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 class RefreshTokenRepository extends AbstractDatabaseRepository implements RefreshTokenRepositoryInterface
 {
-    use RevokeTokenByAuthCodeIdTrait;
-
     final public const TABLE_NAME = 'oidc_refresh_token';
 
     public function __construct(
@@ -81,7 +79,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
 
         $this->database->write(
             $stmt,
-            $refreshTokenEntity->getState(),
+            $this->preparePdoState($refreshTokenEntity->getState()),
         );
     }
 
@@ -127,6 +125,21 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
     }
 
     /**
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function revokeByAuthCodeId(string $authCodeId): void
+    {
+        $stmt = $this->database->read(
+            "SELECT id FROM {$this->getTableName()} WHERE auth_code_id = :auth_code_id",
+            ['auth_code_id' => $authCodeId],
+        );
+
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN, 0) as $id) {
+            $this->revokeRefreshToken((string)$id);
+        }
+    }
+
+    /**
      * {@inheritdoc}
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -165,7 +178,16 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
 
         $this->database->write(
             $stmt,
-            $refreshTokenEntity->getState(),
+            $this->preparePdoState($refreshTokenEntity->getState()),
         );
+    }
+
+    protected function preparePdoState(array $state): array
+    {
+        $isRevoked = (bool)($state['is_revoked'] ?? true);
+
+        $state['is_revoked'] = [$isRevoked, PDO::PARAM_BOOL];
+
+        return $state;
     }
 }

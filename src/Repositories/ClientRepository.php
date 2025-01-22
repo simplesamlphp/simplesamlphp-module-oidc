@@ -330,7 +330,7 @@ EOS
         );
         $this->database->write(
             $stmt,
-            $client->getState(),
+            $this->preparePdoState($client->getState()),
         );
 
         $this->protocolCache?->set(
@@ -407,7 +407,7 @@ EOF
          */
         [$sqlQuery, $params] = $this->addOwnerWhereClause(
             $stmt,
-            $client->getState(),
+            $this->preparePdoState($client->getState()),
             $owner,
         );
         $this->database->write(
@@ -481,5 +481,18 @@ EOF
     private function calculateOffset(int $page, int $limit): float|int
     {
         return ($page - 1) * $limit;
+    }
+
+    protected function preparePdoState(array $state): array
+    {
+        $isEnabled = (bool)($state[ClientEntity::KEY_IS_ENABLED] ?? false);
+        $isConfidential = (bool)($state[ClientEntity::KEY_IS_CONFIDENTIAL] ?? false);
+        $isFederated = (bool)($state[ClientEntity::KEY_IS_FEDERATED] ?? false);
+
+        $state[ClientEntity::KEY_IS_ENABLED] = [$isEnabled, PDO::PARAM_BOOL];
+        $state[ClientEntity::KEY_IS_CONFIDENTIAL] = [$isConfidential, PDO::PARAM_BOOL];
+        $state[ClientEntity::KEY_IS_FEDERATED] = [$isFederated, PDO::PARAM_BOOL];
+
+        return $state;
     }
 }

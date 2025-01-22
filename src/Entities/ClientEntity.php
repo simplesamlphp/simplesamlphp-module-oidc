@@ -19,7 +19,6 @@ namespace SimpleSAML\Module\oidc\Entities;
 use DateTimeImmutable;
 use League\OAuth2\Server\Entities\Traits\ClientTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
-use PDO;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
@@ -167,8 +166,8 @@ class ClientEntity implements ClientEntityInterface
             self::KEY_AUTH_SOURCE => $this->getAuthSourceId(),
             self::KEY_REDIRECT_URI => json_encode($this->getRedirectUri(), JSON_THROW_ON_ERROR),
             self::KEY_SCOPES => json_encode($this->getScopes(), JSON_THROW_ON_ERROR),
-            self::KEY_IS_ENABLED => [$this->isEnabled(), PDO::PARAM_BOOL],
-            self::KEY_IS_CONFIDENTIAL => [$this->isConfidential(), PDO::PARAM_BOOL],
+            self::KEY_IS_ENABLED => $this->isEnabled(),
+            self::KEY_IS_CONFIDENTIAL => $this->isConfidential(),
             self::KEY_OWNER => $this->getOwner(),
             self::KEY_POST_LOGOUT_REDIRECT_URI => json_encode($this->getPostLogoutRedirectUri(), JSON_THROW_ON_ERROR),
             self::KEY_BACKCHANNEL_LOGOUT_URI => $this->getBackChannelLogoutUri(),
@@ -188,7 +187,7 @@ class ClientEntity implements ClientEntityInterface
             self::KEY_UPDATED_AT => $this->getUpdatedAt()?->format('Y-m-d H:i:s'),
             self::KEY_CREATED_AT => $this->getCreatedAt()?->format('Y-m-d H:i:s'),
             self::KEY_EXPIRES_AT => $this->getExpiresAt()?->format('Y-m-d H:i:s'),
-            self::KEY_IS_FEDERATED => [$this->isFederated(), PDO::PARAM_BOOL],
+            self::KEY_IS_FEDERATED => $this->isFederated(),
         ];
     }
 
