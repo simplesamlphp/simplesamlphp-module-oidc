@@ -16,6 +16,14 @@ class ArrTest extends TestCase
         return new Arr();
     }
 
+    public function testEnsureStringValues(): void
+    {
+        $this->assertSame(
+            ['1', '2'],
+            $this->sut()->ensureStringValues([1, 2]),
+        );
+    }
+
     public function testIsValueOneOf(): void
     {
         $this->assertTrue($this->sut()->isValueOneOf('a', ['a']));

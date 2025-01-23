@@ -12,7 +12,11 @@
 # Version 5 to 6
 
 ## New features
-
+- Caching support for OIDC protocol artifacts like Access Tokens, Authorization Codes, Refresh Tokens, but also
+  client and user data. The cache layer stands in front of the database store, so it can improve performance, especially 
+  in cases of sudden surge of users trying to authenticate. Implementation is based on Symfony Cache component, so any 
+  compatible Symfony cache adapter can be used. Check the module config file for more information on how to set the
+  protocol cache. 
 - OpenID capabilities
   - New federation endpoints:
     - endpoint for issuing configuration entity statement (statement about itself)
@@ -40,7 +44,7 @@ https://openid.net/specs/openid-connect-core-1_0.html#ClientAuthentication
 
 - (optional) Issuer - you can now override the issuer (OP identifier). If not set, it falls back to current scheme, host
 and optionally a port (as in all previous module versions).
-- protocol caching adapter and its arguments
+- (optional) Protocol caching adapter and its arguments
 - (optional) OpenID Federation related options (needed if federation capabilities are to be used):
   - enabled or disabled federation capabilities
   - valid trust anchors

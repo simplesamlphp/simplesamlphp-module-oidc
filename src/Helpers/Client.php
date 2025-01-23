@@ -30,7 +30,7 @@ class Client
         $clientId = empty($params['client_id']) ? null : (string)$params['client_id'];
 
         if (!is_string($clientId)) {
-            throw new BadRequest('Client id is missing.');
+            throw new BadRequest('Client ID is missing.');
         }
 
         $client = $clientRepository->findById($clientId);

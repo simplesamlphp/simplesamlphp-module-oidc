@@ -119,9 +119,11 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
         $row = current($rows);
 
+        // @codeCoverageIgnoreStart
         if (!is_array($row)) {
             return null;
         }
+        // @codeCoverageIgnoreEnd
 
         $clientEntity = $this->clientEntityFactory->fromState($row);
 
@@ -171,9 +173,11 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
         $row = current($rows);
 
+        // @codeCoverageIgnoreStart
         if (!is_array($row)) {
             return null;
         }
+        // @codeCoverageIgnoreEnd
 
         $clientEntity = $this->clientEntityFactory->fromState($row);
 

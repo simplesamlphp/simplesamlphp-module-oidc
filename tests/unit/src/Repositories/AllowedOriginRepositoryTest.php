@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
+use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository
@@ -17,6 +19,10 @@ use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 class AllowedOriginRepositoryTest extends TestCase
 {
     final public const CLIENT_ID = 'some_client_id';
+
+    protected MockObject $moduleConfigMock;
+    protected MockObject $protocolCacheMock;
+
 
     final public const ORIGINS = [
         'https://example.org',
@@ -45,12 +51,15 @@ class AllowedOriginRepositoryTest extends TestCase
 
     protected function setUp(): void
     {
-        $moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->protocolCacheMock = $this->createMock(ProtocolCache::class);
+
         $database = Database::getInstance();
+
         $this->repository = new AllowedOriginRepository(
-            $moduleConfigMock,
+            $this->moduleConfigMock,
             $database,
-            null,
+            $this->protocolCacheMock,
         );
     }
 
@@ -78,5 +87,13 @@ class AllowedOriginRepositoryTest extends TestCase
         $this->repository->delete(self::CLIENT_ID);
         $this->assertFalse($this->repository->has(self::ORIGINS[0]));
         $this->assertFalse($this->repository->has(self::ORIGINS[1]));
+    }
+
+    public function testHasCanReturnFromCache(): void
+    {
+        $this->protocolCacheMock->expects($this->once())->method('get')
+        ->willReturn(true);
+
+        $this->assertTrue($this->repository->has('origin'));
     }
 }
