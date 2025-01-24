@@ -13,7 +13,7 @@ Currently supported flows are:
 
 [![Build Status](https://github.com/simplesamlphp/simplesamlphp-module-oidc/actions/workflows/test.yaml/badge.svg)](https://github.com/simplesamlphp/simplesamlphp-module-oidc/actions/workflows/test.yaml) 
 [![Coverage Status](https://codecov.io/gh/simplesamlphp/simplesamlphp-module-oidc/branch/master/graph/badge.svg)](https://app.codecov.io/gh/simplesamlphp/simplesamlphp-module-oidc)
-[![SimpleSAMLphp](https://img.shields.io/badge/simplesamlphp-2.1-brightgreen)](https://simplesamlphp.org/)
+[![SimpleSAMLphp](https://img.shields.io/badge/simplesamlphp-2.3-brightgreen)](https://simplesamlphp.org/)
 
 ![Main screen capture](docs/oidc.png)
 
@@ -112,7 +112,7 @@ Once the module is enabled, the database migrations must be run.
 ### Run database migrations
 
 The module comes with some default SQL migrations which set up needed tables in the configured database. To run them,
-go to `OIDC` > `Database Migrations`, and press the available button.
+in the SimpleSAMLphp administration area go to `OIDC` > `Database Migrations`, and press the available button.
 
 Alternatively, in case of automatic / scripted deployments, you can run the 'install.php' script from the command line:
 
@@ -122,7 +122,8 @@ Alternatively, in case of automatic / scripted deployments, you can run the 'ins
 
 The module lets you manage (create, read, update and delete) approved RPs from the module user interface itself.
 
-Once the database schema has been created, you can go to `OIDC` > `Client Registry`. 
+Once the database schema has been created, in the SimpleSAMLphp administration area go to `OIDC` >
+`Client Registry`. 
 
 Note that clients can be marked as confidential or public. If the client is not marked as confidential (it is public),
 and is using Authorization Code flow, it will have to provide PKCE parameters during the flow.
@@ -136,12 +137,9 @@ to be enabled and configured.
 
 ### Endpoint locations
 
-Once you deployed the module, you will need the exact endpoint urls the module provides to configure the relying parties.
-You can visit the discovery endpoint to learn this information:
-
-`<basepath>/module.php/oidc/.well-known/openid-configuration`
-
-This endpoint can be used to set up a `.well-known` URL (see below). 
+Once you deploy the module, in the SimpleSAMLphp administration area go to `OIDC` and then select the
+Protocol / Federation Settings page to see the available discovery URLs. These URLs can then be used to set up a
+`.well-known` URLs (see below).
 
 ### Note when using Apache web server
 
@@ -160,6 +158,20 @@ or
 SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
 ```
 Choose the one which works for you. If you don't set it, you'll get a warnings about this situation in your logs.
+
+### Note on OpenID Federation (OIDF) support
+
+OpenID Federation support is in "draft" phase, as is the
+[specification](https://openid.net/specs/openid-federation-1_0) itself. This means that you can expect braking changes
+in future releases related to OIDF capabilities. You can enable / disable OIDF support at any time in module
+configuration.
+
+Currently, the following OIDF features are supported:
+* endpoint for issuing configuration entity statement (statement about itself)
+* fetch endpoint for issuing statements about subordinates (registered clients)
+* automatic client registration using a Request Object
+
+OIDF support is implemented using the underlying [SimpleSAMLphp OpenID library](https://github.com/simplesamlphp/openid).
 
 ## Additional considerations
 ### Private scopes
@@ -343,7 +355,7 @@ You may view the OIDC configuration endpoint at `https://localhost/.well-known/o
 To test local changes against another DB, such as Postgres, we need to:
 
 * Create a docker network layer
-* Run a DB container ( and create a DB if one doesn't exist)
+* Run a DB container (and create a DB if one doesn't exist)
 * Run SSP and use the DB container
 
 ```
