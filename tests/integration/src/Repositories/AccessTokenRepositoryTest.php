@@ -70,11 +70,15 @@ class AccessTokenRepositoryTest extends TestCase
 
     public static function setUpBeforeClass(): void
     {
+
         self::$containerAddress = getenv('HOSTADDRESS') ?: null;
         self::$mysqlPort = getenv('HOSTPORT_MY') ?: null;
         self::$postgresPort = getenv('HOSTPORT_PG') ?: null;
         // Mac docker seems to require connecting to localhost and mapped port to access containers
-        if (PHP_OS_FAMILY === 'Darwin' && getenv('HOSTADDRESS') === false) {
+        if (
+            in_array(PHP_OS_FAMILY, ['Darwin', 'Linux']) &&
+            getenv('HOSTADDRESS') === false
+        ) {
             //phpcs:ignore Generic.Files.LineLength.TooLong
             echo "Defaulting docker host address to 127.0.0.1. Disable this behavior by setting HOSTADDRESS to a blank.\n\tHOSTADDRESS= ./vendor/bin/phpunit";
             self::$containerAddress = "127.0.0.1";
