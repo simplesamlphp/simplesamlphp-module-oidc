@@ -22,6 +22,7 @@ use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
@@ -306,5 +307,18 @@ class UserRepositoryTest extends TestCase
             database: $this->databaseMock,
             protocolCache: $this->protocolCacheMock,
         )->delete($this->userEntityMock);
+    }
+
+    public function testGetUserEntityByUserCredentialsThrows(): void
+    {
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Not supported');
+
+        $this->mock()->getUserEntityByUserCredentials(
+            'username',
+            'password',
+            'grantType',
+            $this->createMock(ClientEntityInterface::class),
+        );
     }
 }

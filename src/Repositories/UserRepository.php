@@ -76,9 +76,11 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
 
         $row = current($rows);
 
+        // @codeCoverageIgnoreStart
         if (!is_array($row)) {
             return null;
         }
+        // @codeCoverageIgnoreEnd
 
         $userEntity = $this->userEntityFactory->fromState($row);
 

@@ -277,24 +277,25 @@ class ClientRepositoryTest extends TestCase
      */
     public function testUpdate(): void
     {
-        $client = self::getClient('clientid');
+        $client = self::getClient(id: 'clientId', entityId: 'entityId');
         $this->repository->add($client);
 
         $client = new ClientEntity(
-            'clientid',
-            'newclientsecret',
-            'Client',
-            'Description',
-            ['http://localhost/redirect'],
-            ['openid'],
-            true,
-            false,
-            'admin',
+            identifier: 'clientId',
+            secret: 'newclientsecret',
+            name: 'Client',
+            description: 'Description',
+            redirectUri: ['http://localhost/redirect'],
+            scopes: ['openid'],
+            isEnabled: true,
+            isConfidential: false,
+            authSource: 'admin',
+            entityIdentifier: 'newEntityId',
         );
 
         $this->repository->update($client);
         $this->clientEntityFactoryMock->expects($this->once())->method('fromState')->willReturn($client);
-        $foundClient = $this->repository->findById('clientid');
+        $foundClient = $this->repository->findById('clientId');
 
         $this->assertEquals($client, $foundClient);
     }
@@ -305,13 +306,13 @@ class ClientRepositoryTest extends TestCase
      */
     public function testDelete(): void
     {
-        $client = self::getClient('clientid');
+        $client = self::getClient(id: 'clientId', entityId: 'entityId');
         $this->repository->add($client);
 
         $this->clientEntityFactoryMock->expects($this->once())->method('fromState')->willReturn($client);
-        $client = $this->repository->findById('clientid');
+        $client = $this->repository->findById('clientId');
         $this->repository->delete($client);
-        $foundClient = $this->repository->findById('clientid');
+        $foundClient = $this->repository->findById('clientId');
 
         $this->assertNull($foundClient);
     }

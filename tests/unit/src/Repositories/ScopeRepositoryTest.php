@@ -15,6 +15,7 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
+use League\OAuth2\Server\Entities\ClientEntityInterface;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
@@ -89,5 +90,18 @@ class ScopeRepositoryTest extends TestCase
             new ScopeEntity('openid'),
         ];
         $this->assertEquals($expectedScopes, $finalizedScopes);
+    }
+
+    public function testFinalizeScopesReturnsEmptyIfNotClientEntity(): void
+    {
+        $scopeRepository = new ScopeRepository(new ModuleConfig(), new ScopeEntityFactory());
+        $scopes = [
+            new ScopeEntity('openid'),
+            new ScopeEntity('basic'),
+        ];
+
+        $clientMock = $this->createMock(ClientEntityInterface::class);
+
+        $this->assertEmpty($scopeRepository->finalizeScopes($scopes, 'any', $clientMock));
     }
 }
