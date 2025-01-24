@@ -118,6 +118,15 @@ Alternatively, in case of automatic / scripted deployments, you can run the 'ins
 
     php modules/oidc/bin/install.php
 
+### Protocol Artifacts Caching
+
+The configured database serves as the primary storage for protocol artifacts, such as access tokens, authorization
+codes, refresh tokens, clients, and user data. In production environments, it is recommended to also set up caching
+for these artifacts. The cache layer operates in front of the database, improving performance, particularly during
+sudden surges of users attempting to authenticate. The implementation leverages the Symfony Cache component, allowing
+the use of any compatible Symfony cache adapter. For more details on configuring the protocol cache, refer to the
+module configuration file.
+
 ### Relying Party (RP) Administration
 
 The module lets you manage (create, read, update and delete) approved RPs from the module user interface itself.
