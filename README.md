@@ -84,7 +84,7 @@ If you want to provide a passphrase for your private key, run this command inste
 Now you need to extract the public key from the private key:
 
     openssl rsa -in cert/oidc_module.key -pubout -out cert/oidc_module.crt
-    openssl rsa -in cert/oidc_module_federation.key -pubout -out cert/oidc_module.crt
+    openssl rsa -in cert/oidc_module_federation.key -pubout -out cert/oidc_module_federation.crt
 
 or use your passphrase if provided on private key generation:
 
