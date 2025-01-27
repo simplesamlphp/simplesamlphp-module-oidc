@@ -17,6 +17,8 @@ namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use League\OAuth2\Server\Entities\RefreshTokenEntityInterface;
+use League\OAuth2\Server\Exception\OAuthServerException;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -40,6 +42,7 @@ class RefreshTokenRepositoryTest extends TestCase
     final public const USER_ID = 'refresh_token_user_id';
     final public const ACCESS_TOKEN_ID = 'refresh_token_access_token_id';
     final public const REFRESH_TOKEN_ID = 'refresh_token_id';
+    final public const AUTH_CODE_ID = 'auth_code_id';
 
     protected RefreshTokenRepository $repository;
     protected MockObject $accessTokenMock;
@@ -183,5 +186,46 @@ class RefreshTokenRepositoryTest extends TestCase
         $notFoundRefreshToken = $this->repository->findById(self::REFRESH_TOKEN_ID);
 
         $this->assertNull($notFoundRefreshToken);
+    }
+
+    public function testGetNewRefreshTokenThrows(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Not implemented');
+
+        $this->repository->getNewRefreshToken();
+    }
+
+    public function testPersistNewRefreshTokenThrowsIfNotRefreshTokenEntity(): void
+    {
+        $this->expectException(OAuthServerException::class);
+
+        $oAuthRefreshTokenEntity = $this->createMock(RefreshTokenEntityInterface::class);
+
+        $this->repository->persistNewRefreshToken($oAuthRefreshTokenEntity);
+    }
+
+    public function testCanRevokeByAuthCodeId(): void
+    {
+        $refreshToken = new RefreshTokenEntity(
+            self::REFRESH_TOKEN_ID,
+            new DateTimeImmutable('tomorrow', new DateTimeZone('UTC')),
+            $this->accessTokenMock,
+            self::AUTH_CODE_ID,
+        );
+
+        $this->repository->persistNewRefreshToken($refreshToken);
+
+        $this->refreshTokenEntityFactoryMock->expects($this->once())
+            ->method('fromState')
+            ->with($this->callback(function (array $state): bool {
+                return $state['id'] === self::REFRESH_TOKEN_ID;
+            }))->willReturn($this->refreshTokenEntityMock);
+
+        $this->accessTokenRepositoryMock->method('findById')->willReturn($this->accessTokenMock);
+
+        $this->refreshTokenEntityMock->expects($this->once())->method('revoke');
+
+        $this->repository->revokeByAuthCodeId(self::AUTH_CODE_ID);
     }
 }

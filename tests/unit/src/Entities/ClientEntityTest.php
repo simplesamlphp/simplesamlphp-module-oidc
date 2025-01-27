@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Entities;
 
 use DateTimeImmutable;
-use PDO;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
@@ -168,8 +167,8 @@ class ClientEntityTest extends TestCase
                 'auth_source' => 'auth_source',
                 'redirect_uri' => json_encode(['https://localhost/redirect']),
                 'scopes' => json_encode([]),
-                'is_enabled' => [$this->state['is_enabled'], PDO::PARAM_BOOL],
-                'is_confidential' => [$this->state['is_confidential'], PDO::PARAM_BOOL],
+                'is_enabled' => $this->state['is_enabled'],
+                'is_confidential' => $this->state['is_confidential'],
                 'owner' => 'user@test.com',
                 'post_logout_redirect_uri' => json_encode([]),
                 'backchannel_logout_uri' => null,
@@ -183,7 +182,7 @@ class ClientEntityTest extends TestCase
                 'updated_at' => null,
                 'created_at' => null,
                 'expires_at' => null,
-                'is_federated' => [$this->state['is_federated'], PDO::PARAM_BOOL],
+                'is_federated' => $this->state['is_federated'],
             ],
         );
     }

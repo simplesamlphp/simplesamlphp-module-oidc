@@ -19,7 +19,6 @@ use DateTimeImmutable;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\TokenEntityTrait;
-use PDO;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\MementoInterface;
 use SimpleSAML\Module\oidc\Entities\Traits\OidcAuthCodeTrait;
@@ -66,7 +65,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
             'expires_at' => $this->getExpiryDateTime()->format('Y-m-d H:i:s'),
             'user_id' => $this->getUserIdentifier(),
             'client_id' => $this->client->getIdentifier(),
-            'is_revoked' => [$this->isRevoked(), PDO::PARAM_BOOL],
+            'is_revoked' => $this->isRevoked(),
             'redirect_uri' => $this->getRedirectUri(),
             'nonce' => $this->getNonce(),
         ];

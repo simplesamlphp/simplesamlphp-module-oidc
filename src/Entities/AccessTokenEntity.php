@@ -24,7 +24,6 @@ use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInt
 use League\OAuth2\Server\Entities\Traits\AccessTokenTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\TokenEntityTrait;
-use PDO;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\Entities\Traits\AssociateWithAuthCodeTrait;
@@ -112,7 +111,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
             'expires_at' => $this->getExpiryDateTime()->format('Y-m-d H:i:s'),
             'user_id' => $this->getUserIdentifier(),
             'client_id' => $this->getClient()->getIdentifier(),
-            'is_revoked' => [$this->isRevoked(), PDO::PARAM_BOOL],
+            'is_revoked' => $this->isRevoked(),
             'auth_code_id' => $this->getAuthCodeId(),
             'requested_claims' => json_encode($this->requestedClaims, JSON_THROW_ON_ERROR),
         ];

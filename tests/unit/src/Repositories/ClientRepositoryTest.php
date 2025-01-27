@@ -25,6 +25,7 @@ use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
+use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Repositories\ClientRepository
@@ -34,7 +35,6 @@ class ClientRepositoryTest extends TestCase
     protected ClientRepository $repository;
     protected MockObject $clientEntityMock;
     protected MockObject $clientEntityFactoryMock;
-
 
     /**
      * @throws \Exception
@@ -119,6 +119,20 @@ class ClientRepositoryTest extends TestCase
         $this->clientEntityFactoryMock->expects($this->once())->method('fromState')->willReturn($client);
         $client = $this->repository->getClientEntity('clientid');
         $this->assertNotNull($client);
+    }
+
+    public function testGetClientEntityReturnsNullForExpiredClient(): void
+    {
+        $this->clientEntityMock->expects($this->once())->method('isExpired')->willReturn(true);
+
+        $this->clientEntityFactoryMock->expects($this->once())->method('fromState')
+            ->willReturn($this->clientEntityMock);
+
+        // Just so we have a client with this ID in repo.
+        $client = self::getClient('clientid');
+        $this->repository->add($client);
+
+        $this->assertNull($this->repository->getClientEntity('clientid'));
     }
 
     /**
@@ -263,24 +277,25 @@ class ClientRepositoryTest extends TestCase
      */
     public function testUpdate(): void
     {
-        $client = self::getClient('clientid');
+        $client = self::getClient(id: 'clientId', entityId: 'entityId');
         $this->repository->add($client);
 
         $client = new ClientEntity(
-            'clientid',
-            'newclientsecret',
-            'Client',
-            'Description',
-            ['http://localhost/redirect'],
-            ['openid'],
-            true,
-            false,
-            'admin',
+            identifier: 'clientId',
+            secret: 'newclientsecret',
+            name: 'Client',
+            description: 'Description',
+            redirectUri: ['http://localhost/redirect'],
+            scopes: ['openid'],
+            isEnabled: true,
+            isConfidential: false,
+            authSource: 'admin',
+            entityIdentifier: 'newEntityId',
         );
 
         $this->repository->update($client);
         $this->clientEntityFactoryMock->expects($this->once())->method('fromState')->willReturn($client);
-        $foundClient = $this->repository->findById('clientid');
+        $foundClient = $this->repository->findById('clientId');
 
         $this->assertEquals($client, $foundClient);
     }
@@ -291,13 +306,13 @@ class ClientRepositoryTest extends TestCase
      */
     public function testDelete(): void
     {
-        $client = self::getClient('clientid');
+        $client = self::getClient(id: 'clientId', entityId: 'entityId');
         $this->repository->add($client);
 
         $this->clientEntityFactoryMock->expects($this->once())->method('fromState')->willReturn($client);
-        $client = $this->repository->findById('clientid');
+        $client = $this->repository->findById('clientId');
         $this->repository->delete($client);
-        $foundClient = $this->repository->findById('clientid');
+        $foundClient = $this->repository->findById('clientId');
 
         $this->assertNull($foundClient);
     }
@@ -354,23 +369,81 @@ class ClientRepositoryTest extends TestCase
         $this->assertNotNull($foundClient);
     }
 
+    public function testCanFindByIdFromCache(): void
+    {
+        $protocolCacheMock = $this->createMock(ProtocolCache::class);
+        $protocolCacheMock->expects($this->once())->method('get')->willReturn(['state']);
+
+
+        $this->clientEntityFactoryMock->expects($this->once())->method('fromState')
+            ->with(['state'])
+            ->willReturn($this->clientEntityMock);
+
+        $sut = new ClientRepository(
+            new ModuleConfig(),
+            Database::getInstance(),
+            $protocolCacheMock,
+            $this->clientEntityFactoryMock,
+        );
+
+        $this->assertInstanceOf(ClientEntityInterface::class, $sut->findById('clientid'));
+    }
+
+    public function testCanFindByEntityIdentifier(): void
+    {
+        $client = self::getClient(id: 'clientId', entityId: 'entityId', isFederated: true);
+        $this->repository->add($client);
+
+        $this->clientEntityFactoryMock->expects($this->once())->method('fromState')->willReturn($client);
+
+        $this->assertSame(
+            $client,
+            $this->repository->findByEntityIdentifier('entityId'),
+        );
+
+        $this->assertNull($this->repository->findByEntityIdentifier('nonExistingEntityId'));
+    }
+
+    public function testCanFindByEntityIdFromCache(): void
+    {
+        $protocolCacheMock = $this->createMock(ProtocolCache::class);
+        $protocolCacheMock->expects($this->once())->method('get')->willReturn(['state']);
+
+        $this->clientEntityFactoryMock->expects($this->once())->method('fromState')
+            ->with(['state'])
+            ->willReturn($this->clientEntityMock);
+
+        $sut = new ClientRepository(
+            new ModuleConfig(),
+            Database::getInstance(),
+            $protocolCacheMock,
+            $this->clientEntityFactoryMock,
+        );
+
+        $this->assertInstanceOf(ClientEntityInterface::class, $sut->findByEntityIdentifier('entityId'));
+    }
+
     public static function getClient(
         string $id,
         bool $enabled = true,
         bool $confidential = false,
         ?string $owner = null,
+        ?string $entityId = null,
+        bool $isFederated = false,
     ): ClientEntityInterface {
         return new ClientEntity(
-            $id,
-            'clientsecret',
-            'Client',
-            'Description',
-            ['http://localhost/redirect'],
-            ['openid'],
-            $enabled,
-            $confidential,
-            'admin',
-            $owner,
+            identifier: $id,
+            secret: 'clientsecret',
+            name: 'Client',
+            description: 'Description',
+            redirectUri: ['http://localhost/redirect'],
+            scopes: ['openid'],
+            isEnabled: $enabled,
+            isConfidential: $confidential,
+            authSource: 'admin',
+            owner: $owner,
+            entityIdentifier: $entityId,
+            isFederated: $isFederated,
         );
     }
 }

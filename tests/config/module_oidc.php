@@ -23,8 +23,6 @@ $config = [
     ModuleConfig::OPTION_TOKEN_REFRESH_TOKEN_TTL => 'P1M',
     ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_TTL => 'PT1H',
 
-    ModuleConfig::OPTION_CRON_TAG => 'hourly',
-
     ModuleConfig::OPTION_TOKEN_SIGNER => Sha256::class,
 
     ModuleConfig::OPTION_AUTH_SOURCE => 'default-sp',
@@ -44,15 +42,70 @@ $config = [
 
     ModuleConfig::OPTION_AUTH_FORCED_ACR_VALUE_FOR_COOKIE_AUTHENTICATION => null,
 
-    ModuleConfig::OPTION_FEDERATION_TOKEN_SIGNER => Sha256::class,
+    ModuleConfig::OPTION_AUTH_PROCESSING_FILTERS => [
+    ],
+
+    ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\ArrayAdapter::class,
+    ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS => [],
+    ModuleConfig::OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION => null,
+    ModuleConfig::OPTION_PROTOCOL_CLIENT_ENTITY_CACHE_DURATION => 'PT10M',
+
+    ModuleConfig::OPTION_CRON_TAG => 'hourly',
+
+    ModuleConfig::OPTION_ADMIN_UI_PERMISSIONS => [
+        'attribute' => 'eduPersonEntitlement',
+        'client' => ['urn:example:oidc:manage:client'],
+    ],
+
+    ModuleConfig::OPTION_ADMIN_UI_PAGINATION_ITEMS_PER_PAGE => 20,
+
+    ModuleConfig::OPTION_FEDERATION_ENABLED => false,
+
+    ModuleConfig::OPTION_FEDERATION_TRUST_ANCHORS => [
+        // phpcs:ignore
+        'https://ta.example.org/' => '{"keys":[{"kty": "RSA","alg": "RS256","use": "sig","kid": "Nzb...9Xs","e": "AQAB","n": "pnXB...ub9J"}]}',
+        'https://ta2.example.org/' => null,
+    ],
+
+    ModuleConfig::OPTION_FEDERATION_AUTHORITY_HINTS => [
+        'https://intermediate.example.org/',
+    ],
+
+    ModuleConfig::OPTION_FEDERATION_TRUST_MARK_TOKENS => [
+        'eyJ...GHg',
+    ],
+
+    ModuleConfig::OPTION_FEDERATION_PARTICIPATION_LIMIT_BY_TRUST_MARKS => [
+        // We are limiting federation participation using Trust Marks for 'https://ta.example.org/'.
+        'https://ta.example.org/' => [
+            // Entities must have (at least) one Trust Mark from the list below.
+            \SimpleSAML\Module\oidc\Codebooks\LimitsEnum::OneOf->value => [
+                'trust-mark-id',
+                'trust-mark-id-2',
+            ],
+            // Entities must have all Trust Marks from the list below.
+            \SimpleSAML\Module\oidc\Codebooks\LimitsEnum::AllOf->value => [
+                'trust-mark-id-3',
+                'trust-mark-id-4',
+            ],
+        ],
+    ],
+
+    ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\ArrayAdapter::class,
+    ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS => [],
+    ModuleConfig::OPTION_FEDERATION_ENTITY_STATEMENT_DURATION => 'P1D',
+    ModuleConfig::OPTION_FEDERATION_CACHE_DURATION_FOR_PRODUCED => 'PT2M',
+
+    ModuleConfig::OPTION_FEDERATION_CACHE_MAX_DURATION_FOR_FETCHED => 'PT6H',
+
     ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME =>
         ModuleConfig::DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
     ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_PASSPHRASE => 'abc123',
     ModuleConfig::OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME =>
         ModuleConfig::DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME,
-    ModuleConfig::OPTION_FEDERATION_AUTHORITY_HINTS => [
-        'abc123',
-    ],
+
+    ModuleConfig::OPTION_FEDERATION_TOKEN_SIGNER => Sha256::class,
+
     ModuleConfig::OPTION_ORGANIZATION_NAME => 'Foo corp',
     ModuleConfig::OPTION_CONTACTS => [
         'John Doe jdoe@example.org',

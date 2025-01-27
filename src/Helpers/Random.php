@@ -20,8 +20,10 @@ class Random
 
         try {
             return bin2hex(random_bytes($length));
+            // @codeCoverageIgnoreStart
         } catch (Throwable $e) {
             throw OidcServerException::serverError('Could not generate a random string', $e);
         }
+        // @codeCoverageIgnoreEnd
     }
 }

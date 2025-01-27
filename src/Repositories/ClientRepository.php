@@ -92,6 +92,13 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
      */
     public function findById(string $clientIdentifier, ?string $owner = null): ?ClientEntityInterface
     {
+        /** @var ?array $cachedState */
+        $cachedState = $this->protocolCache?->get(null, $this->getCacheKey($clientIdentifier));
+
+        if (is_array($cachedState)) {
+            return $this->clientEntityFactory->fromState($cachedState);
+        }
+
         /**
          * @var string $query
          * @var array $params
@@ -112,15 +119,32 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
         $row = current($rows);
 
+        // @codeCoverageIgnoreStart
         if (!is_array($row)) {
             return null;
         }
+        // @codeCoverageIgnoreEnd
 
-        return $this->clientEntityFactory->fromState($row);
+        $clientEntity = $this->clientEntityFactory->fromState($row);
+
+        $this->protocolCache?->set(
+            $clientEntity->getState(),
+            $this->moduleConfig->getProtocolClientEntityCacheDuration(),
+            $this->getCacheKey($clientEntity->getIdentifier()),
+        );
+
+        return $clientEntity;
     }
 
     public function findByEntityIdentifier(string $entityIdentifier, ?string $owner = null): ?ClientEntityInterface
     {
+        /** @var ?array $cachedState */
+        $cachedState = $this->protocolCache?->get(null, $this->getCacheKey($entityIdentifier));
+
+        if (is_array($cachedState)) {
+            return $this->clientEntityFactory->fromState($cachedState);
+        }
+
         /**
          * @var string $query
          * @var array $params
@@ -149,11 +173,21 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
         $row = current($rows);
 
+        // @codeCoverageIgnoreStart
         if (!is_array($row)) {
             return null;
         }
+        // @codeCoverageIgnoreEnd
 
-        return $this->clientEntityFactory->fromState($row);
+        $clientEntity = $this->clientEntityFactory->fromState($row);
+
+        $this->protocolCache?->set(
+            $clientEntity->getState(),
+            $this->moduleConfig->getProtocolClientEntityCacheDuration(),
+            $this->getCacheKey($entityIdentifier),
+        );
+
+        return $clientEntity;
     }
 
     private function addOwnerWhereClause(string $query, array $params, ?string $owner = null): array
@@ -300,8 +334,21 @@ EOS
         );
         $this->database->write(
             $stmt,
-            $client->getState(),
+            $this->preparePdoState($client->getState()),
         );
+
+        $this->protocolCache?->set(
+            $client->getState(),
+            $this->moduleConfig->getProtocolClientEntityCacheDuration(),
+            $this->getCacheKey($client->getIdentifier()),
+        );
+        if (($entityIdentifier = $client->getEntityIdentifier()) !== null) {
+            $this->protocolCache?->set(
+                $client->getState(),
+                $this->moduleConfig->getProtocolClientEntityCacheDuration(),
+                $this->getCacheKey($entityIdentifier),
+            );
+        }
     }
 
     public function delete(ClientEntityInterface $client, ?string $owner = null): void
@@ -318,6 +365,11 @@ EOS
             $owner,
         );
         $this->database->write($sqlQuery, $params);
+
+        $this->protocolCache?->delete($this->getCacheKey($client->getIdentifier()));
+        if (($entityIdentifier = $client->getEntityIdentifier()) !== null) {
+            $this->protocolCache?->delete($this->getCacheKey($entityIdentifier));
+        }
     }
 
     public function update(ClientEntityInterface $client, ?string $owner = null): void
@@ -359,13 +411,26 @@ EOF
          */
         [$sqlQuery, $params] = $this->addOwnerWhereClause(
             $stmt,
-            $client->getState(),
+            $this->preparePdoState($client->getState()),
             $owner,
         );
         $this->database->write(
             $sqlQuery,
             $params,
         );
+
+        $this->protocolCache?->set(
+            $client->getState(),
+            $this->moduleConfig->getProtocolClientEntityCacheDuration(),
+            $this->getCacheKey($client->getIdentifier()),
+        );
+        if (($entityIdentifier = $client->getEntityIdentifier()) !== null) {
+            $this->protocolCache?->set(
+                $client->getState(),
+                $this->moduleConfig->getProtocolClientEntityCacheDuration(),
+                $this->getCacheKey($entityIdentifier),
+            );
+        }
     }
 
     private function count(string $query, ?string $owner): int
@@ -420,5 +485,18 @@ EOF
     private function calculateOffset(int $page, int $limit): float|int
     {
         return ($page - 1) * $limit;
+    }
+
+    protected function preparePdoState(array $state): array
+    {
+        $isEnabled = (bool)($state[ClientEntity::KEY_IS_ENABLED] ?? false);
+        $isConfidential = (bool)($state[ClientEntity::KEY_IS_CONFIDENTIAL] ?? false);
+        $isFederated = (bool)($state[ClientEntity::KEY_IS_FEDERATED] ?? false);
+
+        $state[ClientEntity::KEY_IS_ENABLED] = [$isEnabled, PDO::PARAM_BOOL];
+        $state[ClientEntity::KEY_IS_CONFIDENTIAL] = [$isConfidential, PDO::PARAM_BOOL];
+        $state[ClientEntity::KEY_IS_FEDERATED] = [$isFederated, PDO::PARAM_BOOL];
+
+        return $state;
     }
 }

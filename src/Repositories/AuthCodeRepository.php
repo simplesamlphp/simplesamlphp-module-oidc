@@ -17,6 +17,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Repositories;
 
 use League\OAuth2\Server\Entities\AuthCodeEntityInterface as OAuth2AuthCodeEntityInterface;
+use PDO;
 use RuntimeException;
 use SimpleSAML\Database;
 use SimpleSAML\Error\Error;
@@ -31,6 +32,8 @@ use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeRepositoryInterface
 {
+    final public const TABLE_NAME = 'oidc_auth_code';
+
     public function __construct(
         ModuleConfig $moduleConfig,
         Database $database,
@@ -41,8 +44,6 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
     ) {
         parent::__construct($moduleConfig, $database, $protocolCache);
     }
-
-    final public const TABLE_NAME = 'oidc_auth_code';
 
     public function getTableName(): string
     {
@@ -76,7 +77,15 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
 
         $this->database->write(
             $stmt,
+            $this->preparePdoState($authCodeEntity->getState()),
+        );
+
+        $this->protocolCache?->set(
             $authCodeEntity->getState(),
+            $this->helpers->dateTime()->getSecondsToExpirationTime(
+                $authCodeEntity->getExpiryDateTime()->getTimestamp(),
+            ),
+            $this->getCacheKey((string)$authCodeEntity->getIdentifier()),
         );
     }
 
@@ -86,22 +95,38 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
      */
     public function findById(string $codeId): ?AuthCodeEntityInterface
     {
-        $stmt = $this->database->read(
-            "SELECT * FROM {$this->getTableName()} WHERE id = :id",
-            [
-                'id' => $codeId,
-            ],
-        );
+        /** @var ?array $data */
+        $data = $this->protocolCache?->get(null, $this->getCacheKey($codeId));
 
-        if (empty($rows = $stmt->fetchAll())) {
-            return null;
+        if (!is_array($data)) {
+            $stmt = $this->database->read(
+                "SELECT * FROM {$this->getTableName()} WHERE id = :id",
+                [
+                    'id' => $codeId,
+                ],
+            );
+
+            if (empty($rows = $stmt->fetchAll())) {
+                return null;
+            }
+
+            /** @var array $data */
+            $data = current($rows);
         }
 
-        /** @var array $data */
-        $data = current($rows);
         $data['client'] = $this->clientRepository->findById((string)$data['client_id']);
 
-        return $this->authCodeEntityFactory->fromState($data);
+        $authCodeEntity = $this->authCodeEntityFactory->fromState($data);
+
+        $this->protocolCache?->set(
+            $authCodeEntity->getState(),
+            $this->helpers->dateTime()->getSecondsToExpirationTime(
+                $authCodeEntity->getExpiryDateTime()->getTimestamp(),
+            ),
+            $this->getCacheKey((string)$authCodeEntity->getIdentifier()),
+        );
+
+        return $authCodeEntity;
     }
 
     /**
@@ -174,7 +199,24 @@ EOS
 
         $this->database->write(
             $stmt,
-            $authCodeEntity->getState(),
+            $this->preparePdoState($authCodeEntity->getState()),
         );
+
+        $this->protocolCache?->set(
+            $authCodeEntity->getState(),
+            $this->helpers->dateTime()->getSecondsToExpirationTime(
+                $authCodeEntity->getExpiryDateTime()->getTimestamp(),
+            ),
+            $this->getCacheKey((string)$authCodeEntity->getIdentifier()),
+        );
+    }
+
+    protected function preparePdoState(array $state): array
+    {
+        $isRevoked = (bool)($state['is_revoked'] ?? true);
+
+        $state['is_revoked'] = [$isRevoked, PDO::PARAM_BOOL];
+
+        return $state;
     }
 }

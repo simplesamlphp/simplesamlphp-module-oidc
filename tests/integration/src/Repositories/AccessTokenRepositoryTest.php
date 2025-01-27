@@ -2,10 +2,11 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\integration\Repositories\Traits;
+namespace SimpleSAML\Test\Module\oidc\integration\Repositories;
 
 use League\OAuth2\Server\CryptKey;
 use PDO;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -25,7 +26,6 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AbstractDatabaseRepository;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
-use SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
@@ -34,10 +34,8 @@ use Testcontainers\Container\PostgresContainer;
 use Testcontainers\Wait\WaitForHealthCheck;
 use Testcontainers\Wait\WaitForLog;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Repositories\Traits\RevokeTokenByAuthCodeIdTrait
- */
-class RevokeTokenByAuthCodeIdTraitTest extends TestCase
+#[CoversClass(AccessTokenRepository::class)]
+class AccessTokenRepositoryTest extends TestCase
 {
     protected array $state;
     protected array $scopes;
@@ -72,11 +70,15 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
 
     public static function setUpBeforeClass(): void
     {
+
         self::$containerAddress = getenv('HOSTADDRESS') ?: null;
         self::$mysqlPort = getenv('HOSTPORT_MY') ?: null;
         self::$postgresPort = getenv('HOSTPORT_PG') ?: null;
         // Mac docker seems to require connecting to localhost and mapped port to access containers
-        if (PHP_OS_FAMILY === 'Darwin' && getenv('HOSTADDRESS') === false) {
+        if (
+            in_array(PHP_OS_FAMILY, ['Darwin', 'Linux']) &&
+            getenv('HOSTADDRESS') === false
+        ) {
             //phpcs:ignore Generic.Files.LineLength.TooLong
             echo "Defaulting docker host address to 127.0.0.1. Disable this behavior by setting HOSTADDRESS to a blank.\n\tHOSTADDRESS= ./vendor/bin/phpunit";
             self::$containerAddress = "127.0.0.1";
@@ -85,7 +87,7 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
             self::$mysqlPort ??= "3306";
             self::$postgresPort ??= "5432";
         }
-        Configuration::setConfigDir(__DIR__ . '/../../../../../config-templates');
+        Configuration::setConfigDir(__DIR__ . '/../../../../config-templates');
         self::$pgConfig = self::loadPGDatabase();
         self::$mysqlConfig = self::loadMySqlDatabase();
         self::$sqliteConfig = self::loadSqliteDatabase();
@@ -111,14 +113,14 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
             'expires_at' => date('Y-m-d H:i:s', time() - 60), // expired...
             'user_id' => self::USER_ID,
             'client_id' => self::CLIENT_ID,
-            'is_revoked' => [false, PDO::PARAM_BOOL],
+            'is_revoked' => false,
             'auth_code_id' => self::AUTH_CODE_ID,
             'requested_claims' => '[]',
         ];
 
         $this->accessTokenEntityMock = $this->createMock(AccessTokenEntity::class);
         $this->accessTokenEntityFactoryMock = $this->createMock(AccessTokenEntityFactory::class);
-        $certFolder = dirname(__DIR__, 5) . '/docker/ssp/';
+        $certFolder = dirname(__DIR__, 4) . '/docker/ssp/';
         $privateKeyPath = $certFolder . ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME;
         $this->privateKey = new CryptKey($privateKeyPath);
         $this->accessTokenEntityFactory = new AccessTokenEntityFactory(
@@ -139,16 +141,9 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         $moduleConfig = new ModuleConfig();
 
         $this->mock = new class ($moduleConfig, $database, null) extends AbstractDatabaseRepository {
-            use RevokeTokenByAuthCodeIdTrait;
-
             public function getTableName(): ?string
             {
                 return $this->database->applyPrefix('oidc_access_token');
-            }
-
-            public function generateQueryWrapper(string $authCodeId, array $revokedParam): array
-            {
-                return $this->generateQuery($authCodeId, $revokedParam);
             }
 
             public function getDatabase(): Database
@@ -291,26 +286,6 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         ];
     }
 
-    #[DataProvider('databaseToTest')]
-    public function testItGenerateQuery(string $database): void
-    {
-        $this->useDatabase(self::$$database);
-
-        $revokedParam = [self::IS_REVOKED, PDO::PARAM_BOOL];
-        $expected = [
-            'UPDATE phpunit_oidc_access_token SET is_revoked = :is_revoked WHERE auth_code_id = :auth_code_id',
-            [
-                'auth_code_id' => self::AUTH_CODE_ID,
-                'is_revoked' => $revokedParam,
-            ],
-        ];
-
-        $this->assertEquals(
-            $expected,
-            $this->mock->generateQueryWrapper(self::AUTH_CODE_ID, $revokedParam),
-        );
-    }
-
     /**
      * @throws \JsonException
      * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
@@ -331,7 +306,7 @@ class RevokeTokenByAuthCodeIdTraitTest extends TestCase
         $this->assertFalse($isRevoked);
 
         // Revoke the access token
-        $this->mock->revokeByAuthCodeId(self::AUTH_CODE_ID);
+        $this->accessTokenRepository->revokeByAuthCodeId(self::AUTH_CODE_ID);
         $isRevoked = $this->accessTokenRepository->isAccessTokenRevoked(self::ACCESS_TOKEN_ID);
 
         $this->assertTrue($isRevoked);

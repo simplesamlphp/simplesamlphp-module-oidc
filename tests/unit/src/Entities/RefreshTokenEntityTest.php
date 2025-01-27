@@ -6,7 +6,6 @@ namespace SimpleSAML\Test\Module\oidc\unit\Entities;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use PDO;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
@@ -73,7 +72,7 @@ class RefreshTokenEntityTest extends TestCase
                 'id' => $this->id,
                 'expires_at' => '1970-01-01 00:00:00',
                 'access_token_id' => $this->accessTokenEntityMock->getIdentifier(),
-                'is_revoked' => [$this->isRevoked, PDO::PARAM_BOOL],
+                'is_revoked' => $this->isRevoked,
                 'auth_code_id' => $this->authCodeId,
             ],
         );

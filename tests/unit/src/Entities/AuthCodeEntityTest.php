@@ -6,7 +6,6 @@ namespace SimpleSAML\Test\Module\oidc\unit\Entities;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use PDO;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -96,7 +95,7 @@ class AuthCodeEntityTest extends TestCase
                 'expires_at' => '1970-01-01 00:00:00',
                 'user_id' => 'user_id',
                 'client_id' => 'client_id',
-                'is_revoked' => [false, PDO::PARAM_BOOL],
+                'is_revoked' => false,
                 'redirect_uri' => 'https://localhost/redirect',
                 'nonce' => 'nonce',
             ],

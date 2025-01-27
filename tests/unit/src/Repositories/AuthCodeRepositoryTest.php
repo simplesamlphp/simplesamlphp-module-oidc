@@ -18,10 +18,12 @@ namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 use DateTimeImmutable;
 use DateTimeZone;
 use Exception;
+use League\OAuth2\Server\Entities\AuthCodeEntityInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
+use SimpleSAML\Error\Error;
 use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
@@ -32,6 +34,7 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
+use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Repositories\AuthCodeRepository
@@ -48,6 +51,8 @@ class AuthCodeRepositoryTest extends TestCase
     protected MockObject $clientRepositoryMock;
     protected MockObject $authCodeEntityFactoryMock;
     protected MockObject $helpersMock;
+    protected MockObject $moduleConfigMock;
+    protected MockObject $protocolCacheMock;
     protected MockObject $dateTimeHelperMock;
     /** @var \League\OAuth2\Server\Entities\ScopeEntityInterface[]  */
     protected array $scopes;
@@ -72,6 +77,9 @@ class AuthCodeRepositoryTest extends TestCase
 
     protected function setUp(): void
     {
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->protocolCacheMock = $this->createMock(ProtocolCache::class);
+
         $this->clientEntityMock = $this->createMock(ClientEntity::class);
         $this->clientEntityMock->method('getIdentifier')->willReturn(self::CLIENT_ID);
         $this->clientRepositoryMock = $this->createMock(ClientRepository::class);
@@ -88,9 +96,9 @@ class AuthCodeRepositoryTest extends TestCase
         $database = Database::getInstance();
 
         $this->repository = new AuthCodeRepository(
-            $this->createMock(ModuleConfig::class),
+            $this->moduleConfigMock,
             $database,
-            null,
+            $this->protocolCacheMock,
             $this->clientRepositoryMock,
             $this->authCodeEntityFactoryMock,
             $this->helpersMock,
@@ -215,5 +223,22 @@ class AuthCodeRepositoryTest extends TestCase
         $notFoundAuthCode = $this->repository->findById(self::AUTH_CODE_ID);
 
         $this->assertNull($notFoundAuthCode);
+    }
+
+    public function testGetNewAuthCodeThrows(): void
+    {
+        $this->expectException(\RuntimeException::class);
+
+        $this->repository->getNewAuthCode();
+    }
+
+    public function testPersistNewAuthCodeThrowsIfNotAuthCodeEntity(): void
+    {
+        $this->expectException(Error::class);
+        $this->expectExceptionMessage('Invalid');
+
+        $this->repository->persistNewAuthCode(
+            $this->createMock(AuthCodeEntityInterface::class),
+        );
     }
 }

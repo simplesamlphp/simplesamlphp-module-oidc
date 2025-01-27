@@ -48,11 +48,6 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
 
-    public function getCacheKey(string $identifier): string
-    {
-        return $this->getTableName() . '_' . $identifier;
-    }
-
     /**
      * @param string $identifier
      *
@@ -81,9 +76,11 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
 
         $row = current($rows);
 
+        // @codeCoverageIgnoreStart
         if (!is_array($row)) {
             return null;
         }
+        // @codeCoverageIgnoreEnd
 
         $userEntity = $this->userEntityFactory->fromState($row);
 
