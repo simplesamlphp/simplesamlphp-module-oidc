@@ -349,6 +349,7 @@ class Container implements ContainerInterface
         $this->services[JwksResolver::class] = $jwksResolver;
         $federationParticipationValidator = new FederationParticipationValidator(
             $moduleConfig,
+            $federation,
             $loggerService,
         );
         $this->services[FederationParticipationValidator::class] = $federationParticipationValidator;

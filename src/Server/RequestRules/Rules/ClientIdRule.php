@@ -196,7 +196,7 @@ class ClientIdRule extends AbstractRule
             $this->helpers->dateTime()->getFromTimestamp($trustChain->getResolvedExpirationTime()),
             $existingClient,
             $clientEntityId,
-            $clientFederationEntity->getJwks(),
+            $clientFederationEntity->getJwks()->getValue(),
             $request,
         );
 
@@ -209,7 +209,7 @@ class ClientIdRule extends AbstractRule
         // Check if federation participation is limited by Trust Marks.
         if (
             $this->moduleConfig->isFederationParticipationLimitedByTrustMarksFor(
-                $trustChain->getResolvedTrustAnchor()->getIssuer(),
+                $trustAnchorEntityConfiguration->getIssuer(),
             )
         ) {
             $this->federationParticipationValidator->byTrustMarksFor($trustChain);
