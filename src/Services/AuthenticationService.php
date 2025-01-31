@@ -137,7 +137,12 @@ class AuthenticationService
         if (!array_key_exists($this->userIdAttr, $claims) || !is_array($claims[$this->userIdAttr])) {
             $attr = implode(', ', array_keys($claims));
             throw new Error\Exception(
-                'Attribute `useridattr` doesn\'t exists in claims. Available attributes are: ' . $attr,
+                sprintf(
+                    'User identifier attribute `%s` does not exist in the user attribute state.' .
+                    ' Available attributes are: %s.',
+                    $this->userIdAttr,
+                    $attr,
+                ),
             );
         }
 
