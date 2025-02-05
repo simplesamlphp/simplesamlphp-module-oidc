@@ -30,4 +30,9 @@ class SspBridgeTest extends TestCase
     {
         $this->assertInstanceOf(SspBridge\Module::class, $this->sut()->module());
     }
+
+    public function testCanBuildAuthInstance(): void
+    {
+        $this->assertInstanceOf(SspBridge\Auth::class, $this->sut()->auth());
+    }
 }
