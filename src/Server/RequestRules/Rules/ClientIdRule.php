@@ -48,6 +48,18 @@ class ClientIdRule extends AbstractRule
 
     /**
      * @inheritDoc
+     * @throws \JsonException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \Psr\SimpleCache\InvalidArgumentException
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \SimpleSAML\OpenID\Exceptions\EntityStatementException
+     * @throws \SimpleSAML\OpenID\Exceptions\InvalidValueException
+     * @throws \SimpleSAML\OpenID\Exceptions\JwksException
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     * @throws \SimpleSAML\OpenID\Exceptions\RequestObjectException
+     * @throws \SimpleSAML\OpenID\Exceptions\TrustChainException
+     * @throws \SimpleSAML\OpenID\Exceptions\TrustMarkException
      */
     public function checkRule(
         ServerRequestInterface $request,

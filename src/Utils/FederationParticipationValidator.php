@@ -9,7 +9,6 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Exceptions\TrustMarkException;
 use SimpleSAML\OpenID\Federation;
-use SimpleSAML\OpenID\Federation\Claims\TrustMarksClaimBag;
 use SimpleSAML\OpenID\Federation\EntityStatement;
 use SimpleSAML\OpenID\Federation\TrustChain;
 
@@ -67,13 +66,13 @@ class FederationParticipationValidator
             $limit = LimitsEnum::from($limitId);
 
             if ($limit === LimitsEnum::OneOf) {
-                $this->validateTrustMarksClaimBagAsOneOfLimit(
+                $this->validateForOneOfLimit(
                     $limitedTrustMarkIds,
                     $leafEntityConfiguration,
                     $trustAnchorEntityConfiguration,
                 );
             } else {
-                $this->validateTrustMarksClaimBagAsAllOfLimit(
+                $this->validateForAllOfLimit(
                     $limitedTrustMarkIds,
                     $leafEntityConfiguration,
                     $trustAnchorEntityConfiguration,
@@ -83,41 +82,12 @@ class FederationParticipationValidator
     }
 
     /**
-     * @throws \SimpleSAML\OpenID\Exceptions\EntityStatementException
-     * @throws \SimpleSAML\OpenID\Exceptions\InvalidValueException
-     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
-     * @throws \SimpleSAML\OpenID\Exceptions\TrustMarkException
-     */
-    protected function ensureTrustMarksClaimBag(EntityStatement $leafEntityConfiguration): TrustMarksClaimBag
-    {
-        $leafTrustMarksClaimBag = $leafEntityConfiguration->getTrustMarks();
-
-        if (is_null($leafTrustMarksClaimBag)) {
-            $error = sprintf(
-                'Leaf entity %s does not have any Trust Marks available.',
-                $leafEntityConfiguration->getIssuer(),
-            );
-
-            $this->loggerService->error($error);
-            throw new TrustMarkException($error);
-        }
-
-        $this->loggerService->debug(
-            'Leaf has Trust Marks available.',
-            ['leafTrustMarksClaimBag' => $leafTrustMarksClaimBag->jsonSerialize()],
-        );
-
-        return $leafTrustMarksClaimBag;
-    }
-
-    /**
      * @param non-empty-string[] $limitedTrustMarkIds
      * @throws \SimpleSAML\OpenID\Exceptions\EntityStatementException
-     * @throws \SimpleSAML\OpenID\Exceptions\InvalidValueException
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      * @throws \SimpleSAML\OpenID\Exceptions\TrustMarkException
      */
-    public function validateTrustMarksClaimBagAsOneOfLimit(
+    public function validateForOneOfLimit(
         array $limitedTrustMarkIds,
         EntityStatement $leafEntityConfiguration,
         EntityStatement $trustAnchorEntityConfiguration,
@@ -136,69 +106,37 @@ class FederationParticipationValidator
             ['limitedTrustMarkIds' => $limitedTrustMarkIds],
         );
 
-        $trustMarksClaimBag = $this->ensureTrustMarksClaimBag($leafEntityConfiguration);
-
         foreach ($limitedTrustMarkIds as $limitedTrustMarkId) {
-            $trustMarksClaimValues = $trustMarksClaimBag->gerAllFor($limitedTrustMarkId);
-            if (empty($trustMarksClaimValues)) {
+            try {
+                $this->federation->trustMarkValidator()->fromCacheOrDoForTrustMarkId(
+                    $limitedTrustMarkId,
+                    $leafEntityConfiguration,
+                    $trustAnchorEntityConfiguration,
+                );
+
                 $this->loggerService->debug(
                     sprintf(
-                        'There are no claims for Trust Mark ID %s. Trying next if available.',
+                        'Trust Mark ID %s validated using OneOf limit rule for entity %s under Trust Anchor %s.',
                         $limitedTrustMarkId,
+                        $leafEntityConfiguration->getIssuer(),
+                        $trustAnchorEntityConfiguration->getIssuer(),
+                    ),
+                );
+                return;
+            } catch (\Throwable $exception) {
+                $this->loggerService->debug(
+                    sprintf(
+                        'Trust Mark ID %s validation failed with error: %s. Trying next if available.',
+                        $limitedTrustMarkId,
+                        $exception->getMessage(),
                     ),
                 );
                 continue;
             }
-
-            $this->loggerService->debug(
-                sprintf(
-                    'There is/are %s claim/claims for Trust Mark ID %s.',
-                    count($trustMarksClaimValues),
-                    $limitedTrustMarkId,
-                ),
-            );
-
-            foreach ($trustMarksClaimValues as $idx => $trustMarksClaimValue) {
-                $this->loggerService->debug(
-                    sprintf(
-                        'Validating claim %s for Trust Mark ID %s',
-                        $idx,
-                        $limitedTrustMarkId,
-                    ),
-                    ['trustMarkClaim' => $trustMarksClaimValue->jsonSerialize()],
-                );
-
-                try {
-                    $this->federation->trustMarkValidator()->forTrustMarksClaimValue(
-                        $trustMarksClaimValue,
-                        $leafEntityConfiguration,
-                        $trustAnchorEntityConfiguration,
-                    );
-
-                    $this->loggerService->debug(
-                        sprintf(
-                            'Trust Mark ID %s validated using OneOf limit rule for entity %s for Trust Anchor %s.',
-                            $limitedTrustMarkId,
-                            $leafEntityConfiguration->getIssuer(),
-                            $trustAnchorEntityConfiguration->getIssuer(),
-                        ),
-                    );
-                    return;
-                } catch (\Throwable $exception) {
-                    $this->loggerService->debug(
-                        sprintf(
-                            'Trust Mark ID %s validation failed with error: %s. Trying next if available.',
-                            $limitedTrustMarkId,
-                            $exception->getMessage(),
-                        ),
-                    );
-                    continue;
-                }
-            }
         }
 
         $error = sprintf(
-            'Leaf entity %s does not have any valid Trust Marks from the given list (%s).',
+            'Leaf entity %s does not have any valid Trust Marks from the given list (%s). OneOf limit rule failed.',
             $leafEntityConfiguration->getIssuer(),
             implode(',', $limitedTrustMarkIds),
         );
@@ -209,12 +147,11 @@ class FederationParticipationValidator
 
     /**
      * @param non-empty-string[] $limitedTrustMarkIds
-     * @throws \SimpleSAML\OpenID\Exceptions\InvalidValueException
      * @throws \SimpleSAML\OpenID\Exceptions\EntityStatementException
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      * @throws \SimpleSAML\OpenID\Exceptions\TrustMarkException
      */
-    public function validateTrustMarksClaimBagAsAllOfLimit(
+    public function validateForAllOfLimit(
         array $limitedTrustMarkIds,
         EntityStatement $leafEntityConfiguration,
         EntityStatement $trustAnchorEntityConfiguration,
@@ -233,60 +170,28 @@ class FederationParticipationValidator
             ['limitedTrustMarkIds' => $limitedTrustMarkIds],
         );
 
-        $trustMarksClaimBag = $this->ensureTrustMarksClaimBag($leafEntityConfiguration);
-
         foreach ($limitedTrustMarkIds as $limitedTrustMarkId) {
-            $trustMarksClaimValues = $trustMarksClaimBag->gerAllFor($limitedTrustMarkId);
-
-            if (empty($trustMarksClaimValues)) {
-                $error = sprintf(
-                    'There are no claims for Trust Mark ID %s.',
+            try {
+                $this->federation->trustMarkValidator()->fromCacheOrDoForTrustMarkId(
                     $limitedTrustMarkId,
+                    $leafEntityConfiguration,
+                    $trustAnchorEntityConfiguration,
+                );
+
+                $this->loggerService->debug(
+                    sprintf(
+                        'Trust Mark ID %s validated. Trying next if available.',
+                        $limitedTrustMarkId,
+                    ),
+                );
+            } catch (\Throwable $exception) {
+                $error = sprintf(
+                    'Trust Mark ID %s validation failed with error: %s. AllOf limit rule failed.',
+                    $limitedTrustMarkId,
+                    $exception->getMessage(),
                 );
                 $this->loggerService->error($error);
                 throw new TrustMarkException($error);
-            }
-
-            $this->loggerService->debug(
-                sprintf(
-                    'There is/are %s claim/claims for Trust Mark ID %s.',
-                    count($trustMarksClaimValues),
-                    $limitedTrustMarkId,
-                ),
-            );
-
-            foreach ($trustMarksClaimValues as $idx => $trustMarksClaimValue) {
-                $this->loggerService->debug(
-                    sprintf(
-                        'Validating claim %s for Trust Mark ID %s',
-                        $idx,
-                        $limitedTrustMarkId,
-                    ),
-                    ['trustMarkClaim' => $trustMarksClaimValue->jsonSerialize()],
-                );
-
-                try {
-                    $this->federation->trustMarkValidator()->forTrustMarksClaimValue(
-                        $trustMarksClaimValue,
-                        $leafEntityConfiguration,
-                        $trustAnchorEntityConfiguration,
-                    );
-
-                    $this->loggerService->debug(
-                        sprintf(
-                            'Trust Mark ID %s validated. Trying next if available.',
-                            $limitedTrustMarkId,
-                        ),
-                    );
-                } catch (\Throwable $exception) {
-                    $error = sprintf(
-                        'Trust Mark ID %s validation failed with error: %s.',
-                        $limitedTrustMarkId,
-                        $exception->getMessage(),
-                    );
-                    $this->loggerService->error($error);
-                    throw new TrustMarkException($error);
-                }
             }
         }
 

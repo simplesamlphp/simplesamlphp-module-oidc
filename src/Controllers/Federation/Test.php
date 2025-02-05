@@ -12,6 +12,7 @@ use SimpleSAML\Module\oidc\Factories\CoreFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
+use SimpleSAML\Module\oidc\Utils\FederationParticipationValidator;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 use SimpleSAML\OpenID\Codebooks\EntityTypesEnum;
 use SimpleSAML\OpenID\Core;
@@ -37,6 +38,7 @@ class Test
         protected Database $database,
         protected ClientEntityFactory $clientEntityFactory,
         protected CoreFactory $coreFactory,
+        protected FederationParticipationValidator $federationParticipationValidator,
         protected \DateInterval $maxCacheDuration = new \DateInterval('PT30S'),
     ) {
     }
@@ -70,21 +72,40 @@ class Test
         $trustChain = $this->federation
             ->trustChainResolver()
             ->for(
-//                'https://08-dap.localhost.markoivancic.from.hr/openid/entities/ALeaf/',
+                'https://08-dap.localhost.markoivancic.from.hr/openid/entities/ALeaf/',
 //                'https://trust-anchor.testbed.oidcfed.incubator.geant.org/oidc/rp/',
 //                'https://relying-party-php.testbed.oidcfed.incubator.geant.org/',
-                'https://gorp.testbed.oidcfed.incubator.geant.org',
+//                'https://gorp.testbed.oidcfed.incubator.geant.org',
 //                'https://maiv1.incubator.geant.org',
                 [
-                    'https://trust-anchor.testbed.oidcfed.incubator.geant.org/',
+//                    'https://trust-anchor.testbed.oidcfed.incubator.geant.org/',
                     'https://08-dap.localhost.markoivancic.from.hr/openid/entities/ABTrustAnchor/',
-                    'https://08-dap.localhost.markoivancic.from.hr/openid/entities/CTrustAnchor/',
+//                    'https://08-dap.localhost.markoivancic.from.hr/openid/entities/CTrustAnchor/',
                 ],
-            )->getAll();
-dd($trustChain);
+            )
+            //->getAll();
+            ->getShortestByTrustAnchorPriority(
+                'https://08-dap.localhost.markoivancic.from.hr/openid/entities/ABTrustAnchor/',
+            );
+
         $leaf = $trustChain->getResolvedLeaf();
+        $trustAnchor = $trustChain->getResolvedTrustAnchor();
+
+        $this->federationParticipationValidator->validateForAllOfLimit(
+            ['https://08-dap.localhost.markoivancic.from.hr/openid/entities/ATrustMarkIssuer/trust-mark/member'],
+            $leaf,
+            $trustAnchor,
+        );
+
         dd($leaf->getPayload());
-        $leafFederationJwks = $leaf->getJwks();
+
+        $this->federation->trustMarkValidator()->fromCacheOrDoForTrustMarkId(
+            'https://08-dap.localhost.markoivancic.from.hr/openid/entities/ATrustMarkIssuer/trust-mark/member',
+            $leaf,
+            $trustAnchor,
+        );
+
+//        $leafFederationJwks = $leaf->getJwks();
 //        dd($leafFederationJwks);
 //        /** @psalm-suppress PossiblyNullArgument */
         $resolvedMetadata = $trustChain->getResolvedMetadata(EntityTypesEnum::OpenIdRelyingParty);

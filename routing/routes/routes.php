@@ -63,6 +63,9 @@ return function (RoutingConfigurator $routes): void {
     $routes->add(RoutesEnum::AdminTestTrustChainResolution->name, RoutesEnum::AdminTestTrustChainResolution->value)
         ->controller([TestController::class, 'trustChainResolution'])
         ->methods([HttpMethodsEnum::GET->value, HttpMethodsEnum::POST->value]);
+    $routes->add(RoutesEnum::AdminTestTrustMarkValidation->name, RoutesEnum::AdminTestTrustMarkValidation->value)
+        ->controller([TestController::class, 'trustMarkValidation'])
+        ->methods([HttpMethodsEnum::GET->value, HttpMethodsEnum::POST->value]);
 
     /*****************************************************************************************************************
      * OpenID Connect

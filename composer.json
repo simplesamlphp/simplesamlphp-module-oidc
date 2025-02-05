@@ -80,8 +80,10 @@
     },
     "scripts": {
         "pre-commit": [
+            "vendor/bin/phpcbf",
+            "vendor/bin/phpcs -p",
             "vendor/bin/psalm",
-            "vendor/bin/phpcs -p"
+            "vendor/bin/phpunit"
         ],
         "tests": [
             "vendor/bin/phpunit --no-coverage"
