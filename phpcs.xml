@@ -9,7 +9,7 @@
     <config name="show_progress" value="1"/>
     <config name="ignore_warnings_on_exit" value="0"/>
 
-    <file>config-templates</file>
+    <file>config</file>
     <file>hooks</file>
     <file>src</file>
     <file>tests</file>
