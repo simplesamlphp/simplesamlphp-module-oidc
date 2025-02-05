@@ -1,0 +1,68 @@
+{% set subPageTitle = 'Test Trust Mark Validation'|trans %}
+
+{% extends "@oidc/base.twig" %}
+
+{% block oidcContent %}
+
+    <p>
+        {{ 'You can use the form below to test Trust Mark validation for particular entity under given Trust Anchor.'|trans }}
+        {{ 'Log messages will show if any warnings or errors were raised during validation.'|trans }}
+        {{ 'Note that this will first resolve Trust Chain between given entity and Trust Anchor, and only then do the Trust Mark validation.'|trans }}
+    </p>
+
+    <form method="post"
+          action="{{ routes.urlAdminTestTrustMarkValidation }}"
+          class="pure-form pure-form-stacked">
+
+        <fieldset>
+            <label for="trustMarkId">{{ 'Trust Mark ID'|trans }}</label>
+            <input type="text"
+                   name="trustMarkId"
+                   id="trustMarkId"
+                   class="full-width"
+                   required=""
+                   value="{{ trustMarkId|default }}"
+            >
+            <span class="pure-form-message"></span>
+
+            <label for="leafEntityId">{{ 'Leaf Entity ID'|trans }}</label>
+            <input type="text"
+                   name="leafEntityId"
+                   id="leafEntityId"
+                   class="full-width"
+                   required=""
+                   value="{{ leafEntityId|default }}"
+            >
+            <span class="pure-form-message"></span>
+
+            <label for="trustAnchorId">{{ 'Trust Anchor ID'|trans }}</label>
+            <input type="text"
+                   name="trustAnchorId"
+                   id="trustAnchorId"
+                   class="full-width"
+                   required=""
+                   value="{{ trustAnchorId|default }}"
+            >
+            <span class="pure-form-message"></span>
+
+            <br>
+            <button type="submit" class="pure-button ">{{ (actionText|default('Submit'))|trans }}</button>
+        </fieldset>
+    </form>
+
+    {% if isFormSubmitted|default %}
+
+        <h4>{{ 'Log messages'|trans }}</h4>
+        <p>
+        {% if logMessages|default %}
+            <code class="code-box code-box-content">
+                {{- logMessages|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_SLASHES')) -}}
+            </code>
+        {% else %}
+            {{ 'Trust Mark validation passed (there were no warnings or errors during validation).'|trans }}
+        {% endif %}
+        </p>
+
+    {% endif %}
+
+{% endblock oidcContent -%}

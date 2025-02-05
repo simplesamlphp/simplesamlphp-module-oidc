@@ -26,6 +26,7 @@ enum RoutesEnum: string
 
     // Testing
     case AdminTestTrustChainResolution = 'admin/test/trust-chain-resolution';
+    case AdminTestTrustMarkValidation = 'admin/test/trust-mark-validation';
 
 
     /*****************************************************************************************************************

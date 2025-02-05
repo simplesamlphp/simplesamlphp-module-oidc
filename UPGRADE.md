@@ -1,9 +1,5 @@
 # TODO
-- upgrade to v9 of oauth2-server https://github.com/thephpleague/oauth2-server/releases/tag/9.0.0
-- implement key rollover
-- implement token introspection
-- implement dynamic client registration
-- move request rules to templates (generics) for proper static type handling
+
 - remove dependency on laminas/laminas-httphandlerrunner
 - create a bridge towards SSP utility classes, so they can be easily mocked
 - move away from SSP database as store; move to DBAL
@@ -51,6 +47,7 @@ and optionally a port (as in all previous module versions).
   - authority hints
   - federation caching adapter and its arguments
   - PKI keys - federation keys used for example to sign federation entity statements
+  - federation participation limiting based on Trust Marks for RPs
   - signer algorithm
   - entity statement duration
   - organization name

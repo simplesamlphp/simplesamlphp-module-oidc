@@ -141,6 +141,11 @@ class Routes
         return $this->getModuleUrl(RoutesEnum::AdminTestTrustChainResolution->value, $parameters);
     }
 
+    public function urlAdminTestTrustMarkValidation(array $parameters = []): string
+    {
+        return $this->getModuleUrl(RoutesEnum::AdminTestTrustMarkValidation->value, $parameters);
+    }
+
     /*****************************************************************************************************************
      * OpenID Connect URLs.
      ****************************************************************************************************************/

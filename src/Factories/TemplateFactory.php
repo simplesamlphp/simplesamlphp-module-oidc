@@ -134,6 +134,13 @@ class TemplateFactory
                 Translate::noop('Test Trust Chain Resolution'),
             ),
         );
+
+        $this->oidcMenu->addItem(
+            $this->oidcMenu->buildItem(
+                $this->moduleConfig->getModuleUrl(RoutesEnum::AdminTestTrustMarkValidation->value),
+                Translate::noop('Test Trust Mark Validation'),
+            ),
+        );
     }
 
     public function setShowMenu(bool $showMenu): TemplateFactory

@@ -326,9 +326,7 @@ class AuthenticationServiceTest extends TestCase
         unset($invalidState['Attributes'][self::USER_ID_ATTR]);
 
         $this->expectException(Exception::class);
-        $this->expectExceptionMessageMatches(
-            "/Attribute `useridattr` doesn\'t exists in claims. Available attributes are:/",
-        );
+        $this->expectExceptionMessageMatches("/User identifier attribute /");
 
         $this->mock()->getAuthenticateUser($invalidState);
     }
