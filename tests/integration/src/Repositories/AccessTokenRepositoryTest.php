@@ -87,7 +87,7 @@ class AccessTokenRepositoryTest extends TestCase
             self::$mysqlPort ??= "3306";
             self::$postgresPort ??= "5432";
         }
-        Configuration::setConfigDir(__DIR__ . '/../../../../config-templates');
+        Configuration::setConfigDir(__DIR__ . '/../../../config');
         self::$pgConfig = self::loadPGDatabase();
         self::$mysqlConfig = self::loadMySqlDatabase();
         self::$sqliteConfig = self::loadSqliteDatabase();
