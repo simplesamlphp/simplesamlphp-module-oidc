@@ -17,9 +17,9 @@ use SimpleSAML\Auth\Source;
 use SimpleSAML\Auth\State;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Error\NoState;
-use SimpleSAML\Error\NotFound;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
+use SimpleSAML\Module\oidc\Exceptions\OidcException;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
 use SimpleSAML\Module\oidc\Factories\ProcessingChainFactory;
@@ -83,16 +83,6 @@ class AuthenticationServiceTest extends TestCase
     protected MockObject $clientHelperMock;
     protected MockObject $requestParamsResolverMock;
     protected MockObject $userEntityFactoryMock;
-
-    /**
-     * @return void
-     */
-    public static function setUpBeforeClass(): void
-    {
-        // To make lib/SimpleSAML/Utils/HTTP::getSelfURL() work...
-        global $_SERVER;
-        $_SERVER['REQUEST_URI'] = '';
-    }
 
     /**
      * @throws \PHPUnit\Framework\MockObject\Exception
@@ -280,7 +270,7 @@ class AuthenticationServiceTest extends TestCase
                         'AuthorizationRequestParameters' => self::AUTHZ_REQUEST_PARAMS,
                     ],
                 ],
-                NotFound::class,
+                OidcException::class,
                 '/Client not found./',
             ],
         ];

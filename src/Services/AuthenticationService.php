@@ -28,6 +28,7 @@ use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Controllers\EndSessionController;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
+use SimpleSAML\Module\oidc\Exceptions\OidcException;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
 use SimpleSAML\Module\oidc\Factories\ProcessingChainFactory;
@@ -78,12 +79,11 @@ class AuthenticationService
      *
      * @return array
      * @throws Error\AuthSource
-     * @throws Error\BadRequest
-     * @throws Error\NotFound
      * @throws Exception
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws Error\UnserializableException
      * @throws \JsonException
+     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
      */
     public function processRequest(
         ServerRequestInterface $request,
@@ -117,13 +117,14 @@ class AuthenticationService
 
 
     /**
-     * @param   array|null  $state
+     * @param array|null $state
      *
      * @return UserEntity
      * @throws Error\NotFound
      * @throws Exception
      * @throws \JsonException
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
      */
     public function getAuthenticateUser(
         ?array $state,
@@ -164,7 +165,7 @@ class AuthenticationService
 
         $client = $this->clientRepository->findById((string)$state['Oidc']['RelyingPartyMetadata']['id']);
         if (!$client) {
-            throw new Error\NotFound('Client not found.');
+            throw new OidcException('Client not found.');
         }
 
         $this->addRelyingPartyAssociation($client, $user);

@@ -81,13 +81,6 @@ class ClientFormTest extends TestCase
         ];
     }
 
-    public static function setUpBeforeClass(): void
-    {
-        // To make lib/SimpleSAML/Utils/HTTP::getSelfURL() work...
-        global $_SERVER;
-        $_SERVER['REQUEST_URI'] = '/';
-    }
-
     protected function sut(
         ?ModuleConfig $moduleConfig = null,
         ?CsrfProtection $csrfProtection = null,

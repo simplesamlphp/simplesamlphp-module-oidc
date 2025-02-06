@@ -8,9 +8,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Error\BadRequest;
-use SimpleSAML\Error\NotFound;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
+use SimpleSAML\Module\oidc\Exceptions\OidcException;
 use SimpleSAML\Module\oidc\Helpers\Client;
 use SimpleSAML\Module\oidc\Helpers\Http;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
@@ -56,7 +55,7 @@ class ClientTest extends TestCase
 
     public function testGetFromRequestThrowsIfNoClientId(): void
     {
-        $this->expectException(BadRequest::class);
+        $this->expectException(OidcException::class);
         $this->expectExceptionMessage('Client ID');
 
         $this->sut()->getFromRequest($this->requestMock, $this->clientRepositoryMock);
@@ -64,7 +63,7 @@ class ClientTest extends TestCase
 
     public function testGetFromRequestThrowsIfClientNotFound(): void
     {
-        $this->expectException(NotFound::class);
+        $this->expectException(OidcException::class);
         $this->expectExceptionMessage('Client not found');
 
         $this->httpMock->expects($this->once())->method('getAllRequestParams')
