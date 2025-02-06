@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Forms;
 
+use DateTimeImmutable;
 use Laminas\Diactoros\ServerRequest;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use SimpleSAML\Configuration;
+use SimpleSAML\Module\oidc\Bridges\SspBridge;
+use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Forms\ClientForm;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -19,14 +21,16 @@ use SimpleSAML\Module\oidc\ModuleConfig;
  */
 class ClientFormTest extends TestCase
 {
-    /** @var \PHPUnit\Framework\MockObject\MockObject */
-    protected MockObject $csrfProtection;
+    protected MockObject $csrfProtectionMock;
 
-    /** @var \PHPUnit\Framework\MockObject\MockObject */
-    protected MockObject $moduleConfig;
+    protected MockObject $moduleConfigMock;
 
-    /** @var \PHPUnit\Framework\MockObject\MockObject  */
     protected MockObject $serverRequestMock;
+    protected MockObject $sspBridgeMock;
+    protected MockObject $sspBridgeAuthMock;
+    protected MockObject $sspBridgeAuthSourceMock;
+
+    protected array $clientDataSample;
 
     /**
      * @throws \Exception
@@ -34,10 +38,63 @@ class ClientFormTest extends TestCase
     public function setUp(): void
     {
         parent::setUp();
-        Configuration::clearInternalState();
-        $this->csrfProtection =  $this->createMock(CsrfProtection::class);
-        $this->moduleConfig = $this->createMock(ModuleConfig::class);
+        $this->csrfProtectionMock =  $this->createMock(CsrfProtection::class);
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->serverRequestMock = $this->createMock(ServerRequest::class);
+        $this->sspBridgeMock = $this->createMock(SspBridge::class);
+
+        $this->sspBridgeAuthMock = $this->createMock(SspBridge\Auth::class);
+        $this->sspBridgeMock->method('auth')->willReturn($this->sspBridgeAuthMock);
+
+        $this->sspBridgeAuthSourceMock = $this->createMock(SspBridge\Auth\Source::class);
+        $this->sspBridgeAuthMock->method('source')->willReturn($this->sspBridgeAuthSourceMock);
+
+        $this->clientDataSample = [
+            'id' => 'clientId',
+            'secret' => 'clientSecret',
+            'name' => 'Test',
+            'description' => 'Test',
+            'auth_source' => 'default-sp',
+            'redirect_uri' => [0 => 'https://example.com/redirect',],
+            'scopes' => [0 => 'openid', 1 => 'offline_access', 2 => 'profile',],
+            'is_enabled' => false,
+            'is_confidential' => true,
+            'owner' => null,
+            'post_logout_redirect_uri' => [0 => 'https://example.com/',],
+            'backchannel_logout_uri' => 'https://example.com/logout',
+            'entity_identifier' => 'https://example.com/',
+            'client_registration_types' => [0 => 'automatic',],
+            'federation_jwks' => ['keys' => [0 => [],],],
+            'jwks' => ['keys' => [0 => [],],],
+            'jwks_uri' => 'https://example.com/jwks',
+            'signed_jwks_uri' => 'https://example.com/signed-jwks',
+            'registration_type' => RegistrationTypeEnum::Manual,
+            'updated_at' => DateTimeImmutable::__set_state(
+                ['date' => '2025-02-05 15:05:27.000000', 'timezone_type' => 3, 'timezone' => 'UTC',],
+            ),
+            'created_at' => DateTimeImmutable::__set_state(
+                ['date' => '2024-12-01 11:54:12.000000', 'timezone_type' => 3, 'timezone' => 'UTC',],
+            ),
+            'expires_at' => null,
+            'is_federated' => false,
+            'allowed_origin' => [],
+        ];
+    }
+
+    protected function sut(
+        ?ModuleConfig $moduleConfig = null,
+        ?CsrfProtection $csrfProtection = null,
+        ?SspBridge $sspBridge = null,
+    ): ClientForm {
+        $moduleConfig ??= $this->moduleConfigMock;
+        $csrfProtection ??= $this->csrfProtectionMock;
+        $sspBridge ??= $this->sspBridgeMock;
+
+        return new ClientForm(
+            $moduleConfig,
+            $csrfProtection,
+            $sspBridge,
+        );
     }
 
     public static function validateOriginProvider(): array
@@ -74,7 +131,6 @@ class ClientFormTest extends TestCase
         ];
     }
 
-
     /**
      * @param   string  $url
      * @param   bool    $isValid
@@ -86,19 +142,26 @@ class ClientFormTest extends TestCase
     #[TestDox('Allowed Origin URL: $url is expected to be $isValid')]
     public function testValidateOrigin(string $url, bool $isValid): void
     {
-        $clientForm = $this->prepareMockedInstance();
+        $clientForm = $this->sut();
         $clientForm->setValues(['allowed_origin' => $url]);
         $clientForm->validateAllowedOrigin($clientForm);
 
         $this->assertEquals(!$isValid, $clientForm->hasErrors(), $url);
     }
 
-    /**
-     * @return \SimpleSAML\Module\oidc\Forms\ClientForm
-     * @throws \Exception
-     */
-    protected function prepareMockedInstance(): ClientForm
+    public function testSetDefaultsLeavesValidAuthSourceValue(): void
     {
-        return new ClientForm($this->moduleConfig, $this->csrfProtection);
+        $this->sspBridgeAuthSourceMock->method('getSources')->willReturn(['default-sp']);
+
+        $sut = $this->sut()->setDefaults($this->clientDataSample);
+
+        $this->assertSame('default-sp', $sut->getValues()['auth_source']);
+    }
+
+    public function testSetDefaultsUnsetsAuthSourceIfNotValid(): void
+    {
+        $sut = $this->sut()->setDefaults($this->clientDataSample);
+
+        $this->assertNull($sut->getValues()['auth_source']);
     }
 }

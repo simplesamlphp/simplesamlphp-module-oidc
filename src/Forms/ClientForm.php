@@ -17,8 +17,8 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Forms;
 
 use Nette\Forms\Form;
-use SimpleSAML\Auth\Source;
 use SimpleSAML\Locale\Translate;
+use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
@@ -58,8 +58,11 @@ class ClientForm extends Form
     /**
      * @throws \Exception
      */
-    public function __construct(private readonly ModuleConfig $moduleConfig, protected CsrfProtection $csrfProtection)
-    {
+    public function __construct(
+        protected readonly ModuleConfig $moduleConfig,
+        protected CsrfProtection $csrfProtection,
+        protected SspBridge $sspBridge,
+    ) {
         parent::__construct();
 
         $this->buildForm();
@@ -315,6 +318,14 @@ class ClientForm extends Form
 
         $data['jwks'] = is_array($data['jwks']) ? json_encode($data['jwks']) : null;
 
+        if (
+            $data['auth_source'] !== null &&
+            (!in_array($data['auth_source'], $this->sspBridge->auth()->source()->getSources()))
+        ) {
+            // Possible auth source name change without prior update in clients, resetting.
+            $data['auth_source'] = null;
+        }
+
         parent::setDefaults($data, $erase);
 
         return $this;
@@ -355,10 +366,9 @@ class ClientForm extends Form
 
         $this->addCheckbox('is_confidential', '{oidc:client:is_confidential}');
 
-        // TODO mivanci Source::getSource() move to SSP Bridge.
         $this->addSelect('auth_source', '{oidc:client:auth_source}:')
             ->setHtmlAttribute('class', 'full-width')
-            ->setItems(Source::getSources(), false)
+            ->setItems($this->sspBridge->auth()->source()->getSources(), false)
             ->setPrompt(Translate::noop('-'));
 
         $scopes = $this->getScopes();
