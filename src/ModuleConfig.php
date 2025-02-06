@@ -84,6 +84,14 @@ class ModuleConfig
     final public const OPTION_FEDERATION_PARTICIPATION_LIMIT_BY_TRUST_MARKS =
     'federation_participation_limit_by_trust_marks';
 
+    final public const OPTION_PKI_NEW_PRIVATE_KEY_PASSPHRASE = 'new_private_key_passphrase';
+    final public const OPTION_PKI_NEW_PRIVATE_KEY_FILENAME = 'new_privatekey';
+    final public const OPTION_PKI_NEW_CERTIFICATE_FILENAME = 'new_certificate';
+
+    final public const OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_PASSPHRASE = 'federation_new_private_key_passphrase';
+    final public const OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_FILENAME = 'federation_new_private_key_filename';
+    final public const OPTION_PKI_FEDERATION_NEW_CERTIFICATE_FILENAME = 'federation_new_certificate_filename';
+
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
             self::KEY_DESCRIPTION => 'openid',
@@ -366,6 +374,22 @@ class ModuleConfig
     }
 
     /**
+     * Get the path to the new public certificate to be used in OIDC protocol.
+     * @return ?string Null if not set, or file system path
+     * @throws \Exception
+     */
+    public function getProtocolNewCertPath(): ?string
+    {
+        $certName = $this->config()->getOptionalString(self::OPTION_PKI_NEW_CERTIFICATE_FILENAME, null);
+
+        if (is_string($certName)) {
+            return $this->sspBridge->utils()->config()->getCertPath($certName);
+        }
+
+        return null;
+    }
+
+    /**
      * Get supported Authentication Context Class References (ACRs).
      *
      * @return array
@@ -522,7 +546,6 @@ class ModuleConfig
 
     /**
      * Return the path to the federation public certificate
-     * @return string The file system path or null if not set.
      * @throws \Exception
      */
     public function getFederationCertPath(): string
@@ -533,6 +556,25 @@ class ModuleConfig
         );
 
         return $this->sspBridge->utils()->config()->getCertPath($certName);
+    }
+
+    /**
+     * Return the path to the new federation public certificate
+     * @return ?string The file system path or null if not set.
+     * @throws \Exception
+     */
+    public function getFederationNewCertPath(): ?string
+    {
+        $certName = $this->config()->getOptionalString(
+            self::OPTION_PKI_FEDERATION_NEW_CERTIFICATE_FILENAME,
+            null,
+        );
+
+        if (is_string($certName)) {
+            return $this->sspBridge->utils()->config()->getCertPath($certName);
+        }
+
+        return null;
     }
 
     /**
