@@ -24,8 +24,6 @@ use function chmod;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator
- *
- * @backupGlobals enabled
  */
 class BearerTokenValidatorTest extends TestCase
 {
@@ -60,10 +58,6 @@ class BearerTokenValidatorTest extends TestCase
      */
     public static function setUpBeforeClass(): void
     {
-        // To make lib/SimpleSAML/Utils/HTTP::getSelfURL() work...
-        global $_SERVER;
-        $_SERVER['REQUEST_URI'] = '';
-
         $tempDir = sys_get_temp_dir();
 
         // Plant certdir config for JsonWebTokenBuilderService (since we don't inject it)

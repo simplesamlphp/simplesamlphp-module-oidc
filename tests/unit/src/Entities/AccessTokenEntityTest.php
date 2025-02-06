@@ -18,8 +18,6 @@ use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Entities\AccessTokenEntity
- *
- * @backupGlobals enabled
  */
 class AccessTokenEntityTest extends TestCase
 {
