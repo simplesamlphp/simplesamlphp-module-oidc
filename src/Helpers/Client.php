@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Helpers;
 
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Error\BadRequest;
-use SimpleSAML\Error\NotFound;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Exceptions\OidcException;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 
 class Client
@@ -18,9 +17,7 @@ class Client
 
     /**
      * @throws \JsonException
-     * @throws \SimpleSAML\Error\BadRequest
-     * @throws \SimpleSAML\Error\NotFound
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
      */
     public function getFromRequest(
         ServerRequestInterface $request,
@@ -30,13 +27,13 @@ class Client
         $clientId = empty($params['client_id']) ? null : (string)$params['client_id'];
 
         if (!is_string($clientId)) {
-            throw new BadRequest('Client ID is missing.');
+            throw new OidcException('Client ID is missing.');
         }
 
         $client = $clientRepository->findById($clientId);
 
         if (!$client) {
-            throw new NotFound('Client not found.');
+            throw new OidcException('Client not found.');
         }
 
         return $client;

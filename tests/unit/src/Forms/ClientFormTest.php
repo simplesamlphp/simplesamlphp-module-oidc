@@ -40,13 +40,6 @@ class ClientFormTest extends TestCase
         $this->serverRequestMock = $this->createMock(ServerRequest::class);
     }
 
-    public static function setUpBeforeClass(): void
-    {
-        // To make lib/SimpleSAML/Utils/HTTP::getSelfURL() work...
-        global $_SERVER;
-        $_SERVER['REQUEST_URI'] = '/';
-    }
-
     public static function validateOriginProvider(): array
     {
         return [
