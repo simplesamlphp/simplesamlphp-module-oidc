@@ -12,7 +12,10 @@
   client and user data. The cache layer stands in front of the database store, so it can improve performance, especially 
   in cases of sudden surge of users trying to authenticate. Implementation is based on Symfony Cache component, so any 
   compatible Symfony cache adapter can be used. Check the module config file for more information on how to set the
-  protocol cache. 
+  protocol cache.
+- Key rollover support - you can now define additional (new) private / public key pair which will be published on 
+relevant JWKS endpoint or contained in JWKS property. In this way, you can "announce" new public key which can then
+be fetched by RPs, and do the switch between "old" and "new" key pair when you find appropriate.
 - OpenID capabilities
   - New federation endpoints:
     - endpoint for issuing configuration entity statement (statement about itself)

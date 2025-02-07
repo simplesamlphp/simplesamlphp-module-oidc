@@ -17,6 +17,20 @@ Currently supported flows are:
 
 ![Main screen capture](docs/oidc.png)
 
+### Note on OpenID Federation (OIDF) support
+
+OpenID Federation support is in "draft" phase, as is the
+[specification](https://openid.net/specs/openid-federation-1_0) itself. This means that you can expect braking changes
+in future releases related to OIDF capabilities. You can enable / disable OIDF support at any time in module
+configuration.
+
+Currently, the following OIDF features are supported:
+* automatic client registration using a Request Object (passing it by value)
+* endpoint for issuing configuration entity statement (statement about itself)
+* fetch endpoint for issuing statements about subordinates (registered clients)
+
+OIDF support is implemented using the underlying [SimpleSAMLphp OpenID library](https://github.com/simplesamlphp/openid).
+
 ## Version compatibility
 
 Minor versions of SimpleSAMLphp noted below means that the module has been tested with that version of SimpleSAMLphp
@@ -150,6 +164,16 @@ Once you deploy the module, in the SimpleSAMLphp administration area go to `OIDC
 Protocol / Federation Settings page to see the available discovery URLs. These URLs can then be used to set up a
 `.well-known` URLs (see below).
 
+### Key rollover
+
+The module supports defining additional (new) private / public key pair to be published on relevant JWKS endpoint
+or contained in relevant JWKS property. In this way, you can "announce" new public key which can then be fetched
+by RPs in order to prepare for the switch of the keys (until the switch of keys, all artifacts continue to be
+signed with the "old" private key).
+
+In this way, after RPs fetch new JWKS (JWKS with "old" and "new" key), you can do the switch of keys when you find
+appropriate.
+
 ### Note when using Apache web server
 
 If you are using Apache web server, you might encounter situations in which Apache strips of Authorization header
@@ -167,20 +191,6 @@ or
 SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
 ```
 Choose the one which works for you. If you don't set it, you'll get a warnings about this situation in your logs.
-
-### Note on OpenID Federation (OIDF) support
-
-OpenID Federation support is in "draft" phase, as is the
-[specification](https://openid.net/specs/openid-federation-1_0) itself. This means that you can expect braking changes
-in future releases related to OIDF capabilities. You can enable / disable OIDF support at any time in module
-configuration.
-
-Currently, the following OIDF features are supported:
-* endpoint for issuing configuration entity statement (statement about itself)
-* fetch endpoint for issuing statements about subordinates (registered clients)
-* automatic client registration using a Request Object
-
-OIDF support is implemented using the underlying [SimpleSAMLphp OpenID library](https://github.com/simplesamlphp/openid).
 
 ## Additional considerations
 ### Private scopes

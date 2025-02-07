@@ -27,17 +27,29 @@ $config = [
      * is a case-sensitive URL using the https scheme that contains scheme, host, and optionally, port number and
      * path components and no query or fragment components."
      */
-    //ModuleConfig::OPTION_ISSUER => 'https://op.example.org',
+//    ModuleConfig::OPTION_ISSUER => 'https://op.example.org',
 
     /**
      * PKI (public / private key) settings related to OIDC protocol. These keys will be used, for example, to
      * sign ID Token JWT.
      */
     // (optional) The private key passphrase.
-    //ModuleConfig::OPTION_PKI_PRIVATE_KEY_PASSPHRASE => 'secret',
+//    ModuleConfig::OPTION_PKI_PRIVATE_KEY_PASSPHRASE => 'secret',
     // The certificate and private key filenames, with given defaults.
     ModuleConfig::OPTION_PKI_PRIVATE_KEY_FILENAME => ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME,
     ModuleConfig::OPTION_PKI_CERTIFICATE_FILENAME => ModuleConfig::DEFAULT_PKI_CERTIFICATE_FILENAME,
+
+    /**
+     * (optional) Key rollover settings related to OIDC protocol. If set, this new private / public key pair will only
+     * be published on JWKS endpoint as available, so Relying Parties can pick them up for future use. The signing
+     * of artifacts will still be done using the 'current' private key (settings above). After some time, when all
+     * RPs have fetched all public keys from JWKS endpoint, simply set these new keys as active values for above
+     * PKI options.
+     */
+//    // (optional) The (new) private key passphrase.
+//    ModuleConfig::OPTION_PKI_NEW_PRIVATE_KEY_PASSPHRASE => 'new-secret',
+//    ModuleConfig::OPTION_PKI_NEW_PRIVATE_KEY_FILENAME => 'new_oidc_module.key',
+//    ModuleConfig::OPTION_PKI_NEW_CERTIFICATE_FILENAME => 'new_oidc_module.crt',
 
     /**
      * Token related options.
@@ -51,8 +63,8 @@ $config = [
     // Token signer, with given default.
     // See Lcobucci\JWT\Signer algorithms in https://github.com/lcobucci/jwt/tree/master/src/Signer
     ModuleConfig::OPTION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Rsa\Sha256::class,
-    //ModuleConfig::OPTION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Hmac\Sha256::class,
-    //ModuleConfig::OPTION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Ecdsa\Sha256::class,
+//    ModuleConfig::OPTION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Hmac\Sha256::class,
+//    ModuleConfig::OPTION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Ecdsa\Sha256::class,
 
     /**
      * Authentication related options.
@@ -347,7 +359,7 @@ $config = [
     // Federation authority hints. An array of strings representing the Entity Identifiers of Intermediate Entities
     // (or Trust Anchors). Required if this entity has a Superior entity above it.
     ModuleConfig::OPTION_FEDERATION_AUTHORITY_HINTS => [
-        //'https://intermediate.example.org/',
+//        'https://intermediate.example.org/',
     ],
 
     // (optional) Federation Trust Mark tokens. An array of tokens (signed JWTs), each representing a Trust Mark
@@ -411,12 +423,21 @@ $config = [
      * entity statements. Note that these keys SHOULD NOT be the same as the ones used in OIDC protocol itself.
      */
     // The federation private key passphrase (optional).
-    //ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_PASSPHRASE => 'secret',
+//    ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_PASSPHRASE => 'secret',
     // The federation certificate and private key filenames, with given defaults.
     ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME =>
         ModuleConfig::DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
     ModuleConfig::OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME =>
         ModuleConfig::DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME,
+
+    /**
+     * (optional) Key rollover settings related to OpenID Federation. Check the OIDC protocol key rollover description
+     * on how this works.
+     */
+    // The federation (new) private key passphrase (optional).
+//    ModuleConfig::OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_PASSPHRASE => 'new-secret',
+//    ModuleConfig::OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_FILENAME => 'new_oidc_module_federation.key',
+//    ModuleConfig::OPTION_PKI_FEDERATION_NEW_CERTIFICATE_FILENAME => 'new_oidc_module_federation.crt',
 
     // Federation token signer, with given default.
     ModuleConfig::OPTION_FEDERATION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Rsa\Sha256::class,
