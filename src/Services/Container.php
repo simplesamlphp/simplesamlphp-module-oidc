@@ -140,8 +140,19 @@ class Container implements ContainerInterface
         $session = Session::getSessionFromRequest();
         $this->services[Session::class] = $session;
 
-        $csrfProtection = new CsrfProtection(Translate::noop('Your session has expired. Please return to the home page and try again.'), $session);
-        $formFactory = new FormFactory($moduleConfig, $csrfProtection);
+        $csrfProtection = new CsrfProtection(
+            Translate::noop('Your session has expired. Please return to the home page and try again.'),
+            $session,
+        );
+
+        $sspBridge = new SspBridge();
+        $this->services[SspBridge::class] = $sspBridge;
+
+        $formFactory = new FormFactory(
+            $moduleConfig,
+            $csrfProtection,
+            $sspBridge,
+        );
         $this->services[FormFactory::class] = $formFactory;
 
         $jsonWebKeySetService = new JsonWebKeySetService($moduleConfig);
@@ -152,9 +163,6 @@ class Container implements ContainerInterface
 
         $sessionMessagesService = new SessionMessagesService($session);
         $this->services[SessionMessagesService::class] = $sessionMessagesService;
-
-        $sspBridge = new SspBridge();
-        $this->services[SspBridge::class] = $sspBridge;
 
         $oidcMenu = new Menu();
         $this->services[Menu::class] = $oidcMenu;
