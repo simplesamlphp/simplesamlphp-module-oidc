@@ -435,9 +435,9 @@ $config = [
      * on how this works.
      */
     // The federation (new) private key passphrase (optional).
-    ModuleConfig::OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_PASSPHRASE => 'new-secret',
-    ModuleConfig::OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_FILENAME => 'new_oidc_module_federation.key',
-    ModuleConfig::OPTION_PKI_FEDERATION_NEW_CERTIFICATE_FILENAME => 'new_oidc_module_federation.crt',
+//    ModuleConfig::OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_PASSPHRASE => 'new-secret',
+//    ModuleConfig::OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_FILENAME => 'new_oidc_module_federation.key',
+//    ModuleConfig::OPTION_PKI_FEDERATION_NEW_CERTIFICATE_FILENAME => 'new_oidc_module_federation.crt',
 
     // Federation token signer, with given default.
     ModuleConfig::OPTION_FEDERATION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Rsa\Sha256::class,
