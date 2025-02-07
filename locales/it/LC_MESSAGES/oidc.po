@@ -1,122 +1,122 @@
-msgid "{oidc:add_client}"
+msgid "Add client"
 msgstr "Aggiungi client"
 
-msgid "{oidc:search}"
+msgid "Search"
 msgstr "Cerca"
 
-msgid "{oidc:no_clients}"
+msgid "No clients"
 msgstr "No clients"
 
-msgid "{oidc:client_list}"
+msgid "Client list"
 msgstr "Lista client"
 
-msgid "{oidc:client:name}"
+msgid "Name"
 msgstr "Nome"
 
-msgid "{oidc:client:description}"
+msgid "Description"
 msgstr "Descrizione"
 
-msgid "{oidc:client:identifier}"
+msgid "Client ID"
 msgstr "Client id."
 
-msgid "{oidc:client:secret}"
+msgid "Client secret"
 msgstr "Client secret"
 
-msgid "{oidc:client:auth_source}"
+msgid "Authentication source"
 msgstr "Auth. source"
 
-msgid "{oidc:client:redirect_uri}"
+msgid "Redirect URI"
 msgstr "Redirect URI"
 
-msgid "{oidc:client:scopes}"
+msgid "Scopes"
 msgstr "Scopes"
 
-msgid "{oidc:submit}"
+msgid "Submit"
 msgstr "Invia"
 
-msgid "{oidc:create}"
+msgid "Create"
 msgstr "Crea"
 
-msgid "{oidc:save}"
+msgid "Save"
 msgstr "Salva"
 
-msgid "{oidc:return}"
+msgid "Return"
 msgstr "Indietro"
 
-msgid "{oidc:install}"
+msgid "Install"
 msgstr "Installa"
 
-msgid "{oidc:copy}"
+msgid "Copy code"
 msgstr "Copia codice"
 
-msgid "{oidc:copied}"
+msgid "Copied!"
 msgstr "Copiato!"
 
-msgid "{oidc:confirm}"
+msgid "Confirm"
 msgstr "Conferma"
 
-msgid "{oidc:client:delete}"
+msgid "Delete OpenID Connect Client"
 msgstr "Cancella Client OpenID Connect"
 
-msgid "{oidc:client:confirm_delete}"
+msgid "Please, confirm than you want to delete this client. This action cannot be undone."
 msgstr "Gentilmente, conferma che vuoi cancellare questo client. Questa cancellazione non può essere ripristinata."
 
-msgid "{oidc:edit}"
+msgid "Edit"
 msgstr "Modifica"
 
-msgid "{oidc:delete}"
+msgid "Delete"
 msgstr "Cancella"
 
-msgid "{oidc:client:added}"
+msgid "The client was added successfully."
 msgstr "Il client è stato aggiunto con successo."
 
-msgid "{oidc:client:removed}"
+msgid "The client was removed successfully."
 msgstr "Il client è stato rimosso con successo."
 
-msgid "{oidc:client:updated}"
+msgid "The client was updated successfully."
 msgstr "Il client è stato aggiornato con successo."
 
-msgid "{oidc:client:redirect_uri_help}"
+msgid "Allowed redirect URIs to which the authorization response will be sent. Must be a valid URI, one per line. Example: https://example.org/foo?bar=1"
 msgstr "Aggiungi una URI valida"
 
-msgid "{oidc:client:auth_source_help}"
+msgid "Authentication source for this particular client. If no authentication source is selected, the default one from configuration file will be used."
 msgstr "If no auth. source is selected, the default one from configuration file will be used."
 
-msgid "{oidc:client:name_not_empty}"
+msgid "Please, enter a name."
 msgstr "Per favore aggiungi un nome."
 
-msgid "{oidc:client:redirect_uri_not_empty}"
+msgid "Please, enter an URI at least."
 msgstr "Per favore, aggiungi almeno una URI."
 
-msgid "{oidc:client:redirect_uri_not_valid}"
+msgid "Some of the redirect URIs are not valid."
 msgstr "Qualche indirizzo di redirezione non è valido."
 
-msgid "{oidc:client:auth_source_not_empty}"
+msgid "Please, select an Auth Source."
 msgstr "Per favore seleziona una Auth Source."
 
-msgid "{oidc:client:scopes_not_empty}"
+msgid "Please, select a scope at least."
 msgstr "Per favore, seleziona almeno uno scope."
 
-msgid "{oidc:client:reset_secret}"
+msgid "Reset secret"
 msgstr "Ripristina secret"
 
-msgid "{oidc:client:reset_secret_warning}"
+msgid "This action will change your client secret and it can not be undone."
 msgstr "Questa operazione cambierà il tuo client secret è non potrà essere ripristinata."
 
-msgid "{oidc:client:secret_updated}"
+msgid "The client secret was updated successfully."
 msgstr "Il client secret è stato aggiornato con successo."
 
-msgid "{oidc:install:oauth2}"
+msgid "Check if you want to migrate data from legacy oauth2 module"
 msgstr "Controlla se vuoi migrare dati dal vecchio modulo oauth2"
 
-msgid "{oidc:install:description}"
+msgid "This wizard will help you create the database and migrate information if necessary."
 msgstr "This wizard will help you create the database and migrate information if necessary."
 
-msgid "{oidc:install:finished}"
+msgid "The database has been created."
 msgstr "Database creato con successo."
 
-msgid "{oidc:import:finished}"
+msgid "Old oauth2 module clients has been imported."
 msgstr "I clients del vecchio modulo oauth2 sono stati importati con successo."
 
-msgid "{oidc:client:is_enabled}"
+msgid "Activated"
 msgstr "Attivato"

@@ -1,219 +1,194 @@
-msgid "{oidc:add_client}"
+msgid "Add client"
 msgstr "Add client"
 
-msgid "{oidc:search}"
+msgid "Search"
 msgstr "Search"
 
-msgid "{oidc:no_clients}"
+msgid "No clients"
 msgstr "No clients"
 
-msgid "{oidc:client_list}"
+msgid "Client list"
 msgstr "Client list"
 
-msgid "{oidc:client:name}"
+msgid "Name"
 msgstr "Name"
 
-msgid "{oidc:client:description}"
+msgid "Description"
 msgstr "Description"
 
-msgid "{oidc:client:identifier}"
+msgid "Client ID"
 msgstr "Client ID"
 
-msgid "{oidc:client:secret}"
+msgid "Client secret"
 msgstr "Client secret"
 
-msgid "{oidc:client:auth_source}"
+msgid "Authentication source"
 msgstr "Authentication source"
 
-msgid "{oidc:client:redirect_uri}"
+msgid "Redirect URI"
 msgstr "Redirect URIs"
 
-msgid "{oidc:client:scopes}"
+msgid "Scopes"
 msgstr "Scopes"
 
-msgid "{oidc:client:owner}"
+msgid "Owner"
 msgstr "Owner"
 
-msgid "{oidc:submit}"
+msgid "Submit"
 msgstr "Submit"
 
-msgid "{oidc:create}"
+msgid "Create"
 msgstr "Create"
 
-msgid "{oidc:save}"
+msgid "Save"
 msgstr "Save"
 
-msgid "{oidc:return}"
+msgid "Return"
 msgstr "Return"
 
-msgid "{oidc:install}"
+msgid "Install"
 msgstr "Install"
 
-msgid "{oidc:copy}"
+msgid "Copy code"
 msgstr "Copy code"
 
-msgid "{oidc:copied}"
+msgid "Copied!"
 msgstr "Copied!"
 
-msgid "{oidc:confirm}"
+msgid "Confirm"
 msgstr "Confirm"
 
-msgid "{oidc:client:delete}"
+msgid "Delete OpenID Connect Client"
 msgstr "Delete OpenID Connect Client"
 
-msgid "{oidc:client:confirm_delete}"
+msgid "Please, confirm than you want to delete this client. This action cannot be undone."
 msgstr "Please, confirm than you want to delete this client. This action cannot be undone."
 
-msgid "{oidc:edit}"
+msgid "Edit"
 msgstr "Edit"
 
-msgid "{oidc:delete}"
+msgid "Delete"
 msgstr "Delete"
 
-msgid "{oidc:client:added}"
+msgid "The client was added successfully."
 msgstr "The client was added successfully."
 
-msgid "{oidc:client:removed}"
+msgid "The client was removed successfully."
 msgstr "The client was removed successfully."
 
-msgid "{oidc:client:updated}"
+msgid "The client was updated successfully."
 msgstr "The client was updated successfully."
 
-msgid "{oidc:client:redirect_uri_help}"
-msgstr ""
-"Allowed redirect URIs to which the authorization response will be sent. Must be a valid URI, one per line. "
-"Example: https://example.org/foo?bar=1"
-""
+msgid "Allowed redirect URIs to which the authorization response will be sent. Must be a valid URI, one per line. Example: https://example.org/foo?bar=1"
+msgstr "Allowed redirect URIs to which the authorization response will be sent. Must be a valid URI, one per line. Example: https://example.org/foo?bar=1"
 
-msgid "{oidc:client:auth_source_help}"
-msgstr ""
-"Authentication source for this particular client. "
-"If no authentication source is selected, the default one from configuration file will be used."
-""
+msgid "Authentication source for this particular client. If no authentication source is selected, the default one from configuration file will be used."
+msgstr "Authentication source for this particular client. If no authentication source is selected, the default one from configuration file will be used."
 
-msgid "{oidc:client:name_not_empty}"
+msgid "Please, enter a name."
 msgstr "Please, enter a name."
 
-msgid "{oidc:client:redirect_uri_not_empty}"
+msgid "Please, enter an URI at least."
 msgstr "Please, enter an URI at least."
 
-msgid "{oidc:client:redirect_uri_not_valid}"
+msgid "Some of the redirect URIs are not valid."
 msgstr "Some of the redirect URIs are not valid."
 
-msgid "{oidc:client:auth_source_not_empty}"
+msgid "Please, select an Auth Source."
 msgstr "Please, select an Auth Source."
 
-msgid "{oidc:client:scopes_not_empty}"
+msgid "Please, select a scope at least."
 msgstr "Please, select a scope at least."
 
-msgid "{oidc:client:reset_secret}"
+msgid "Reset secret"
 msgstr "Reset secret"
 
-msgid "{oidc:client:reset_secret_warning}"
+msgid "This action will change your client secret and it can not be undone."
 msgstr "This action will change your client secret and it can not be undone."
 
-msgid "{oidc:client:secret_updated}"
+msgid "The client secret was updated successfully."
 msgstr "The client secret was updated successfully."
 
-msgid "{oidc:install:oauth2}"
+msgid "Check if you want to migrate data from legacy oauth2 module"
 msgstr "Check if you want to migrate data from legacy oauth2 module"
 
-msgid "{oidc:install:description}"
+msgid "This wizard will help you create the database and migrate information if necessary."
 msgstr "This wizard will help you create the database and migrate information if necessary."
 
-msgid "{oidc:install:finished}"
+msgid "The database has been created."
 msgstr "The database has been created."
 
-msgid "{oidc:import:finished}"
+msgid "Old oauth2 module clients has been imported."
 msgstr "Old oauth2 module clients has been imported."
 
-msgid "{oidc:client:is_enabled}"
+msgid "Activated"
 msgstr "Activated"
 
-msgid "{oidc:client:deactivated}"
+msgid "Deactivated"
 msgstr "Deactivated"
 
-msgid "{oidc:title}"
+msgid "OpenID Connect Client Registry"
 msgstr "OpenID Connect Client Registry"
 
-msgid "{oidc:client:confidential}"
+msgid "Confidential"
 msgstr "Confidential"
 
-msgid "{oidc:client:confidential_help}"
-msgstr ""
-"Choose if client is confidential or public. Confidential clients are capable of maintaining the confidentiality "
-"of their credentials (e.g., client implemented on a secure server with restricted access to the client credentials), "
-"or capable of secure client authentication using other means. Public clients are incapable of maintaining the "
-"confidentiality of their credentials (e.g., clients executing on the device used by the resource owner, such as an "
-"installed native application or a web browser-based application), and incapable of secure client authentication via "
-"any other means. "
-""
+msgid "Choose if client is confidential or public. Confidential clients are capable of maintaining the confidentiality of their credentials (e.g., client implemented on a secure server with restricted access to the client credentials), or capable of secure client authentication using other means. Public clients are incapable of maintaining the confidentiality of their credentials (e.g., clients executing on the device used by the resource owner, such as an installed native application or a web browser-based application), and incapable of secure client authentication via any other means."
+msgstr "Choose if client is confidential or public. Confidential clients are capable of maintaining the confidentiality of their credentials (e.g., client implemented on a secure server with restricted access to the client credentials), or capable of secure client authentication using other means. Public clients are incapable of maintaining the confidentiality of their credentials (e.g., clients executing on the device used by the resource owner, such as an installed native application or a web browser-based application), and incapable of secure client authentication via any other means."
 
-msgid "{oidc:client:public}"
+msgid "Public"
 msgstr "Public"
 
-msgid "{oidc:client:type}"
+msgid "Type"
 msgstr "Type"
 
-msgid "{oidc:client:client}"
+msgid "Client"
 msgstr "Client"
 
-msgid "{oidc:client:state}"
+msgid "State"
 msgstr "State"
 
-msgid "{oidc:client:csrf_error}"
+msgid "Your session has expired. Please return to the home page and try again."
 msgstr "Your session has expired. Please return to the home page and try again."
 
-msgid "{oidc:client:allowed_origin}"
+msgid "Allowed origins for public clients"
 msgstr "Allowed origins for public clients"
 
-msgid "{oidc:client:allowed_origin_help}"
-msgstr ""
-"URLs as allowed origins for CORS requests, for public clients running in browser. Must have http:// or https:// "
-"scheme, and at least one 'domain.top-level-domain' pair, or more subdomains. Top-level-domain may end with '.'. "
-"No userinfo, path, query or fragment components allowed. May end with port number. One per line. Example: "
-"https://example.org"
-""
+msgid "URLs as allowed origins for CORS requests, for public clients running in browser. Must have http:// or https:// scheme, and at least one 'domain.top-level-domain' pair, or more subdomains. Top-level-domain may end with '.'. No userinfo, path, query or fragment components allowed. May end with port number. One per line. Example: https://example.org"
+msgstr "URLs as allowed origins for CORS requests, for public clients running in browser. Must have http:// or https:// scheme, and at least one 'domain.top-level-domain' pair, or more subdomains. Top-level-domain may end with '.'. No userinfo, path, query or fragment components allowed. May end with port number. One per line. Example: https://example.org"
 
-msgid "{oidc:client:allowed_origin_not_valid}"
+msgid "Some of the allowed origins are not valid."
 msgstr "Some of the allowed origins are not valid."
 
-msgid "{oidc:client:post_logout_redirect_uri}"
+msgid "Post-logout redirect URIs"
 msgstr "Post-logout redirect URIs"
 
-msgid "{oidc:client:post_logout_redirect_uri_help}"
-msgstr ""
-"Allowed redirect URIs to use after client initiated logout. Must be a valid URI, one per line. "
-"Example: https://example.org/foo?bar=1"
-""
+msgid "Allowed redirect URIs to use after client initiated logout. Must be a valid URI, one per line. Example: https://example.org/foo?bar=1"
+msgstr "Allowed redirect URIs to use after client initiated logout. Must be a valid URI, one per line. Example: https://example.org/foo?bar=1"
 
-msgid "{oidc:client:post_logout_redirect_uri_not_valid}"
+msgid "Some of the post-logout redirect URIs are not valid."
 msgstr "Some of the post-logout redirect URIs are not valid."
 
-msgid "{oidc:client:backchannel_logout_uri}"
+msgid "Back-Channel Logout URI"
 msgstr "Back-Channel Logout URI"
 
-msgid "{oidc:client:backchannel_logout_uri_help}"
-msgstr ""
-"Enter if client supports Back-Channel Logout specification. When logout is initiated at the OpenID Provider, it will "
-"send a Logout Token to this URI in order to notify the client about that event. Must be a valid URI. "
-"Example: https://example.org/foo?bar=1"
-""
+msgid "Enter if client supports Back-Channel Logout specification. When logout is initiated at the OpenID Provider, it will send a Logout Token to this URI in order to notify the client about that event. Must be a valid URI. Example: https://example.org/foo?bar=1"
+msgstr "Enter if client supports Back-Channel Logout specification. When logout is initiated at the OpenID Provider, it will send a Logout Token to this URI in order to notify the client about that event. Must be a valid URI. Example: https://example.org/foo?bar=1"
 
-msgid "{oidc:client:backchannel_logout_uri_not_valid}"
+msgid "Back-Channel Logout URI is not valid."
 msgstr "Back-Channel Logout URI is not valid."
 
-msgid "{oidc:logout:page_title_success}"
+msgid "Logout Successful"
 msgstr "Logout Successful"
 
-msgid "{oidc:logout:page_title_fail}"
+msgid "Logout Failed"
 msgstr "Logout Failed"
 
-msgid "{oidc:logout:info_title}"
+msgid "Info"
 msgstr "Info"
 
-msgid "{oidc:logout:info_message_success}"
+msgid "You can now close this window or navigate to another page."
 msgstr "You can now close this window or navigate to another page."
 
-msgid "{oidc:logout:info_message_fail}"
+msgid "Requested session was not found or it is expired."
 msgstr "Requested session was not found or it is expired."
