@@ -30,6 +30,9 @@ use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
 class JsonWebKeySetServiceTest extends TestCase
 {
     private static string $pkGeneratePublic;
+    private static string $pkGeneratePublicNew;
+    private static string $pkGeneratePublicFederation;
+    private static string $pkGeneratePublicFederationNew;
 
     /**
      * @return void
@@ -42,15 +45,42 @@ class JsonWebKeySetServiceTest extends TestCase
             'private_key_bits' => 2048,
             'private_key_type' => OPENSSL_KEYTYPE_RSA,
         ]);
+        $pkGenerateNew = openssl_pkey_new([
+            'private_key_bits' => 2048,
+            'private_key_type' => OPENSSL_KEYTYPE_RSA,
+        ]);
+        $pkGenerateFederation = openssl_pkey_new([
+            'private_key_bits' => 2048,
+            'private_key_type' => OPENSSL_KEYTYPE_RSA,
+        ]);
+        $pkGenerateFederationNew = openssl_pkey_new([
+            'private_key_bits' => 2048,
+            'private_key_type' => OPENSSL_KEYTYPE_RSA,
+        ]);
 
         // get the public key
         $pkGenerateDetails = openssl_pkey_get_details($pkGenerate);
+        $pkGenerateDetailsNew = openssl_pkey_get_details($pkGenerateNew);
+        $pkGenerateDetailsFederation = openssl_pkey_get_details($pkGenerateFederation);
+        $pkGenerateDetailsFederationNew = openssl_pkey_get_details($pkGenerateFederationNew);
         self::$pkGeneratePublic = $pkGenerateDetails['key'];
+        self::$pkGeneratePublicNew = $pkGenerateDetailsNew['key'];
+        self::$pkGeneratePublicFederation = $pkGenerateDetailsFederation['key'];
+        self::$pkGeneratePublicFederationNew = $pkGenerateDetailsFederationNew['key'];
 
         file_put_contents(sys_get_temp_dir() . '/oidc_module.crt', self::$pkGeneratePublic);
+        file_put_contents(sys_get_temp_dir() . '/new_oidc_module.crt', self::$pkGeneratePublicNew);
+        file_put_contents(sys_get_temp_dir() . '/oidc_module_federation.crt', self::$pkGeneratePublicFederation);
+        file_put_contents(
+            sys_get_temp_dir() . '/new_oidc_module_federation.crt',
+            self::$pkGeneratePublicFederationNew,
+        );
 
         Configuration::setPreLoadedConfig(
-            Configuration::loadFromArray([]),
+            Configuration::loadFromArray([
+                ModuleConfig::OPTION_PKI_NEW_CERTIFICATE_FILENAME => 'new_oidc_module.crt',
+                ModuleConfig::OPTION_PKI_FEDERATION_NEW_CERTIFICATE_FILENAME => 'new_oidc_module_federation.crt',
+            ]),
             ModuleConfig::DEFAULT_FILE_NAME,
         );
     }
@@ -62,13 +92,16 @@ class JsonWebKeySetServiceTest extends TestCase
     {
         Configuration::clearInternalState();
         unlink(sys_get_temp_dir() . '/oidc_module.crt');
+        unlink(sys_get_temp_dir() . '/new_oidc_module.crt');
+        unlink(sys_get_temp_dir() . '/oidc_module_federation.crt');
+        unlink(sys_get_temp_dir() . '/new_oidc_module_federation.crt');
     }
 
     /**
      * @return void
      * @throws \SimpleSAML\Error\Exception
      */
-    public function testKeys()
+    public function testProtocolKeys()
     {
         $config = [
             'certdir' => sys_get_temp_dir(),
@@ -76,13 +109,20 @@ class JsonWebKeySetServiceTest extends TestCase
         Configuration::loadFromArray($config, '', 'simplesaml');
 
         $kid = FingerprintGenerator::forString(self::$pkGeneratePublic);
-
         $jwk = JWKFactory::createFromKey(self::$pkGeneratePublic, null, [
             'kid' => $kid,
             'use' => 'sig',
             'alg' => 'RS256',
         ]);
-        $JWKSet = new JWKSet([$jwk]);
+
+        $kidNew = FingerprintGenerator::forString(self::$pkGeneratePublicNew);
+        $jwkNew = JWKFactory::createFromKey(self::$pkGeneratePublicNew, null, [
+            'kid' => $kidNew,
+            'use' => 'sig',
+            'alg' => 'RS256',
+        ]);
+
+        $JWKSet = new JWKSet([$jwk, $jwkNew]);
 
         $jsonWebKeySetService = new JsonWebKeySetService(new ModuleConfig());
 
@@ -92,7 +132,7 @@ class JsonWebKeySetServiceTest extends TestCase
     /**
      * @throws \SimpleSAML\Error\Exception
      */
-    public function testCertificationFileNotFound(): void
+    public function testProtocolCertificateFileNotFound(): void
     {
         $this->expectException(Exception::class);
         $this->expectExceptionMessageMatches('/OIDC protocol public key file does not exists/');
@@ -103,5 +143,33 @@ class JsonWebKeySetServiceTest extends TestCase
         Configuration::loadFromArray($config, '', 'simplesaml');
 
         new JsonWebKeySetService(new ModuleConfig());
+    }
+
+    public function testFederationKeys(): void
+    {
+        $config = [
+            'certdir' => sys_get_temp_dir(),
+        ];
+        Configuration::loadFromArray($config, '', 'simplesaml');
+
+        $kid = FingerprintGenerator::forString(self::$pkGeneratePublicFederation);
+        $jwk = JWKFactory::createFromKey(self::$pkGeneratePublicFederation, null, [
+            'kid' => $kid,
+            'use' => 'sig',
+            'alg' => 'RS256',
+        ]);
+
+        $kidNew = FingerprintGenerator::forString(self::$pkGeneratePublicFederationNew);
+        $jwkNew = JWKFactory::createFromKey(self::$pkGeneratePublicFederationNew, null, [
+            'kid' => $kidNew,
+            'use' => 'sig',
+            'alg' => 'RS256',
+        ]);
+
+        $JWKSet = new JWKSet([$jwk, $jwkNew]);
+
+        $jsonWebKeySetService = new JsonWebKeySetService(new ModuleConfig());
+
+        $this->assertEquals($JWKSet->all(), $jsonWebKeySetService->federationKeys());
     }
 }
