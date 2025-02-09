@@ -30,9 +30,6 @@ msgstr ""
 msgid "Add Client"
 msgstr ""
 
-msgid "Add client"
-msgstr ""
-
 msgid "Administrator"
 msgstr ""
 
@@ -87,16 +84,13 @@ msgstr ""
 msgid "Authentication Sources to ACRs Map"
 msgstr ""
 
-msgid "Authentication source"
-msgstr ""
-
 msgid ""
 "Authentication source for this particular client. If no authentication "
 "source is selected, the default one from configuration file will be used."
 msgstr ""
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:369
-msgid "Authentication source:"
+msgid "Authentication source"
 msgstr ""
 
 msgid "Authority Hints"
@@ -108,13 +102,10 @@ msgstr ""
 msgid "Back"
 msgstr ""
 
-msgid "Back-Channel Logout URI"
-msgstr ""
-
-msgid "Back-Channel Logout URI is not valid."
-msgstr ""
-
 msgid "Back-channel Logout URI"
+msgstr ""
+
+msgid "Before running the migrations, make sure that the database user has proper privileges to change the scheme (for example, <kbd>alter, create, drop, index</kbd>). After running the migrations, it is a good practice to remove those privileges."
 msgstr ""
 
 msgid ""
@@ -129,9 +120,6 @@ msgid "Cache Adapter"
 msgstr ""
 
 msgid "Cache Duration For Produced Artifacts"
-msgstr ""
-
-msgid "Check if you want to migrate data from legacy oauth2 module"
 msgstr ""
 
 msgid ""
@@ -153,9 +141,6 @@ msgstr ""
 msgid "Client"
 msgstr ""
 
-msgid "Client ID"
-msgstr ""
-
 msgid "Client Registration Types"
 msgstr ""
 
@@ -173,12 +158,6 @@ msgstr ""
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:277
 msgid "Client has been updated."
-msgstr ""
-
-msgid "Client list"
-msgstr ""
-
-msgid "Client secret"
 msgstr ""
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:120
@@ -200,22 +179,10 @@ msgstr ""
 msgid "Configuration URL"
 msgstr ""
 
-msgid "Confirm"
-msgstr ""
-
 msgid "Contacts"
 msgstr ""
 
-msgid "Copied!"
-msgstr ""
-
-msgid "Copy code"
-msgstr ""
-
-msgid "Create"
-msgstr ""
-
-msgid "Created at:"
+msgid "Created at"
 msgstr ""
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:106
@@ -230,16 +197,10 @@ msgstr ""
 msgid "Database migrated successfully."
 msgstr ""
 
-msgid "Deactivated"
-msgstr ""
-
 msgid "Default Authentication Source"
 msgstr ""
 
 msgid "Delete"
-msgstr ""
-
-msgid "Delete OpenID Connect Client"
 msgstr ""
 
 msgid "Description"
@@ -279,7 +240,7 @@ msgstr ""
 msgid "Entity Statement Duration"
 msgstr ""
 
-msgid "Expires at:"
+msgid "Expires at"
 msgstr ""
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Codebooks/RegistrationTypeEnum.php:18
@@ -306,9 +267,6 @@ msgid "Identifier"
 msgstr ""
 
 msgid "Info"
-msgstr ""
-
-msgid "Install"
 msgstr ""
 
 msgid "Is Federated"
@@ -389,10 +347,10 @@ msgstr ""
 msgid "Name is required."
 msgstr ""
 
-msgid "No"
+msgid "never"
 msgstr ""
 
-msgid "No clients"
+msgid "No"
 msgstr ""
 
 msgid "No clients registered."
@@ -418,14 +376,8 @@ msgstr ""
 msgid "OIDC Installation"
 msgstr ""
 
-msgid "Old oauth2 module clients has been imported."
-msgstr ""
-
 msgid ""
 "One or more values from the list. If not selected, falls back to 'automatic'"
-msgstr ""
-
-msgid "OpenID Connect Client Registry"
 msgstr ""
 
 msgid "OpenID Federation Related Properties"
@@ -440,36 +392,13 @@ msgstr ""
 msgid "PKI"
 msgstr ""
 
-msgid "Path:"
-msgstr ""
-
-msgid ""
-"Please, confirm than you want to delete this client. This action cannot be "
-"undone."
-msgstr ""
-
-msgid "Please, enter a name."
-msgstr ""
-
-msgid "Please, enter an URI at least."
-msgstr ""
-
-msgid "Please, select a scope at least."
-msgstr ""
-
-msgid "Please, select an Auth Source."
+msgid "Path"
 msgstr ""
 
 msgid "Policy URI"
 msgstr ""
 
-msgid "Post-Logout Redirect URIs"
-msgstr ""
-
 msgid "Post-logout Redirect URIs"
-msgstr ""
-
-msgid "Post-logout redirect URIs"
 msgstr ""
 
 msgid "Private Key"
@@ -497,7 +426,7 @@ msgstr ""
 msgid "Registration Types"
 msgstr ""
 
-msgid "Registration:"
+msgid "Registration"
 msgstr ""
 
 msgid "Requested session was not found or it is expired."
@@ -506,25 +435,13 @@ msgstr ""
 msgid "Reset"
 msgstr ""
 
-msgid "Reset secret"
-msgstr ""
-
 msgid "Resolved chains"
-msgstr ""
-
-msgid "Return"
 msgstr ""
 
 msgid "Run migrations"
 msgstr ""
 
-msgid "Save"
-msgstr ""
-
 msgid "Scopes"
-msgstr ""
-
-msgid "Search"
 msgstr ""
 
 msgid "Secret"
@@ -540,22 +457,7 @@ msgstr ""
 msgid "SimpleSAMLphp admin access required."
 msgstr ""
 
-msgid "Some of the allowed origins are not valid."
-msgstr ""
-
-msgid "Some of the post-logout redirect URIs are not valid."
-msgstr ""
-
-msgid "Some of the redirect URIs are not valid."
-msgstr ""
-
-msgid "State"
-msgstr ""
-
 msgid "Status"
-msgstr ""
-
-msgid "Submit"
 msgstr ""
 
 msgid "Supported ACRs"
@@ -569,44 +471,18 @@ msgstr ""
 msgid "Test Trust Mark Validation"
 msgstr ""
 
-msgid "The client secret was updated successfully."
-msgstr ""
-
-msgid "The client was added successfully."
-msgstr ""
-
-msgid "The client was removed successfully."
-msgstr ""
-
-msgid "The client was updated successfully."
-msgstr ""
-
-msgid "The database has been created."
-msgstr ""
-
 msgid ""
 "There are database migrations that have not been implemented.\n"
 "                Use the button below to run them now."
 msgstr ""
 
-msgid "This action will change your client secret and it can not be undone."
-msgstr ""
-
-msgid ""
-"This wizard will help you create the database and migrate information if "
-"necessary."
-msgstr ""
-
 msgid "Tokens Time-To-Live (TTL)"
 msgstr ""
 
-msgid "Total chains:"
+msgid "Total chains"
 msgstr ""
 
 msgid "Trust Anchor ID"
-msgstr ""
-
-msgid "Trust Anchor ID:"
 msgstr ""
 
 msgid "Trust Anchor IDs"
@@ -651,7 +527,7 @@ msgstr ""
 msgid "Unable to initiate SimpleSAMLphp admin authentication."
 msgstr ""
 
-msgid "Updated at:"
+msgid "Updated at"
 msgstr ""
 
 msgid "User Entity Cache Duration"

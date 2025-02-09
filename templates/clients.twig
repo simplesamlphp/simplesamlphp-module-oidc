@@ -53,10 +53,10 @@
                     <small>{{ client.description }}</small>
                     <br>
                     <small>
-                        {{ 'Registration:'|trans }} {{ client.registrationType.description }} |
-                        {{ 'Created at:'|trans }} {{ client.createdAt ? client.createdAt|date() : 'n/a' }} |
-                        {{ 'Updated at:'|trans }} {{ client.updatedAt ? client.updatedAt|date() : 'n/a' }} |
-                        {{ 'Expires at:'|trans }} {{ client.expiresAt ? client.expiresAt|date() : 'never' }}
+                        {{ 'Registration'|trans }}: {{ client.registrationType.description }} |
+                        {{ 'Created at'|trans }}: {{ client.createdAt ? client.createdAt|date() : 'n/a' }} |
+                        {{ 'Updated at'|trans }}: {{ client.updatedAt ? client.updatedAt|date() : 'n/a' }} |
+                        {{ 'Expires at'|trans }}: {{ client.expiresAt ? client.expiresAt|date() : 'never'|trans }}
                     </small>
                 </td>
                 <td>

@@ -5,7 +5,7 @@ msgstr ""
 "PO-Revision-Date: \n"
 "Last-Translator: \n"
 "Language-Team: \n"
-"Language: en\n"
+"Language: nl\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -13,609 +13,508 @@ msgstr ""
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:372
 msgid "-"
-msgstr ""
+msgstr "-"
 
 msgid "A globally unique URI that is bound to the entity. URI must have https or http scheme and host / domain. It can contain path, but no query, or fragment component."
-msgstr ""
+msgstr "Een wereldwijd unieke URI die aan de entiteit is gebonden. URI moet een https- of http-schema en host/domein hebben. Het kan een pad bevatten, maar geen query of fragmentcomponent."
 
 msgid "Access Token"
-msgstr ""
+msgstr "Toegangstoken"
 
 msgid "Activated"
 msgstr "Geactiveerd"
 
 msgid "Add Client"
-msgstr ""
-
-msgid "Add client"
 msgstr "Client toevoegen"
 
 msgid "Administrator"
-msgstr ""
+msgstr "Beheerder"
 
 msgid "All database migrations are implemented."
-msgstr ""
+msgstr "Alle databasemigraties worden uitgevoerd."
 
 msgid "Allowed Origins"
-msgstr ""
+msgstr "Toegestane oorsprongen"
 
 msgid "Allowed Origins (for public client)"
-msgstr ""
+msgstr "Toegestane oorsprongen (voor openbare client)"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:384
 msgid "Allowed origins for public clients"
-msgstr ""
+msgstr "Toegestane oorsprongen voor openbare clients"
 
 msgid "Allowed redirect URIs to use after client initiated logout. Must be a valid URI, one per line. Example: https://example.org/foo?bar=1"
-msgstr ""
+msgstr "Toegestane redirect-URI's om te gebruiken na client-geïnitieerde uitlog. Moet een geldige URI zijn, één per regel. Voorbeeld: https://example.org/foo?bar=1"
 
 msgid "Allowed redirect URIs to which the authorization response will be sent. Must be a valid URI, one per line. Example: https://example.org/foo?bar=1"
-msgstr "Voer een geldige URI in"
+msgstr "Toegestane redirect-URI's waarnaar de autorisatierespons wordt verzonden. Moet een geldige URI zijn, één per regel. Voorbeeld: https://example.org/foo?bar=1"
 
 msgid "Are you sure you want to delete this client?"
-msgstr ""
+msgstr "Weet u zeker dat u deze client wilt verwijderen?"
 
 msgid "Are you sure you want to reset client secret?"
-msgstr ""
+msgstr "Weet u zeker dat u het clientgeheim wilt resetten?"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:363
 msgid "At least one redirect URI is required."
-msgstr ""
+msgstr "Er is minimaal één omleidings-URI vereist."
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:378
 msgid "At least one scope is required."
-msgstr ""
+msgstr "Er is minimaal één scope vereist."
 
 msgid "Authentication"
-msgstr ""
+msgstr "Authenticatie"
 
 msgid "Authentication Context Class References (ACRs)"
-msgstr ""
+msgstr "Authenticatiecontextklassereferenties (ACR's)"
 
 msgid "Authentication Processing Filters"
-msgstr ""
+msgstr "Filters voor authenticatieverwerking"
 
 msgid "Authentication Source"
-msgstr ""
+msgstr "Authenticatiebron"
 
 msgid "Authentication Sources to ACRs Map"
-msgstr ""
+msgstr "Authenticatiebronnen naar ACR's Kaart"
 
+msgid "Authentication source for this particular client. If no authentication source is selected, the default one from configuration file will be used."
+msgstr "Authenticatiebron voor deze specifieke client. Als er geen authenticatiebron is geselecteerd, wordt de standaardauthenticatiebron uit het configuratiebestand gebruikt."
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:369
 msgid "Authentication source"
 msgstr "Authenticatiebron"
 
-msgid "Authentication source for this particular client. If no authentication source is selected, the default one from configuration file will be used."
-msgstr "If no auth. source is selected, the default one from configuration file will be used."
-
-#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:369
-msgid "Authentication source:"
-msgstr ""
-
 msgid "Authority Hints"
-msgstr ""
+msgstr "Autoriteit hints"
 
 msgid "Authorization Code"
-msgstr ""
+msgstr "Autorisatiecode"
 
 msgid "Back"
-msgstr ""
+msgstr "Rug"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:387
-msgid "Back-Channel Logout URI"
-msgstr ""
-
 msgid "Back-channel Logout URI"
-msgstr ""
+msgstr "Back-channel afmeld-URI"
+
+msgid "Before running the migrations, make sure that the database user has proper privileges to change the scheme (for example, <kbd>alter, create, drop, index</kbd>). After running the migrations, it is a good practice to remove those privileges."
+msgstr "Controleer voordat u de migraties uitvoert of de databasegebruiker de juiste rechten heeft om het schema te wijzigen (bijvoorbeeld <kbd>alter, create, drop, index</kbd>). Nadat u de migraties hebt uitgevoerd, is het een goede gewoonte om deze rechten te verwijderen."
 
 msgid "By default, form is populated with current OP issuer and configured Trust Anchors, but you are free to adjust entries as needed."
-msgstr ""
+msgstr "Standaard wordt het formulier ingevuld met de huidige OP-uitgever en geconfigureerde Trust Anchors, maar u kunt de invoer indien nodig aanpassen."
 
 msgid "Cache"
-msgstr ""
+msgstr "Cache"
 
 msgid "Cache Adapter"
-msgstr ""
+msgstr "Cache-adapter"
 
 msgid "Cache Duration For Produced Artifacts"
-msgstr ""
-
-msgid "Check if you want to migrate data from legacy oauth2 module"
-msgstr "Vink aan om gegevens vanuit de legacy oauth2 module te migreren"
+msgstr "Cacheduur voor geproduceerde artefacten"
 
 msgid "Choose if client is confidential or public. Confidential clients are capable of maintaining the confidentiality of their credentials (e.g., client implemented on a secure server with restricted access to the client credentials), or capable of secure client authentication using other means. Public clients are incapable of maintaining the confidentiality of their credentials (e.g., clients executing on the device used by the resource owner, such as an installed native application or a web browser-based application), and incapable of secure client authentication via any other means."
-msgstr ""
+msgstr "Kies of de client vertrouwelijk of openbaar is. Vertrouwelijke clients zijn in staat om de vertrouwelijkheid van hun referenties te handhaven (bijv. client geïmplementeerd op een beveiligde server met beperkte toegang tot de clientreferenties), of in staat tot veilige clientauthenticatie met behulp van andere middelen. Openbare clients zijn niet in staat om de vertrouwelijkheid van hun referenties te handhaven (bijv. clients die worden uitgevoerd op het apparaat dat wordt gebruikt door de resource-eigenaar, zoals een geïnstalleerde native applicatie of een op een webbrowser gebaseerde applicatie), en niet in staat tot veilige clientauthenticatie via andere middelen."
 
 msgid "Choose if the client is allowed to participate in federation context or not."
-msgstr ""
+msgstr "Selecteer of de cliënt mag deelnemen aan de federatiecontext of niet."
 
 msgid "Client"
-msgstr ""
-
-msgid "Client ID"
-msgstr "Client ID"
+msgstr "Cliënt"
 
 msgid "Client Registration Types"
-msgstr ""
+msgstr "Typen clientregistratie"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:113
 msgid "Client Registry"
-msgstr ""
+msgstr "Cliëntenregister"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:201
 msgid "Client has been added."
-msgstr ""
+msgstr "Klant is toegevoegd."
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:147
 msgid "Client has been deleted."
-msgstr ""
+msgstr "Client is verwijderd."
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:277
 msgid "Client has been updated."
-msgstr ""
-
-msgid "Client list"
-msgstr "Client-overzicht"
-
-msgid "Client secret"
-msgstr "Client secret"
+msgstr "Client is bijgewerkt."
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:120
 msgid "Client secret has been reset."
-msgstr ""
+msgstr "Clientgeheim is gereset."
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:183
 msgid "Client with generated ID already exists."
-msgstr ""
+msgstr "Client met gegenereerde ID bestaat al."
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:190
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:265
 msgid "Client with given entity identifier already exists."
-msgstr ""
+msgstr "Client met opgegeven entiteits-ID bestaat al."
 
 msgid "Confidential"
-msgstr ""
+msgstr "Vertrouwelijk"
 
 msgid "Configuration URL"
-msgstr ""
-
-msgid "Confirm"
-msgstr "Bevestigen"
+msgstr "Configuratie-URL"
 
 msgid "Contacts"
-msgstr ""
+msgstr "Contacten"
 
-msgid "Copied!"
-msgstr "Gekopieerd!"
-
-msgid "Copy code"
-msgstr "Code kopiëren"
-
-msgid "Create"
-msgstr "Nieuw"
-
-msgid "Created at:"
-msgstr ""
+msgid "Created at"
+msgstr "Gemaakt op"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:106
 msgid "Database Migrations"
-msgstr ""
+msgstr "Database migraties"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ConfigController.php:46
 msgid "Database is already migrated."
-msgstr ""
+msgstr "Database is al gemigreerd."
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ConfigController.php:52
 msgid "Database migrated successfully."
-msgstr ""
+msgstr "Database succesvol gemigreerd."
 
 msgid "Default Authentication Source"
-msgstr ""
+msgstr "Standaard authenticatiebron"
 
 msgid "Delete"
 msgstr "Verwijderen"
-
-msgid "Delete OpenID Connect Client"
-msgstr "OpenID Connect Client verwijderen"
 
 msgid "Description"
 msgstr "Omschrijving"
 
 msgid "Disabled"
-msgstr ""
+msgstr "Gehandicapt"
 
 msgid "Discovery URL"
-msgstr ""
+msgstr "Ontdekkings-URL"
 
 msgid "Edit"
 msgstr "Bewerken"
 
 msgid "Edit Client"
-msgstr ""
+msgstr "Client bewerken"
 
 msgid "Enabled"
-msgstr ""
+msgstr "Ingeschakeld"
 
 msgid "Enter if client supports Back-Channel Logout specification. When logout is initiated at the OpenID Provider, it will send a Logout Token to this URI in order to notify the client about that event. Must be a valid URI. Example: https://example.org/foo?bar=1"
-msgstr ""
+msgstr "Voer in of de client Back-Channel Logout-specificatie ondersteunt. Wanneer logout wordt gestart bij de OpenID Provider, wordt een Logout Token naar deze URI verzonden om de client op de hoogte te stellen van die gebeurtenis. Moet een geldige URI zijn. Voorbeeld: https://example.org/foo?bar=1"
 
 msgid "Enter one Trust Anchor ID per line."
-msgstr ""
+msgstr "Voer één Trust Anchor ID per regel in."
 
 msgid "Entity"
-msgstr ""
+msgstr "Entiteit"
 
 msgid "Entity Identifier"
-msgstr ""
+msgstr "Entiteits-ID"
 
 msgid "Entity Statement Duration"
-msgstr ""
+msgstr "Entiteitsverklaring Duur"
 
-msgid "Expires at:"
-msgstr ""
+msgid "Expires at"
+msgstr "Verloopt op"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Codebooks/RegistrationTypeEnum.php:18
 msgid "Federated Automatic"
-msgstr ""
+msgstr "Gefedereerde automatische"
 
 msgid "Federation Enabled"
-msgstr ""
+msgstr "Federatie ingeschakeld"
 
 msgid "Federation JWKS"
-msgstr ""
+msgstr "Federatie JWKS"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:127
 msgid "Federation Settings"
-msgstr ""
+msgstr "Federatie-instellingen"
 
 msgid "Forced ACR For Cookie Authentication"
-msgstr ""
+msgstr "Geforceerde ACR voor cookie-authenticatie"
 
 msgid "Homepage URI"
-msgstr ""
+msgstr "Startpagina-URI"
 
 msgid "Identifier"
-msgstr ""
+msgstr "Identificatie"
 
 msgid "Info"
-msgstr ""
-
-msgid "Install"
-msgstr "Installeren"
+msgstr "Informatie"
 
 msgid "Is Federated"
-msgstr ""
+msgstr "Is gefedereerd"
 
 msgid "Issuer"
-msgstr ""
+msgstr "Uitgever"
 
 msgid "JSON object (string) representing JWKS document containing protocol public keys. Note that this should be different from Federation JWKS. Will be used if JWKS URI is not set. Example: {\"keys\":[{\"kty\": \"RSA\",\"n\": \"...\",\"e\": \"AQAB\",\"kid\": \"pro123\",\"use\": \"sig\",\"alg\": \"RS256\"}]}"
-msgstr ""
+msgstr "JSON-object (tekenreeks) dat een JWKS-document vertegenwoordigt met openbare protocolsleutels. Let op: dit moet anders zijn dan Federation JWKS. Wordt gebruikt als de JWKS-URI niet is ingesteld. Voorbeeld: {\"keys\":[{\"kty\": \"RSA\",\"n\": \"...\",\"e\": \"AQAB\",\"kid\": \"pro123\",\"use\": \"sig\",\"alg\": \"RS256\"}]}"
 
 msgid "JSON object (string) representing federation JWKS. This can be used, for example, in entity statements. Note that this should be different from Protocol JWKS. Example: {\"keys\":[{\"kty\": \"RSA\",\"n\": \"...\",\"e\": \"AQAB\",\"kid\": \"fed123\",\"use\": \"sig\",\"alg\": \"RS256\"}]}"
-msgstr ""
+msgstr "JSON-object (tekenreeks) dat federatie-JWKS vertegenwoordigt. Dit kan bijvoorbeeld worden gebruikt in entiteitsverklaringen. Let op dat dit anders moet zijn dan Protocol JWKS. Voorbeeld: {\"keys\":[{\"kty\": \"RSA\",\"n\": \"...\",\"e\": \"AQAB\",\"kid\": \"fed123\",\"use\": \"sig\",\"alg\": \"RS256\"}]}"
 
 msgid "JWKS"
-msgstr ""
+msgstr "JWKS"
 
 msgid "JWKS URI"
-msgstr ""
+msgstr "JWKS URI"
 
 msgid "Leaf Entity ID"
-msgstr ""
+msgstr "Bladentiteit-ID"
 
 msgid "Log messages"
-msgstr ""
+msgstr "Logberichten"
 
 msgid "Log messages will show if any warnings or errors were raised during chain resolution."
-msgstr ""
+msgstr "In logberichten wordt aangegeven of er waarschuwingen of fouten zijn opgetreden tijdens het oplossen van de keten."
 
 msgid "Log messages will show if any warnings or errors were raised during validation."
-msgstr ""
+msgstr "In logberichten wordt aangegeven of er tijdens de validatie waarschuwingen of fouten zijn opgetreden."
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:90
 msgid "Log out"
-msgstr ""
+msgstr "Uitloggen"
 
 msgid "Logo URI"
-msgstr ""
+msgstr "Logo-URI"
 
 msgid "Logout Failed"
-msgstr ""
+msgstr "Uitloggen mislukt"
 
 msgid "Logout Info"
-msgstr ""
+msgstr "Uitloggen Info"
 
 msgid "Logout Successful"
-msgstr ""
+msgstr "Uitloggen succesvol"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Codebooks/RegistrationTypeEnum.php:17
 msgid "Manual"
-msgstr ""
+msgstr "Handmatig"
 
 msgid "Maximum Cache Duration For Fetched Artifacts"
-msgstr ""
+msgstr "Maximale cacheduur voor opgehaalde artefacten"
 
 msgid "N/A"
-msgstr ""
+msgstr "N/A"
 
 msgid "Name"
 msgstr "Naam"
 
 msgid "Name and description"
-msgstr ""
+msgstr "Naam en beschrijving"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:357
 msgid "Name is required."
-msgstr ""
+msgstr "Naam is verplicht."
+
+msgid "never"
+msgstr "nooit"
 
 msgid "No"
-msgstr ""
-
-msgid "No clients"
-msgstr "Geen clients"
+msgstr "Nee"
 
 msgid "No clients registered."
-msgstr ""
+msgstr "Er zijn geen klanten geregistreerd."
 
 msgid "No entries."
-msgstr ""
+msgstr "Geen invoer."
 
 msgid "Note that this will first resolve Trust Chain between given entity and Trust Anchor, and only then do the Trust Mark validation."
-msgstr ""
+msgstr "Houd er rekening mee dat hiermee eerst de Trust Chain tussen de gegeven entiteit en het Trust Anchor wordt opgelost en pas daarna de Trust Mark-validatie wordt uitgevoerd."
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/hooks/hook_adminmenu.php:24
 msgid "OIDC"
-msgstr ""
+msgstr "OIDC"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/hooks/hook_federationpage.php:34
 msgid "OIDC Client Registry"
-msgstr ""
+msgstr "OIDC-clientregister"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/hooks/hook_federationpage.php:38
 msgid "OIDC Installation"
-msgstr ""
-
-msgid "Old oauth2 module clients has been imported."
-msgstr "Clients van de oude oauth2 module zijn geïmporteerd."
+msgstr "OIDC-installatie"
 
 msgid "One or more values from the list. If not selected, falls back to 'automatic'"
-msgstr ""
+msgstr "Een of meer waarden uit de lijst. Indien niet geselecteerd, terugvallen op 'automatisch'"
 
 msgid "OpenID Federation Related Properties"
-msgstr ""
+msgstr "OpenID Federation-gerelateerde eigenschappen"
 
 msgid "Organization Name"
-msgstr ""
+msgstr "Organisatienaam"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:380
 msgid "Owner"
-msgstr ""
+msgstr "Eigenaar"
 
 msgid "PKI"
-msgstr ""
+msgstr "PKI"
 
-msgid "Path:"
-msgstr ""
-
-msgid "Please, confirm than you want to delete this client. This action cannot be undone."
-msgstr "Deze actie kan niet ongedaan gemaakt worden! Weet je zeker dat u deze client wilt verwijderen?"
-
-msgid "Please, enter a name."
-msgstr "Voer een naam in."
-
-msgid "Please, enter an URI at least."
-msgstr "Voer minimaal een URI in"
-
-msgid "Please, select a scope at least."
-msgstr "Selecteer minimaal één scope."
-
-msgid "Please, select an Auth Source."
-msgstr "Selecteer een authenticatiebron."
+msgid "Path"
+msgstr "Pad"
 
 msgid "Policy URI"
-msgstr ""
-
-msgid "Post-Logout Redirect URIs"
-msgstr ""
+msgstr "Beleids-URI"
 
 msgid "Post-logout Redirect URIs"
-msgstr ""
-
-#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:382
-msgid "Post-logout redirect URIs"
-msgstr ""
+msgstr "Post-logout Redirect-URI's"
 
 msgid "Private Key"
-msgstr ""
+msgstr "Privésleutel"
 
 msgid "Private Key Password Set"
-msgstr ""
+msgstr "Wachtwoord voor privésleutel instellen"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:120
 msgid "Protocol Settings"
-msgstr ""
+msgstr "Protocolinstellingen"
 
 msgid "Public"
-msgstr ""
+msgstr "Openbaar"
 
 msgid "Public Key"
-msgstr ""
+msgstr "Publieke sleutel"
 
 msgid "Redirect URI"
-msgstr "Redirect URI"
+msgstr "Omleidings-URI"
 
 msgid "Redirect URIs"
-msgstr ""
+msgstr "URI's omleiden"
 
 msgid "Refresh Token"
-msgstr ""
+msgstr "Token vernieuwen"
 
 msgid "Registration Types"
-msgstr ""
+msgstr "Registratietypen"
 
-msgid "Registration:"
-msgstr ""
+msgid "Registration"
+msgstr "Registratie"
 
 msgid "Requested session was not found or it is expired."
-msgstr ""
+msgstr "De gevraagde sessie is niet gevonden of is verlopen."
 
 msgid "Reset"
-msgstr ""
-
-msgid "Reset secret"
-msgstr "Secret vernieuwen"
+msgstr "Opnieuw instellen"
 
 msgid "Resolved chains"
-msgstr ""
-
-msgid "Return"
-msgstr "Vorige"
+msgstr "Opgeloste ketens"
 
 msgid "Run migrations"
-msgstr ""
-
-msgid "Save"
-msgstr "Opslaan"
+msgstr "Migraties uitvoeren"
 
 msgid "Scopes"
-msgstr "Scopes"
-
-msgid "Search"
-msgstr "Zoeken"
+msgstr "Scopen"
 
 msgid "Secret"
-msgstr ""
+msgstr "Geheim"
 
 msgid "Signed JWKS URI"
-msgstr ""
+msgstr "Ondertekende JWKS URI"
 
 msgid "Signing Algorithm"
-msgstr ""
+msgstr "Ondertekeningsalgoritme"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Admin/Authorization.php:44
 msgid "SimpleSAMLphp admin access required."
-msgstr ""
-
-msgid "Some of the redirect URIs are not valid."
-msgstr "Sommige redirect adressen zijn ongeldig."
+msgstr "SimpleSAMLphp-beheerdersrechten vereist."
 
 msgid "Status"
-msgstr ""
-
-msgid "Submit"
-msgstr "Verzenden"
+msgstr "Staat"
 
 msgid "Supported ACRs"
-msgstr ""
+msgstr "Ondersteunde ACR's"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:134
 msgid "Test Trust Chain Resolution"
-msgstr ""
+msgstr "Test Vertrouwensketen Resolutie"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:141
 msgid "Test Trust Mark Validation"
-msgstr ""
-
-msgid "The client secret was updated successfully."
-msgstr "Het client secret is succesvol gewijzigd."
-
-msgid "The client was added successfully."
-msgstr "Client is succesvol aangemaakt."
-
-msgid "The client was removed successfully."
-msgstr "Client is succesvol verwijderd."
-
-msgid "The client was updated successfully."
-msgstr "Client is succesvol bijgewerkt."
-
-msgid "The database has been created."
-msgstr "De database is aangemaakt."
+msgstr "Test Trust Mark-validatie"
 
 msgid ""
 "There are database migrations that have not been implemented.\n"
 "                Use the button below to run them now."
 msgstr ""
-
-msgid "This action will change your client secret and it can not be undone."
-msgstr "Deze actie kan niet ongedaan gemaakt worden! Wil je het client secret vernieuwen?"
-
-msgid "This wizard will help you create the database and migrate information if necessary."
-msgstr "Deze wizard zal de database aanmaken en indien nodig een migratie uitvoeren."
+"Er zijn databasemigraties die nog niet zijn geïmplementeerd.\n"
+"                Gebruik de onderstaande knop om ze nu uit te voeren."
 
 msgid "Tokens Time-To-Live (TTL)"
-msgstr ""
+msgstr "Tokens Tijd-tot-Live (TTL)"
 
-msgid "Total chains:"
-msgstr ""
+msgid "Total chains"
+msgstr "Totaal aantal ketens"
 
 msgid "Trust Anchor ID"
-msgstr ""
-
-msgid "Trust Anchor ID:"
-msgstr ""
+msgstr "Vertrouw op anker-ID"
 
 msgid "Trust Anchor IDs"
-msgstr ""
+msgstr "Vertrouwde anker-ID's"
 
 msgid "Trust Anchors"
-msgstr ""
+msgstr "Vertrouw op ankers"
 
 msgid "Trust Mark ID"
-msgstr ""
+msgstr "Vertrouwensmerk-ID"
 
 msgid "Trust Mark validation passed (there were no warnings or errors during validation)."
-msgstr ""
+msgstr "Validatie van het Trust Mark is geslaagd (er zijn geen waarschuwingen of fouten opgetreden tijdens de validatie)."
 
 msgid "Trust Marks"
-msgstr ""
+msgstr "Vertrouwensmerken"
 
 msgid "Type"
-msgstr ""
+msgstr "Type"
 
 msgid "URL to a JWKS document containing protocol public keys. Will be used if Signed JWKS URI is not set. Example: https://example.org/jwks"
-msgstr ""
+msgstr "URL naar een JWKS-document met openbare protocolsleutels. Wordt gebruikt als Signed JWKS URI niet is ingesteld. Voorbeeld: https://example.org/jwks"
 
 msgid "URL to a JWS document containing protocol public keys in JWKS format (claim 'keys'). Example: https://example.org/signed-jwks"
-msgstr ""
+msgstr "URL naar een JWS-document met openbare protocolsleutels in JWKS-formaat (claim 'keys'). Voorbeeld: https://example.org/signed-jwks"
 
 msgid "URLs as allowed origins for CORS requests, for public clients running in browser. Must have http:// or https:// scheme, and at least one 'domain.top-level-domain' pair, or more subdomains. Top-level-domain may end with '.'. No userinfo, path, query or fragment components allowed. May end with port number. One per line. Example: https://example.org"
-msgstr ""
+msgstr "URL's als toegestane oorsprongen voor CORS-verzoeken, voor openbare clients die in de browser worden uitgevoerd. Moet een http://- of https://-schema hebben en ten minste één 'domein.top-level-domein'-paar, of meer subdomeinen. Top-level-domein mag eindigen op '.'. Geen gebruikersinfo-, pad-, query- of fragmentcomponenten toegestaan. Mag eindigen op poortnummer. Eén per regel. Voorbeeld: https://example.org"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Admin/Authorization.php:36
 msgid "Unable to initiate SimpleSAMLphp admin authentication."
-msgstr ""
+msgstr "Kan SimpleSAMLphp-beheerdersauthenticatie niet starten."
 
-msgid "Updated at:"
-msgstr ""
+msgid "Updated at"
+msgstr "Bijgewerkt op"
 
 msgid "User Entity Cache Duration"
-msgstr ""
+msgstr "Duur cache gebruikersentiteit"
 
 msgid "User Identifier Attribute"
-msgstr ""
+msgstr "Gebruikers-ID-kenmerk"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Admin/Authorization.php:61
 msgid "User not authorized."
-msgstr ""
+msgstr "Gebruiker niet geautoriseerd."
 
 msgid "Yes"
-msgstr ""
+msgstr "Ja"
 
 msgid "You can now close this window or navigate to another page."
-msgstr ""
+msgstr "U kunt nu dit venster sluiten of naar een andere pagina navigeren."
 
 msgid "You can use the form below to test Trust Chain resolution from a leaf entity ID to Trust Anchors."
-msgstr ""
+msgstr "U kunt het onderstaande formulier gebruiken om de Trust Chain-resolutie van een leaf-entiteits-ID naar Trust Anchors te testen."
 
 msgid "You can use the form below to test Trust Mark validation for particular entity under given Trust Anchor."
-msgstr ""
+msgstr "U kunt het onderstaande formulier gebruiken om de Trust Mark-validatie voor een specifieke entiteit onder het opgegeven Trust Anchor te testen."
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Services/Container.php:143
 msgid "Your session has expired. Please return to the home page and try again."
-msgstr ""
+msgstr "Uw sessie is verlopen. Ga terug naar de startpagina en probeer het opnieuw."
 
 msgid "disabled"
-msgstr ""
+msgstr "gehandicapt"
 
 msgid "enabled"
-msgstr ""
+msgstr "ingeschakeld"

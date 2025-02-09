@@ -366,7 +366,7 @@ class ClientForm extends Form
 
         $this->addCheckbox('is_confidential', '{oidc:client:is_confidential}');
 
-        $this->addSelect('auth_source', Translate::noop('Authentication source:'))
+        $this->addSelect('auth_source', Translate::noop('Authentication source'))
             ->setHtmlAttribute('class', 'full-width')
             ->setItems($this->sspBridge->auth()->source()->getSources(), false)
             ->setPrompt(Translate::noop('-'));
@@ -379,7 +379,7 @@ class ClientForm extends Form
 
         $this->addText('owner', Translate::noop('Owner'))
             ->setMaxLength(190);
-        $this->addTextArea('post_logout_redirect_uri', Translate::noop('Post-logout redirect URIs'), null, 5)
+        $this->addTextArea('post_logout_redirect_uri', Translate::noop('Post-logout Redirect URIs'), null, 5)
             ->setHtmlAttribute('class', 'full-width');
         $this->addTextArea('allowed_origin', Translate::noop('Allowed origins for public clients'), null, 5)
             ->setHtmlAttribute('class', 'full-width');

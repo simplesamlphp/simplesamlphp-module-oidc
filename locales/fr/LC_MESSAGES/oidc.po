@@ -5,7 +5,7 @@ msgstr ""
 "PO-Revision-Date: \n"
 "Last-Translator: \n"
 "Language-Team: \n"
-"Language: en\n"
+"Language: fr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -16,640 +16,509 @@ msgid "-"
 msgstr ""
 
 msgid "A globally unique URI that is bound to the entity. URI must have https or http scheme and host / domain. It can contain path, but no query, or fragment component."
-msgstr ""
+msgstr "URI unique au niveau mondial lié à l'entité. L'URI doit avoir un schéma https ou http et un hôte/domaine. Il peut contenir un chemin, mais pas de requête, ni de composant de fragment."
 
 msgid "Access Token"
-msgstr ""
+msgstr "Jeton d'accès"
 
 #, fuzzy
 msgid "Activated"
 msgstr "Activé"
 
 msgid "Add Client"
-msgstr ""
-
-#, fuzzy
-msgid "Add client"
 msgstr "Ajouter un client"
 
 msgid "Administrator"
-msgstr ""
+msgstr "Administrateur"
 
 msgid "All database migrations are implemented."
-msgstr ""
+msgstr "Toutes les migrations de bases de données sont implémentées."
 
 msgid "Allowed Origins"
-msgstr ""
+msgstr "Origines autorisées"
 
 msgid "Allowed Origins (for public client)"
-msgstr ""
+msgstr "Origines autorisées (pour client public)"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:384
 msgid "Allowed origins for public clients"
-msgstr ""
+msgstr "Origines autorisées pour les clients publics"
 
 msgid "Allowed redirect URIs to use after client initiated logout. Must be a valid URI, one per line. Example: https://example.org/foo?bar=1"
-msgstr ""
+msgstr "URI de redirection autorisés à utiliser après la déconnexion du client. Doit être un URI valide, un par ligne. Exemple : https://example.org/foo?bar=1"
 
 #, fuzzy
 msgid "Allowed redirect URIs to which the authorization response will be sent. Must be a valid URI, one per line. Example: https://example.org/foo?bar=1"
-msgstr "Ajouter un URI valide."
+msgstr "URI de redirection autorisés auxquels la réponse d'autorisation sera envoyée. Doit être un URI valide, un par ligne. Exemple : https://example.org/foo?bar=1"
 
 msgid "Are you sure you want to delete this client?"
-msgstr ""
+msgstr "Etes-vous sûr de vouloir supprimer ce client ?"
 
 msgid "Are you sure you want to reset client secret?"
-msgstr ""
+msgstr "Êtes-vous sûr de vouloir réinitialiser le secret client ?"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:363
 msgid "At least one redirect URI is required."
-msgstr ""
+msgstr "Au moins un URI de redirection est requis."
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:378
 msgid "At least one scope is required."
-msgstr ""
+msgstr "Au moins une portée est requise."
 
 msgid "Authentication"
-msgstr ""
+msgstr "Authentification"
 
 msgid "Authentication Context Class References (ACRs)"
-msgstr ""
+msgstr "Références de classe de contexte d'authentification (ACR)"
 
 msgid "Authentication Processing Filters"
-msgstr ""
+msgstr "Filtres de traitement d'authentification"
 
 msgid "Authentication Source"
-msgstr ""
+msgstr "Source d'authentification"
 
 msgid "Authentication Sources to ACRs Map"
-msgstr ""
-
-msgid "Authentication source"
-msgstr "Auth. source"
+msgstr "Carte des sources d'authentification vers les ACR"
 
 msgid "Authentication source for this particular client. If no authentication source is selected, the default one from configuration file will be used."
-msgstr "If no auth. source is selected, the default one from configuration file will be used."
+msgstr "Source d'authentification pour ce client particulier. Si aucune source d'authentification n'est sélectionnée, la source par défaut du fichier de configuration sera utilisée."
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:369
-msgid "Authentication source:"
-msgstr ""
+msgid "Authentication source"
+msgstr "Source d'authentification"
 
 msgid "Authority Hints"
-msgstr ""
+msgstr "Conseils d'autorité"
 
 msgid "Authorization Code"
-msgstr ""
+msgstr "Code d'autorisation"
 
 msgid "Back"
-msgstr ""
+msgstr "Dos"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:387
-msgid "Back-Channel Logout URI"
-msgstr ""
-
 msgid "Back-channel Logout URI"
-msgstr ""
+msgstr "URI de déconnexion du canal arrière"
+
+msgid "Before running the migrations, make sure that the database user has proper privileges to change the scheme (for example, <kbd>alter, create, drop, index</kbd>). After running the migrations, it is a good practice to remove those privileges."
+msgstr "Avant d'exécuter les migrations, assurez-vous que l'utilisateur de la base de données dispose des privilèges appropriés pour modifier le schéma (par exemple, <kbd>alter, create, drop, index</kbd>). Après avoir exécuté les migrations, il est recommandé de supprimer ces privilèges."
 
 msgid "By default, form is populated with current OP issuer and configured Trust Anchors, but you are free to adjust entries as needed."
-msgstr ""
+msgstr "Par défaut, le formulaire est renseigné avec l'émetteur OP actuel et les ancres de confiance configurées, mais vous êtes libre d'ajuster les entrées selon vos besoins."
 
 msgid "Cache"
-msgstr ""
+msgstr "Cache"
 
 msgid "Cache Adapter"
-msgstr ""
+msgstr "Adaptateur de cache"
 
 msgid "Cache Duration For Produced Artifacts"
-msgstr ""
-
-msgid "Check if you want to migrate data from legacy oauth2 module"
-msgstr "Vérifier si vous voulez migrer les données depuis le module désuet oauth2."
+msgstr "Durée du cache pour les artefacts produits"
 
 msgid "Choose if client is confidential or public. Confidential clients are capable of maintaining the confidentiality of their credentials (e.g., client implemented on a secure server with restricted access to the client credentials), or capable of secure client authentication using other means. Public clients are incapable of maintaining the confidentiality of their credentials (e.g., clients executing on the device used by the resource owner, such as an installed native application or a web browser-based application), and incapable of secure client authentication via any other means."
 msgstr "Choisissez si le client est confidentiel ou public. Les clients confidentiels sont capables de maintenir la confidentialité de leurs informations d'identification (par exemple, client implémenté sur un serveur sécurisé avec un accès restreint aux informations d'identification du client), ou capable de sécuriser l'authentification du client par d'autres moyens. Les clients publics sont incapables de maintenir le confidentialité de leurs informations d'identification (par exemple, les clients s'exécutant sur le périphérique utilisé par le propriétaire de la ressource, tel qu'un application native installée ou application basée sur un navigateur Web), et incapable de sécuriser l'authentification du client via tout autre moyen."
 
 msgid "Choose if the client is allowed to participate in federation context or not."
-msgstr ""
+msgstr "Choisissez si le client est autorisé à participer au contexte de la fédération ou non."
 
 msgid "Client"
 msgstr "Client"
 
-msgid "Client ID"
-msgstr "Client id."
-
 msgid "Client Registration Types"
-msgstr ""
+msgstr "Types d'enregistrement des clients"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:113
 msgid "Client Registry"
-msgstr ""
+msgstr "Registre des clients"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:201
 msgid "Client has been added."
-msgstr ""
+msgstr "Le client a été ajouté."
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:147
 msgid "Client has been deleted."
-msgstr ""
+msgstr "Le client a été supprimé."
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:277
 msgid "Client has been updated."
-msgstr ""
-
-#, fuzzy
-msgid "Client list"
-msgstr "Liste des clients"
-
-msgid "Client secret"
-msgstr "Client secret"
+msgstr "Le client a été mis à jour."
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:120
 msgid "Client secret has been reset."
-msgstr ""
+msgstr "Le secret du client a été réinitialisé."
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:183
 msgid "Client with generated ID already exists."
-msgstr ""
+msgstr "Le client avec l'ID généré existe déjà."
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:190
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:265
 msgid "Client with given entity identifier already exists."
-msgstr ""
+msgstr "Le client avec l’identifiant d’entité donné existe déjà."
 
 msgid "Confidential"
 msgstr "Confidentiel"
 
 msgid "Configuration URL"
-msgstr ""
-
-#, fuzzy
-msgid "Confirm"
-msgstr "Confirmer"
+msgstr "URL de configuration"
 
 msgid "Contacts"
-msgstr ""
+msgstr "Contacts"
 
-#, fuzzy
-msgid "Copied!"
-msgstr "Copié!"
-
-#, fuzzy
-msgid "Copy code"
-msgstr "Copier le code"
-
-#, fuzzy
-msgid "Create"
-msgstr "Créer"
-
-msgid "Created at:"
-msgstr ""
+msgid "Created at"
+msgstr "Créé à"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:106
 msgid "Database Migrations"
-msgstr ""
+msgstr "Migrations de bases de données"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ConfigController.php:46
 msgid "Database is already migrated."
-msgstr ""
+msgstr "La base de données est déjà migrée."
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ConfigController.php:52
 msgid "Database migrated successfully."
-msgstr ""
-
-msgid "Deactivated"
-msgstr "Désactivé"
+msgstr "Base de données migrée avec succès."
 
 msgid "Default Authentication Source"
-msgstr ""
+msgstr "Source d'authentification par défaut"
 
 #, fuzzy
 msgid "Delete"
 msgstr "Supprimer"
 
-msgid "Delete OpenID Connect Client"
-msgstr "Détruire le client OpenID Connect"
-
 msgid "Description"
 msgstr "Description"
 
 msgid "Disabled"
-msgstr ""
+msgstr "Désactivé"
 
 msgid "Discovery URL"
-msgstr ""
+msgstr "URL de découverte"
 
 msgid "Edit"
 msgstr "Modifier"
 
 msgid "Edit Client"
-msgstr ""
+msgstr "Modifier le client"
 
 msgid "Enabled"
-msgstr ""
+msgstr "Activé"
 
 msgid "Enter if client supports Back-Channel Logout specification. When logout is initiated at the OpenID Provider, it will send a Logout Token to this URI in order to notify the client about that event. Must be a valid URI. Example: https://example.org/foo?bar=1"
-msgstr ""
+msgstr "Indiquez si le client prend en charge la spécification de déconnexion du canal arrière. Lorsque la déconnexion est initiée au niveau du fournisseur OpenID, il envoie un jeton de déconnexion à cet URI afin d'avertir le client de cet événement. Doit être un URI valide. Exemple : https://example.org/foo?bar=1"
 
 msgid "Enter one Trust Anchor ID per line."
-msgstr ""
+msgstr "Saisissez un identifiant d’ancre de confiance par ligne."
 
 msgid "Entity"
-msgstr ""
+msgstr "Entité"
 
 msgid "Entity Identifier"
-msgstr ""
+msgstr "Identifiant d'entité"
 
 msgid "Entity Statement Duration"
-msgstr ""
+msgstr "Durée de la déclaration d'entité"
 
-msgid "Expires at:"
-msgstr ""
+msgid "Expires at"
+msgstr "Expire à"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Codebooks/RegistrationTypeEnum.php:18
 msgid "Federated Automatic"
-msgstr ""
+msgstr "Automatique fédéré"
 
 msgid "Federation Enabled"
-msgstr ""
+msgstr "Fédération activée"
 
 msgid "Federation JWKS"
-msgstr ""
+msgstr "Fédération JWKS"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:127
 msgid "Federation Settings"
-msgstr ""
+msgstr "Paramètres de la fédération"
 
 msgid "Forced ACR For Cookie Authentication"
-msgstr ""
+msgstr "ACR forcé pour l'authentification par cookie"
 
 msgid "Homepage URI"
-msgstr ""
+msgstr "URI de la page d'accueil"
 
 msgid "Identifier"
-msgstr ""
+msgstr "Identifiant"
 
 msgid "Info"
-msgstr ""
-
-#, fuzzy
-msgid "Install"
-msgstr "Installer"
+msgstr "Informations"
 
 msgid "Is Federated"
-msgstr ""
+msgstr "Est fédéré"
 
 msgid "Issuer"
-msgstr ""
+msgstr "Émetteur"
 
 msgid "JSON object (string) representing JWKS document containing protocol public keys. Note that this should be different from Federation JWKS. Will be used if JWKS URI is not set. Example: {\"keys\":[{\"kty\": \"RSA\",\"n\": \"...\",\"e\": \"AQAB\",\"kid\": \"pro123\",\"use\": \"sig\",\"alg\": \"RS256\"}]}"
-msgstr ""
+msgstr "Objet JSON (chaîne) représentant un document JWKS contenant les clés publiques du protocole. Notez que cela doit être différent de Federation JWKS. Sera utilisé si l'URI JWKS n'est pas défini. Exemple : {\"keys\":[{\"kty\": \"RSA\",\"n\": \"...\",\"e\": \"AQAB\",\"kid\": \"pro123\",\"use\": \"sig\",\"alg\": \"RS256\"}]}"
 
 msgid "JSON object (string) representing federation JWKS. This can be used, for example, in entity statements. Note that this should be different from Protocol JWKS. Example: {\"keys\":[{\"kty\": \"RSA\",\"n\": \"...\",\"e\": \"AQAB\",\"kid\": \"fed123\",\"use\": \"sig\",\"alg\": \"RS256\"}]}"
-msgstr ""
+msgstr "Objet JSON (chaîne) représentant la fédération JWKS. Cela peut être utilisé, par exemple, dans les instructions d'entité. Notez que cela doit être différent du protocole JWKS. Exemple: {\"keys\":[{\"kty\": \"RSA\",\"n\": \"...\",\"e\": \"AQAB\",\"kid\": \"fed123\",\"use\": \"sig\",\"alg\": \"RS256\"}]}"
 
 msgid "JWKS"
-msgstr ""
+msgstr "JWKS"
 
 msgid "JWKS URI"
-msgstr ""
+msgstr "JWKS URI"
 
 msgid "Leaf Entity ID"
-msgstr ""
+msgstr "ID d'entité de feuille"
 
 msgid "Log messages"
-msgstr ""
+msgstr "Messages du journal"
 
 msgid "Log messages will show if any warnings or errors were raised during chain resolution."
-msgstr ""
+msgstr "Les messages du journal indiqueront si des avertissements ou des erreurs ont été générés pendant la résolution de la chaîne."
 
 msgid "Log messages will show if any warnings or errors were raised during validation."
-msgstr ""
+msgstr "Les messages du journal indiqueront si des avertissements ou des erreurs ont été générés pendant la validation."
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:90
 msgid "Log out"
-msgstr ""
+msgstr "Se déconnecter"
 
 msgid "Logo URI"
-msgstr ""
+msgstr "URI du logo"
 
 msgid "Logout Failed"
-msgstr ""
+msgstr "Échec de la déconnexion"
 
 msgid "Logout Info"
-msgstr ""
+msgstr "Informations de déconnexion"
 
 msgid "Logout Successful"
-msgstr ""
+msgstr "Déconnexion réussie"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Codebooks/RegistrationTypeEnum.php:17
 msgid "Manual"
-msgstr ""
+msgstr "Manuel"
 
 msgid "Maximum Cache Duration For Fetched Artifacts"
-msgstr ""
+msgstr "Durée maximale du cache pour les artefacts récupérés"
 
 msgid "N/A"
-msgstr ""
+msgstr "N/A"
 
 #, fuzzy
 msgid "Name"
 msgstr "Nom"
 
 msgid "Name and description"
-msgstr ""
+msgstr "Nom et description"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:357
 msgid "Name is required."
-msgstr ""
+msgstr "Le nom est obligatoire."
+
+msgid "never"
+msgstr "jamais"
 
 msgid "No"
-msgstr ""
-
-#, fuzzy
-msgid "No clients"
-msgstr "Aucun client"
+msgstr "Non"
 
 msgid "No clients registered."
-msgstr ""
+msgstr "Aucun client enregistré."
 
 msgid "No entries."
-msgstr ""
+msgstr "Aucune entrée."
 
 msgid "Note that this will first resolve Trust Chain between given entity and Trust Anchor, and only then do the Trust Mark validation."
-msgstr ""
+msgstr "Notez que cela résoudra d’abord la chaîne de confiance entre l’entité donnée et l’ancre de confiance, puis effectuera seulement la validation de la marque de confiance."
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/hooks/hook_adminmenu.php:24
 msgid "OIDC"
-msgstr ""
+msgstr "OIDC"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/hooks/hook_federationpage.php:34
 msgid "OIDC Client Registry"
-msgstr ""
+msgstr "Registre des clients OIDC"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/hooks/hook_federationpage.php:38
 msgid "OIDC Installation"
-msgstr ""
-
-#, fuzzy
-msgid "Old oauth2 module clients has been imported."
-msgstr "Les clients du module désuet oauth2 ont été importés."
+msgstr "Installation d'OIDC"
 
 msgid "One or more values from the list. If not selected, falls back to 'automatic'"
-msgstr ""
+msgstr "Une ou plusieurs valeurs de la liste. Si cette option n'est pas sélectionnée, elle revient à « automatique »"
 
 msgid "OpenID Federation Related Properties"
-msgstr ""
+msgstr "Propriétés liées à la Fédération OpenID"
 
 msgid "Organization Name"
-msgstr ""
+msgstr "Nom de l'organisation"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:380
 msgid "Owner"
-msgstr ""
+msgstr "Propriétaire"
 
 msgid "PKI"
-msgstr ""
+msgstr "PKI"
 
-msgid "Path:"
-msgstr ""
-
-#, fuzzy
-msgid "Please, confirm than you want to delete this client. This action cannot be undone."
-msgstr "Confirmer la suppression du client. Cette action est irréversible."
-
-#, fuzzy
-msgid "Please, enter a name."
-msgstr "Saisir un nom pour le client."
-
-#, fuzzy
-msgid "Please, enter an URI at least."
-msgstr "Saisir au moins un URI."
-
-#, fuzzy
-msgid "Please, select a scope at least."
-msgstr "Sélectionner au moins une valeur de scope"
-
-#, fuzzy
-msgid "Please, select an Auth Source."
-msgstr "Sélectionner un Auth. source."
+msgid "Path"
+msgstr "Chemin"
 
 msgid "Policy URI"
-msgstr ""
-
-msgid "Post-Logout Redirect URIs"
-msgstr ""
+msgstr "URI de la politique"
 
 msgid "Post-logout Redirect URIs"
-msgstr ""
-
-#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:382
-msgid "Post-logout redirect URIs"
-msgstr ""
+msgstr "URI de redirection après déconnexion"
 
 msgid "Private Key"
-msgstr ""
+msgstr "Clé privée"
 
 msgid "Private Key Password Set"
-msgstr ""
+msgstr "Ensemble de mots de passe de clé privée"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:120
 msgid "Protocol Settings"
-msgstr ""
+msgstr "Paramètres du protocole"
 
 msgid "Public"
 msgstr "Public"
 
 msgid "Public Key"
-msgstr ""
+msgstr "Clé publique"
 
 msgid "Redirect URI"
 msgstr "Redirect URI"
 
 msgid "Redirect URIs"
-msgstr ""
+msgstr "Redirect URIs"
 
 msgid "Refresh Token"
-msgstr ""
+msgstr "Jeton de rafraîchissement"
 
 msgid "Registration Types"
-msgstr ""
+msgstr "Types d'inscription"
 
-msgid "Registration:"
-msgstr ""
+msgid "Registration"
+msgstr "Inscription"
 
 msgid "Requested session was not found or it is expired."
-msgstr ""
+msgstr "La session demandée n'a pas été trouvée ou elle est expirée."
 
 msgid "Reset"
-msgstr ""
-
-#, fuzzy
-msgid "Reset secret"
-msgstr "Réinitialiser la valeur de Client secret."
+msgstr "Réinitialiser"
 
 msgid "Resolved chains"
-msgstr ""
-
-#, fuzzy
-msgid "Return"
-msgstr "Retour"
+msgstr "Chaînes résolues"
 
 msgid "Run migrations"
-msgstr ""
-
-#, fuzzy
-msgid "Save"
-msgstr "Enregistrer"
+msgstr "Exécuter des migrations"
 
 msgid "Scopes"
-msgstr "Scopes"
-
-#, fuzzy
-msgid "Search"
-msgstr "Rechercher"
+msgstr "Portées"
 
 msgid "Secret"
-msgstr ""
+msgstr "Secrète"
 
 msgid "Signed JWKS URI"
-msgstr ""
+msgstr "URI JWKS signé"
 
 msgid "Signing Algorithm"
-msgstr ""
+msgstr "Algorithme de signature"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Admin/Authorization.php:44
 msgid "SimpleSAMLphp admin access required."
-msgstr ""
-
-#, fuzzy
-msgid "Some of the redirect URIs are not valid."
-msgstr "Certaines des adresses de redirection ne sont pas valides."
+msgstr "Accès administrateur SimpleSAMLphp requis."
 
 msgid "Status"
-msgstr ""
-
-#, fuzzy
-msgid "Submit"
-msgstr "Soumettre"
+msgstr "Statut"
 
 msgid "Supported ACRs"
-msgstr ""
+msgstr "ACR pris en charge"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:134
 msgid "Test Trust Chain Resolution"
-msgstr ""
+msgstr "Tester la résolution de la chaîne de confiance"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:141
 msgid "Test Trust Mark Validation"
-msgstr ""
-
-#, fuzzy
-msgid "The client secret was updated successfully."
-msgstr "Mise à jour réussie de la valeur de Client secret."
-
-#, fuzzy
-msgid "The client was added successfully."
-msgstr "Ajout du client réussi."
-
-#, fuzzy
-msgid "The client was removed successfully."
-msgstr "Suppression du client réussie."
-
-#, fuzzy
-msgid "The client was updated successfully."
-msgstr "Mise à jour du client réussie."
-
-#, fuzzy
-msgid "The database has been created."
-msgstr "La base de données a été créée."
+msgstr "Validation de la marque de confiance du test"
 
 msgid ""
 "There are database migrations that have not been implemented.\n"
 "                Use the button below to run them now."
 msgstr ""
-
-#, fuzzy
-msgid "This action will change your client secret and it can not be undone."
-msgstr "Cette action modifiera la valeur de Client secret et est irréversible."
-
-#, fuzzy
-msgid "This wizard will help you create the database and migrate information if necessary."
-msgstr "L'installateur aidera à créer la base de données et à migrer les informations, si nécessaire. "
+"Il existe des migrations de bases de données qui n'ont pas été implémentées.\n"
+"                Utilisez le bouton ci-dessous pour les exécuter maintenant."
 
 msgid "Tokens Time-To-Live (TTL)"
-msgstr ""
+msgstr "Durée de vie des jetons (TTL)"
 
-msgid "Total chains:"
-msgstr ""
+msgid "Total chains"
+msgstr "Nombre total de chaînes"
 
 msgid "Trust Anchor ID"
-msgstr ""
-
-msgid "Trust Anchor ID:"
-msgstr ""
+msgstr "ID d'ancre de confiance"
 
 msgid "Trust Anchor IDs"
-msgstr ""
+msgstr "ID d'ancre de confiance"
 
 msgid "Trust Anchors"
-msgstr ""
+msgstr "Ancres de confiance"
 
 msgid "Trust Mark ID"
-msgstr ""
+msgstr "ID de marque de confiance"
 
 msgid "Trust Mark validation passed (there were no warnings or errors during validation)."
-msgstr ""
+msgstr "La validation de la marque de confiance a réussi (aucun avertissement ni erreur n'a été enregistré lors de la validation)."
 
 msgid "Trust Marks"
-msgstr ""
+msgstr "Marques de confiance"
 
 msgid "Type"
 msgstr "Taper"
 
 msgid "URL to a JWKS document containing protocol public keys. Will be used if Signed JWKS URI is not set. Example: https://example.org/jwks"
-msgstr ""
+msgstr "URL vers un document JWKS contenant des clés publiques de protocole. Sera utilisé si l'URI JWKS signée n'est pas définie. Exemple: https://example.org/jwks"
 
 msgid "URL to a JWS document containing protocol public keys in JWKS format (claim 'keys'). Example: https://example.org/signed-jwks"
-msgstr ""
+msgstr "URL vers un document JWS contenant des clés publiques de protocole au format JWKS (claim 'keys'). Exemple: https://example.org/signed-jwks"
 
 msgid "URLs as allowed origins for CORS requests, for public clients running in browser. Must have http:// or https:// scheme, and at least one 'domain.top-level-domain' pair, or more subdomains. Top-level-domain may end with '.'. No userinfo, path, query or fragment components allowed. May end with port number. One per line. Example: https://example.org"
-msgstr ""
+msgstr "URL comme origines autorisées pour les requêtes CORS, pour les clients publics exécutés dans un navigateur. Doit avoir le schéma http:// ou https://, et au moins une paire « domaine.domaine de premier niveau », ou plusieurs sous-domaines. Le domaine de premier niveau peut se terminer par « . ». Aucun composant userinfo, path, query ou fragment n'est autorisé. Peut se terminer par un numéro de port. Un par ligne. Exemple: https://example.org"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Admin/Authorization.php:36
 msgid "Unable to initiate SimpleSAMLphp admin authentication."
-msgstr ""
+msgstr "Impossible d'initier l'authentification administrateur SimpleSAMLphp."
 
-msgid "Updated at:"
-msgstr ""
+msgid "Updated at"
+msgstr "Mis à jour à"
 
 msgid "User Entity Cache Duration"
-msgstr ""
+msgstr "Durée du cache de l'entité utilisateur"
 
 msgid "User Identifier Attribute"
-msgstr ""
+msgstr "Attribut d'identification de l'utilisateur"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Admin/Authorization.php:61
 msgid "User not authorized."
-msgstr ""
+msgstr "Utilisateur non autorisé."
 
 msgid "Yes"
-msgstr ""
+msgstr "Oui"
 
 msgid "You can now close this window or navigate to another page."
-msgstr ""
+msgstr "Vous pouvez maintenant fermer cette fenêtre ou naviguer vers une autre page."
 
 msgid "You can use the form below to test Trust Chain resolution from a leaf entity ID to Trust Anchors."
-msgstr ""
+msgstr "Vous pouvez utiliser le formulaire ci-dessous pour tester la résolution de la chaîne de confiance à partir d'un ID d'entité feuille vers les ancres de confiance."
 
 msgid "You can use the form below to test Trust Mark validation for particular entity under given Trust Anchor."
-msgstr ""
+msgstr "Vous pouvez utiliser le formulaire ci-dessous pour tester la validation de la marque de confiance pour une entité particulière sous une ancre de confiance donnée."
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Services/Container.php:143
 msgid "Your session has expired. Please return to the home page and try again."
-msgstr ""
+msgstr "Votre session a expiré. Veuillez revenir à la page d'accueil et réessayer."
 
 msgid "disabled"
-msgstr ""
+msgstr "désactivé"
 
 msgid "enabled"
-msgstr ""
+msgstr "activé"
