@@ -20,6 +20,7 @@ use Nette\Forms\Form;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
 use Traversable;
@@ -62,6 +63,7 @@ class ClientForm extends Form
         protected readonly ModuleConfig $moduleConfig,
         protected CsrfProtection $csrfProtection,
         protected SspBridge $sspBridge,
+        protected Helpers $helpers,
     ) {
         parent::__construct();
 
@@ -217,14 +219,14 @@ class ClientForm extends Form
         $values = parent::getValues(self::TYPE_ARRAY);
 
         // Sanitize redirect_uri and allowed_origin
-        $values['redirect_uri'] = $this->convertTextToArrayWithLinesAsValues((string)$values['redirect_uri']);
+        $values['redirect_uri'] = $this->helpers->str()->convertTextToArray((string)$values['redirect_uri']);
         if (! $values['is_confidential'] && isset($values['allowed_origin'])) {
-            $values['allowed_origin'] = $this->convertTextToArrayWithLinesAsValues((string)$values['allowed_origin']);
+            $values['allowed_origin'] = $this->helpers->str()->convertTextToArray((string)$values['allowed_origin']);
         } else {
             $values['allowed_origin'] = [];
         }
         $values['post_logout_redirect_uri'] =
-        $this->convertTextToArrayWithLinesAsValues((string)$values['post_logout_redirect_uri']);
+        $this->helpers->str()->convertTextToArray((string)$values['post_logout_redirect_uri']);
 
         $bclUri = trim((string)$values['backchannel_logout_uri']);
         $values['backchannel_logout_uri'] = empty($bclUri) ? null : $bclUri;
@@ -420,18 +422,6 @@ class ClientForm extends Form
         return array_map(
             fn(array $item): mixed => $item['description'],
             $this->moduleConfig->getScopes(),
-        );
-    }
-
-    /**
-     * TODO mivanci Move to Str helper.
-     * @return string[]
-     */
-    protected function convertTextToArrayWithLinesAsValues(string $text): array
-    {
-        return array_filter(
-            preg_split("/[\t\r\n]+/", $text),
-            fn(string $line): bool => !empty(trim($line)),
         );
     }
 

@@ -137,8 +137,19 @@ class Container implements ContainerInterface
         $session = Session::getSessionFromRequest();
         $this->services[Session::class] = $session;
 
+        $sspBridge = new SspBridge();
+        $this->services[SspBridge::class] = $sspBridge;
+
+        $helpers = new Helpers();
+        $this->services[Helpers::class] = $helpers;
+
         $csrfProtection = new CsrfProtection('{oidc:client:csrf_error}', $session);
-        $formFactory = new FormFactory($moduleConfig, $csrfProtection);
+        $formFactory = new FormFactory(
+            $moduleConfig,
+            $csrfProtection,
+            $sspBridge,
+            $helpers,
+        );
         $this->services[FormFactory::class] = $formFactory;
 
         $jsonWebKeySetService = new JsonWebKeySetService($moduleConfig);
@@ -149,9 +160,6 @@ class Container implements ContainerInterface
 
         $sessionMessagesService = new SessionMessagesService($session);
         $this->services[SessionMessagesService::class] = $sessionMessagesService;
-
-        $sspBridge = new SspBridge();
-        $this->services[SspBridge::class] = $sspBridge;
 
         $oidcMenu = new Menu();
         $this->services[Menu::class] = $oidcMenu;
@@ -192,8 +200,6 @@ class Container implements ContainerInterface
 
         $stateService = new StateService();
         $this->services[StateService::class] = $stateService;
-
-        $helpers = new Helpers();
 
         $core = new Core();
         $this->services[Core::class] = $core;
