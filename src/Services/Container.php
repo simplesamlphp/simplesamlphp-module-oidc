@@ -131,14 +131,18 @@ class Container implements ContainerInterface
         $authSimpleFactory = new AuthSimpleFactory($moduleConfig);
         $this->services[AuthSimpleFactory::class] = $authSimpleFactory;
 
-        $authContextService = new AuthContextService($moduleConfig, $authSimpleFactory);
+        $sspBridge = new SspBridge();
+        $this->services[SspBridge::class] = $sspBridge;
+
+        $authContextService = new AuthContextService(
+            $moduleConfig,
+            $authSimpleFactory,
+            $sspBridge,
+        );
         $this->services[AuthContextService::class] = $authContextService;
 
         $session = Session::getSessionFromRequest();
         $this->services[Session::class] = $session;
-
-        $sspBridge = new SspBridge();
-        $this->services[SspBridge::class] = $sspBridge;
 
         $helpers = new Helpers();
         $this->services[Helpers::class] = $helpers;

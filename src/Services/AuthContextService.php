@@ -6,10 +6,9 @@ namespace SimpleSAML\Module\oidc\Services;
 
 use RuntimeException;
 use SimpleSAML\Auth\Simple;
+use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Utils\Attributes;
-use SimpleSAML\Utils\Auth;
 
 /**
  * Provide contextual authentication information for administration interface.
@@ -28,13 +27,13 @@ class AuthContextService
     public function __construct(
         private readonly ModuleConfig $moduleConfig,
         private readonly AuthSimpleFactory $authSimpleFactory,
+        private readonly SspBridge $sspBridge,
     ) {
     }
 
     public function isSspAdmin(): bool
     {
-        // TODO mivanci make bridge to SSP utility classes (search for SSP namespace through the codebase)
-        return (new Auth())->isAdmin();
+        return $this->sspBridge->utils()->auth()->isAdmin();
     }
 
     /**
@@ -45,7 +44,10 @@ class AuthContextService
     {
         $simple = $this->authenticate();
         $userIdAttr = $this->moduleConfig->getUserIdentifierAttribute();
-        return (string)(new Attributes())->getExpectedAttribute($simple->getAttributes(), $userIdAttr);
+        return (string)$this->sspBridge->utils()->attributes()->getExpectedAttribute(
+            $simple->getAttributes(),
+            $userIdAttr,
+        );
     }
 
     /**
