@@ -10,6 +10,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entities\ClaimSetEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
@@ -31,6 +32,7 @@ class RequestedClaimsRuleTest extends TestCase
     protected static string $userIdAttr = 'uid';
     protected Stub $requestParamsResolverStub;
     protected Stub $claimSetEntityFactoryStub;
+    protected Helpers $helpers;
 
 
     /**
@@ -53,13 +55,23 @@ class RequestedClaimsRuleTest extends TestCase
                 $claimSetEntityStub->method('getClaims')->willReturn($claims);
                 return $claimSetEntityStub;
             });
+
+        $this->helpers = new Helpers();
     }
 
-    protected function mock(): RequestedClaimsRule
-    {
+    protected function sut(
+        ?RequestParamsResolver $requestParamsResolver = null,
+        ?Helpers $helpers = null,
+        ?ClaimTranslatorExtractor $claimTranslatorExtractor = null,
+    ): RequestedClaimsRule {
+        $requestParamsResolver ??= $this->requestParamsResolverStub;
+        $helpers ??= $this->helpers;
+        $claimTranslatorExtractor ??= new ClaimTranslatorExtractor(self::$userIdAttr, $this->claimSetEntityFactoryStub);
+
         return new RequestedClaimsRule(
-            $this->requestParamsResolverStub,
-            new ClaimTranslatorExtractor(self::$userIdAttr, $this->claimSetEntityFactoryStub),
+            $requestParamsResolver,
+            $helpers,
+            $claimTranslatorExtractor,
         );
     }
 
@@ -68,7 +80,7 @@ class RequestedClaimsRuleTest extends TestCase
      */
     public function testNoRequestedClaims(): void
     {
-        $result = $this->mock()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
+        $result = $this->sut()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
         $this->assertNull($result);
     }
 
@@ -101,7 +113,7 @@ class RequestedClaimsRuleTest extends TestCase
 
         $this->requestParamsResolverStub->method('getBasedOnAllowedMethods')->willReturn(json_encode($requestedClaims));
 
-        $result = $this->mock()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
+        $result = $this->sut()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
         $this->assertNotNull($result);
         $this->assertEquals($expectedClaims, $result->getValue());
     }
@@ -120,7 +132,7 @@ class RequestedClaimsRuleTest extends TestCase
         $requestedClaims = $expectedClaims;
         $this->requestParamsResolverStub->method('getBasedOnAllowedMethods')->willReturn(json_encode($requestedClaims));
 
-        $result = $this->mock()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
+        $result = $this->sut()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
         $this->assertNotNull($result);
         $this->assertEquals($expectedClaims, $result->getValue());
     }

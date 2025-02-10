@@ -9,6 +9,7 @@ use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
@@ -30,6 +31,7 @@ class RedirectUriRuleTest extends TestCase
     protected string $redirectUri = 'https://some-redirect-uri.org';
     protected Stub $loggerServiceStub;
     protected Stub $requestParamsResolverStub;
+    protected Helpers $helpers;
 
 
     /**
@@ -42,11 +44,20 @@ class RedirectUriRuleTest extends TestCase
         $this->requestStub = $this->createStub(ServerRequestInterface::class);
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
+        $this->helpers = new Helpers();
     }
 
-    protected function mock(): RedirectUriRule
-    {
-        return new RedirectUriRule($this->requestParamsResolverStub);
+    protected function sut(
+        ?RequestParamsResolver $requestParamsResolver = null,
+        ?Helpers $helpers = null,
+    ): RedirectUriRule {
+        $requestParamsResolver ??= $this->requestParamsResolverStub;
+        $helpers ??= $this->helpers;
+
+        return new RedirectUriRule(
+            $requestParamsResolver,
+            $helpers,
+        );
     }
 
     /**
@@ -56,7 +67,7 @@ class RedirectUriRuleTest extends TestCase
     public function testCheckRuleClientIdDependency(): void
     {
         $this->expectException(LogicException::class);
-        $this->mock()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
+        $this->sut()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
     }
 
     /**
@@ -67,7 +78,7 @@ class RedirectUriRuleTest extends TestCase
     {
         $this->resultBag->add(new Result(ClientIdRule::class, 'invalid'));
         $this->expectException(LogicException::class);
-        $this->mock()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
+        $this->sut()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
     }
 
     /**
@@ -78,7 +89,7 @@ class RedirectUriRuleTest extends TestCase
         $resultBag = $this->prepareValidResultBag();
 
         $this->expectException(OidcServerException::class);
-        $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
+        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
     }
 
     /**
@@ -90,7 +101,7 @@ class RedirectUriRuleTest extends TestCase
         $resultBag = $this->prepareValidResultBag();
 
         $this->expectException(OidcServerException::class);
-        $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
+        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
     }
 
     /**
@@ -104,7 +115,7 @@ class RedirectUriRuleTest extends TestCase
         $this->resultBag->add(new Result(ClientIdRule::class, $this->clientStub));
 
         $this->expectException(OidcServerException::class);
-        $this->mock()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
+        $this->sut()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
     }
 
     /**
@@ -117,7 +128,7 @@ class RedirectUriRuleTest extends TestCase
 
         $resultBag = $this->prepareValidResultBag();
 
-        $result = $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
+        $result = $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
 
         $this->assertInstanceOf(ResultInterface::class, $result);
         $this->assertSame($this->redirectUri, $result->getValue());

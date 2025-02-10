@@ -66,11 +66,11 @@ class ClientIdRuleTest extends TestCase
     {
         return new ClientIdRule(
             $this->requestParamsResolverStub,
+            $this->helpersStub,
             $this->clientRepositoryStub,
             $this->moduleConfigStub,
             $this->clientEntityFactoryStub,
             $this->federationStub,
-            $this->helpersStub,
             $this->jwksResolverStub,
             $this->federationParticipationValidatorStub,
             $this->federationCacheStub,

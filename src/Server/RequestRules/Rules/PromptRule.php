@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
@@ -21,10 +22,11 @@ class PromptRule extends AbstractRule
 {
     public function __construct(
         RequestParamsResolver $requestParamsResolver,
+        Helpers $helpers,
         private readonly AuthSimpleFactory $authSimpleFactory,
         private readonly AuthenticationService $authenticationService,
     ) {
-        parent::__construct($requestParamsResolver);
+        parent::__construct($requestParamsResolver, $helpers);
     }
 
     /**

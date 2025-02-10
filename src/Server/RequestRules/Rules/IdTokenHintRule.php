@@ -10,6 +10,7 @@ use Lcobucci\JWT\Validation\Constraint\IssuedBy;
 use Lcobucci\JWT\Validation\Constraint\SignedWith;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Factories\CryptKeyFactory;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
@@ -25,10 +26,11 @@ class IdTokenHintRule extends AbstractRule
 {
     public function __construct(
         RequestParamsResolver $requestParamsResolver,
+        Helpers $helpers,
         protected ModuleConfig $moduleConfig,
         protected CryptKeyFactory $cryptKeyFactory,
     ) {
-        parent::__construct($requestParamsResolver);
+        parent::__construct($requestParamsResolver, $helpers);
     }
 
     /**
@@ -56,7 +58,7 @@ class IdTokenHintRule extends AbstractRule
             return new Result($this->getKey(), $idTokenHintParam);
         }
 
-        // TODO mivanci Fix: unmockable services... inject instead.
+        // TODO v7 mivanci Fix: unmockable services... inject instead.
         $privateKey = $this->cryptKeyFactory->buildPrivateKey();
         $publicKey = $this->cryptKeyFactory->buildPublicKey();
         /** @psalm-suppress ArgumentTypeCoercion */

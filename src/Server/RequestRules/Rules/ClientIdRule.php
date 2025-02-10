@@ -34,16 +34,16 @@ class ClientIdRule extends AbstractRule
 
     public function __construct(
         RequestParamsResolver $requestParamsResolver,
+        Helpers $helpers,
         protected ClientRepository $clientRepository,
         protected ModuleConfig $moduleConfig,
         protected ClientEntityFactory $clientEntityFactory,
         protected Federation $federation,
-        protected Helpers $helpers,
         protected JwksResolver $jwksResolver,
         protected FederationParticipationValidator $federationParticipationValidator,
         protected ?FederationCache $federationCache = null,
     ) {
-        parent::__construct($requestParamsResolver);
+        parent::__construct($requestParamsResolver, $helpers);
     }
 
     /**
@@ -132,8 +132,8 @@ class ClientIdRule extends AbstractRule
         throw OidcServerException::invalidRequest(ParamsEnum::Request->value, 'Client ID is not valid URI.');
 
         // We are ready to resolve trust chain.
-        // TODO mivanci Request Object can contain trust_chain claim, so also implement resolving using that claim. Note
-        // that this is only possible if we have JWKS configured for common TA, so we can check TA Configuration
+        // TODO mivanci v7 Request Object can contain trust_chain claim, so also implement resolving using that claim.
+        // Note that this is only possible if we have JWKS configured for common TA, so we can check TA Configuration
         // signature.
         try {
             $trustChain = $this->federation->trustChainResolver()->for(
