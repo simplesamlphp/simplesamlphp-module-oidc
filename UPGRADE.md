@@ -75,6 +75,8 @@ known 'issue': https://github.com/symfony/symfony/issues/19693). If you don't se
 about this situation in your logs.
 - The new authproc filter processing will look in an additional location for filters, in the main `config.php` under 
 key `authproc.oidc`
+- Removed support for plain OAuth2 Implicit flow (response_type `token`), because of very low usage. Note that the OIDC
+Implicit flow is still supported (response_type `id_token token` or `id_token`).
 
 ## Low impact changes
 
@@ -95,7 +97,7 @@ has been refactored:
 - Upgraded to v3 of laminas/laminas-diactoros https://github.com/laminas/laminas-diactoros
 - SimpleSAMLphp version used during development was bumped to v2.3
 - In Authorization Code Flow, a new validation was added which checks for 'openid' value in 'scope' parameter. Up to
-now, 'openid' value was dynamically added if not present. In Implicit Code Flow this validation was already present. 
+now, 'openid' value was dynamically added if not present. In Implicit Code Flow this validation was already present.
 - Removed importer from legacy OAuth2 module, as it is very unlikely that someone will upgrade from legacy OAuth2
 module to v6 of oidc module. If needed, one can upgrade to earlier versions of oidc module, and then to v6.
 
