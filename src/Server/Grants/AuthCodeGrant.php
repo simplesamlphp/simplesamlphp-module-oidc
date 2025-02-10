@@ -31,7 +31,7 @@ use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterfac
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithCheckerResultBagInterface;
+use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithRequestRules;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\OidcCapableGrantTypeInterface;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\PkceEnabledGrantTypeInterface;
 use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
@@ -72,7 +72,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     // phpcs:ignore
     OidcCapableGrantTypeInterface,
     // phpcs:ignore
-    AuthorizationValidatableWithCheckerResultBagInterface
+    AuthorizationValidatableWithRequestRules
 {
     use IssueAccessTokenTrait;
 
@@ -641,7 +641,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      * @inheritDoc
      * @throws \Throwable
      */
-    public function validateAuthorizationRequestWithCheckerResultBag(
+    public function validateAuthorizationRequestWithRequestRules(
         ServerRequestInterface $request,
         ResultBagInterface $resultBag,
     ): OAuth2AuthorizationRequest {

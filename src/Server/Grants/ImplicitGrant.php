@@ -18,7 +18,7 @@ use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithCheckerResultBagInterface;
+use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithRequestRules;
 use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
@@ -43,7 +43,7 @@ use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 /**
  * @psalm-suppress PropertyNotSetInConstructor
  */
-class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidatableWithCheckerResultBagInterface
+class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidatableWithRequestRules
 {
     use IssueAccessTokenTrait;
 
@@ -118,7 +118,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \Throwable
      */
-    public function validateAuthorizationRequestWithCheckerResultBag(
+    public function validateAuthorizationRequestWithRequestRules(
         ServerRequestInterface $request,
         ResultBagInterface $resultBag,
     ): OAuth2AuthorizationRequest {
