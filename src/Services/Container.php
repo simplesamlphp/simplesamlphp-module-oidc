@@ -50,7 +50,6 @@ use SimpleSAML\Module\oidc\Factories\FederationFactory;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\AuthCodeGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\ImplicitGrantFactory;
-use SimpleSAML\Module\oidc\Factories\Grant\OAuth2ImplicitGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\RefreshTokenGrantFactory;
 use SimpleSAML\Module\oidc\Factories\IdTokenResponseFactory;
 use SimpleSAML\Module\oidc\Factories\JwksFactory;
@@ -71,7 +70,6 @@ use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
 use SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant;
-use SimpleSAML\Module\oidc\Server\Grants\OAuth2ImplicitGrant;
 use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule;
@@ -436,9 +434,6 @@ class Container implements ContainerInterface
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 
-        $oAuth2ImplicitGrantFactory = new OAuth2ImplicitGrantFactory($moduleConfig, $requestRuleManager);
-        $this->services[OAuth2ImplicitGrant::class] = $oAuth2ImplicitGrantFactory->build();
-
         $implicitGrantFactory = new ImplicitGrantFactory(
             $moduleConfig,
             $this->services[IdTokenBuilder::class],
@@ -463,7 +458,6 @@ class Container implements ContainerInterface
             $accessTokenRepository,
             $scopeRepository,
             $this->services[AuthCodeGrant::class],
-            $this->services[OAuth2ImplicitGrant::class],
             $this->services[ImplicitGrant::class],
             $this->services[RefreshTokenGrant::class],
             $this->services[IdTokenResponse::class],

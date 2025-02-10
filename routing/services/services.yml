@@ -56,8 +56,6 @@ services:
   # Grants
   SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant:
     factory: ['@SimpleSAML\Module\oidc\Factories\Grant\AuthCodeGrantFactory', 'build']
-  SimpleSAML\Module\oidc\Server\Grants\OAuth2ImplicitGrant:
-    factory: ['@SimpleSAML\Module\oidc\Factories\Grant\OAuth2ImplicitGrantFactory', 'build']
   SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant:
     factory: ['@SimpleSAML\Module\oidc\Factories\Grant\ImplicitGrantFactory', 'build']
   SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant:

@@ -24,7 +24,6 @@ use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
 use SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant;
-use SimpleSAML\Module\oidc\Server\Grants\OAuth2ImplicitGrant;
 use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
@@ -37,7 +36,6 @@ class AuthorizationServerFactory
         private readonly AccessTokenRepository $accessTokenRepository,
         private readonly ScopeRepository $scopeRepository,
         private readonly AuthCodeGrant $authCodeGrant,
-        private readonly OAuth2ImplicitGrant $oAuth2ImplicitGrant,
         private readonly ImplicitGrant $implicitGrant,
         private readonly RefreshTokenGrant $refreshTokenGrant,
         private readonly IdTokenResponse $idTokenResponse,
@@ -60,11 +58,6 @@ class AuthorizationServerFactory
 
         $authorizationServer->enableGrantType(
             $this->authCodeGrant,
-            $this->moduleConfig->getAccessTokenDuration(),
-        );
-
-        $authorizationServer->enableGrantType(
-            $this->oAuth2ImplicitGrant,
             $this->moduleConfig->getAccessTokenDuration(),
         );
 
