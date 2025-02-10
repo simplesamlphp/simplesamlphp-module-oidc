@@ -10,10 +10,11 @@
 - Key rollover support - you can now define additional (new) private / public key pair which will be published on 
 relevant JWKS endpoint or contained in JWKS property. In this way, you can "announce" new public key which can then
 be fetched by RPs, and do the switch between "old" and "new" key pair when you find appropriate.
-- OpenID capabilities
-  - New federation endpoints:
-    - endpoint for issuing configuration entity statement (statement about itself)
-    - fetch endpoint for issuing statements about subordinates (registered clients)
+- OpenID Federation capabilities:
+  - Automatic client registration using a Request Object (passing it by value)
+  - Federation participation limiting based on Trust Marks
+  - Endpoint for issuing configuration entity statement (statement about itself)
+  - Fetch endpoint for issuing statements about subordinates (registered clients)
   - Clients can now be configured with new properties:
     - Entity Identifier
     - Supported OpenID Federation Registration Types

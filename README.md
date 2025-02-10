@@ -25,6 +25,7 @@ configuration.
 
 Currently, the following OIDF features are supported:
 * automatic client registration using a Request Object (passing it by value)
+* federation participation limiting based on Trust Marks
 * endpoint for issuing configuration entity statement (statement about itself)
 * fetch endpoint for issuing statements about subordinates (registered clients)
 
