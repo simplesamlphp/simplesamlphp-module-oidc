@@ -1,9 +1,3 @@
-# TODO
-
-- remove dependency on laminas/laminas-httphandlerrunner
-- create a bridge towards SSP utility classes, so they can be easily mocked
-- move away from SSP database as store; move to DBAL
-- move to phpstan instead of psalm (as SSP)
 
 # Version 5 to 6
 
@@ -97,11 +91,13 @@ Below are also some internal changes that should not have impact for the OIDC OP
 this module as a library or extending from it, you will probably encounter breaking changes, since a lot of code
 has been refactored:
 
-- upgraded to v5 of lcobucci/jwt https://github.com/lcobucci/jwt
-- upgraded to v3 of laminas/laminas-diactoros https://github.com/laminas/laminas-diactoros
+- Upgraded to v5 of lcobucci/jwt https://github.com/lcobucci/jwt
+- Upgraded to v3 of laminas/laminas-diactoros https://github.com/laminas/laminas-diactoros
 - SimpleSAMLphp version used during development was bumped to v2.3
 - In Authorization Code Flow, a new validation was added which checks for 'openid' value in 'scope' parameter. Up to
 now, 'openid' value was dynamically added if not present. In Implicit Code Flow this validation was already present. 
+- Removed importer from legacy OAuth2 module, as it is very unlikely that someone will upgrade from legacy OAuth2
+module to v6 of oidc module. If needed, one can upgrade to earlier versions of oidc module, and then to v6.
 
 # Version 4 to 5
 

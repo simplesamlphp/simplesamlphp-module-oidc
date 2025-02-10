@@ -317,9 +317,6 @@ class Container implements ContainerInterface
         $databaseMigration = new DatabaseMigration($database);
         $this->services[DatabaseMigration::class] = $databaseMigration;
 
-        $databaseLegacyOAuth2Import = new DatabaseLegacyOAuth2Import($clientRepository, $clientEntityFactory);
-        $this->services[DatabaseLegacyOAuth2Import::class] = $databaseLegacyOAuth2Import;
-
         $authenticationService = new AuthenticationService(
             $userRepository,
             $authSimpleFactory,
