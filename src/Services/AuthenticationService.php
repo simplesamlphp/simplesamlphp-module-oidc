@@ -96,7 +96,7 @@ class AuthenticationService
         $this->authSourceId = $authSimple->getAuthSource()->getAuthId();
 
         if (! $authSimple->isAuthenticated()) {
-            $this->authenticate($request);
+            $this->authenticate($oidcClient);
         } elseif ($this->sessionService->getIsAuthnPerformedInPreviousRequest()) {
             $this->sessionService->setIsAuthnPerformedInPreviousRequest(false);
 
@@ -268,10 +268,6 @@ class AuthenticationService
     }
 
     /**
-     * @param   ServerRequestInterface  $request
-     * @param   array                   $loginParams
-     *
-     * @return void
      * @throws Error\BadRequest
      * @throws Error\NotFound
      * @throws \JsonException
@@ -279,12 +275,10 @@ class AuthenticationService
      */
 
     public function authenticate(
-        ServerRequestInterface $request,
+        ClientEntityInterface $clientEntity,
         array $loginParams = [],
     ): void {
-        // TODO mivanci Fix: client has already been resolved up to this point, but we are again fetching it from DB.
-        $oidcClient = $this->helpers->client()->getFromRequest($request, $this->clientRepository);
-        $authSimple = $this->authSimpleFactory->build($oidcClient);
+        $authSimple = $this->authSimpleFactory->build($clientEntity);
 
         $this->sessionService->setIsCookieBasedAuthn(false);
         $this->sessionService->setIsAuthnPerformedInPreviousRequest(true);

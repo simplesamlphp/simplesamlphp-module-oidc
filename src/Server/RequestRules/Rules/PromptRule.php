@@ -86,7 +86,7 @@ class PromptRule extends AbstractRule
             $loginParams['ReturnTo'] = (new HTTP())
                 ->addURLParameters((new HTTP())->getSelfURLNoQuery(), $requestParams);
 
-            $this->authenticationService->authenticate($request, $loginParams);
+            $this->authenticationService->authenticate($client, $loginParams);
         }
 
         return null;

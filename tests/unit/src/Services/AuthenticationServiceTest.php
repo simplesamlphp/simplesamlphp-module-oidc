@@ -331,11 +331,8 @@ class AuthenticationServiceTest extends TestCase
     public function testItAuthenticates(): void
     {
         $this->authSimpleMock->expects($this->once())->method('login')->with([]);
-        $this->clientHelperMock->expects($this->once())
-            ->method('getFromRequest')
-            ->willReturn($this->clientEntityMock);
 
-        $this->mock()->authenticate($this->serverRequestMock);
+        $this->mock()->authenticate($this->clientEntityMock);
     }
 
     /**
