@@ -8,14 +8,14 @@ use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2Authorizatio
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 
-interface AuthorizationValidatableWithCheckerResultBagInterface
+interface AuthorizationValidatableWithRequestRules
 {
     /**
      * Validate authorization request using an existing ResultBag instance (with already validated checkers).
      * This is to evade usage of original validateAuthorizationRequest() method in which it is expected to
      * validate client and redirect_uri (which was already validated).
      */
-    public function validateAuthorizationRequestWithCheckerResultBag(
+    public function validateAuthorizationRequestWithRequestRules(
         ServerRequestInterface $request,
         ResultBagInterface $resultBag,
     ): OAuth2AuthorizationRequest;

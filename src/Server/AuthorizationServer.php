@@ -16,7 +16,7 @@ use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithCheckerResultBagInterface;
+use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithRequestRules;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
@@ -103,12 +103,12 @@ class AuthorizationServer extends OAuth2AuthorizationServer
 
         foreach ($this->enabledGrantTypes as $grantType) {
             if ($grantType->canRespondToAuthorizationRequest($request)) {
-                if (! $grantType instanceof AuthorizationValidatableWithCheckerResultBagInterface) {
+                if (! $grantType instanceof AuthorizationValidatableWithRequestRules) {
                     throw OidcServerException::serverError('grant type must be validatable with already validated ' .
                                                            'result bag');
                 }
 
-                return $grantType->validateAuthorizationRequestWithCheckerResultBag($request, $resultBag);
+                return $grantType->validateAuthorizationRequestWithRequestRules($request, $resultBag);
             }
         }
 

@@ -8,7 +8,6 @@ through a SimpleSAMLphp module installable through Composer. It is based on
 Currently supported flows are:
 * Authorization Code flow, with PKCE support (response_type 'code')
 * Implicit flow (response_type 'id_token token' or 'id_token')
-* Plain OAuth2 Implicit flow (response_type 'token')
 * Refresh Token flow
 
 [![Build Status](https://github.com/simplesamlphp/simplesamlphp-module-oidc/actions/workflows/test.yaml/badge.svg)](https://github.com/simplesamlphp/simplesamlphp-module-oidc/actions/workflows/test.yaml) 
