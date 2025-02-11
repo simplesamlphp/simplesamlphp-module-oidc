@@ -34,14 +34,14 @@ msgid "All database migrations are implemented."
 msgstr "Alle databasemigraties worden uitgevoerd."
 
 msgid "Allowed Origins"
-msgstr "Toegestane oorsprongen"
+msgstr "Toegestane bronnen"
 
 msgid "Allowed Origins (for public client)"
-msgstr "Toegestane oorsprongen (voor openbare client)"
+msgstr "Toegestane beonnen (voor openbare client)"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:384
 msgid "Allowed origins for public clients"
-msgstr "Toegestane oorsprongen voor openbare clients"
+msgstr "Toegestane bronnen voor openbare clients"
 
 msgid "Allowed redirect URIs to use after client initiated logout. Must be a valid URI, one per line. Example: https://example.org/foo?bar=1"
 msgstr "Toegestane redirect-URI's om te gebruiken na client-geïnitieerde uitlog. Moet een geldige URI zijn, één per regel. Voorbeeld: https://example.org/foo?bar=1"
@@ -57,7 +57,7 @@ msgstr "Weet u zeker dat u het clientgeheim wilt resetten?"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:363
 msgid "At least one redirect URI is required."
-msgstr "Er is minimaal één omleidings-URI vereist."
+msgstr "Er is minimaal één redirect-URI vereist."
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:378
 msgid "At least one scope is required."
@@ -67,16 +67,16 @@ msgid "Authentication"
 msgstr "Authenticatie"
 
 msgid "Authentication Context Class References (ACRs)"
-msgstr "Authenticatiecontextklassereferenties (ACR's)"
+msgstr "Authentication Context Class References (ACRs)"
 
 msgid "Authentication Processing Filters"
-msgstr "Filters voor authenticatieverwerking"
+msgstr "Authentication Processing Filters"
 
 msgid "Authentication Source"
 msgstr "Authenticatiebron"
 
 msgid "Authentication Sources to ACRs Map"
-msgstr "Authenticatiebronnen naar ACR's Kaart"
+msgstr "Authenticatiebronnen naar ACR's mapping"
 
 msgid "Authentication source for this particular client. If no authentication source is selected, the default one from configuration file will be used."
 msgstr "Authenticatiebron voor deze specifieke client. Als er geen authenticatiebron is geselecteerd, wordt de standaardauthenticatiebron uit het configuratiebestand gebruikt."
@@ -86,23 +86,23 @@ msgid "Authentication source"
 msgstr "Authenticatiebron"
 
 msgid "Authority Hints"
-msgstr "Autoriteit hints"
+msgstr "Authority Hints"
 
 msgid "Authorization Code"
 msgstr "Autorisatiecode"
 
 msgid "Back"
-msgstr "Rug"
+msgstr "Terug"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:387
 msgid "Back-channel Logout URI"
-msgstr "Back-channel afmeld-URI"
+msgstr "Back-channel Logout-URI"
 
 msgid "Before running the migrations, make sure that the database user has proper privileges to change the scheme (for example, <kbd>alter, create, drop, index</kbd>). After running the migrations, it is a good practice to remove those privileges."
 msgstr "Controleer voordat u de migraties uitvoert of de databasegebruiker de juiste rechten heeft om het schema te wijzigen (bijvoorbeeld <kbd>alter, create, drop, index</kbd>). Nadat u de migraties hebt uitgevoerd, is het een goede gewoonte om deze rechten te verwijderen."
 
 msgid "By default, form is populated with current OP issuer and configured Trust Anchors, but you are free to adjust entries as needed."
-msgstr "Standaard wordt het formulier ingevuld met de huidige OP-uitgever en geconfigureerde Trust Anchors, maar u kunt de invoer indien nodig aanpassen."
+msgstr "Standaard wordt het formulier ingevuld met de huidige OP-issuer en geconfigureerde Trust Anchors, maar u kunt de invoer indien nodig aanpassen."
 
 msgid "Cache"
 msgstr "Cache"
@@ -127,11 +127,11 @@ msgstr "Typen clientregistratie"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:113
 msgid "Client Registry"
-msgstr "Cliëntenregister"
+msgstr "Client-register"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:201
 msgid "Client has been added."
-msgstr "Klant is toegevoegd."
+msgstr "Client is toegevoegd."
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:147
 msgid "Client has been deleted."
@@ -265,7 +265,7 @@ msgid "JWKS URI"
 msgstr "JWKS URI"
 
 msgid "Leaf Entity ID"
-msgstr "Bladentiteit-ID"
+msgstr "Leaf Entity ID"
 
 msgid "Log messages"
 msgstr "Logberichten"
@@ -424,7 +424,7 @@ msgid "SimpleSAMLphp admin access required."
 msgstr "SimpleSAMLphp-beheerdersrechten vereist."
 
 msgid "Status"
-msgstr "Staat"
+msgstr "Status"
 
 msgid "Supported ACRs"
 msgstr "Ondersteunde ACR's"
@@ -445,10 +445,10 @@ msgstr ""
 "                Gebruik de onderstaande knop om ze nu uit te voeren."
 
 msgid "Tokens Time-To-Live (TTL)"
-msgstr "Tokens Tijd-tot-Live (TTL)"
+msgstr "Tokens Time-To-Live (TTL)"
 
 msgid "Total chains"
-msgstr "Totaal aantal ketens"
+msgstr "Totaal aantal vertrouwensketens"
 
 msgid "Trust Anchor ID"
 msgstr "Vertrouw op anker-ID"
@@ -478,7 +478,7 @@ msgid "URL to a JWS document containing protocol public keys in JWKS format (cla
 msgstr "URL naar een JWS-document met openbare protocolsleutels in JWKS-formaat (claim 'keys'). Voorbeeld: https://example.org/signed-jwks"
 
 msgid "URLs as allowed origins for CORS requests, for public clients running in browser. Must have http:// or https:// scheme, and at least one 'domain.top-level-domain' pair, or more subdomains. Top-level-domain may end with '.'. No userinfo, path, query or fragment components allowed. May end with port number. One per line. Example: https://example.org"
-msgstr "URL's als toegestane oorsprongen voor CORS-verzoeken, voor openbare clients die in de browser worden uitgevoerd. Moet een http://- of https://-schema hebben en ten minste één 'domein.top-level-domein'-paar, of meer subdomeinen. Top-level-domein mag eindigen op '.'. Geen gebruikersinfo-, pad-, query- of fragmentcomponenten toegestaan. Mag eindigen op poortnummer. Eén per regel. Voorbeeld: https://example.org"
+msgstr "URL's als toegestane bronnen voor CORS-verzoeken, voor openbare clients die in de browser worden uitgevoerd. Moet een http://- of https://-schema hebben en ten minste één 'domein.top-level-domein'-paar, of meer subdomeinen. Top-level-domein mag eindigen op '.'. Geen gebruikersinfo-, pad-, query- of fragmentcomponenten toegestaan. Mag eindigen op poortnummer. Eén per regel. Voorbeeld: https://example.org"
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Admin/Authorization.php:36
 msgid "Unable to initiate SimpleSAMLphp admin authentication."
@@ -514,7 +514,7 @@ msgid "Your session has expired. Please return to the home page and try again."
 msgstr "Uw sessie is verlopen. Ga terug naar de startpagina en probeer het opnieuw."
 
 msgid "disabled"
-msgstr "gehandicapt"
+msgstr "uitgeschakeld"
 
 msgid "enabled"
 msgstr "ingeschakeld"
