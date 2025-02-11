@@ -7,6 +7,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Bridges\SspBridge;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Bridges\SspBridge\Utils;
+use SimpleSAML\Utils\Attributes;
 use SimpleSAML\Utils\Auth;
 use SimpleSAML\Utils\Config;
 use SimpleSAML\Utils\HTTP;
@@ -43,5 +44,10 @@ class UtilsTest extends TestCase
     public function testCanBuildAuthInstance(): void
     {
         $this->assertInstanceOf(Auth::class, $this->sut()->auth());
+    }
+
+    public function testCanBuileAttributesInstance(): void
+    {
+        $this->assertInstanceOf(Attributes::class, $this->sut()->attributes());
     }
 }

@@ -11,10 +11,10 @@ use Lcobucci\JWT\Encoding\ChainedFormatter;
 use Lcobucci\JWT\Signer;
 use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\UnencryptedToken;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
-use SimpleSAML\Module\oidc\Utils\UniqueIdentifierGenerator;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 
 class JsonWebTokenBuilderService
@@ -37,6 +37,7 @@ class JsonWebTokenBuilderService
      */
     public function __construct(
         protected ModuleConfig $moduleConfig = new ModuleConfig(),
+        protected Helpers $helpers = new Helpers(),
     ) {
         $this->protocolJwtConfig = Configuration::forAsymmetricSigner(
             $this->moduleConfig->getProtocolSigner(),
@@ -97,7 +98,7 @@ class JsonWebTokenBuilderService
         return $configuration->builder(ChainedFormatter::withUnixTimestampDates())
             ->issuedBy($this->moduleConfig->getIssuer())
             ->issuedAt(new DateTimeImmutable('now'))
-            ->identifiedBy(UniqueIdentifierGenerator::hitMe());
+            ->identifiedBy($this->helpers->random()->getIdentifier());
     }
 
     /**

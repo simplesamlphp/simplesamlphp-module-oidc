@@ -99,7 +99,7 @@ class EntityStatementControllerTest extends TestCase
         $this->moduleConfigMock->expects($this->once())->method('getFederationEnabled')->willReturn(true);
         $this->federationCacheMock->expects($this->once())->method('get')->willReturn(null);
 
-        // TODO mivanci
+        // TODO v7 mivanci
         $this->markTestIncomplete('Move to simplesamlphp/openid library for building entity statements.');
     }
 }

@@ -7,6 +7,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
@@ -21,6 +22,7 @@ class StateRuleTest extends TestCase
 {
     protected Stub $loggerServiceStub;
     protected Stub $requestParamsResolverStub;
+    protected Helpers $helpers;
 
     /**
      * @throws \Exception
@@ -29,16 +31,25 @@ class StateRuleTest extends TestCase
     {
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
+        $this->helpers = new Helpers();
     }
 
-    protected function mock(): StateRule
-    {
-        return new StateRule($this->requestParamsResolverStub);
+    protected function sut(
+        ?RequestParamsResolver $requestParamsResolver = null,
+        ?Helpers $helpers = null,
+    ): StateRule {
+        $requestParamsResolver ??= $this->requestParamsResolverStub;
+        $helpers ??= $this->helpers;
+
+        return new StateRule(
+            $requestParamsResolver,
+            $helpers,
+        );
     }
 
     public function testGetKey(): void
     {
-        $this->assertSame(StateRule::class, $this->mock()->getKey());
+        $this->assertSame(StateRule::class, $this->sut()->getKey());
     }
 
     /**
@@ -54,7 +65,7 @@ class StateRuleTest extends TestCase
 
         $resultBag = new ResultBag();
         $data = [];
-        $result = $this->mock()->checkRule($request, $resultBag, $this->loggerServiceStub, $data);
+        $result = $this->sut()->checkRule($request, $resultBag, $this->loggerServiceStub, $data);
 
         $this->assertInstanceOf(ResultInterface::class, $result);
         $this->assertSame($value, $result->getValue());
@@ -70,7 +81,7 @@ class StateRuleTest extends TestCase
         $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn(null);
 
         $resultBag = new ResultBag();
-        $result = $this->mock()->checkRule(
+        $result = $this->sut()->checkRule(
             $request,
             $resultBag,
             $this->loggerServiceStub,

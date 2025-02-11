@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Module\oidc\Utils;
+namespace SimpleSAML\Module\oidc\Helpers;
 
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
-class ScopeHelper
+class Scope
 {
     /**
      * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
-    public static function scopeExists(array $scopes, string $scopeIdentifier): bool
+    public function exists(array $scopes, string $scopeIdentifier): bool
     {
         foreach ($scopes as $scope) {
             if (! $scope instanceof ScopeEntityInterface) {

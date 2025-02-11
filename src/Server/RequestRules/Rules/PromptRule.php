@@ -6,7 +6,9 @@ namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
@@ -15,16 +17,17 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
-use SimpleSAML\Utils\HTTP;
 
 class PromptRule extends AbstractRule
 {
     public function __construct(
         RequestParamsResolver $requestParamsResolver,
+        Helpers $helpers,
         private readonly AuthSimpleFactory $authSimpleFactory,
         private readonly AuthenticationService $authenticationService,
+        private readonly SspBridge $sspBridge,
     ) {
-        parent::__construct($requestParamsResolver);
+        parent::__construct($requestParamsResolver, $helpers);
     }
 
     /**
@@ -80,11 +83,12 @@ class PromptRule extends AbstractRule
         if (in_array('login', $prompt, true) && $authSimple->isAuthenticated()) {
             unset($requestParams[ParamsEnum::Prompt->value]);
             $loginParams = [];
-            // TODO mivanci move to SSP Bridge
-            $loginParams['ReturnTo'] = (new HTTP())
-                ->addURLParameters((new HTTP())->getSelfURLNoQuery(), $requestParams);
+            $loginParams['ReturnTo'] = $this->sspBridge->utils()->http()->addURLParameters(
+                $this->sspBridge->utils()->http()->getSelfURLNoQuery(),
+                $requestParams,
+            );
 
-            $this->authenticationService->authenticate($request, $loginParams);
+            $this->authenticationService->authenticate($client, $loginParams);
         }
 
         return null;

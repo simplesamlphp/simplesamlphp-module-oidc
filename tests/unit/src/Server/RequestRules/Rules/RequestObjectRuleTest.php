@@ -10,6 +10,7 @@ use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
@@ -31,6 +32,7 @@ class RequestObjectRuleTest extends TestCase
     protected Stub $requestStub;
     protected Stub $loggerServiceStub;
     protected MockObject $jwksResolverMock;
+    protected Helpers $helpers;
 
     protected function setUp(): void
     {
@@ -46,24 +48,33 @@ class RequestObjectRuleTest extends TestCase
         $this->requestStub = $this->createStub(ServerRequestInterface::class);
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->jwksResolverMock = $this->createMock(JwksResolver::class);
+        $this->helpers = new Helpers();
     }
 
-    protected function mock(): RequestObjectRule
-    {
+    protected function sut(
+        ?RequestParamsResolver $requestParamsResolver = null,
+        ?Helpers $helpers = null,
+        ?JwksResolver $jwksResolver = null,
+    ): RequestObjectRule {
+        $requestParamsResolver ??= $this->requestParamsResolverMock;
+        $helpers ??= $this->helpers;
+        $jwksResolver ??= $this->jwksResolverMock;
+
         return new RequestObjectRule(
-            $this->requestParamsResolverMock,
-            $this->jwksResolverMock,
+            $requestParamsResolver,
+            $helpers,
+            $jwksResolver,
         );
     }
 
     public function testCanCreateInstance(): void
     {
-        $this->assertInstanceOf(RequestObjectRule::class, $this->mock());
+        $this->assertInstanceOf(RequestObjectRule::class, $this->sut());
     }
 
     public function testRequestParamCanBeAbsent(): void
     {
-        $result = $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
+        $result = $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
         $this->assertNull($result);
     }
 
@@ -74,7 +85,7 @@ class RequestObjectRuleTest extends TestCase
         $this->requestParamsResolverMock->expects($this->once())->method('parseRequestObjectToken')
         ->with('token')->willReturn($this->requestObjectMock);
 
-        $result = $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
+        $result = $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
         $this->assertInstanceOf(Result::class, $result);
         $this->assertIsArray($result->getValue());
         $this->assertNotEmpty($result->getValue());
@@ -89,7 +100,7 @@ class RequestObjectRuleTest extends TestCase
         $this->clientStub->expects($this->once())->method('getJwks')->willReturn(null);
 
         $this->expectException(OidcServerException::class);
-        $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
+        $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
     }
 
     public function testThrowsForInvalidRequestObject(): void
@@ -105,7 +116,7 @@ class RequestObjectRuleTest extends TestCase
             ->willReturn(['jwks']);
 
         $this->expectException(OidcServerException::class);
-        $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
+        $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
     }
 
     public function testReturnsValidRequestObject(): void
@@ -121,7 +132,7 @@ class RequestObjectRuleTest extends TestCase
             ->with($this->clientStub)
             ->willReturn(['jwks']);
 
-        $result = $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
+        $result = $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
 
         $this->assertInstanceOf(Result::class, $result);
         $this->assertIsArray($result->getValue());

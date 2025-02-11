@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Bridges\SspBridge;
 
+use SimpleSAML\Utils\Attributes;
 use SimpleSAML\Utils\Auth;
 use SimpleSAML\Utils\Config;
 use SimpleSAML\Utils\HTTP;
@@ -15,6 +16,7 @@ class Utils
     protected static ?HTTP $http = null;
     protected static ?Random $random = null;
     protected static ?Auth $auth = null;
+    protected static ?Attributes $attributes = null;
 
     public function config(): Config
     {
@@ -34,5 +36,10 @@ class Utils
     public function auth(): Auth
     {
         return self::$auth ??= new Auth();
+    }
+
+    public function attributes(): Attributes
+    {
+        return self::$attributes ??= new Attributes();
     }
 }

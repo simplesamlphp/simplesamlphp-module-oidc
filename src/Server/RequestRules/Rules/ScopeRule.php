@@ -21,10 +21,10 @@ class ScopeRule extends AbstractRule
 {
     public function __construct(
         RequestParamsResolver $requestParamsResolver,
+        Helpers $helpers,
         protected ScopeRepositoryInterface $scopeRepository,
-        protected Helpers $helpers,
     ) {
-        parent::__construct($requestParamsResolver);
+        parent::__construct($requestParamsResolver, $helpers);
     }
 
     /**

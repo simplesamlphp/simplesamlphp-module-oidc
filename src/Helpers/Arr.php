@@ -7,6 +7,23 @@ namespace SimpleSAML\Module\oidc\Helpers;
 class Arr
 {
     /**
+     * Find item in array using the given callable.
+     *
+     * @return mixed|null
+     */
+    public function findByCallback(array $arr, callable $fn): mixed
+    {
+        /** @psalm-suppress MixedAssignment */
+        foreach ($arr as $x) {
+            if (call_user_func($fn, $x) === true) {
+                return $x;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * @param array $values
      * @return string[]
      */

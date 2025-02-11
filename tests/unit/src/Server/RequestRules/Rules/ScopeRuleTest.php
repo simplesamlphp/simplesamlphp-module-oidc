@@ -69,18 +69,25 @@ class ScopeRuleTest extends TestCase
         $this->helpersStub->method('str')->willReturn($this->strHelperMock);
     }
 
-    protected function mock(): ScopeRule
-    {
+    protected function sut(
+        ?RequestParamsResolver $requestParamsResolver = null,
+        ?Helpers $helpers = null,
+        ?ScopeRepositoryInterface $scopeRepository = null,
+    ): ScopeRule {
+        $requestParamsResolver ??= $this->requestParamsResolverStub;
+        $helpers ??= $this->helpersStub;
+        $scopeRepository ??= $this->scopeRepositoryStub;
+
         return new ScopeRule(
-            $this->requestParamsResolverStub,
-            $this->scopeRepositoryStub,
-            $this->helpersStub,
+            $requestParamsResolver,
+            $helpers,
+            $scopeRepository,
         );
     }
 
     public function testConstruct(): void
     {
-        $this->assertInstanceOf(ScopeRule::class, $this->mock());
+        $this->assertInstanceOf(ScopeRule::class, $this->sut());
     }
 
     /**
@@ -91,7 +98,7 @@ class ScopeRuleTest extends TestCase
     {
         $resultBag = new ResultBag();
         $this->expectException(LogicException::class);
-        $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->data);
+        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->data);
     }
 
     /**
@@ -103,7 +110,7 @@ class ScopeRuleTest extends TestCase
         $resultBag = new ResultBag();
         $resultBag->add($this->redirectUriResult);
         $this->expectException(LogicException::class);
-        $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->data);
+        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->data);
     }
 
     /**
@@ -127,7 +134,7 @@ class ScopeRuleTest extends TestCase
                 ),
             );
 
-        $result = $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->data);
+        $result = $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->data);
         $this->assertInstanceOf(ResultInterface::class, $result);
         $this->assertIsArray($result->getValue());
         $this->assertSame($this->scopeEntities['openid'], $result->getValue()[0]);
@@ -154,7 +161,7 @@ class ScopeRuleTest extends TestCase
             );
 
         $this->expectException(OidcServerException::class);
-        $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->data);
+        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->data);
     }
 
     protected function prepareValidResultBag(): ResultBag

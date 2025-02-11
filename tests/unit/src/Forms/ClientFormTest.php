@@ -6,19 +6,21 @@ namespace SimpleSAML\Test\Module\oidc\unit\Forms;
 
 use DateTimeImmutable;
 use Laminas\Diactoros\ServerRequest;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Forms\ClientForm;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Forms\ClientForm
- */
+#[CoversClass(ClientForm::class)]
+#[UsesClass(Helpers::class)]
 class ClientFormTest extends TestCase
 {
     protected MockObject $csrfProtectionMock;
@@ -29,6 +31,7 @@ class ClientFormTest extends TestCase
     protected MockObject $sspBridgeMock;
     protected MockObject $sspBridgeAuthMock;
     protected MockObject $sspBridgeAuthSourceMock;
+    protected Helpers $helpers;
 
     protected array $clientDataSample;
 
@@ -42,6 +45,7 @@ class ClientFormTest extends TestCase
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->serverRequestMock = $this->createMock(ServerRequest::class);
         $this->sspBridgeMock = $this->createMock(SspBridge::class);
+        $this->helpers = new Helpers();
 
         $this->sspBridgeAuthMock = $this->createMock(SspBridge\Auth::class);
         $this->sspBridgeMock->method('auth')->willReturn($this->sspBridgeAuthMock);
@@ -85,15 +89,18 @@ class ClientFormTest extends TestCase
         ?ModuleConfig $moduleConfig = null,
         ?CsrfProtection $csrfProtection = null,
         ?SspBridge $sspBridge = null,
+        ?Helpers $helpers = null,
     ): ClientForm {
         $moduleConfig ??= $this->moduleConfigMock;
         $csrfProtection ??= $this->csrfProtectionMock;
         $sspBridge ??= $this->sspBridgeMock;
+        $helpers ??= $this->helpers;
 
         return new ClientForm(
             $moduleConfig,
             $csrfProtection,
             $sspBridge,
+            $helpers,
         );
     }
 

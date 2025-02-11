@@ -7,6 +7,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
@@ -22,6 +23,7 @@ class UiLocalesRuleTest extends TestCase
     protected Stub $resultBagStub;
     protected Stub $loggerServiceStub;
     protected Stub $requestParamsResolverStub;
+    protected Helpers $helpers;
 
     /**
      * @throws \Exception
@@ -34,11 +36,20 @@ class UiLocalesRuleTest extends TestCase
         $this->resultBagStub = $this->createStub(ResultBagInterface::class);
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
+        $this->helpers = new Helpers();
     }
 
-    protected function mock(): UiLocalesRule
-    {
-        return new UiLocalesRule($this->requestParamsResolverStub);
+    protected function sut(
+        ?RequestParamsResolver $requestParamsResolver = null,
+        ?Helpers $helpers = null,
+    ): UiLocalesRule {
+        $requestParamsResolver ??= $this->requestParamsResolverStub;
+        $helpers ??= $this->helpers;
+
+        return new UiLocalesRule(
+            $requestParamsResolver,
+            $helpers,
+        );
     }
 
     /**
@@ -48,7 +59,7 @@ class UiLocalesRuleTest extends TestCase
     {
         $this->requestParamsResolverStub->method('getBasedOnAllowedMethods')->willReturn('en');
 
-        $result = $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
+        $result = $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
         new Result(UiLocalesRule::class);
 
         $this->assertEquals('en', $result->getValue());
@@ -61,7 +72,7 @@ class UiLocalesRuleTest extends TestCase
     {
         $this->requestStub->method('getQueryParams')->willReturn([]);
 
-        $result = $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
+        $result = $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
         new Result(UiLocalesRule::class);
 
         $this->assertNull($result->getValue());

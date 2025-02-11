@@ -38,7 +38,7 @@ class ResponseTypeRule extends AbstractRule
             throw  OidcServerException::invalidRequest('Missing response_type or client_id');
         }
 
-        // TODO consider checking for supported response types, for example, from configuration...
+        // TODO v7 consider checking for supported response types, for example, from configuration...
 
         return new Result($this->getKey(), $requestParams[ParamsEnum::ResponseType->value]);
     }

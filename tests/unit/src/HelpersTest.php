@@ -16,6 +16,7 @@ use SimpleSAML\Module\oidc\Helpers;
 #[UsesClass(Helpers\Str::class)]
 #[UsesClass(Helpers\Arr::class)]
 #[UsesClass(Helpers\Random::class)]
+#[UsesClass(Helpers\Scope::class)]
 class HelpersTest extends TestCase
 {
     protected function sut(): Helpers
@@ -31,5 +32,6 @@ class HelpersTest extends TestCase
         $this->assertInstanceOf(Helpers\Str::class, $this->sut()->str());
         $this->assertInstanceOf(Helpers\Arr::class, $this->sut()->arr());
         $this->assertInstanceOf(Helpers\Random::class, $this->sut()->random());
+        $this->assertInstanceOf(Helpers\Scope::class, $this->sut()->scope());
     }
 }
