@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Factories;
 
+use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -60,6 +61,7 @@ class RequestRulesManagerFactory
         private readonly Helpers $helpers,
         private readonly JwksResolver $jwksResolver,
         private readonly FederationParticipationValidator $federationParticipationValidator,
+        private readonly SspBridge $sspBridge,
         private readonly ?FederationCache $federationCache = null,
         private readonly ?ProtocolCache $protocolCache = null,
     ) {
@@ -106,6 +108,7 @@ class RequestRulesManagerFactory
                 $this->helpers,
                 $this->authSimpleFactory,
                 $this->authenticationService,
+                $this->sspBridge,
             ),
             new ScopeRule($this->requestParamsResolver, $this->helpers, $this->scopeRepository),
             new RequiredOpenIdScopeRule($this->requestParamsResolver, $this->helpers),
