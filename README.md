@@ -60,7 +60,7 @@ Installation can be as easy as executing:
 
 Copy the module config template file to the SimpleSAMLphp config directory:
 
-    cp modules/oidc/config/module_oidc.php.dist config/
+    cp modules/oidc/config/module_oidc.php.dist config/module_oidc.php
 
 The options are self-explanatory, so make sure to go through the file and edit them as appropriate.
 
