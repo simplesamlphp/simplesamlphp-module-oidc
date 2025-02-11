@@ -89,7 +89,7 @@ class AuthenticationService
         ServerRequestInterface $request,
         OAuth2AuthorizationRequest $authorizationRequest,
     ): array {
-        // TODO mivanci Fix: client has already been resolved up to this point, but we are again fetching it from DB.
+        // TODO mivanci v7 Fix: client has already been resolved up to this point, but we are again fetching it from DB.
         $oidcClient = $this->helpers->client()->getFromRequest($request, $this->clientRepository);
         $authSimple = $this->authSimpleFactory->build($oidcClient);
 

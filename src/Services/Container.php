@@ -374,7 +374,7 @@ class Container implements ContainerInterface
             ),
             new RedirectUriRule($requestParamsResolver, $helpers),
             new RequestObjectRule($requestParamsResolver, $helpers, $jwksResolver),
-            new PromptRule($requestParamsResolver, $helpers, $authSimpleFactory, $authenticationService),
+            new PromptRule($requestParamsResolver, $helpers, $authSimpleFactory, $authenticationService, $sspBridge),
             new MaxAgeRule($requestParamsResolver, $helpers, $authSimpleFactory, $authenticationService, $sspBridge),
             new ScopeRule($requestParamsResolver, $helpers, $scopeRepository),
             new RequiredOpenIdScopeRule($requestParamsResolver, $helpers),

@@ -102,6 +102,7 @@ class RequestRulesManagerFactory
                 $this->helpers,
                 $this->authSimpleFactory,
                 $this->authenticationService,
+                $this->sspBridge,
             ),
             new MaxAgeRule(
                 $this->requestParamsResolver,
