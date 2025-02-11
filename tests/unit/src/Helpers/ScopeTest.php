@@ -2,18 +2,17 @@
 
 declare(strict_types=1);
 
-namespace SimpleSAML\Test\Module\oidc\unit\Utils;
+namespace SimpleSAML\Test\Module\oidc\unit\Helpers;
 
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\Helpers\Scope;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\Module\oidc\Utils\ScopeHelper;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Utils\ScopeHelper
- */
-class ScopeHelperTest extends TestCase
+#[CoversClass(Scope::class)]
+class ScopeTest extends TestCase
 {
     protected Stub $scopeEntityOpenIdStub;
     protected Stub $scopeEntityProfileStub;
@@ -34,20 +33,25 @@ class ScopeHelperTest extends TestCase
         ];
     }
 
+    protected function sut(): Scope
+    {
+        return new Scope();
+    }
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testCanCheckScopeExistence(): void
     {
-        $this->assertTrue(ScopeHelper::scopeExists($this->scopeEntitiesArray, 'openid'));
-        $this->assertTrue(ScopeHelper::scopeExists($this->scopeEntitiesArray, 'profile'));
-        $this->assertFalse(ScopeHelper::scopeExists($this->scopeEntitiesArray, 'invalid'));
+        $this->assertTrue($this->sut()->exists($this->scopeEntitiesArray, 'openid'));
+        $this->assertTrue($this->sut()->exists($this->scopeEntitiesArray, 'profile'));
+        $this->assertFalse($this->sut()->exists($this->scopeEntitiesArray, 'invalid'));
     }
 
     public function testThrowsForInvalidScopeEntity(): void
     {
         $this->expectException(OidcServerException::class);
 
-        ScopeHelper::scopeExists(['invalid'], 'test');
+        $this->sut()->exists(['invalid'], 'test');
     }
 }

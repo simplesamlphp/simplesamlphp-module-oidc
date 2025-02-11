@@ -22,13 +22,13 @@ class ArrTest extends TestCase
             'a',
             $this->sut()->findByCallback(
                 ['a', 'b', 'c'],
-                fn($item): bool => $item === 'a'
+                fn($item): bool => $item === 'a',
             ),
         );
 
         $this->assertNull($this->sut()->findByCallback(
             ['a', 'b', 'c'],
-            fn($item): bool => $item === 'd'
+            fn($item): bool => $item === 'd',
         ));
     }
 

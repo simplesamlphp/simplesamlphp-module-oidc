@@ -9,6 +9,7 @@ use SimpleSAML\Module\oidc\Helpers\Client;
 use SimpleSAML\Module\oidc\Helpers\DateTime;
 use SimpleSAML\Module\oidc\Helpers\Http;
 use SimpleSAML\Module\oidc\Helpers\Random;
+use SimpleSAML\Module\oidc\Helpers\Scope;
 use SimpleSAML\Module\oidc\Helpers\Str;
 
 class Helpers
@@ -19,6 +20,7 @@ class Helpers
     protected static ?Str $str = null;
     protected static ?Arr $arr = null;
     protected static ?Random $random = null;
+    protected static ?Scope $scope = null;
 
     public function http(): Http
     {
@@ -50,5 +52,10 @@ class Helpers
     public function random(): Random
     {
         return static::$random ??= new Random();
+    }
+
+    public function scope(): Scope
+    {
+        return static::$scope ??= new Scope();
     }
 }

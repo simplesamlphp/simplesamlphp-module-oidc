@@ -60,7 +60,6 @@ use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInte
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\SessionIdResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
-use SimpleSAML\Module\oidc\Utils\ScopeHelper;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
@@ -555,7 +554,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         }
 
         // Release refresh token if it is requested by using offline_access scope.
-        if (ScopeHelper::scopeExists($scopes, 'offline_access')) {
+        if ($this->helpers->scope()->exists($scopes, 'offline_access')) {
             // Issue and persist new refresh token if given
             $refreshToken = $this->issueRefreshToken($accessToken, $authCodePayload->auth_code_id);
 

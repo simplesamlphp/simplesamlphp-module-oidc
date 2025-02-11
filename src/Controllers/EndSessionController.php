@@ -41,7 +41,7 @@ class EndSessionController
      */
     public function __invoke(ServerRequestInterface $request): Response
     {
-        // TODO Back-Channel Logout: https://openid.net/specs/openid-connect-backchannel-1_0.html
+        // TODO v7 Back-Channel Logout: https://openid.net/specs/openid-connect-backchannel-1_0.html
         //      [] Refresh tokens issued without the offline_access property to a session being logged out SHOULD
         //           be revoked. Refresh tokens issued with the offline_access property normally SHOULD NOT be revoked.
         //      - offline_access scope is now handled.
@@ -147,7 +147,7 @@ class EndSessionController
         $sessionLogoutTickets = $sessionLogoutTicketStore->getAll();
 
         if (!empty($sessionLogoutTickets)) {
-            // TODO low mivanci This could brake since interface does not mandate type. Move to strong typing.
+            // TODO v7 low mivanci This could brake since interface does not mandate type. Move to strong typing.
             /** @var array $sessionLogoutTicket */
             foreach ($sessionLogoutTickets as $sessionLogoutTicket) {
                 $sid = (string)$sessionLogoutTicket['sid'];
