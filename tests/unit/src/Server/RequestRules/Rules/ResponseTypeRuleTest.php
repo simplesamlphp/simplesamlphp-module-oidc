@@ -7,6 +7,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
@@ -21,6 +22,7 @@ class ResponseTypeRuleTest extends TestCase
 {
     protected Stub $requestStub;
     protected Stub $requestParamsResolverStub;
+    protected Helpers $helpers;
 
     protected array $requestParams = [
         'client_id' => 'client123',
@@ -58,11 +60,20 @@ class ResponseTypeRuleTest extends TestCase
         $this->resultBag = new ResultBag();
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
+        $this->helpers = new Helpers();
     }
 
-    protected function mock(): ResponseTypeRule
-    {
-        return new ResponseTypeRule($this->requestParamsResolverStub);
+    protected function sut(
+        ?RequestParamsResolver $requestParamsResolver = null,
+        ?Helpers $helpers = null,
+    ): ResponseTypeRule {
+        $requestParamsResolver ??= $this->requestParamsResolverStub;
+        $helpers ??= $this->helpers;
+
+        return new ResponseTypeRule(
+            $requestParamsResolver,
+            $helpers,
+        );
     }
 
     /**
@@ -73,7 +84,7 @@ class ResponseTypeRuleTest extends TestCase
     {
         $this->requestParams['response_type'] = $responseType;
         $this->requestParamsResolverStub->method('getAllBasedOnAllowedMethods')->willReturn($this->requestParams);
-        $result = $this->mock()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub) ??
+        $result = $this->sut()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub) ??
         new Result(ResponseTypeRule::class, null);
         $this->assertSame($responseType, $result->getValue());
     }
@@ -92,6 +103,6 @@ class ResponseTypeRuleTest extends TestCase
         unset($params['response_type']);
         $this->requestParamsResolverStub->method('getAllBasedOnAllowedMethods')->willReturn($params);
         $this->expectException(OidcServerException::class);
-        $this->mock()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
+        $this->sut()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
     }
 }

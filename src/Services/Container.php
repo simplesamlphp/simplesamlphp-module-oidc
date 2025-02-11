@@ -132,24 +132,32 @@ class Container implements ContainerInterface
         $authSimpleFactory = new AuthSimpleFactory($moduleConfig);
         $this->services[AuthSimpleFactory::class] = $authSimpleFactory;
 
-        $authContextService = new AuthContextService($moduleConfig, $authSimpleFactory);
+        $sspBridge = new SspBridge();
+        $this->services[SspBridge::class] = $sspBridge;
+
+        $authContextService = new AuthContextService(
+            $moduleConfig,
+            $authSimpleFactory,
+            $sspBridge,
+        );
         $this->services[AuthContextService::class] = $authContextService;
 
         $session = Session::getSessionFromRequest();
         $this->services[Session::class] = $session;
+
+        $helpers = new Helpers();
+        $this->services[Helpers::class] = $helpers;
 
         $csrfProtection = new CsrfProtection(
             Translate::noop('Your session has expired. Please return to the home page and try again.'),
             $session,
         );
 
-        $sspBridge = new SspBridge();
-        $this->services[SspBridge::class] = $sspBridge;
-
         $formFactory = new FormFactory(
             $moduleConfig,
             $csrfProtection,
             $sspBridge,
+            $helpers,
         );
         $this->services[FormFactory::class] = $formFactory;
 
@@ -201,8 +209,6 @@ class Container implements ContainerInterface
 
         $stateService = new StateService();
         $this->services[StateService::class] = $stateService;
-
-        $helpers = new Helpers();
 
         $core = new Core();
         $this->services[Core::class] = $core;
@@ -359,43 +365,43 @@ class Container implements ContainerInterface
         $this->services[FederationParticipationValidator::class] = $federationParticipationValidator;
 
         $requestRules = [
-            new StateRule($requestParamsResolver),
+            new StateRule($requestParamsResolver, $helpers),
             new ClientIdRule(
                 $requestParamsResolver,
+                $helpers,
                 $clientRepository,
                 $moduleConfig,
                 $clientEntityFactory,
                 $federation,
-                $helpers,
                 $jwksResolver,
                 $federationParticipationValidator,
                 $federationCache,
             ),
-            new RedirectUriRule($requestParamsResolver),
-            new RequestObjectRule($requestParamsResolver, $jwksResolver),
-            new PromptRule($requestParamsResolver, $authSimpleFactory, $authenticationService),
-            new MaxAgeRule($requestParamsResolver, $authSimpleFactory, $authenticationService),
-            new ScopeRule($requestParamsResolver, $scopeRepository, $helpers),
-            new RequiredOpenIdScopeRule($requestParamsResolver),
-            new CodeChallengeRule($requestParamsResolver),
-            new CodeChallengeMethodRule($requestParamsResolver, $codeChallengeVerifiersRepository),
-            new RequestedClaimsRule($requestParamsResolver, $claimTranslatorExtractor),
-            new AddClaimsToIdTokenRule($requestParamsResolver),
-            new RequiredNonceRule($requestParamsResolver),
-            new ResponseTypeRule($requestParamsResolver),
-            new IdTokenHintRule($requestParamsResolver, $moduleConfig, $cryptKeyFactory),
-            new PostLogoutRedirectUriRule($requestParamsResolver, $clientRepository),
-            new UiLocalesRule($requestParamsResolver),
-            new AcrValuesRule($requestParamsResolver),
-            new ScopeOfflineAccessRule($requestParamsResolver),
+            new RedirectUriRule($requestParamsResolver, $helpers),
+            new RequestObjectRule($requestParamsResolver, $helpers, $jwksResolver),
+            new PromptRule($requestParamsResolver, $helpers, $authSimpleFactory, $authenticationService, $sspBridge),
+            new MaxAgeRule($requestParamsResolver, $helpers, $authSimpleFactory, $authenticationService, $sspBridge),
+            new ScopeRule($requestParamsResolver, $helpers, $scopeRepository),
+            new RequiredOpenIdScopeRule($requestParamsResolver, $helpers),
+            new CodeChallengeRule($requestParamsResolver, $helpers),
+            new CodeChallengeMethodRule($requestParamsResolver, $helpers, $codeChallengeVerifiersRepository),
+            new RequestedClaimsRule($requestParamsResolver, $helpers, $claimTranslatorExtractor),
+            new AddClaimsToIdTokenRule($requestParamsResolver, $helpers),
+            new RequiredNonceRule($requestParamsResolver, $helpers),
+            new ResponseTypeRule($requestParamsResolver, $helpers),
+            new IdTokenHintRule($requestParamsResolver, $helpers, $moduleConfig, $cryptKeyFactory),
+            new PostLogoutRedirectUriRule($requestParamsResolver, $helpers, $clientRepository),
+            new UiLocalesRule($requestParamsResolver, $helpers),
+            new AcrValuesRule($requestParamsResolver, $helpers),
+            new ScopeOfflineAccessRule($requestParamsResolver, $helpers),
             new ClientAuthenticationRule(
                 $requestParamsResolver,
+                $helpers,
                 $moduleConfig,
                 $jwksResolver,
-                $helpers,
                 $protocolCache,
             ),
-            new CodeVerifierRule($requestParamsResolver),
+            new CodeVerifierRule($requestParamsResolver, $helpers),
         ];
         $requestRuleManager = new RequestRulesManager($requestRules, $loggerService);
         $this->services[RequestRulesManager::class] = $requestRuleManager;
@@ -440,6 +446,7 @@ class Container implements ContainerInterface
             $accessTokenEntityFactory,
             $authCodeEntityFactory,
             $refreshTokenIssuer,
+            $helpers,
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 

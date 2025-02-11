@@ -299,7 +299,7 @@ class ClientController
     }
 
     /**
-     * TODO mivanci Move to ClientEntityFactory::fromRegistrationData on dynamic client registration implementation.
+     * TODO v7 mivanci Move to ClientEntityFactory::fromRegistrationData on dynamic client registration implementation.
      * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
      */
     protected function buildClientEntityFromFormData(

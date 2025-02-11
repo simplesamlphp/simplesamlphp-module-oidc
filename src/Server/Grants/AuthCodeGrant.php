@@ -27,6 +27,7 @@ use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
@@ -58,9 +59,7 @@ use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeI
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\SessionIdResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
-use SimpleSAML\Module\oidc\Utils\Arr;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
-use SimpleSAML\Module\oidc\Utils\ScopeHelper;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
@@ -165,6 +164,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         AccessTokenEntityFactory $accessTokenEntityFactory,
         protected AuthCodeEntityFactory $authCodeEntityFactory,
         protected RefreshTokenIssuer $refreshTokenIssuer,
+        protected Helpers $helpers,
     ) {
         parent::__construct($authCodeRepository, $refreshTokenRepository, $authCodeTTL);
 
@@ -211,7 +211,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         OAuth2AuthorizationRequest $authorizationRequest,
     ): bool {
         // Check if the scopes contain 'oidc' scope
-        return (bool) Arr::find(
+        return (bool) $this->helpers->arr()->findByCallback(
             $authorizationRequest->getScopes(),
             fn(ScopeEntityInterface $scope) => $scope->getIdentifier() === 'openid',
         );
@@ -554,7 +554,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         }
 
         // Release refresh token if it is requested by using offline_access scope.
-        if (ScopeHelper::scopeExists($scopes, 'offline_access')) {
+        if ($this->helpers->scope()->exists($scopes, 'offline_access')) {
             // Issue and persist new refresh token if given
             $refreshToken = $this->issueRefreshToken($accessToken, $authCodePayload->auth_code_id);
 

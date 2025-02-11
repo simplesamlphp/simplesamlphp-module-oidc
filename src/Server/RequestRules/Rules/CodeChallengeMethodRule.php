@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Repositories\CodeChallengeVerifiersRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
@@ -19,9 +20,10 @@ class CodeChallengeMethodRule extends AbstractRule
 {
     public function __construct(
         RequestParamsResolver $requestParamsResolver,
+        Helpers $helpers,
         protected CodeChallengeVerifiersRepository $codeChallengeVerifiersRepository,
     ) {
-        parent::__construct($requestParamsResolver);
+        parent::__construct($requestParamsResolver, $helpers);
     }
 
     /**

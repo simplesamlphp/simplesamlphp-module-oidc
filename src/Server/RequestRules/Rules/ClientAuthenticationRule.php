@@ -26,12 +26,12 @@ class ClientAuthenticationRule extends AbstractRule
 
     public function __construct(
         RequestParamsResolver $requestParamsResolver,
+        Helpers $helpers,
         protected ModuleConfig $moduleConfig,
         protected JwksResolver $jwksResolver,
-        protected Helpers $helpers,
         protected ?ProtocolCache $protocolCache,
     ) {
-        parent::__construct($requestParamsResolver);
+        parent::__construct($requestParamsResolver, $helpers);
     }
 
     /**

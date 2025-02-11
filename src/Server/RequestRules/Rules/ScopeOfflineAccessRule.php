@@ -10,7 +10,6 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\ScopeHelper;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 class ScopeOfflineAccessRule extends AbstractRule
@@ -37,7 +36,7 @@ class ScopeOfflineAccessRule extends AbstractRule
         $validScopes = $currentResultBag->getOrFail(ScopeRule::class)->getValue();
 
         // Check if offline_access scope is used. If not, we don't have to check anything else.
-        if (! ScopeHelper::scopeExists($validScopes, 'offline_access')) {
+        if (! $this->helpers->scope()->exists($validScopes, 'offline_access')) {
             return new Result($this->getKey(), false);
         }
 

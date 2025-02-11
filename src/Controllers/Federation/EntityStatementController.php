@@ -95,7 +95,7 @@ class EntityStatementController
                         )),
                         ClaimsEnum::FederationFetchEndpoint->value =>
                             $this->moduleConfig->getModuleUrl(RoutesEnum::FederationFetch->value),
-                        // TODO mivanci Add when ready. Use ClaimsEnum for keys.
+                        // TODO v7 mivanci Add when ready. Use ClaimsEnum for keys.
                         // https://openid.net/specs/openid-federation-1_0.html#name-federation-entity
                         //'federation_list_endpoint',
                         //'federation_resolve_endpoint',
@@ -149,7 +149,7 @@ class EntityStatementController
             $builder = $builder->withClaim(ClaimsEnum::TrustMarks->value, $trustMarks);
         }
 
-        // TODO mivanci Continue
+        // TODO v7 mivanci Continue
         // Remaining claims, add if / when ready.
         // * crit
 
@@ -235,14 +235,14 @@ class EntityStatementController
                                 ClaimsEnum::PostLogoutRedirectUris->value => $client->getPostLogoutRedirectUri(),
                             ],
                         )),
-                        // TODO mivanci Continue
+                        // TODO v7 mivanci Continue
                         // https://openid.net/specs/openid-connect-registration-1_0.html#ClientMetadata
                         // https://www.iana.org/assignments/oauth-parameters/oauth-parameters.xhtml#client-metadata
                     ],
                 ],
             );
 
-        // TODO mivanci Continue
+        // TODO v7 mivanci Continue
         // Note: claims which can be present in subordinate statements:
         // * metadata_policy
         // * constraints

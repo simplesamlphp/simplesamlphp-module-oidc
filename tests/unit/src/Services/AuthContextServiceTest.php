@@ -10,9 +10,11 @@ use RuntimeException;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Configuration;
 use SimpleSAML\Error\Exception;
+use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
+use SimpleSAML\Utils\Attributes;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Services\AuthContextService
@@ -28,6 +30,9 @@ class AuthContextServiceTest extends TestCase
     protected MockObject $moduleConfigMock;
     protected MockObject $authSimpleService;
     protected MockObject $authSimpleFactory;
+    protected MockObject $sspBridgeMock;
+    protected MockObject $sspBridgeUtilsMock;
+    protected MockObject $sspBridgeUtilsAttributesMock;
 
     /**
      * @throws \PHPUnit\Framework\MockObject\Exception
@@ -52,13 +57,27 @@ class AuthContextServiceTest extends TestCase
 
         $this->authSimpleFactory = $this->createMock(AuthSimpleFactory::class);
         $this->authSimpleFactory->method('getDefaultAuthSource')->willReturn($this->authSimpleService);
+
+        $this->sspBridgeMock = $this->createMock(SspBridge::class);
+        $this->sspBridgeUtilsMock = $this->createMock(SspBridge\Utils::class);
+        $this->sspBridgeMock->method('utils')->willReturn($this->sspBridgeUtilsMock);
+        $this->sspBridgeUtilsAttributesMock = $this->createMock(Attributes::class);
+        $this->sspBridgeUtilsMock->method('attributes')->willReturn($this->sspBridgeUtilsAttributesMock);
     }
 
-    protected function prepareMockedInstance(): AuthContextService
-    {
+    protected function sut(
+        ?ModuleConfig $moduleConfig = null,
+        ?AuthSimpleFactory $authSimpleFactory = null,
+        ?SspBridge $sspBridge = null,
+    ): AuthContextService {
+        $moduleConfig ??= $this->moduleConfigMock;
+        $authSimpleFactory ??= $this->authSimpleFactory;
+        $sspBridge ??= $this->sspBridgeMock;
+
         return new AuthContextService(
-            $this->moduleConfigMock,
-            $this->authSimpleFactory,
+            $moduleConfig,
+            $authSimpleFactory,
+            $sspBridge,
         );
     }
 
@@ -66,7 +85,7 @@ class AuthContextServiceTest extends TestCase
     {
         $this->assertInstanceOf(
             AuthContextService::class,
-            $this->prepareMockedInstance(),
+            $this->sut(),
         );
     }
 
@@ -77,9 +96,15 @@ class AuthContextServiceTest extends TestCase
     {
         $this->moduleConfigMock->method('getUserIdentifierAttribute')->willReturn('idAttribute');
         $this->authSimpleService->method('getAttributes')->willReturn(self::AUTHORIZED_USER);
+        $this->sspBridgeUtilsAttributesMock->expects($this->once())->method('getExpectedAttribute')
+            ->with(
+                self::AUTHORIZED_USER,
+                'idAttribute',
+            )
+            ->willReturn(self::AUTHORIZED_USER['idAttribute'][0]);
 
         $this->assertSame(
-            $this->prepareMockedInstance()->getAuthUserId(),
+            $this->sut()->getAuthUserId(),
             'myUsername',
         );
     }
@@ -94,8 +119,12 @@ class AuthContextServiceTest extends TestCase
             ->willReturn('attributeNotSet');
         $this->authSimpleService->method('getAttributes')->willReturn(self::AUTHORIZED_USER);
 
+        $this->sspBridgeUtilsAttributesMock->expects($this->once())->method('getExpectedAttribute')
+            ->with(self::AUTHORIZED_USER)
+            ->willThrowException(new Exception('error'));
+
         $this->expectException(Exception::class);
-        $this->prepareMockedInstance()->getAuthUserId();
+        $this->sut()->getAuthUserId();
     }
 
     /**
@@ -108,7 +137,7 @@ class AuthContextServiceTest extends TestCase
             ->willReturn($this->permissions);
         $this->authSimpleService->method('getAttributes')->willReturn(self::AUTHORIZED_USER);
 
-        $this->prepareMockedInstance()->requirePermission('client');
+        $this->sut()->requirePermission('client');
         $this->expectNotToPerformAssertions();
     }
 
@@ -121,7 +150,7 @@ class AuthContextServiceTest extends TestCase
             ->with(ModuleConfig::OPTION_ADMIN_UI_PERMISSIONS, null)
             ->willReturn($this->permissions);
         $this->expectException(RuntimeException::class);
-        $this->prepareMockedInstance()->requirePermission('no-match');
+        $this->sut()->requirePermission('no-match');
     }
 
     /**
@@ -141,7 +170,7 @@ class AuthContextServiceTest extends TestCase
             );
 
         $this->expectException(RuntimeException::class);
-        $this->prepareMockedInstance()->requirePermission('client');
+        $this->sut()->requirePermission('client');
     }
 
     /**
@@ -160,7 +189,7 @@ class AuthContextServiceTest extends TestCase
             );
 
         $this->expectException(RuntimeException::class);
-        $this->prepareMockedInstance()->requirePermission('client');
+        $this->sut()->requirePermission('client');
     }
 
     /**
@@ -173,6 +202,6 @@ class AuthContextServiceTest extends TestCase
             ->willReturn(Configuration::loadFromArray([]));
 
         $this->expectException(RuntimeException::class);
-        $this->prepareMockedInstance()->requirePermission('client');
+        $this->sut()->requirePermission('client');
     }
 }

@@ -9,6 +9,7 @@ use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
@@ -37,6 +38,7 @@ class CodeChallengeRuleTest extends TestCase
     protected Stub $requestParamsResolverStub;
     protected Stub $clientStub;
     protected Result $clientIdResult;
+    protected Helpers $helpers;
 
     /**
      * @throws \Exception
@@ -51,11 +53,20 @@ class CodeChallengeRuleTest extends TestCase
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
         $this->clientStub = $this->createStub(ClientEntityInterface::class);
         $this->clientIdResult = new Result(ClientIdRule::class, $this->clientStub);
+        $this->helpers = new Helpers();
     }
 
-    protected function mock(): CodeChallengeRule
-    {
-        return new CodeChallengeRule($this->requestParamsResolverStub);
+    protected function sut(
+        ?RequestParamsResolver $requestParamsResolver = null,
+        ?Helpers $helpers = null,
+    ): CodeChallengeRule {
+        $requestParamsResolver ??= $this->requestParamsResolverStub;
+        $helpers ??= $this->helpers;
+
+        return new CodeChallengeRule(
+            $requestParamsResolver,
+            $helpers,
+        );
     }
 
     /**
@@ -66,7 +77,7 @@ class CodeChallengeRuleTest extends TestCase
     {
         $resultBag = new ResultBag();
         $this->expectException(LogicException::class);
-        $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
+        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
     }
 
     /**
@@ -78,7 +89,7 @@ class CodeChallengeRuleTest extends TestCase
         $resultBag = new ResultBag();
         $resultBag->add($this->redirectUriResult);
         $this->expectException(LogicException::class);
-        $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
+        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
     }
 
     /**
@@ -89,7 +100,7 @@ class CodeChallengeRuleTest extends TestCase
         $this->clientStub->method('isConfidential')->willReturn(true);
         $resultBag = $this->prepareValidResultBag();
         $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn(null);
-        $result = $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
+        $result = $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
         $this->assertInstanceOf(ResultInterface::class, $result);
         $this->assertNull($result->getValue());
     }
@@ -102,7 +113,7 @@ class CodeChallengeRuleTest extends TestCase
         $resultBag = $this->prepareValidResultBag();
         $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('too-short');
         $this->expectException(OidcServerException::class);
-        $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
+        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
     }
 
     /**
@@ -114,7 +125,7 @@ class CodeChallengeRuleTest extends TestCase
         $resultBag = $this->prepareValidResultBag();
         $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn($this->codeChallenge);
 
-        $result = $this->mock()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
+        $result = $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
 
         $this->assertInstanceOf(ResultInterface::class, $result);
         $this->assertSame($this->codeChallenge, $result->getValue());

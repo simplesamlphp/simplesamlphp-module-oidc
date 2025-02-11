@@ -13,6 +13,7 @@ use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Factories\CryptKeyFactory;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
@@ -42,6 +43,7 @@ class IdTokenHintRuleTest extends TestCase
 
     protected Stub $loggerServiceStub;
     protected Stub $requestParamsResolverStub;
+    protected Helpers $helpers;
 
     public static function setUpBeforeClass(): void
     {
@@ -78,20 +80,33 @@ class IdTokenHintRuleTest extends TestCase
 
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
+
+        $this->helpers = new Helpers();
     }
 
-    protected function mock(): IdTokenHintRule
-    {
+    protected function sut(
+        ?RequestParamsResolver $requestParamsResolver = null,
+        ?Helpers $helpers = null,
+        ?ModuleConfig $moduleConfig = null,
+        ?CryptKeyFactory $cryptKeyFactory = null,
+    ): IdTokenHintRule {
+
+        $requestParamsResolver ??= $this->requestParamsResolverStub;
+        $helpers ??= $this->helpers;
+        $moduleConfig ??= $this->moduleConfigStub;
+        $cryptKeyFactory ??= $this->cryptKeyFactoryStub;
+
         return new IdTokenHintRule(
-            $this->requestParamsResolverStub,
-            $this->moduleConfigStub,
-            $this->cryptKeyFactoryStub,
+            $requestParamsResolver,
+            $helpers,
+            $moduleConfig,
+            $cryptKeyFactory,
         );
     }
 
     public function testConstruct(): void
     {
-        $this->assertInstanceOf(IdTokenHintRule::class, $this->mock());
+        $this->assertInstanceOf(IdTokenHintRule::class, $this->sut());
     }
 
     /**
@@ -100,7 +115,7 @@ class IdTokenHintRuleTest extends TestCase
      */
     public function testCheckRuleIsNullWhenParamNotSet(): void
     {
-        $result = $this->mock()->checkRule(
+        $result = $this->sut()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
@@ -116,7 +131,7 @@ class IdTokenHintRuleTest extends TestCase
     {
         $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('malformed');
         $this->expectException(Throwable::class);
-        $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
+        $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
     }
 
     /**
@@ -133,7 +148,7 @@ class IdTokenHintRuleTest extends TestCase
 
         $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn($invalidSignatureJwt);
         $this->expectException(Throwable::class);
-        $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
+        $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
     }
 
     /**
@@ -150,7 +165,7 @@ class IdTokenHintRuleTest extends TestCase
         )->toString();
         $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn($invalidIssuerJwt);
         $this->expectException(Throwable::class);
-        $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
+        $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
     }
 
     /**
@@ -166,7 +181,7 @@ class IdTokenHintRuleTest extends TestCase
         )->toString();
 
         $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn($idToken);
-        $result = $this->mock()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
+        $result = $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
         new Result(IdTokenHintRule::class);
 
         $this->assertInstanceOf(UnencryptedToken::class, $result->getValue());

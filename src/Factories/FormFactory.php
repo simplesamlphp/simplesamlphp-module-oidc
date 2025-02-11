@@ -20,6 +20,7 @@ use Nette\Forms\Form;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 
 class FormFactory
@@ -28,6 +29,7 @@ class FormFactory
         protected readonly ModuleConfig $moduleConfig,
         protected readonly CsrfProtection $csrfProtection,
         protected readonly SspBridge $sspBridge,
+        protected readonly Helpers $helpers,
     ) {
     }
 
@@ -47,6 +49,7 @@ class FormFactory
             $this->moduleConfig,
             $this->csrfProtection,
             $this->sspBridge,
+            $this->helpers,
         );
     }
 }

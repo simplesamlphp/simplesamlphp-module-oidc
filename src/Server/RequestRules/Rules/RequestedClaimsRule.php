@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
@@ -18,9 +19,10 @@ class RequestedClaimsRule extends AbstractRule
 {
     public function __construct(
         RequestParamsResolver $requestParamsResolver,
+        Helpers $helpers,
         private readonly ClaimTranslatorExtractor $claimExtractor,
     ) {
-        parent::__construct($requestParamsResolver);
+        parent::__construct($requestParamsResolver, $helpers);
     }
 
 

@@ -7,6 +7,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
@@ -24,6 +25,7 @@ class AcrValuesRuleTest extends TestCase
     protected Stub $resultStub;
     protected Stub $loggerServiceStub;
     protected Stub $requestParamsResolverStub;
+    protected Helpers $helpers;
 
     /**
      * @throws \Exception
@@ -35,11 +37,20 @@ class AcrValuesRuleTest extends TestCase
         $this->resultStub = $this->createStub(ResultInterface::class);
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
+        $this->helpers = new Helpers();
     }
 
-    protected function mock(): AcrValuesRule
-    {
-        return new AcrValuesRule($this->requestParamsResolverStub);
+    protected function sut(
+        ?RequestParamsResolver $requestParamsResolver = null,
+        ?Helpers $helpers = null,
+    ): AcrValuesRule {
+        $requestParamsResolver ??= $this->requestParamsResolverStub;
+        $helpers ??= $this->helpers;
+
+        return new AcrValuesRule(
+            $requestParamsResolver,
+            $helpers,
+        );
     }
 
     /**
@@ -47,7 +58,7 @@ class AcrValuesRuleTest extends TestCase
      */
     public function testNoAcrIsSetIfAcrValuesNotRequested(): void
     {
-        $result = $this->mock()->checkRule(
+        $result = $this->sut()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
@@ -64,7 +75,7 @@ class AcrValuesRuleTest extends TestCase
         $this->resultStub->method('getValue')->willReturn($claims);
         $this->resultBagStub->method('get')->willReturn($this->resultStub);
 
-        $result = $this->mock()->checkRule(
+        $result = $this->sut()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
@@ -81,7 +92,7 @@ class AcrValuesRuleTest extends TestCase
     {
         $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('1 0');
 
-        $result = $this->mock()->checkRule(
+        $result = $this->sut()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,

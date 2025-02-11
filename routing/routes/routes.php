@@ -96,8 +96,4 @@ return function (RoutingConfigurator $routes): void {
     $routes->add(RoutesEnum::FederationFetch->name, RoutesEnum::FederationFetch->value)
         ->controller([EntityStatementController::class, 'fetch'])
         ->methods([HttpMethodsEnum::GET->value]);
-
-    // TODO mivanci delete
-    $routes->add('test', 'test')
-        ->controller(\SimpleSAML\Module\oidc\Controllers\Federation\Test::class);
 };

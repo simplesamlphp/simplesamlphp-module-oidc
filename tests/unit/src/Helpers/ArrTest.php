@@ -16,6 +16,22 @@ class ArrTest extends TestCase
         return new Arr();
     }
 
+    public function testCanFindByCallback(): void
+    {
+        $this->assertSame(
+            'a',
+            $this->sut()->findByCallback(
+                ['a', 'b', 'c'],
+                fn($item): bool => $item === 'a',
+            ),
+        );
+
+        $this->assertNull($this->sut()->findByCallback(
+            ['a', 'b', 'c'],
+            fn($item): bool => $item === 'd',
+        ));
+    }
+
     public function testEnsureStringValues(): void
     {
         $this->assertSame(
