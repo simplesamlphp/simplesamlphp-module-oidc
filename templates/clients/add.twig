@@ -21,3 +21,9 @@
     {% include "@oidc/clients/includes/form.twig" %}
 
 {% endblock oidcContent -%}
+
+{% block postload %}
+    {{ parent() }}
+
+    <script src="{{ asset('js/src/client-form.js', 'oidc') }}"></script>
+{% endblock %}
