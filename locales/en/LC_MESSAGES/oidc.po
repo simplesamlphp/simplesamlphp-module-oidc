@@ -105,7 +105,7 @@ msgstr ""
 msgid "Back-channel Logout URI"
 msgstr ""
 
-msgid "Before running the migrations, make sure that the database user has proper privileges to change the scheme (for example, <kbd>alter, create, drop, index</kbd>). After running the migrations, it is a good practice to remove those privileges."
+msgid "Before running the migrations, make sure that the database user has proper privileges to change the scheme (for example alter, create, drop, index). After running the migrations, it is a good practice to remove those privileges."
 msgstr ""
 
 msgid ""

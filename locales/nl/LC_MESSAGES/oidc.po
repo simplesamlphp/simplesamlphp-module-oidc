@@ -98,8 +98,8 @@ msgstr "Terug"
 msgid "Back-channel Logout URI"
 msgstr "Back-channel Logout-URI"
 
-msgid "Before running the migrations, make sure that the database user has proper privileges to change the scheme (for example, <kbd>alter, create, drop, index</kbd>). After running the migrations, it is a good practice to remove those privileges."
-msgstr "Controleer voordat u de migraties uitvoert of de databasegebruiker de juiste rechten heeft om het schema te wijzigen (bijvoorbeeld <kbd>alter, create, drop, index</kbd>). Nadat u de migraties hebt uitgevoerd, is het een goede gewoonte om deze rechten te verwijderen."
+msgid "Before running the migrations, make sure that the database user has proper privileges to change the scheme (for example alter, create, drop, index). After running the migrations, it is a good practice to remove those privileges."
+msgstr "Controleer voordat u de migraties uitvoert of de databasegebruiker de juiste rechten heeft om het schema te wijzigen (bijvoorbeeld alter, create, drop, index). Nadat u de migraties hebt uitgevoerd, is het een goede gewoonte om deze rechten te verwijderen."
 
 msgid "By default, form is populated with current OP issuer and configured Trust Anchors, but you are free to adjust entries as needed."
 msgstr "Standaard wordt het formulier ingevuld met de huidige OP-issuer en geconfigureerde Trust Anchors, maar u kunt de invoer indien nodig aanpassen."

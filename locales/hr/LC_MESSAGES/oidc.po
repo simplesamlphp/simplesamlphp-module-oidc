@@ -114,8 +114,8 @@ msgstr "Natrag"
 msgid "Back-channel Logout URI"
 msgstr "URI za odjavu u pozadinskom kanalu"
 
-msgid "Before running the migrations, make sure that the database user has proper privileges to change the scheme (for example, <kbd>alter, create, drop, index</kbd>). After running the migrations, it is a good practice to remove those privileges."
-msgstr "Prije pokretanja migracija, provjerite ima li korisnik baze podataka odgovarajuće privilegije za promjenu sheme (na primjer, <kbd>alter, create, drop, index</kbd>). Nakon pokretanja migracija, dobra je praksa ukloniti te privilegije."
+msgid "Before running the migrations, make sure that the database user has proper privileges to change the scheme (for example alter, create, drop, index). After running the migrations, it is a good practice to remove those privileges."
+msgstr "Prije pokretanja migracija, provjerite ima li korisnik baze podataka odgovarajuće privilegije za promjenu sheme (na primjer, alter, create, drop, index). Nakon pokretanja migracija, dobra je praksa ukloniti te privilegije."
 
 msgid ""
 "By default, form is populated with current OP issuer and configured Trust "
