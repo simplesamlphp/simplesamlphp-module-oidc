@@ -1,122 +1,566 @@
-msgid "{oidc:add_client}"
-msgstr "Aggiungi client"
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"POT-Creation-Date: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: it\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Domain: oidc\n"
 
-msgid "{oidc:search}"
-msgstr "Cerca"
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:372
+msgid "-"
+msgstr "-"
 
-msgid "{oidc:no_clients}"
-msgstr "No clients"
+msgid ""
+"A globally unique URI that is bound to the entity. URI must have https or "
+"http scheme and host / domain. It can contain path, but no query, or "
+"fragment component."
+msgstr ""
 
-msgid "{oidc:client_list}"
-msgstr "Lista client"
+msgid "Access Token"
+msgstr ""
 
-msgid "{oidc:client:name}"
-msgstr "Nome"
+msgid "Activated"
+msgstr ""
 
-msgid "{oidc:client:description}"
-msgstr "Descrizione"
+msgid "Add Client"
+msgstr ""
 
-msgid "{oidc:client:identifier}"
-msgstr "Client id."
+msgid "Administrator"
+msgstr ""
 
-msgid "{oidc:client:secret}"
-msgstr "Client secret"
+msgid "All database migrations are implemented."
+msgstr ""
 
-msgid "{oidc:client:auth_source}"
-msgstr "Auth. source"
+msgid "Allowed Origins"
+msgstr ""
 
-msgid "{oidc:client:redirect_uri}"
-msgstr "Redirect URI"
+msgid "Allowed Origins (for public client)"
+msgstr ""
 
-msgid "{oidc:client:scopes}"
-msgstr "Scopes"
+msgid "Allowed origins for public clients"
+msgstr ""
 
-msgid "{oidc:submit}"
-msgstr "Invia"
+msgid ""
+"Allowed redirect URIs to use after client initiated logout. Must be a valid "
+"URI, one per line. Example: https://example.org/foo?bar=1"
+msgstr ""
 
-msgid "{oidc:create}"
-msgstr "Crea"
+msgid ""
+"Allowed redirect URIs to which the authorization response will be sent. Must "
+"be a valid URI, one per line. Example: https://example.org/foo?bar=1"
+msgstr ""
 
-msgid "{oidc:save}"
-msgstr "Salva"
+msgid "Are you sure you want to delete this client?"
+msgstr ""
 
-msgid "{oidc:return}"
-msgstr "Indietro"
+msgid "Are you sure you want to reset client secret?"
+msgstr ""
 
-msgid "{oidc:install}"
-msgstr "Installa"
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:363
+msgid "At least one redirect URI is required."
+msgstr ""
 
-msgid "{oidc:copy}"
-msgstr "Copia codice"
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:378
+msgid "At least one scope is required."
+msgstr ""
 
-msgid "{oidc:copied}"
-msgstr "Copiato!"
+msgid "Authentication"
+msgstr ""
 
-msgid "{oidc:confirm}"
-msgstr "Conferma"
+msgid "Authentication Context Class References (ACRs)"
+msgstr ""
 
-msgid "{oidc:client:delete}"
-msgstr "Cancella Client OpenID Connect"
+msgid "Authentication Processing Filters"
+msgstr ""
 
-msgid "{oidc:client:confirm_delete}"
-msgstr "Gentilmente, conferma che vuoi cancellare questo client. Questa cancellazione non può essere ripristinata."
+msgid "Authentication Source"
+msgstr ""
 
-msgid "{oidc:edit}"
-msgstr "Modifica"
+msgid "Authentication Sources to ACRs Map"
+msgstr ""
 
-msgid "{oidc:delete}"
-msgstr "Cancella"
+msgid ""
+"Authentication source for this particular client. If no authentication "
+"source is selected, the default one from configuration file will be used."
+msgstr ""
 
-msgid "{oidc:client:added}"
-msgstr "Il client è stato aggiunto con successo."
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:369
+msgid "Authentication source"
+msgstr ""
 
-msgid "{oidc:client:removed}"
-msgstr "Il client è stato rimosso con successo."
+msgid "Authority Hints"
+msgstr ""
 
-msgid "{oidc:client:updated}"
-msgstr "Il client è stato aggiornato con successo."
+msgid "Authorization Code"
+msgstr ""
 
-msgid "{oidc:client:redirect_uri_help}"
-msgstr "Aggiungi una URI valida"
+msgid "Back"
+msgstr ""
 
-msgid "{oidc:client:auth_source_help}"
-msgstr "If no auth. source is selected, the default one from configuration file will be used."
+msgid "Back-channel Logout URI"
+msgstr ""
 
-msgid "{oidc:client:name_not_empty}"
-msgstr "Per favore aggiungi un nome."
+msgid "Before running the migrations, make sure that the database user has proper privileges to change the scheme (for example alter, create, drop, index). After running the migrations, it is a good practice to remove those privileges."
+msgstr ""
 
-msgid "{oidc:client:redirect_uri_not_empty}"
-msgstr "Per favore, aggiungi almeno una URI."
+msgid ""
+"By default, form is populated with current OP issuer and configured Trust "
+"Anchors, but you are free to adjust entries as needed."
+msgstr ""
 
-msgid "{oidc:client:redirect_uri_not_valid}"
-msgstr "Qualche indirizzo di redirezione non è valido."
+msgid "Cache"
+msgstr ""
 
-msgid "{oidc:client:auth_source_not_empty}"
-msgstr "Per favore seleziona una Auth Source."
+msgid "Cache Adapter"
+msgstr ""
 
-msgid "{oidc:client:scopes_not_empty}"
-msgstr "Per favore, seleziona almeno uno scope."
+msgid "Cache Duration For Produced Artifacts"
+msgstr ""
 
-msgid "{oidc:client:reset_secret}"
-msgstr "Ripristina secret"
+msgid ""
+"Choose if client is confidential or public. Confidential clients are capable "
+"of maintaining the confidentiality of their credentials (e.g., client "
+"implemented on a secure server with restricted access to the client "
+"credentials), or capable of secure client authentication using other means. "
+"Public clients are incapable of maintaining the confidentiality of their "
+"credentials (e.g., clients executing on the device used by the resource "
+"owner, such as an installed native application or a web browser-based "
+"application), and incapable of secure client authentication via any other "
+"means."
+msgstr ""
 
-msgid "{oidc:client:reset_secret_warning}"
-msgstr "Questa operazione cambierà il tuo client secret è non potrà essere ripristinata."
+msgid ""
+"Choose if the client is allowed to participate in federation context or not."
+msgstr ""
 
-msgid "{oidc:client:secret_updated}"
-msgstr "Il client secret è stato aggiornato con successo."
+msgid "Client"
+msgstr ""
 
-msgid "{oidc:install:oauth2}"
-msgstr "Controlla se vuoi migrare dati dal vecchio modulo oauth2"
+msgid "Client Registration Types"
+msgstr ""
 
-msgid "{oidc:install:description}"
-msgstr "This wizard will help you create the database and migrate information if necessary."
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:113
+msgid "Client Registry"
+msgstr ""
 
-msgid "{oidc:install:finished}"
-msgstr "Database creato con successo."
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:201
+msgid "Client has been added."
+msgstr ""
 
-msgid "{oidc:import:finished}"
-msgstr "I clients del vecchio modulo oauth2 sono stati importati con successo."
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:147
+msgid "Client has been deleted."
+msgstr ""
 
-msgid "{oidc:client:is_enabled}"
-msgstr "Attivato"
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:277
+msgid "Client has been updated."
+msgstr ""
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:120
+msgid "Client secret has been reset."
+msgstr ""
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:183
+msgid "Client with generated ID already exists."
+msgstr ""
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:190
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:265
+msgid "Client with given entity identifier already exists."
+msgstr ""
+
+msgid "Confidential"
+msgstr ""
+
+msgid "Configuration URL"
+msgstr ""
+
+msgid "Contacts"
+msgstr ""
+
+msgid "Created at"
+msgstr ""
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:106
+msgid "Database Migrations"
+msgstr ""
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ConfigController.php:46
+msgid "Database is already migrated."
+msgstr ""
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ConfigController.php:52
+msgid "Database migrated successfully."
+msgstr ""
+
+msgid "Default Authentication Source"
+msgstr ""
+
+msgid "Delete"
+msgstr ""
+
+msgid "Description"
+msgstr ""
+
+msgid "Disabled"
+msgstr ""
+
+msgid "Discovery URL"
+msgstr ""
+
+msgid "Edit"
+msgstr ""
+
+msgid "Edit Client"
+msgstr ""
+
+msgid "Enabled"
+msgstr ""
+
+msgid ""
+"Enter if client supports Back-Channel Logout specification. When logout is "
+"initiated at the OpenID Provider, it will send a Logout Token to this URI in "
+"order to notify the client about that event. Must be a valid URI. Example: "
+"https://example.org/foo?bar=1"
+msgstr ""
+
+msgid "Enter one Trust Anchor ID per line."
+msgstr ""
+
+msgid "Entity"
+msgstr ""
+
+msgid "Entity Identifier"
+msgstr ""
+
+msgid "Entity Statement Duration"
+msgstr ""
+
+msgid "Expires at"
+msgstr ""
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Codebooks/RegistrationTypeEnum.php:18
+msgid "Federated Automatic"
+msgstr ""
+
+msgid "Federation Enabled"
+msgstr ""
+
+msgid "Federation JWKS"
+msgstr ""
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:127
+msgid "Federation Settings"
+msgstr ""
+
+msgid "Forced ACR For Cookie Authentication"
+msgstr ""
+
+msgid "Homepage URI"
+msgstr ""
+
+msgid "Identifier"
+msgstr ""
+
+msgid "Info"
+msgstr ""
+
+msgid "Is Federated"
+msgstr ""
+
+msgid "Issuer"
+msgstr ""
+
+msgid ""
+"JSON object (string) representing JWKS document containing protocol public "
+"keys. Note that this should be different from Federation JWKS. Will be used "
+"if JWKS URI is not set. Example: {\"keys\":[{\"kty\": \"RSA\",\"n\": \"...\","
+"\"e\": \"AQAB\",\"kid\": \"pro123\",\"use\": \"sig\",\"alg\": \"RS256\"}]}"
+msgstr ""
+
+msgid ""
+"JSON object (string) representing federation JWKS. This can be used, for "
+"example, in entity statements. Note that this should be different from "
+"Protocol JWKS. Example: {\"keys\":[{\"kty\": \"RSA\",\"n\": \"...\",\"e\": "
+"\"AQAB\",\"kid\": \"fed123\",\"use\": \"sig\",\"alg\": \"RS256\"}]}"
+msgstr ""
+
+msgid "JWKS"
+msgstr ""
+
+msgid "JWKS URI"
+msgstr ""
+
+msgid "Leaf Entity ID"
+msgstr ""
+
+msgid "Log messages"
+msgstr ""
+
+msgid ""
+"Log messages will show if any warnings or errors were raised during chain "
+"resolution."
+msgstr ""
+
+msgid ""
+"Log messages will show if any warnings or errors were raised during "
+"validation."
+msgstr ""
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:90
+msgid "Log out"
+msgstr ""
+
+msgid "Logo URI"
+msgstr ""
+
+msgid "Logout Failed"
+msgstr ""
+
+msgid "Logout Info"
+msgstr ""
+
+msgid "Logout Successful"
+msgstr ""
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Codebooks/RegistrationTypeEnum.php:17
+msgid "Manual"
+msgstr ""
+
+msgid "Maximum Cache Duration For Fetched Artifacts"
+msgstr ""
+
+msgid "N/A"
+msgstr ""
+
+msgid "Name"
+msgstr ""
+
+msgid "Name and description"
+msgstr ""
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:357
+msgid "Name is required."
+msgstr ""
+
+msgid "never"
+msgstr ""
+
+msgid "No"
+msgstr ""
+
+msgid "No clients registered."
+msgstr ""
+
+msgid "No entries."
+msgstr ""
+
+msgid ""
+"Note that this will first resolve Trust Chain between given entity and Trust "
+"Anchor, and only then do the Trust Mark validation."
+msgstr ""
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/hooks/hook_adminmenu.php:24
+msgid "OIDC"
+msgstr ""
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/hooks/hook_federationpage.php:34
+msgid "OIDC Client Registry"
+msgstr ""
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/hooks/hook_federationpage.php:38
+msgid "OIDC Installation"
+msgstr ""
+
+msgid ""
+"One or more values from the list. If not selected, falls back to 'automatic'"
+msgstr ""
+
+msgid "OpenID Federation Related Properties"
+msgstr ""
+
+msgid "Organization Name"
+msgstr ""
+
+msgid "Owner"
+msgstr ""
+
+msgid "PKI"
+msgstr ""
+
+msgid "Path"
+msgstr ""
+
+msgid "Policy URI"
+msgstr ""
+
+msgid "Post-logout Redirect URIs"
+msgstr ""
+
+msgid "Private Key"
+msgstr ""
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:120
+msgid "Protocol Settings"
+msgstr ""
+
+msgid "Public"
+msgstr ""
+
+msgid "Public Key"
+msgstr ""
+
+msgid "Redirect URI"
+msgstr ""
+
+msgid "Redirect URIs"
+msgstr ""
+
+msgid "Refresh Token"
+msgstr ""
+
+msgid "Registration Types"
+msgstr ""
+
+msgid "Registration"
+msgstr ""
+
+msgid "Requested session was not found or it is expired."
+msgstr ""
+
+msgid "Reset"
+msgstr ""
+
+msgid "Resolved chains"
+msgstr ""
+
+msgid "Run migrations"
+msgstr ""
+
+msgid "Scopes"
+msgstr ""
+
+msgid "Secret"
+msgstr ""
+
+msgid "Signed JWKS URI"
+msgstr ""
+
+msgid "Signing Algorithm"
+msgstr ""
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Admin/Authorization.php:44
+msgid "SimpleSAMLphp admin access required."
+msgstr ""
+
+msgid "Status"
+msgstr ""
+
+msgid "Supported ACRs"
+msgstr ""
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:134
+msgid "Test Trust Chain Resolution"
+msgstr ""
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:141
+msgid "Test Trust Mark Validation"
+msgstr ""
+
+msgid ""
+"There are database migrations that have not been implemented.\n"
+"                Use the button below to run them now."
+msgstr ""
+
+msgid "Tokens Time-To-Live (TTL)"
+msgstr ""
+
+msgid "Total chains"
+msgstr ""
+
+msgid "Trust Anchor ID"
+msgstr ""
+
+msgid "Trust Anchor IDs"
+msgstr ""
+
+msgid "Trust Anchors"
+msgstr ""
+
+msgid "Trust Mark ID"
+msgstr ""
+
+msgid ""
+"Trust Mark validation passed (there were no warnings or errors during "
+"validation)."
+msgstr ""
+
+msgid "Trust Marks"
+msgstr ""
+
+msgid "Type"
+msgstr "Type"
+
+msgid ""
+"URL to a JWKS document containing protocol public keys. Will be used if "
+"Signed JWKS URI is not set. Example: https://example.org/jwks"
+msgstr ""
+
+msgid ""
+"URL to a JWS document containing protocol public keys in JWKS format (claim "
+"'keys'). Example: https://example.org/signed-jwks"
+msgstr ""
+
+msgid ""
+"URLs as allowed origins for CORS requests, for public clients running in "
+"browser. Must have http:// or https:// scheme, and at least one 'domain.top-"
+"level-domain' pair, or more subdomains. Top-level-domain may end with '.'. "
+"No userinfo, path, query or fragment components allowed. May end with port "
+"number. One per line. Example: https://example.org"
+msgstr ""
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Admin/Authorization.php:36
+msgid "Unable to initiate SimpleSAMLphp admin authentication."
+msgstr ""
+
+msgid "Updated at"
+msgstr ""
+
+msgid "User Entity Cache Duration"
+msgstr ""
+
+msgid "User Identifier Attribute"
+msgstr ""
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Admin/Authorization.php:61
+msgid "User not authorized."
+msgstr ""
+
+msgid "Yes"
+msgstr ""
+
+msgid "You can now close this window or navigate to another page."
+msgstr ""
+
+msgid ""
+"You can use the form below to test Trust Chain resolution from a leaf entity "
+"ID to Trust Anchors."
+msgstr ""
+
+msgid ""
+"You can use the form below to test Trust Mark validation for particular "
+"entity under given Trust Anchor."
+msgstr ""
+
+msgid "Your session has expired. Please return to the home page and try again."
+msgstr ""
+
+msgid "disabled"
+msgstr ""
+
+msgid "enabled"
+msgstr ""

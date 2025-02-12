@@ -353,40 +353,40 @@ class ClientForm extends Form
         $this->setMethod('POST');
         $this->addComponent($this->csrfProtection, Form::ProtectorId);
 
-        $this->addText('name', '{oidc:client:name}')
+        $this->addText('name', Translate::noop('Name'))
             ->setHtmlAttribute('class', 'full-width')
             ->setMaxLength(255)
             ->setRequired(Translate::noop('Name is required.'));
 
-        $this->addTextArea('description', '{oidc:client:description}', null, 3)
+        $this->addTextArea('description', Translate::noop('Description'), null, 3)
             ->setHtmlAttribute('class', 'full-width');
-        $this->addTextArea('redirect_uri', '{oidc:client:redirect_uri}', null, 5)
+        $this->addTextArea('redirect_uri', Translate::noop('Redirect URI'), null, 5)
             ->setHtmlAttribute('class', 'full-width')
             ->setRequired(Translate::noop('At least one redirect URI is required.'));
 
-        $this->addCheckbox('is_enabled', '{oidc:client:is_enabled}');
+        $this->addCheckbox('is_enabled', Translate::noop('Activated'));
 
         $this->addCheckbox('is_confidential', '{oidc:client:is_confidential}');
 
-        $this->addSelect('auth_source', '{oidc:client:auth_source}:')
+        $this->addSelect('auth_source', Translate::noop('Authentication source'))
             ->setHtmlAttribute('class', 'full-width')
             ->setItems($this->sspBridge->auth()->source()->getSources(), false)
             ->setPrompt(Translate::noop('-'));
 
         $scopes = $this->getScopes();
 
-        $this->addMultiSelect('scopes', '{oidc:client:scopes}', $scopes, 10)
+        $this->addMultiSelect('scopes', Translate::noop('Scopes'), $scopes, 10)
             ->setHtmlAttribute('class', 'full-width')
             ->setRequired(Translate::noop('At least one scope is required.'));
 
-        $this->addText('owner', '{oidc:client:owner}')
+        $this->addText('owner', Translate::noop('Owner'))
             ->setMaxLength(190);
-        $this->addTextArea('post_logout_redirect_uri', '{oidc:client:post_logout_redirect_uri}', null, 5)
+        $this->addTextArea('post_logout_redirect_uri', Translate::noop('Post-logout Redirect URIs'), null, 5)
             ->setHtmlAttribute('class', 'full-width');
-        $this->addTextArea('allowed_origin', '{oidc:client:allowed_origin}', null, 5)
+        $this->addTextArea('allowed_origin', Translate::noop('Allowed origins for public clients'), null, 5)
             ->setHtmlAttribute('class', 'full-width');
 
-        $this->addText('backchannel_logout_uri', '{oidc:client:backchannel_logout_uri}')
+        $this->addText('backchannel_logout_uri', Translate::noop('Back-Channel Logout URI'))
             ->setHtmlAttribute('class', 'full-width');
 
         $this->addText('entity_identifier', 'Entity Identifier')

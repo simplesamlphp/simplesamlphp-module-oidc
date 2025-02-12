@@ -30,6 +30,7 @@ use Psr\Http\Message\UploadedFileFactoryInterface;
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
 use SimpleSAML\Error\Exception;
+use SimpleSAML\Locale\Translate;
 use SimpleSAML\Metadata\MetaDataStorageHandler;
 use SimpleSAML\Module\oidc\Admin\Menu;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
@@ -147,7 +148,11 @@ class Container implements ContainerInterface
         $helpers = new Helpers();
         $this->services[Helpers::class] = $helpers;
 
-        $csrfProtection = new CsrfProtection('{oidc:client:csrf_error}', $session);
+        $csrfProtection = new CsrfProtection(
+            Translate::noop('Your session has expired. Please return to the home page and try again.'),
+            $session,
+        );
+
         $formFactory = new FormFactory(
             $moduleConfig,
             $csrfProtection,

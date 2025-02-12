@@ -5,7 +5,7 @@
             <li>
                 <a href="{{ item.hrefPath }}"
                    class="{{ item.hrefPath == oidcMenu.activeHrefPath ? 'active' : '' }}"
-                > {{ item.label }} </a>
+                > {{ item.label|trans }} </a>
             </li>
             {% endfor %}
         </ul>
