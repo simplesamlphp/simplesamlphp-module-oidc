@@ -16,9 +16,8 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Factories;
 
-use Exception;
+use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\Entities\ClaimSetEntity;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
 class ClaimTranslatorExtractorFactory
@@ -27,19 +26,21 @@ class ClaimTranslatorExtractorFactory
 
     protected const CONFIG_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED = 'are_multiple_claim_values_allowed';
 
-    public function __construct(private readonly ModuleConfig $moduleConfig)
-    {
+    public function __construct(
+        private readonly ModuleConfig $moduleConfig,
+        private readonly ClaimSetEntityFactory $claimSetEntityFactory,
+    ) {
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function build(): ClaimTranslatorExtractor
     {
         $translatorTable = $this->moduleConfig->config()
             ->getOptionalArray(ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE, []);
 
-        $privateScopes = $this->moduleConfig->getOpenIDPrivateScopes();
+        $privateScopes = $this->moduleConfig->getPrivateScopes();
 
         $claimSet = [];
         $allowedMultipleValueClaims = [];
@@ -58,7 +59,7 @@ class ClaimTranslatorExtractorFactory
                 $claims = $this->applyPrefixToClaimNames($claims, $prefix);
             }
 
-            $claimSet[] = new ClaimSetEntity($scopeName, $claims);
+            $claimSet[] = $this->claimSetEntityFactory->build($scopeName, $claims);
 
             if ($this->doesScopeAllowMultipleClaimValues($scopeConfig)) {
                 $allowedMultipleValueClaims = array_merge($allowedMultipleValueClaims, $claims);
@@ -67,7 +68,13 @@ class ClaimTranslatorExtractorFactory
 
         $userIdAttr = $this->moduleConfig->getUserIdentifierAttribute();
 
-        return new ClaimTranslatorExtractor($userIdAttr, $claimSet, $translatorTable, $allowedMultipleValueClaims);
+        return new ClaimTranslatorExtractor(
+            $userIdAttr,
+            $this->claimSetEntityFactory,
+            $claimSet,
+            $translatorTable,
+            $allowedMultipleValueClaims,
+        );
     }
 
     /**
@@ -85,7 +92,7 @@ class ClaimTranslatorExtractorFactory
          * @var array $mapping
          */
         foreach ($translatorTable as $claimKey => $mapping) {
-            if (in_array($claimKey, $claims)) {
+            if (in_array($claimKey, $claims, true)) {
                 $prefixedClaimKey = $prefix . $claimKey;
                 $translatorTable[$prefixedClaimKey] = $mapping;
                 unset($translatorTable[$claimKey]);

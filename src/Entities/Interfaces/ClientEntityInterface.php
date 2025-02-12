@@ -4,27 +4,12 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Entities\Interfaces;
 
+use DateTimeImmutable;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
+use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 
 interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInterface
 {
-    /**
-     * @param string[] $redirectUri
-     * @param string[] $scopes
-     */
-    public static function fromData(
-        string $id,
-        string $secret,
-        string $name,
-        string $description,
-        array $redirectUri,
-        array $scopes,
-        bool $isEnabled,
-        bool $isConfidential = false,
-        ?string $authSource = null,
-        ?string $owner = null,
-    ): self;
-
     public function toArray(): array;
 
     public function getSecret(): string;
@@ -63,4 +48,35 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
      * @param string|null $backChannelLogoutUri
      */
     public function setBackChannelLogoutUri(?string $backChannelLogoutUri): void;
+
+    public function getEntityIdentifier(): ?string;
+
+    /**
+     * @return string[]
+     */
+    public function getRedirectUris(): array;
+
+    /**
+     * @return string[]
+     */
+    public function getClientRegistrationTypes(): array;
+
+    /**
+     * @return array[]|null
+     */
+    public function getFederationJwks(): ?array;
+
+    /**
+     * @return array[]|null
+     */
+    public function getJwks(): ?array;
+
+    public function getJwksUri(): ?string;
+    public function getSignedJwksUri(): ?string;
+    public function getRegistrationType(): RegistrationTypeEnum;
+    public function getUpdatedAt(): ?DateTimeImmutable;
+    public function getCreatedAt(): ?DateTimeImmutable;
+    public function getExpiresAt(): ?DateTimeImmutable;
+    public function isExpired(): bool;
+    public function isFederated(): bool;
 }

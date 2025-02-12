@@ -14,7 +14,7 @@ declare(strict_types=1);
  * file that was distributed with this source code.
  */
 
-use SimpleSAML\Module\oidc\Controller\AccessTokenController;
+use SimpleSAML\Module\oidc\Controllers\AccessTokenController;
 use SimpleSAML\Module\oidc\Services\RoutingService;
 
 RoutingService::call(AccessTokenController::class, false, true);

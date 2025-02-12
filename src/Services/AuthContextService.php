@@ -6,11 +6,9 @@ namespace SimpleSAML\Module\oidc\Services;
 
 use RuntimeException;
 use SimpleSAML\Auth\Simple;
-use SimpleSAML\Error\Exception;
-use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
-use SimpleSAML\Utils\Attributes;
-use SimpleSAML\Utils\Auth;
+use SimpleSAML\Module\oidc\ModuleConfig;
 
 /**
  * Provide contextual authentication information for administration interface.
@@ -29,24 +27,27 @@ class AuthContextService
     public function __construct(
         private readonly ModuleConfig $moduleConfig,
         private readonly AuthSimpleFactory $authSimpleFactory,
+        private readonly SspBridge $sspBridge,
     ) {
     }
 
     public function isSspAdmin(): bool
     {
-        // TODO mivanci make bridge to SSP utility classes (search for SSP namespace through the codebase)
-        return (new Auth())->isAdmin();
+        return $this->sspBridge->utils()->auth()->isAdmin();
     }
 
     /**
-     * @throws Exception
+     * @throws \SimpleSAML\Error\Exception
      * @throws \Exception
      */
     public function getAuthUserId(): string
     {
         $simple = $this->authenticate();
         $userIdAttr = $this->moduleConfig->getUserIdentifierAttribute();
-        return (string)(new Attributes())->getExpectedAttribute($simple->getAttributes(), $userIdAttr);
+        return (string)$this->sspBridge->utils()->attributes()->getExpectedAttribute(
+            $simple->getAttributes(),
+            $userIdAttr,
+        );
     }
 
     /**
@@ -73,7 +74,7 @@ class AuthContextService
         $entitlements = $auth->getAttributes()[$attributeName] ?? [];
         $neededEntitlements = $permissions->getArrayizeString($neededPermission);
         foreach ($entitlements as $entitlement) {
-            if (in_array($entitlement, $neededEntitlements)) {
+            if (in_array($entitlement, $neededEntitlements, true)) {
                 return;
             }
         }

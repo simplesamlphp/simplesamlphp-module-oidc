@@ -11,6 +11,16 @@ services:
       League\OAuth2\Server\Repositories\ScopeRepositoryInterface: '@SimpleSAML\Module\oidc\Repositories\ScopeRepository'
       League\OAuth2\Server\CryptKey|string $privateKey: '@oidc.key.private'
       League\OAuth2\Server\CryptKey|string $publicKey: '@oidc.key.public'
+      Psr\Http\Message\ServerRequestFactoryInterface: '@Laminas\Diactoros\ServerRequestFactory'
+      Psr\Http\Message\RequestFactoryInterface: '@Laminas\Diactoros\RequestFactory'
+      Psr\Http\Message\ResponseFactoryInterface: '@Laminas\Diactoros\ResponseFactory'
+      Psr\Http\Message\StreamFactoryInterface: '@Laminas\Diactoros\StreamFactory'
+      Psr\Http\Message\UploadedFileFactoryInterface: '@Laminas\Diactoros\UploadedFileFactory'
+      League\OAuth2\Server\AuthorizationValidators\AuthorizationValidatorInterface: '@SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator'
+
+  SimpleSAML\Module\oidc\Controllers\:
+    resource: '../../src/Controllers/*'
+    tags: ['controller.service_arguments']
 
   SimpleSAML\Module\oidc\Services\:
     resource: '../../src/Services/*'
@@ -23,10 +33,36 @@ services:
   SimpleSAML\Module\oidc\Factories\:
     resource: '../../src/Factories/*'
 
+  SimpleSAML\Module\oidc\Codebooks\:
+    resource: '../../src/Codebooks/*'
+
+  SimpleSAML\Module\oidc\Admin\:
+    resource: '../../src/Admin/*'
+
   SimpleSAML\Module\oidc\Stores\:
     resource: '../../src/Stores/*'
 
+  SimpleSAML\Module\oidc\Bridges\:
+    resource: '../../src/Bridges/*'
+
+  SimpleSAML\Module\oidc\Server\TokenIssuers\:
+    resource: '../../src/Server/TokenIssuers/*'
+
   SimpleSAML\Module\oidc\ModuleConfig: ~
+  SimpleSAML\Module\oidc\Helpers: ~
+  SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection: ~
+  SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager:
+    factory: ['@SimpleSAML\Module\oidc\Factories\RequestRulesManagerFactory', 'build']
+  # Grants
+  SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant:
+    factory: ['@SimpleSAML\Module\oidc\Factories\Grant\AuthCodeGrantFactory', 'build']
+  SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant:
+    factory: ['@SimpleSAML\Module\oidc\Factories\Grant\ImplicitGrantFactory', 'build']
+  SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant:
+    factory: ['@SimpleSAML\Module\oidc\Factories\Grant\RefreshTokenGrantFactory', 'build']
+  # Responses
+  SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse:
+    factory: ['@SimpleSAML\Module\oidc\Factories\IdTokenResponseFactory', 'build']
 
   oidc.key.private:
     class: League\OAuth2\Server\CryptKey
@@ -39,16 +75,59 @@ services:
   SimpleSAML\Module\oidc\Factories\ResourceServerFactory:
     arguments:
       $publicKey: '@oidc.key.public'
-
-  SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor:
+  SimpleSAML\Module\oidc\Factories\AuthorizationServerFactory:
     arguments:
-      $userIdAttr: '@=service("SimpleSAML\\Module\\oidc\\ModuleConfig").getUserIdentifierAttribute()'
+      $privateKey: '@oidc.key.private'
+  SimpleSAML\Module\oidc\Factories\IdTokenResponseFactory:
+    arguments:
+      $privateKey: '@oidc.key.private'
+  SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory:
+    arguments:
+      $privateKey: '@oidc.key.private'
+
+  SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator:
+    arguments:
+      $publicKey: '@oidc.key.public'
 
   SimpleSAML\Module\oidc\Server\AuthorizationServer:
-    arguments:
-      $encryptionKey: '@=service("SimpleSAML\\Module\\oidc\\ModuleConfig").getEncryptionKey()'
+    factory: ['@SimpleSAML\Module\oidc\Factories\AuthorizationServerFactory', 'build']
 
   # OAuth2 Server
   League\OAuth2\Server\ResourceServer:
-    arguments:
-      $publicKey: '@oidc.key.public'
+    factory: ['@SimpleSAML\Module\oidc\Factories\ResourceServerFactory', 'build']
+
+  # Utils
+  SimpleSAML\Module\oidc\Utils\Debug\ArrayLogger: ~
+  SimpleSAML\Module\oidc\Utils\FederationParticipationValidator: ~
+  SimpleSAML\Module\oidc\Utils\Routes: ~
+  SimpleSAML\Module\oidc\Utils\RequestParamsResolver: ~
+  SimpleSAML\Module\oidc\Utils\ClassInstanceBuilder: ~
+  SimpleSAML\Module\oidc\Utils\JwksResolver: ~
+  SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor:
+    factory: ['@SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory', 'build']
+  SimpleSAML\Module\oidc\Utils\FederationCache:
+    factory: ['@SimpleSAML\Module\oidc\Factories\CacheFactory', 'forFederation'] # Can return null
+  SimpleSAML\Module\oidc\Utils\ProtocolCache:
+    factory: ['@SimpleSAML\Module\oidc\Factories\CacheFactory', 'forProtocol'] # Can return null
+
+  # Use (already available) Laminas\Diactoros package as PSR HTTP Factories.
+  Laminas\Diactoros\ServerRequestFactory: ~
+  Laminas\Diactoros\RequestFactory: ~
+  Laminas\Diactoros\ResponseFactory: ~
+  Laminas\Diactoros\StreamFactory: ~
+  Laminas\Diactoros\UploadedFileFactory: ~
+
+  # Symfony
+  Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory: ~
+
+  # SSP OpenId
+  SimpleSAML\OpenID\Core:
+    factory: [ '@SimpleSAML\Module\oidc\Factories\CoreFactory', 'build' ]
+  SimpleSAML\OpenID\Federation:
+    factory: [ '@SimpleSAML\Module\oidc\Factories\FederationFactory', 'build' ]
+  SimpleSAML\OpenID\Jwks:
+    factory: [ '@SimpleSAML\Module\oidc\Factories\JwksFactory', 'build' ]
+
+  # SSP
+  SimpleSAML\Database:
+    factory: [ 'SimpleSAML\Database', 'getInstance' ]

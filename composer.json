@@ -17,32 +17,38 @@
         }
     ],
     "require": {
-        "php": "^8.1",
+        "php": "^8.2",
         "ext-curl": "*",
         "ext-json": "*",
         "ext-openssl": "*",
         "ext-pdo": "*",
         "guzzlehttp/guzzle": "^7.0",
-        "laminas/laminas-diactoros": "^2.25.2",
+        "laminas/laminas-diactoros": "^3",
         "laminas/laminas-httphandlerrunner": "^2",
-        "lcobucci/jwt": "^4.1",
+        "lcobucci/jwt": "^5.3",
         "league/oauth2-server": "^8.5.3",
         "nette/forms": "^3",
         "psr/container": "^2.0",
         "psr/log": "^3",
         "simplesamlphp/composer-module-installer": "^1.3",
+        "simplesamlphp/openid": "^0",
         "spomky-labs/base64url": "^2.0",
         "symfony/expression-language": "^6.3",
-        "web-token/jwt-framework": "^3"
+        "symfony/psr-http-message-bridge": "^7.1",
+        "web-token/jwt-framework": "^3",
+        "symfony/cache": "^6.4",
+        "psr/simple-cache": "^3"
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^3",
         "phpunit/phpunit": "^10",
         "rector/rector": "^0.18.3",
-        "simplesamlphp/simplesamlphp": "2.1.*",
+        "simplesamlphp/simplesamlphp": "2.3.*",
         "simplesamlphp/simplesamlphp-test-framework": "^1.5",
         "squizlabs/php_codesniffer": "^3",
-        "vimeo/psalm": "^5"
+        "vimeo/psalm": "^5",
+        "testcontainers/testcontainers": "^0.2",
+        "nimut/phpunit-merger": "^2.0"
     },
     "config": {
         "preferred-install": {
@@ -50,9 +56,10 @@
         },
         "sort-packages": true,
         "allow-plugins": {
-            "simplesamlphp/composer-module-installer": true,
             "dealerdirect/phpcodesniffer-composer-installer": true,
-            "phpstan/extension-installer": true
+            "phpstan/extension-installer": true,
+            "simplesamlphp/composer-module-installer": true,
+            "simplesamlphp/composer-xmlprovider-installer": true
         },
         "cache-dir": "build/composer"
     },
@@ -63,7 +70,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "SimpleSAML\\Test\\Module\\oidc\\": "tests/src/"
+            "SimpleSAML\\Test\\Module\\oidc\\unit\\": "tests/unit/src/",
+            "SimpleSAML\\Test\\Module\\oidc\\integration\\": "tests/integration/src/"
         }
     },
     "extra": {
@@ -72,10 +80,18 @@
     },
     "scripts": {
         "pre-commit": [
+            "vendor/bin/phpcbf",
+            "vendor/bin/phpcs -p",
             "vendor/bin/psalm",
-            "vendor/bin/phpcs -p"
+            "vendor/bin/phpunit"
         ],
         "tests": [
+            "vendor/bin/phpunit --no-coverage"
+        ],
+        "integration-tests": [
+            "vendor/bin/phpunit --no-configuration -c phpunit.integration.xml --no-coverage"
+        ],
+        "unit-tests": [
             "vendor/bin/phpunit --no-coverage"
         ]
     }

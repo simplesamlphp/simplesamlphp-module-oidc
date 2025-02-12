@@ -14,8 +14,6 @@ declare(strict_types=1);
  * file that was distributed with this source code.
  */
 
-use Psr\Container\ContainerExceptionInterface;
-use Psr\Container\NotFoundExceptionInterface;
 use SimpleSAML\Logger;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
@@ -25,11 +23,10 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\Container;
 
 /**
- * @param array $croninfo
- * @throws OidcServerException
- * @throws ContainerExceptionInterface
- * @throws NotFoundExceptionInterface
- * @throws Exception
+ * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+ * @throws \Psr\Container\ContainerExceptionInterface
+ * @throws \Psr\Container\NotFoundExceptionInterface
+ * @throws \Exception
  */
 function oidc_hook_cron(array &$croninfo): void
 {
@@ -55,15 +52,15 @@ function oidc_hook_cron(array &$croninfo): void
     $container = new Container();
 
     try {
-        /** @var AccessTokenRepository $accessTokenRepository */
+        /** @var \SimpleSAML\Module\oidc\Repositories\AccessTokenRepository $accessTokenRepository */
         $accessTokenRepository = $container->get(AccessTokenRepository::class);
         $accessTokenRepository->removeExpired();
 
-        /** @var AuthCodeRepository $authTokenRepository */
+        /** @var \SimpleSAML\Module\oidc\Repositories\AuthCodeRepository $authTokenRepository */
         $authTokenRepository = $container->get(AuthCodeRepository::class);
         $authTokenRepository->removeExpired();
 
-        /** @var RefreshTokenRepository $refreshTokenRepository */
+        /** @var \SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository $refreshTokenRepository */
         $refreshTokenRepository = $container->get(RefreshTokenRepository::class);
         $refreshTokenRepository->removeExpired();
 

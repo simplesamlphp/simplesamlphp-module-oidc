@@ -5,17 +5,17 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use Exception;
-use JsonException;
-use League\OAuth2\Server\CryptKey;
+use League\OAuth2\Server\Entities\AccessTokenEntityInterface as OAuth2AccessTokenEntityInterface;
 use League\OAuth2\Server\Grant\RefreshTokenGrant as OAuth2RefreshTokenGrant;
-use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
-use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface;
-use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
-use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
-use League\OAuth2\Server\Repositories\UserRepositoryInterface;
+use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
 use League\OAuth2\Server\RequestEvent;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
+use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
+use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 
 use function is_null;
 use function json_decode;
@@ -23,50 +23,44 @@ use function time;
 
 class RefreshTokenGrant extends OAuth2RefreshTokenGrant
 {
-    /**
-     * @var bool
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
+    use IssueAccessTokenTrait;
+
+    /** @psalm-suppress PropertyNotSetInConstructor */
     protected $revokeRefreshTokens;
-    /**
-     * @var string
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
+
+    /** @psalm-suppress PropertyNotSetInConstructor */
     protected $defaultScope;
-    /**
-     * @var CryptKey
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
+
+    /** @psalm-suppress PropertyNotSetInConstructor */
     protected $privateKey;
-    /**
-     * @var UserRepositoryInterface
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
+
+    /** @psalm-suppress PropertyNotSetInConstructor */
     protected $userRepository;
-    /**
-     * @var AuthCodeRepositoryInterface
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
+
+    /** @psalm-suppress PropertyNotSetInConstructor */
     protected $authCodeRepository;
-    /**
-     * @var ScopeRepositoryInterface
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
+
+    /** @psalm-suppress PropertyNotSetInConstructor */
     protected $scopeRepository;
-    /**
-     * @var AccessTokenRepositoryInterface
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
+
+    /** @psalm-suppress PropertyNotSetInConstructor */
     protected $accessTokenRepository;
-    /**
-     * @var ClientRepositoryInterface
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
+
+    /** @psalm-suppress PropertyNotSetInConstructor */
     protected $clientRepository;
 
+    public function __construct(
+        RefreshTokenRepositoryInterface $refreshTokenRepository,
+        AccessTokenEntityFactory $accessTokenEntityFactory,
+        protected readonly RefreshTokenIssuer $refreshTokenIssuer,
+    ) {
+        parent::__construct($refreshTokenRepository);
+        $this->accessTokenEntityFactory = $accessTokenEntityFactory;
+    }
+
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     protected function validateOldRefreshToken(ServerRequestInterface $request, $clientId): array
     {
@@ -105,5 +99,21 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
         }
 
         return $refreshTokenData;
+    }
+
+    protected function issueRefreshToken(
+        OAuth2AccessTokenEntityInterface $accessToken,
+        string $authCodeId = null,
+    ): ?RefreshTokenEntityInterface {
+        if (! is_a($accessToken, AccessTokenEntityInterface::class)) {
+            throw OidcServerException::serverError('Unexpected access token entity type.');
+        }
+
+        return $this->refreshTokenIssuer->issue(
+            $accessToken,
+            $this->refreshTokenTTL,
+            $authCodeId,
+            self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS,
+        );
     }
 }

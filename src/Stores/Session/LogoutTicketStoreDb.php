@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Stores\Session;
 
 use DateInterval;
-use Exception;
 use PDO;
 use SimpleSAML\Database;
-use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
+use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
+use SimpleSAML\Module\oidc\Helpers;
 
 class LogoutTicketStoreDb implements LogoutTicketStoreInterface
 {
@@ -21,8 +21,11 @@ class LogoutTicketStoreDb implements LogoutTicketStoreInterface
      */
     protected int $ttl;
 
-    public function __construct(?Database $database = null, int $ttl = 60)
-    {
+    public function __construct(
+        ?Database $database = null,
+        int $ttl = 60,
+        protected readonly Helpers $helpers = new Helpers(),
+    ) {
         $this->database = $database ?? Database::getInstance();
         $this->ttl = max($ttl, 0);
     }
@@ -41,7 +44,7 @@ class LogoutTicketStoreDb implements LogoutTicketStoreInterface
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function delete(string $sid): void
     {
@@ -55,7 +58,7 @@ class LogoutTicketStoreDb implements LogoutTicketStoreInterface
 
     /**
      * @inheritDoc
-     * @throws Exception
+     * @throws \Exception
      */
     public function deleteMultiple(array $sids): void
     {
@@ -82,7 +85,7 @@ class LogoutTicketStoreDb implements LogoutTicketStoreInterface
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function getAll(): array
     {
@@ -91,16 +94,16 @@ class LogoutTicketStoreDb implements LogoutTicketStoreInterface
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     protected function deleteExpired(): void
     {
         $this->database->write(
             "DELETE FROM {$this->getTableName()} WHERE created_at <= :expiration",
             [
-                'expiration' => TimestampGenerator::utc()
+                'expiration' => $this->helpers->dateTime()->getUtc()
                     ->sub(new DateInterval('PT' . $this->ttl . 'S'))
-                    ->format('Y-m-d H:i:s'),
+                    ->format(DateFormatsEnum::DB_DATETIME->value),
             ],
         );
     }

@@ -21,6 +21,7 @@ class AllowedOriginRepository extends AbstractDatabaseRepository
     public function set(string $clientId, array $origins): void
     {
         $this->delete($clientId);
+        $this->clearCache($origins);
 
         $origins = array_unique(array_filter(array_values($origins)));
 
@@ -65,11 +66,34 @@ class AllowedOriginRepository extends AbstractDatabaseRepository
 
     public function has(string $origin): bool
     {
+        // We only cache this method since it is used in authentication flow.
+        $has = $this->protocolCache?->get(null, $this->getCacheKey($origin));
+
+        if ($has !== null) {
+            return (bool) $has;
+        }
+
         $stmt = $this->database->read(
             "SELECT origin FROM {$this->getTableName()} WHERE origin = :origin LIMIT 1",
             ['origin' => $origin],
         );
 
-        return (bool) count($stmt->fetchAll(PDO::FETCH_COLUMN, 0));
+        $has = (bool) count($stmt->fetchAll(PDO::FETCH_COLUMN, 0));
+
+        $this->protocolCache?->set(
+            $has,
+            $this->moduleConfig->getProtocolClientEntityCacheDuration(),
+            $this->getCacheKey($origin),
+        );
+
+        return $has;
+    }
+
+    protected function clearCache(array $origins): void
+    {
+        /** @var string $origin */
+        foreach ($origins as $origin) {
+            $this->protocolCache?->delete($this->getCacheKey($origin));
+        }
     }
 }

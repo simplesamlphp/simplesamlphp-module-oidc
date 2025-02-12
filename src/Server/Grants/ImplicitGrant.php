@@ -5,10 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use DateInterval;
-use Exception;
-use League\OAuth2\Server\CryptKey;
-use League\OAuth2\Server\Exception\OAuthServerException;
-use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
+use League\OAuth2\Server\Grant\ImplicitGrant as OAuth2ImplicitGrant;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
@@ -18,60 +15,82 @@ use RuntimeException;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
+use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithRequestRules;
 use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
+use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
+use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AddClaimsToIdTokenRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredNonceRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
-use SimpleSAML\Module\oidc\Utils\Checker\Interfaces\ResultBagInterface;
-use SimpleSAML\Module\oidc\Utils\Checker\RequestRulesManager;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\AcrValuesRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\AddClaimsToIdTokenRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\MaxAgeRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\PromptRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestedClaimsRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequestParameterRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredNonceRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\RequiredOpenIdScopeRule;
-use SimpleSAML\Module\oidc\Utils\Checker\Rules\ResponseTypeRule;
-use Throwable;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
-class ImplicitGrant extends OAuth2ImplicitGrant
+/**
+ * @psalm-suppress PropertyNotSetInConstructor
+ */
+class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidatableWithRequestRules
 {
     use IssueAccessTokenTrait;
 
+    /** @var HttpMethodsEnum[]  */
+    protected array $allowedAuthorizationHttpMethods = [HttpMethodsEnum::GET, HttpMethodsEnum::POST];
+
     /**
-     * @var CryptKey
      * @psalm-suppress PropertyNotSetInConstructor
+     * @var \League\OAuth2\Server\CryptKey
      */
     protected $privateKey;
 
     public function __construct(
         protected IdTokenBuilder $idTokenBuilder,
-        DateInterval $accessTokenTTL,
+        protected DateInterval $accessTokenTTL,
         AccessTokenRepositoryInterface $accessTokenRepository,
-        string $queryDelimiter = '#',
-        RequestRulesManager $requestRulesManager = null,
+        protected RequestRulesManager $requestRulesManager,
+        protected RequestParamsResolver $requestParamsResolver,
+        protected string $queryDelimiter,
+        AccessTokenEntityFactory $accessTokenEntityFactory,
     ) {
-        parent::__construct($accessTokenTTL, $queryDelimiter, $requestRulesManager);
+        parent::__construct($accessTokenTTL, $queryDelimiter);
+
         $this->accessTokenRepository = $accessTokenRepository;
+        $this->accessTokenEntityFactory = $accessTokenEntityFactory;
     }
 
     /**
      * {@inheritdoc}
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      */
     public function canRespondToAuthorizationRequest(ServerRequestInterface $request): bool
     {
-        $queryParams = $request->getQueryParams();
+        $requestParams = $this->requestParamsResolver->getAllBasedOnAllowedMethods(
+            $request,
+            $this->allowedAuthorizationHttpMethods,
+        );
+
         if (
-            !isset($queryParams['response_type']) ||
-            !is_string($queryParams['response_type']) ||
-            !isset($queryParams['client_id'])
+            !isset($requestParams['response_type']) ||
+            !is_string($requestParams['response_type']) ||
+            !isset($requestParams['client_id'])
         ) {
             return false;
         }
 
-        $responseType = explode(" ", $queryParams['response_type']);
+        $responseType = explode(" ", $requestParams['response_type']);
 
         return in_array('id_token', $responseType, true) &&
         ! in_array('code', $responseType, true); // ...avoid triggering hybrid flow
@@ -79,11 +98,11 @@ class ImplicitGrant extends OAuth2ImplicitGrant
 
     /**
      * {@inheritdoc}
-     * @param OAuth2AuthorizationRequest $authorizationRequest
-     * @return ResponseTypeInterface
-     * @throws OidcServerException
-     * @throws OAuthServerException
-     * @throws UniqueTokenIdentifierConstraintViolationException
+     * @param \League\OAuth2\Server\RequestTypes\AuthorizationRequest $authorizationRequest
+     * @return \League\OAuth2\Server\ResponseTypes\ResponseTypeInterface
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function completeAuthorizationRequest(
         OAuth2AuthorizationRequest $authorizationRequest,
@@ -96,18 +115,16 @@ class ImplicitGrant extends OAuth2ImplicitGrant
     }
 
     /**
-     * @throws Throwable
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \Throwable
      */
-    public function validateAuthorizationRequestWithCheckerResultBag(
+    public function validateAuthorizationRequestWithRequestRules(
         ServerRequestInterface $request,
         ResultBagInterface $resultBag,
     ): OAuth2AuthorizationRequest {
-        $oAuth2AuthorizationRequest =
-        parent::validateAuthorizationRequestWithCheckerResultBag($request, $resultBag);
-
         $rulesToExecute = [
-            RequestParameterRule::class,
+            ScopeRule::class,
+            RequestObjectRule::class,
             PromptRule::class,
             MaxAgeRule::class,
             RequiredOpenIdScopeRule::class,
@@ -120,9 +137,35 @@ class ImplicitGrant extends OAuth2ImplicitGrant
 
         $this->requestRulesManager->predefineResultBag($resultBag);
 
-        $resultBag = $this->requestRulesManager->check($request, $rulesToExecute, $this->shouldUseFragment());
+        /** @var string $redirectUri */
+        $redirectUri = $resultBag->getOrFail(RedirectUriRule::class)->getValue();
+        /** @var string|null $state */
+        $state = $resultBag->getOrFail(StateRule::class)->getValue();
+        /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
+        $client = $resultBag->getOrFail(ClientIdRule::class)->getValue();
 
-        $authorizationRequest = AuthorizationRequest::fromOAuth2AuthorizationRequest($oAuth2AuthorizationRequest);
+        // Some rules need certain things available in order to work properly...
+        $this->requestRulesManager->setData('default_scope', $this->defaultScope);
+        $this->requestRulesManager->setData('scope_delimiter_string', self::SCOPE_DELIMITER_STRING);
+
+        $resultBag = $this->requestRulesManager->check(
+            $request,
+            $rulesToExecute,
+            $this->shouldUseFragment(),
+            $this->allowedAuthorizationHttpMethods,
+        );
+
+        /** @var \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes */
+        $scopes = $resultBag->getOrFail(ScopeRule::class)->getValue();
+
+        $authorizationRequest = new AuthorizationRequest();
+        $authorizationRequest->setClient($client);
+        $authorizationRequest->setRedirectUri($redirectUri);
+        $authorizationRequest->setScopes($scopes);
+        $authorizationRequest->setGrantTypeId($this->getIdentifier());
+        if ($state !== null) {
+            $authorizationRequest->setState($state);
+        }
 
         // nonce existence is validated using a rule, so we can get it from there.
         $authorizationRequest->setNonce((string)$resultBag->getOrFail(RequiredNonceRule::class)->getValue());
@@ -156,10 +199,10 @@ class ImplicitGrant extends OAuth2ImplicitGrant
     }
 
     /**
-     * @throws UniqueTokenIdentifierConstraintViolationException
-     * @throws OAuthServerException
-     * @throws OidcServerException
-     * @throws Exception
+     * @throws \Exception
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
     private function completeOidcAuthorizationRequest(AuthorizationRequest $authorizationRequest): ResponseTypeInterface
     {

@@ -15,26 +15,28 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Module\oidc\Repositories;
 
-use Exception;
-use SimpleSAML\Configuration;
 use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 abstract class AbstractDatabaseRepository
 {
-    protected Configuration $config;
-
-    protected Database $database;
-
     /**
      * ClientRepository constructor.
-     * @throws Exception
+     * @throws \Exception
      */
-    public function __construct(protected ModuleConfig $moduleConfig)
+    public function __construct(
+        protected readonly ModuleConfig $moduleConfig,
+        protected readonly Database $database,
+        protected readonly ?ProtocolCache $protocolCache,
+    ) {
+    }
+
+    public function getCacheKey(string $identifier): string
     {
-        $this->config = $this->moduleConfig->config();
-        // TODO mivanci move to Doctrine DBAL stores
-        $this->database = Database::getInstance();
+        return is_string($tableName = $this->getTableName()) ?
+        $tableName . '_' . $identifier :
+        $identifier;
     }
 
     abstract public function getTableName(): ?string;

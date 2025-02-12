@@ -18,7 +18,7 @@
   },
   "browser": [
     {
-      "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+      "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
       "tasks": [
         {
           "task": "Login",
@@ -111,7 +111,7 @@
       "browser": [
         {
           "comment": "updates placeholder during the second authorization",
-          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
           "tasks": [
             {
               "task": "Login",
@@ -179,7 +179,7 @@
       "browser": [
         {
           "comment": "updates placeholder during the second authorization",
-          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
           "tasks": [
             {
               "task": "Login",
@@ -247,35 +247,11 @@
       "browser": [
         {
           "comment": "expect an immediate error page",
-          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
           "tasks": [
             {
               "task": "Expect redirect uri mismatch error page",
-              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
-              "commands": [
-                [
-                  "wait",
-                  "xpath",
-                  "//*",
-                  10,
-                  "Check the `redirect_uri` parameter",
-                  "update-image-placeholder"
-                ]
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    "oidcc-ensure-request-object-with-redirect-uri": {
-      "browser": [
-        {
-          "comment": "expect an immediate error page",
-          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
-          "tasks": [
-            {
-              "task": "Expect redirect uri mismatch error page",
-              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
               "commands": [
                 [
                   "wait",
@@ -295,11 +271,11 @@
       "browser": [
         {
           "comment": "expect an immediate error page",
-          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
           "tasks": [
             {
               "task": "Expect redirect uri mismatch error page",
-              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
               "commands": [
                 [
                   "wait",
@@ -319,11 +295,11 @@
       "browser": [
         {
           "comment": "expect an immediate error page",
-          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
           "tasks": [
             {
               "task": "Expect redirect uri mismatch error page",
-              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
               "commands": [
                 [
                   "wait",
@@ -343,11 +319,11 @@
       "browser": [
         {
           "comment": "expect an immediate error page",
-          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
           "tasks": [
             {
               "task": "Expect redirect uri mismatch error page",
-              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+              "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
               "commands": [
                 [
                   "wait",
@@ -367,7 +343,7 @@
       "browser": [
         {
           "comment": "expect a login page with logo",
-          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
           "tasks": [
             {
               "task": "Expect a login page with logo",
@@ -391,7 +367,7 @@
       "browser": [
         {
           "comment": "expect a login page with policy document link",
-          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
           "tasks": [
             {
               "task": "Expect a login page with policy document link",
@@ -415,7 +391,7 @@
       "browser": [
         {
           "comment": "expect a login page with TOS document link",
-          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
           "tasks": [
             {
               "task": "Expect a login page with TOS document link",
@@ -438,7 +414,7 @@
     "oidcc-rp-initiated-logout-bad-post-logout-redirect-uri": {
       "browser": [
         {
-          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
           "tasks": [
             {
               "task": "Login",
@@ -517,7 +493,7 @@
     "oidcc-rp-initiated-logout-query-added-to-post-logout-redirect-uri": {
       "browser": [
         {
-          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
           "tasks": [
             {
               "task": "Login",
@@ -596,7 +572,7 @@
     "oidcc-rp-initiated-logout-modified-id-token-hint": {
       "browser": [
         {
-          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
           "tasks": [
             {
               "task": "Login",
@@ -675,7 +651,7 @@
     "oidcc-rp-initiated-logout-bad-id-token-hint": {
       "browser": [
         {
-          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
           "tasks": [
             {
               "task": "Login",
@@ -754,7 +730,7 @@
     "oidcc-rp-initiated-logout-no-id-token-hint": {
       "browser": [
         {
-          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
           "tasks": [
             {
               "task": "Login",
@@ -833,7 +809,7 @@
     "oidcc-rp-initiated-logout-no-params": {
       "browser": [
         {
-          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
           "tasks": [
             {
               "task": "Login",
@@ -923,7 +899,7 @@
     "oidcc-rp-initiated-logout-no-post-logout-redirect-uri": {
       "browser": [
         {
-          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
           "tasks": [
             {
               "task": "Login",
@@ -1013,7 +989,7 @@
     "oidcc-rp-initiated-logout-only-state": {
       "browser": [
         {
-          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorize.php*",
+          "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
           "tasks": [
             {
               "task": "Login",

@@ -14,7 +14,7 @@ declare(strict_types=1);
  * file that was distributed with this source code.
  */
 
-use SimpleSAML\Module\oidc\Controller\UserInfoController;
+use SimpleSAML\Module\oidc\Controllers\UserInfoController;
 use SimpleSAML\Module\oidc\Services\RoutingService;
 
 RoutingService::call(UserInfoController::class, false, true);

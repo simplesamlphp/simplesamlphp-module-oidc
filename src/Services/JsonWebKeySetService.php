@@ -15,44 +15,119 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Module\oidc\Services;
 
-use Jose\Component\Core\JWK;
 use Jose\Component\Core\JWKSet;
 use Jose\Component\KeyManagement\JWKFactory;
-use SimpleSAML\Error\Exception;
+use SimpleSAML\Error;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Codebooks\PublicKeyUseEnum;
 
 class JsonWebKeySetService
 {
-    private readonly JWKSet $jwkSet;
+    /** @var JWKSet JWKS for OIDC protocol. */
+    protected JWKSet $protocolJwkSet;
+    /** @var JWKSet|null JWKS for OpenID Federation. */
+    protected ?JWKSet $federationJwkSet = null;
 
     /**
-     * @throws Exception
+     * @throws \SimpleSAML\Error\Exception
      * @throws \Exception
      */
-    public function __construct(ModuleConfig $moduleConfig)
-    {
-        $publicKeyPath = $moduleConfig->getCertPath();
-        if (!file_exists($publicKeyPath)) {
-            throw new Exception("OpenId Connect certification file does not exists: $publicKeyPath.");
-        }
+    public function __construct(
+        protected readonly ModuleConfig $moduleConfig,
+    ) {
+        $this->prepareProtocolJwkSet();
 
-        $kid = FingerprintGenerator::forFile($publicKeyPath);
-
-        $jwk = JWKFactory::createFromKeyFile($publicKeyPath, null, [
-            'kid' => $kid,
-            'use' => 'sig',
-            'alg' => 'RS256',
-        ]);
-
-        $this->jwkSet = new JWKSet([$jwk]);
+        $this->prepareFederationJwkSet();
     }
 
     /**
-     * @return JWK[]
+     * @return \Jose\Component\Core\JWK[]
      */
-    public function keys(): array
+    public function protocolKeys(): array
     {
-        return $this->jwkSet->all();
+        return $this->protocolJwkSet->all();
+    }
+
+    /**
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function federationKeys(): array
+    {
+        if (is_null($this->federationJwkSet)) {
+            throw OidcServerException::serverError('OpenID Federation public key not set.');
+        }
+
+        return $this->federationJwkSet->all();
+    }
+
+    /**
+     * @throws \ReflectionException
+     * @throws \SimpleSAML\Error\Exception
+     */
+    protected function prepareProtocolJwkSet(): void
+    {
+        $protocolPublicKeyPath = $this->moduleConfig->getProtocolCertPath();
+
+        if (!file_exists($protocolPublicKeyPath)) {
+            throw new Error\Exception("OIDC protocol public key file does not exists: $protocolPublicKeyPath.");
+        }
+
+        $jwk = JWKFactory::createFromKeyFile($protocolPublicKeyPath, null, [
+            ClaimsEnum::Kid->value => FingerprintGenerator::forFile($protocolPublicKeyPath),
+            ClaimsEnum::Use->value => PublicKeyUseEnum::Signature->value,
+            ClaimsEnum::Alg->value => $this->moduleConfig->getProtocolSigner()->algorithmId(),
+        ]);
+
+        $keys = [$jwk];
+
+        if (
+            ($protocolNewPublicKeyPath = $this->moduleConfig->getProtocolNewCertPath()) &&
+            file_exists($protocolNewPublicKeyPath)
+        ) {
+            $newJwk = JWKFactory::createFromKeyFile($protocolNewPublicKeyPath, null, [
+                ClaimsEnum::Kid->value => FingerprintGenerator::forFile($protocolNewPublicKeyPath),
+                ClaimsEnum::Use->value => PublicKeyUseEnum::Signature->value,
+                ClaimsEnum::Alg->value => $this->moduleConfig->getProtocolSigner()->algorithmId(),
+            ]);
+
+            $keys[] = $newJwk;
+        }
+
+        $this->protocolJwkSet = new JWKSet($keys);
+    }
+
+    protected function prepareFederationJwkSet(): void
+    {
+        $federationPublicKeyPath = $this->moduleConfig->getFederationCertPath();
+
+        if (!file_exists($federationPublicKeyPath)) {
+            return;
+        }
+
+        $federationJwk = JWKFactory::createFromKeyFile($federationPublicKeyPath, null, [
+            ClaimsEnum::Kid->value => FingerprintGenerator::forFile($federationPublicKeyPath),
+            ClaimsEnum::Use->value => PublicKeyUseEnum::Signature->value,
+            ClaimsEnum::Alg->value => $this->moduleConfig->getFederationSigner()->algorithmId(),
+        ]);
+
+        $keys = [$federationJwk];
+
+        if (
+            ($federationNewPublicKeyPath = $this->moduleConfig->getFederationNewCertPath()) &&
+            file_exists($federationNewPublicKeyPath)
+        ) {
+            $federationNewJwk = JWKFactory::createFromKeyFile($federationNewPublicKeyPath, null, [
+                ClaimsEnum::Kid->value => FingerprintGenerator::forFile($federationNewPublicKeyPath),
+                ClaimsEnum::Use->value => PublicKeyUseEnum::Signature->value,
+                ClaimsEnum::Alg->value => $this->moduleConfig->getFederationSigner()->algorithmId(),
+            ]);
+
+            $keys[] = $federationNewJwk;
+        }
+
+        $this->federationJwkSet = new JWKSet($keys);
     }
 }

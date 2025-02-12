@@ -6,13 +6,11 @@ namespace SimpleSAML\Module\oidc\Server\Grants\Traits;
 
 use DateInterval;
 use DateTimeImmutable;
-use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Entities\ClientEntityInterface;
-use League\OAuth2\Server\Entities\ScopeEntityInterface;
-use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use League\OAuth2\Server\Grant\AbstractGrant;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
+use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
@@ -30,26 +28,28 @@ trait IssueAccessTokenTrait
     protected $accessTokenRepository;
 
     /**
-     * @var CryptKey
+     * @var \League\OAuth2\Server\CryptKey
      */
     protected $privateKey;
+
+    protected AccessTokenEntityFactory $accessTokenEntityFactory;
 
     /**
      * Issue an access token.
      *
      * @param string|null $userIdentifier
-     * @param ScopeEntityInterface[] $scopes
+     * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
      * @param array|null $requestedClaims Any requested claims
-     * @throws OAuthServerException
-     * @throws UniqueTokenIdentifierConstraintViolationException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
      */
     protected function issueAccessToken(
         DateInterval $accessTokenTTL,
         ClientEntityInterface $client,
         $userIdentifier = null,
         array $scopes = [],
-        string $authCodeId = null,
-        array $requestedClaims = null,
+        ?string $authCodeId = null,
+        ?array $requestedClaims = null,
     ): AccessTokenEntityInterface {
         $maxGenerationAttempts = AbstractGrant::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
 
@@ -60,21 +60,19 @@ trait IssueAccessTokenTrait
             );
         }
 
-        $accessToken = $this->accessTokenRepository->getNewToken(
-            $client,
-            $scopes,
-            $userIdentifier,
-            $authCodeId,
-            $requestedClaims,
-        );
-        $accessToken->setExpiryDateTime((new DateTimeImmutable())->add($accessTokenTTL));
-        $accessToken->setPrivateKey($this->privateKey);
-
         while ($maxGenerationAttempts-- > 0) {
-            $accessToken->setIdentifier($this->generateUniqueIdentifier());
             try {
+                $accessToken = $this->accessTokenEntityFactory->fromData(
+                    $this->generateUniqueIdentifier(),
+                    $client,
+                    $scopes,
+                    (new DateTimeImmutable())->add($accessTokenTTL),
+                    $userIdentifier,
+                    $authCodeId,
+                    $requestedClaims,
+                );
                 $this->accessTokenRepository->persistNewAccessToken($accessToken);
-                break;
+                return $accessToken;
             } catch (UniqueTokenIdentifierConstraintViolationException $e) {
                 if ($maxGenerationAttempts === 0) {
                     throw $e;
@@ -82,14 +80,14 @@ trait IssueAccessTokenTrait
             }
         }
 
-        return $accessToken;
+        throw OidcServerException::serverError('Unable to issue Access Token.');
     }
 
     /**
      * Generate a new unique identifier.
      *
      * @param int $length
-     * @throws OAuthServerException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
      *
      * @return string
      */

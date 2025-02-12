@@ -16,17 +16,32 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Repositories;
 
+use DateTimeImmutable;
 use Exception;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\Repositories\UserRepositoryInterface;
-use SimpleSAML\Module\oidc\Repositories\Interfaces\IdentityProviderInterface;
+use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
+use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\IdentityProviderInterface;
+use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 class UserRepository extends AbstractDatabaseRepository implements UserRepositoryInterface, IdentityProviderInterface
 {
     final public const TABLE_NAME = 'oidc_user';
+
+    public function __construct(
+        ModuleConfig $moduleConfig,
+        Database $database,
+        ?ProtocolCache $protocolCache,
+        protected readonly Helpers $helpers,
+        protected readonly UserEntityFactory $userEntityFactory,
+    ) {
+        parent::__construct($moduleConfig, $database, $protocolCache);
+    }
 
     public function getTableName(): string
     {
@@ -36,11 +51,18 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
     /**
      * @param string $identifier
      *
-     * @return UserEntity|null
-     * @throws OidcServerException
+     * @return \SimpleSAML\Module\oidc\Entities\UserEntity|null
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function getUserEntityByIdentifier(string $identifier): ?UserEntity
     {
+        /** @var ?array $cachedState */
+        $cachedState = $this->protocolCache?->get(null, $this->getCacheKey($identifier));
+
+        if (is_array($cachedState)) {
+            return $this->userEntityFactory->fromState($cachedState);
+        }
+
         $stmt = $this->database->read(
             "SELECT * FROM {$this->getTableName()} WHERE id = :id",
             [
@@ -54,16 +76,26 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
 
         $row = current($rows);
 
+        // @codeCoverageIgnoreStart
         if (!is_array($row)) {
             return null;
         }
+        // @codeCoverageIgnoreEnd
 
-        return UserEntity::fromState($row);
+        $userEntity = $this->userEntityFactory->fromState($row);
+
+        $this->protocolCache?->set(
+            $userEntity->getState(),
+            $this->moduleConfig->getProtocolUserEntityCacheDuration(),
+            $this->getCacheKey($userEntity->getIdentifier()),
+        );
+
+        return $userEntity;
     }
 
     /**
      * {@inheritdoc}
-     * @throws Exception
+     * @throws \Exception
      */
     public function getUserEntityByUserCredentials(
         $username,
@@ -84,20 +116,30 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
             $stmt,
             $userEntity->getState(),
         );
+
+        $this->protocolCache?->set(
+            $userEntity->getState(),
+            $this->moduleConfig->getProtocolUserEntityCacheDuration(),
+            $this->getCacheKey($userEntity->getIdentifier()),
+        );
     }
 
-    public function delete(UserEntity $user): void
+    public function delete(UserEntity $userEntity): void
     {
         $this->database->write(
             "DELETE FROM {$this->getTableName()} WHERE id = :id",
             [
-                'id' => $user->getIdentifier(),
+                'id' => $userEntity->getIdentifier(),
             ],
         );
+
+        $this->protocolCache?->delete($this->getCacheKey($userEntity->getIdentifier()));
     }
 
-    public function update(UserEntity $user): void
+    public function update(UserEntity $userEntity, ?DateTimeImmutable $updatedAt = null): void
     {
+        $userEntity->setUpdatedAt($updatedAt ?? $this->helpers->dateTime()->getUtc());
+
         $stmt = sprintf(
             "UPDATE %s SET claims = :claims, updated_at = :updated_at, created_at = :created_at WHERE id = :id",
             $this->getTableName(),
@@ -105,7 +147,13 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
 
         $this->database->write(
             $stmt,
-            $user->getState(),
+            $userEntity->getState(),
+        );
+
+        $this->protocolCache?->set(
+            $userEntity->getState(),
+            $this->moduleConfig->getProtocolUserEntityCacheDuration(),
+            $this->getCacheKey($userEntity->getIdentifier()),
         );
     }
 }

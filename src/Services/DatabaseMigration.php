@@ -30,23 +30,26 @@ class DatabaseMigration
 {
     private readonly Database $database;
 
-    public function __construct(Database $database = null)
+    public function __construct(?Database $database = null)
     {
         $this->database = $database ?? Database::getInstance();
     }
 
-    public function isUpdated(): bool
+    public function isMigrated(): bool
+    {
+        return empty($this->getNotImplementedVersions());
+    }
+
+    public function getNotImplementedVersions(): array
     {
         $implementedVersions = $this->versions();
-        $notImplementedVersions = array_filter(get_class_methods($this), function ($method) use ($implementedVersions) {
+        return array_filter(get_class_methods($this), function ($method) use ($implementedVersions) {
             if (preg_match('/^version(\d+)/', $method, $matches)) {
                 return !in_array($matches[1], $implementedVersions, true);
             }
 
             return false;
         });
-
-        return empty($notImplementedVersions);
     }
 
     public function versions(): array
@@ -119,6 +122,46 @@ class DatabaseMigration
         if (!in_array('20210916173400', $versions, true)) {
             $this->version20210916173400();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20210916173400')");
+        }
+
+        if (!in_array('20240603141400', $versions, true)) {
+            $this->version20240603141400();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20240603141400')");
+        }
+
+        if (!in_array('20240605145700', $versions, true)) {
+            $this->version20240605145700();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20240605145700')");
+        }
+
+        if (!in_array('20240820132400', $versions, true)) {
+            $this->version20240820132400();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20240820132400')");
+        }
+
+        if (!in_array('20240828153300', $versions, true)) {
+            $this->version20240828153300();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20240828153300')");
+        }
+
+        if (!in_array('20240830153300', $versions, true)) {
+            $this->version20240830153300();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20240830153300')");
+        }
+
+        if (!in_array('20240902120000', $versions, true)) {
+            $this->version20240902120000();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20240902120000')");
+        }
+
+        if (!in_array('20240905120000', $versions, true)) {
+            $this->version20240905120000();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20240905120000')");
+        }
+
+        if (!in_array('20240906120000', $versions, true)) {
+            $this->version20240906120000();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20240906120000')");
         }
     }
 
@@ -348,6 +391,144 @@ EOT
         )
 EOT
         ,);
+    }
+
+    /**
+     * Add Entity Identifier column
+     */
+    protected function version20240603141400(): void
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $uqEntityIdentifier = $this->generateIdentifierName([$clientTableName, 'entity_identifier'], 'uq');
+        $this->database->write(<<< EOT
+        ALTER TABLE {$clientTableName}
+            ADD entity_identifier VARCHAR(191) NULL
+EOT
+        ,);
+
+        // The syntax for adding unique constraint in existing table is different in sqlite (used in unit tests).
+        if ($this->database->getDriver() !== 'mysql') {
+            $this->database->write(<<< EOT
+            CREATE UNIQUE INDEX $uqEntityIdentifier ON $clientTableName(entity_identifier);
+EOT
+            ,);
+            return;
+        }
+
+        $this->database->write(<<< EOT
+        ALTER TABLE {$clientTableName}
+            ADD UNIQUE INDEX $uqEntityIdentifier (entity_identifier)
+EOT
+        ,);
+    }
+
+    /**
+     * Add Client Registration Types column
+     */
+    protected function version20240605145700(): void
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE {$clientTableName}
+            ADD client_registration_types VARCHAR(191) NULL
+EOT
+            ,);
+    }
+
+    private function version20240820132400(): void
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE {$clientTableName}
+            ADD federation_jwks TEXT NULL
+EOT
+            ,);
+    }
+
+    private function version20240828153300(): void
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE {$clientTableName}
+            ADD jwks TEXT NULL
+EOT
+            ,);
+    }
+
+    private function version20240830153300(): void
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE {$clientTableName}
+            ADD jwks_uri TEXT NULL
+EOT
+            ,);
+    }
+
+    private function version20240902120000(): void
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE {$clientTableName}
+            ADD signed_jwks_uri TEXT NULL
+EOT
+            ,);
+    }
+
+    private function version20240905120000(): void
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $idxRegistrationType = $this->generateIdentifierName([$clientTableName, 'registration_type'], 'idx');
+        $idxExpiresAt = $this->generateIdentifierName([$clientTableName, 'expires_at'], 'idx');
+
+        $this->database->write(<<< EOT
+        ALTER TABLE $clientTableName ADD registration_type CHAR(32) DEFAULT 'manual';
+EOT
+            ,);
+
+        $this->database->write(<<< EOT
+        ALTER TABLE $clientTableName ADD updated_at TIMESTAMP NULL DEFAULT NULL;
+EOT
+            ,);
+
+        $this->database->write(<<< EOT
+        ALTER TABLE $clientTableName ADD created_at TIMESTAMP NULL DEFAULT NULL;
+EOT
+            ,);
+
+        $this->database->write(<<< EOT
+        ALTER TABLE $clientTableName ADD expires_at TIMESTAMP NULL DEFAULT NULL;
+EOT
+            ,);
+
+        // The syntax for adding unique constraint in existing table is different in sqlite (used in unit tests).
+        if ($this->database->getDriver() !== 'mysql') {
+            $this->database->write(<<< EOT
+            CREATE INDEX $idxRegistrationType ON $clientTableName(registration_type);
+EOT
+            ,);
+            $this->database->write(<<< EOT
+            CREATE INDEX $idxExpiresAt ON $clientTableName(expires_at);
+EOT
+            ,);
+        } else {
+            $this->database->write(<<< EOT
+            ALTER TABLE {$clientTableName}
+                ADD INDEX $idxRegistrationType (registration_type),
+                ADD INDEX $idxExpiresAt (expires_at)
+EOT
+                ,);
+        }
+    }
+
+    private function version20240906120000(): void
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE {$clientTableName}
+            ADD is_federated BOOLEAN NOT NULL DEFAULT false
+EOT
+            ,);
     }
 
     /**

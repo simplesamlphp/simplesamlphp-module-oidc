@@ -1,27 +1,26 @@
-{% extends "@oidc/oidc_base.twig" %}
+{% extends "@oidc/base.twig" %}
 
 {% set pagetitle = 'Logout Info' | trans %}
 
-{% block content %}
+{% block oidcContent %}
     <h2>
         {% if wasLogoutActionCalled %}
-            {{ '{oidc:logout:page_title_success}'|trans }}
+            {{ 'Logout Successful'|trans }}
         {% else %}
-            {{ '{oidc:logout:page_title_fail}'|trans }}
+            {{ 'Logout Failed'|trans }}
         {% endif %}
     </h2>
 
-    <div class="ui hidden divider"></div>
 
-    <div class="ui attached message">
-        <div class="header">
-            {{ '{oidc:logout:info_title}'|trans }}
-        </div>
+    <div>
+        <h3>
+            {{ 'Info'|trans }}
+        </h3>
         <p>
             {% if wasLogoutActionCalled %}
-                {{ '{oidc:logout:info_message_success}'|trans }}
+                {{ 'You can now close this window or navigate to another page.'|trans }}
             {% else %}
-                {{ '{oidc:logout:info_message_fail}'|trans }}
+                {{ 'Requested session was not found or it is expired.'|trans }}
             {% endif %}
         </p>
     </div>

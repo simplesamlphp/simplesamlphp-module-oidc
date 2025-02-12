@@ -10,11 +10,12 @@
   xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
 >
   <projectFiles>
-    <directory name="config-templates" />
+    <directory name="config" />
     <directory name="hooks" />
     <directory name="src" />
     <directory name="templates" />
     <directory name="public" />
+    <directory name="routing/routes" />
 
     <ignoreFiles>
       <directory name="vendor" />
@@ -28,12 +29,6 @@
           <file name="tests/bootstrap.php" />
         </errorLevel>
     </UnresolvableInclude>
-    <!-- Ignore UnusedVariable in config template -->
-    <UnusedVariable>
-      <errorLevel type="suppress">
-        <file name="config-templates/module_oidc.php" />
-      </errorLevel>
-    </UnusedVariable>
     <InvalidClassConstantType>
       <errorLevel type="suppress">
         <file name="src/Forms/Controls/CsrfProtection.php" />

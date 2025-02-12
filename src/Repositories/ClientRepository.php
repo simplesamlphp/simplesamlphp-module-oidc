@@ -15,17 +15,26 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Module\oidc\Repositories;
 
-use Exception;
-use JsonException;
-use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
+use PDO;
+use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 class ClientRepository extends AbstractDatabaseRepository implements ClientRepositoryInterface
 {
+    public function __construct(
+        ModuleConfig $moduleConfig,
+        Database $database,
+        ?ProtocolCache $protocolCache,
+        protected readonly ClientEntityFactory $clientEntityFactory,
+    ) {
+        parent::__construct($moduleConfig, $database, $protocolCache);
+    }
+
     final public const TABLE_NAME = 'oidc_client';
 
     public function getTableName(): string
@@ -35,8 +44,8 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
     /**
      * {@inheritdoc}
-     * @throws OAuthServerException
-     * @throws JsonException
+     * @throws \JsonException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
     public function getClientEntity($clientIdentifier)
     {
@@ -46,8 +55,12 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
             return null;
         }
 
+        if ($client->isExpired()) {
+            return null;
+        }
+
         if (false === $client->isEnabled()) {
-            throw OAuthServerException::accessDenied('Client is disabled');
+            return null;
         }
 
         return $client;
@@ -55,8 +68,8 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
     /**
      * @inheritDoc
-     * @throws OAuthServerException
-     * @throws JsonException
+     * @throws \JsonException
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
     public function validateClient($clientIdentifier, $clientSecret, $grantType): bool
     {
@@ -74,11 +87,18 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
     }
 
     /**
-     * @throws OidcServerException
-     * @throws JsonException
+     * @throws \JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function findById(string $clientIdentifier, ?string $owner = null): ?ClientEntityInterface
     {
+        /** @var ?array $cachedState */
+        $cachedState = $this->protocolCache?->get(null, $this->getCacheKey($clientIdentifier));
+
+        if (is_array($cachedState)) {
+            return $this->clientEntityFactory->fromState($cachedState);
+        }
+
         /**
          * @var string $query
          * @var array $params
@@ -99,11 +119,75 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
         $row = current($rows);
 
+        // @codeCoverageIgnoreStart
         if (!is_array($row)) {
             return null;
         }
+        // @codeCoverageIgnoreEnd
 
-        return ClientEntity::fromState($row);
+        $clientEntity = $this->clientEntityFactory->fromState($row);
+
+        $this->protocolCache?->set(
+            $clientEntity->getState(),
+            $this->moduleConfig->getProtocolClientEntityCacheDuration(),
+            $this->getCacheKey($clientEntity->getIdentifier()),
+        );
+
+        return $clientEntity;
+    }
+
+    public function findByEntityIdentifier(string $entityIdentifier, ?string $owner = null): ?ClientEntityInterface
+    {
+        /** @var ?array $cachedState */
+        $cachedState = $this->protocolCache?->get(null, $this->getCacheKey($entityIdentifier));
+
+        if (is_array($cachedState)) {
+            return $this->clientEntityFactory->fromState($cachedState);
+        }
+
+        /**
+         * @var string $query
+         * @var array $params
+         */
+        [$query, $params] = $this->addOwnerWhereClause(
+            <<<EOS
+            SELECT * FROM {$this->getTableName()}
+            WHERE
+                entity_identifier = :entity_identifier AND
+                is_enabled = :is_enabled AND
+                is_federated = :is_federated
+            EOS,
+            [
+                'entity_identifier' => $entityIdentifier,
+                'is_enabled' => [true, PDO::PARAM_BOOL],
+                'is_federated' => [true, PDO::PARAM_BOOL],
+            ],
+            $owner,
+        );
+
+        $stmt = $this->database->read($query, $params);
+
+        if (empty($rows = $stmt->fetchAll())) {
+            return null;
+        }
+
+        $row = current($rows);
+
+        // @codeCoverageIgnoreStart
+        if (!is_array($row)) {
+            return null;
+        }
+        // @codeCoverageIgnoreEnd
+
+        $clientEntity = $this->clientEntityFactory->fromState($row);
+
+        $this->protocolCache?->set(
+            $clientEntity->getState(),
+            $this->moduleConfig->getProtocolClientEntityCacheDuration(),
+            $this->getCacheKey($entityIdentifier),
+        );
+
+        return $clientEntity;
     }
 
     private function addOwnerWhereClause(string $query, array $params, ?string $owner = null): array
@@ -120,8 +204,9 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
     }
 
     /**
-     * @return ClientEntityInterface[]
-     * @throws OidcServerException|JsonException
+     * @return \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface[]
+     * @throws \JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function findAll(?string $owner = null): array
     {
@@ -143,15 +228,19 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
         /** @var array $state */
         foreach ($stmt->fetchAll() as $state) {
-            $clients[] = ClientEntity::fromState($state);
+            $clients[] = $this->clientEntityFactory->fromState($state);
         }
 
         return $clients;
     }
 
     /**
-     * @return array{numPages: int, currentPage: int, items: ClientEntityInterface[]}
-     * @throws Exception
+     * @return array{
+     *   numPages: int,
+     *   currentPage: int,
+     *   items: \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface[]
+     * }
+     * @throws \Exception
      */
     public function findPaginated(int $page = 1, string $query = '', ?string $owner = null): array
     {
@@ -176,7 +265,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
             $params,
         );
 
-        $clients = array_map(fn(array $state) => ClientEntity::fromState($state), $stmt->fetchAll());
+        $clients = array_map(fn(array $state) => $this->clientEntityFactory->fromState($state), $stmt->fetchAll());
 
         return [
             'numPages' => $numPages,
@@ -201,7 +290,18 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
                 is_confidential,
                 owner,
                 post_logout_redirect_uri,
-                backchannel_logout_uri
+                backchannel_logout_uri,
+                entity_identifier,
+                client_registration_types,
+                federation_jwks,
+                jwks,
+                jwks_uri,
+                signed_jwks_uri,
+                registration_type,
+                updated_at,
+                created_at,
+                expires_at,
+                is_federated
             )
             VALUES (
                 :id,
@@ -215,7 +315,18 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
                 :is_confidential,
                 :owner,
                 :post_logout_redirect_uri,
-                :backchannel_logout_uri
+                :backchannel_logout_uri,
+                :entity_identifier,
+                :client_registration_types,
+                :federation_jwks,
+                :jwks,
+                :jwks_uri,
+                :signed_jwks_uri,
+                :registration_type,
+                :updated_at,
+                :created_at,
+                :expires_at,
+                :is_federated
             )
 EOS
             ,
@@ -223,8 +334,21 @@ EOS
         );
         $this->database->write(
             $stmt,
-            $client->getState(),
+            $this->preparePdoState($client->getState()),
         );
+
+        $this->protocolCache?->set(
+            $client->getState(),
+            $this->moduleConfig->getProtocolClientEntityCacheDuration(),
+            $this->getCacheKey($client->getIdentifier()),
+        );
+        if (($entityIdentifier = $client->getEntityIdentifier()) !== null) {
+            $this->protocolCache?->set(
+                $client->getState(),
+                $this->moduleConfig->getProtocolClientEntityCacheDuration(),
+                $this->getCacheKey($entityIdentifier),
+            );
+        }
     }
 
     public function delete(ClientEntityInterface $client, ?string $owner = null): void
@@ -241,6 +365,11 @@ EOS
             $owner,
         );
         $this->database->write($sqlQuery, $params);
+
+        $this->protocolCache?->delete($this->getCacheKey($client->getIdentifier()));
+        if (($entityIdentifier = $client->getEntityIdentifier()) !== null) {
+            $this->protocolCache?->delete($this->getCacheKey($entityIdentifier));
+        }
     }
 
     public function update(ClientEntityInterface $client, ?string $owner = null): void
@@ -258,7 +387,18 @@ EOS
                 is_confidential = :is_confidential,
                 owner = :owner,
                 post_logout_redirect_uri = :post_logout_redirect_uri,
-                backchannel_logout_uri = :backchannel_logout_uri
+                backchannel_logout_uri = :backchannel_logout_uri,
+                entity_identifier = :entity_identifier,
+                client_registration_types = :client_registration_types,
+                federation_jwks = :federation_jwks,
+                jwks = :jwks,
+                jwks_uri = :jwks_uri,
+                signed_jwks_uri = :signed_jwks_uri,
+                registration_type = :registration_type,
+                updated_at = :updated_at,
+                created_at = :created_at,
+                expires_at = :expires_at,
+                is_federated = :is_federated
             WHERE id = :id
 EOF
             ,
@@ -271,13 +411,26 @@ EOF
          */
         [$sqlQuery, $params] = $this->addOwnerWhereClause(
             $stmt,
-            $client->getState(),
+            $this->preparePdoState($client->getState()),
             $owner,
         );
         $this->database->write(
             $sqlQuery,
             $params,
         );
+
+        $this->protocolCache?->set(
+            $client->getState(),
+            $this->moduleConfig->getProtocolClientEntityCacheDuration(),
+            $this->getCacheKey($client->getIdentifier()),
+        );
+        if (($entityIdentifier = $client->getEntityIdentifier()) !== null) {
+            $this->protocolCache?->set(
+                $client->getState(),
+                $this->moduleConfig->getProtocolClientEntityCacheDuration(),
+                $this->getCacheKey($entityIdentifier),
+            );
+        }
     }
 
     private function count(string $query, ?string $owner): int
@@ -301,11 +454,11 @@ EOF
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     private function getItemsPerPage(): int
     {
-        return $this->config
+        return $this->moduleConfig->config()
             ->getOptionalIntegerRange(ModuleConfig::OPTION_ADMIN_UI_PAGINATION_ITEMS_PER_PAGE, 1, 100, 20);
     }
 
@@ -332,5 +485,18 @@ EOF
     private function calculateOffset(int $page, int $limit): float|int
     {
         return ($page - 1) * $limit;
+    }
+
+    protected function preparePdoState(array $state): array
+    {
+        $isEnabled = (bool)($state[ClientEntity::KEY_IS_ENABLED] ?? false);
+        $isConfidential = (bool)($state[ClientEntity::KEY_IS_CONFIDENTIAL] ?? false);
+        $isFederated = (bool)($state[ClientEntity::KEY_IS_FEDERATED] ?? false);
+
+        $state[ClientEntity::KEY_IS_ENABLED] = [$isEnabled, PDO::PARAM_BOOL];
+        $state[ClientEntity::KEY_IS_CONFIDENTIAL] = [$isConfidential, PDO::PARAM_BOOL];
+        $state[ClientEntity::KEY_IS_FEDERATED] = [$isFederated, PDO::PARAM_BOOL];
+
+        return $state;
     }
 }

@@ -52,10 +52,7 @@ class LoggerService implements LoggerInterface
         Logger::debug($message . ($context ? " " . var_export($context, true) : ""));
     }
 
-    /**
-     * @param mixed $level
-     */
-    public function log($level, string|Stringable $message, array $context = []): void
+    public function log(mixed $level, string|Stringable $message, array $context = []): void
     {
         match ($level) {
             LogLevel::ALERT => $this->alert($message, $context),

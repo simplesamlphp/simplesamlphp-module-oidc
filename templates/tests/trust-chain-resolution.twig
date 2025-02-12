@@ -1,0 +1,91 @@
+{% set subPageTitle = 'Test Trust Chain Resolution'|trans %}
+
+{% extends "@oidc/base.twig" %}
+
+{% block oidcContent %}
+
+    <p>
+        {{ 'You can use the form below to test Trust Chain resolution from a leaf entity ID to Trust Anchors.'|trans }}
+        {{ 'By default, form is populated with current OP issuer and configured Trust Anchors, but you are free to adjust entries as needed.'|trans }}
+        {{ 'Log messages will show if any warnings or errors were raised during chain resolution.'|trans }}
+    </p>
+
+    <form method="post"
+          action="{{ routes.urlAdminTestTrustChainResolution }}"
+          class="pure-form pure-form-stacked">
+
+        <fieldset>
+            <label for="leafEntityId">{{ 'Leaf Entity ID'|trans }}</label>
+            <input type="text"
+                   name="leafEntityId"
+                   id="leafEntityId"
+                   class="full-width"
+                   required=""
+                   value="{{ leafEntityId|default }}"
+            >
+            <span class="pure-form-message"></span>
+
+            <label for="trustAnchorIds">{{ 'Trust Anchor IDs'|trans }}</label>
+            <textarea name="trustAnchorIds"
+                      rows="4"
+                      class="full-width"
+                      id="trustAnchorIds"
+                      required="">{{ trustAnchorIds|default }}</textarea>
+            <span class="pure-form-message">{{ 'Enter one Trust Anchor ID per line.'|trans }}</span>
+
+            <br>
+            <button type="submit" class="pure-button ">{{ (actionText|default('Submit'))|trans }}</button>
+        </fieldset>
+    </form>
+
+    {% if isFormSubmitted|default %}
+
+        <h4>{{ 'Log messages'|trans }}</h4>
+        <p>
+        {% if logMessages|default %}
+            <code class="code-box code-box-content">
+                {{- logMessages|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_SLASHES')) -}}
+            </code>
+        {% else %}
+            {{ 'No entries.'|trans }}
+        {% endif %}
+        </p>
+
+        <h4>{{ 'Resolved chains'|trans }}</h4>
+        {% if trustChainBag|default %}
+            <p>
+                {{ 'Total chains'|trans }}: {{ trustChainBag.getCount }}
+            </p>
+            {% for index, trustChain in trustChainBag.getAll %}
+                <p>
+                {{ loop.index }}. {{ 'Trust Anchor ID'|trans }}: {{ trustChain.getResolvedTrustAnchor.getIssuer }}
+                <br><br>
+                {{ 'Path'|trans }}:
+                <br>
+                {% for entity in trustChain.getEntities %}
+                    {% if loop.index > 1 %}
+                    &seArr; {{ loop.index0 }}. {{ entity.getSubject }}<br>
+                    {% endif %}
+                {% endfor %}
+
+                <br>
+                {{ 'Resolved metadata' }}:<br>
+                {% if resolvedMetadata[index]|default is not empty %}
+                    <code class="code-box code-box-content">
+                        {{- resolvedMetadata[index]|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_SLASHES')) -}}
+                    </code>
+                {% else %}
+                    {{ 'N/A'|trans }}
+                {% endif %}
+                </p>
+                {% if not loop.last %}
+                    <hr><br>
+                {% endif %}
+            {% endfor %}
+        {% else %}
+            <p>{{ 'No entries.'|trans }}</p>
+        {% endif %}
+
+    {% endif %}
+
+{% endblock oidcContent -%}

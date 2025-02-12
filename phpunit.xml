@@ -4,23 +4,25 @@
          bootstrap="./tests/bootstrap.php"
          xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.3/phpunit.xsd"
          cacheDirectory="./build/phpunit-cache"
+         displayDetailsOnTestsThatTriggerWarnings="true"
 >
   <coverage>
     <report>
-      <clover outputFile="build/logs/clover.xml"/>
-      <html outputDirectory="build/coverage/html"/>
+      <php outputFile="build/logs/partial_clover/unit.cov"/>
+      <html outputDirectory="build/coverage/unit/html"/>
     </report>
   </coverage>
   <testsuites>
-    <testsuite name="Test Suite">
-      <directory>./tests</directory>
+    <testsuite name="Unit">
+      <directory>./tests/unit</directory>
     </testsuite>
   </testsuites>
   <logging>
-    <junit outputFile="build/logs/junit.xml"/>
+    <junit outputFile="build/logs/partial_junit/unit.xml"/>
   </logging>
   <php>
     <env name="SIMPLESAMLPHP_CONFIG_DIR" value="tests/config"/>
+    <env name="APP_ENV" value="phpunit"/>
   </php>
   <source>
     <include>

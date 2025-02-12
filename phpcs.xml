@@ -9,11 +9,12 @@
     <config name="show_progress" value="1"/>
     <config name="ignore_warnings_on_exit" value="0"/>
 
-    <file>config-templates</file>
+    <file>config</file>
     <file>hooks</file>
     <file>src</file>
     <file>tests</file>
     <file>public</file>
+    <file>routing/routes</file>
 
     <!-- Use this to exclude paths. You can have multiple patterns -->
     <!--<exclude-pattern>*/tests/*</exclude-pattern>-->
@@ -22,13 +23,7 @@
 
     <!-- This is the rule we inherit from. If you want to exlude some specific rules, see the docs on how to do that -->
     <rule ref="PSR12"/>
-    <!-- <rule ref="vendor/simplesamlphp/simplesamlphp-test-framework/phpcs-simplesamlphp.xml"/> -->
-
-    <!-- Enforce the use of trailing commas -->
-    <rule ref="SlevomatCodingStandard.Arrays.TrailingArrayComma" />
-    <rule ref="SlevomatCodingStandard.Functions.RequireTrailingCommaInCall" />
-    <rule ref="SlevomatCodingStandard.Functions.RequireTrailingCommaInClosureUse" />
-    <rule ref="SlevomatCodingStandard.Functions.RequireTrailingCommaInDeclaration" />
+    <rule ref="vendor/simplesamlphp/simplesamlphp-test-framework/phpcs-simplesamlphp.xml"/>
 
     <rule ref="Generic.WhiteSpace.ScopeIndent">
         <properties>

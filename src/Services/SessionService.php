@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Services;
 
-use Exception;
 use SimpleSAML\Module\oidc\Server\Associations\Interfaces\RelyingPartyAssociationInterface;
 use SimpleSAML\Session;
 
@@ -36,7 +35,7 @@ class SessionService
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function setIsCookieBasedAuthn(bool $isCookieBasedAuthn): void
     {
@@ -64,7 +63,7 @@ class SessionService
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function addRelyingPartyAssociation(RelyingPartyAssociationInterface $association): void
     {
@@ -94,7 +93,7 @@ class SessionService
     }
 
     /**
-     * @return array<RelyingPartyAssociationInterface>
+     * @return \SimpleSAML\Module\oidc\Server\Associations\Interfaces\RelyingPartyAssociationInterface[]
      */
     public static function getRelyingPartyAssociationsForSession(Session $session): array
     {
@@ -112,7 +111,7 @@ class SessionService
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function clearRelyingPartyAssociations(): void
     {
@@ -120,7 +119,7 @@ class SessionService
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public static function clearRelyingPartyAssociationsForSession(Session $session): void
     {
@@ -133,7 +132,7 @@ class SessionService
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function setIsAuthnPerformedInPreviousRequest(bool $isAuthnPerformedInPreviousRequest): void
     {
@@ -154,7 +153,7 @@ class SessionService
     }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     public function registerLogoutHandler(string $authSourceId, string $className, string $functionName): void
     {
@@ -163,7 +162,7 @@ class SessionService
 
     /**
      * Set indication if logout was initiated using OIDC protocol.
-     * @throws Exception
+     * @throws \Exception
      */
     public function setIsOidcInitiatedLogout(bool $isOidcInitiatedLogout): void
     {

@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Services;
 
-use Exception;
-use League\OAuth2\Server\Exception\OAuthServerException;
 use SimpleSAML\Module\oidc\Server\Associations\Interfaces\RelyingPartyAssociationInterface;
 use stdClass;
 
@@ -17,12 +15,14 @@ class LogoutTokenBuilder
     }
 
     /**
-     * @throws OAuthServerException|Exception
+     * @throws \Exception
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @psalm-suppress ArgumentTypeCoercion
      */
     public function forRelyingPartyAssociation(RelyingPartyAssociationInterface $relyingPartyAssociation): string
     {
         $logoutTokenBuilder = $this->jsonWebTokenBuilderService
-            ->getDefaultJwtTokenBuilder()
+            ->getProtocolJwtBuilder()
             ->withHeader('typ', 'logout+jwt')
             ->permittedFor($relyingPartyAssociation->getClientId())
             ->relatedTo($relyingPartyAssociation->getUserId())
@@ -30,9 +30,9 @@ class LogoutTokenBuilder
         ;
 
         if ($relyingPartyAssociation->getSessionId() !== null) {
-            $logoutTokenBuilder->withClaim('sid', $relyingPartyAssociation->getSessionId());
+            $logoutTokenBuilder = $logoutTokenBuilder->withClaim('sid', $relyingPartyAssociation->getSessionId());
         }
 
-        return $this->jsonWebTokenBuilderService->getSignedJwtTokenFromBuilder($logoutTokenBuilder)->toString();
+        return $this->jsonWebTokenBuilderService->getSignedProtocolJwt($logoutTokenBuilder)->toString();
     }
 }

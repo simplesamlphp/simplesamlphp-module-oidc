@@ -1,0 +1,614 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"POT-Creation-Date: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: hr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Domain: oidc\n"
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:372
+msgid "-"
+msgstr "-"
+
+msgid ""
+"A globally unique URI that is bound to the entity. URI must have https or "
+"http scheme and host / domain. It can contain path, but no query, or "
+"fragment component."
+msgstr "Globalno jedinstveni URI koji je vezan za entitet. URI mora imati https ili "
+"http shemu i naziv poslužitelja / domena. Može sadržavati putanju, ali ne i query ili "
+"fragment komponentu."
+
+msgid "Access Token"
+msgstr "Pristupni token"
+
+msgid "Activated"
+msgstr "Aktiviran"
+
+msgid "Add Client"
+msgstr "Dodaj klijenta"
+
+msgid "Administrator"
+msgstr "Administrator"
+
+msgid "All database migrations are implemented."
+msgstr "Sve migracije baze podataka su implementirane."
+
+msgid "Allowed Origins"
+msgstr "Dopuštena izvorišta"
+
+msgid "Allowed Origins (for public client)"
+msgstr "Dopuštena izvorišta (za javne klijente)"
+
+msgid "Allowed origins for public clients"
+msgstr "Dopuštena izvorišta za javne klijente"
+
+msgid ""
+"Allowed redirect URIs to use after client initiated logout. Must be a valid "
+"URI, one per line. Example: https://example.org/foo?bar=1"
+msgstr ""
+"Dopušteni URIji za preusmjeravnje nakon odjave koju pokrene klijent. Mora biti valjan "
+"URI, jedan po retku. Primjer: https://example.org/foo?bar=1"
+
+msgid ""
+"Allowed redirect URIs to which the authorization response will be sent. Must "
+"be a valid URI, one per line. Example: https://example.org/foo?bar=1"
+msgstr ""
+"Dopušteni URIji za preusmjeravanje na koje će biti poslan autorizacijski odgovor. Mora "
+"biti valjan URI, jedan po retku. Primjer: https://example.org/foo?bar=1"
+
+msgid "Are you sure you want to delete this client?"
+msgstr "Jeste li sigurni da želite izbrisati ovog klijenta?"
+
+msgid "Are you sure you want to reset client secret?"
+msgstr "Jeste li sigurni da želite resetirati tajnu klijenta?"
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:363
+msgid "At least one redirect URI is required."
+msgstr "Potreban je najmanje jedan URI za preusmjeravanje."
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:378
+msgid "At least one scope is required."
+msgstr "Potreban je najmanje jedan opseg."
+
+msgid "Authentication"
+msgstr "Autentikacija"
+
+msgid "Authentication Context Class References (ACRs)"
+msgstr "Reference klase konteksta autentikacije (ACRovi)"
+
+msgid "Authentication Processing Filters"
+msgstr "Filteri za obradu autentikacije"
+
+msgid "Authentication Source"
+msgstr "Autentikacijski izvor"
+
+msgid "Authentication Sources to ACRs Map"
+msgstr "Mapa autentikacijskih izvora na ACRove"
+
+msgid ""
+"Authentication source for this particular client. If no authentication "
+"source is selected, the default one from configuration file will be used."
+msgstr ""
+"Autentikacijski izvor za ovog klijenta. Ako nije odabran autentikacijski "
+"izvor, koristit će se zadani iz konfiguracijske datoteke."
+
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:369
+msgid "Authentication source"
+msgstr "Autentikacijski izvor"
+
+msgid "Authority Hints"
+msgstr "Sugestije autoriteta"
+
+msgid "Authorization Code"
+msgstr "Autorizacijski kod"
+
+msgid "Back"
+msgstr "Natrag"
+
+msgid "Back-channel Logout URI"
+msgstr "URI za odjavu u pozadinskom kanalu"
+
+msgid "Before running the migrations, make sure that the database user has proper privileges to change the scheme (for example alter, create, drop, index). After running the migrations, it is a good practice to remove those privileges."
+msgstr "Prije pokretanja migracija, provjerite ima li korisnik baze podataka odgovarajuće privilegije za promjenu sheme (na primjer, alter, create, drop, index). Nakon pokretanja migracija, dobra je praksa ukloniti te privilegije."
+
+msgid ""
+"By default, form is populated with current OP issuer and configured Trust "
+"Anchors, but you are free to adjust entries as needed."
+msgstr ""
+"Prema zadanim postavkama, obrazac je popunjen trenutnim izdavateljem OP-a i konfiguriranim Sidrom"
+"povjerenja, ali vrijednosti možete slobodno prilagoditi prema potrebi."
+
+msgid "Cache"
+msgstr "Predmemorija"
+
+msgid "Cache Adapter"
+msgstr "Adapter za predmemoriju"
+
+msgid "Cache Duration For Produced Artifacts"
+msgstr "Trajanje predmemorije za proizvedene artefakte "
+
+msgid ""
+"Choose if client is confidential or public. Confidential clients are capable "
+"of maintaining the confidentiality of their credentials (e.g., client "
+"implemented on a secure server with restricted access to the client "
+"credentials), or capable of secure client authentication using other means. "
+"Public clients are incapable of maintaining the confidentiality of their "
+"credentials (e.g., clients executing on the device used by the resource "
+"owner, such as an installed native application or a web browser-based "
+"application), and incapable of secure client authentication via any other "
+"means."
+msgstr ""
+"Odaberite je li klijent povjerljiv ili javan. Povjerljivi klijenti su sposobni "
+"održavati tajnost njihovih vjerodajnica (npr. klijent "
+"implementiran na sigurnom poslužitelju s ograničenim pristupom klijentskim "
+"vjerodajnicama) ili sposobni za autentikaciju klijenta korištenjem drugih sredstava. "
+"Javni klijenti nisu u stanju održavati tajnost svojih "
+"vjerodajnica (npr. klijenti koji se izvršavaju na uređaju kojeg koristi vlasnik resursa, "
+"kao što je instalirana izvorna aplikacija ili web-preglednik) "
+"i koji nisu sposobni za autentikacijju klijenta putem bilo kojeg drugog sredstva."
+
+msgid ""
+"Choose if the client is allowed to participate in federation context or not."
+msgstr "Odaberite smije li klijent sudjelovati u kontekstu federacije ili ne."
+
+msgid "Client"
+msgstr "Klijent"
+
+msgid "Client Registration Types"
+msgstr "Tipovi registracije klijenta"
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:113
+msgid "Client Registry"
+msgstr "Registar klijenata"
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:201
+msgid "Client has been added."
+msgstr "Klijent je dodan."
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:147
+msgid "Client has been deleted."
+msgstr "Klijen je obrisan."
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:277
+msgid "Client has been updated."
+msgstr "Klijent je ažuriran."
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:120
+msgid "Client secret has been reset."
+msgstr "Tajna klijenta je resetirana"
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:183
+msgid "Client with generated ID already exists."
+msgstr "Klijent s generiranim ID-om već postoji."
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:190
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ClientController.php:265
+msgid "Client with given entity identifier already exists."
+msgstr "Klijent s danim identifikatorom entiteta već postoji."
+
+msgid "Confidential"
+msgstr "Povjerljiv"
+
+msgid "Configuration URL"
+msgstr "Konfiguracijski URL"
+
+msgid "Contacts"
+msgstr "Kontakti"
+
+msgid "Created at"
+msgstr "Stvoreno u"
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:106
+msgid "Database Migrations"
+msgstr "Migracije baze podataka"
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ConfigController.php:46
+msgid "Database is already migrated."
+msgstr "Baza podataka je već migrirana."
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Controllers/Admin/ConfigController.php:52
+msgid "Database migrated successfully."
+msgstr "Baza podataka je uspješno migrirana."
+
+msgid "Default Authentication Source"
+msgstr "Zadani autentikacijski izvor"
+
+msgid "Delete"
+msgstr "Obriši"
+
+msgid "Description"
+msgstr "Opis"
+
+msgid "Disabled"
+msgstr "Onemogućeno"
+
+msgid "Discovery URL"
+msgstr "URL za otkrivanje"
+
+msgid "Edit"
+msgstr "Uredi"
+
+msgid "Edit Client"
+msgstr "Uredi klijenta"
+
+msgid "Enabled"
+msgstr "Omogućeno"
+
+msgid ""
+"Enter if client supports Back-Channel Logout specification. When logout is "
+"initiated at the OpenID Provider, it will send a Logout Token to this URI in "
+"order to notify the client about that event. Must be a valid URI. Example: "
+"https://example.org/foo?bar=1"
+msgstr ""
+"Unesite ako klijent podržava odjavu u pozadinskom kanalu. Kada je odjava "
+"pokrenuta kod pružatelja OpenID-a, poslat će token za odjavu na ovaj URI "
+"kako bi obavijestio klijenta o tom događaju. Mora biti važeći URI. Primjer: "
+"https://example.org/foo?bar=1"
+
+msgid "Enter one Trust Anchor ID per line."
+msgstr "Unesi jedno sidro povjerenja po retku"
+
+msgid "Entity"
+msgstr "Entitet"
+
+msgid "Entity Identifier"
+msgstr "Identifikator entiteta"
+
+msgid "Entity Statement Duration"
+msgstr "Trajanje izjave o entitetu"
+
+msgid "Expires at"
+msgstr "Ističe u"
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Codebooks/RegistrationTypeEnum.php:18
+msgid "Federated Automatic"
+msgstr "Federirano automatski"
+
+msgid "Federation Enabled"
+msgstr "Federacija omogućena"
+
+msgid "Federation JWKS"
+msgstr "Federacijski JWKS"
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:127
+msgid "Federation Settings"
+msgstr "Federacijske postavke"
+
+msgid "Forced ACR For Cookie Authentication"
+msgstr "Forsirani ACR za autentikaciju putem kolačića"
+
+msgid "Homepage URI"
+msgstr "URI početne stranice"
+
+msgid "Identifier"
+msgstr "Identifikator"
+
+msgid "Info"
+msgstr "Informacije"
+
+msgid "Is Federated"
+msgstr "Je li federiran"
+
+msgid "Issuer"
+msgstr "Izdavatelj"
+
+msgid ""
+"JSON object (string) representing JWKS document containing protocol public "
+"keys. Note that this should be different from Federation JWKS. Will be used "
+"if JWKS URI is not set. Example: {\"keys\":[{\"kty\": \"RSA\",\"n\": \"...\","
+"\"e\": \"AQAB\",\"kid\": \"pro123\",\"use\": \"sig\",\"alg\": \"RS256\"}]}"
+msgstr ""
+"JSON objekt (niz znakova) koji predstavlja JWKS dokument koji sadrži javni ključ za prtokol. "
+"Imajte na umu da bi se ovo trebalo razlikovati od federacijskog JWKS. Koristit će se "
+"ako JWKS URI nije postavljen. Primjer: {\"keys\":[{\"kty\": \"RSA\",\"n\": \"...\","
+"\"e\": \"AQAB\",\"kid\": \"pro123\",\"use\": \"sig\",\"alg\": \"RS256\"}]}"
+
+msgid ""
+"JSON object (string) representing federation JWKS. This can be used, for "
+"example, in entity statements. Note that this should be different from "
+"Protocol JWKS. Example: {\"keys\":[{\"kty\": \"RSA\",\"n\": \"...\",\"e\": "
+"\"AQAB\",\"kid\": \"fed123\",\"use\": \"sig\",\"alg\": \"RS256\"}]}"
+msgstr ""
+"JSON objekt (niz znakova) koji predstavlja federaciju JWKS. Ovo se može koristiti, na "
+"primjer, u izjavama o entitetu. Imajte na umu da bi se ovo trebalo razlikovati od "
+"JWKS protokola. Primjer: {\"keys\":[{\"kty\": \"RSA\",\"n\": \"...\",\"e\": "
+"\"AQAB\",\"kid\": \"fed123\",\"use\": \"sig\",\"alg\": \"RS256\"}]}"
+
+msgid "JWKS"
+msgstr "JWKS"
+
+msgid "JWKS URI"
+msgstr "JWKS URI"
+
+msgid "Leaf Entity ID"
+msgstr "ID entiteta lista"
+
+msgid "Log messages"
+msgstr "Dnevnik poruka"
+
+msgid ""
+"Log messages will show if any warnings or errors were raised during chain "
+"resolution."
+msgstr "Dnevnik poruka pokazat će jesu li se tijekom razrješenja lanca povjerenja dogodila ikakva upozorenja ili pogreške."
+
+msgid ""
+"Log messages will show if any warnings or errors were raised during "
+"validation."
+msgstr "Dnevnik poruka pokazat će jesu li se tijekom validacije dogodila ikakva upozorenja ili pogreške."
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:90
+msgid "Log out"
+msgstr "Odjavi se"
+
+msgid "Logo URI"
+msgstr "URI logotipa"
+
+msgid "Logout Failed"
+msgstr "Odjava nije uspjela"
+
+msgid "Logout Info"
+msgstr "Informacije o odjavi"
+
+msgid "Logout Successful"
+msgstr "Odjava uspješna"
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Codebooks/RegistrationTypeEnum.php:17
+msgid "Manual"
+msgstr "Ručno"
+
+msgid "Maximum Cache Duration For Fetched Artifacts"
+msgstr "Maksimalno trajanje predmemorije za dohvaćene artefakte"
+
+msgid "N/A"
+msgstr "N/A"
+
+msgid "Name"
+msgstr "Ime"
+
+msgid "Name and description"
+msgstr "Ime i opis"
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Forms/ClientForm.php:357
+msgid "Name is required."
+msgstr "Ime je obavezno."
+
+msgid "never"
+msgstr "nikad"
+
+msgid "No"
+msgstr "Ne"
+
+msgid "No clients registered."
+msgstr "Nema registriranih klijenata"
+
+msgid "No entries."
+msgstr "Nema unosa."
+
+msgid ""
+"Note that this will first resolve Trust Chain between given entity and Trust "
+"Anchor, and only then do the Trust Mark validation."
+msgstr ""
+"Imajte na umu da će ovo prvo razriješiti lanac povjerenja između danog entiteta i sidra povjerenja, "
+"a tek onda izvršiti provjeru oznaku povjerenja."
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/hooks/hook_adminmenu.php:24
+msgid "OIDC"
+msgstr "OIDC"
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/hooks/hook_federationpage.php:34
+msgid "OIDC Client Registry"
+msgstr "OIDC registar klijenata"
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/hooks/hook_federationpage.php:38
+msgid "OIDC Installation"
+msgstr "OIDC instalacija"
+
+msgid ""
+"One or more values from the list. If not selected, falls back to 'automatic'"
+msgstr "Jedna ili više vrijednosti s popisa. Ako nije odabrano, postavlja se na 'automatski'"
+
+msgid "OpenID Federation Related Properties"
+msgstr "Svojstva povezane s OpenID federacijom"
+
+msgid "Organization Name"
+msgstr "Ime organizacije"
+
+msgid "Owner"
+msgstr "Vlasnik"
+
+msgid "PKI"
+msgstr "PKI"
+
+msgid "Path"
+msgstr "Putanja"
+
+msgid "Policy URI"
+msgstr "URI na pravila"
+
+msgid "Post-logout Redirect URIs"
+msgstr "URIji za preusmjeravanje nakon odjave"
+
+msgid "Private Key"
+msgstr "Privatni ključ"
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:120
+msgid "Protocol Settings"
+msgstr "Postavke protokola"
+
+msgid "Public"
+msgstr "Javan"
+
+msgid "Public Key"
+msgstr "Javni ključ"
+
+msgid "Redirect URI"
+msgstr "URI za preusmjeravanje"
+
+msgid "Redirect URIs"
+msgstr "URIji za preusmjeravanje"
+
+msgid "Refresh Token"
+msgstr "Token za osvježavanje"
+
+msgid "Registration Types"
+msgstr "Tipovi registracije"
+
+msgid "Registration"
+msgstr "Registracija"
+
+msgid "Requested session was not found or it is expired."
+msgstr "Tražena sesija nije pronađena ili je istekla."
+
+msgid "Reset"
+msgstr "Resetiraj"
+
+msgid "Resolved chains"
+msgstr "Razriješeni lanci povjerenja"
+
+msgid "Run migrations"
+msgstr "Pokreni migracije"
+
+msgid "Scopes"
+msgstr "Opsezi"
+
+msgid "Secret"
+msgstr "Tajna"
+
+msgid "Signed JWKS URI"
+msgstr "Potpisani JWKS URI"
+
+msgid "Signing Algorithm"
+msgstr "Algoritam potpisivanja"
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Admin/Authorization.php:44
+msgid "SimpleSAMLphp admin access required."
+msgstr "Potreban SimpleSAMLphp administratorski pristup."
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Supported ACRs"
+msgstr "Podržani ACRovi"
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:134
+msgid "Test Trust Chain Resolution"
+msgstr "Testiraj razrješenje lanca povjerenja"
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Factories/TemplateFactory.php:141
+msgid "Test Trust Mark Validation"
+msgstr "Provjera valjanosti oznake povjerenja"
+
+msgid ""
+"There are database migrations that have not been implemented.\n"
+"                Use the button below to run them now."
+msgstr "Postoje migracije baze podataka koje još nisu implementirane.\n"
+"                Upotrijebite gumb u nastavku da ih sada pokrenete."
+
+msgid "Tokens Time-To-Live (TTL)"
+msgstr "Vrijeme trajanja tokena (TTL)"
+
+msgid "Total chains"
+msgstr "Ukupno lanaca"
+
+msgid "Trust Anchor ID"
+msgstr "ID sidra povjerenja"
+
+msgid "Trust Anchor IDs"
+msgstr "IDevi sidra povjerenja"
+
+msgid "Trust Anchors"
+msgstr "Sidra povjerenja"
+
+msgid "Trust Mark ID"
+msgstr "ID oznake povjerenja"
+
+msgid ""
+"Trust Mark validation passed (there were no warnings or errors during "
+"validation)."
+msgstr ""
+"Provjera oznake povjerenja je prošla (nije bilo upozorenja ili pogrešaka tijekom "
+"provjere valjanosti)."
+
+msgid "Trust Marks"
+msgstr "Oznake povjerenja"
+
+msgid "Type"
+msgstr "Tip"
+
+msgid ""
+"URL to a JWKS document containing protocol public keys. Will be used if "
+"Signed JWKS URI is not set. Example: https://example.org/jwks"
+msgstr ""
+"URL do JWKS dokumenta koji sadrži javne ključeve protokola. Koristit će se ako "
+"potpisani JWKS URI nije postavljen. Primjer: https://example.org/jwks"
+
+msgid ""
+"URL to a JWS document containing protocol public keys in JWKS format (claim "
+"'keys'). Example: https://example.org/signed-jwks"
+msgstr ""
+"URL do JWS dokumenta koji sadrži javne ključeve protokola u JWKS formatu (tvrdnja "
+"'keys'). Primjer: https://example.org/signed-jwks"
+
+msgid ""
+"URLs as allowed origins for CORS requests, for public clients running in "
+"browser. Must have http:// or https:// scheme, and at least one 'domain.top-"
+"level-domain' pair, or more subdomains. Top-level-domain may end with '.'. "
+"No userinfo, path, query or fragment components allowed. May end with port "
+"number. One per line. Example: https://example.org"
+msgstr ""
+"URL-ovi kao dopušteni izvori za CORS zahtjeve, za javne klijente koji se izvršavaju u "
+"web-pregledniku. Mora imati http:// ili https:// shemu i barem jednu razinu 'pod-domena.top-domena'"
+"ili više poddomena. Domena najviše razine može završavati s '.'."
+"Nisu dopuštene korisničke informacije, putanja, 'query' ili fragment fragmenta. Može završiti s oznakom "
+"porta. Jedan po retku. Primjer: https://example.org"
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Admin/Authorization.php:36
+msgid "Unable to initiate SimpleSAMLphp admin authentication."
+msgstr "Nije moguće inicirati SimpleSAMLphp administratorsku autentikaciju"
+
+msgid "Updated at"
+msgstr "Ažurirano u"
+
+msgid "User Entity Cache Duration"
+msgstr "Trajanje predmemorije korisničkog entiteta"
+
+msgid "User Identifier Attribute"
+msgstr "Atribut identifikator korisnika"
+
+#: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Admin/Authorization.php:61
+msgid "User not authorized."
+msgstr "Korisnik nije autoriziran."
+
+msgid "Yes"
+msgstr "Da"
+
+msgid "You can now close this window or navigate to another page."
+msgstr "Sada možete zatvoriti ovaj prozor ili otići na drugu stranicu."
+
+msgid ""
+"You can use the form below to test Trust Chain resolution from a leaf entity "
+"ID to Trust Anchors."
+msgstr ""
+"Možete upotrijebiti obrazac u nastavku za testiranje razrješenja lanca povjerenja od entiteta lista do"
+"sidra povjerenja."
+
+msgid ""
+"You can use the form below to test Trust Mark validation for particular "
+"entity under given Trust Anchor."
+msgstr ""
+"Možete upotrijebiti obrazac u nastavku za testiranje validacije za određeni entitet pod sidrom povjerenja."
+
+msgid "Your session has expired. Please return to the home page and try again."
+msgstr "Vaša je sjednica istekla. Vratite se na početnu stranicu i pokušajte ponovno."
+
+msgid "disabled"
+msgstr "onemogućeno"
+
+msgid "enabled"
+msgstr "omogućeno"

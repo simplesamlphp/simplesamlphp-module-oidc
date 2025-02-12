@@ -17,15 +17,12 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Entities;
 
 use DateTimeImmutable;
-use Exception;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\RefreshTokenTrait;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Traits\AssociateWithAuthCodeTrait;
 use SimpleSAML\Module\oidc\Entities\Traits\RevokeTokenTrait;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\Module\oidc\Utils\TimestampGenerator;
 
 class RefreshTokenEntity implements RefreshTokenEntityInterface
 {
@@ -34,31 +31,18 @@ class RefreshTokenEntity implements RefreshTokenEntityInterface
     use RevokeTokenTrait;
     use AssociateWithAuthCodeTrait;
 
-    /**
-     * @throws OidcServerException
-     * @throws Exception
-     */
-    public static function fromState(array $state): RefreshTokenEntityInterface
-    {
-        $refreshToken = new self();
-
-        if (
-            !is_string($state['id']) ||
-            !is_string($state['expires_at']) ||
-            !is_a($state['access_token'], AccessTokenEntityInterface::class)
-        ) {
-            throw OidcServerException::serverError('Invalid Refresh Token state');
-        }
-
-        $refreshToken->identifier = $state['id'];
-        $refreshToken->expiryDateTime = DateTimeImmutable::createFromMutable(
-            TimestampGenerator::utc($state['expires_at']),
-        );
-        $refreshToken->accessToken = $state['access_token'];
-        $refreshToken->isRevoked = (bool) $state['is_revoked'];
-        $refreshToken->authCodeId = empty($state['auth_code_id']) ? null : (string)$state['auth_code_id'];
-
-        return $refreshToken;
+    public function __construct(
+        string $id,
+        DateTimeImmutable $expiryDateTime,
+        AccessTokenEntityInterface $accessTokenEntity,
+        ?string $authCodeId = null,
+        bool $isRevoked = false,
+    ) {
+        $this->setIdentifier($id);
+        $this->setExpiryDateTime($expiryDateTime);
+        $this->setAccessToken($accessTokenEntity);
+        $this->setAuthCodeId($authCodeId);
+        $this->isRevoked = $isRevoked;
     }
 
     public function getState(): array
@@ -67,7 +51,7 @@ class RefreshTokenEntity implements RefreshTokenEntityInterface
             'id' => $this->getIdentifier(),
             'expires_at' => $this->getExpiryDateTime()->format('Y-m-d H:i:s'),
             'access_token_id' => $this->getAccessToken()->getIdentifier(),
-            'is_revoked' => (int) $this->isRevoked(),
+            'is_revoked' => $this->isRevoked(),
             'auth_code_id' => $this->getAuthCodeId(),
         ];
     }

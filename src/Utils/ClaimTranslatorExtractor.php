@@ -25,8 +25,8 @@ namespace SimpleSAML\Module\oidc\Utils;
 use Lcobucci\JWT\Token\RegisteredClaims;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use RuntimeException;
-use SimpleSAML\Module\oidc\Entities\ClaimSetEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClaimSetEntityInterface;
+use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 class ClaimTranslatorExtractor
@@ -128,11 +128,12 @@ class ClaimTranslatorExtractor
     /**
      * ClaimTranslatorExtractor constructor.
      *
-     * @param ClaimSetEntity[] $claimSets
-     * @throws OidcServerException
+     * @param \SimpleSAML\Module\oidc\Entities\Interfaces\ClaimSetEntityInterface[] $claimSets
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function __construct(
         string $userIdAttr,
+        protected readonly ClaimSetEntityFactory $claimSetEntityFactory,
         array $claimSets = [],
         array $translationTable = [],
         protected array $allowedMultiValueClaims = [],
@@ -143,14 +144,14 @@ class ClaimTranslatorExtractor
 
         $this->translationTable = array_merge($this->translationTable, $translationTable);
 
-        $this->addClaimSet(new ClaimSetEntity('openid', [
+        $this->addClaimSet($this->claimSetEntityFactory->build('openid', [
             'sub',
         ]));
 
         // Add Default OpenID Connect Claims
         // @see http://openid.net/specs/openid-connect-core-1_0.html#ScopeClaims
         $this->addClaimSet(
-            new ClaimSetEntity('profile', [
+            $this->claimSetEntityFactory->build('profile', [
                 'name',
                 'family_name',
                 'given_name',
@@ -168,18 +169,18 @@ class ClaimTranslatorExtractor
             ]),
         );
         $this->addClaimSet(
-            new ClaimSetEntity('email', [
+            $this->claimSetEntityFactory->build('email', [
                 'email',
                 'email_verified',
             ]),
         );
         $this->addClaimSet(
-            new ClaimSetEntity('address', [
+            $this->claimSetEntityFactory->build('address', [
                 'address',
             ]),
         );
         $this->addClaimSet(
-            new ClaimSetEntity('phone', [
+            $this->claimSetEntityFactory->build('phone', [
                 'phone_number',
                 'phone_number_verified',
             ]),
@@ -191,13 +192,13 @@ class ClaimTranslatorExtractor
     }
 
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function addClaimSet(ClaimSetEntityInterface $claimSet): self
     {
         $scope = $claimSet->getScope();
 
-        if (in_array($scope, $this->protectedClaims) && isset($this->claimSets[$scope])) {
+        if (in_array($scope, $this->protectedClaims, true) && isset($this->claimSets[$scope])) {
             throw OidcServerException::serverError(
                 sprintf("%s is a protected scope and is pre-defined by the OpenID Connect specification.", $scope),
             );
@@ -247,7 +248,7 @@ class ClaimTranslatorExtractor
             foreach ($attributes as $samlMatch) {
                 if (array_key_exists($samlMatch, $samlAttributes)) {
                     /** @psalm-suppress MixedAssignment, MixedArgument */
-                    $values = in_array($claim, $this->allowedMultiValueClaims) ?
+                    $values = in_array($claim, $this->allowedMultiValueClaims, true) ?
                     $samlAttributes[$samlMatch] :
                     current($samlAttributes[$samlMatch]);
                     /** @psalm-suppress MixedAssignment */
@@ -284,7 +285,7 @@ class ClaimTranslatorExtractor
     }
 
     /**
-     * @param array<array-key, string|ScopeEntityInterface> $scopes
+     * @param array<array-key, string|\League\OAuth2\Server\Entities\ScopeEntityInterface> $scopes
      */
     public function extract(array $scopes, array $claims): array
     {
@@ -309,7 +310,7 @@ class ClaimTranslatorExtractor
 
             $data = array_filter(
                 $claims,
-                fn($key) => in_array($key, $intersected),
+                fn($key) => in_array($key, $intersected, true),
                 ARRAY_FILTER_USE_KEY,
             );
 
