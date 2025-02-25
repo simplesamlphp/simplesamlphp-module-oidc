@@ -35,7 +35,7 @@ class ClientForm extends Form
     /**
      * RFC3986. AppendixB. Parsing a URI Reference with a Regular Expression.
      */
-    final public const REGEX_URI = '/^[^:]+:\/\/?[^\s\/$.?#].[^\s]*$/';
+    final public const REGEX_URI = '/^[^:]+:\/\/?([^\s\/$.?#].[^\s]*)?$/';
 
     /**
      * Must have http:// or https:// scheme, and at least one 'domain.top-level-domain' pair, or more subdomains.
