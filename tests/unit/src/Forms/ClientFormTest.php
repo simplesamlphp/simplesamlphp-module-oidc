@@ -171,4 +171,36 @@ class ClientFormTest extends TestCase
 
         $this->assertNull($sut->getValues()['auth_source']);
     }
+
+    public static function redirectUriProvider(): array
+    {
+        return [
+            ['https', false],
+            ['https:', false],
+            ['example', false],
+            ['example.com', false],
+            ['example.com/?foo=bar', false],
+            ['www.example.com/?foo=bar', false],
+            ['https://example', true],
+            ['https://example.com', true],
+            ['https://example.com/', true],
+            ['https://example.com/foo', true],
+            ['https://example.com/foo?bar=1', true],
+
+            // To support OID4VCI
+            ['openid-credential-offer://', true],
+            ['foo://', true],
+            ['https://', true],
+        ];
+    }
+
+    #[DataProvider('redirectUriProvider')]
+    public function testCanValidateRedirectUri(string $url, bool $isValid): void
+    {
+        $sut = $this->sut();
+        $sut->setValues(['redirect_uri' => $url]);
+        $sut->validateRedirectUri($sut);
+
+        $this->assertEquals(!$isValid, $sut->hasErrors(), $url);
+    }
 }
