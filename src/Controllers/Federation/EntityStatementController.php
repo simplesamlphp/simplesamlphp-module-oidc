@@ -136,12 +136,12 @@ class EntityStatementController
                 if ($trustMarkEntity->getSubject() !== $this->moduleConfig->getIssuer()) {
                     throw OidcServerException::serverError(sprintf(
                         'Trust Mark %s is not intended for this entity.',
-                        $trustMarkEntity->getIdentifier(),
+                        $trustMarkEntity->getTrustMarkId(),
                     ));
                 }
 
                 return [
-                    ClaimsEnum::Id->value => $trustMarkEntity->getIdentifier(),
+                    ClaimsEnum::Id->value => $trustMarkEntity->getTrustMarkId(),
                     ClaimsEnum::TrustMark->value => $token,
                 ];
             }, $trustMarkTokens);
