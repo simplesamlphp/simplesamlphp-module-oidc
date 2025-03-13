@@ -1,4 +1,4 @@
-FROM cirrusid/simplesamlphp:v2.3.5
+FROM cirrusid/simplesamlphp:v2.3.7
 #FROM cicnavi/simplesamlphp:dev
 
 RUN apt-get update && apt-get install -y sqlite3
