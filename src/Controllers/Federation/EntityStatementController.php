@@ -141,7 +141,7 @@ class EntityStatementController
                 }
 
                 return [
-                    ClaimsEnum::Id->value => $trustMarkEntity->getTrustMarkId(),
+                    ClaimsEnum::TrustMarkId->value => $trustMarkEntity->getTrustMarkId(),
                     ClaimsEnum::TrustMark->value => $token,
                 ];
             }, $trustMarkTokens);
