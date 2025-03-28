@@ -78,7 +78,8 @@ $config = [
     // to use this attribute as the 'sub' claim since it designates unique identifier for the user).
     ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE => 'uid',
 
-    // The default translate table from SAML attributes to OIDC claims.
+    // The default translate table from SAML attributes to OIDC claims. If you don't want to support specific default
+    // claim, set it to an empty array.
     ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE => [
         /*
          * The basic format is
@@ -242,6 +243,11 @@ $config = [
     // the use of "level 0" is appropriate:
 //     ModuleConfig::OPTION_AUTH_FORCED_ACR_VALUE_FOR_COOKIE_AUTHENTICATION => '0',
     ModuleConfig::OPTION_AUTH_FORCED_ACR_VALUE_FOR_COOKIE_AUTHENTICATION => null,
+
+    // Choose if OP discovery document will include 'claims_supported' claim, which is recommended per OpenID Connect
+    // Discovery specification https://openid.net/specs/openid-connect-discovery-1_0.html. The list will include all
+    // claims for which "SAML attribute to OIDC claim translation" has been defined above.
+    ModuleConfig::OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED => false,
 
     // Settings regarding Authentication Processing Filters.
     // Note: OIDC authN state array will not contain all the keys which are available during SAML authN,

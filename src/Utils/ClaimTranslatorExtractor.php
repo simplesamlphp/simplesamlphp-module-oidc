@@ -35,7 +35,7 @@ class ClaimTranslatorExtractor
     protected array $claimSets = [];
 
     /** @var string[] */
-    protected array $protectedClaims = ['openid', 'profile', 'email', 'address', 'phone'];
+    protected array $protectedScopes = ['openid', 'profile', 'email', 'address', 'phone'];
 
     protected array $translationTable = [
         'sub' => [
@@ -85,13 +85,13 @@ class ClaimTranslatorExtractor
             'preferredLanguage',
         ],
         'updated_at' => [
-            'type' => 'int',
+//            'type' => 'int',
         ],
         'email' => [
             'mail',
         ],
         'email_verified' => [
-            'type' => 'bool',
+//            'type' => 'bool',
         ],
         'address' => [
             'type' => 'json',
@@ -105,7 +105,7 @@ class ClaimTranslatorExtractor
             'homePhone',
         ],
         'phone_number_verified' => [
-            'type' => 'bool',
+//            'type' => 'bool',
             // Empty
         ],
     ];
@@ -198,7 +198,7 @@ class ClaimTranslatorExtractor
     {
         $scope = $claimSet->getScope();
 
-        if (in_array($scope, $this->protectedClaims, true) && isset($this->claimSets[$scope])) {
+        if (in_array($scope, $this->protectedScopes, true) && isset($this->claimSets[$scope])) {
             throw OidcServerException::serverError(
                 sprintf("%s is a protected scope and is pre-defined by the OpenID Connect specification.", $scope),
             );
@@ -351,5 +351,14 @@ class ClaimTranslatorExtractor
             fn(/** @param array-key $key */ $key) => array_key_exists($key, $requestedClaims),
             ARRAY_FILTER_USE_KEY,
         );
+    }
+
+    /**
+     * Get supported claims for this OP. This will return all the claims for which the "SAML attribute to OIDC claim
+     * translation" has been defined in module config, meaning it is expected for OP to release those claims.
+     */
+    public function getSupportedClaims(): array
+    {
+        return array_keys(array_filter($this->translationTable));
     }
 }

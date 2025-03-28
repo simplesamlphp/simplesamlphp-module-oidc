@@ -272,4 +272,24 @@ class ClaimTranslatorExtractorTest extends TestCase
         $claims = $claimTranslator->extractAdditionalIdTokenClaims($requestClaims, ['displayName' => ['bob']]);
         $this->assertEquals(['name' => 'bob'], $claims);
     }
+
+    public function testCanGetSupportedClaims(): void
+    {
+        $translate = [
+            'custom' => [
+                'type' => 'int',
+                'custom_attr',
+            ],
+        ];
+
+        $this->assertTrue(in_array('custom', $this->mock([], $translate)->getSupportedClaims(), true));
+    }
+
+    public function testCanUnsetClaimWhichIsSupportedByDefault(): void
+    {
+        $this->assertTrue(in_array('nickname', $this->mock()->getSupportedClaims(), true));
+
+        $translate = ['nickname' => []];
+        $this->assertFalse(in_array('nickname', $this->mock([], $translate)->getSupportedClaims(), true));
+    }
 }

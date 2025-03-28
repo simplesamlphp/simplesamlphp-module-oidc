@@ -6,6 +6,7 @@ namespace SimpleSAML\Module\oidc\Services;
 
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
 
@@ -24,6 +25,7 @@ class OpMetadataService
      */
     public function __construct(
         private readonly ModuleConfig $moduleConfig,
+        private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
     ) {
         $this->initMetadata();
     }
@@ -75,6 +77,11 @@ class OpMetadataService
         }
         $this->metadata[ClaimsEnum::BackChannelLogoutSupported->value] = true;
         $this->metadata[ClaimsEnum::BackChannelLogoutSessionSupported->value] = true;
+
+        if ($this->moduleConfig->getProtocolDiscoveryShowClaimsSupported()) {
+            $claimsSupported = $this->claimTranslatorExtractor->getSupportedClaims();
+            $this->metadata[ClaimsEnum::ClaimsSupported->value] = $claimsSupported;
+        }
     }
 
     /**

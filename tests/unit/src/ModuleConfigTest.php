@@ -372,4 +372,15 @@ class ModuleConfigTest extends TestCase
         $this->assertInstanceOf(DateInterval::class, $this->sut()->getProtocolUserEntityCacheDuration());
         $this->assertInstanceOf(DateInterval::class, $this->sut()->getProtocolClientEntityCacheDuration());
     }
+
+    public function testCanGetProtocolDiscoveryShowClaimsSupported(): void
+    {
+        $this->assertFalse($this->sut()->getProtocolDiscoveryShowClaimsSupported());
+        $this->assertTrue(
+            $this->sut(
+                null,
+                [ModuleConfig::OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED => true],
+            )->getProtocolDiscoveryShowClaimsSupported(),
+        );
+    }
 }

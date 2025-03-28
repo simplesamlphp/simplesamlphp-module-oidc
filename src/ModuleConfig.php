@@ -81,6 +81,7 @@ class ModuleConfig
     final public const OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS = 'protocol_cache_adapter_arguments';
     final public const OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION = 'protocol_user_entity_cache_duration';
     final public const OPTION_PROTOCOL_CLIENT_ENTITY_CACHE_DURATION = 'protocol_client_entity_cache_duration';
+    final public const OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED = 'protocol_discover_show_claims_supported';
     final public const OPTION_FEDERATION_PARTICIPATION_LIMIT_BY_TRUST_MARKS =
     'federation_participation_limit_by_trust_marks';
 
@@ -501,6 +502,14 @@ class ModuleConfig
                 self::OPTION_PROTOCOL_CLIENT_ENTITY_CACHE_DURATION,
                 null,
             ) ?? 'PT10M',
+        );
+    }
+
+    public function getProtocolDiscoveryShowClaimsSupported(): bool
+    {
+        return $this->config()->getOptionalBoolean(
+            self::OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED,
+            false,
         );
     }
 
