@@ -10,6 +10,8 @@ use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
+use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Services\OpMetadataService
@@ -17,6 +19,7 @@ use SimpleSAML\Module\oidc\Services\OpMetadataService;
 class OpMetadataServiceTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
+    protected MockObject $claimTranslatorExtractorMock;
 
     /**
      * @throws \Exception
@@ -46,14 +49,24 @@ class OpMetadataServiceTest extends TestCase
         $signer = $this->createMock(Rsa::class);
         $signer->method('algorithmId')->willReturn('RS256');
         $this->moduleConfigMock->method('getProtocolSigner')->willReturn($signer);
+
+        $this->claimTranslatorExtractorMock = $this->createMock(ClaimTranslatorExtractor::class);
     }
 
     /**
      * @throws \Exception
      */
-    protected function prepareMockedInstance(): OpMetadataService
-    {
-        return new OpMetadataService($this->moduleConfigMock);
+    protected function sut(
+        ?ModuleConfig $moduleConfig = null,
+        ?ClaimTranslatorExtractor $claimTranslatorExtractor = null,
+    ): OpMetadataService {
+        $moduleConfig = $moduleConfig ?? $this->moduleConfigMock;
+        $claimTranslatorExtractor = $claimTranslatorExtractor ?? $this->claimTranslatorExtractorMock;
+
+        return new OpMetadataService(
+            $moduleConfig,
+            $claimTranslatorExtractor,
+        );
     }
 
     /**
@@ -63,7 +76,7 @@ class OpMetadataServiceTest extends TestCase
     {
         $this->assertInstanceOf(
             OpMetadataService::class,
-            $this->prepareMockedInstance(),
+            $this->sut(),
         );
     }
 
@@ -102,7 +115,23 @@ class OpMetadataServiceTest extends TestCase
                 'backchannel_logout_supported' => true,
                 'backchannel_logout_session_supported' => true,
             ],
-            $this->prepareMockedInstance()->getMetadata(),
+            $this->sut()->getMetadata(),
+        );
+    }
+
+    public function testCanShowClaimsSupportedClaim(): void
+    {
+        $this->moduleConfigMock->method('getProtocolDiscoveryShowClaimsSupported')->willReturn(true);
+        $this->claimTranslatorExtractorMock->method('getSupportedClaims')->willReturn(['sample']);
+
+        $sut = $this->sut();
+        $this->assertArrayHasKey(
+            ClaimsEnum::ClaimsSupported->value,
+            $sut->getMetadata(),
+        );
+
+        $this->assertTrue(
+            in_array('sample', $sut->getMetadata()[ClaimsEnum::ClaimsSupported->value], true),
         );
     }
 }

@@ -189,12 +189,6 @@ class Container implements ContainerInterface
         );
         $this->services[TemplateFactory::class] = $templateFactory;
 
-        $opMetadataService = new OpMetadataService($moduleConfig);
-        $this->services[OpMetadataService::class] = $opMetadataService;
-
-        $metadataStorageHandler = MetaDataStorageHandler::getMetadataHandler();
-        $this->services[MetaDataStorageHandler::class] = $metadataStorageHandler;
-
         $claimSetEntityFactory = new ClaimSetEntityFactory();
         $this->services[ClaimSetEntityFactory::class] = $claimSetEntityFactory;
 
@@ -203,6 +197,12 @@ class Container implements ContainerInterface
             $claimSetEntityFactory,
         ))->build();
         $this->services[ClaimTranslatorExtractor::class] = $claimTranslatorExtractor;
+
+        $opMetadataService = new OpMetadataService($moduleConfig, $claimTranslatorExtractor);
+        $this->services[OpMetadataService::class] = $opMetadataService;
+
+        $metadataStorageHandler = MetaDataStorageHandler::getMetadataHandler();
+        $this->services[MetaDataStorageHandler::class] = $metadataStorageHandler;
 
         $processingChainFactory = new ProcessingChainFactory($moduleConfig);
         $this->services[ProcessingChainFactory::class] = $processingChainFactory;

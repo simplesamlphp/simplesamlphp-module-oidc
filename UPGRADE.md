@@ -35,7 +35,8 @@ https://openid.net/specs/openid-connect-core-1_0.html#RequestObject
 https://openid.net/specs/openid-connect-core-1_0.html#ClientAuthentication
 
 ## New configuration options
-
+- (from v6.1) Show `claims_supported` claim in OP Discovery endpoint - you can now choose to show supported claims,
+as is recommended by OpenID Connect Discovery specification https://openid.net/specs/openid-connect-discovery-1_0.html.
 - (optional) Issuer - you can now override the issuer (OP identifier). If not set, it falls back to current scheme, host
 and optionally a port (as in all previous module versions).
 - (optional) Protocol caching adapter and its arguments
