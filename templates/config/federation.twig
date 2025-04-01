@@ -93,7 +93,7 @@
     {% if trustMarks|default is not empty %}
         {% for trustMark in trustMarks %}
             <p>
-                - {{ trustMark.getPayload.id }}
+                - {{ trustMark.getPayload.trust_mark_id }}
                 <code class="code-box code-box-content">
                     {{- trustMark.getPayload|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_SLASHES')) -}}
                 </code>

@@ -28,6 +28,8 @@ class ConfigControllerTest extends TestCase
     protected MockObject $federationMock;
     protected MockObject $routesMock;
     protected MockObject $trustMarkFactoryMock;
+    protected MockObject $entityStatementFetcherMock;
+    protected MockObject $trustMarkFetcherMock;
 
     protected function setUp(): void
     {
@@ -41,6 +43,12 @@ class ConfigControllerTest extends TestCase
 
         $this->trustMarkFactoryMock = $this->createMock(TrustMarkFactory::class);
         $this->federationMock->method('trustMarkFactory')->willReturn($this->trustMarkFactoryMock);
+
+        $this->entityStatementFetcherMock = $this->createMock(Federation\EntityStatementFetcher::class);
+        $this->federationMock->method('entityStatementFetcher')->willReturn($this->entityStatementFetcherMock);
+
+        $this->trustMarkFetcherMock = $this->createMock(Federation\TrustMarkFetcher::class);
+        $this->federationMock->method('trustMarkFetcher')->willReturn($this->trustMarkFetcherMock);
     }
 
     public function sut(
@@ -123,6 +131,27 @@ class ConfigControllerTest extends TestCase
         $this->moduleConfigMock->method('getFederationTrustMarkTokens')->willReturn(['token']);
         $this->trustMarkFactoryMock->expects($this->once())->method('fromToken')
             ->with($this->stringContains('token'));
+
+        $this->templateFactoryMock->expects($this->once())->method('build')
+            ->with('oidc:config/federation.twig');
+
+        $this->sut()->federationSettings();
+    }
+
+    public function testCanIncludeDynamicTrustMarksInFederationSettings(): void
+    {
+        $this->moduleConfigMock->method('getIssuer')->willReturn('issuer-id');
+        $this->moduleConfigMock->method('getFederationDynamicTrustMarks')
+            ->willReturn(['trust-mark-id' => 'trust-mark-issuer-id']);
+
+        $this->entityStatementFetcherMock->expects($this->once())->method('fromCacheOrWellKnownEndpoint')
+            ->with('trust-mark-issuer-id');
+
+        $this->trustMarkFetcherMock->expects($this->once())->method('fromCacheOrFederationTrustMarkEndpoint')
+            ->with(
+                'trust-mark-id',
+                'issuer-id',
+            );
 
         $this->templateFactoryMock->expects($this->once())->method('build')
             ->with('oidc:config/federation.twig');

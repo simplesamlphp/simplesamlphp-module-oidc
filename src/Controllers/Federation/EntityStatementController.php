@@ -11,6 +11,7 @@ use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\Module\oidc\Utils\Routes;
@@ -42,6 +43,7 @@ class EntityStatementController
         private readonly Helpers $helpers,
         private readonly Routes $routes,
         private readonly Federation $federation,
+        private readonly LoggerService $loggerService,
         private readonly ?FederationCache $federationCache,
     ) {
         if (!$this->moduleConfig->getFederationEnabled()) {
@@ -126,6 +128,8 @@ class EntityStatementController
             $builder = $builder->withClaim(ClaimsEnum::AuthorityHints->value, $authorityHints);
         }
 
+        $trustMarks = [];
+
         if (
             is_array($trustMarkTokens = $this->moduleConfig->getFederationTrustMarkTokens()) &&
             (!empty($trustMarkTokens))
@@ -145,7 +149,45 @@ class EntityStatementController
                     ClaimsEnum::TrustMark->value => $token,
                 ];
             }, $trustMarkTokens);
+        }
 
+        if (
+            is_array($dynamicTrustMarks = $this->moduleConfig->getFederationDynamicTrustMarks()) &&
+            (!empty($dynamicTrustMarks))
+        ) {
+            /**
+             * @var non-empty-string $trustMarkId
+             * @var non-empty-string $trustMarkIssuerId
+             */
+            foreach ($dynamicTrustMarks as $trustMarkId => $trustMarkIssuerId) {
+                try {
+                    $trustMarkIssuerConfigurationStatement = $this->federation->entityStatementFetcher()
+                        ->fromCacheOrWellKnownEndpoint($trustMarkIssuerId);
+
+                    $trustMarkEntity = $this->federation->trustMarkFetcher()->fromCacheOrFederationTrustMarkEndpoint(
+                        $trustMarkId,
+                        $this->moduleConfig->getIssuer(),
+                        $trustMarkIssuerConfigurationStatement,
+                    );
+
+                    $trustMarks[] = [
+                        ClaimsEnum::TrustMarkId->value => $trustMarkId,
+                        ClaimsEnum::TrustMark->value => $trustMarkEntity->getToken(),
+                    ];
+                } catch (\Throwable $exception) {
+                    $this->loggerService->error(
+                        'Error fetching Trust Mark: ' . $exception->getMessage(),
+                        [
+                            'trustMarkId' => $trustMarkId,
+                            'subjectId' => $this->moduleConfig->getIssuer(),
+                            'trustMarkIssuerId' => $trustMarkIssuerId,
+                        ],
+                    );
+                }
+            }
+        }
+
+        if (!empty($trustMarks)) {
             $builder = $builder->withClaim(ClaimsEnum::TrustMarks->value, $trustMarks);
         }
 

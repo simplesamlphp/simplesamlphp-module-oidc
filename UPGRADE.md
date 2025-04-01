@@ -47,6 +47,7 @@ and optionally a port (as in all previous module versions).
   - federation caching adapter and its arguments
   - PKI keys - federation keys used for example to sign federation entity statements
   - federation participation limiting based on Trust Marks for RPs
+  - (from v6.1) own Trust Marks to dynamically fetch
   - signer algorithm
   - entity statement duration
   - organization name

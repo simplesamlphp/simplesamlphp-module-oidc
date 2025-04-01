@@ -378,9 +378,86 @@ class ModuleConfigTest extends TestCase
         $this->assertFalse($this->sut()->getProtocolDiscoveryShowClaimsSupported());
         $this->assertTrue(
             $this->sut(
-                null,
-                [ModuleConfig::OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED => true],
+                overrides: [ModuleConfig::OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED => true],
             )->getProtocolDiscoveryShowClaimsSupported(),
+        );
+    }
+
+    public function testCanGetProtocolNewCertPath(): void
+    {
+        $this->assertNull($this->sut()->getProtocolNewCertPath());
+
+        $sut = $this->sut(
+            overrides: [ModuleConfig::OPTION_PKI_NEW_CERTIFICATE_FILENAME => 'new-cert'],
+        );
+
+        $this->assertStringContainsString('new-cert', $sut->getProtocolNewCertPath());
+    }
+
+    public function testCanGetFederationNewCertPath(): void
+    {
+        $this->assertNull($this->sut()->getFederationNewCertPath());
+
+        $sut = $this->sut(
+            overrides: [ModuleConfig::OPTION_PKI_FEDERATION_NEW_CERTIFICATE_FILENAME => 'new-cert'],
+        );
+
+        $this->assertStringContainsString('new-cert', $sut->getFederationNewCertPath());
+    }
+
+    public function testCanGetFederationDynamicTrustMarks(): void
+    {
+        $this->assertNull($this->sut()->getFederationDynamicTrustMarks());
+
+        $sut = $this->sut(
+            overrides: [
+                ModuleConfig::OPTION_FEDERATION_DYNAMIC_TRUST_MARKS => [
+                    'trust-mark-id' => 'trust-mark-issuer-id',
+                ],
+            ],
+        );
+
+        $this->assertArrayHasKey(
+            'trust-mark-id',
+            $sut->getFederationDynamicTrustMarks(),
+        );
+    }
+
+    public function testCanGetFederationParticipationLimitByTrustMarks(): void
+    {
+        $this->assertArrayHasKey(
+            'https://ta.example.org/',
+            $this->sut()->getFederationParticipationLimitByTrustMarks(),
+        );
+    }
+
+    public function testCanGetTrustMarksNeededForFederationParticipationFor(): void
+    {
+        $neededTrustMarks = $this->sut()->getTrustMarksNeededForFederationParticipationFor('https://ta.example.org/');
+
+        $this->assertArrayHasKey('one_of', $neededTrustMarks);
+        $this->assertTrue(in_array('trust-mark-id', $neededTrustMarks['one_of']));
+    }
+
+    public function testGetTrustMarksNeededForFederationParticipationForThrowsOnInvalidConfigValue(): void
+    {
+        $sut = $this->sut(
+            overrides: [
+                ModuleConfig::OPTION_FEDERATION_PARTICIPATION_LIMIT_BY_TRUST_MARKS => [
+                    'https://ta.example.org/' => 'invalid',
+                ],
+            ],
+        );
+
+        $this->expectException(ConfigurationError::class);
+
+        $sut->getTrustMarksNeededForFederationParticipationFor('https://ta.example.org/');
+    }
+
+    public function testCanGetIsFederationParticipationLimitedByTrustMarksFor(): void
+    {
+        $this->assertTrue(
+            $this->sut()->isFederationParticipationLimitedByTrustMarksFor('https://ta.example.org/'),
         );
     }
 }

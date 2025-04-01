@@ -14,6 +14,7 @@ use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\Module\oidc\Utils\Routes;
@@ -30,6 +31,7 @@ class EntityStatementControllerTest extends TestCase
     protected MockObject $helpersMock;
     protected MockObject $routesMock;
     protected MockObject $federationMock;
+    protected MockObject $loggerServiceMock;
     protected MockObject $federationCacheMock;
 
     protected function setUp(): void
@@ -42,6 +44,7 @@ class EntityStatementControllerTest extends TestCase
         $this->helpersMock = $this->createMock(Helpers::class);
         $this->routesMock = $this->createMock(Routes::class);
         $this->federationMock = $this->createMock(Federation::class);
+        $this->loggerServiceMock = $this->createMock(LoggerService::class);
         $this->federationCacheMock = $this->createMock(FederationCache::class);
     }
 
@@ -54,6 +57,7 @@ class EntityStatementControllerTest extends TestCase
         ?Helpers $helpers = null,
         ?Routes $routes = null,
         ?Federation $federation = null,
+        ?LoggerService $loggerService = null,
         ?FederationCache $federationCache = null,
     ): EntityStatementController {
         $moduleConfig ??= $this->moduleConfigMock;
@@ -64,6 +68,7 @@ class EntityStatementControllerTest extends TestCase
         $helpers ??= $this->helpersMock;
         $routes ??= $this->routesMock;
         $federation ??= $this->federationMock;
+        $loggerService ??= $this->loggerServiceMock;
         $federationCache ??= $this->federationCacheMock;
 
         return new EntityStatementController(
@@ -75,6 +80,7 @@ class EntityStatementControllerTest extends TestCase
             $helpers,
             $routes,
             $federation,
+            $loggerService,
             $federationCache,
         );
     }

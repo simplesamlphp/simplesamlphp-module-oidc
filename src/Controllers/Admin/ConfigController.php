@@ -68,7 +68,7 @@ class ConfigController
 
     public function federationSettings(): Response
     {
-        $trustMarks = null;
+        $trustMarks = [];
         if (is_array($trustMarkTokens = $this->moduleConfig->getFederationTrustMarkTokens())) {
             $trustMarks = array_map(
                 function (string $token): Federation\TrustMark {
@@ -76,6 +76,23 @@ class ConfigController
                 },
                 $trustMarkTokens,
             );
+        }
+
+        if (is_array($dynamicTrustMarks = $this->moduleConfig->getFederationDynamicTrustMarks())) {
+            /**
+             * @var non-empty-string $trustMarkId
+             * @var non-empty-string $trustMarkIssuerId
+             */
+            foreach ($dynamicTrustMarks as $trustMarkId => $trustMarkIssuerId) {
+                $trustMarkIssuerConfigurationStatement = $this->federation->entityStatementFetcher()
+                    ->fromCacheOrWellKnownEndpoint($trustMarkIssuerId);
+
+                $trustMarks[] = $this->federation->trustMarkFetcher()->fromCacheOrFederationTrustMarkEndpoint(
+                    $trustMarkId,
+                    $this->moduleConfig->getIssuer(),
+                    $trustMarkIssuerConfigurationStatement,
+                );
+            }
         }
 
         return $this->templateFactory->build(
