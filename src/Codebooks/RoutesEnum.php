@@ -46,4 +46,5 @@ enum RoutesEnum: string
 
     case FederationConfiguration = '.well-known/openid-federation';
     case FederationFetch = 'federation/fetch';
+    case FederationList = 'federation/list';
 }

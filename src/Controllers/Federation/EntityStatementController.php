@@ -211,7 +211,7 @@ class EntityStatementController
 
     public function fetch(Request $request): Response
     {
-        $subject = $request->query->get(ClaimsEnum::Sub->value);
+        $subject = $request->query->getString(ClaimsEnum::Sub->value);
 
         if (empty($subject)) {
             return $this->routes->newJsonErrorResponse(
@@ -222,7 +222,6 @@ class EntityStatementController
         }
 
         /** @var non-empty-string $subject */
-        $subject = (string)$subject;
 
         $cachedSubordinateStatement = $this->federationCache?->get(
             null,
