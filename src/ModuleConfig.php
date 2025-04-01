@@ -76,7 +76,7 @@ class ModuleConfig
     final public const OPTION_FEDERATION_CACHE_MAX_DURATION_FOR_FETCHED = 'federation_cache_max_duration_for_fetched';
     final public const OPTION_FEDERATION_TRUST_ANCHORS = 'federation_trust_anchors';
     final public const OPTION_FEDERATION_TRUST_MARK_TOKENS = 'federation_trust_mark_tokens';
-    final public const OPTION_FEDERATION_DYNAMIC_TRUST_MARK_TOKENS = 'federation_dynamic_trust_mark_tokens';
+    final public const OPTION_FEDERATION_DYNAMIC_TRUST_MARKS = 'federation_dynamic_trust_mark_tokens';
     final public const OPTION_FEDERATION_CACHE_DURATION_FOR_PRODUCED = 'federation_cache_duration_for_produced';
     final public const OPTION_PROTOCOL_CACHE_ADAPTER = 'protocol_cache_adapter';
     final public const OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS = 'protocol_cache_adapter_arguments';
@@ -636,7 +636,7 @@ class ModuleConfig
     public function getFederationDynamicTrustMarks(): ?array
     {
         $dynamicTrustMarks = $this->config()->getOptionalArray(
-            self::OPTION_FEDERATION_DYNAMIC_TRUST_MARK_TOKENS,
+            self::OPTION_FEDERATION_DYNAMIC_TRUST_MARKS,
             null,
         );
 

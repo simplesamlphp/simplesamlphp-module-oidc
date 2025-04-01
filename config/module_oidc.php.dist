@@ -379,7 +379,7 @@ $config = [
     // and value is Trust Mark Issuer ID, each representing a Trust Mark issued to this entity. Each Trust Mark ID
     // in this array will be dynamically fetched from noted Trust Mark Issuer as necessary. If federation caching
     // is enabled (recommended), fetched Trust Marks will also be cached until their expiry.
-    ModuleConfig::OPTION_FEDERATION_DYNAMIC_TRUST_MARK_TOKENS => [
+    ModuleConfig::OPTION_FEDERATION_DYNAMIC_TRUST_MARKS => [
 //        'trust-mark-id' => 'trust-mark-issuer-id',
     ],
 
