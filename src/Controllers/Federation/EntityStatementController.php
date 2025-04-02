@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers\Federation;
 
-use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
@@ -95,11 +94,10 @@ class EntityStatementController
                                 ClaimsEnum::HomepageUri->value => $this->moduleConfig->getHomepageUri(),
                             ],
                         )),
-                        ClaimsEnum::FederationFetchEndpoint->value =>
-                            $this->moduleConfig->getModuleUrl(RoutesEnum::FederationFetch->value),
+                        ClaimsEnum::FederationFetchEndpoint->value => $this->routes->urlFederationFetch(),
+                        ClaimsEnum::FederationListEndpoint->value => $this->routes->urlFederationList(),
                         // TODO v7 mivanci Add when ready. Use ClaimsEnum for keys.
                         // https://openid.net/specs/openid-federation-1_0.html#name-federation-entity
-                        //'federation_list_endpoint',
                         //'federation_resolve_endpoint',
                         //'federation_trust_mark_status_endpoint',
                         //'federation_trust_mark_list_endpoint',
@@ -233,7 +231,7 @@ class EntityStatementController
             return $this->prepareEntityStatementResponse((string)$cachedSubordinateStatement);
         }
 
-        $client = $this->clientRepository->findByEntityIdentifier($subject);
+        $client = $this->clientRepository->findFederatedByEntityIdentifier($subject);
         if (empty($client)) {
             return $this->routes->newJsonErrorResponse(
                 ErrorsEnum::NotFound->value,

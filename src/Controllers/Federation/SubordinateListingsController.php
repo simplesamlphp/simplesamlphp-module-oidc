@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers\Federation;
 
-use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Codebooks\ErrorsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
@@ -21,11 +20,9 @@ class SubordinateListingsController
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function __construct(
-        private readonly ModuleConfig $moduleConfig,
-        private readonly ClientRepository $clientRepository,
-        private readonly Helpers $helpers,
-        private readonly Routes $routes,
-        private readonly LoggerService $loggerService,
+        protected readonly ModuleConfig $moduleConfig,
+        protected readonly ClientRepository $clientRepository,
+        protected readonly Routes $routes,
     ) {
         if (!$this->moduleConfig->getFederationEnabled()) {
             throw OidcServerException::forbidden('federation capabilities not enabled');
@@ -52,15 +49,19 @@ class SubordinateListingsController
             return $this->routes->newJsonErrorResponse(
                 ErrorsEnum::UnsupportedParameter->value,
                 'Unsupported parameter: ' . implode(', ', $intersectedParams),
+                400,
             );
         }
 
-        dd($request->query->all());
+        $subordinateEntityIdList = array_filter(array_map(
+            function (ClientEntityInterface $clientEntity): ?string {
+                return $clientEntity->getEntityIdentifier();
+            },
+            $this->clientRepository->findAllFederated(),
+        ));
 
-
-        if ($entityTypes = $request->query->all(ParamsEnum::EntityType->value)) {
-        }
-
-        return new Response();
+        return $this->routes->newJsonResponse(
+            $subordinateEntityIdList,
+        );
     }
 }
