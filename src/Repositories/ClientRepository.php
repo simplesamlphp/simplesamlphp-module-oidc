@@ -153,14 +153,10 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
             <<<EOS
             SELECT * FROM {$this->getTableName()}
             WHERE
-                entity_identifier = :entity_identifier AND
-                is_enabled = :is_enabled AND
-                is_federated = :is_federated
+                entity_identifier = :entity_identifier
             EOS,
             [
                 'entity_identifier' => $entityIdentifier,
-                'is_enabled' => [true, PDO::PARAM_BOOL],
-                'is_federated' => [true, PDO::PARAM_BOOL],
             ],
             $owner,
         );
@@ -186,6 +182,29 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
             $this->moduleConfig->getProtocolClientEntityCacheDuration(),
             $this->getCacheKey($entityIdentifier),
         );
+
+        return $clientEntity;
+    }
+
+    public function findFederatedByEntityIdentifier(
+        string $entityIdentifier,
+        ?string $owner = null,
+    ): ?ClientEntityInterface {
+        $clientEntity = $this->findByEntityIdentifier($entityIdentifier, $owner);
+
+        if (is_null($clientEntity)) {
+            return null;
+        }
+
+        if (
+            is_null($clientEntity->getEntityIdentifier()) ||
+            (! $clientEntity->isEnabled()) ||
+            (! $clientEntity->isFederated()) ||
+            (!is_array($clientEntity->getFederationJwks())) ||
+            $clientEntity->isExpired()
+        ) {
+            return null;
+        }
 
         return $clientEntity;
     }
@@ -217,6 +236,47 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         [$query, $params] = $this->addOwnerWhereClause(
             "SELECT * FROM {$this->getTableName()}",
             [],
+            $owner,
+        );
+        $stmt = $this->database->read(
+            "$query ORDER BY name ASC",
+            $params,
+        );
+
+        $clients = [];
+
+        /** @var array $state */
+        foreach ($stmt->fetchAll() as $state) {
+            $clients[] = $this->clientEntityFactory->fromState($state);
+        }
+
+        return $clients;
+    }
+
+    /**
+     * @return \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface[]
+     * @throws \JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function findAllFederated(?string $owner = null): array
+    {
+        /**
+         * @var string $query
+         * @var array $params
+         */
+        [$query, $params] = $this->addOwnerWhereClause(
+            <<<EOS
+            SELECT * FROM {$this->getTableName()}
+            WHERE
+                entity_identifier IS NOT NULL AND
+                federation_jwks IS NOT NULL AND
+                is_enabled = :is_enabled AND
+                is_federated = :is_federated
+            EOS,
+            [
+                'is_enabled' => [true, PDO::PARAM_BOOL],
+                'is_federated' => [true, PDO::PARAM_BOOL],
+            ],
             $owner,
         );
         $stmt = $this->database->read(

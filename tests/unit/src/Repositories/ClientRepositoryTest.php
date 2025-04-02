@@ -391,7 +391,7 @@ class ClientRepositoryTest extends TestCase
 
     public function testCanFindByEntityIdentifier(): void
     {
-        $client = self::getClient(id: 'clientId', entityId: 'entityId', isFederated: true);
+        $client = self::getClient(id: 'clientId', entityId: 'entityId');
         $this->repository->add($client);
 
         $this->clientEntityFactoryMock->expects($this->once())->method('fromState')->willReturn($client);
@@ -402,6 +402,46 @@ class ClientRepositoryTest extends TestCase
         );
 
         $this->assertNull($this->repository->findByEntityIdentifier('nonExistingEntityId'));
+    }
+
+    public function testCanFindFederatedByEntityIdentifier(): void
+    {
+        $client = self::getClient(id: 'clientId', entityId: 'entityId', isFederated: true, federationJwks: []);
+        $this->repository->add($client);
+
+        $this->clientEntityFactoryMock->expects($this->once())->method('fromState')->willReturn($client);
+
+        $this->assertSame(
+            $client,
+            $this->repository->findFederatedByEntityIdentifier('entityId'),
+        );
+
+        $this->assertNull($this->repository->findFederatedByEntityIdentifier('nonExistingEntityId'));
+    }
+
+    public function testCanNotFindFederatedByEntityIdentifierIfMissingFederationAttributes(): void
+    {
+        $client = self::getClient(id: 'clientId', entityId: 'entityId');
+        $this->repository->add($client);
+
+        $this->clientEntityFactoryMock->expects($this->atLeastOnce())->method('fromState')->willReturn($client);
+
+        $this->assertSame(
+            $client,
+            $this->repository->findByEntityIdentifier('entityId'),
+        );
+
+        $this->assertNull($this->repository->findFederatedByEntityIdentifier('entityId'));
+    }
+
+    public function testCanFindAllFederated(): void
+    {
+        $client = self::getClient(id: 'clientId', entityId: 'entityId', isFederated: true, federationJwks: []);
+        $this->repository->add($client);
+
+        $this->clientEntityFactoryMock->expects($this->atLeastOnce())->method('fromState')->willReturn($client);
+
+        $this->assertCount(1, $this->repository->findAllFederated());
     }
 
     public function testCanFindByEntityIdFromCache(): void
@@ -430,6 +470,7 @@ class ClientRepositoryTest extends TestCase
         ?string $owner = null,
         ?string $entityId = null,
         bool $isFederated = false,
+        ?array $federationJwks = null,
     ): ClientEntityInterface {
         return new ClientEntity(
             identifier: $id,
@@ -443,6 +484,7 @@ class ClientRepositoryTest extends TestCase
             authSource: 'admin',
             owner: $owner,
             entityIdentifier: $entityId,
+            federationJwks: $federationJwks,
             isFederated: $isFederated,
         );
     }

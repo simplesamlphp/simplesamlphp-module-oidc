@@ -143,7 +143,9 @@
 
         <br>
         <h4>{{ 'OpenID Federation Related Properties'|trans }}</h4>
-
+            <span class="pure-form-message">
+                {% trans %}In order for an entity to participate in federation contexts (for example, to be listed as subordinate to this OP), it must have an Entity Identifier and Federation JWKS set. {% endtrans %}
+            </span>
         <label for="">{{ 'Is Federated'|trans }}</label>
         <label for="radio-option-federated-yes" class="pure-radio">
             <input type="radio"

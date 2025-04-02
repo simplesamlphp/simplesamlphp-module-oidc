@@ -193,4 +193,9 @@ class Routes
     {
         return $this->getModuleUrl(RoutesEnum::FederationFetch->value, $parameters);
     }
+
+    public function urlFederationList(array $parameters = []): string
+    {
+        return $this->getModuleUrl(RoutesEnum::FederationList->value, $parameters);
+    }
 }

@@ -28,6 +28,7 @@ Currently, the following OIDF features are supported:
 * federation participation limiting based on Trust Marks
 * endpoint for issuing configuration entity statement (statement about itself)
 * fetch endpoint for issuing statements about subordinates (registered clients)
+* subordinate listing endpoint
 
 OIDF support is implemented using the underlying [SimpleSAMLphp OpenID library](https://github.com/simplesamlphp/openid).
 
