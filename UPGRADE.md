@@ -15,6 +15,7 @@ be fetched by RPs, and do the switch between "old" and "new" key pair when you f
   - Federation participation limiting based on Trust Marks
   - Endpoint for issuing configuration entity statement (statement about itself)
   - Fetch endpoint for issuing statements about subordinates (registered clients)
+  - (from v6.1) Subordinate listing endpoint
   - Clients can now be configured with new properties:
     - Entity Identifier
     - Supported OpenID Federation Registration Types
