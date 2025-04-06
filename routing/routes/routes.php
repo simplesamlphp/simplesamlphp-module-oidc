@@ -17,7 +17,9 @@ use SimpleSAML\Module\oidc\Controllers\EndSessionController;
 use SimpleSAML\Module\oidc\Controllers\Federation\EntityStatementController;
 use SimpleSAML\Module\oidc\Controllers\Federation\SubordinateListingsController;
 use SimpleSAML\Module\oidc\Controllers\JwksController;
+use SimpleSAML\Module\oidc\Controllers\OAuth2\OAuth2ServerConfigurationController;
 use SimpleSAML\Module\oidc\Controllers\UserInfoController;
+use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\CredentialIssuerConfigurationController;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 
@@ -87,6 +89,13 @@ return function (RoutingConfigurator $routes): void {
         ->controller([JwksController::class, 'jwks']);
 
     /*****************************************************************************************************************
+     * OAuth 2.0 Authorization Server
+     ****************************************************************************************************************/
+
+    $routes->add(RoutesEnum::OAuth2Configuration->name, RoutesEnum::OAuth2Configuration->value)
+        ->controller(OAuth2ServerConfigurationController::class);
+
+    /*****************************************************************************************************************
      * OpenID Federation
      ****************************************************************************************************************/
 
@@ -100,5 +109,13 @@ return function (RoutingConfigurator $routes): void {
 
     $routes->add(RoutesEnum::FederationList->name, RoutesEnum::FederationList->value)
         ->controller([SubordinateListingsController::class, 'list'])
+        ->methods([HttpMethodsEnum::GET->value]);
+
+    /*****************************************************************************************************************
+     * OpenID Verifiable Credential Issuance
+     ****************************************************************************************************************/
+
+    $routes->add(RoutesEnum::CredentialIssuerConfiguration->name, RoutesEnum::CredentialIssuerConfiguration->value)
+        ->controller([CredentialIssuerConfigurationController::class, 'configuration'])
         ->methods([HttpMethodsEnum::GET->value]);
 };

@@ -41,10 +41,23 @@ enum RoutesEnum: string
     case EndSession = 'end-session';
 
     /*****************************************************************************************************************
+     * OAuth 2.0 Authorization Server
+     ****************************************************************************************************************/
+
+    // OAuth 2.0 Authorization Server Metadata https://www.rfc-editor.org/rfc/rfc8414.html
+    case OAuth2Configuration = '/.well-known/oauth-authorization-server';
+
+    /*****************************************************************************************************************
      * OpenID Federation
      ****************************************************************************************************************/
 
     case FederationConfiguration = '.well-known/openid-federation';
     case FederationFetch = 'federation/fetch';
     case FederationList = 'federation/list';
+
+    /*****************************************************************************************************************
+     * OpenID Verifiable Credential Issuance
+     ****************************************************************************************************************/
+
+    case CredentialIssuerConfiguration = '.well-known/openid-credential-issuer';
 }
