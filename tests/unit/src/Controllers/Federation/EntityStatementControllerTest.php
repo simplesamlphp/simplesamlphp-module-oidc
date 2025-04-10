@@ -19,6 +19,7 @@ use SimpleSAML\Module\oidc\Services\OpMetadataService;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Federation;
+use SimpleSAML\OpenID\Jwk;
 
 #[CoversClass(EntityStatementController::class)]
 class EntityStatementControllerTest extends TestCase
@@ -31,6 +32,7 @@ class EntityStatementControllerTest extends TestCase
     protected MockObject $helpersMock;
     protected MockObject $routesMock;
     protected MockObject $federationMock;
+    protected MockObject $jwkMock;
     protected MockObject $loggerServiceMock;
     protected MockObject $federationCacheMock;
 
@@ -44,6 +46,7 @@ class EntityStatementControllerTest extends TestCase
         $this->helpersMock = $this->createMock(Helpers::class);
         $this->routesMock = $this->createMock(Routes::class);
         $this->federationMock = $this->createMock(Federation::class);
+        $this->jwkMock = $this->createMock(Jwk::class);
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
         $this->federationCacheMock = $this->createMock(FederationCache::class);
     }
@@ -57,6 +60,7 @@ class EntityStatementControllerTest extends TestCase
         ?Helpers $helpers = null,
         ?Routes $routes = null,
         ?Federation $federation = null,
+        ?Jwk $jwk = null,
         ?LoggerService $loggerService = null,
         ?FederationCache $federationCache = null,
     ): EntityStatementController {
@@ -68,6 +72,7 @@ class EntityStatementControllerTest extends TestCase
         $helpers ??= $this->helpersMock;
         $routes ??= $this->routesMock;
         $federation ??= $this->federationMock;
+        $jwk ??= $this->jwkMock;
         $loggerService ??= $this->loggerServiceMock;
         $federationCache ??= $this->federationCacheMock;
 
@@ -80,6 +85,7 @@ class EntityStatementControllerTest extends TestCase
             $helpers,
             $routes,
             $federation,
+            $jwk,
             $loggerService,
             $federationCache,
         );

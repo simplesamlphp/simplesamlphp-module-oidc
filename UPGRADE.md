@@ -1,3 +1,5 @@
+# TODO mivanci
+* Move to specific simplesamlphp/openid release (composer.json).
 
 # Version 5 to 6
 

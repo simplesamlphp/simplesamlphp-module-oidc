@@ -3,6 +3,13 @@
 declare(strict_types=1);
 
 /*
+ *        |
+ *   \  ___  /                           _________
+ *  _  /   \  _    GÉANT                 |  * *  | Co-Funded by
+ *     | ~ |       Trust & Identity      | *   * | the European
+ *      \_/        Incubator             |__*_*__| Union
+ *       =
+ *
  * This file is part of the simplesamlphp-module-oidc.
  *
  * Copyright (C) 2018 by the Spanish Research and Academic Network.
@@ -477,4 +484,13 @@ $config = [
     ModuleConfig::OPTION_LOGO_URI => null,
     ModuleConfig::OPTION_POLICY_URI => null,
     ModuleConfig::OPTION_HOMEPAGE_URI => null,
+
+
+    /**
+     * (optional) OpenID Verifiable Credential related options. If these are not set, OpenID Verifiable
+     * Credential capabilities will be disabled.
+     */
+
+    // Enable or disable verifiable credentials capabilities. Default is disabled (false).
+    ModuleConfig::OPTION_VERIFIABLE_CREDENTIAL_ENABLED => false,
 ];

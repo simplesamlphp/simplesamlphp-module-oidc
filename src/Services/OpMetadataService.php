@@ -8,6 +8,7 @@ use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
 
 /**
@@ -70,7 +71,16 @@ class OpMetadataService
             $signer->algorithmId(),
         ];
         $this->metadata[ClaimsEnum::RequestUriParameterSupported->value] = false;
-        $this->metadata[ClaimsEnum::GrantTypesSupported->value] = ['authorization_code', 'refresh_token'];
+
+        $grantTypesSupported = [
+            GrantTypesEnum::AuthorizationCode->value,
+            GrantTypesEnum::RefreshToken->value,
+        ];
+        if ($this->moduleConfig->getVerifiableCredentialEnabled()) {
+            $grantTypesSupported[] = GrantTypesEnum::PreAuthorizedCode->value;
+        }
+        $this->metadata[ClaimsEnum::GrantTypesSupported->value] = $grantTypesSupported;
+
         $this->metadata[ClaimsEnum::ClaimsParameterSupported->value] = true;
         if (!(empty($acrValuesSupported = $this->moduleConfig->getAcrValuesSupported()))) {
             $this->metadata[ClaimsEnum::AcrValuesSupported->value] = $acrValuesSupported;
@@ -82,6 +92,10 @@ class OpMetadataService
             $claimsSupported = $this->claimTranslatorExtractor->getSupportedClaims();
             $this->metadata[ClaimsEnum::ClaimsSupported->value] = $claimsSupported;
         }
+
+        // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-oauth-20-authorization-serv
+        // OPTIONAL
+        // pre-authorized_grant_anonymous_access_supported // TODO mivanci Make configurable
     }
 
     /**

@@ -93,6 +93,7 @@ class ModuleConfig
     final public const OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_PASSPHRASE = 'federation_new_private_key_passphrase';
     final public const OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_FILENAME = 'federation_new_private_key_filename';
     final public const OPTION_PKI_FEDERATION_NEW_CERTIFICATE_FILENAME = 'federation_new_certificate_filename';
+    final public const OPTION_VERIFIABLE_CREDENTIAL_ENABLED = 'verifiable_credentials_enabled';
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
@@ -772,5 +773,15 @@ class ModuleConfig
     public function isFederationParticipationLimitedByTrustMarksFor(string $trustAnchorId): bool
     {
         return !empty($this->getTrustMarksNeededForFederationParticipationFor($trustAnchorId));
+    }
+
+
+    /*****************************************************************************************************************
+     * OpenID Verifiable Credential related config.
+     ****************************************************************************************************************/
+
+    public function getVerifiableCredentialEnabled(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_VERIFIABLE_CREDENTIAL_ENABLED, false);
     }
 }

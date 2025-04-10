@@ -24,6 +24,6 @@ class OAuth2ServerConfigurationController
         );
 
         // TODO mivanci Add ability for claim 'signed_metadata' when moving to simplesamlphp/openid, as per
-        // https://www.rfc-editor.org/rfc/rfc8414.html#section-2.1
+        // https://www.rfc-editor.org/rfc/rfc8414.html#section-2.1, with caching support.
     }
 }
