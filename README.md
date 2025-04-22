@@ -1,9 +1,9 @@
 # simplesamlphp-module-oidc
 > A SimpleSAMLphp module for OIDC OP support.
 
-This module adds support for OpenID Provider role from the OpenID Connect protocol
-through a SimpleSAMLphp module installable through Composer. It is based on 
-[Oauth2 Server from the PHP League](https://oauth2.thephpleague.com/) 
+This module adds support for the OpenID Provider role from the OpenID Connect protocol
+through a SimpleSAMLphp module installable via Composer. It is based on 
+[OAuth2 Server from the PHP League](https://oauth2.thephpleague.com/).
 
 Currently supported flows are:
 * Authorization Code flow, with PKCE support (response_type 'code')
@@ -16,28 +16,28 @@ Currently supported flows are:
 
 ![Main screen capture](docs/oidc.png)
 
-### Note on OpenID Federation (OIDF) support
+### Note on OpenID Federation (OIDFed) support
 
 OpenID Federation support is in "draft" phase, as is the
-[specification](https://openid.net/specs/openid-federation-1_0) itself. This means that you can expect braking changes
-in future releases related to OIDF capabilities. You can enable / disable OIDF support at any time in module
+[specification](https://openid.net/specs/openid-federation-1_0) itself. This means that you can expect breaking changes
+in future releases related to OIDFed capabilities. You can enable / disable OIDFed support at any time in the module
 configuration.
 
-Currently, the following OIDF features are supported:
+Currently, the following OIDFed features are supported:
 * automatic client registration using a Request Object (passing it by value)
 * federation participation limiting based on Trust Marks
 * endpoint for issuing configuration entity statement (statement about itself)
 * fetch endpoint for issuing statements about subordinates (registered clients)
 * subordinate listing endpoint
 
-OIDF support is implemented using the underlying [SimpleSAMLphp OpenID library](https://github.com/simplesamlphp/openid).
+OIDFed support is implemented using the underlying [SimpleSAMLphp OpenID library](https://github.com/simplesamlphp/openid).
 
 ## Version compatibility
 
-Minor versions of SimpleSAMLphp noted below means that the module has been tested with that version of SimpleSAMLphp
-during module development. SimpleSAMLphp started following semantic versioning for its API from version 2.0. This means,
-for example, that v5.* of the oidc module should work on any v2.* of SimpleSAMLphp. However, do mind that there were
-PHP version requirement changes in minor releases for SimpleSAMLphp.
+The minor versions of SimpleSAMLphp listed below indicate which versions of SimpleSAMLphp were used for testing
+during module development. SimpleSAMLphp has followed semantic versioning for its API since version 2.0. This means,
+for example, that v5.* of the OIDC module should work with any v2.* of SimpleSAMLphp. However, please note that
+PHP version requirements have changed in minor SimpleSAMLphp releases.
 
 | OIDC module | Tested SimpleSAMLphp |  PHP   | Note                        |
 |:------------|:---------------------|:------:|-----------------------------|
@@ -53,65 +53,69 @@ If you are upgrading from a previous version, make sure to check the [upgrade gu
 
 ## Installation
 
-Installation can be as easy as executing:
+Installation is as simple as executing:
 
     composer require simplesamlphp/simplesamlphp-module-oidc
 
 ### Configure the module
 
-Copy the module config template file to the SimpleSAMLphp config directory:
+Copy the module configuration template file to the SimpleSAMLphp config directory:
 
     cp modules/oidc/config/module_oidc.php.dist config/module_oidc.php
 
-The options are self-explanatory, so make sure to go through the file and edit them as appropriate.
+Review all options in the file and edit them as needed for your environment.
 
 ### Configure the database
 
-This module uses a default SimpleSAMLphp database feature to store access/refresh tokens, user data, etc.
-In order for this to work, edit your `config/config.php` and check 'database' related configuration. Make sure
-you have at least the following parameters set:
+This module uses SimpleSAMLphp's database feature to store access/refresh tokens, user data, and other information.
+To set this up, edit your `config/config.php` and configure the database-related settings. Ensure you have at least
+the following parameters configured:
 
     'database.dsn' => 'mysql:host=server;dbname=simplesamlphp;charset=utf8',
     'database.username' => 'user',
     'database.password' => 'password',
 
 > [!NOTE]  
-> The module has been tested against and supports the SQLite, PostgreSQL and MySQL databases.
+> The module has been tested with and supports SQLite, PostgreSQL, and MySQL databases.
 
 ### Create Protocol / Federation RSA key pairs
 
-During the authentication flow, generated ID Token and Access Token will be in a form of signed JSON Web token (JWS).
-Because of the signing part, you need to create a public/private RSA key pair. This public/private RSA key pair
-is referred to as "OIDC protocol" keys. On the other hand, if you will be using OpenID Federation capabilities,
-you should create separate key pair dedicated for OpenID Federation operations, like signing Entity Statement JWS.
-Below are sample commands to create key pairs with default file names, both "protocol" and "federation" version.
+During the authentication flow, the generated ID Token and Access Token will be in the form of signed JSON Web Tokens (JWS).
+For signing these tokens, you need to create a public/private RSA key pair, referred to as "OIDC protocol" keys.
 
-To generate the private key, you can run this command in the terminal:
+If you plan to use OpenID Federation capabilities, you should create a separate key pair dedicated to OpenID Federation
+operations, such as signing Entity Statement JWS.
+
+Below are sample commands to create key pairs with default file names for both "protocol" and "federation" purposes:
+
+To generate the private keys without a passphrase:
 
     openssl genrsa -out cert/oidc_module.key 3072
     openssl genrsa -out cert/oidc_module_federation.key 3072
 
-If you want to provide a passphrase for your private key, run this command instead:
+To generate the private keys with a passphrase:
 
     openssl genrsa -passout pass:myPassPhrase -out cert/oidc_module.key 3072
     openssl genrsa -passout pass:myPassPhrase -out cert/oidc_module_federation.key 3072
 
-Now you need to extract the public key from the private key:
+Next, extract the public key from each private key:
+
+Without passphrase:
 
     openssl rsa -in cert/oidc_module.key -pubout -out cert/oidc_module.crt
     openssl rsa -in cert/oidc_module_federation.key -pubout -out cert/oidc_module_federation.crt
 
-or use your passphrase if provided on private key generation:
+With passphrase:
 
     openssl rsa -in cert/oidc_module.key -passin pass:myPassPhrase -pubout -out cert/oidc_module.crt
     openssl rsa -in cert/oidc_module_federation.key -passin pass:myPassPhrase -pubout -out cert/oidc_module_federation.crt
 
-If you use different files names or a passphrase, make sure to configure it in the `module_oidc.php` config file.
+If you use different file names or a passphrase, be sure to update these settings in the `module_oidc.php` configuration file.
 
 ### Enabling the module
 
-At this point we can enable the module by adding `'oidc' => true` to the list of enabled modules in the main
-SimpleSAMLphp configuration file, `config/config.php`. 
+To enable the module, add `'oidc' => true` to the list of enabled modules in the main SimpleSAMLphp 
+configuration file, `config/config.php`:
 
     'module.enable' => [
         'exampleauth' => false,
@@ -122,14 +126,17 @@ SimpleSAMLphp configuration file, `config/config.php`.
         'oidc' => true,
     ],
 
-Once the module is enabled, the database migrations must be run.
+After enabling the module, you must run the database migrations.
 
 ### Run database migrations
 
-The module comes with some default SQL migrations which set up needed tables in the configured database. To run them,
-in the SimpleSAMLphp administration area go to `OIDC` > `Database Migrations`, and press the available button.
+The module includes default SQL migrations that set up the necessary tables in your configured database. 
+To run these migrations:
 
-Alternatively, in case of automatic / scripted deployments, you can run the 'install.php' script from the command line:
+Option 1: Through the web interface - Navigate to the SimpleSAMLphp administration area, go to 
+`OIDC` > `Database Migrations`, and click the available button.
+
+Option 2: Through the command line (recommended for automated/scripted deployments):
 
     php modules/oidc/bin/install.php
 
@@ -326,8 +333,8 @@ The module offers an OpenID Federation configuration endpoint at URL:
 
 ### .well-known URLs
 
-You can configure you web server (Apache, Nginx) in a way to serve the mentioned URLs in a '.well-known'
-form. Below are some sample configurations for `openid-configuration`, but you can take the same approach for 
+You can configure your web server (Apache, Nginx) in a way to serve the mentioned URLs in a '.well-known'
+format. Below are some sample configurations for `openid-configuration`, but you can take the same approach for 
 `openid-federation`.
 
 #### nginx 
