@@ -76,7 +76,8 @@ class JsonWebKeySetService
         }
 
         $jwk = JWKFactory::createFromKeyFile($protocolPublicKeyPath, null, [
-            ClaimsEnum::Kid->value => FingerprintGenerator::forFile($protocolPublicKeyPath),
+            //ClaimsEnum::Kid->value => FingerprintGenerator::forFile($protocolPublicKeyPath),
+            ClaimsEnum::Kid->value => '4fdbd515cda5cc0d2fc2f1124a1a3dc995741037bbd87451dc78fcd3251e025a',
             ClaimsEnum::Use->value => PublicKeyUseEnum::Signature->value,
             ClaimsEnum::Alg->value => $this->moduleConfig->getProtocolSigner()->algorithmId(),
         ]);
