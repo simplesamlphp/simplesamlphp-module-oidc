@@ -38,7 +38,6 @@ class FederationFactory
                 SignatureAlgorithmEnum::PS256,
                 SignatureAlgorithmEnum::PS384,
                 SignatureAlgorithmEnum::PS512,
-                S
             ),
         );
 
