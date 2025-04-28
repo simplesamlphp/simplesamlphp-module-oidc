@@ -77,9 +77,10 @@ class EntityStatementController
         $currentTimestamp = $this->helpers->dateTime()->getUtc()->getTimestamp();
 
         $header = [
-            ClaimsEnum::Kid->value => FingerprintGenerator::forFile(
-                $this->moduleConfig->getFederationCertPath(),
-            ),
+            ClaimsEnum::Kid->value => '4fdbd515cda5cc0d2fc2f1124a1a3dc995741037bbd87451dc78fcd3251e025a',
+            //ClaimsEnum::Kid->value => FingerprintGenerator::forFile(
+            //    $this->moduleConfig->getFederationCertPath(),
+            //),
         ];
 
         $payload = [
