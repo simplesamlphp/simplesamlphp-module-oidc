@@ -76,8 +76,7 @@ class JsonWebKeySetService
         }
 
         $jwk = JWKFactory::createFromKeyFile($protocolPublicKeyPath, null, [
-            //ClaimsEnum::Kid->value => FingerprintGenerator::forFile($protocolPublicKeyPath),
-            ClaimsEnum::Kid->value => '4fdbd515cda5cc0d2fc2f1124a1a3dc995741037bbd87451dc78fcd3251e025a',
+            ClaimsEnum::Kid->value => FingerprintGenerator::forFile($protocolPublicKeyPath),
             ClaimsEnum::Use->value => PublicKeyUseEnum::Signature->value,
             ClaimsEnum::Alg->value => $this->moduleConfig->getProtocolSigner()->algorithmId(),
         ]);
@@ -90,9 +89,7 @@ class JsonWebKeySetService
         ) {
             $newJwk = JWKFactory::createFromKeyFile($protocolNewPublicKeyPath, null, [
                 ClaimsEnum::Use->value => PublicKeyUseEnum::Signature->value,
-                //ClaimsEnum::Kid->value => FingerprintGenerator::forFile($protocolNewPublicKeyPath),
-
-                ClaimsEnum::Kid->value => '4fdbd515cda5cc0d2fc2f1124a1a3dc995741037bbd87451dc78fcd3251e025a',
+                ClaimsEnum::Kid->value => FingerprintGenerator::forFile($protocolNewPublicKeyPath),
                 ClaimsEnum::Alg->value => $this->moduleConfig->getProtocolSigner()->algorithmId(),
             ]);
 
@@ -111,9 +108,7 @@ class JsonWebKeySetService
         }
 
         $federationJwk = JWKFactory::createFromKeyFile($federationPublicKeyPath, null, [
-            //ClaimsEnum::Kid->value => FingerprintGenerator::forFile($federationPublicKeyPath),
-
-            ClaimsEnum::Kid->value => '4fdbd515cda5cc0d2fc2f1124a1a3dc995741037bbd87451dc78fcd3251e025a',
+            ClaimsEnum::Kid->value => FingerprintGenerator::forFile($federationPublicKeyPath),
             ClaimsEnum::Use->value => PublicKeyUseEnum::Signature->value,
             ClaimsEnum::Alg->value => $this->moduleConfig->getFederationSigner()->algorithmId(),
         ]);
