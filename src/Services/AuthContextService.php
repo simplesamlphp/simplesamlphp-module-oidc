@@ -31,11 +31,6 @@ class AuthContextService
     ) {
     }
 
-    public function isSspAdmin(): bool
-    {
-        return $this->sspBridge->utils()->auth()->isAdmin();
-    }
-
     /**
      * @throws \SimpleSAML\Error\Exception
      * @throws \Exception
@@ -57,8 +52,6 @@ class AuthContextService
      */
     public function requirePermission(string $neededPermission): void
     {
-        $auth = $this->authenticate();
-
         $permissions = $this->moduleConfig
             ->config()
             ->getOptionalConfigItem(ModuleConfig::OPTION_ADMIN_UI_PERMISSIONS, null);
@@ -69,6 +62,9 @@ class AuthContextService
         if (!$permissions->hasValue($neededPermission)) {
             throw new RuntimeException('No permission defined for ' . $neededPermission);
         }
+
+        $auth = $this->authenticate();
+
         $attributeName = $permissions->getString('attribute');
         /** @var string[] $entitlements */
         $entitlements = $auth->getAttributes()[$attributeName] ?? [];
