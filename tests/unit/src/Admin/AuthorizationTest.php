@@ -95,7 +95,12 @@ class AuthorizationTest extends TestCase
 
     public function testRequireAdminOrUserWithPermissionReturnsIfUser(): void
     {
-        $this->sspBridgeUtilsAuthMock->expects($this->once())->method('isAdmin')->willReturn(false);
+        $this->sspBridgeUtilsAuthMock->expects($this->atLeastOnce())->method('isAdmin')
+            ->willReturnOnConsecutiveCalls(
+                false,
+                true, // After requireAdmin called, isAdmin will return true
+            );
+        $this->sspBridgeUtilsAuthMock->expects($this->once())->method('requireAdmin');
         $this->authContextServiceMock->expects($this->once())->method('requirePermission');
 
         $this->sut()->requireAdminOrUserWithPermission('permission');
@@ -104,9 +109,9 @@ class AuthorizationTest extends TestCase
     public function testRequireUserWithPermissionThrowsIfUserNotAuthorized(): void
     {
         $this->expectException(AuthorizationException::class);
-        $this->expectExceptionMessage('not authorized');
+        $this->expectExceptionMessage('access required');
 
-        $this->sspBridgeUtilsAuthMock->expects($this->once())->method('isAdmin')->willReturn(false);
+        $this->sspBridgeUtilsAuthMock->expects($this->atLeastOnce())->method('isAdmin')->willReturn(false);
         $this->authContextServiceMock->expects($this->once())->method('requirePermission')
             ->willThrowException(new Exception('error'));
 

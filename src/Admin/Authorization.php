@@ -56,13 +56,13 @@ class Authorization
 
         try {
             $this->authContextService->requirePermission($permission);
-        } catch (Exception $exception) {
-            throw new AuthorizationException(
-                Translate::noop('User not authorized.'),
-                $exception->getCode(),
-                $exception,
-            );
+        } catch (\Exception) {
+            // TODO mivanci v7 log this exception
         }
+
+        // If we get here, the user does not have the required permission, or permissions are not enabled.
+        // Fallback to admin authentication.
+        $this->requireAdmin(true);
     }
 
     public function getUserId(): string
