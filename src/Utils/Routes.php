@@ -147,6 +147,15 @@ class Routes
     }
 
     /*****************************************************************************************************************
+     * OAuth 2.0 Authorization Server
+     ****************************************************************************************************************/
+
+    public function urlOAuth2Configuration(array $parameters = []): string
+    {
+        return $this->getModuleUrl(RoutesEnum::OAuth2Configuration->value, $parameters);
+    }
+
+    /*****************************************************************************************************************
      * OpenID Connect URLs.
      ****************************************************************************************************************/
 
@@ -197,5 +206,19 @@ class Routes
     public function urlFederationList(array $parameters = []): string
     {
         return $this->getModuleUrl(RoutesEnum::FederationList->value, $parameters);
+    }
+
+    /*****************************************************************************************************************
+     * OpenID for Verifiable Credential Issuance URLs.
+     ****************************************************************************************************************/
+
+    public function urlCredentialIssuerConfiguration(array $parameters = []): string
+    {
+        return $this->getModuleUrl(RoutesEnum::CredentialIssuerConfiguration->value, $parameters);
+    }
+
+    public function urlCredentialIssuerCredential(array $parameters = []): string
+    {
+        return $this->getModuleUrl(RoutesEnum::CredentialIssuerCredential->value, $parameters);
     }
 }

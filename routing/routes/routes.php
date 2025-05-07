@@ -40,6 +40,8 @@ return function (RoutingConfigurator $routes): void {
         ->controller([ConfigController::class, 'protocolSettings']);
     $routes->add(RoutesEnum::AdminConfigFederation->name, RoutesEnum::AdminConfigFederation->value)
         ->controller([ConfigController::class, 'federationSettings']);
+    $routes->add(RoutesEnum::AdminConfigVerifiableCredential->name, RoutesEnum::AdminConfigVerifiableCredential->value)
+        ->controller([ConfigController::class, 'verifiableCredentialSettings']);
 
     // Client management
 
@@ -112,10 +114,14 @@ return function (RoutingConfigurator $routes): void {
         ->methods([HttpMethodsEnum::GET->value]);
 
     /*****************************************************************************************************************
-     * OpenID Verifiable Credential Issuance
+     * OpenID for Verifiable Credential Issuance
      ****************************************************************************************************************/
 
     $routes->add(RoutesEnum::CredentialIssuerConfiguration->name, RoutesEnum::CredentialIssuerConfiguration->value)
         ->controller([CredentialIssuerConfigurationController::class, 'configuration'])
+        ->methods([HttpMethodsEnum::GET->value]);
+
+    $routes->add(RoutesEnum::CredentialIssuerCredential->name, RoutesEnum::CredentialIssuerCredential->value)
+        ->controller([CredentialIssuerConfigurationController::class, 'credential'])
         ->methods([HttpMethodsEnum::GET->value]);
 };

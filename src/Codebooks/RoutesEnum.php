@@ -12,6 +12,7 @@ enum RoutesEnum: string
 
     case AdminConfigProtocol = 'admin/config/protocol';
     case AdminConfigFederation = 'admin/config/federation';
+    case AdminConfigVerifiableCredential = 'admin/config/verifiable-credential';
     case AdminMigrations = 'admin/migrations';
     case AdminMigrationsRun = 'admin/migrations/run';
 
@@ -45,7 +46,7 @@ enum RoutesEnum: string
      ****************************************************************************************************************/
 
     // OAuth 2.0 Authorization Server Metadata https://www.rfc-editor.org/rfc/rfc8414.html
-    case OAuth2Configuration = '/.well-known/oauth-authorization-server';
+    case OAuth2Configuration = '.well-known/oauth-authorization-server';
 
     /*****************************************************************************************************************
      * OpenID Federation
@@ -56,8 +57,9 @@ enum RoutesEnum: string
     case FederationList = 'federation/list';
 
     /*****************************************************************************************************************
-     * OpenID Verifiable Credential Issuance
+     * OpenID for Verifiable Credential Issuance
      ****************************************************************************************************************/
 
     case CredentialIssuerConfiguration = '.well-known/openid-credential-issuer';
+    case CredentialIssuerCredential = 'credential-issuer/credential';
 }

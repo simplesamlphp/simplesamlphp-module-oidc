@@ -777,7 +777,7 @@ class ModuleConfig
 
 
     /*****************************************************************************************************************
-     * OpenID Verifiable Credential related config.
+     * OpenID Verifiable Credential Issuance related config.
      ****************************************************************************************************************/
 
     public function getVerifiableCredentialEnabled(): bool
