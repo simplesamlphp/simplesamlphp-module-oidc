@@ -148,6 +148,13 @@ class TemplateFactory
                 Translate::noop('Verifiable Credential Settings'),
             ),
         );
+
+        $this->oidcMenu->addItem(
+            $this->oidcMenu->buildItem(
+                $this->moduleConfig->getModuleUrl(RoutesEnum::AdminTestVerifiableCredentialIssuance->value),
+                Translate::noop('Test Verifiable Credential Issuance'),
+            ),
+        );
     }
 
     public function setShowMenu(bool $showMenu): TemplateFactory

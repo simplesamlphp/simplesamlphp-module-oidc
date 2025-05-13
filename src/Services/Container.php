@@ -447,6 +447,7 @@ class Container implements ContainerInterface
             $authCodeEntityFactory,
             $refreshTokenIssuer,
             $helpers,
+            $loggerService,
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 

@@ -17,7 +17,7 @@ use SimpleSAML\OpenID\Federation;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-class TestController
+class FederationTestController
 {
     protected readonly Federation $federationWithArrayLogger;
 

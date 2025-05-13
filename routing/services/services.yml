@@ -60,6 +60,9 @@ services:
     factory: ['@SimpleSAML\Module\oidc\Factories\Grant\ImplicitGrantFactory', 'build']
   SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant:
     factory: ['@SimpleSAML\Module\oidc\Factories\Grant\RefreshTokenGrantFactory', 'build']
+  SimpleSAML\Module\oidc\Server\Grants\PreAuthCodeGrant:
+    factory: ['@SimpleSAML\Module\oidc\Factories\Grant\PreAuthCodeGrantFactory', 'build']
+
   # Responses
   SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse:
     factory: ['@SimpleSAML\Module\oidc\Factories\IdTokenResponseFactory', 'build']
@@ -125,6 +128,8 @@ services:
     factory: [ '@SimpleSAML\Module\oidc\Factories\CoreFactory', 'build' ]
   SimpleSAML\OpenID\Federation:
     factory: [ '@SimpleSAML\Module\oidc\Factories\FederationFactory', 'build' ]
+  SimpleSAML\OpenID\VerifiableCredentials:
+    factory: [ '@SimpleSAML\Module\oidc\Factories\VerifiableCredentialsFactory', 'build' ]
   SimpleSAML\OpenID\Jwks:
     factory: [ '@SimpleSAML\Module\oidc\Factories\JwksFactory', 'build' ]
   SimpleSAML\OpenID\Jwk: ~

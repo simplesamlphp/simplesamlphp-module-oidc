@@ -10,7 +10,8 @@ use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Controllers\AccessTokenController;
 use SimpleSAML\Module\oidc\Controllers\Admin\ClientController;
 use SimpleSAML\Module\oidc\Controllers\Admin\ConfigController;
-use SimpleSAML\Module\oidc\Controllers\Admin\TestController;
+use SimpleSAML\Module\oidc\Controllers\Admin\FederationTestController;
+use SimpleSAML\Module\oidc\Controllers\Admin\VerifiableCredentailsTestController;
 use SimpleSAML\Module\oidc\Controllers\AuthorizationController;
 use SimpleSAML\Module\oidc\Controllers\ConfigurationDiscoveryController;
 use SimpleSAML\Module\oidc\Controllers\EndSessionController;
@@ -66,11 +67,16 @@ return function (RoutingConfigurator $routes): void {
     // Testing
 
     $routes->add(RoutesEnum::AdminTestTrustChainResolution->name, RoutesEnum::AdminTestTrustChainResolution->value)
-        ->controller([TestController::class, 'trustChainResolution'])
+        ->controller([FederationTestController::class, 'trustChainResolution'])
         ->methods([HttpMethodsEnum::GET->value, HttpMethodsEnum::POST->value]);
     $routes->add(RoutesEnum::AdminTestTrustMarkValidation->name, RoutesEnum::AdminTestTrustMarkValidation->value)
-        ->controller([TestController::class, 'trustMarkValidation'])
+        ->controller([FederationTestController::class, 'trustMarkValidation'])
         ->methods([HttpMethodsEnum::GET->value, HttpMethodsEnum::POST->value]);
+    $routes->add(
+        RoutesEnum::AdminTestVerifiableCredentialIssuance->name,
+        RoutesEnum::AdminTestVerifiableCredentialIssuance->value,
+    )->controller([VerifiableCredentailsTestController::class, 'verifiableCredentialIssuance'])
+    ->methods([HttpMethodsEnum::GET->value, HttpMethodsEnum::POST->value]);
 
     /*****************************************************************************************************************
      * OpenID Connect

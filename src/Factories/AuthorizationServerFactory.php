@@ -24,6 +24,7 @@ use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
 use SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant;
+use SimpleSAML\Module\oidc\Server\Grants\PreAuthCodeGrant;
 use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
@@ -41,6 +42,7 @@ class AuthorizationServerFactory
         private readonly IdTokenResponse $idTokenResponse,
         private readonly RequestRulesManager $requestRulesManager,
         private readonly CryptKey $privateKey,
+        private readonly PreAuthCodeGrant $preAuthCodeGrant,
     ) {
     }
 
@@ -68,6 +70,12 @@ class AuthorizationServerFactory
 
         $authorizationServer->enableGrantType(
             $this->refreshTokenGrant,
+            $this->moduleConfig->getAccessTokenDuration(),
+        );
+
+        // TODO mivanci Only enable if VCI is enabled.
+        $authorizationServer->enableGrantType(
+            $this->preAuthCodeGrant,
             $this->moduleConfig->getAccessTokenDuration(),
         );
 
