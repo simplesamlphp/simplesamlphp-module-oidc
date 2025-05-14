@@ -103,7 +103,7 @@ class CredentialIssuerCredentialController
 
         $this->loggerService->debug('response', [
             'credentials' => [
-                'credential' => $verifiableCredential->getToken(),
+                ['credential' => $verifiableCredential->getToken()],
             ],
         ],);
 

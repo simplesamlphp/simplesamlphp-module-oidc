@@ -31,6 +31,6 @@ class CryptKeyFactory
      */
     public function buildPublicKey(): CryptKey
     {
-        return new CryptKey($this->moduleConfig->getProtocolCertPath());
+        return new CryptKey($this->moduleConfig->getProtocolCertPath(), null, false);
     }
 }
