@@ -92,7 +92,6 @@ class CredentialIssuerCredentialController
                 ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
                 ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
                 ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
-                ClaimsEnum::Sub->value => 'testuid',
             ],
             [
                 ClaimsEnum::Kid->value => FingerprintGenerator::forFile(
