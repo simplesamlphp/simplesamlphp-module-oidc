@@ -22,6 +22,7 @@ class CryptKeyFactory
         return new CryptKey(
             $this->moduleConfig->getProtocolPrivateKeyPath(),
             $this->moduleConfig->getProtocolPrivateKeyPassPhrase(),
+            false, // TODO mivanci Return to true
         );
     }
 
