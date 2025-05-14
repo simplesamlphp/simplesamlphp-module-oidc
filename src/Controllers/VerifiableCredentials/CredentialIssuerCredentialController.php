@@ -85,6 +85,7 @@ class CredentialIssuerCredentialController
                     ClaimsEnum::Issuer->value => $this->moduleConfig->getIssuer(),
                     ClaimsEnum::Issuance_Date->value => $issuedAt->format(\DateTimeInterface::RFC3339),
                     ClaimsEnum::Credential_Subject->value => [
+                        ClaimsEnum::Id->value => $this->moduleConfig->getIssuer() . '/cred/1234567890',
                         'eduPersonPrincipalName' => 'testuser@example.com',
                         'eduPersonTargetedID' => 'abc123',
                         'displayName' => 'Test User',
@@ -97,6 +98,7 @@ class CredentialIssuerCredentialController
                 ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
                 ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
                 ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
+                ClaimsEnum::Sub->value => $this->moduleConfig->getIssuer() . '/cred/1234567890',
             ],
             [
                 ClaimsEnum::Kid->value => FingerprintGenerator::forFile(
