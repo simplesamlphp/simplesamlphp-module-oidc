@@ -11,6 +11,7 @@ use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\AtContextsEnum;
@@ -35,6 +36,7 @@ class CredentialIssuerCredentialController
         protected readonly VerifiableCredentials $verifiableCredentials,
         protected readonly Jwk $jwk,
         protected readonly LoggerService $loggerService,
+        protected readonly RequestParamsResolver $requestParamsResolver,
     ) {
         if (!$this->moduleConfig->getVerifiableCredentialEnabled()) {
             throw OidcServerException::forbidden('Verifiable Credential capabilities not enabled');
@@ -43,7 +45,10 @@ class CredentialIssuerCredentialController
 
     public function credential(Request $request): Response
     {
-        $this->loggerService->info('credential', $request->request->all());
+        $this->loggerService->info('Request data: ',
+        $this->requestParamsResolver->getAllFromRequest(
+            $this->psrHttpBridge->getPsrHttpFactory()->createRequest($request),
+        ));
 
 
         $authorization = $this->resourceServer->validateAuthenticatedRequest(
