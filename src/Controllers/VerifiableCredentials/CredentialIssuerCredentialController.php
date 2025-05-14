@@ -101,6 +101,12 @@ class CredentialIssuerCredentialController
             ],
         );
 
+        $this->loggerService->debug('response', [
+            'credentials' => [
+                'credential' => $verifiableCredential->getToken(),
+            ],
+        ],);
+
         return $this->routes->newJsonResponse(
             [
                 'credentials' => [
