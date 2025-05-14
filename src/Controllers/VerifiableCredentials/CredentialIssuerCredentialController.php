@@ -110,7 +110,7 @@ class CredentialIssuerCredentialController
         return $this->routes->newJsonResponse(
             [
                 'credentials' => [
-                    'credential' => $verifiableCredential->getToken(),
+                    ['credential' => $verifiableCredential->getToken()],
                 ],
             ],
         );
