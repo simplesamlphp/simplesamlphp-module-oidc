@@ -62,7 +62,7 @@ class AuthCodeGrantFactory
             $this->authCodeEntityFactory,
             $this->refreshTokenIssuer,
             $this->helpers,
-            $this->loggerService
+            $this->loggerService,
         );
         $authCodeGrant->setRefreshTokenTTL($this->moduleConfig->getRefreshTokenDuration());
 

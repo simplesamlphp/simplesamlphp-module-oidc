@@ -51,6 +51,7 @@ use SimpleSAML\Module\oidc\Factories\FederationFactory;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\AuthCodeGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\ImplicitGrantFactory;
+use SimpleSAML\Module\oidc\Factories\Grant\PreAuthCodeGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\RefreshTokenGrantFactory;
 use SimpleSAML\Module\oidc\Factories\IdTokenResponseFactory;
 use SimpleSAML\Module\oidc\Factories\JwksFactory;
@@ -71,6 +72,7 @@ use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
 use SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant;
+use SimpleSAML\Module\oidc\Server\Grants\PreAuthCodeGrant;
 use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule;
@@ -469,6 +471,21 @@ class Container implements ContainerInterface
         );
         $this->services[RefreshTokenGrant::class] = $refreshTokenGrantFactory->build();
 
+        $preAuthCodeGrantFactory = new PreAuthCodeGrantFactory(
+            $moduleConfig,
+            $authCodeRepository,
+            $accessTokenRepository,
+            $refreshTokenRepository,
+            $requestRuleManager,
+            $requestParamsResolver,
+            $accessTokenEntityFactory,
+            $authCodeEntityFactory,
+            $refreshTokenIssuer,
+            $helpers,
+            $loggerService,
+        );
+        $this->services[PreAuthCodeGrant::class] = $preAuthCodeGrantFactory->build();
+
         $authorizationServerFactory = new AuthorizationServerFactory(
             $moduleConfig,
             $clientRepository,
@@ -480,6 +497,7 @@ class Container implements ContainerInterface
             $this->services[IdTokenResponse::class],
             $requestRuleManager,
             $privateKey,
+            $this->services[PreAuthCodeGrant::class],
         );
         $this->services[AuthorizationServer::class] = $authorizationServerFactory->build();
 

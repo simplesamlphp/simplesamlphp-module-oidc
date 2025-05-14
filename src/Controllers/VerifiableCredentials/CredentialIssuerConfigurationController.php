@@ -18,6 +18,7 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
+use SimpleSAML\OpenID\Codebooks\CredentialTypesEnum;
 use SimpleSAML\OpenID\Codebooks\LanguageTagsEnum;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -253,7 +254,7 @@ class CredentialIssuerConfigurationController
                     // REQUIRED
                     ClaimsEnum::CredentialDefinition->value => [
                         ClaimsEnum::Type->value => [
-                            'VerifiableCredential', // TODO mivanci CredentialTypesEnum
+                            CredentialTypesEnum::VerifiableCredential->value,
                             'ResearchAndScholarshipCredentialJwtVcJson',
                         ],
                     ],

@@ -114,7 +114,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
 
         $this->loggerService->debug(
             'Pre-authorized code grant respondToAccessTokenRequest',
-            $this->requestParamsResolver->getAllFromRequest($request)
+            $this->requestParamsResolver->getAllFromRequest($request),
         );
 
         $preAuthorizedCodeId = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(

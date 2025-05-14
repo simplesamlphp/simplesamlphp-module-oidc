@@ -11,17 +11,13 @@ use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
-use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\Debug\ArrayLogger;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
-use SimpleSAML\OpenID\Federation;
 use SimpleSAML\OpenID\VerifiableCredentials;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class VerifiableCredentailsTestController
@@ -35,8 +31,6 @@ class VerifiableCredentailsTestController
         protected readonly AuthCodeEntityFactory $authCodeEntityFactory,
         protected readonly ClientRepository $clientRepository,
         protected readonly ClientEntityFactory $clientEntityFactory,
-        protected readonly Federation $federation,
-        protected readonly Helpers $helpers,
         protected readonly LoggerService $loggerService,
     ) {
         $this->authorization->requireAdmin(true);
@@ -47,7 +41,7 @@ class VerifiableCredentailsTestController
      * @throws \SimpleSAML\OpenID\Exceptions\InvalidValueException
      * @throws \SimpleSAML\OpenID\Exceptions\CredentialOfferException
      */
-    public function verifiableCredentialIssuance(Request $request): Response
+    public function verifiableCredentialIssuance(): Response
     {
         $sampleData = [
             'eduPersonPrincipalName' => 'testuser@example.com',
@@ -59,7 +53,7 @@ class VerifiableCredentailsTestController
             'eduPersonScopedAffiliation' => 'member@example.com',
         ];
 
-        $this->loggerService->info('test', $sampleData);;
+        $this->loggerService->info('test', $sampleData);
 
         // TODO mivanci Wallet (client) credential_offer_endpoint metadata
         // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#client-metadata
