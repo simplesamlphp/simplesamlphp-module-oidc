@@ -113,9 +113,7 @@ class CredentialIssuerCredentialController
 
         return $this->routes->newJsonResponse(
             [
-                'credentials' => [
-                    ['credential' => $verifiableCredential->getToken()],
-                ],
+                "error" => "unsupported_credential_format",
             ],
         );
     }
