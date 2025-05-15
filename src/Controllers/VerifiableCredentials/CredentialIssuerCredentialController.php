@@ -119,6 +119,7 @@ class CredentialIssuerCredentialController
             [
                 "error" => "unsupported_credential_format",
             ],
+            400,
         );
     }
 }
