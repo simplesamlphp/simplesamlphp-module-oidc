@@ -78,7 +78,7 @@ the following parameters configured:
 > [!NOTE]  
 > The module has been tested with and supports SQLite, PostgreSQL, and MySQL databases.
 
-### Create Protocol / Federation RSA key pairs
+### Create Protocol / Federation pairs
 
 During the authentication flow, the generated ID Token and Access Token will be in the form of signed JSON Web Tokens (JWS).
 For signing these tokens, you need to create a public/private RSA key pair, referred to as "OIDC protocol" keys.
@@ -86,6 +86,7 @@ For signing these tokens, you need to create a public/private RSA key pair, refe
 If you plan to use OpenID Federation capabilities, you should create a separate key pair dedicated to OpenID Federation
 operations, such as signing Entity Statement JWS.
 
+#### RSA key pair generation
 Below are sample commands to create key pairs with default file names for both "protocol" and "federation" purposes:
 
 To generate the private keys without a passphrase:
@@ -111,6 +112,37 @@ With passphrase:
     openssl rsa -in cert/oidc_module_federation.key -passin pass:myPassPhrase -pubout -out cert/oidc_module_federation.crt
 
 If you use different file names or a passphrase, be sure to update these settings in the `module_oidc.php` configuration file.
+
+#### EC key pair generation
+
+If you prefer to use Elliptic Curve Cryptography (ECC) instead of RSA, you can generate the key pair using the
+following commands:
+
+To generate the private keys without a passphrase:
+
+    openssl ecparam -name prime256v1 -genkey -noout -out cert/oidc_module.key
+    openssl ecparam -name prime256v1 -genkey -noout -out cert/oidc_module_federation.key
+
+To generate the private keys with a passphrase:
+
+    openssl ecparam -genkey -name secp384r1 -noout -out cert/oidc_module.key -passout pass:myPassPhrase
+    openssl ecparam -genkey -name secp384r1 -noout -out cert/oidc_module_federation.key -passout pass:myPassPhrase
+
+Next, extract the public key from each private key:
+
+Without passphrase:
+
+    openssl ec -in cert/oidc_module.key -pubout -out cert/oidc_module.crt
+    openssl ec -in cert/oidc_module_federation.key -pubout -out cert/oidc_module_federation.crt
+
+With passphrase:
+
+    openssl ec -in cert/oidc_module.key -passin pass:myPassPhrase -pubout -out cert/oidc_module.crt
+    openssl ec -in cert/oidc_module.key -passin pass:myPassPhrase -pubout -out cert/oidc_module.crt
+
+If you use different file names or a passphrase, be sure to update these settings in the `module_oidc.php`
+configuration file.
+
 
 ### Enabling the module
 

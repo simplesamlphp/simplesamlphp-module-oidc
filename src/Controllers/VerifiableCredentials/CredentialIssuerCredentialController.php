@@ -72,7 +72,7 @@ class CredentialIssuerCredentialController
 
         $verifiableCredential = $this->verifiableCredentials->jwtVcJsonFactory()->fromData(
             $jwk,
-            SignatureAlgorithmEnum::RS256,
+            SignatureAlgorithmEnum::from($this->moduleConfig->getProtocolSigner()->algorithmId()),
             [
                 ClaimsEnum::Vc->value => [
                     ClaimsEnum::AtContext->value => [
