@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers\VerifiableCredentials;
 
+use Base64Url\Base64Url;
 use League\OAuth2\Server\ResourceServer;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -63,15 +64,29 @@ class CredentialIssuerCredentialController
 
         // TODO mivanci validate requested credential identifier
 
-        $jwk = $this->jwk->jwkDecoratorFactory()->fromPkcs1Or8KeyFile(
+        $signingKey = $this->jwk->jwkDecoratorFactory()->fromPkcs1Or8KeyFile(
             $this->moduleConfig->getProtocolPrivateKeyPath(),
             null,
         );
 
+        $publicKey = $this->jwk->jwkDecoratorFactory()->fromPkcs1Or8KeyFile(
+            $this->moduleConfig->getProtocolCertPath(),
+            null,
+            [
+                //ClaimsEnum::Use->value => 'sig',
+            ]
+        );
+
+        $base64PublicKey = json_encode($publicKey->jwk()->all(), JSON_UNESCAPED_SLASHES);
+        $base64PublicKey = Base64Url::encode($base64PublicKey);
+
+        $issuerDid = 'did:jwk:' . $base64PublicKey;
+
+
         $issuedAt = new \DateTimeImmutable();
 
         $verifiableCredential = $this->verifiableCredentials->jwtVcJsonFactory()->fromData(
-            $jwk,
+            $signingKey,
             SignatureAlgorithmEnum::from($this->moduleConfig->getProtocolSigner()->algorithmId()),
             [
                 ClaimsEnum::Vc->value => [
@@ -82,7 +97,9 @@ class CredentialIssuerCredentialController
                         CredentialTypesEnum::VerifiableCredential->value,
                         'ResearchAndScholarshipCredentialJwtVcJson',
                     ],
-                    ClaimsEnum::Issuer->value => $this->moduleConfig->getIssuer(),
+//                    ClaimsEnum::Issuer->value => $this->moduleConfig->getIssuer(),
+//                    ClaimsEnum::Issuer->value => $issuerDid,
+                    ClaimsEnum::Issuer->value => 'https://idp.mivanci.incubator.hexaa.eu/ssp/module.php/oidc/jwks',
                     ClaimsEnum::Issuance_Date->value => $issuedAt->format(\DateTimeInterface::RFC3339),
                     ClaimsEnum::Id->value => $this->moduleConfig->getIssuer() . '/vc/1234567890',
                     ClaimsEnum::Credential_Subject->value => [
@@ -96,16 +113,16 @@ class CredentialIssuerCredentialController
                         'eduPersonScopedAffiliation' => 'member@example.com',
                     ],
                 ],
-                ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
+//                ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
+//                ClaimsEnum::Iss->value => $issuerDid,
+                ClaimsEnum::Iss->value => 'https://idp.mivanci.incubator.hexaa.eu/ssp/module.php/oidc/jwks',
                 ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
                 ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
                 ClaimsEnum::Sub->value => $this->moduleConfig->getIssuer() . '/sub/1234567890',
                 ClaimsEnum::Jti->value => $this->moduleConfig->getIssuer() . '/vc/1234567890',
             ],
             [
-                ClaimsEnum::Kid->value => FingerprintGenerator::forFile(
-                    $this->moduleConfig->getProtocolCertPath(),
-                ),
+                ClaimsEnum::Kid->value => $issuerDid . '#0',
             ],
         );
 
