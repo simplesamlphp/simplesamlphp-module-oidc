@@ -501,7 +501,11 @@ class Container implements ContainerInterface
         );
         $this->services[AuthorizationServer::class] = $authorizationServerFactory->build();
 
-        $bearerTokenValidator = new BearerTokenValidator($accessTokenRepository, $publicKey);
+        $bearerTokenValidator = new BearerTokenValidator(
+            $accessTokenRepository,
+            $publicKey,
+            $moduleConfig,
+        );
         $this->services[BearerTokenValidator::class] = $bearerTokenValidator;
 
         $resourceServerFactory = new ResourceServerFactory(
