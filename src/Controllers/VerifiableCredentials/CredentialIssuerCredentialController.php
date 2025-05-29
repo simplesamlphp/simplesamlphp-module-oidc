@@ -144,6 +144,8 @@ class CredentialIssuerCredentialController
 
         $issuedAt = new \DateTimeImmutable();
 
+        $vcId = $this->moduleConfig->getIssuer() . '/vc/' . uniqid();
+
         $verifiableCredential = $this->verifiableCredentials->jwtVcJsonFactory()->fromData(
             $signingKey,
             SignatureAlgorithmEnum::from($this->moduleConfig->getProtocolSigner()->algorithmId()),
@@ -160,7 +162,7 @@ class CredentialIssuerCredentialController
                     ClaimsEnum::Issuer->value => $issuerDid,
             //ClaimsEnum::Issuer->value => 'https://idp.mivanci.incubator.hexaa.eu/ssp/module.php/oidc/jwks',
                     ClaimsEnum::Issuance_Date->value => $issuedAt->format(\DateTimeInterface::RFC3339),
-                    ClaimsEnum::Id->value => $this->moduleConfig->getIssuer() . '/vc/' . uniqid(),
+                    ClaimsEnum::Id->value => $vcId,
                     ClaimsEnum::Credential_Subject->value =>
                         $credentialSubject[ClaimsEnum::Credential_Subject->value] ?? [],
                 ],
@@ -170,7 +172,7 @@ class CredentialIssuerCredentialController
                 ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
                 ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
                 ClaimsEnum::Sub->value => $this->moduleConfig->getIssuer() . '/sub/' . $userId,
-                ClaimsEnum::Jti->value => $this->moduleConfig->getIssuer() . '/vc/'  . uniqid(),
+                ClaimsEnum::Jti->value => $vcId,
             ],
             [
                 ClaimsEnum::Kid->value => $issuerDid . '#0',
