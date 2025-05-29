@@ -146,6 +146,11 @@ class Routes
         return $this->getModuleUrl(RoutesEnum::AdminTestTrustMarkValidation->value, $parameters);
     }
 
+    public function urlAdminTestVerifiableCredentialIssuance(array $parameters = []): string
+    {
+        return $this->getModuleUrl(RoutesEnum::AdminTestVerifiableCredentialIssuance->value, $parameters);
+    }
+
     /*****************************************************************************************************************
      * OAuth 2.0 Authorization Server
      ****************************************************************************************************************/

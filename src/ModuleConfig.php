@@ -24,6 +24,7 @@ use SimpleSAML\Configuration;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ScopesEnum;
 
 class ModuleConfig
@@ -94,6 +95,9 @@ class ModuleConfig
     final public const OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_FILENAME = 'federation_new_private_key_filename';
     final public const OPTION_PKI_FEDERATION_NEW_CERTIFICATE_FILENAME = 'federation_new_certificate_filename';
     final public const OPTION_VERIFIABLE_CREDENTIAL_ENABLED = 'verifiable_credentials_enabled';
+    final public const OPTION_CREDENTIAL_CONFIGURATIONS_SUPPORTED = 'credential_configurations_supported';
+    final public const OPTION_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP =
+    'user_attribute_to_credential_claim_path_map';
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
@@ -783,5 +787,37 @@ class ModuleConfig
     public function getVerifiableCredentialEnabled(): bool
     {
         return $this->config()->getOptionalBoolean(self::OPTION_VERIFIABLE_CREDENTIAL_ENABLED, false);
+    }
+
+    public function getCredentialConfigurationsSupported(): array
+    {
+        return $this->config()->getOptionalArray(self::OPTION_CREDENTIAL_CONFIGURATIONS_SUPPORTED, []) ?? [];
+    }
+
+    /**
+     * Extract and parse the claims path definition from the credential configuration supported.
+     * Returns an array of valid paths for the claims.
+     */
+    public function getValidCredentialClaimPathsFor(string $credentialConfigurationId): array
+    {
+        $claimsConfig = $this->getCredentialConfigurationsSupported()[$credentialConfigurationId]
+        [ClaimsEnum::Claims->value] ?? [];
+
+        $validPaths = [];
+        foreach ($claimsConfig as $claim) {
+            $validPaths[] = $claim[ClaimsEnum::Path->value] ?? null;
+        }
+
+        return array_filter($validPaths);
+    }
+
+    public function getUserAttributeToCredentialClaimPathMap(): array
+    {
+        return $this->config()->getOptionalArray(self::OPTION_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP, []) ?? [];
+    }
+
+    public function getUserAttributeToCredentialClaimPathMapFor(string $credentialConfigurationId): array
+    {
+        return $this->getUserAttributeToCredentialClaimPathMap()[$credentialConfigurationId] ?? [];
     }
 }

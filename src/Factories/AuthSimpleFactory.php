@@ -56,4 +56,9 @@ class AuthSimpleFactory
     {
         return $client->getAuthSourceId() ?? $this->moduleConfig->getDefaultAuthSourceId();
     }
+
+    public function forAuthSourceId(string $authSourceId): Simple
+    {
+        return new Simple($authSourceId);
+    }
 }
