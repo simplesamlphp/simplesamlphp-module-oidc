@@ -794,6 +794,11 @@ class ModuleConfig
         return $this->config()->getOptionalArray(self::OPTION_CREDENTIAL_CONFIGURATIONS_SUPPORTED, []) ?? [];
     }
 
+    public function getCredentialConfigurationIdsSupported(): array
+    {
+        return array_keys($this->getCredentialConfigurationsSupported());
+    }
+
     /**
      * Extract and parse the claims path definition from the credential configuration supported.
      * Returns an array of valid paths for the claims.

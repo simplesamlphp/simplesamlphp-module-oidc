@@ -63,6 +63,12 @@ class VerifiableCredentailsTestController
      */
     public function verifiableCredentialIssuance(Request $request): Response
     {
+        $setupErrors = [];
+
+        if (!$this->moduleConfig->getVerifiableCredentialEnabled()) {
+            $setupErrors[] = 'Verifiable Credential functionalities are not enabled.';
+        }
+
         $selectedAuthSourceId = $this->sessionService->getCurrentSession()->getData('vci', 'auth_source_id');
 
         $authSource = null;
@@ -85,20 +91,46 @@ class VerifiableCredentailsTestController
             $selectedAuthSourceId = $newAuthSourceId;
         }
 
-
-        if (
-            $authSource instanceof Simple &&
-            ($authSource->isAuthenticated() === false) &&
-            is_string($selectedAuthSourceId)
-        ) {
-            $authSource->login(['ReturnTo' => $this->routes->urlAdminTestVerifiableCredentialIssuance()]);
-        }
-
         $authSourceIds = array_filter(
             $this->sspBridge->auth()->source()->getSources(),
             fn (string $authSourceId): bool => $authSourceId !== 'admin',
         );
 
+        if (
+            $authSource instanceof Simple &&
+            ($authSource->isAuthenticated() === false) &&
+            is_string($selectedAuthSourceId) &&
+            in_array($selectedAuthSourceId, $authSourceIds, true)
+        ) {
+            $authSource->login(['ReturnTo' => $this->routes->urlAdminTestVerifiableCredentialIssuance()]);
+        }
+
+        $selectedCredentialConfigurationId = $this->sessionService->getCurrentSession()->getData(
+            'vci',
+            'credential_configuration_id',
+        );
+
+        if (is_string($newCredentialConfigurationId = $request->get('credentialConfigurationId'))) {
+            $this->sessionService->getCurrentSession()->setData(
+                'vci',
+                'credential_configuration_id',
+                $newCredentialConfigurationId,
+            );
+            $selectedCredentialConfigurationId = $newCredentialConfigurationId;
+        }
+
+        $credentialConfigurationIdsSupported = $this->moduleConfig->getCredentialConfigurationIdsSupported();
+
+        if (empty($credentialConfigurationIdsSupported)) {
+            $setupErrors[] = 'No credential configuration IDs configured.';
+        }
+
+        if (
+            is_null($selectedCredentialConfigurationId) ||
+            !in_array($selectedCredentialConfigurationId, $credentialConfigurationIdsSupported, true)
+        ) {
+           $selectedCredentialConfigurationId = current($credentialConfigurationIdsSupported);
+        }
 
         $credentialOfferQrUri = null;
         $credentialOfferUri = null;
@@ -147,19 +179,23 @@ class VerifiableCredentailsTestController
             $clientId = '1234567890';
             $clientSecret = '1234567890';
 
-            if (($client = $this->clientRepository->findById($clientId)) === null) {
-                $client = $this->clientEntityFactory->fromData(
-                    id: $clientId,
-                    secret: $clientSecret,
-                    name: 'VCI Pre-authorized Code Test Client',
-                    description: 'Test client for VCI Pre-authorized Code',
-                    redirectUri: ['https://example.com/oidc/callback'],
-                    scopes: ['openid', 'ResearchAndScholarshipCredentialJwtVcJson'], // TODO mivanci from config
-                    isEnabled: true,
-                );
+            $client = $this->clientEntityFactory->fromData(
+                id: $clientId,
+                secret: $clientSecret,
+                name: 'VCI Pre-authorized Code Test Client',
+                description: 'Test client for VCI Pre-authorized Code',
+                redirectUri: ['https://example.com/oidc/callback'],
+                scopes: ['openid', ...$credentialConfigurationIdsSupported], // Test Client so will have
+                isEnabled: true,
+            );
 
+            if ($this->clientRepository->findById($clientId) === null) {
                 $this->clientRepository->add($client);
+            } else {
+                $this->clientRepository->update($client);
             }
+
+            // TODO mivanci Randomly generate auth code.
             $authCodeId = '1234567890';
 
             // TODO mivanci Add indication of preauthz code to the auth code table.
@@ -170,7 +206,7 @@ class VerifiableCredentailsTestController
                     client: $client,
                     scopes: [
                         new ScopeEntity('openid'),
-                        new ScopeEntity('ResearchAndScholarshipCredentialJwtVcJson'),
+                        new ScopeEntity($selectedCredentialConfigurationId),
                     ],
                     expiryDateTime: new \DateTimeImmutable('+1 month'),
                     userIdentifier: $userId,
@@ -185,7 +221,7 @@ class VerifiableCredentailsTestController
                 parameters: [
                     ClaimsEnum::CredentialIssuer->value => $this->moduleConfig->getIssuer(),
                     ClaimsEnum::CredentialConfigurationIds->value => [
-                        'ResearchAndScholarshipCredentialJwtVcJson', // TODO mivanci from config
+                        $selectedCredentialConfigurationId,
                     ],
                     ClaimsEnum::Grants->value => [
                         GrantTypesEnum::PreAuthorizedCode->value => [
@@ -210,6 +246,7 @@ class VerifiableCredentailsTestController
 
             $credentialOfferUri = "openid-credential-offer://?$parameterName=$credentialOfferValue";
 
+            // TODO mivanci Local QR code generator
             // https://quickchart.io/documentation/qr-codes/
             $credentialOfferQrUri = 'https://quickchart.io/qr?size=200&margin=1&text=' . urlencode($credentialOfferUri);
         }
@@ -223,11 +260,14 @@ class VerifiableCredentailsTestController
         return $this->templateFactory->build(
             'oidc:tests/verifiable-credential-issuance.twig',
             compact(
+                'setupErrors',
                 'credentialOfferQrUri',
                 'credentialOfferUri',
                 'authSourceIds',
                 'authSourceActionRoute',
                 'authSource',
+                'credentialConfigurationIdsSupported',
+                'selectedCredentialConfigurationId'
             ),
             RoutesEnum::AdminTestVerifiableCredentialIssuance->value,
         );
