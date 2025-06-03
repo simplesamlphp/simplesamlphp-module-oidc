@@ -799,6 +799,20 @@ class ModuleConfig
         return array_keys($this->getCredentialConfigurationsSupported());
     }
 
+    public function getCredentialConfigurationIdForCredentialDefinitionType(array $credentialDefinitionType): ?string
+    {
+        foreach ($this->getCredentialConfigurationsSupported() as $credentialConfigurationId => $credentialConfiguration) {
+            $configuredType =
+                $credentialConfiguration[ClaimsEnum::CredentialDefinition->value][ClaimsEnum::Type->value];
+
+            if ($configuredType === $credentialDefinitionType) {
+                return $credentialConfigurationId;
+            }
+        }
+
+        return null;
+    }
+
     /**
      * Extract and parse the claims path definition from the credential configuration supported.
      * Returns an array of valid paths for the claims.

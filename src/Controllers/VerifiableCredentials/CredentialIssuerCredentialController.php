@@ -18,6 +18,7 @@ use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\AtContextsEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialTypesEnum;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Jwk;
 use SimpleSAML\OpenID\VerifiableCredentials;
 use Symfony\Component\HttpFoundation\Request;
@@ -53,12 +54,12 @@ class CredentialIssuerCredentialController
      */
     public function credential(Request $request): Response
     {
-        $this->loggerService->info(
-            'Credential request data: ',
-            $this->requestParamsResolver->getAllFromRequest(
-                $this->psrHttpBridge->getPsrHttpFactory()->createRequest($request),
-            ),
+        $requestData = $this->requestParamsResolver->getAllFromRequestBasedOnAllowedMethods(
+            $this->psrHttpBridge->getPsrHttpFactory()->createRequest($request),
+            [HttpMethodsEnum::POST],
         );
+
+        $this->loggerService->debug('Verifiable Credential request data: ', $requestData);
 
         $authorization = $this->resourceServer->validateAuthenticatedRequest(
             $this->psrHttpBridge->getPsrHttpFactory()->createRequest($request),
@@ -67,7 +68,11 @@ class CredentialIssuerCredentialController
         // TODO mivanci validate access token
         $accessToken = $this->accessTokenRepository->findById($authorization->getAttribute('oauth_access_token_id'));
         if ($accessToken->isRevoked()) {
-            throw OidcServerException::accessDenied('Access token is revoked.');
+            return $this->routes->newJsonErrorResponse(
+                'invalid_token',
+                'Access token is revoked.',
+                401,
+            );
         }
 
         // TODO mivanci validate credential request, including proof. Sample:
@@ -89,6 +94,35 @@ class CredentialIssuerCredentialController
          * )
          */
 
+        // TODO mivanci Check / handle credential_identifier parameter.
+
+        $credentialConfigurationId = $requestData[ClaimsEnum::CredentialConfigurationId->value] ?? null;
+
+        if (is_null($credentialConfigurationId)) {
+            // Check per draft 14
+            if (is_array(
+                $credentialDefinitionType =
+                    $requestData[ClaimsEnum::CredentialDefinition->value][ClaimsEnum::Type->value],
+            )
+            ) {
+                $credentialConfigurationId =
+                    $this->moduleConfig->getCredentialConfigurationIdForCredentialDefinitionType(
+                        $credentialDefinitionType,
+                    );
+            }
+        }
+
+        if (is_null($credentialConfigurationId)) {
+            return $this->routes->newJsonErrorResponse('invalid_credential_request', 'Can not resolve credential configuration ID.');
+        }
+
+        if (!in_array($credentialConfigurationId, $this->moduleConfig->getCredentialConfigurationIdsSupported())) {
+            return $this->routes->newJsonErrorResponse(
+                'unsupported_credential_type',
+                sprintf('Credential configuration ID "%s" is not supported.', $credentialConfigurationId),
+            );
+        }
+
         $userId = $accessToken->getUserIdentifier();
         $userEntity = $this->userRepository->getUserEntityByIdentifier($userId);
         if ($userEntity === null) {
@@ -96,10 +130,6 @@ class CredentialIssuerCredentialController
         }
 
         $userAttributes = $userEntity->getClaims();
-
-        // TODO mivanci Resolve credential configuration ID from the credential request. Validate that the credential
-        // configuration ID is supported (check module configuration).
-        $credentialConfigurationId = 'ResearchAndScholarshipCredentialJwtVcJson';
 
         // Get valid claim paths so we can check if the user attribute is allowed to be included in the credential,
         // as per the credential configuration supported configuration.
@@ -156,7 +186,7 @@ class CredentialIssuerCredentialController
                     ],
                     ClaimsEnum::Type->value => [
                         CredentialTypesEnum::VerifiableCredential->value,
-                        'ResearchAndScholarshipCredentialJwtVcJson',
+                        $credentialConfigurationId,
                     ],
             //ClaimsEnum::Issuer->value => $this->moduleConfig->getIssuer(),
                     ClaimsEnum::Issuer->value => $issuerDid,
