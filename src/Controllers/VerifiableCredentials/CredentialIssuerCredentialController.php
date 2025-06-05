@@ -12,6 +12,7 @@ use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\DidKeyResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
@@ -40,6 +41,7 @@ class CredentialIssuerCredentialController
         protected readonly LoggerService $loggerService,
         protected readonly RequestParamsResolver $requestParamsResolver,
         protected readonly UserRepository $userRepository,
+        protected readonly DidKeyResolver $didKeyResolver,
     ) {
         if (!$this->moduleConfig->getVerifiableCredentialEnabled()) {
             throw OidcServerException::forbidden('Verifiable Credential capabilities not enabled');
@@ -75,23 +77,65 @@ class CredentialIssuerCredentialController
             );
         }
 
-        // TODO mivanci validate credential request, including proof. Sample:
+        // Validate credential request, including proof
+        if (isset($requestData['proof']) && isset($requestData['proof']['proof_type']) && 
+            $requestData['proof']['proof_type'] === 'jwt' && isset($requestData['proof']['jwt'])) {
+
+            $proofJwt = $requestData['proof']['jwt'];
+            $this->loggerService->debug('Verifying proof JWT: ' . $proofJwt);
+
+            try {
+                // Parse the JWT to extract header and payload
+                $jwtParts = explode('.', $proofJwt);
+                if (count($jwtParts) !== 3) {
+                    throw OidcServerException::invalidRequest('Invalid JWT format in proof');
+                }
+
+                $header = json_decode(Base64Url::decode($jwtParts[0]), true);
+                $payload = json_decode(Base64Url::decode($jwtParts[1]), true);
+
+                if (!isset($payload['iss'])) {
+                    throw OidcServerException::invalidRequest('Missing issuer (iss) in proof JWT');
+                }
+
+                $issuer = $payload['iss'];
+                $this->loggerService->debug('Proof JWT issuer: ' . $issuer);
+
+                // Check if the issuer is a did:key
+                if (str_starts_with($issuer, 'did:key:')) {
+                    $this->loggerService->debug('Extracting JWK from did:key: ' . $issuer);
+
+                    // Extract JWK from did:key
+                    $jwk = $this->didKeyResolver->extractJwkFromDidKey($issuer);
+
+                    // If kid is present in the header, add it to the JWK
+                    if (isset($header['kid'])) {
+                        $jwk['kid'] = $header['kid'];
+                    } else {
+                        // If no kid in header, use the did:key as kid
+                        $jwk['kid'] = $issuer;
+                    }
+
+                    $this->loggerService->debug('Extracted JWK: ', $jwk);
+
+                    // TODO: Verify the JWT signature using the extracted JWK
+                    // This would typically involve using a JWT library to verify the signature
+                    // For now, we'll just log that we've extracted the JWK successfully
+                    $this->loggerService->debug('JWK extracted successfully from did:key');
+                }
+            } catch (\Exception $e) {
+                $this->loggerService->error('Error processing proof JWT: ' . $e->getMessage());
+                throw OidcServerException::invalidRequest('Error processing proof JWT: ' . $e->getMessage());
+            }
+        }
+
         /**
-         * 'credential_definition' =>
-         * array (
-         * 'type' =>
-         * array (
-         * 0 => 'VerifiableCredential',
-         * 1 => 'ResearchAndScholarshipCredentialJwtVcJson',
-         * ),
-         * ),
-         * 'format' => 'jwt_vc_json',
+         * Sample proof structure:
          * 'proof' =>
          * array (
          * 'proof_type' => 'jwt',
          * 'jwt' => 'eyJ0eXAiOiJvcGVuaWQ0dmNpLXByb29mK2p3dCIsImFsZyI6IkVTMjU2Iiwia2lkIjoiZGlkOmtleTp6MmRtekQ4MWNnUHg4VmtpN0pidXVNbUZZcldQZ1lveXR5a1VaM2V5cWh0MWo5S2JyU2ZYMkJVeHNVaW5QbVA3QUVzZEN4OWpQYlV0ZkIzWXN2MTd4TGpyZkMxeDNVZmlMTWtyeWdTZDJMeWltQ3RGejhHWlBqOFFrMUJFU0F6M21LWGRCTEpuUHNNQ0R4Nm9QNjNuZVpmR1NKelF5SjRLVlN6Nmt4UTJQOTE4NGdXS1FnI3oyZG16RDgxY2dQeDhWa2k3SmJ1dU1tRllyV1BnWW95dHlrVVozZXlxaHQxajlLYnJTZlgyQlV4c1VpblBtUDdBRXNkQ3g5alBiVXRmQjNZc3YxN3hManJmQzF4M1VmaUxNa3J5Z1NkMkx5aW1DdEZ6OEdaUGo4UWsxQkVTQXozbUtYZEJMSm5Qc01DRHg2b1A2M25lWmZHU0p6UXlKNEtWU3o2a3hRMlA5MTg0Z1dLUWcifQ.eyJhdWQiOiJodHRwczovL2lkcC5taXZhbmNpLmluY3ViYXRvci5oZXhhYS5ldSIsImlhdCI6MTc0ODUxNDE0NywiZXhwIjoxNzQ4NTE0ODA3LCJpc3MiOiJkaWQ6a2V5OnoyZG16RDgxY2dQeDhWa2k3SmJ1dU1tRllyV1BnWW95dHlrVVozZXlxaHQxajlLYnJTZlgyQlV4c1VpblBtUDdBRXNkQ3g5alBiVXRmQjNZc3YxN3hManJmQzF4M1VmaUxNa3J5Z1NkMkx5aW1DdEZ6OEdaUGo4UWsxQkVTQXozbUtYZEJMSm5Qc01DRHg2b1A2M25lWmZHU0p6UXlKNEtWU3o2a3hRMlA5MTg0Z1dLUWciLCJqdGkiOiJiMmNlZDQ2Yi0zOWNiLTRkZDAtYmQxZS1hNzY5ZWNlOWUxMTIifQ.SPdMSnrfF8ybhfYluzz5OrfWJQDOpCu7-of8zVbp5UR89GaB7j14Egext1h9pYgl6JwIP8zibUjTSc8JLVYuvA',
          * ),
-         * )
          */
 
         // TODO mivanci Check / handle credential_identifier parameter.
@@ -113,7 +157,10 @@ class CredentialIssuerCredentialController
         }
 
         if (is_null($credentialConfigurationId)) {
-            return $this->routes->newJsonErrorResponse('invalid_credential_request', 'Can not resolve credential configuration ID.');
+            return $this->routes->newJsonErrorResponse(
+                'invalid_credential_request',
+                'Can not resolve credential configuration ID.',
+            );
         }
 
         if (!in_array($credentialConfigurationId, $this->moduleConfig->getCredentialConfigurationIdsSupported())) {
@@ -135,7 +182,6 @@ class CredentialIssuerCredentialController
         // as per the credential configuration supported configuration.
         $validClaimPaths = $this->moduleConfig->getValidCredentialClaimPathsFor($credentialConfigurationId);
 
-
         // Map user attributes to credential claims
         $credentialSubject = [];
         $attributeToCredentialClaimPathMap = $this->moduleConfig->getUserAttributeToCredentialClaimPathMapFor(
@@ -144,6 +190,13 @@ class CredentialIssuerCredentialController
         foreach ($attributeToCredentialClaimPathMap as $mapEntry) {
             $userAttributeName = key($mapEntry);
             $credentialClaimPath = current($mapEntry);
+            if (!in_array($credentialClaimPath, $validClaimPaths)) {
+                $this->loggerService->warning(
+                    'Attribute "%s" does not use one of valid credential claim paths.',
+                    $mapEntry,
+                );
+                continue;
+            }
             if (isset($userAttributes[$userAttributeName])) {
                 $this->setCredentialClaimValue(
                     $credentialSubject,
