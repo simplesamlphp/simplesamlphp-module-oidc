@@ -103,7 +103,6 @@ use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\ClassInstanceBuilder;
-use SimpleSAML\Module\oidc\Utils\DidKeyResolver;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\Module\oidc\Utils\FederationParticipationValidator;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
@@ -230,9 +229,6 @@ class Container implements ContainerInterface
 
         $requestParamsResolver = new RequestParamsResolver($helpers, $core, $federation);
         $this->services[RequestParamsResolver::class] = $requestParamsResolver;
-
-        $didKeyResolver = new DidKeyResolver();
-        $this->services[DidKeyResolver::class] = $didKeyResolver;
 
         $clientEntityFactory = new ClientEntityFactory(
             $sspBridge,

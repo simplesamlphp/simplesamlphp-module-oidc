@@ -133,6 +133,8 @@ services:
   SimpleSAML\OpenID\Jwks:
     factory: [ '@SimpleSAML\Module\oidc\Factories\JwksFactory', 'build' ]
   SimpleSAML\OpenID\Jwk: ~
+  SimpleSAML\OpenID\Did: ~
+
 
   # SSP
   SimpleSAML\Database:

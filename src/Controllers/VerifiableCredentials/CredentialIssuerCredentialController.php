@@ -12,7 +12,6 @@ use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\DidKeyResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
@@ -20,6 +19,8 @@ use SimpleSAML\OpenID\Codebooks\AtContextsEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialTypesEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use SimpleSAML\OpenID\Did;
+use SimpleSAML\OpenID\Exceptions\OpenId4VciProofException;
 use SimpleSAML\OpenID\Jwk;
 use SimpleSAML\OpenID\VerifiableCredentials;
 use Symfony\Component\HttpFoundation\Request;
@@ -41,7 +42,7 @@ class CredentialIssuerCredentialController
         protected readonly LoggerService $loggerService,
         protected readonly RequestParamsResolver $requestParamsResolver,
         protected readonly UserRepository $userRepository,
-        protected readonly DidKeyResolver $didKeyResolver,
+        protected readonly Did $did,
     ) {
         if (!$this->moduleConfig->getVerifiableCredentialEnabled()) {
             throw OidcServerException::forbidden('Verifiable Credential capabilities not enabled');
@@ -77,66 +78,7 @@ class CredentialIssuerCredentialController
             );
         }
 
-        // Validate credential request, including proof
-        if (isset($requestData['proof']) && isset($requestData['proof']['proof_type']) && 
-            $requestData['proof']['proof_type'] === 'jwt' && isset($requestData['proof']['jwt'])) {
-
-            $proofJwt = $requestData['proof']['jwt'];
-            $this->loggerService->debug('Verifying proof JWT: ' . $proofJwt);
-
-            try {
-                // Parse the JWT to extract header and payload
-                $jwtParts = explode('.', $proofJwt);
-                if (count($jwtParts) !== 3) {
-                    throw OidcServerException::invalidRequest('Invalid JWT format in proof');
-                }
-
-                $header = json_decode(Base64Url::decode($jwtParts[0]), true);
-                $payload = json_decode(Base64Url::decode($jwtParts[1]), true);
-
-                if (!isset($payload['iss'])) {
-                    throw OidcServerException::invalidRequest('Missing issuer (iss) in proof JWT');
-                }
-
-                $issuer = $payload['iss'];
-                $this->loggerService->debug('Proof JWT issuer: ' . $issuer);
-
-                // Check if the issuer is a did:key
-                if (str_starts_with($issuer, 'did:key:')) {
-                    $this->loggerService->debug('Extracting JWK from did:key: ' . $issuer);
-
-                    // Extract JWK from did:key
-                    $jwk = $this->didKeyResolver->extractJwkFromDidKey($issuer);
-
-                    // If kid is present in the header, add it to the JWK
-                    if (isset($header['kid'])) {
-                        $jwk['kid'] = $header['kid'];
-                    } else {
-                        // If no kid in header, use the did:key as kid
-                        $jwk['kid'] = $issuer;
-                    }
-
-                    $this->loggerService->debug('Extracted JWK: ', $jwk);
-
-                    // TODO: Verify the JWT signature using the extracted JWK
-                    // This would typically involve using a JWT library to verify the signature
-                    // For now, we'll just log that we've extracted the JWK successfully
-                    $this->loggerService->debug('JWK extracted successfully from did:key');
-                }
-            } catch (\Exception $e) {
-                $this->loggerService->error('Error processing proof JWT: ' . $e->getMessage());
-                throw OidcServerException::invalidRequest('Error processing proof JWT: ' . $e->getMessage());
-            }
-        }
-
-        /**
-         * Sample proof structure:
-         * 'proof' =>
-         * array (
-         * 'proof_type' => 'jwt',
-         * 'jwt' => 'eyJ0eXAiOiJvcGVuaWQ0dmNpLXByb29mK2p3dCIsImFsZyI6IkVTMjU2Iiwia2lkIjoiZGlkOmtleTp6MmRtekQ4MWNnUHg4VmtpN0pidXVNbUZZcldQZ1lveXR5a1VaM2V5cWh0MWo5S2JyU2ZYMkJVeHNVaW5QbVA3QUVzZEN4OWpQYlV0ZkIzWXN2MTd4TGpyZkMxeDNVZmlMTWtyeWdTZDJMeWltQ3RGejhHWlBqOFFrMUJFU0F6M21LWGRCTEpuUHNNQ0R4Nm9QNjNuZVpmR1NKelF5SjRLVlN6Nmt4UTJQOTE4NGdXS1FnI3oyZG16RDgxY2dQeDhWa2k3SmJ1dU1tRllyV1BnWW95dHlrVVozZXlxaHQxajlLYnJTZlgyQlV4c1VpblBtUDdBRXNkQ3g5alBiVXRmQjNZc3YxN3hManJmQzF4M1VmaUxNa3J5Z1NkMkx5aW1DdEZ6OEdaUGo4UWsxQkVTQXozbUtYZEJMSm5Qc01DRHg2b1A2M25lWmZHU0p6UXlKNEtWU3o2a3hRMlA5MTg0Z1dLUWcifQ.eyJhdWQiOiJodHRwczovL2lkcC5taXZhbmNpLmluY3ViYXRvci5oZXhhYS5ldSIsImlhdCI6MTc0ODUxNDE0NywiZXhwIjoxNzQ4NTE0ODA3LCJpc3MiOiJkaWQ6a2V5OnoyZG16RDgxY2dQeDhWa2k3SmJ1dU1tRllyV1BnWW95dHlrVVozZXlxaHQxajlLYnJTZlgyQlV4c1VpblBtUDdBRXNkQ3g5alBiVXRmQjNZc3YxN3hManJmQzF4M1VmaUxNa3J5Z1NkMkx5aW1DdEZ6OEdaUGo4UWsxQkVTQXozbUtYZEJMSm5Qc01DRHg2b1A2M25lWmZHU0p6UXlKNEtWU3o2a3hRMlA5MTg0Z1dLUWciLCJqdGkiOiJiMmNlZDQ2Yi0zOWNiLTRkZDAtYmQxZS1hNzY5ZWNlOWUxMTIifQ.SPdMSnrfF8ybhfYluzz5OrfWJQDOpCu7-of8zVbp5UR89GaB7j14Egext1h9pYgl6JwIP8zibUjTSc8JLVYuvA',
-         * ),
-         */
+        // TODO mivanci Validate credential request
 
         // TODO mivanci Check / handle credential_identifier parameter.
 
@@ -144,15 +86,16 @@ class CredentialIssuerCredentialController
 
         if (is_null($credentialConfigurationId)) {
             // Check per draft 14
-            if (is_array(
-                $credentialDefinitionType =
+            if (
+                is_array(
+                    $credentialDefinitionType =
                     $requestData[ClaimsEnum::CredentialDefinition->value][ClaimsEnum::Type->value],
-            )
+                )
             ) {
                 $credentialConfigurationId =
-                    $this->moduleConfig->getCredentialConfigurationIdForCredentialDefinitionType(
-                        $credentialDefinitionType,
-                    );
+                $this->moduleConfig->getCredentialConfigurationIdForCredentialDefinitionType(
+                    $credentialDefinitionType,
+                );
             }
         }
 
@@ -206,6 +149,85 @@ class CredentialIssuerCredentialController
             }
         }
 
+        // Placeholder sub identifier. Will do if proof is not provided.
+        $sub = $this->moduleConfig->getIssuer() . '/sub/' . $userId;
+
+        // Validate proof, if provided.
+        // TODO mivanci consider making proof mandatory (in issuer metadata).
+        if (
+            isset($requestData['proof']['proof_type']) &&
+            isset($requestData['proof']['jwt']) &&
+            $requestData['proof']['proof_type'] === 'jwt'
+        ) {
+            $proofJwt = $requestData['proof']['jwt'];
+            $this->loggerService->debug('Verifying proof JWT: ' . $proofJwt);
+
+            try {
+                /**
+                 * Sample proof structure:
+                 * 'proof' =>
+                 * array (
+                 * 'proof_type' => 'jwt',
+                 * 'jwt' => 'eyJ0eXAiOiJvcGVuaWQ0dmNpLXByb29mK2p3dCIsImFsZyI6IkVTMjU2Iiwia2lkIjoiZGlkOmtleTp6MmRtekQ4MWNnUHg4VmtpN0pidXVNbUZZcldQZ1lveXR5a1VaM2V5cWh0MWo5S2JyU2ZYMkJVeHNVaW5QbVA3QUVzZEN4OWpQYlV0ZkIzWXN2MTd4TGpyZkMxeDNVZmlMTWtyeWdTZDJMeWltQ3RGejhHWlBqOFFrMUJFU0F6M21LWGRCTEpuUHNNQ0R4Nm9QNjNuZVpmR1NKelF5SjRLVlN6Nmt4UTJQOTE4NGdXS1FnI3oyZG16RDgxY2dQeDhWa2k3SmJ1dU1tRllyV1BnWW95dHlrVVozZXlxaHQxajlLYnJTZlgyQlV4c1VpblBtUDdBRXNkQ3g5alBiVXRmQjNZc3YxN3hManJmQzF4M1VmaUxNa3J5Z1NkMkx5aW1DdEZ6OEdaUGo4UWsxQkVTQXozbUtYZEJMSm5Qc01DRHg2b1A2M25lWmZHU0p6UXlKNEtWU3o2a3hRMlA5MTg0Z1dLUWcifQ.eyJhdWQiOiJodHRwczovL2lkcC5taXZhbmNpLmluY3ViYXRvci5oZXhhYS5ldSIsImlhdCI6MTc0ODUxNDE0NywiZXhwIjoxNzQ4NTE0ODA3LCJpc3MiOiJkaWQ6a2V5OnoyZG16RDgxY2dQeDhWa2k3SmJ1dU1tRllyV1BnWW95dHlrVVozZXlxaHQxajlLYnJTZlgyQlV4c1VpblBtUDdBRXNkQ3g5alBiVXRmQjNZc3YxN3hManJmQzF4M1VmaUxNa3J5Z1NkMkx5aW1DdEZ6OEdaUGo4UWsxQkVTQXozbUtYZEJMSm5Qc01DRHg2b1A2M25lWmZHU0p6UXlKNEtWU3o2a3hRMlA5MTg0Z1dLUWciLCJqdGkiOiJiMmNlZDQ2Yi0zOWNiLTRkZDAtYmQxZS1hNzY5ZWNlOWUxMTIifQ.SPdMSnrfF8ybhfYluzz5OrfWJQDOpCu7-of8zVbp5UR89GaB7j14Egext1h9pYgl6JwIP8zibUjTSc8JLVYuvA',
+                 * ),
+                 *
+                 * Sphereon proof in credential request
+                 * {
+                 * "typ": "openid4vci-proof+jwt",
+                 * "alg": "ES256",
+                 * "kid": "did:key:z2dmzD81cgPx8Vki7JbuuMmFYrWPgYoytykUZ3eyqht1j9KbrSfX2BUxsUinPmP7AEsdCx9jPbUtfB3Ysv17xLjrfC1x3UfiLMkrygSd2LyimCtFz8GZPj8Qk1BESAz3mKXdBLJnPsMCDx6oP63neZfGSJzQyJ4KVSz6kxQ2P9184gWKQg#z2dmzD81cgPx8Vki7JbuuMmFYrWPgYoytykUZ3eyqht1j9KbrSfX2BUxsUinPmP7AEsdCx9jPbUtfB3Ysv17xLjrfC1x3UfiLMkrygSd2LyimCtFz8GZPj8Qk1BESAz3mKXdBLJnPsMCDx6oP63neZfGSJzQyJ4KVSz6kxQ2P9184gWKQg"
+                 * }
+                 * {
+                 * "aud": "https://idp.mivanci.incubator.hexaa.eu",
+                 * "iat": 1748514147,
+                 * "exp": 1748514807,
+                 * "iss": "did:key:z2dmzD81cgPx8Vki7JbuuMmFYrWPgYoytykUZ3eyqht1j9KbrSfX2BUxsUinPmP7AEsdCx9jPbUtfB3Ysv17xLjrfC1x3UfiLMkrygSd2LyimCtFz8GZPj8Qk1BESAz3mKXdBLJnPsMCDx6oP63neZfGSJzQyJ4KVSz6kxQ2P9184gWKQg",
+                 * "jti": "b2ced46b-39cb-4dd0-bd1e-a769ece9e112"
+                 * }
+                 */
+                $proof = $this->verifiableCredentials->openId4VciProofFactory()->fromToken($proofJwt);
+                (in_array($this->moduleConfig->getIssuer(), $proof->getAudience())) ||
+                throw new OpenId4VciProofException('Invalid Proof audience.');
+
+                $kid = $proof->getKeyId();
+                if (is_string($kid) && str_starts_with($kid, 'did:key:z')) {
+                    // The fragment (#z2dmzD...) typically points to a specific verification method within the DID's
+                    // context. For did:key, since the DID is the key, this fragment often just refers to the key
+                    // itself.
+                    ($didKey = strtok($kid, '#')) || throw new OpenId4VciProofException(
+                        'Error getting did:key without fragment. Value was: ' . $kid,
+                    );
+
+                    $jwk = $this->did->didKeyResolver()->extractJwkFromDidKey($didKey);
+
+                    $proof->verifyWithKey($jwk);
+
+                    $this->loggerService->debug('Proof verified successfully using did:key ' . $didKey);
+                    // Set it as a subject identifier (bind it).
+                    $sub = $didKey;
+                } else {
+                    $this->loggerService->warning(
+                        'Proof currently not supported. ',
+                        ['header' => $proof->getHeader(), 'payload' => $proof->getPayload()],
+                    );
+                }
+            } catch (\Exception $e) {
+                $message = 'Error processing proof JWT: ' . $e->getMessage();
+                $this->loggerService->error($message);
+                return $this->routes->newJsonErrorResponse(
+                    'invalid_proof',
+                    $message,
+                );
+            }
+        }
+
+        // Also make sure that the subject identifier is in credentialSubject claim.
+        $this->setCredentialClaimValue(
+            $credentialSubject,
+            [ClaimsEnum::Credential_Subject->value, ClaimsEnum::Id->value],
+            $sub,
+        );
+
         $signingKey = $this->jwk->jwkDecoratorFactory()->fromPkcs1Or8KeyFile(
             $this->moduleConfig->getProtocolPrivateKeyPath(),
             null,
@@ -223,7 +245,6 @@ class CredentialIssuerCredentialController
         $base64PublicKey = Base64Url::encode($base64PublicKey);
 
         $issuerDid = 'did:jwk:' . $base64PublicKey;
-
 
         $issuedAt = new \DateTimeImmutable();
 
@@ -254,7 +275,7 @@ class CredentialIssuerCredentialController
             //ClaimsEnum::Iss->value => 'https://idp.mivanci.incubator.hexaa.eu/ssp/module.php/oidc/jwks',
                 ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
                 ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
-                ClaimsEnum::Sub->value => $this->moduleConfig->getIssuer() . '/sub/' . $userId,
+                ClaimsEnum::Sub->value => $sub,
                 ClaimsEnum::Jti->value => $vcId,
             ],
             [

@@ -129,7 +129,7 @@ class VerifiableCredentailsTestController
             is_null($selectedCredentialConfigurationId) ||
             !in_array($selectedCredentialConfigurationId, $credentialConfigurationIdsSupported, true)
         ) {
-           $selectedCredentialConfigurationId = current($credentialConfigurationIdsSupported);
+            $selectedCredentialConfigurationId = current($credentialConfigurationIdsSupported);
         }
 
         $credentialOfferQrUri = null;
@@ -267,7 +267,7 @@ class VerifiableCredentailsTestController
                 'authSourceActionRoute',
                 'authSource',
                 'credentialConfigurationIdsSupported',
-                'selectedCredentialConfigurationId'
+                'selectedCredentialConfigurationId',
             ),
             RoutesEnum::AdminTestVerifiableCredentialIssuance->value,
         );

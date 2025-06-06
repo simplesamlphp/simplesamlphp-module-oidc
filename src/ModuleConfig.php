@@ -801,9 +801,11 @@ class ModuleConfig
 
     public function getCredentialConfigurationIdForCredentialDefinitionType(array $credentialDefinitionType): ?string
     {
-        foreach ($this->getCredentialConfigurationsSupported() as $credentialConfigurationId => $credentialConfiguration) {
+        foreach (
+            $this->getCredentialConfigurationsSupported() as $credentialConfigurationId => $credentialConfiguration
+        ) {
             $configuredType =
-                $credentialConfiguration[ClaimsEnum::CredentialDefinition->value][ClaimsEnum::Type->value];
+            $credentialConfiguration[ClaimsEnum::CredentialDefinition->value][ClaimsEnum::Type->value];
 
             if ($configuredType === $credentialDefinitionType) {
                 return $credentialConfigurationId;
