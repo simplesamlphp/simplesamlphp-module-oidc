@@ -126,6 +126,33 @@ class ClaimTranslatorExtractor
     ];
 
     /**
+     * As per https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims
+     */
+    final public const MANDATORY_SINGLE_VALUE_CLAIMS = [
+        'sub',
+        // TODO mivanci v7 Uncomment the rest of the claims, as this was a potential breaking change in v6.
+//        'name',
+//        'given_name',
+//        'family_name',
+//        'middle_name',
+//        'nickname',
+//        'preferred_username',
+//        'profile',
+//        'picture',
+//        'website',
+//        'email',
+//        'email_verified',
+//        'gender',
+//        'birthdate',
+//        'zoneinfo',
+//        'locale',
+//        'phone_number',
+//        'phone_number_verified',
+//        'address',
+//        'updated_at',
+    ];
+
+    /**
      * ClaimTranslatorExtractor constructor.
      *
      * @param \SimpleSAML\Module\oidc\Entities\Interfaces\ClaimSetEntityInterface[] $claimSets
@@ -248,7 +275,8 @@ class ClaimTranslatorExtractor
             foreach ($attributes as $samlMatch) {
                 if (array_key_exists($samlMatch, $samlAttributes)) {
                     /** @psalm-suppress MixedAssignment, MixedArgument */
-                    $values = in_array($claim, $this->allowedMultiValueClaims, true) ?
+                    $values =  (!in_array($claim, self::MANDATORY_SINGLE_VALUE_CLAIMS, true)) &&
+                    in_array($claim, $this->allowedMultiValueClaims, true) ?
                     $samlAttributes[$samlMatch] :
                     current($samlAttributes[$samlMatch]);
                     /** @psalm-suppress MixedAssignment */

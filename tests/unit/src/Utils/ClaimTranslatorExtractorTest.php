@@ -292,4 +292,98 @@ class ClaimTranslatorExtractorTest extends TestCase
         $translate = ['nickname' => []];
         $this->assertFalse(in_array('nickname', $this->mock([], $translate)->getSupportedClaims(), true));
     }
+
+    public function testCanReleaseMultiValueClaims(): void
+    {
+        $claimSet = new ClaimSetEntity(
+            'multiValueClaimsScope',
+            ['multiValueClaim'],
+        );
+
+        $translate = [
+            'multiValueClaim' => [
+                'multiValueAttribute',
+            ],
+        ];
+
+        $userAttributes = [
+            'multiValueAttribute' => ['1', '2', '3'],
+        ];
+
+
+        $claimTranslator = $this->mock([$claimSet], $translate, ['multiValueClaim']);
+
+        $releasedClaims = $claimTranslator->extract(
+            ['multiValueClaimsScope'],
+            $userAttributes,
+        );
+
+        $expectedClaims = [
+            'multiValueClaim' => ['1', '2', '3'],
+        ];
+
+        $this->assertSame($expectedClaims, $releasedClaims);
+    }
+
+    public function testWillReleaseSingleValueClaimsIfMultiValueNotAllowed(): void
+    {
+        $claimSet = new ClaimSetEntity(
+            'multiValueClaimsScope',
+            ['multiValueClaim'],
+        );
+
+
+        $translate = [
+            'multiValueClaim' => [
+                'multiValueAttribute',
+            ],
+        ];
+
+        $userAttributes = [
+            'multiValueAttribute' => ['1', '2', '3'],
+        ];
+
+        $claimTranslator = $this->mock([$claimSet], $translate, []);
+
+        $releasedClaims = $claimTranslator->extract(
+            ['multiValueClaimsScope'],
+            $userAttributes,
+        );
+
+        $expectedClaims = ['multiValueClaim' => '1'];
+
+        $this->assertSame($expectedClaims, $releasedClaims);
+    }
+
+    public function testWillReleaseSingleValueClaimsForMandatorySingleValueClaims(): void
+    {
+
+        // TODO mivanci v7 Test for mandatory single value claims in other scopes, as per
+        // \SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor::MANDATORY_SINGLE_VALUE_CLAIMS
+        $claimSet = new ClaimSetEntity(
+            'customScopeWithSubClaim',
+            ['sub'],
+        );
+
+        $translate = [
+            'sub' => [
+                'subAttribute',
+            ],
+        ];
+
+        $userAttributes = [
+            'subAttribute' => ['1', '2', '3'],
+        ];
+
+        $claimTranslator = $this->mock([$claimSet], $translate, ['sub']);
+
+        $releasedClaims = $claimTranslator->extract(
+            ['openid'],
+            $userAttributes,
+        );
+
+        $expectedClaims = ['sub' => '1'];
+
+        $this->assertSame($expectedClaims, $releasedClaims);
+    }
 }
