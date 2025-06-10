@@ -1,4 +1,22 @@
 
+# Version 6 to 7
+
+## New features
+
+## New configuration options
+
+## Major impact changes
+- In v6 of the module, when defining custom scopes, there was a possibility to use standard claims with the
+  'are_multiple_claim_values_allowed' option. This would allow multiple values (array of values) for standard
+  claims which have a single value by specification. All
+  [standard claims](https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims)
+  are now hardcoded to have single value, even when 'are_multiple_claim_values_allowed' option is enabled.
+
+## Medium impact changes
+
+## Low impact changes
+
+
 # Version 5 to 6
 
 ## New features
