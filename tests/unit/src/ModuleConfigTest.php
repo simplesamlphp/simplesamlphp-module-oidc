@@ -412,13 +412,13 @@ class ModuleConfigTest extends TestCase
         $sut = $this->sut(
             overrides: [
                 ModuleConfig::OPTION_FEDERATION_DYNAMIC_TRUST_MARKS => [
-                    'trust-mark-id' => 'trust-mark-issuer-id',
+                    'trust-mark-type' => 'trust-mark-issuer-id',
                 ],
             ],
         );
 
         $this->assertArrayHasKey(
-            'trust-mark-id',
+            'trust-mark-type',
             $sut->getFederationDynamicTrustMarks(),
         );
     }
@@ -436,7 +436,7 @@ class ModuleConfigTest extends TestCase
         $neededTrustMarks = $this->sut()->getTrustMarksNeededForFederationParticipationFor('https://ta.example.org/');
 
         $this->assertArrayHasKey('one_of', $neededTrustMarks);
-        $this->assertTrue(in_array('trust-mark-id', $neededTrustMarks['one_of']));
+        $this->assertTrue(in_array('trust-mark-type', $neededTrustMarks['one_of']));
     }
 
     public function testGetTrustMarksNeededForFederationParticipationForThrowsOnInvalidConfigValue(): void

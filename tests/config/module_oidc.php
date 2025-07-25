@@ -80,13 +80,13 @@ $config = [
         'https://ta.example.org/' => [
             // Entities must have (at least) one Trust Mark from the list below.
             \SimpleSAML\Module\oidc\Codebooks\LimitsEnum::OneOf->value => [
-                'trust-mark-id',
-                'trust-mark-id-2',
+                'trust-mark-type',
+                'trust-mark-type-2',
             ],
             // Entities must have all Trust Marks from the list below.
             \SimpleSAML\Module\oidc\Codebooks\LimitsEnum::AllOf->value => [
-                'trust-mark-id-3',
-                'trust-mark-id-4',
+                'trust-mark-type-3',
+                'trust-mark-type-4',
             ],
         ],
     ],

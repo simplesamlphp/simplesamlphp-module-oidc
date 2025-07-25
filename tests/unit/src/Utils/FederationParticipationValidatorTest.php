@@ -76,14 +76,14 @@ class FederationParticipationValidatorTest extends TestCase
             ->method('getTrustMarksNeededForFederationParticipationFor')
             ->with('trustAnchorId')
             ->willReturn([
-                LimitsEnum::OneOf->value => ['trustMarkId1'],
-                LimitsEnum::AllOf->value => ['trustMarkId2'],
+                LimitsEnum::OneOf->value => ['trustMarkType1'],
+                LimitsEnum::AllOf->value => ['trustMarkType2'],
             ]);
 
         $this->trustMarkValidatorMock->expects($this->atLeastOnce())
-            ->method('fromCacheOrDoForTrustMarkId')
+            ->method('fromCacheOrDoForTrustMarkType')
             ->with($this->callback(
-                fn(string $trustMarkId): bool => in_array($trustMarkId, ['trustMarkId1', 'trustMarkId2']),
+                fn(string $trustMarkType): bool => in_array($trustMarkType, ['trustMarkType1', 'trustMarkType2']),
             ));
 
         $this->sut()->byTrustMarksFor($this->trustChainMock);
@@ -97,7 +97,7 @@ class FederationParticipationValidatorTest extends TestCase
             ->willReturn([]);
 
         $this->trustMarkValidatorMock->expects($this->never())
-            ->method('fromCacheOrDoForTrustMarkId');
+            ->method('fromCacheOrDoForTrustMarkType');
 
         $this->sut()->byTrustMarksFor($this->trustChainMock);
     }
@@ -105,7 +105,7 @@ class FederationParticipationValidatorTest extends TestCase
     public function testValidateForOneOfLimitDoesNotRunValidationOnEmptyLimit(): void
     {
         $this->trustMarkValidatorMock->expects($this->never())
-            ->method('fromCacheOrDoForTrustMarkId');
+            ->method('fromCacheOrDoForTrustMarkType');
 
         $this->sut()->validateForOneOfLimit(
             [],
@@ -117,15 +117,15 @@ class FederationParticipationValidatorTest extends TestCase
     public function testValidateForOneOfLimitThrowsIfNoneAreValid(): void
     {
         $this->trustMarkValidatorMock->expects($this->atLeastOnce())
-            ->method('fromCacheOrDoForTrustMarkId')
-            ->with('trustMarkId')
+            ->method('fromCacheOrDoForTrustMarkType')
+            ->with('trustMarkType')
             ->willThrowException(new \Exception('error'));
 
         $this->expectException(TrustMarkException::class);
         $this->expectExceptionMessage('OneOf limit rule failed');
 
         $this->sut()->validateForOneOfLimit(
-            ['trustMarkId'],
+            ['trustMarkType'],
             $this->leafEntityConfiguration,
             $this->trustAnchorEntityConfiguration,
         );
@@ -134,7 +134,7 @@ class FederationParticipationValidatorTest extends TestCase
     public function testValidateForAllOfLimitDoesNotRunValidationOnEmptyLimit(): void
     {
         $this->trustMarkValidatorMock->expects($this->never())
-            ->method('fromCacheOrDoForTrustMarkId');
+            ->method('fromCacheOrDoForTrustMarkType');
 
         $this->sut()->validateForAllOfLimit(
             [],
@@ -146,15 +146,15 @@ class FederationParticipationValidatorTest extends TestCase
     public function testValidateForAllOfLimitThrowsIfAnyIsInvalid(): void
     {
         $this->trustMarkValidatorMock->expects($this->atLeastOnce())
-            ->method('fromCacheOrDoForTrustMarkId')
-            ->with('trustMarkId')
+            ->method('fromCacheOrDoForTrustMarkType')
+            ->with('trustMarkType')
             ->willThrowException(new \Exception('error'));
 
         $this->expectException(TrustMarkException::class);
         $this->expectExceptionMessage('AllOf limit rule failed');
 
         $this->sut()->validateForAllOfLimit(
-            ['trustMarkId'],
+            ['trustMarkType'],
             $this->leafEntityConfiguration,
             $this->trustAnchorEntityConfiguration,
         );
