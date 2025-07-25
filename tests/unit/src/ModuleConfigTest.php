@@ -239,15 +239,31 @@ class ModuleConfigTest extends TestCase
         $this->assertNotEmpty($this->sut()->getFederationAuthorityHints());
         $this->assertNotEmpty($this->sut()->getFederationTrustMarkTokens());
         $this->assertNotEmpty($this->sut()->getOrganizationName());
+        $this->assertNotEmpty($this->sut()->getDisplayName());
+        $this->assertNotEmpty($this->sut()->getDescription());
+        $this->assertNotEmpty($this->sut()->getKeywords());
         $this->assertNotEmpty($this->sut()->getContacts());
         $this->assertNotEmpty($this->sut()->getLogoUri());
         $this->assertNotEmpty($this->sut()->getPolicyUri());
+        $this->assertNotEmpty($this->sut()->getInformationUri());
         $this->assertNotEmpty($this->sut()->getHomepageUri());
+        $this->assertNotEmpty($this->sut()->getOrganizationUri());
         $this->assertNotEmpty($this->sut()->getFederationCacheAdapterClass());
         $this->assertIsArray($this->sut()->getFederationCacheAdapterArguments());
         $this->assertNotEmpty($this->sut()->getFederationCacheMaxDurationForFetched());
         $this->assertNotEmpty($this->sut()->getFederationTrustAnchors());
         $this->assertNotEmpty($this->sut()->getFederationTrustAnchorIds());
+    }
+
+    public function testKeywordsCanBeNull(): void
+    {
+        $this->assertNull(
+            $this->sut(
+                overrides: [
+                    ModuleConfig::OPTION_KEYWORDS => null,
+                ],
+            )->getKeywords(),
+        );
     }
 
     public function testGetFederationTrustAnchorsThrowsOnEmptyIfFederationEnabled(): void

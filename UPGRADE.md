@@ -52,10 +52,15 @@ and optionally a port (as in all previous module versions).
   - signer algorithm
   - entity statement duration
   - organization name
+  - display name
+  - description
+  - keywords
   - contacts
   - logo URI
   - policy URI
-  - homepage URI
+  - information URI
+  - homepage URI (renamed to organization_uri in draft-43)
+  - organization URI
 
 ## Major impact changes
 

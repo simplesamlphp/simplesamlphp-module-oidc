@@ -471,10 +471,21 @@ $config = [
     // Common federation entity parameters:
     // https://openid.net/specs/openid-federation-1_0.html#name-common-metadata-parameters
     ModuleConfig::OPTION_ORGANIZATION_NAME => null,
+    ModuleConfig::OPTION_DISPLAY_NAME => null,
+    ModuleConfig::OPTION_DESCRIPTION => null,
+    ModuleConfig::OPTION_KEYWORDS => [
+        // 'some-keyword',
+    ],
     ModuleConfig::OPTION_CONTACTS => [
         // 'John Doe jdoe@example.org',
     ],
     ModuleConfig::OPTION_LOGO_URI => null,
     ModuleConfig::OPTION_POLICY_URI => null,
+    ModuleConfig::OPTION_INFORMATION_URI => null,
+    ModuleConfig::OPTION_ORGANIZATION_URI => null,
+    /**
+     * @deprecated In Draft-43 of OIDFed specification, metadata claim 'homepage_uri' has been renamed to
+     * 'organization_uri'. Use 'organization_uri' instead.
+     */
     ModuleConfig::OPTION_HOMEPAGE_URI => null,
 ];

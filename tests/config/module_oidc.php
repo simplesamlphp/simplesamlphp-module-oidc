@@ -107,10 +107,15 @@ $config = [
     ModuleConfig::OPTION_FEDERATION_TOKEN_SIGNER => Sha256::class,
 
     ModuleConfig::OPTION_ORGANIZATION_NAME => 'Foo corp',
+    ModuleConfig::OPTION_DISPLAY_NAME => 'Foo corp',
+    ModuleConfig::OPTION_DESCRIPTION => 'Foo provider',
+    ModuleConfig::OPTION_KEYWORDS => ['openid', 'oidc', 'op', 'federation'],
     ModuleConfig::OPTION_CONTACTS => [
         'John Doe jdoe@example.org',
     ],
     ModuleConfig::OPTION_LOGO_URI => 'https://example.org/logo',
     ModuleConfig::OPTION_POLICY_URI => 'https://example.org/policy',
+    ModuleConfig::OPTION_INFORMATION_URI => 'https://example.org/info',
     ModuleConfig::OPTION_HOMEPAGE_URI => 'https://example.org',
+    ModuleConfig::OPTION_ORGANIZATION_URI => 'https://example.org',
 ];

@@ -66,10 +66,15 @@ class ModuleConfig
     final public const OPTION_FEDERATION_ENTITY_STATEMENT_DURATION = 'federation_entity_statement_duration';
     final public const OPTION_FEDERATION_AUTHORITY_HINTS = 'federation_authority_hints';
     final public const OPTION_ORGANIZATION_NAME = 'organization_name';
+    final public const OPTION_DISPLAY_NAME = 'display_name';
+    final public const OPTION_DESCRIPTION = 'description';
+    final public const OPTION_KEYWORDS = 'keywords';
     final public const OPTION_CONTACTS = 'contacts';
     final public const OPTION_LOGO_URI = 'logo_uri';
     final public const OPTION_POLICY_URI = 'policy_uri';
+    final public const OPTION_INFORMATION_URI = 'information_uri';
     final public const OPTION_HOMEPAGE_URI = 'homepage_uri';
+    final public const OPTION_ORGANIZATION_URI = 'organization_uri';
     final public const OPTION_FEDERATION_ENABLED = 'federation_enabled';
     final public const OPTION_FEDERATION_CACHE_ADAPTER = 'federation_cache_adapter';
     final public const OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS = 'federation_cache_adapter_arguments';
@@ -651,6 +656,42 @@ class ModuleConfig
         );
     }
 
+    public function getDisplayName(): ?string
+    {
+        return $this->config()->getOptionalString(
+            self::OPTION_DISPLAY_NAME,
+            null,
+        );
+    }
+
+    public function getDescription(): ?string
+    {
+        return $this->config()->getOptionalString(
+            self::OPTION_DESCRIPTION,
+            null,
+        );
+    }
+
+    /**
+     * JSON array with one or more strings representing search keywords, tags, categories, or labels that
+     * apply to this Entity.
+     *
+     * @return ?string[]
+     */
+    public function getKeywords(): ?array
+    {
+        $keywords = $this->config()->getOptionalArray(
+            self::OPTION_KEYWORDS,
+            null,
+        );
+
+        if (is_null($keywords)) {
+            return null;
+        }
+
+        return array_filter($keywords, fn($keyword) => is_string($keyword));
+    }
+
     public function getContacts(): ?array
     {
         return $this->config()->getOptionalArray(
@@ -675,10 +716,33 @@ class ModuleConfig
         );
     }
 
+    public function getInformationUri(): ?string
+    {
+        return $this->config()->getOptionalString(
+            self::OPTION_INFORMATION_URI,
+            null,
+        );
+    }
+
+    /**
+     * @return string|null
+     * TODO mivanci v7 Remove in next major release, as well as config constant.
+     * In Draft-43 of OIDFed specification, metadata claim 'homepage_uri' has been renamed to
+     *  'organization_uri'. Use 'organization_uri' instead.
+     * @see self::getOrganizationUri()
+     */
     public function getHomepageUri(): ?string
     {
         return $this->config()->getOptionalString(
             self::OPTION_HOMEPAGE_URI,
+            null,
+        );
+    }
+
+    public function getOrganizationUri(): ?string
+    {
+        return $this->config()->getOptionalString(
+            self::OPTION_ORGANIZATION_URI,
             null,
         );
     }

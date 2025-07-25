@@ -88,10 +88,14 @@ class EntityStatementController
                         ...(array_filter(
                             [
                                 ClaimsEnum::OrganizationName->value => $this->moduleConfig->getOrganizationName(),
+                                ClaimsEnum::DisplayName->value => $this->moduleConfig->getDisplayName(),
+                                ClaimsEnum::Description->value => $this->moduleConfig->getDescription(),
+                                ClaimsEnum::Keywords->value => $this->moduleConfig->getKeywords(),
                                 ClaimsEnum::Contacts->value => $this->moduleConfig->getContacts(),
                                 ClaimsEnum::LogoUri->value => $this->moduleConfig->getLogoUri(),
                                 ClaimsEnum::PolicyUri->value => $this->moduleConfig->getPolicyUri(),
-                                ClaimsEnum::HomepageUri->value => $this->moduleConfig->getHomepageUri(),
+                                ClaimsEnum::InformationUri->value => $this->moduleConfig->getInformationUri(),
+                                ClaimsEnum::OrganizationUri->value => $this->moduleConfig->getOrganizationUri(),
                             ],
                         )),
                         ClaimsEnum::FederationFetchEndpoint->value => $this->routes->urlFederationFetch(),
