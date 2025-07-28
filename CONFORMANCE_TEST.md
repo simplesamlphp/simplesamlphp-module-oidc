@@ -14,8 +14,7 @@ Clone the conformance test git repo, build the software and run it.
 ```bash
 git clone https://gitlab.com/openid/conformance-suite.git
 cd conformance-suite
-# Version 4.1.10 has a bug when building
-git checkout release-v4.1.45
+git checkout release-v5.1.35
 MAVEN_CACHE=./m2 docker-compose -f builder-compose.yml run builder
 docker-compose up
 ```

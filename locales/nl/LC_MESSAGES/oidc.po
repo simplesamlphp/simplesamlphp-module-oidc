@@ -459,7 +459,7 @@ msgstr "Vertrouwde anker-ID's"
 msgid "Trust Anchors"
 msgstr "Vertrouw op ankers"
 
-msgid "Trust Mark ID"
+msgid "Trust Mark Type"
 msgstr "Vertrouwensmerk-ID"
 
 msgid "Trust Mark validation passed (there were no warnings or errors during validation)."

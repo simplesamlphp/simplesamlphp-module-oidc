@@ -32,7 +32,7 @@ class TestController
         $this->authorization->requireAdmin(true);
 
         $this->arrayLogger->setWeight(ArrayLogger::WEIGHT_WARNING);
-        // Let's create new Federation instance so we can inject our debug logger and go without cache.
+        // Let's create a new Federation instance so we can inject our debug logger and go without cache.
         $this->federationWithArrayLogger = new Federation(
             supportedAlgorithms: $this->federation->supportedAlgorithms(),
             cache: null,
@@ -114,7 +114,7 @@ class TestController
 
     public function trustMarkValidation(Request $request): Response
     {
-        $trustMarkId = null;
+        $trustMarkType = null;
         $leafEntityId = null;
         $trustAnchorId = null;
         $isFormSubmitted = false;
@@ -122,23 +122,23 @@ class TestController
         if ($request->isMethod(Request::METHOD_POST)) {
             $isFormSubmitted = true;
 
-            !empty($trustMarkId = $request->request->getString('trustMarkId')) ||
-            throw new OidcException('Empty Trust Mark ID.');
+            !empty($trustMarkType = $request->request->getString('trustMarkType')) ||
+            throw new OidcException('Empty Trust Mark Type.');
             !empty($leafEntityId = $request->request->getString('leafEntityId')) ||
             throw new OidcException('Empty leaf entity ID.');
             !empty($trustAnchorId = $request->request->getString('trustAnchorId')) ||
             throw new OidcException('Empty Trust Anchor ID.');
 
             try {
-                // We should not try to validate Trust Marks until we have resolved trust chain between leaf and TA.
+                // We should not try to validate Trust Marks until we have resolved a trust chain between leaf and TA.
                 $trustChain = $this->federation->trustChainResolver()->for(
                     $leafEntityId,
                     [$trustAnchorId],
                 )->getShortest();
 
                 try {
-                    $this->federationWithArrayLogger->trustMarkValidator()->doForTrustMarkId(
-                        $trustMarkId,
+                    $this->federationWithArrayLogger->trustMarkValidator()->doForTrustMarkType(
+                        $trustMarkType,
                         $trustChain->getResolvedLeaf(),
                         $trustChain->getResolvedTrustAnchor(),
                     );
@@ -160,7 +160,7 @@ class TestController
         return $this->templateFactory->build(
             'oidc:tests/trust-mark-validation.twig',
             compact(
-                'trustMarkId',
+                'trustMarkType',
                 'leafEntityId',
                 'trustAnchorId',
                 'logMessages',

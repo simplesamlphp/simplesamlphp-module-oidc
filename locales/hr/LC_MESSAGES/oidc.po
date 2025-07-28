@@ -525,7 +525,7 @@ msgstr "IDevi sidra povjerenja"
 msgid "Trust Anchors"
 msgstr "Sidra povjerenja"
 
-msgid "Trust Mark ID"
+msgid "Trust Mark Type"
 msgstr "ID oznake povjerenja"
 
 msgid ""
