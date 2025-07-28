@@ -210,7 +210,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SUITE_BASE_URL: https://localhost.emobix.co.uk:8443
-      VERSION: release-v4.1.45
+      VERSION: release-v5.1.35
     steps:
       - uses: actions/checkout@v4
         with:

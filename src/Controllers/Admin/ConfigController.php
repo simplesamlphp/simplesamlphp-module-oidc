@@ -80,15 +80,15 @@ class ConfigController
 
         if (is_array($dynamicTrustMarks = $this->moduleConfig->getFederationDynamicTrustMarks())) {
             /**
-             * @var non-empty-string $trustMarkId
+             * @var non-empty-string $trustMarkType
              * @var non-empty-string $trustMarkIssuerId
              */
-            foreach ($dynamicTrustMarks as $trustMarkId => $trustMarkIssuerId) {
+            foreach ($dynamicTrustMarks as $trustMarkType => $trustMarkIssuerId) {
                 $trustMarkIssuerConfigurationStatement = $this->federation->entityStatementFetcher()
                     ->fromCacheOrWellKnownEndpoint($trustMarkIssuerId);
 
                 $trustMarks[] = $this->federation->trustMarkFetcher()->fromCacheOrFederationTrustMarkEndpoint(
-                    $trustMarkId,
+                    $trustMarkType,
                     $this->moduleConfig->getIssuer(),
                     $trustMarkIssuerConfigurationStatement,
                 );
