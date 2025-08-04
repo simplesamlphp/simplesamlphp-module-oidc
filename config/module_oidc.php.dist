@@ -779,7 +779,13 @@ $config = [
             ['eduPersonScopedAffiliation' => [ClaimsEnum::Credential_Subject->value, 'eduPersonScopedAffiliation']],
         ],
         'ResearchAndScholarshipCredentialDcSdJwt' => [
-
+            ['eduPersonPrincipalName' => ['eduPersonPrincipalName']],
+            ['eduPersonTargetedID' => ['eduPersonTargetedID']],
+            ['displayName' => ['displayName']],
+            ['givenName' => ['givenName']],
+            ['sn' => ['sn']],
+            ['mail' => ['mail']],
+            ['eduPersonScopedAffiliation' => ['eduPersonScopedAffiliation']],
         ],
     ],
 ];
