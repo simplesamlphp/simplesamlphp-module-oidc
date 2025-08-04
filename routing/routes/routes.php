@@ -22,6 +22,7 @@ use SimpleSAML\Module\oidc\Controllers\OAuth2\OAuth2ServerConfigurationControlle
 use SimpleSAML\Module\oidc\Controllers\UserInfoController;
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\CredentialIssuerConfigurationController;
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\CredentialIssuerCredentialController;
+use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\JwtVcIssuerConfigurationController;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 
@@ -131,4 +132,12 @@ return function (RoutingConfigurator $routes): void {
     $routes->add(RoutesEnum::CredentialIssuerCredential->name, RoutesEnum::CredentialIssuerCredential->value)
         ->controller([CredentialIssuerCredentialController::class, 'credential'])
         ->methods([HttpMethodsEnum::GET->value, HttpMethodsEnum::POST->value]);
+
+    /*****************************************************************************************************************
+     * SD-JWT-based Verifiable Credentials (SD-JWT VC)
+     ****************************************************************************************************************/
+
+    $routes->add(RoutesEnum::JwtVcIssuerConfiguration->name, RoutesEnum::JwtVcIssuerConfiguration->value)
+        ->controller([JwtVcIssuerConfigurationController::class, 'configuration'])
+        ->methods([HttpMethodsEnum::GET->value]);
 };

@@ -514,6 +514,7 @@ $config = [
     // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#credential-issuer-parameters.
     // Check the example below on how this can be used.
     ModuleConfig::OPTION_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+        // Sample for 'jwt_vc_json' format with notes about required and optional fields.
         'ResearchAndScholarshipCredentialJwtVcJson' => [
             // REQUIRED
             ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::JwtVcJson->value,
@@ -528,6 +529,9 @@ $config = [
 
             // OPTIONAL
             // proof_types_supported
+
+            // OPTIONAL
+            // cryptographic_binding_methods_supported
 
             ClaimsEnum::Display->value => [
                 [
@@ -588,8 +592,7 @@ $config = [
                  */
                 [
                     // REQUIRED
-                    ClaimsEnum::Path->value => [ClaimsEnum::Credential_Subject->value, 'eduPersonPrincipalName']
-                    ],
+                    ClaimsEnum::Path->value => [ClaimsEnum::Credential_Subject->value, 'eduPersonPrincipalName'],
                     // OPTIONAL
                     ClaimsEnum::Mandatory->value => true,
                     // OPTIONAL
@@ -668,6 +671,92 @@ $config = [
                     'ResearchAndScholarshipCredentialJwtVcJson',
                 ],
             ],
+        ],
+
+        // Sample for 'dc+sd-jwt' format without notes about required and optional fields.
+        'ResearchAndScholarshipCredentialDcSdJwt' => [
+            ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::JwtVcJson->value,
+            ClaimsEnum::Scope->value => 'ResearchAndScholarshipCredentialDcSdJwt',
+            ClaimsEnum::Display->value => [
+                [
+                    ClaimsEnum::Name->value => 'ResearchAndScholarshipCredentialDcSdJwt',
+                    ClaimsEnum::Locale->value => 'en-US',
+                    ClaimsEnum::Description->value => 'Research and Scholarship Credential',
+                ],
+            ],
+            ClaimsEnum::Claims->value => [
+                [
+                    ClaimsEnum::Path->value => ['eduPersonPrincipalName'],
+                    ClaimsEnum::Mandatory->value => true,
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Principal Name',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+                [
+                    ClaimsEnum::Path->value => ['eduPersonTargetedID'],
+                    ClaimsEnum::Mandatory->value => false,
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Targeted ID',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+                [
+                    ClaimsEnum::Path->value => ['displayName'],
+                    ClaimsEnum::Mandatory->value => false,
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Display Name',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+                [
+                    ClaimsEnum::Path->value => ['givenName'],
+                    ClaimsEnum::Mandatory->value => false,
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Given Name',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+                [
+                    ClaimsEnum::Path->value => ['sn'],
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Last Name',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+                [
+                    ClaimsEnum::Path->value => ['mail'],
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Email Address',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+                [
+                    ClaimsEnum::Path->value => ['eduPersonScopedAffiliation'],
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Scoped Affiliation',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+            ],
+
+            // REQUIRED
+            ClaimsEnum::Vct->value => 'ResearchAndScholarshipCredentialDcSdJwt',
+        ],
     ],
 
     // Mapping of user attributes to a credential claim path, per credential configuration ID.
@@ -688,6 +777,9 @@ $config = [
             ['sn' => [ClaimsEnum::Credential_Subject->value, 'sn']],
             ['mail' => [ClaimsEnum::Credential_Subject->value, 'mail']],
             ['eduPersonScopedAffiliation' => [ClaimsEnum::Credential_Subject->value, 'eduPersonScopedAffiliation']],
+        ],
+        'ResearchAndScholarshipCredentialDcSdJwt' => [
+
         ],
     ],
 ];

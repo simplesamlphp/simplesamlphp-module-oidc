@@ -367,7 +367,7 @@ The module offers an OpenID Federation configuration endpoint at URL:
 
 You can configure your web server (Apache, Nginx) in a way to serve the mentioned URLs in a '.well-known'
 format. Below are some sample configurations for `openid-configuration`, but you can take the same approach for 
-`openid-federation`.
+`openid-federation`, `jwt-vc-issuer`, or any other.
 
 #### nginx 
     location = /.well-known/openid-configuration {
@@ -382,9 +382,9 @@ format. Below are some sample configurations for `openid-configuration`, but you
 
 ## Using Docker
 
-### With current git branch.
+### With the current git branch.
 
-To explore the module using docker run the below command. This will run an SSP image, with the current oidc module
+To explore the module using docker, run the below command. This will run an SSP image, with the current oidc module
 mounted in the container, along with some configuration files. Any code changes you make to your git checkout are
 "live" in the container, allowing you to test and iterate different things.
 

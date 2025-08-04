@@ -226,4 +226,14 @@ class Routes
     {
         return $this->getModuleUrl(RoutesEnum::CredentialIssuerCredential->value, $parameters);
     }
+
+    /*****************************************************************************************************************
+     * SD-JWT-based Verifiable Credentials (SD-JWT VC)
+     ****************************************************************************************************************/
+
+    public function urlJwtVcIssuerConfiguration(array $parameters = []): string
+    {
+        return $this->getModuleUrl(RoutesEnum::JwtVcIssuerConfiguration->value, $parameters);
+    }
+
 }

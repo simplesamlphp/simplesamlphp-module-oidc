@@ -63,4 +63,10 @@ enum RoutesEnum: string
 
     case CredentialIssuerConfiguration = '.well-known/openid-credential-issuer';
     case CredentialIssuerCredential = 'credential-issuer/credential';
+
+    /*****************************************************************************************************************
+     * SD-JWT-based Verifiable Credentials (SD-JWT VC)
+     ****************************************************************************************************************/
+
+    case JwtVcIssuerConfiguration = '.well-known/jwt-vc-issuer';
 }
