@@ -25,12 +25,12 @@ use SimpleSAML\OpenID\Did;
 use SimpleSAML\OpenID\Exceptions\OpenId4VciProofException;
 use SimpleSAML\OpenID\Jwk;
 use SimpleSAML\OpenID\VerifiableCredentials;
+use SimpleSAML\OpenID\VerifiableCredentials\OpenId4VciProof;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class CredentialIssuerCredentialController
 {
-
     public const SD_JWT_FORMAT_IDS = [
         CredentialFormatIdentifiersEnum::DcSdJwt->value,
         CredentialFormatIdentifiersEnum::VcSdJwt->value,
@@ -88,22 +88,48 @@ class CredentialIssuerCredentialController
 
         // TODO mivanci Validate credential request
 
+        $credentialFormatId = $requestData[ClaimsEnum::Format->value] ?? null;
+
+        if (is_null($credentialFormatId)) {
+            throw OidcServerException::serverError('Credential format missing in request.');
+        }
+
+        if (
+            !in_array($credentialFormatId, [
+                CredentialFormatIdentifiersEnum::JwtVcJson->value,
+                CredentialFormatIdentifiersEnum::DcSdJwt->value,
+                CredentialFormatIdentifiersEnum::VcSdJwt->value, // Deprecated value, but let's support it for now.
+            ])
+        ) {
+            return $this->routes->newJsonErrorResponse(
+                'unsupported_credential_type',
+                sprintf('Credential format ID "%s" is not supported.', $credentialFormatId),
+            );
+        }
+
         // TODO mivanci Check / handle credential_identifier parameter.
 
         $credentialConfigurationId = $requestData[ClaimsEnum::CredentialConfigurationId->value] ?? null;
 
         if (is_null($credentialConfigurationId)) {
-            // Check per draft 14
+            // TODO mivanci Update this to newest draft.
+            // Check per draft 14 (Sphereon wallet case).
             if (
+                $credentialFormatId === CredentialFormatIdentifiersEnum::JwtVcJson->value &&
                 is_array(
                     $credentialDefinitionType =
-                    $requestData[ClaimsEnum::CredentialDefinition->value][ClaimsEnum::Type->value],
+                    $requestData[ClaimsEnum::CredentialDefinition->value][ClaimsEnum::Type->value] ?? null,
                 )
             ) {
                 $credentialConfigurationId =
                 $this->moduleConfig->getCredentialConfigurationIdForCredentialDefinitionType(
                     $credentialDefinitionType,
                 );
+            } elseif (
+                in_array($credentialFormatId, self::SD_JWT_FORMAT_IDS, true) &&
+                is_string($vct = $requestData[ClaimsEnum::Vct->value] ?? null)
+            ) {
+                $credentialConfigurationId = $vct;
             }
         }
 
@@ -114,35 +140,10 @@ class CredentialIssuerCredentialController
             );
         }
 
-        if (
-            !is_array(
-                $credentialConfiguration = $this->moduleConfig->getCredentialConfiguration($credentialConfigurationId),
-            )
-        ) {
+        if (!is_array($this->moduleConfig->getCredentialConfiguration($credentialConfigurationId))) {
             return $this->routes->newJsonErrorResponse(
                 'unsupported_credential_type',
                 sprintf('Credential configuration ID "%s" is not supported.', $credentialConfigurationId),
-            );
-        }
-
-        $credentialFormatId = $credentialConfiguration[ClaimsEnum::Format->value] ?? null;
-
-        if (is_null($credentialFormatId)) {
-            throw OidcServerException::serverError(
-                'Credential format not specified for configuration ID: ' . $credentialConfigurationId,
-            );
-        }
-
-        if (
-            !in_array($credentialFormatId, [
-            CredentialFormatIdentifiersEnum::JwtVcJson->value,
-            CredentialFormatIdentifiersEnum::DcSdJwt->value,
-            CredentialFormatIdentifiersEnum::VcSdJwt->value, // Deprecated value, but let's support it for now.
-            ])
-        ) {
-            return $this->routes->newJsonErrorResponse(
-                'unsupported_credential_type',
-                sprintf('Credential format ID "%s" is not supported.', $credentialFormatId),
             );
         }
 
@@ -155,6 +156,7 @@ class CredentialIssuerCredentialController
         // Placeholder sub identifier. Will do if proof is not provided.
         $sub = $this->moduleConfig->getIssuer() . '/sub/' . $userId;
 
+        $proof = null;
         // Validate proof, if provided.
         // TODO mivanci consider making proof mandatory (in issuer metadata).
         if (
@@ -284,12 +286,11 @@ class CredentialIssuerCredentialController
                     saltBlacklist: $disclosureBag->salts(),
                 );
 
-                $disclosureBag->add($disclosure);;
+                $disclosureBag->add($disclosure);
             }
         }
 
-        dd($disclosureBag->all());
-        // Also make sure that the subject identifier is in credentialSubject claim.
+        // Make sure that the subject identifier is in credentialSubject claim.
         $this->setCredentialClaimValue(
             $credentialSubject,
             [ClaimsEnum::Credential_Subject->value, ClaimsEnum::Id->value],
@@ -336,7 +337,6 @@ class CredentialIssuerCredentialController
                         ],
                         //ClaimsEnum::Issuer->value => $this->moduleConfig->getIssuer(),
                         ClaimsEnum::Issuer->value => $issuerDid,
-                        //ClaimsEnum::Issuer->value => 'https://idp.mivanci.incubator.hexaa.eu/ssp/module.php/oidc/jwks',
                         ClaimsEnum::Issuance_Date->value => $issuedAt->format(\DateTimeInterface::RFC3339),
                         ClaimsEnum::Id->value => $vcId,
                         ClaimsEnum::Credential_Subject->value =>
@@ -344,7 +344,6 @@ class CredentialIssuerCredentialController
                     ],
                     //ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
                     ClaimsEnum::Iss->value => $issuerDid,
-                    //ClaimsEnum::Iss->value => 'https://idp.mivanci.incubator.hexaa.eu/ssp/module.php/oidc/jwks',
                     ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
                     ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
                     ClaimsEnum::Sub->value => $sub,
@@ -357,26 +356,32 @@ class CredentialIssuerCredentialController
         }
 
         if (in_array($credentialFormatId, self::SD_JWT_FORMAT_IDS, true)) {
-            // TODO selectiveDisclosureBag
+            $sdJwtPayload = [
+                ClaimsEnum::Iss->value => $issuerDid,
+                ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
+                ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
+                ClaimsEnum::Sub->value => $sub,
+                ClaimsEnum::Jti->value => $vcId,
+                ClaimsEnum::Vct->value => $credentialConfigurationId,
+            ];
+
+            if ($proof instanceof OpenId4VciProof) {
+                $sdJwtPayload[ClaimsEnum::Cnf->value] = [
+                    ClaimsEnum::Kid->value => $proof->getKeyId(),
+                ];
+            }
 
             $verifiableCredential = $this->verifiableCredentials->sdJwtVcFactory()->fromData(
                 $signingKey,
                 $signatureAlgorithm,
-                [
-                    ClaimsEnum::Iss->value => $issuerDid,
-                    ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
-                    ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
-                    ClaimsEnum::Sub->value => $sub,
-                    ClaimsEnum::Jti->value => $vcId,
-                ],
+                $sdJwtPayload,
                 [
                     ClaimsEnum::Kid->value => $issuerDid . '#0',
                 ],
+                disclosureBag: $disclosureBag,
                 jwtTypesEnum: JwtTypesEnum::VcSdJwt,
             );
         }
-
-
 
         $this->loggerService->debug('response', [
             'credentials' => [
