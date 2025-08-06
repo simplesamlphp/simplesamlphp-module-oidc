@@ -257,11 +257,17 @@ class CredentialIssuerCredentialController
                 continue;
             }
 
+            // Normalize to string for single array values.
+            $attributeValue = is_array($userAttributes[$userAttributeName]) &&
+            count($userAttributes[$userAttributeName]) === 1 ?
+                reset($userAttributes[$userAttributeName]) :
+                $userAttributes[$userAttributeName];
+
             if ($credentialFormatId === CredentialFormatIdentifiersEnum::JwtVcJson->value) {
-                $this->setCredentialClaimValue(
+                $this->verifiableCredentials->helpers()->arr()->setNestedValue(
                     $credentialSubject,
-                    $credentialClaimPath,
-                    $userAttributes[$userAttributeName],
+                    $attributeValue,
+                    ...$credentialClaimPath,
                 );
             }
 
@@ -280,7 +286,7 @@ class CredentialIssuerCredentialController
                 }
 
                 $disclosure = $this->verifiableCredentials->disclosureFactory()->build(
-                    value: $userAttributes[$userAttributeName],
+                    value: $attributeValue,
                     name: $claimName,
                     path: is_array($credentialClaimPath) ? $credentialClaimPath : [],
                     saltBlacklist: $disclosureBag->salts(),
