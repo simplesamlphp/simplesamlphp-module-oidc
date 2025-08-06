@@ -257,7 +257,7 @@ class CredentialIssuerCredentialController
                 continue;
             }
 
-            if ($credentialFormatId === CredentialFormatIdentifiersEnum::DcSdJwt->value) {
+            if ($credentialFormatId === CredentialFormatIdentifiersEnum::JwtVcJson->value) {
                 $this->setCredentialClaimValue(
                     $credentialSubject,
                     $credentialClaimPath,
