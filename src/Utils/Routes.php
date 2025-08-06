@@ -235,5 +235,4 @@ class Routes
     {
         return $this->getModuleUrl(RoutesEnum::JwtVcIssuerConfiguration->value, $parameters);
     }
-
 }

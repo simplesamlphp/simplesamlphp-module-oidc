@@ -858,6 +858,32 @@ class ModuleConfig
         return $this->config()->getOptionalArray(self::OPTION_CREDENTIAL_CONFIGURATIONS_SUPPORTED, []) ?? [];
     }
 
+    /**
+     * @param string $credentialConfigurationId
+     * @return mixed[]|null
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getCredentialConfiguration(string $credentialConfigurationId): ?array
+    {
+        $credentialConfiguration = $this->getCredentialConfigurationsSupported()[$credentialConfigurationId] ?? null;
+
+        if (is_null($credentialConfiguration)) {
+            return null;
+        }
+
+        if (!is_array($credentialConfiguration)) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Invalid configuration for credential configuration %s: %s',
+                    $credentialConfigurationId,
+                    var_export($credentialConfiguration, true),
+                ),
+            );
+        }
+
+        return $credentialConfiguration;
+    }
+
     public function getCredentialConfigurationIdsSupported(): array
     {
         return array_keys($this->getCredentialConfigurationsSupported());

@@ -17,8 +17,10 @@ use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\AtContextsEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialTypesEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use SimpleSAML\OpenID\Codebooks\JwtTypesEnum;
 use SimpleSAML\OpenID\Did;
 use SimpleSAML\OpenID\Exceptions\OpenId4VciProofException;
 use SimpleSAML\OpenID\Jwk;
@@ -28,6 +30,12 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CredentialIssuerCredentialController
 {
+
+    public const SD_JWT_FORMAT_IDS = [
+        CredentialFormatIdentifiersEnum::DcSdJwt->value,
+        CredentialFormatIdentifiersEnum::VcSdJwt->value,
+    ];
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -106,47 +114,42 @@ class CredentialIssuerCredentialController
             );
         }
 
-        if (!in_array($credentialConfigurationId, $this->moduleConfig->getCredentialConfigurationIdsSupported())) {
+        if (
+            !is_array(
+                $credentialConfiguration = $this->moduleConfig->getCredentialConfiguration($credentialConfigurationId),
+            )
+        ) {
             return $this->routes->newJsonErrorResponse(
                 'unsupported_credential_type',
                 sprintf('Credential configuration ID "%s" is not supported.', $credentialConfigurationId),
             );
         }
 
+        $credentialFormatId = $credentialConfiguration[ClaimsEnum::Format->value] ?? null;
+
+        if (is_null($credentialFormatId)) {
+            throw OidcServerException::serverError(
+                'Credential format not specified for configuration ID: ' . $credentialConfigurationId,
+            );
+        }
+
+        if (
+            !in_array($credentialFormatId, [
+            CredentialFormatIdentifiersEnum::JwtVcJson->value,
+            CredentialFormatIdentifiersEnum::DcSdJwt->value,
+            CredentialFormatIdentifiersEnum::VcSdJwt->value, // Deprecated value, but let's support it for now.
+            ])
+        ) {
+            return $this->routes->newJsonErrorResponse(
+                'unsupported_credential_type',
+                sprintf('Credential format ID "%s" is not supported.', $credentialFormatId),
+            );
+        }
+
         $userId = $accessToken->getUserIdentifier();
         $userEntity = $this->userRepository->getUserEntityByIdentifier($userId);
         if ($userEntity === null) {
-            throw OidcServerException::invalidRequest('User not found');
-        }
-
-        $userAttributes = $userEntity->getClaims();
-
-        // Get valid claim paths so we can check if the user attribute is allowed to be included in the credential,
-        // as per the credential configuration supported configuration.
-        $validClaimPaths = $this->moduleConfig->getValidCredentialClaimPathsFor($credentialConfigurationId);
-
-        // Map user attributes to credential claims
-        $credentialSubject = [];
-        $attributeToCredentialClaimPathMap = $this->moduleConfig->getUserAttributeToCredentialClaimPathMapFor(
-            $credentialConfigurationId,
-        );
-        foreach ($attributeToCredentialClaimPathMap as $mapEntry) {
-            $userAttributeName = key($mapEntry);
-            $credentialClaimPath = current($mapEntry);
-            if (!in_array($credentialClaimPath, $validClaimPaths)) {
-                $this->loggerService->warning(
-                    'Attribute "%s" does not use one of valid credential claim paths.',
-                    $mapEntry,
-                );
-                continue;
-            }
-            if (isset($userAttributes[$userAttributeName])) {
-                $this->setCredentialClaimValue(
-                    $credentialSubject,
-                    $credentialClaimPath,
-                    $userAttributes[$userAttributeName],
-                );
-            }
+            throw OidcServerException::invalidRequest('User not found.');
         }
 
         // Placeholder sub identifier. Will do if proof is not provided.
@@ -221,6 +224,71 @@ class CredentialIssuerCredentialController
             }
         }
 
+        $userAttributes = $userEntity->getClaims();
+
+        // Get valid claim paths so we can check if the user attribute is allowed to be included in the credential,
+        // as per the credential configuration supported configuration.
+        $validClaimPaths = $this->moduleConfig->getValidCredentialClaimPathsFor($credentialConfigurationId);
+
+        // Map user attributes to credential claims
+        $credentialSubject = []; // For JwtVcJson
+        $disclosureBag = $this->verifiableCredentials->disclosureBagFactory()->build(); // For DcSdJwt
+        $attributeToCredentialClaimPathMap = $this->moduleConfig->getUserAttributeToCredentialClaimPathMapFor(
+            $credentialConfigurationId,
+        );
+        foreach ($attributeToCredentialClaimPathMap as $mapEntry) {
+            $userAttributeName = key($mapEntry);
+            $credentialClaimPath = current($mapEntry);
+            if (!in_array($credentialClaimPath, $validClaimPaths)) {
+                $this->loggerService->warning(
+                    'Attribute "%s" does not use one of valid credential claim paths.',
+                    $mapEntry,
+                );
+                continue;
+            }
+
+            if (!isset($userAttributes[$userAttributeName])) {
+                $this->loggerService->warning(
+                    'Attribute "%s" does not exist in user attributes.',
+                    $mapEntry,
+                );
+                continue;
+            }
+
+            if ($credentialFormatId === CredentialFormatIdentifiersEnum::DcSdJwt->value) {
+                $this->setCredentialClaimValue(
+                    $credentialSubject,
+                    $credentialClaimPath,
+                    $userAttributes[$userAttributeName],
+                );
+            }
+
+            if (in_array($credentialFormatId, self::SD_JWT_FORMAT_IDS, true)) {
+                // For now, we will only support disclosures for object properties.
+                $claimName = array_pop($credentialClaimPath);
+                if (!is_string($claimName)) {
+                    $message = sprintf(
+                        'Invalid credential claim path for user attribute name %s. Can not extract claim name.' .
+                        ' Path was: %s',
+                        $userAttributeName,
+                        print_r($credentialClaimPath, true),
+                    );
+                    $this->loggerService->error($message);
+                    continue;
+                }
+
+                $disclosure = $this->verifiableCredentials->disclosureFactory()->build(
+                    value: $userAttributes[$userAttributeName],
+                    name: $claimName,
+                    path: is_array($credentialClaimPath) ? $credentialClaimPath : [],
+                    saltBlacklist: $disclosureBag->salts(),
+                );
+
+                $disclosureBag->add($disclosure);;
+            }
+        }
+
+        dd($disclosureBag->all());
         // Also make sure that the subject identifier is in credentialSubject claim.
         $this->setCredentialClaimValue(
             $credentialSubject,
@@ -249,39 +317,66 @@ class CredentialIssuerCredentialController
         $issuedAt = new \DateTimeImmutable();
 
         $vcId = $this->moduleConfig->getIssuer() . '/vc/' . uniqid();
+        $signatureAlgorithm = SignatureAlgorithmEnum::from($this->moduleConfig->getProtocolSigner()->algorithmId());
 
-        $verifiableCredential = $this->verifiableCredentials->jwtVcJsonFactory()->fromData(
-            $signingKey,
-            SignatureAlgorithmEnum::from($this->moduleConfig->getProtocolSigner()->algorithmId()),
-            [
-                ClaimsEnum::Vc->value => [
-                    ClaimsEnum::AtContext->value => [
-                        AtContextsEnum::W3Org2018CredentialsV1->value,
+        $verifiableCredential = null;
+
+        if ($credentialFormatId === CredentialFormatIdentifiersEnum::JwtVcJson->value) {
+            $verifiableCredential = $this->verifiableCredentials->jwtVcJsonFactory()->fromData(
+                $signingKey,
+                $signatureAlgorithm,
+                [
+                    ClaimsEnum::Vc->value => [
+                        ClaimsEnum::AtContext->value => [
+                            AtContextsEnum::W3Org2018CredentialsV1->value,
+                        ],
+                        ClaimsEnum::Type->value => [
+                            CredentialTypesEnum::VerifiableCredential->value,
+                            $credentialConfigurationId,
+                        ],
+                        //ClaimsEnum::Issuer->value => $this->moduleConfig->getIssuer(),
+                        ClaimsEnum::Issuer->value => $issuerDid,
+                        //ClaimsEnum::Issuer->value => 'https://idp.mivanci.incubator.hexaa.eu/ssp/module.php/oidc/jwks',
+                        ClaimsEnum::Issuance_Date->value => $issuedAt->format(\DateTimeInterface::RFC3339),
+                        ClaimsEnum::Id->value => $vcId,
+                        ClaimsEnum::Credential_Subject->value =>
+                            $credentialSubject[ClaimsEnum::Credential_Subject->value] ?? [],
                     ],
-                    ClaimsEnum::Type->value => [
-                        CredentialTypesEnum::VerifiableCredential->value,
-                        $credentialConfigurationId,
-                    ],
-            //ClaimsEnum::Issuer->value => $this->moduleConfig->getIssuer(),
-                    ClaimsEnum::Issuer->value => $issuerDid,
-            //ClaimsEnum::Issuer->value => 'https://idp.mivanci.incubator.hexaa.eu/ssp/module.php/oidc/jwks',
-                    ClaimsEnum::Issuance_Date->value => $issuedAt->format(\DateTimeInterface::RFC3339),
-                    ClaimsEnum::Id->value => $vcId,
-                    ClaimsEnum::Credential_Subject->value =>
-                        $credentialSubject[ClaimsEnum::Credential_Subject->value] ?? [],
+                    //ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
+                    ClaimsEnum::Iss->value => $issuerDid,
+                    //ClaimsEnum::Iss->value => 'https://idp.mivanci.incubator.hexaa.eu/ssp/module.php/oidc/jwks',
+                    ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
+                    ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
+                    ClaimsEnum::Sub->value => $sub,
+                    ClaimsEnum::Jti->value => $vcId,
                 ],
-                //ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
-                ClaimsEnum::Iss->value => $issuerDid,
-            //ClaimsEnum::Iss->value => 'https://idp.mivanci.incubator.hexaa.eu/ssp/module.php/oidc/jwks',
-                ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
-                ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
-                ClaimsEnum::Sub->value => $sub,
-                ClaimsEnum::Jti->value => $vcId,
-            ],
-            [
-                ClaimsEnum::Kid->value => $issuerDid . '#0',
-            ],
-        );
+                [
+                    ClaimsEnum::Kid->value => $issuerDid . '#0',
+                ],
+            );
+        }
+
+        if (in_array($credentialFormatId, self::SD_JWT_FORMAT_IDS, true)) {
+            // TODO selectiveDisclosureBag
+
+            $verifiableCredential = $this->verifiableCredentials->sdJwtVcFactory()->fromData(
+                $signingKey,
+                $signatureAlgorithm,
+                [
+                    ClaimsEnum::Iss->value => $issuerDid,
+                    ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
+                    ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
+                    ClaimsEnum::Sub->value => $sub,
+                    ClaimsEnum::Jti->value => $vcId,
+                ],
+                [
+                    ClaimsEnum::Kid->value => $issuerDid . '#0',
+                ],
+                jwtTypesEnum: JwtTypesEnum::VcSdJwt,
+            );
+        }
+
+
 
         $this->loggerService->debug('response', [
             'credentials' => [
