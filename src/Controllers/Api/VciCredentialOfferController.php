@@ -9,7 +9,9 @@ use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
 use SimpleSAML\Module\oidc\Codebooks\ParametersEnum;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
+use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
 use SimpleSAML\Module\oidc\Exceptions\OidcException;
+use SimpleSAML\Module\oidc\Factories\CredentialOfferUriFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
@@ -45,6 +47,7 @@ class VciCredentialOfferController
         protected readonly AuthCodeRepository $authCodeRepository,
         protected readonly AuthCodeEntityFactory $authCodeEntityFactory,
         protected readonly Routes $routes,
+        protected readonly CredentialOfferUriFactory $credentialOfferUriFactory,
     ) {
         if (!$this->moduleConfig->getApiEnabled()) {
             throw OidcServerException::forbidden('API capabilities not enabled.');
@@ -55,13 +58,43 @@ class VciCredentialOfferController
      */
     public function preAuthorizedCredentialOffer(Request $request): Response
     {
-        $this->authorization->requireTokenForAnyOfScope(
-            $request,
-            [ApiScopesEnum::VciCredentialOffer, ApiScopesEnum::VciAll, ApiScopesEnum::All],
+        try {
+            $this->authorization->requireTokenForAnyOfScope(
+                $request,
+                [ApiScopesEnum::VciCredentialOffer, ApiScopesEnum::VciAll, ApiScopesEnum::All],
+            );
+        } catch (AuthorizationException $e) {
+            return $this->routes->newJsonErrorResponse(
+                error: 'unauthorized',
+                description: $e->getMessage(),
+                httpCode: Response::HTTP_UNAUTHORIZED,
+            );
+        }
+
+        $input = $request->getPayload()->all();
+        $userAttributes = $input['user_attributes'] ?? [];
+
+        $selectedCredentialConfigurationId = $input['credential_configuration_id'] ?? null;
+
+        if (!is_string($selectedCredentialConfigurationId)) {
+            return $this->routes->newJsonErrorResponse(
+                error: 'invalid_request',
+                description: 'No credential configuration ID provided.',
+                httpCode: Response::HTTP_BAD_REQUEST,
+            );
+        }
+
+        $credentialOfferUri = $this->credentialOfferUriFactory->buildPreAuthorized(
+            [$selectedCredentialConfigurationId],
+            $userAttributes,
         );
 
-        // Currently, we need a dedicated client for which the PreAuthZed code will be bound to.
-        // TODO mivanci: Remove requirement for dedicated client for (pre-)authorization codes.
+        // TODO mivanci continue
+        dd($credentialOfferUri);
+
+
+        /////////
+
         $client = $this->clientEntityFactory->getGenericForVciPreAuthZFlow();
         if ($this->clientRepository->findById($client->getIdentifier()) === null) {
             $this->clientRepository->add($client);
@@ -69,13 +102,8 @@ class VciCredentialOfferController
             $this->clientRepository->update($client);
         }
 
-        $input = $request->getPayload()->all();
-        $userAttributes = $input['user_attributes'] ?? [];
 
-        $selectedCredentialConfigurationId = $input['credential_configuration_id'] ?? null;
-        if ($selectedCredentialConfigurationId === null) {
-            throw new OidcException('No credential configuration ID provided.');
-        }
+
         $credentialConfigurationIdsSupported = $this->moduleConfig->getCredentialConfigurationIdsSupported();
 
         if (empty($credentialConfigurationIdsSupported)) {

@@ -235,6 +235,7 @@ class Container implements ContainerInterface
             $helpers,
             $claimTranslatorExtractor,
             $requestParamsResolver,
+            $moduleConfig,
         );
         $this->services[ClientEntityFactory::class] = $clientEntityFactory;
 

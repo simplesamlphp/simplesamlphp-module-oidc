@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers\Admin;
 
+use DateTimeImmutable;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Module\oidc\Admin\Authorization;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
@@ -183,25 +184,7 @@ class VerifiableCredentailsTestController
                 $this->clientRepository->update($client);
             }
 
-            $authCodeId = $this->sspBridge->utils()->random()->generateID();
 
-            // TODO mivanci Add indication of preAuthZ code to the auth code table.
-
-            if (($authCode = $this->authCodeRepository->findById($authCodeId)) === null) {
-                $authCode = $this->authCodeEntityFactory->fromData(
-                    id: $authCodeId,
-                    client: $client,
-                    scopes: [
-                        new ScopeEntity('openid'),
-                        new ScopeEntity($selectedCredentialConfigurationId),
-                    ],
-                    expiryDateTime: new \DateTimeImmutable('+10 minutes'),
-                    userIdentifier: $userId,
-                    redirectUri: 'openid-credential-offer://',
-                );
-
-                $this->authCodeRepository->persistNewAuthCode($authCode);
-            }
 
             $credentialOffer = $this->verifiableCredentials->credentialOfferFactory()->from(
                 parameters: [
