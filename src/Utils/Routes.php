@@ -235,4 +235,13 @@ class Routes
     {
         return $this->getModuleUrl(RoutesEnum::JwtVcIssuerConfiguration->value, $parameters);
     }
+
+    /*****************************************************************************************************************
+     * API
+     ****************************************************************************************************************/
+
+    public function urlApiVciPreAuthorizedCredentialOffer(array $parameters = []): string
+    {
+        return $this->getModuleUrl(RoutesEnum::ApiVciPreAuthorizedCredentialOffer->value, $parameters);
+    }
 }

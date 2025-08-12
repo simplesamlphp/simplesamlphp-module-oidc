@@ -6,7 +6,6 @@ namespace SimpleSAML\Module\oidc\Services\Api;
 
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
-use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
 use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use Symfony\Component\HttpFoundation\Request;

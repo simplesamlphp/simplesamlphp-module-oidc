@@ -175,15 +175,17 @@ class VerifiableCredentailsTestController
             // TODO mivanci Wallet (client) credential_offer_endpoint metadata
             // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#client-metadata
 
-            $clientSecret = '1234567890';
-
 
             $client = $this->clientEntityFactory->getGenericForVciPreAuthZFlow();
+            if ($this->clientRepository->findById($client->getIdentifier()) === null) {
+                $this->clientRepository->add($client);
+            } else {
+                $this->clientRepository->update($client);
+            }
 
-            // TODO mivanci Randomly generate auth code.
-            $authCodeId = '1234567890';
+            $authCodeId = $this->sspBridge->utils()->random()->generateID();
 
-            // TODO mivanci Add indication of preauthz code to the auth code table.
+            // TODO mivanci Add indication of preAuthZ code to the auth code table.
 
             if (($authCode = $this->authCodeRepository->findById($authCodeId)) === null) {
                 $authCode = $this->authCodeEntityFactory->fromData(
@@ -193,10 +195,9 @@ class VerifiableCredentailsTestController
                         new ScopeEntity('openid'),
                         new ScopeEntity($selectedCredentialConfigurationId),
                     ],
-                    expiryDateTime: new \DateTimeImmutable('+1 month'),
+                    expiryDateTime: new \DateTimeImmutable('+10 minutes'),
                     userIdentifier: $userId,
-                    redirectUri: 'https://example.com/oidc/callback',
-                    nonce: '1234567890',
+                    redirectUri: 'openid-credential-offer://',
                 );
 
                 $this->authCodeRepository->persistNewAuthCode($authCode);
@@ -235,10 +236,6 @@ class VerifiableCredentailsTestController
             // https://quickchart.io/documentation/qr-codes/
             $credentialOfferQrUri = 'https://quickchart.io/qr?size=200&margin=1&text=' . urlencode($credentialOfferUri);
         }
-
-
-
-
 
         $authSourceActionRoute = $this->routes->urlAdminTestVerifiableCredentialIssuance();
 
