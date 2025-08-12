@@ -260,8 +260,8 @@ class CredentialIssuerCredentialController
             // Normalize to string for single array values.
             $attributeValue = is_array($userAttributes[$userAttributeName]) &&
             count($userAttributes[$userAttributeName]) === 1 ?
-                reset($userAttributes[$userAttributeName]) :
-                $userAttributes[$userAttributeName];
+            reset($userAttributes[$userAttributeName]) :
+            $userAttributes[$userAttributeName];
 
             if ($credentialFormatId === CredentialFormatIdentifiersEnum::JwtVcJson->value) {
                 $this->verifiableCredentials->helpers()->arr()->setNestedValue(

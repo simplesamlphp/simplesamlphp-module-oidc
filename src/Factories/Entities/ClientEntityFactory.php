@@ -11,6 +11,8 @@ use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
@@ -29,6 +31,8 @@ class ClientEntityFactory
         private readonly Helpers $helpers,
         private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
         private readonly RequestParamsResolver $requestParamsResolver,
+        private readonly ModuleConfig $moduleConfig,
+        private readonly ClientRepository $clientRepository,
     ) {
     }
 
@@ -379,5 +383,42 @@ class ClientEntityFactory
             $expiresAt,
             $isFederated,
         );
+    }
+
+    public function getGenericForVciPreAuthZFlow(): ClientEntityInterface
+    {
+        $clientId = 'vci_' .
+            hash('sha256', 'vci_'  . $this->moduleConfig->sspConfig()->getString('secretsalt'));
+
+        $clientSecret = $this->helpers->random()->getIdentifier();
+
+        $credentialConfigurationIdsSupported = $this->moduleConfig->getCredentialConfigurationIdsSupported();
+
+        $oldClient = $this->clientRepository->findById($clientId);
+        $createdAt = $this->helpers->dateTime()->getUtc();
+
+        if ($oldClient instanceof ClientEntityInterface) {
+            $createdAt = $oldClient->getCreatedAt();
+        }
+
+        $client = $this->fromData(
+            id: $clientId,
+            secret: $clientSecret,
+            name: 'VCI Pre-authorized Code Generic Client',
+            description: 'Generic client for VCI Pre-authorized Code',
+            redirectUri: ['openid-credential-offer://'],
+            scopes: ['openid', ...$credentialConfigurationIdsSupported],
+            isEnabled: true,
+            updatedAt: $this->helpers->dateTime()->getUtc(),
+            createdAt: $createdAt,
+        );
+
+        if ($oldClient === null) {
+            $this->clientRepository->add($client);
+        } else {
+            $this->clientRepository->update($client);
+        }
+
+        return $client;
     }
 }

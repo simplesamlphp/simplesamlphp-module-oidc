@@ -175,25 +175,10 @@ class VerifiableCredentailsTestController
             // TODO mivanci Wallet (client) credential_offer_endpoint metadata
             // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#client-metadata
 
-            // TODO mivanci Implement API and API clients hanlding, together with API client to OIDC client binding.
-            $clientId = '1234567890';
             $clientSecret = '1234567890';
 
-            $client = $this->clientEntityFactory->fromData(
-                id: $clientId,
-                secret: $clientSecret,
-                name: 'VCI Pre-authorized Code Test Client',
-                description: 'Test client for VCI Pre-authorized Code',
-                redirectUri: ['https://example.com/oidc/callback'],
-                scopes: ['openid', ...$credentialConfigurationIdsSupported], // Test Client so will have
-                isEnabled: true,
-            );
 
-            if ($this->clientRepository->findById($clientId) === null) {
-                $this->clientRepository->add($client);
-            } else {
-                $this->clientRepository->update($client);
-            }
+            $client = $this->clientEntityFactory->getGenericForVciPreAuthZFlow();
 
             // TODO mivanci Randomly generate auth code.
             $authCodeId = '1234567890';

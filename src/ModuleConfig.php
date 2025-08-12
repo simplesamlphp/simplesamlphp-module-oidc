@@ -103,6 +103,8 @@ class ModuleConfig
     final public const OPTION_CREDENTIAL_CONFIGURATIONS_SUPPORTED = 'credential_configurations_supported';
     final public const OPTION_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP =
     'user_attribute_to_credential_claim_path_map';
+    final public const OPTION_API_ENABLED = 'api_enabled';
+    final public const OPTION_API_TOKENS = 'api_tokens';
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
@@ -930,5 +932,39 @@ class ModuleConfig
     public function getUserAttributeToCredentialClaimPathMapFor(string $credentialConfigurationId): array
     {
         return $this->getUserAttributeToCredentialClaimPathMap()[$credentialConfigurationId] ?? [];
+    }
+
+
+
+    /*****************************************************************************************************************
+     * API-related config.
+     ****************************************************************************************************************/
+
+    public function getApiEnabled(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_API_ENABLED, false);
+    }
+
+    /**
+     * @return mixed[]|null
+     */
+    public function getApiTokens(): ?array
+    {
+        return $this->config()->getOptionalArray(self::OPTION_API_TOKENS, null);
+    }
+
+    /**
+     * @param string $token
+     * @return mixed[]
+     */
+    public function getApiTokenScopes(string $token): ?array
+    {
+        $tokenScopes = $this->getApiTokens()[$token] ?? null;
+
+        if (is_array($tokenScopes)) {
+            return $tokenScopes;
+        }
+
+        return null;
     }
 }

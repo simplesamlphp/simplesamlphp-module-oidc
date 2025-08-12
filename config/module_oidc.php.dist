@@ -20,6 +20,7 @@ declare(strict_types=1);
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
+
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
@@ -787,5 +788,25 @@ $config = [
             ['mail' => ['mail']],
             ['eduPersonScopedAffiliation' => ['eduPersonScopedAffiliation']],
         ],
+    ],
+
+    /**
+     * (optional) API-related options.
+     */
+
+    // (optional) Enable or disable API capabilities. Default is disabled (false).
+    ModuleConfig::OPTION_API_ENABLED => false,
+
+    /**
+     * List of API tokens which can be used to access API endpoints based on given scopes.
+     *
+     * The format is: ['token' => [ApiScopesEnum]]
+     */
+    ModuleConfig::OPTION_API_TOKENS => [
+//        'strong-random-token-string' => [
+//            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::All, // Gives access to the whole API.
+//            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::VciAll, // Gives access to all VCI-related endpoints.
+//            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::VciCredentialOffer, // Gives access to the credential offer endpoint.
+//        ],
     ],
 ];
