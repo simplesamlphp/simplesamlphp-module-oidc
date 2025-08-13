@@ -240,8 +240,8 @@ class Routes
      * API
      ****************************************************************************************************************/
 
-    public function urlApiVciPreAuthorizedCredentialOffer(array $parameters = []): string
+    public function urlApiVciCredentialOffer(array $parameters = []): string
     {
-        return $this->getModuleUrl(RoutesEnum::ApiVciPreAuthorizedCredentialOffer->value, $parameters);
+        return $this->getModuleUrl(RoutesEnum::ApiVciCredentialOffer->value, $parameters);
     }
 }

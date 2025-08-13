@@ -147,8 +147,8 @@ return function (RoutingConfigurator $routes): void {
      ****************************************************************************************************************/
 
     $routes->add(
-        RoutesEnum::ApiVciPreAuthorizedCredentialOffer->name,
-        RoutesEnum::ApiVciPreAuthorizedCredentialOffer->value,
-    )->controller([VciCredentialOfferController::class, 'preAuthorizedCredentialOffer'])
+        RoutesEnum::ApiVciCredentialOffer->name,
+        RoutesEnum::ApiVciCredentialOffer->value,
+    )->controller([VciCredentialOfferController::class, 'credentialOffer'])
         ->methods([HttpMethodsEnum::POST->value]);
 };

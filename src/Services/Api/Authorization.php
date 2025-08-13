@@ -25,7 +25,7 @@ class Authorization
 
 
     /**
-     * @throws AuthorizationException
+     * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
      */
     public function requireSimpleSAMLphpAdmin(bool $forceAdminAuthentication = false): void
     {
@@ -35,8 +35,7 @@ class Authorization
             } catch (\Throwable $exception) {
                 throw new AuthorizationException(
                     Translate::noop('Unable to initiate admin authentication.'),
-                    $exception->getCode(),
-                    $exception,
+                    previous: $exception,
                 );
             }
         }
@@ -47,9 +46,9 @@ class Authorization
     }
 
     /**
-     * @param ApiScopesEnum[] $requiredScopes
+     * @param \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum[] $requiredScopes
      *
-     * @throws AuthorizationException
+     * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
      */
     public function requireTokenForAnyOfScope(Request $request, array $requiredScopes): void
     {

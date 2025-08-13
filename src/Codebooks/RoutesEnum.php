@@ -74,5 +74,5 @@ enum RoutesEnum: string
      * API
      ****************************************************************************************************************/
 
-    case ApiVciPreAuthorizedCredentialOffer = 'api/vci/pre-authorized-credential-offer';
+    case ApiVciCredentialOffer = 'api/vci/credential-offer';
 }

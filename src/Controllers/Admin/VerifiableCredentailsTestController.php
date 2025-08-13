@@ -4,14 +4,12 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers\Admin;
 
-use DateTimeImmutable;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Module\oidc\Admin\Authorization;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
-use SimpleSAML\Module\oidc\Codebooks\ParametersEnum;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
-use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
+use SimpleSAML\Module\oidc\Factories\CredentialOfferUriFactory;
 use SimpleSAML\Module\oidc\Factories\EmailFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
@@ -26,8 +24,6 @@ use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 use SimpleSAML\Module\oidc\Utils\Routes;
-use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
-use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\VerifiableCredentials;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -38,21 +34,13 @@ class VerifiableCredentailsTestController
         protected readonly ModuleConfig $moduleConfig,
         protected readonly TemplateFactory $templateFactory,
         protected readonly Authorization $authorization,
-        protected readonly VerifiableCredentials $verifiableCredentials,
-        protected readonly AuthCodeRepository $authCodeRepository,
-        protected readonly AuthCodeEntityFactory $authCodeEntityFactory,
-        protected readonly ClientRepository $clientRepository,
-        protected readonly ClientEntityFactory $clientEntityFactory,
         protected readonly LoggerService $loggerService,
         protected readonly EmailFactory $emailFactory,
-        protected readonly ?ProtocolCache $protocolCache,
-        protected readonly SessionMessagesService $sessionMessagesService,
         protected readonly AuthSimpleFactory $authSimpleFactory,
         protected readonly SessionService $sessionService,
         protected readonly SspBridge $sspBridge,
         protected readonly Routes $routes,
-        protected readonly UserRepository $userRepository,
-        protected readonly UserEntityFactory $userEntityFactory,
+        protected readonly CredentialOfferUriFactory $credentialOfferUriFactory,
     ) {
         $this->authorization->requireAdmin(true);
     }
@@ -142,78 +130,10 @@ class VerifiableCredentailsTestController
         ) {
             $userAttributes = $authSource->getAttributes();
 
-            $userId = $this->sspBridge->utils()->attributes()->getExpectedAttribute(
+            $credentialOfferUri = $this->credentialOfferUriFactory->buildPreAuthorized(
+                [$selectedCredentialConfigurationId],
                 $userAttributes,
-                $this->moduleConfig->getUserIdentifierAttribute(),
             );
-
-            // Persist / update user entity.
-            $userEntity = $this->userRepository->getUserEntityByIdentifier($userId);
-
-            if ($userEntity) {
-                $userEntity->setClaims($userAttributes);
-                $this->userRepository->update($userEntity);
-            } else {
-                $userEntity = $this->userEntityFactory->fromData($userId, $userAttributes);
-                $this->userRepository->add($userEntity);
-            }
-
-            /* TODO mivanci TX Code handling
-            $email = $this->emailFactory->build(
-                subject: 'VC Issuance Transaction code',
-                to: 'testuser@example.com',
-            );
-
-            $email->setData(['Transaction Code' => '1234']);
-            try {
-                $email->send();
-                $this->sessionMessagesService->addMessage('Email with tx code sent to: testuser@example.com');
-            } catch (Exception $e) {
-                $this->sessionMessagesService->addMessage('Error emailing tx code.');
-            }
-            */
-
-            // TODO mivanci Wallet (client) credential_offer_endpoint metadata
-            // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#client-metadata
-
-
-            $client = $this->clientEntityFactory->getGenericForVciPreAuthZFlow();
-            if ($this->clientRepository->findById($client->getIdentifier()) === null) {
-                $this->clientRepository->add($client);
-            } else {
-                $this->clientRepository->update($client);
-            }
-
-
-
-            $credentialOffer = $this->verifiableCredentials->credentialOfferFactory()->from(
-                parameters: [
-                    ClaimsEnum::CredentialIssuer->value => $this->moduleConfig->getIssuer(),
-                    ClaimsEnum::CredentialConfigurationIds->value => [
-                        $selectedCredentialConfigurationId,
-                    ],
-                    ClaimsEnum::Grants->value => [
-                        GrantTypesEnum::PreAuthorizedCode->value => [
-                            ClaimsEnum::PreAuthorizedCode->value => $authCode->getIdentifier(),
-                            // TODO mivanci support for TxCode
-                            //                        ClaimsEnum::TxCode->value => [
-                            //                            ClaimsEnum::InputMode->value => 'numeric',
-                            //                            ClaimsEnum::Length->value => 6,
-                            //                            ClaimsEnum::Description->value => 'Sent to user mail',
-                            //                        ],
-                        ],
-                    ],
-                ],
-            );
-
-            $credentialOfferValue = $credentialOffer->jsonSerialize();
-            $parameterName = ParametersEnum::CredentialOfferUri->value;
-            if (is_array($credentialOfferValue)) {
-                $parameterName = ParametersEnum::CredentialOffer->value;
-                $credentialOfferValue = json_encode($credentialOfferValue);
-            }
-
-            $credentialOfferUri = "openid-credential-offer://?$parameterName=$credentialOfferValue";
 
             // TODO mivanci Local QR code generator
             // https://quickchart.io/documentation/qr-codes/

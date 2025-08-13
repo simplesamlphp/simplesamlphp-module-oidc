@@ -21,6 +21,7 @@ use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
+use SimpleSAML\OpenID\Exceptions\OpenIdException;
 use SimpleSAML\OpenID\VerifiableCredentials;
 
 class CredentialOfferUriFactory
@@ -36,19 +37,17 @@ class CredentialOfferUriFactory
         protected readonly LoggerService $loggerService,
         protected readonly UserRepository $userRepository,
         protected readonly UserEntityFactory $userEntityFactory,
-    )
-    {
+    ) {
     }
 
     /**
      * @param string[] $credentialConfigurationIds
-     * @throws OidcException
+     * @throws \SimpleSAML\OpenId\Exceptions\OpenIdException
      */
     public function buildPreAuthorized(
         array $credentialConfigurationIds,
         array $userAttributes,
-    ): string
-    {
+    ): string {
         if (empty($credentialConfigurationIds)) {
             throw new RuntimeException('No credential configuration IDs provided.');
         }
