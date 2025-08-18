@@ -78,9 +78,23 @@ class VciCredentialOfferController
             );
         }
 
+        $useTxCode = boolval($input['use_tx_code'] ?? false);
+        $usersEmailAttributeName = $input['users_email_attribute_name'] ?? null;
+        $usersEmailAttributeName = is_string($usersEmailAttributeName) ? $usersEmailAttributeName : null;
+        $authenticationSourceId = $input['authentication_source_id'] ?? null;
+        $authenticationSourceId = is_string($authenticationSourceId) ? $authenticationSourceId : null;
+
+        if (is_null($usersEmailAttributeName) && is_string($authenticationSourceId)) {
+            $usersEmailAttributeName = $this->moduleConfig->getUsersEmailAttributeNameForAuthSourceId(
+                $authenticationSourceId,
+            );
+        }
+
         $credentialOfferUri = $this->credentialOfferUriFactory->buildPreAuthorized(
             [$selectedCredentialConfigurationId],
             $userAttributes,
+            $useTxCode,
+            $usersEmailAttributeName,
         );
 
         return $this->routes->newJsonResponse(

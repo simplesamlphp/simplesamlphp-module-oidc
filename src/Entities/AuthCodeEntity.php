@@ -43,6 +43,8 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
         ?string $redirectUri = null,
         ?string $nonce = null,
         bool $isRevoked = false,
+        protected readonly bool $isPreAuthorized = false,
+        protected readonly ?string $txCode = null,
     ) {
         $this->identifier = $id;
         $this->client = $client;
@@ -68,6 +70,18 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
             'is_revoked' => $this->isRevoked(),
             'redirect_uri' => $this->getRedirectUri(),
             'nonce' => $this->getNonce(),
+            'is_pre_authorized' => $this->isPreAuthorized,
+            'tx_code' => $this->txCode,
         ];
+    }
+
+    public function isPreAuthorized(): bool
+    {
+        return $this->isPreAuthorized;
+    }
+
+    public function getTxCode(): ?string
+    {
+        return $this->txCode;
     }
 }

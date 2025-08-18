@@ -105,6 +105,9 @@ class ModuleConfig
     'user_attribute_to_credential_claim_path_map';
     final public const OPTION_API_ENABLED = 'api_enabled';
     final public const OPTION_API_TOKENS = 'api_tokens';
+    final public const OPTION_DEFAULT_USERS_EMAIL_ATTRIBUTE_NAME = 'users_email_attribute_name';
+    final public const OPTION_AUTH_SOURCES_TO_USERS_EMAIL_ATTRIBUTE_NAME_MAP =
+    'auth_sources_to_users_email_attribute_name_map';
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
@@ -966,5 +969,26 @@ class ModuleConfig
         }
 
         return null;
+    }
+
+    public function getAuthSourcesToUsersEmailAttributeMap(): array
+    {
+        return $this->config()->getOptionalArray(self::OPTION_AUTH_SOURCES_TO_USERS_EMAIL_ATTRIBUTE_NAME_MAP, []);
+    }
+
+    public function getUsersEmailAttributeNameForAuthSourceId(string $authSource): string
+    {
+        $attributeName = $this->getAuthSourcesToUsersEmailAttributeMap()[$authSource] ?? null;
+
+        if (is_string($attributeName)) {
+            return $attributeName;
+        }
+
+        return $this->getDefaultUsersEmailAttributeName();
+    }
+
+    public function getDefaultUsersEmailAttributeName(): string
+    {
+        return $this->config()->getOptionalString(self::OPTION_DEFAULT_USERS_EMAIL_ATTRIBUTE_NAME, 'mail');
     }
 }

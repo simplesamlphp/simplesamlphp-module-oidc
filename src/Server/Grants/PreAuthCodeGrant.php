@@ -124,6 +124,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
         );
 
         if (empty($preAuthorizedCodeId)) {
+            $this->loggerService->warning('Empty pre-authorized code ID.');
             throw OidcServerException::invalidRequest(ParamsEnum::PreAuthorizedCode->value);
         }
 
@@ -137,10 +138,12 @@ class PreAuthCodeGrant extends AuthCodeGrant
             is_null($preAuthorizedCode)  ||
             !is_a($preAuthorizedCode, AuthCodeEntity::class)
         ) {
+            $this->loggerService->error('Invalid pre-authorized code ID. Value was: ' . $preAuthorizedCodeId);
             throw OidcServerException::invalidGrant('Invalid pre-authorized code.');
         }
 
         if ($preAuthorizedCode->isRevoked()) {
+            $this->loggerService->error('Pre-authorized code is revoked. Value was: ' . $preAuthorizedCodeId);
             throw OidcServerException::invalidGrant('Pre-authorized code is revoked.');
         }
 
@@ -149,12 +152,30 @@ class PreAuthCodeGrant extends AuthCodeGrant
         // TODO validate code
         // $this->validateAuthorizationCode($preAuthorizedCode, $client, $request);
 
-        // TODO handle tx_code parameter
-//        $txCode = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
-//            ParamsEnum::TxCode->value,
-//            $request,
-//            $this->allowedTokenHttpMethods,
-//        );
+        // Validate Transaction Code.
+        if (($preAuthorizedCodeTxCode = $preAuthorizedCode->getTxCode()) !== null) {
+            $this->loggerService->debug('Validating transaction code ' . $preAuthorizedCode->getTxCode());
+            $txCodeParam = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
+                ParamsEnum::TxCode->value,
+                $request,
+                $this->allowedTokenHttpMethods,
+            );
+
+            if (empty($txCodeParam)) {
+                $this->loggerService->warning('Empty transaction code parameter.');
+                throw OidcServerException::invalidRequest(ParamsEnum::TxCode->value, 'Transaction Code is missing.');
+            }
+
+            $this->loggerService->debug('Transaction code parameter value: ' . $txCodeParam);
+
+            if ($preAuthorizedCodeTxCode !== $txCodeParam) {
+                $this->loggerService->warning(
+                    'Transaction code parameter value does not match pre-authorized code transaction code.',
+                    ['txCodeParam' => $txCodeParam, 'preAuthorizedCodeTxCode' => $preAuthorizedCodeTxCode,],
+                );
+                throw OidcServerException::invalidRequest(ParamsEnum::TxCode->value, 'Transaction Code is invalid.');
+            }
+        }
 
         $authorizationDetails = null;
         $authorizationDetailsParam = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
@@ -190,6 +211,8 @@ class PreAuthCodeGrant extends AuthCodeGrant
         $responseType->setAccessToken($accessToken);
 
 
+        // TODO mivanci revoke pre-authorized code or let it expire only after access token is issued?
+        // $this->authCodeRepository->revokeAuthCode($preAuthorizedCode);
 
         return $responseType;
     }

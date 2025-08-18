@@ -11,20 +11,11 @@ use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Factories\CredentialOfferUriFactory;
 use SimpleSAML\Module\oidc\Factories\EmailFactory;
-use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
-use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
-use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
-use SimpleSAML\Module\oidc\Repositories\ClientRepository;
-use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\Module\oidc\Services\SessionService;
-use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 use SimpleSAML\Module\oidc\Utils\Routes;
-use SimpleSAML\OpenID\VerifiableCredentials;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -123,16 +114,26 @@ class VerifiableCredentailsTestController
 
         $credentialOfferQrUri = null;
         $credentialOfferUri = null;
+        $useTxCode = (bool) $request->get('useTxCode');
+        $usersEmailAttributeName = $request->get('usersEmailAttributeName');
+        $usersEmailAttributeName = is_string($usersEmailAttributeName) && (trim($usersEmailAttributeName) !== '') ?
+        trim($usersEmailAttributeName) :
+        null;
 
         if (
             $authSource instanceof Simple &&
             $authSource->isAuthenticated()
         ) {
             $userAttributes = $authSource->getAttributes();
+            $usersEmailAttributeName ??= $this->moduleConfig->getUsersEmailAttributeNameForAuthSourceId(
+                $authSource->getAuthSource()->getAuthId(),
+            );
 
             $credentialOfferUri = $this->credentialOfferUriFactory->buildPreAuthorized(
                 [$selectedCredentialConfigurationId],
                 $userAttributes,
+                $useTxCode,
+                $usersEmailAttributeName,
             );
 
             // TODO mivanci Local QR code generator
@@ -141,6 +142,8 @@ class VerifiableCredentailsTestController
         }
 
         $authSourceActionRoute = $this->routes->urlAdminTestVerifiableCredentialIssuance();
+
+        $defaultUsersEmailAttributeName = $this->moduleConfig->getDefaultUsersEmailAttributeName();
 
         return $this->templateFactory->build(
             'oidc:tests/verifiable-credential-issuance.twig',
@@ -153,6 +156,8 @@ class VerifiableCredentailsTestController
                 'authSource',
                 'credentialConfigurationIdsSupported',
                 'selectedCredentialConfigurationId',
+                'defaultUsersEmailAttributeName',
+                'usersEmailAttributeName',
             ),
             RoutesEnum::AdminTestVerifiableCredentialIssuance->value,
         );

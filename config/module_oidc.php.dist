@@ -790,6 +790,20 @@ $config = [
         ],
     ],
 
+    // Map of authentication sources and user's email attribute names. This enables you to define a specific attribute
+    // name which contains the user's email address, per authentication source. This is used, for example, to send
+    // Transaction Code in the case of pre-authorized codes for verifiable credential issuance. If not set, the
+    // default user's email attribute name will be used (see the option below).
+    //
+    // Format is: 'authentication-source-id' => 'email-attribute-name'.
+    ModuleConfig::OPTION_AUTH_SOURCES_TO_USERS_EMAIL_ATTRIBUTE_NAME_MAP => [
+        'example-auth-source-id' => 'mail',
+    ],
+
+    // The default name of the attribute which contains the user's email address. If not set, it will
+    // fall back to 'mail'.
+    ModuleConfig::OPTION_DEFAULT_USERS_EMAIL_ATTRIBUTE_NAME => 'mail',
+
     /**
      * (optional) API-related options.
      */

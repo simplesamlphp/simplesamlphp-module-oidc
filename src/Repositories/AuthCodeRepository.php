@@ -70,8 +70,31 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
         }
 
         $stmt = sprintf(
-            "INSERT INTO %s (id, scopes, expires_at, user_id, client_id, is_revoked, redirect_uri, nonce) "
-                . "VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked, :redirect_uri, :nonce)",
+            <<<EOS
+            INSERT INTO %s (
+                id,
+                scopes,
+                expires_at,
+                user_id,
+                client_id,
+                is_revoked,
+                redirect_uri,
+                nonce,
+                is_pre_authorized,
+                tx_code
+            ) VALUES (
+                :id,
+                :scopes,
+                :expires_at,
+                :user_id,
+                :client_id,
+                :is_revoked,
+                :redirect_uri,
+                :nonce,
+                :is_pre_authorized,
+                :tx_code
+            )
+            EOS,
             $this->getTableName(),
         );
 
@@ -190,7 +213,9 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
                 client_id = :client_id,
                 is_revoked = :is_revoked,
                 redirect_uri = :redirect_uri,
-                nonce = :nonce
+                nonce = :nonce,
+                is_pre_authorized = :is_pre_authorized,
+                tx_code = :tx_code
             WHERE id = :id
 EOS
             ,
@@ -214,8 +239,10 @@ EOS
     protected function preparePdoState(array $state): array
     {
         $isRevoked = (bool)($state['is_revoked'] ?? true);
+        $isPreAuthorized = (bool)($state['is_pre_authorized'] ?? false);
 
         $state['is_revoked'] = [$isRevoked, PDO::PARAM_BOOL];
+        $state['is_pre_authorized'] = [$isPreAuthorized, PDO::PARAM_BOOL];
 
         return $state;
     }

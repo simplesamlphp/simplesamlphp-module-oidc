@@ -31,6 +31,8 @@ class AuthCodeEntityFactory
         ?string $redirectUri = null,
         ?string $nonce = null,
         bool $isRevoked = false,
+        bool $isPreAuthorized = false,
+        ?string $txCode = null,
     ): AuthCodeEntity {
         return new AuthCodeEntity(
             $id,
@@ -41,6 +43,8 @@ class AuthCodeEntityFactory
             $redirectUri,
             $nonce,
             $isRevoked,
+            $isPreAuthorized,
+            $txCode,
         );
     }
 
@@ -81,6 +85,8 @@ class AuthCodeEntityFactory
         $redirectUri = empty($state['redirect_uri']) ? null : (string)$state['redirect_uri'];
         $nonce = empty($state['nonce']) ? null : (string)$state['nonce'];
         $isRevoked = (bool) $state['is_revoked'];
+        $isPreAuthorized = (bool) $state['is_pre_authorized'];
+        $txCode = empty($state['tx_code']) ? null : (string)$state['tx_code'];
 
         return $this->fromData(
             $id,
@@ -91,6 +97,8 @@ class AuthCodeEntityFactory
             $redirectUri,
             $nonce,
             $isRevoked,
+            $isPreAuthorized,
+            $txCode,
         );
     }
 }
