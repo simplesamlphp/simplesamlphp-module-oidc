@@ -88,10 +88,14 @@ class EntityStatementController
                         ...(array_filter(
                             [
                                 ClaimsEnum::OrganizationName->value => $this->moduleConfig->getOrganizationName(),
+                                ClaimsEnum::DisplayName->value => $this->moduleConfig->getDisplayName(),
+                                ClaimsEnum::Description->value => $this->moduleConfig->getDescription(),
+                                ClaimsEnum::Keywords->value => $this->moduleConfig->getKeywords(),
                                 ClaimsEnum::Contacts->value => $this->moduleConfig->getContacts(),
                                 ClaimsEnum::LogoUri->value => $this->moduleConfig->getLogoUri(),
                                 ClaimsEnum::PolicyUri->value => $this->moduleConfig->getPolicyUri(),
-                                ClaimsEnum::HomepageUri->value => $this->moduleConfig->getHomepageUri(),
+                                ClaimsEnum::InformationUri->value => $this->moduleConfig->getInformationUri(),
+                                ClaimsEnum::OrganizationUri->value => $this->moduleConfig->getOrganizationUri(),
                             ],
                         )),
                         ClaimsEnum::FederationFetchEndpoint->value => $this->routes->urlFederationFetch(),
@@ -138,12 +142,12 @@ class EntityStatementController
                 if ($trustMarkEntity->getSubject() !== $this->moduleConfig->getIssuer()) {
                     throw OidcServerException::serverError(sprintf(
                         'Trust Mark %s is not intended for this entity.',
-                        $trustMarkEntity->getTrustMarkId(),
+                        $trustMarkEntity->getTrustMarkType(),
                     ));
                 }
 
                 return [
-                    ClaimsEnum::TrustMarkId->value => $trustMarkEntity->getTrustMarkId(),
+                    ClaimsEnum::TrustMarkType->value => $trustMarkEntity->getTrustMarkType(),
                     ClaimsEnum::TrustMark->value => $token,
                 ];
             }, $trustMarkTokens);
@@ -154,29 +158,29 @@ class EntityStatementController
             (!empty($dynamicTrustMarks))
         ) {
             /**
-             * @var non-empty-string $trustMarkId
+             * @var non-empty-string $trustMarkType
              * @var non-empty-string $trustMarkIssuerId
              */
-            foreach ($dynamicTrustMarks as $trustMarkId => $trustMarkIssuerId) {
+            foreach ($dynamicTrustMarks as $trustMarkType => $trustMarkIssuerId) {
                 try {
                     $trustMarkIssuerConfigurationStatement = $this->federation->entityStatementFetcher()
                         ->fromCacheOrWellKnownEndpoint($trustMarkIssuerId);
 
                     $trustMarkEntity = $this->federation->trustMarkFetcher()->fromCacheOrFederationTrustMarkEndpoint(
-                        $trustMarkId,
+                        $trustMarkType,
                         $this->moduleConfig->getIssuer(),
                         $trustMarkIssuerConfigurationStatement,
                     );
 
                     $trustMarks[] = [
-                        ClaimsEnum::TrustMarkId->value => $trustMarkId,
+                        ClaimsEnum::TrustMarkType->value => $trustMarkType,
                         ClaimsEnum::TrustMark->value => $trustMarkEntity->getToken(),
                     ];
                 } catch (\Throwable $exception) {
                     $this->loggerService->error(
                         'Error fetching Trust Mark: ' . $exception->getMessage(),
                         [
-                            'trustMarkId' => $trustMarkId,
+                            'trustMarkType' => $trustMarkType,
                             'subjectId' => $this->moduleConfig->getIssuer(),
                             'trustMarkIssuerId' => $trustMarkIssuerId,
                         ],
