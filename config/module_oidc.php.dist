@@ -375,20 +375,20 @@ $config = [
 //        'eyJ...GHg',
     ],
 
-    // (optional) Federation Trust Marks for dynamic fetching. An array of key-value pairs, where key is Trust Mark ID
-    // and value is Trust Mark Issuer ID, each representing a Trust Mark issued to this entity. Each Trust Mark ID
-    // in this array will be dynamically fetched from noted Trust Mark Issuer as necessary. If federation caching
-    // is enabled (recommended), fetched Trust Marks will also be cached until their expiry.
+    // (optional) Federation Trust Marks for dynamic fetching. An array of key-value pairs, where key is Trust Mark Type
+    // and value is Trust Mark Issuer ID, each representing a Trust Mark issued to this entity. Each Trust Mark Type
+    // in this array will be dynamically fetched from the noted Trust Mark Issuer as necessary. If federation
+    // caching is enabled (recommended), fetched Trust Marks will also be cached until their expiry.
     ModuleConfig::OPTION_FEDERATION_DYNAMIC_TRUST_MARKS => [
-//        'trust-mark-id' => 'trust-mark-issuer-id',
+//        'trust-mark-type' => 'trust-mark-issuer-id',
     ],
 
     // (optional) Federation participation limit by Trust Marks. This is an array with the following format:
     // [
     //    'trust-anchor-id' => [
     //         'limit-id' => [
-    //              'trust-mark-id',
-    //              'trust-mark-id-2',
+    //              'trust-mark-type',
+    //              'trust-mark-type-2',
     //          ],
     //     ],
     // ],
@@ -399,13 +399,13 @@ $config = [
         'https://ta.example.org/' => [
             // Entities must have (at least) one Trust Mark from the list below.
             \SimpleSAML\Module\oidc\Codebooks\LimitsEnum::OneOf->value => [
-                'trust-mark-id',
-                'trust-mark-id-2',
+                'trust-mark-type',
+                'trust-mark-type-2',
             ],
             // Entities must have all Trust Marks from the list below.
             \SimpleSAML\Module\oidc\Codebooks\LimitsEnum::AllOf->value => [
-                'trust-mark-id-3',
-                'trust-mark-id-4',
+                'trust-mark-type-3',
+                'trust-mark-type-4',
             ],
         ],
     ],
@@ -471,10 +471,21 @@ $config = [
     // Common federation entity parameters:
     // https://openid.net/specs/openid-federation-1_0.html#name-common-metadata-parameters
     ModuleConfig::OPTION_ORGANIZATION_NAME => null,
+    ModuleConfig::OPTION_DISPLAY_NAME => null,
+    ModuleConfig::OPTION_DESCRIPTION => null,
+    ModuleConfig::OPTION_KEYWORDS => [
+        // 'some-keyword',
+    ],
     ModuleConfig::OPTION_CONTACTS => [
         // 'John Doe jdoe@example.org',
     ],
     ModuleConfig::OPTION_LOGO_URI => null,
     ModuleConfig::OPTION_POLICY_URI => null,
+    ModuleConfig::OPTION_INFORMATION_URI => null,
+    ModuleConfig::OPTION_ORGANIZATION_URI => null,
+    /**
+     * @deprecated In Draft-43 of OIDFed specification, metadata claim 'homepage_uri' has been renamed to
+     * 'organization_uri'. Use 'organization_uri' instead.
+     */
     ModuleConfig::OPTION_HOMEPAGE_URI => null,
 ];

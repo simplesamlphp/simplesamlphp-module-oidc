@@ -142,14 +142,14 @@ class ConfigControllerTest extends TestCase
     {
         $this->moduleConfigMock->method('getIssuer')->willReturn('issuer-id');
         $this->moduleConfigMock->method('getFederationDynamicTrustMarks')
-            ->willReturn(['trust-mark-id' => 'trust-mark-issuer-id']);
+            ->willReturn(['trust-mark-type' => 'trust-mark-issuer-id']);
 
         $this->entityStatementFetcherMock->expects($this->once())->method('fromCacheOrWellKnownEndpoint')
             ->with('trust-mark-issuer-id');
 
         $this->trustMarkFetcherMock->expects($this->once())->method('fromCacheOrFederationTrustMarkEndpoint')
             ->with(
-                'trust-mark-id',
+                'trust-mark-type',
                 'issuer-id',
             );
 

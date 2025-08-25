@@ -491,7 +491,7 @@ msgstr ""
 msgid "Trust Anchors"
 msgstr ""
 
-msgid "Trust Mark ID"
+msgid "Trust Mark Type"
 msgstr ""
 
 msgid ""
