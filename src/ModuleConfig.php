@@ -108,6 +108,7 @@ class ModuleConfig
     final public const OPTION_DEFAULT_USERS_EMAIL_ATTRIBUTE_NAME = 'users_email_attribute_name';
     final public const OPTION_AUTH_SOURCES_TO_USERS_EMAIL_ATTRIBUTE_NAME_MAP =
     'auth_sources_to_users_email_attribute_name_map';
+    final public const OPTION_ISSUER_STATE_TTL = 'issuer_state_ttl';
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
@@ -990,5 +991,24 @@ class ModuleConfig
     public function getDefaultUsersEmailAttributeName(): string
     {
         return $this->config()->getOptionalString(self::OPTION_DEFAULT_USERS_EMAIL_ATTRIBUTE_NAME, 'mail');
+    }
+
+    /**
+     * Get Issuer State Duration (TTL) if set. If not set, it will fall back to Authorization Code Duration.
+     *
+     * @return DateInterval
+     * @throws \Exception
+     */
+    public function getIssuerStateDuration(): DateInterval
+    {
+        $issuerStateDuration = $this->config()->getOptionalString(self::OPTION_ISSUER_STATE_TTL, null);
+
+        if (is_null($issuerStateDuration)) {
+            return $this->getAuthCodeDuration();
+        }
+
+        return new DateInterval(
+            $this->config()->getString(self::OPTION_ISSUER_STATE_TTL),
+        );
     }
 }

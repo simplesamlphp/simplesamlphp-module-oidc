@@ -22,6 +22,7 @@ use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
@@ -167,6 +168,11 @@ class DatabaseMigration
         if (!in_array('20250818163000', $versions, true)) {
             $this->version20250818163000();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20250818163000')");
+        }
+
+        if (!in_array('20250908163000', $versions, true)) {
+            $this->version20250908163000();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20250908163000')");
         }
     }
 
@@ -543,6 +549,20 @@ EOT
         ALTER TABLE {$authCodeTableName}
             ADD is_pre_authorized BOOLEAN NOT NULL DEFAULT false,
             ADD tx_code VARCHAR(191) NULL
+EOT
+            ,);
+    }
+
+    private function version20250908163000(): void
+    {
+        $issuerStateTableName = $this->database->applyPrefix(IssuerStateRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        CREATE TABLE $issuerStateTableName (
+            value CHAR(64) NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            is_revoked BOOLEAN NOT NULL DEFAULT false
+        )
 EOT
             ,);
     }

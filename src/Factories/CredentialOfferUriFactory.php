@@ -13,6 +13,7 @@ use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
+use SimpleSAML\Module\oidc\Factories\Entities\IssuerStateEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
@@ -21,6 +22,7 @@ use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
+use SimpleSAML\OpenID\Exceptions\OpenIdException;
 use SimpleSAML\OpenID\VerifiableCredentials;
 use SimpleSAML\OpenID\VerifiableCredentials\TxCode;
 
@@ -38,7 +40,57 @@ class CredentialOfferUriFactory
         protected readonly UserRepository $userRepository,
         protected readonly UserEntityFactory $userEntityFactory,
         protected readonly EmailFactory $emailFactory,
+        protected readonly IssuerStateEntityFactory $issuerStateEntityFactory,
     ) {
+    }
+
+    /**
+     * @param string[] $credentialConfigurationIds
+     * @throws \SimpleSAML\OpenId\Exceptions\OpenIdException
+     */
+    public function buildForAuthorization(
+        array $credentialConfigurationIds,
+    ): string {
+
+        $issuerState = null;
+
+        $issuerStateGenerationAttempts = 3;
+        while ($issuerStateGenerationAttempts > 0) {
+            $newIssuerState = $this->issuerStateEntityFactory->buildNew();
+            if ($this->authCodeRepository->findById($newIssuerState->getValue()) === null) {
+                $issuerState = $newIssuerState;
+                break;
+            }
+            $issuerStateGenerationAttempts--;
+        }
+
+        if ($issuerState === null) {
+            throw new OpenIdException('Failed to generate issuer state.');
+        }
+
+
+        $credentialOffer = $this->verifiableCredentials->credentialOfferFactory()->from(
+            parameters: [
+                ClaimsEnum::CredentialIssuer->value => $this->moduleConfig->getIssuer(),
+                ClaimsEnum::CredentialConfigurationIds->value => [
+                    ...$credentialConfigurationIds,
+                ],
+                ClaimsEnum::Grants->value => [
+                    GrantTypesEnum::AuthorizationCode->value => [
+                        ClaimsEnum::IssuerState->value => $issuerState->getValue(),
+                    ],
+                ],
+            ],
+        );
+
+        $credentialOfferValue = $credentialOffer->jsonSerialize();
+        $parameterName = ParametersEnum::CredentialOfferUri->value;
+        if (is_array($credentialOfferValue)) {
+            $parameterName = ParametersEnum::CredentialOffer->value;
+            $credentialOfferValue = json_encode($credentialOfferValue);
+        }
+
+        return "openid-credential-offer://?$parameterName=$credentialOfferValue";
     }
 
     /**
@@ -119,8 +171,9 @@ class CredentialOfferUriFactory
         $authCodeId = null;
         $authCodeIdGenerationAttempts = 3;
         while ($authCodeIdGenerationAttempts > 0) {
-            $authCodeId = $this->sspBridge->utils()->random()->generateID();
-            if ($this->authCodeRepository->findById($authCodeId) === null) {
+            $newAuthCodeId = $this->sspBridge->utils()->random()->generateID();
+            if ($this->authCodeRepository->findById($newAuthCodeId) === null) {
+                $authCodeId = $newAuthCodeId;
                 break;
             }
             $authCodeIdGenerationAttempts--;

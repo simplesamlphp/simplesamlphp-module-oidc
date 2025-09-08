@@ -823,4 +823,9 @@ $config = [
 //            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::VciCredentialOffer, // Gives access to the credential offer endpoint.
 //        ],
     ],
+
+    // (optional) Issuer State TTL (validity duration), with the given example. If not set, falls back to
+    // Authorization Code TTL. For duration format info, check
+    // https://www.php.net/manual/en/dateinterval.construct.php
+    ModuleConfig::OPTION_ISSUER_STATE_TTL => 'PT10M', // 10 minutes
 ];

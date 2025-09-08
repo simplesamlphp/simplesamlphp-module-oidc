@@ -18,6 +18,7 @@ use SimpleSAML\Logger;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
+use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\Container;
@@ -63,6 +64,10 @@ function oidc_hook_cron(array &$croninfo): void
         /** @var \SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository $refreshTokenRepository */
         $refreshTokenRepository = $container->get(RefreshTokenRepository::class);
         $refreshTokenRepository->removeExpired();
+
+        /** @var \SimpleSAML\Module\oidc\Repositories\IssuerStateRepository $issuerStateRepository */
+        $issuerStateRepository = $container->get(IssuerStateRepository::class);
+        $issuerStateRepository->removeInvalid();
 
         $croninfo['summary'][] = 'Module `oidc` clean up. Removed expired entries from storage.';
     } catch (Exception $e) {
