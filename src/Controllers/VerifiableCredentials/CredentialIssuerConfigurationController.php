@@ -41,9 +41,20 @@ class CredentialIssuerConfigurationController
         $signer = $this->moduleConfig->getProtocolSigner();
 
         $credentialConfigurationsSupported = $this->moduleConfig->getCredentialConfigurationsSupported();
-        $credentialConfigurationsSupported[ClaimsEnum::CredentialSigningAlgValuesSupported->value] = [
-            $signer->algorithmId(),
-        ];
+
+        // For now, we only support one credential signing algorithm.
+        foreach ($credentialConfigurationsSupported as $credentialConfigurationId => $credentialConfiguration) {
+            // Draft 17
+            $credentialConfiguration[ClaimsEnum::CredentialSigningAlgValuesSupported->value] = [
+                $signer->algorithmId(),
+            ];
+            // Earlier drafts
+            // TODO mivanci Delete CryptographicSuitesSupported once we are on the final draft.
+            $credentialConfiguration[ClaimsEnum::CryptographicSuitesSupported->value] = [
+                $signer->algorithmId(),
+            ];
+            $credentialConfigurationsSupported[$credentialConfigurationId] = $credentialConfiguration;
+        }
 
         $configuration = [
             ClaimsEnum::CredentialIssuer->value => $this->moduleConfig->getIssuer(),
