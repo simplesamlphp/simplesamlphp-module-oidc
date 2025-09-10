@@ -562,7 +562,7 @@ EOT
         $issuerStateTableName = $this->database->applyPrefix(IssuerStateRepository::TABLE_NAME);
         $this->database->write(<<< EOT
         CREATE TABLE $issuerStateTableName (
-            value CHAR(64) NOT NULL,
+            value CHAR(64) PRIMARY KEY NOT NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             is_revoked BOOLEAN NOT NULL DEFAULT false

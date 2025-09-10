@@ -157,8 +157,8 @@ class VerifiableCredentailsTestController
         $defaultUsersEmailAttributeName = $this->moduleConfig->getDefaultUsersEmailAttributeName();
 
         $grantTypesSupported = [
-            GrantTypesEnum::AuthorizationCode->value => Translate::noop('Authorization Code'),
             GrantTypesEnum::PreAuthorizedCode->value => Translate::noop('Pre-authorized Code'),
+            GrantTypesEnum::AuthorizationCode->value => Translate::noop('Authorization Code'),
         ];
 
         return $this->templateFactory->build(

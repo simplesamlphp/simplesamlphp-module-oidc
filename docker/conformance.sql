@@ -56,17 +56,17 @@ CREATE TABLE oidc_access_token (
             id VARCHAR(191) PRIMARY KEY NOT NULL,
             scopes TEXT,
             expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            user_id VARCHAR(191) NOT NULL,                          
+            user_id VARCHAR(191) NOT NULL,
             client_id VARCHAR(191) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
             auth_code_id varchar(191) DEFAULT NULL, requested_claims TEXT NULL,
-            CONSTRAINT FK_43C1650EA76ED395 FOREIGN KEY (user_id) 
-                REFERENCES oidc_user (id) ON DELETE CASCADE,                                 
-            CONSTRAINT FK_43C1650E19EB6921 FOREIGN KEY (client_id) 
-                REFERENCES oidc_client (id) ON DELETE CASCADE                                
+            CONSTRAINT FK_43C1650EA76ED395 FOREIGN KEY (user_id)
+                REFERENCES oidc_user (id) ON DELETE CASCADE,
+            CONSTRAINT FK_43C1650E19EB6921 FOREIGN KEY (client_id)
+                REFERENCES oidc_client (id) ON DELETE CASCADE
         );
 CREATE TABLE oidc_refresh_token (
-            id VARCHAR(191) PRIMARY KEY NOT NULL,          
+            id VARCHAR(191) PRIMARY KEY NOT NULL,
             expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             access_token_id VARCHAR(191) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
@@ -78,14 +78,16 @@ CREATE TABLE oidc_auth_code (
             id VARCHAR(191) PRIMARY KEY NOT NULL,
             scopes TEXT,
             expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            user_id VARCHAR(191) NOT NULL,                          
+            user_id VARCHAR(191) NOT NULL,
             client_id VARCHAR(191) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
             redirect_uri TEXT NOT NULL, nonce TEXT NULL,
+            is_pre_authorized BOOLEAN NOT NULL DEFAULT false,
+            tx_code varchar(191) DEFAULT NULL,
             CONSTRAINT FK_97D32CA7A76ED395 FOREIGN KEY (user_id)
-                REFERENCES oidc_user (id) ON DELETE CASCADE,                                 
+                REFERENCES oidc_user (id) ON DELETE CASCADE,
             CONSTRAINT FK_97D32CA719EB6921 FOREIGN KEY (client_id)
-                REFERENCES oidc_client (id) ON DELETE CASCADE                                            
+                REFERENCES oidc_client (id) ON DELETE CASCADE
         );
 CREATE TABLE oidc_allowed_origin (
             client_id varchar(191) NOT NULL,
@@ -97,5 +99,11 @@ CREATE TABLE oidc_allowed_origin (
 CREATE TABLE oidc_session_logout_ticket (
            sid VARCHAR(191) NOT NULL,
            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE oidc_vci_issuer_state (
+    value CHAR(64) PRIMARY KEY NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    is_revoked BOOLEAN NOT NULL DEFAULT false
 );
 COMMIT;
