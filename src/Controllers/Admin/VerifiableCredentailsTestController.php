@@ -5,17 +5,17 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Controllers\Admin;
 
 use SimpleSAML\Auth\Simple;
+use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Admin\Authorization;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Factories\CredentialOfferUriFactory;
-use SimpleSAML\Module\oidc\Factories\EmailFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -25,8 +25,6 @@ class VerifiableCredentailsTestController
         protected readonly ModuleConfig $moduleConfig,
         protected readonly TemplateFactory $templateFactory,
         protected readonly Authorization $authorization,
-        protected readonly LoggerService $loggerService,
-        protected readonly EmailFactory $emailFactory,
         protected readonly AuthSimpleFactory $authSimpleFactory,
         protected readonly SessionService $sessionService,
         protected readonly SspBridge $sspBridge,
@@ -40,6 +38,7 @@ class VerifiableCredentailsTestController
      * @throws \SimpleSAML\Error\ConfigurationError
      * @throws \SimpleSAML\OpenID\Exceptions\InvalidValueException
      * @throws \SimpleSAML\OpenID\Exceptions\CredentialOfferException
+     * @psalm-suppress MixedAssignment, InternalMethod
      */
     public function verifiableCredentialIssuance(Request $request): Response
     {
@@ -85,11 +84,13 @@ class VerifiableCredentailsTestController
             $authSource->login(['ReturnTo' => $this->routes->urlAdminTestVerifiableCredentialIssuance()]);
         }
 
+        /** @psalm-suppress MixedAssignment */
         $selectedCredentialConfigurationId = $this->sessionService->getCurrentSession()->getData(
             'vci',
             'credential_configuration_id',
         );
 
+        /** @psalm-suppress MixedAssignment, InternalMethod */
         if (is_string($newCredentialConfigurationId = $request->get('credentialConfigurationId'))) {
             $this->sessionService->getCurrentSession()->setData(
                 'vci',
@@ -114,7 +115,11 @@ class VerifiableCredentailsTestController
 
         $credentialOfferQrUri = null;
         $credentialOfferUri = null;
+        /** @psalm-suppress MixedAssignment, InternalMethod */
+        $grantType = $request->get('grantType');
+        /** @psalm-suppress InternalMethod */
         $useTxCode = (bool) $request->get('useTxCode');
+        /** @psalm-suppress MixedAssignment, InternalMethod */
         $usersEmailAttributeName = $request->get('usersEmailAttributeName');
         $usersEmailAttributeName = is_string($usersEmailAttributeName) && (trim($usersEmailAttributeName) !== '') ?
         trim($usersEmailAttributeName) :
@@ -129,12 +134,18 @@ class VerifiableCredentailsTestController
                 $authSource->getAuthSource()->getAuthId(),
             );
 
-            $credentialOfferUri = $this->credentialOfferUriFactory->buildPreAuthorized(
-                [$selectedCredentialConfigurationId],
-                $userAttributes,
-                $useTxCode,
-                $usersEmailAttributeName,
-            );
+            if ($grantType === GrantTypesEnum::PreAuthorizedCode->value) {
+                $credentialOfferUri = $this->credentialOfferUriFactory->buildPreAuthorized(
+                    [$selectedCredentialConfigurationId],
+                    $userAttributes,
+                    $useTxCode,
+                    $usersEmailAttributeName,
+                );
+            } else {
+                $credentialOfferUri = $this->credentialOfferUriFactory->buildForAuthorization(
+                    [$selectedCredentialConfigurationId],
+                );
+            }
 
             // TODO mivanci Local QR code generator
             // https://quickchart.io/documentation/qr-codes/
@@ -144,6 +155,11 @@ class VerifiableCredentailsTestController
         $authSourceActionRoute = $this->routes->urlAdminTestVerifiableCredentialIssuance();
 
         $defaultUsersEmailAttributeName = $this->moduleConfig->getDefaultUsersEmailAttributeName();
+
+        $grantTypesSupported = [
+            GrantTypesEnum::AuthorizationCode->value => Translate::noop('Authorization Code'),
+            GrantTypesEnum::PreAuthorizedCode->value => Translate::noop('Pre-authorized Code'),
+        ];
 
         return $this->templateFactory->build(
             'oidc:tests/verifiable-credential-issuance.twig',
@@ -158,6 +174,7 @@ class VerifiableCredentailsTestController
                 'selectedCredentialConfigurationId',
                 'defaultUsersEmailAttributeName',
                 'usersEmailAttributeName',
+                'grantTypesSupported',
             ),
             RoutesEnum::AdminTestVerifiableCredentialIssuance->value,
         );

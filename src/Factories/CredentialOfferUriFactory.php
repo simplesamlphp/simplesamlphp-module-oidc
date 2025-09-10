@@ -18,6 +18,7 @@ use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
@@ -41,33 +42,37 @@ class CredentialOfferUriFactory
         protected readonly UserEntityFactory $userEntityFactory,
         protected readonly EmailFactory $emailFactory,
         protected readonly IssuerStateEntityFactory $issuerStateEntityFactory,
+        protected readonly IssuerStateRepository $issuerStateRepository,
     ) {
     }
 
     /**
      * @param string[] $credentialConfigurationIds
-     * @throws \SimpleSAML\OpenId\Exceptions\OpenIdException
+     * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException
      */
     public function buildForAuthorization(
         array $credentialConfigurationIds,
     ): string {
 
-        $issuerState = null;
-
         $issuerStateGenerationAttempts = 3;
-        while ($issuerStateGenerationAttempts > 0) {
-            $newIssuerState = $this->issuerStateEntityFactory->buildNew();
-            if ($this->authCodeRepository->findById($newIssuerState->getValue()) === null) {
-                $issuerState = $newIssuerState;
+        while ($issuerStateGenerationAttempts-- > 0) {
+            try {
+                $issuerState = $this->issuerStateEntityFactory->buildNew();
+                $this->issuerStateRepository->persist($issuerState);
                 break;
+            } catch (\Throwable $e) {
+                if ($issuerStateGenerationAttempts === 0) {
+                    $this->loggerService->error(
+                        'All attempts to generate Issuer State failed: ' . $e->getMessage(),
+                    );
+                    throw new OpenIdException('Failed to generate issuer state.', previous: $e);
+                }
+
+                $this->loggerService->warning('Failed to generate Issuer State: ' . $e->getMessage());
             }
-            $issuerStateGenerationAttempts--;
         }
 
-        if ($issuerState === null) {
-            throw new OpenIdException('Failed to generate issuer state.');
-        }
-
+        /** @psalm-var \SimpleSAML\Module\oidc\Entities\IssuerStateEntity $issuerState */
 
         $credentialOffer = $this->verifiableCredentials->credentialOfferFactory()->from(
             parameters: [
@@ -95,7 +100,7 @@ class CredentialOfferUriFactory
 
     /**
      * @param string[] $credentialConfigurationIds
-     * @throws \SimpleSAML\OpenId\Exceptions\OpenIdException
+     * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException
      */
     public function buildPreAuthorized(
         array $credentialConfigurationIds,
@@ -136,10 +141,16 @@ class CredentialOfferUriFactory
 
         $userId = null;
         try {
+            /** @psalm-suppress MixedAssignment */
             $userId = $this->sspBridge->utils()->attributes()->getExpectedAttribute(
                 $userAttributes,
                 $this->moduleConfig->getUserIdentifierAttribute(),
             );
+
+            if (!is_scalar($userId)) {
+                throw new RuntimeException('User identifier attribute value is not a string.');
+            }
+            $userId = strval($userId);
         } catch (\Throwable $e) {
             $this->loggerService->warning(
                 'Could not extract user identifier from user attributes: ' . $e->getMessage(),
@@ -168,21 +179,6 @@ class CredentialOfferUriFactory
             $this->userRepository->add($userEntity);
         }
 
-        $authCodeId = null;
-        $authCodeIdGenerationAttempts = 3;
-        while ($authCodeIdGenerationAttempts > 0) {
-            $newAuthCodeId = $this->sspBridge->utils()->random()->generateID();
-            if ($this->authCodeRepository->findById($newAuthCodeId) === null) {
-                $authCodeId = $newAuthCodeId;
-                break;
-            }
-            $authCodeIdGenerationAttempts--;
-        }
-
-        if ($authCodeId === null) {
-            throw new RuntimeException('Failed to generate Authorization Code ID.');
-        }
-
         $txCode = null;
         $userEmail = null;
         $userEmailAttributeName ??= $this->moduleConfig->getDefaultUsersEmailAttributeName();
@@ -196,17 +192,34 @@ class CredentialOfferUriFactory
             );
         }
 
-        $authCode = $this->authCodeEntityFactory->fromData(
-            id: $authCodeId,
-            client: $client,
-            scopes: $scopes,
-            expiryDateTime: (new DateTimeImmutable())->add($this->moduleConfig->getAuthCodeDuration()),
-            userIdentifier: $userId,
-            redirectUri: 'openid-credential-offer://',
-            isPreAuthorized: true,
-            txCode: $txCode instanceof VerifiableCredentials\TxCode ? $txCode->getCodeAsString() : null,
-        );
-        $this->authCodeRepository->persistNewAuthCode($authCode);
+        $authCodeIdGenerationAttempts = 3;
+        while ($authCodeIdGenerationAttempts-- > 0) {
+            try {
+                $authCode = $this->authCodeEntityFactory->fromData(
+                    id: $this->sspBridge->utils()->random()->generateID(),
+                    client: $client,
+                    scopes: $scopes,
+                    expiryDateTime: (new DateTimeImmutable())->add($this->moduleConfig->getAuthCodeDuration()),
+                    userIdentifier: $userId,
+                    redirectUri: 'openid-credential-offer://',
+                    isPreAuthorized: true,
+                    txCode: $txCode instanceof VerifiableCredentials\TxCode ? $txCode->getCodeAsString() : null,
+                );
+                $this->authCodeRepository->persistNewAuthCode($authCode);
+                break;
+            } catch (\Throwable $e) {
+                if ($authCodeIdGenerationAttempts === 0) {
+                    $this->loggerService->error(
+                        'All attempts to generate Authorization Code failed: ' . $e->getMessage(),
+                    );
+                    throw new OpenIdException('Failed to generate Authorization Code.', previous: $e);
+                }
+
+                $this->loggerService->warning('Failed to generate Authorization Code ID: ' . $e->getMessage());
+            }
+        }
+
+        /** @psalm-var \SimpleSAML\Module\oidc\Entities\AuthCodeEntity $authCode */
 
         $credentialOffer = $this->verifiableCredentials->credentialOfferFactory()->from(
             parameters: [
@@ -278,9 +291,6 @@ class CredentialOfferUriFactory
         );
     }
 
-    /**
-     * @throws OidcException
-     */
     public function sendTxCodeByEmail(TxCode $txCode, string $email, string $subject = null): void
     {
         $subject ??= 'Your one-time code';

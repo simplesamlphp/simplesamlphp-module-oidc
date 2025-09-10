@@ -73,11 +73,12 @@ class AuthorizationServerFactory
             $this->moduleConfig->getAccessTokenDuration(),
         );
 
-        // TODO mivanci Only enable if VCI is enabled.
-        $authorizationServer->enableGrantType(
-            $this->preAuthCodeGrant,
-            $this->moduleConfig->getAccessTokenDuration(),
-        );
+        if ($this->moduleConfig->getVerifiableCredentialEnabled()) {
+            $authorizationServer->enableGrantType(
+                $this->preAuthCodeGrant,
+                $this->moduleConfig->getAccessTokenDuration(),
+            );
+        }
 
         return $authorizationServer;
     }

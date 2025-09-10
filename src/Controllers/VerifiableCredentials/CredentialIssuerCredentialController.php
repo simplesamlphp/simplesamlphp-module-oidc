@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Controllers\VerifiableCredentials;
 use Base64Url\Base64Url;
 use League\OAuth2\Server\ResourceServer;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
+use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
@@ -23,6 +24,7 @@ use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\JwtTypesEnum;
 use SimpleSAML\OpenID\Did;
 use SimpleSAML\OpenID\Exceptions\OpenId4VciProofException;
+use SimpleSAML\OpenID\Exceptions\OpenIdException;
 use SimpleSAML\OpenID\Jwk;
 use SimpleSAML\OpenID\VerifiableCredentials;
 use SimpleSAML\OpenID\VerifiableCredentials\OpenId4VciProof;
@@ -62,6 +64,7 @@ class CredentialIssuerCredentialController
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      * @throws \ReflectionException
+     * @throws OpenIdException
      */
     public function credential(Request $request): Response
     {
@@ -77,7 +80,18 @@ class CredentialIssuerCredentialController
         );
 
         // TODO mivanci validate access token
-        $accessToken = $this->accessTokenRepository->findById($authorization->getAttribute('oauth_access_token_id'));
+        $accessToken = $this->accessTokenRepository->findById(
+            (string)$authorization->getAttribute('oauth_access_token_id'),
+        );
+
+        if (! $accessToken instanceof AccessTokenEntity) {
+            return $this->routes->newJsonErrorResponse(
+                'invalid_token',
+                'Access token not found.',
+                401,
+            );
+        }
+
         if ($accessToken->isRevoked()) {
             return $this->routes->newJsonErrorResponse(
                 'invalid_token',
@@ -90,7 +104,7 @@ class CredentialIssuerCredentialController
 
         $credentialFormatId = $requestData[ClaimsEnum::Format->value] ?? null;
 
-        if (is_null($credentialFormatId)) {
+        if (!is_string($credentialFormatId)) {
             throw OidcServerException::serverError('Credential format missing in request.');
         }
 
@@ -111,6 +125,7 @@ class CredentialIssuerCredentialController
 
         $credentialConfigurationId = $requestData[ClaimsEnum::CredentialConfigurationId->value] ?? null;
 
+        /** @psalm-suppress MixedAssignment */
         if (is_null($credentialConfigurationId)) {
             // TODO mivanci Update this to newest draft.
             // Check per draft 14 (Sphereon wallet case).
@@ -133,7 +148,7 @@ class CredentialIssuerCredentialController
             }
         }
 
-        if (is_null($credentialConfigurationId)) {
+        if (!is_string($credentialConfigurationId)) {
             return $this->routes->newJsonErrorResponse(
                 'invalid_credential_request',
                 'Can not resolve credential configuration ID.',
@@ -148,6 +163,9 @@ class CredentialIssuerCredentialController
         }
 
         $userId = $accessToken->getUserIdentifier();
+        if (!is_string($userId)) {
+            throw OidcServerException::invalidRequest('User identifier not available in Access Token.');
+        }
         $userEntity = $this->userRepository->getUserEntityByIdentifier($userId);
         if ($userEntity === null) {
             throw OidcServerException::invalidRequest('User not found.');
@@ -159,12 +177,13 @@ class CredentialIssuerCredentialController
         $proof = null;
         // Validate proof, if provided.
         // TODO mivanci consider making proof mandatory (in issuer metadata).
+        /** @psalm-suppress MixedAssignment */
         if (
             isset($requestData['proof']['proof_type']) &&
             isset($requestData['proof']['jwt']) &&
-            $requestData['proof']['proof_type'] === 'jwt'
+            $requestData['proof']['proof_type'] === 'jwt' &&
+            is_string($proofJwt = $requestData['proof']['jwt'])
         ) {
-            $proofJwt = $requestData['proof']['jwt'];
             $this->loggerService->debug('Verifying proof JWT: ' . $proofJwt);
 
             try {
@@ -239,8 +258,30 @@ class CredentialIssuerCredentialController
             $credentialConfigurationId,
         );
         foreach ($attributeToCredentialClaimPathMap as $mapEntry) {
+            if (!is_array($mapEntry)) {
+                $this->loggerService->warning(
+                    sprintf(
+                        'Attribute to credential claim path map entry is not an array. Value was: %s',
+                        var_export($mapEntry, true),
+                    ),
+                );
+                continue;
+            }
+
             $userAttributeName = key($mapEntry);
+            /** @psalm-suppress MixedAssignment */
             $credentialClaimPath = current($mapEntry);
+            if (!is_array($credentialClaimPath)) {
+                $this->loggerService->warning(
+                    sprintf(
+                        'Credential claim path for user attribute name %s is not an array. Value was: %s',
+                        $userAttributeName,
+                        var_export($credentialClaimPath, true),
+                    ),
+                );
+                continue;
+            }
+            $credentialClaimPath = array_filter($credentialClaimPath, 'is_string');
             if (!in_array($credentialClaimPath, $validClaimPaths)) {
                 $this->loggerService->warning(
                     'Attribute "%s" does not use one of valid credential claim paths.',
@@ -258,6 +299,7 @@ class CredentialIssuerCredentialController
             }
 
             // Normalize to string for single array values.
+            /** @psalm-suppress MixedAssignment */
             $attributeValue = is_array($userAttributes[$userAttributeName]) &&
             count($userAttributes[$userAttributeName]) === 1 ?
             reset($userAttributes[$userAttributeName]) :
@@ -285,10 +327,11 @@ class CredentialIssuerCredentialController
                     continue;
                 }
 
+                /** @psalm-suppress ArgumentTypeCoercion */
                 $disclosure = $this->verifiableCredentials->disclosureFactory()->build(
                     value: $attributeValue,
                     name: $claimName,
-                    path: is_array($credentialClaimPath) ? $credentialClaimPath : [],
+                    path: $credentialClaimPath,
                     saltBlacklist: $disclosureBag->salts(),
                 );
 
@@ -389,6 +432,10 @@ class CredentialIssuerCredentialController
             );
         }
 
+        if ($verifiableCredential === null) {
+            throw new OpenIdException('Invalid credential format ID.');
+        }
+
         $this->loggerService->debug('response', [
             'credentials' => [
                 ['credential' => $verifiableCredential->getToken()],
@@ -407,15 +454,22 @@ class CredentialIssuerCredentialController
 
     /**
      * Helper method to set a claim value at a path. Supports creating nested arrays dynamically.
+     * @psalm-suppress UnusedVariable, MixedAssignment
+     * @param array-key[] $path
      */
     protected function setCredentialClaimValue(array &$claims, array $path, mixed $value): void
     {
         $temp = &$claims;
 
         foreach ($path as $key) {
+            if (!is_array($temp)) {
+                $temp = [];
+            }
+
             if (!isset($temp[$key])) {
                 $temp[$key] = [];
             }
+
             $temp = &$temp[$key];
         }
 

@@ -4,22 +4,14 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers\Api;
 
-use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
 use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
 use SimpleSAML\Module\oidc\Factories\CredentialOfferUriFactory;
-use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
-use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
-use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
-use SimpleSAML\Module\oidc\Repositories\ClientRepository;
-use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\Api\Authorization;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Routes;
-use SimpleSAML\OpenID\VerifiableCredentials;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -31,15 +23,7 @@ class VciCredentialOfferController
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
         protected readonly Authorization $authorization,
-        protected readonly VerifiableCredentials $verifiableCredentials,
-        protected readonly ClientEntityFactory $clientEntityFactory,
-        protected readonly ClientRepository $clientRepository,
-        protected readonly SspBridge $sspBridge,
         protected readonly LoggerService $loggerService,
-        protected readonly UserRepository $userRepository,
-        protected readonly UserEntityFactory $userEntityFactory,
-        protected readonly AuthCodeRepository $authCodeRepository,
-        protected readonly AuthCodeEntityFactory $authCodeEntityFactory,
         protected readonly Routes $routes,
         protected readonly CredentialOfferUriFactory $credentialOfferUriFactory,
     ) {
@@ -52,6 +36,7 @@ class VciCredentialOfferController
      */
     public function credentialOffer(Request $request): Response
     {
+        $this->loggerService->debug('VCI credential offer request data: ', $request->getPayload()->all());
         try {
             $this->authorization->requireTokenForAnyOfScope(
                 $request,
@@ -66,7 +51,9 @@ class VciCredentialOfferController
         }
 
         $input = $request->getPayload()->all();
+        /** @psalm-suppress MixedAssignment */
         $userAttributes = $input['user_attributes'] ?? [];
+        $userAttributes = is_array($userAttributes) ? $userAttributes : [];
 
         $selectedCredentialConfigurationId = $input['credential_configuration_id'] ?? null;
 
@@ -79,8 +66,10 @@ class VciCredentialOfferController
         }
 
         $useTxCode = boolval($input['use_tx_code'] ?? false);
+        /** @psalm-suppress MixedAssignment */
         $usersEmailAttributeName = $input['users_email_attribute_name'] ?? null;
         $usersEmailAttributeName = is_string($usersEmailAttributeName) ? $usersEmailAttributeName : null;
+        /** @psalm-suppress MixedAssignment */
         $authenticationSourceId = $input['authentication_source_id'] ?? null;
         $authenticationSourceId = is_string($authenticationSourceId) ? $authenticationSourceId : null;
 

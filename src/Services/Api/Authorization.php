@@ -76,6 +76,7 @@ class Authorization
 
     protected function findToken(Request $request): ?string
     {
+        /** @psalm-suppress InternalMethod */
         if ($token = trim((string) $request->get(self::KEY_TOKEN))) {
             return $token;
         }

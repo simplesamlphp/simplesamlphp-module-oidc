@@ -154,7 +154,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
 
         // Validate Transaction Code.
         if (($preAuthorizedCodeTxCode = $preAuthorizedCode->getTxCode()) !== null) {
-            $this->loggerService->debug('Validating transaction code ' . $preAuthorizedCode->getTxCode());
+            $this->loggerService->debug('Validating transaction code ' . $preAuthorizedCodeTxCode);
             $txCodeParam = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
                 ParamsEnum::TxCode->value,
                 $request,
@@ -185,6 +185,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
         );
 
         if (!empty($authorizationDetailsParam)) {
+            /** @psalm-suppress MixedAssignment */
             $authorizationDetails = json_decode($authorizationDetailsParam, true, 512, JSON_THROW_ON_ERROR);
         }
 

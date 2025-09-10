@@ -547,8 +547,12 @@ EOT
         $authCodeTableName = $this->database->applyPrefix(AuthCodeRepository::TABLE_NAME);
         $this->database->write(<<< EOT
         ALTER TABLE {$authCodeTableName}
-            ADD is_pre_authorized BOOLEAN NOT NULL DEFAULT false,
-            ADD tx_code VARCHAR(191) NULL
+            ADD is_pre_authorized BOOLEAN NOT NULL DEFAULT false;
+EOT
+            ,);
+        $this->database->write(<<< EOT
+        ALTER TABLE {$authCodeTableName}
+            ADD tx_code VARCHAR(191) NULL;
 EOT
             ,);
     }

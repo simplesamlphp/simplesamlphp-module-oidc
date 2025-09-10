@@ -676,7 +676,7 @@ $config = [
 
         // Sample for 'dc+sd-jwt' format without notes about required and optional fields.
         'ResearchAndScholarshipCredentialDcSdJwt' => [
-            ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::JwtVcJson->value,
+            ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::DcSdJwt->value,
             ClaimsEnum::Scope->value => 'ResearchAndScholarshipCredentialDcSdJwt',
             ClaimsEnum::Display->value => [
                 [

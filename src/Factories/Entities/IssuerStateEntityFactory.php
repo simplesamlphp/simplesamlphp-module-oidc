@@ -7,7 +7,6 @@ namespace SimpleSAML\Module\oidc\Factories\Entities;
 use DateTimeImmutable;
 use SimpleSAML\Module\oidc\Entities\IssuerStateEntity;
 use SimpleSAML\Module\oidc\Helpers;
-use SimpleSAML\Module\oidc\Helpers\Random;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\OpenID\Exceptions\OpenIdException;
 
@@ -15,14 +14,13 @@ class IssuerStateEntityFactory
 {
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
-        protected readonly Random $random,
         protected readonly Helpers $helpers,
     ) {
     }
 
     /**
-     * @throws OpenIdException
-     * @throws OidcServerException
+     * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \Exception
      */
     public function buildNew(

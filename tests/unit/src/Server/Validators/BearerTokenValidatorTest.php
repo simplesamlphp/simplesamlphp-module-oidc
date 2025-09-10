@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\Validators;
 
 use Laminas\Diactoros\ServerRequest;
 use Laminas\Diactoros\StreamFactory;
+use Lcobucci\JWT\Signer\Rsa\Sha256;
 use League\OAuth2\Server\CryptKey;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -15,6 +16,7 @@ use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
@@ -41,6 +43,7 @@ class BearerTokenValidatorTest extends TestCase
     protected static ClientEntityInterface $clientEntity;
     protected ServerRequestInterface $serverRequest;
     protected MockObject $publicKeyMock;
+    protected MockObject $moduleConfigMock;
 
     /**
      * @throws \Exception
@@ -49,7 +52,13 @@ class BearerTokenValidatorTest extends TestCase
     {
         $this->accessTokenRepositoryMock = $this->createMock(AccessTokenRepository::class);
         $this->serverRequest = new ServerRequest();
-        $this->bearerTokenValidator = new BearerTokenValidator($this->accessTokenRepositoryMock, self::$publicCryptKey);
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->moduleConfigMock->method('getProtocolSigner')->willReturn(new Sha256());
+        $this->bearerTokenValidator = new BearerTokenValidator(
+            $this->accessTokenRepositoryMock,
+            self::$publicCryptKey,
+            $this->moduleConfigMock,
+        );
     }
 
     /**
@@ -221,6 +230,7 @@ class BearerTokenValidatorTest extends TestCase
         $bearerTokenValidator = new BearerTokenValidator(
             $this->accessTokenRepositoryMock,
             self::$publicCryptKey,
+            $this->moduleConfigMock,
         );
 
         $serverRequest = $this->serverRequest->withAddedHeader('Authorization', 'Bearer ' . self::$accessToken);

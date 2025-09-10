@@ -44,6 +44,7 @@ use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
+use SimpleSAML\Module\oidc\Factories\Entities\IssuerStateEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\RefreshTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ScopeEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
@@ -66,6 +67,7 @@ use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\CodeChallengeVerifiersRepository;
+use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
@@ -329,6 +331,21 @@ class Container implements ContainerInterface
             $protocolCache,
         );
         $this->services[AllowedOriginRepository::class] = $allowedOriginRepository;
+
+        $issuerStateEntityFactory = new IssuerStateEntityFactory(
+            $moduleConfig,
+            $helpers,
+        );
+        $this->services[IssuerStateEntityFactory::class] = $issuerStateEntityFactory;
+
+        $issuerStateRepository = new IssuerStateRepository(
+            $moduleConfig,
+            $database,
+            $protocolCache,
+            $issuerStateEntityFactory,
+            $helpers,
+        );
+        $this->services[IssuerStateRepository::class] = $issuerStateRepository;
 
         $databaseMigration = new DatabaseMigration($database);
         $this->services[DatabaseMigration::class] = $databaseMigration;

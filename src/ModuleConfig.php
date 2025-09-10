@@ -357,6 +357,8 @@ class ModuleConfig
     /**
      * Get the path to the private key used in OIDC protocol.
      * @throws \Exception
+     * @return non-empty-string The file system path
+     * @psalm-suppress LessSpecificReturnStatement, MoreSpecificReturnType
      */
     public function getProtocolPrivateKeyPath(): string
     {
@@ -379,8 +381,9 @@ class ModuleConfig
 
     /**
      * Get the path to the public certificate used in OIDC protocol.
-     * @return string The file system path
+     * @return non-empty-string The file system path
      * @throws \Exception
+     * @psalm-suppress LessSpecificReturnStatement, MoreSpecificReturnType
      */
     public function getProtocolCertPath(): string
     {
@@ -861,7 +864,7 @@ class ModuleConfig
 
     public function getCredentialConfigurationsSupported(): array
     {
-        return $this->config()->getOptionalArray(self::OPTION_CREDENTIAL_CONFIGURATIONS_SUPPORTED, []) ?? [];
+        return $this->config()->getOptionalArray(self::OPTION_CREDENTIAL_CONFIGURATIONS_SUPPORTED, []);
     }
 
     /**
@@ -890,9 +893,15 @@ class ModuleConfig
         return $credentialConfiguration;
     }
 
+    /**
+     * @return array<string>
+     */
     public function getCredentialConfigurationIdsSupported(): array
     {
-        return array_keys($this->getCredentialConfigurationsSupported());
+        return array_map(
+            'strval',
+            array_keys($this->getCredentialConfigurationsSupported()),
+        );
     }
 
     public function getCredentialConfigurationIdForCredentialDefinitionType(array $credentialDefinitionType): ?string
@@ -900,11 +909,21 @@ class ModuleConfig
         foreach (
             $this->getCredentialConfigurationsSupported() as $credentialConfigurationId => $credentialConfiguration
         ) {
-            $configuredType =
-            $credentialConfiguration[ClaimsEnum::CredentialDefinition->value][ClaimsEnum::Type->value];
+            if (!is_array($credentialConfiguration)) {
+                continue;
+            }
+
+            $credentialDefinition = $credentialConfiguration[ClaimsEnum::CredentialDefinition->value] ?? null;
+
+            if (!is_array($credentialDefinition)) {
+                continue;
+            }
+
+            /** @psalm-suppress MixedAssignment */
+            $configuredType = $credentialDefinition[ClaimsEnum::Type->value] ?? null;
 
             if ($configuredType === $credentialDefinitionType) {
-                return $credentialConfigurationId;
+                return (string)$credentialConfigurationId;
             }
         }
 
@@ -921,8 +940,17 @@ class ModuleConfig
         [ClaimsEnum::Claims->value] ?? [];
 
         $validPaths = [];
+
+        if (!is_array($claimsConfig)) {
+            return $validPaths;
+        }
+
+        /** @psalm-suppress MixedAssignment */
         foreach ($claimsConfig as $claim) {
-            $validPaths[] = $claim[ClaimsEnum::Path->value] ?? null;
+            if (is_array($claim)) {
+                /** @psalm-suppress MixedAssignment */
+                $validPaths[] = $claim[ClaimsEnum::Path->value] ?? null;
+            }
         }
 
         return array_filter($validPaths);
@@ -930,12 +958,19 @@ class ModuleConfig
 
     public function getUserAttributeToCredentialClaimPathMap(): array
     {
-        return $this->config()->getOptionalArray(self::OPTION_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP, []) ?? [];
+        return $this->config()->getOptionalArray(self::OPTION_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP, []);
     }
 
     public function getUserAttributeToCredentialClaimPathMapFor(string $credentialConfigurationId): array
     {
-        return $this->getUserAttributeToCredentialClaimPathMap()[$credentialConfigurationId] ?? [];
+        /** @psalm-suppress MixedAssignment */
+        $map = $this->getUserAttributeToCredentialClaimPathMap()[$credentialConfigurationId] ?? [];
+
+        if (is_array($map)) {
+            return $map;
+        }
+
+        return [];
     }
 
 
@@ -963,6 +998,7 @@ class ModuleConfig
      */
     public function getApiTokenScopes(string $token): ?array
     {
+        /** @psalm-suppress MixedAssignment */
         $tokenScopes = $this->getApiTokens()[$token] ?? null;
 
         if (is_array($tokenScopes)) {
@@ -979,6 +1015,7 @@ class ModuleConfig
 
     public function getUsersEmailAttributeNameForAuthSourceId(string $authSource): string
     {
+        /** @psalm-suppress MixedAssignment */
         $attributeName = $this->getAuthSourcesToUsersEmailAttributeMap()[$authSource] ?? null;
 
         if (is_string($attributeName)) {

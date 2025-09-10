@@ -27,7 +27,7 @@ class IssuerStateRepository extends AbstractDatabaseRepository
         parent::__construct($moduleConfig, $database, $protocolCache);
     }
 
-    public function getTableName(): ?string
+    public function getTableName(): string
     {
         return self::TABLE_NAME;
     }
@@ -125,7 +125,7 @@ EOS
         );
     }
 
-    public function create(IssuerStateEntity $issuerState): void
+    public function persist(IssuerStateEntity $issuerState): void
     {
         $stmt = sprintf(
             <<<EOS
