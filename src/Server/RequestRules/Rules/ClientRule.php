@@ -28,7 +28,10 @@ use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Federation;
 use Throwable;
 
-class ClientIdRule extends AbstractRule
+/**
+ * Resolve a client instance based on a client_id or request object.
+ */
+class ClientRule extends AbstractRule
 {
     protected const KEY_REQUEST_OBJECT_JTI = 'request_object_jti';
 

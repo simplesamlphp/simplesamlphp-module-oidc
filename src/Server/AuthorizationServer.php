@@ -18,7 +18,7 @@ use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithRequestRules;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
-use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
@@ -79,7 +79,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
     {
         $rulesToExecute = [
             StateRule::class,
-            ClientIdRule::class,
+            ClientRule::class,
             RedirectUriRule::class,
         ];
 

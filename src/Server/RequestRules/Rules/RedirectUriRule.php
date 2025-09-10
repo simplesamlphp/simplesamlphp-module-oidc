@@ -29,7 +29,7 @@ class RedirectUriRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
-        $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
+        $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
         if (! $client instanceof ClientEntityInterface) {
             throw new LogicException('Can not check redirect_uri, client is not ClientEntityInterface.');
         }

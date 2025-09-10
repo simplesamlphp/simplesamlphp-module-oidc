@@ -31,7 +31,7 @@ class ScopeOfflineAccessRule extends AbstractRule
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
-        $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
+        $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
         /** @var \League\OAuth2\Server\Entities\ScopeEntityInterface[] $validScopes */
         $validScopes = $currentResultBag->getOrFail(ScopeRule::class)->getValue();
 

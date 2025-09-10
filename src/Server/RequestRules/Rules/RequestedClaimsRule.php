@@ -56,7 +56,7 @@ class RequestedClaimsRule extends AbstractRule
             return null;
         }
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
-        $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
+        $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
 
         $authorizedClaims = [];
         foreach ($client->getScopes() as $scope) {

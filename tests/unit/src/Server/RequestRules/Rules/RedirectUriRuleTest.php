@@ -14,7 +14,7 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
-use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
@@ -76,7 +76,7 @@ class RedirectUriRuleTest extends TestCase
      */
     public function testCheckRuleWithInvalidClientDependancy(): void
     {
-        $this->resultBag->add(new Result(ClientIdRule::class, 'invalid'));
+        $this->resultBag->add(new Result(ClientRule::class, 'invalid'));
         $this->expectException(LogicException::class);
         $this->sut()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
     }
@@ -112,7 +112,7 @@ class RedirectUriRuleTest extends TestCase
         $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('invalid');
 
         $this->clientStub->method('getRedirectUri')->willReturn([$this->redirectUri]);
-        $this->resultBag->add(new Result(ClientIdRule::class, $this->clientStub));
+        $this->resultBag->add(new Result(ClientRule::class, $this->clientStub));
 
         $this->expectException(OidcServerException::class);
         $this->sut()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
@@ -137,7 +137,7 @@ class RedirectUriRuleTest extends TestCase
     protected function prepareValidResultBag(): ResultBag
     {
         $this->clientStub->method('getRedirectUri')->willReturn($this->redirectUri);
-        $this->resultBag->add(new Result(ClientIdRule::class, $this->clientStub));
+        $this->resultBag->add(new Result(ClientRule::class, $this->clientStub));
         return $this->resultBag;
     }
 }

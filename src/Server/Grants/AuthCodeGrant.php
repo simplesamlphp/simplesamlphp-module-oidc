@@ -40,7 +40,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientAuthenticationRule;
-use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeVerifierRule;
@@ -389,7 +389,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         //[$clientId] = $this->getClientCredentials($request);
 
         $rulesToExecute = [
-            ClientIdRule::class,
+            ClientRule::class,
             RedirectUriRule::class,
             ClientAuthenticationRule::class,
             CodeVerifierRule::class,
@@ -403,7 +403,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         );
 
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
-        $client = $resultBag->getOrFail(ClientIdRule::class)->getValue();
+        $client = $resultBag->getOrFail(ClientRule::class)->getValue();
         /** @var ?string $clientAuthenticationParam */
         $clientAuthenticationParam = $resultBag->getOrFail(ClientAuthenticationRule::class)->getValue();
         /** @var ?string $codeVerifier */
@@ -668,7 +668,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         /** @var string|null $state */
         $state = $resultBag->getOrFail(StateRule::class)->getValue();
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
-        $client = $resultBag->getOrFail(ClientIdRule::class)->getValue();
+        $client = $resultBag->getOrFail(ClientRule::class)->getValue();
 
         // Some rules have to have certain things available in order to work properly...
         $this->requestRulesManager->setData('default_scope', $this->defaultScope);

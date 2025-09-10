@@ -15,7 +15,7 @@ use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
-use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\Module\oidc\Utils\FederationParticipationValidator;
@@ -24,7 +24,7 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Federation;
 
 /**
- * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule
+ * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule
  */
 class ClientIdRuleTest extends TestCase
 {
@@ -62,9 +62,9 @@ class ClientIdRuleTest extends TestCase
         $this->federationParticipationValidatorStub = $this->createStub(FederationParticipationValidator::class);
     }
 
-    protected function sut(): ClientIdRule
+    protected function sut(): ClientRule
     {
-        return new ClientIdRule(
+        return new ClientRule(
             $this->requestParamsResolverStub,
             $this->helpersStub,
             $this->clientRepositoryStub,
@@ -79,7 +79,7 @@ class ClientIdRuleTest extends TestCase
 
     public function testConstruct(): void
     {
-        $this->assertInstanceOf(ClientIdRule::class, $this->sut());
+        $this->assertInstanceOf(ClientRule::class, $this->sut());
     }
 
     public function testCheckRuleEmptyClientIdThrows(): void

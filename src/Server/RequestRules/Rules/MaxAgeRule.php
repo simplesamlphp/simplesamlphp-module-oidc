@@ -52,7 +52,7 @@ class MaxAgeRule extends AbstractRule
         );
 
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
-        $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
+        $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
 
         $authSimple = $this->authSimpleFactory->build($client);
 

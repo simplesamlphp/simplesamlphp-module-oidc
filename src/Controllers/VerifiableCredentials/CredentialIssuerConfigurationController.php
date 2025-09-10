@@ -35,7 +35,6 @@ class CredentialIssuerConfigurationController
 
     public function configuration(): Response
     {
-        // TODO mivanci Abstract configuring Credential Issuer / Configuration away from module config.
         // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-issuer-metadata-p
 
         $signer = $this->moduleConfig->getProtocolSigner();
@@ -43,17 +42,20 @@ class CredentialIssuerConfigurationController
         $credentialConfigurationsSupported = $this->moduleConfig->getCredentialConfigurationsSupported();
 
         // For now, we only support one credential signing algorithm.
+        /** @psalm-suppress MixedAssignment */
         foreach ($credentialConfigurationsSupported as $credentialConfigurationId => $credentialConfiguration) {
-            // Draft 17
-            $credentialConfiguration[ClaimsEnum::CredentialSigningAlgValuesSupported->value] = [
-                $signer->algorithmId(),
-            ];
-            // Earlier drafts
-            // TODO mivanci Delete CryptographicSuitesSupported once we are on the final draft.
-            $credentialConfiguration[ClaimsEnum::CryptographicSuitesSupported->value] = [
-                $signer->algorithmId(),
-            ];
-            $credentialConfigurationsSupported[$credentialConfigurationId] = $credentialConfiguration;
+            if (is_array($credentialConfiguration)) {
+                // Draft 17
+                $credentialConfiguration[ClaimsEnum::CredentialSigningAlgValuesSupported->value] = [
+                    $signer->algorithmId(),
+                ];
+                // Earlier drafts
+                // TODO mivanci Delete CryptographicSuitesSupported once we are on the final draft.
+                $credentialConfiguration[ClaimsEnum::CryptographicSuitesSupported->value] = [
+                    $signer->algorithmId(),
+                ];
+                $credentialConfigurationsSupported[$credentialConfigurationId] = $credentialConfiguration;
+            }
         }
 
         $configuration = [
