@@ -75,7 +75,6 @@ class PreAuthCodeGrant extends AuthCodeGrant
     }
 
     /**
-     * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
      */
@@ -84,8 +83,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
         OAuth2ClientEntityInterface $client,
         string $userIdentifier,
         string $redirectUri,
-        array $scopes = [],
-        ?string $nonce = null,
+        AuthorizationRequest $authorizationRequest,
     ): AuthCodeEntityInterface {
         throw OidcServerException::serverError('Not implemented');
     }
