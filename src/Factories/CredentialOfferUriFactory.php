@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use RuntimeException;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
+use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\ParametersEnum;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
@@ -202,7 +203,7 @@ class CredentialOfferUriFactory
                     expiryDateTime: (new DateTimeImmutable())->add($this->moduleConfig->getAuthCodeDuration()),
                     userIdentifier: $userId,
                     redirectUri: 'openid-credential-offer://',
-                    isPreAuthorized: true,
+                    flowTypeEnum: FlowTypeEnum::VciPreAuthorizedCode,
                     txCode: $txCode instanceof VerifiableCredentials\TxCode ? $txCode->getCodeAsString() : null,
                 );
                 $this->authCodeRepository->persistNewAuthCode($authCode);

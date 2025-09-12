@@ -19,6 +19,7 @@ use DateTimeImmutable;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\TokenEntityTrait;
+use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\MementoInterface;
 use SimpleSAML\Module\oidc\Entities\Traits\OidcAuthCodeTrait;
@@ -43,7 +44,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
         ?string $redirectUri = null,
         ?string $nonce = null,
         bool $isRevoked = false,
-        protected readonly bool $isPreAuthorized = false,
+        protected readonly ?FlowTypeEnum $flowTypeEnum = null,
         protected readonly ?string $txCode = null,
     ) {
         $this->identifier = $id;
@@ -70,18 +71,23 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
             'is_revoked' => $this->isRevoked(),
             'redirect_uri' => $this->getRedirectUri(),
             'nonce' => $this->getNonce(),
-            'is_pre_authorized' => $this->isPreAuthorized,
+            'flow_type' => $this->flowTypeEnum?->value,
             'tx_code' => $this->txCode,
         ];
     }
 
-    public function isPreAuthorized(): bool
+    public function isVciPreAuthorized(): bool
     {
-        return $this->isPreAuthorized;
+        return $this->flowTypeEnum === FlowTypeEnum::VciPreAuthorizedCode;
     }
 
     public function getTxCode(): ?string
     {
         return $this->txCode;
+    }
+
+    public function getFlowTypeEnum(): ?FlowTypeEnum
+    {
+        return $this->flowTypeEnum;
     }
 }

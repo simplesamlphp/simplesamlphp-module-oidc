@@ -21,6 +21,7 @@ use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
@@ -270,8 +271,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $authorizationRequest->getClient(),
             $user->getIdentifier(),
             $finalRedirectUri,
-            $authorizationRequest->getScopes(),
-            $authorizationRequest->getNonce(),
+            $authorizationRequest,
         );
 
         $payload = [
@@ -307,7 +307,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     }
 
     /**
-     * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
      */
@@ -316,8 +315,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         OAuth2ClientEntityInterface $client,
         string $userIdentifier,
         string $redirectUri,
-        array $scopes = [],
-        ?string $nonce = null,
+        AuthorizationRequest $authorizationRequest,
     ): AuthCodeEntityInterface {
         $maxGenerationAttempts = self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
 
@@ -325,16 +323,21 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             throw OidcServerException::serverError('Unexpected auth code repository entity type.');
         }
 
+        $flowType = $authorizationRequest->isVciRequest() ?
+        FlowTypeEnum::VciAuthorizationCode :
+        FlowTypeEnum::OidcAuthorizationCode;
+
         while ($maxGenerationAttempts-- > 0) {
             try {
                 $authCode = $this->authCodeEntityFactory->fromData(
                     $this->generateUniqueIdentifier(),
                     $client,
-                    $scopes,
+                    $authorizationRequest->getScopes(),
                     (new DateTimeImmutable())->add($authCodeTTL),
                     $userIdentifier,
                     $redirectUri,
-                    $nonce,
+                    $authorizationRequest->getNonce(),
+                    flowTypeEnum: $flowType,
                 );
                 $this->authCodeRepository->persistNewAuthCode($authCode);
 

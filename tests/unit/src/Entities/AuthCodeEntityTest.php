@@ -98,7 +98,7 @@ class AuthCodeEntityTest extends TestCase
                 'is_revoked' => false,
                 'redirect_uri' => 'https://localhost/redirect',
                 'nonce' => 'nonce',
-                'is_pre_authorized' => false,
+                'flow_type' => null,
                 'tx_code' => null,
             ],
         );

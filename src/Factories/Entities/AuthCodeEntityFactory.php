@@ -6,6 +6,7 @@ namespace SimpleSAML\Module\oidc\Factories\Entities;
 
 use DateTimeImmutable;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
+use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
@@ -31,7 +32,7 @@ class AuthCodeEntityFactory
         ?string $redirectUri = null,
         ?string $nonce = null,
         bool $isRevoked = false,
-        bool $isPreAuthorized = false,
+        ?FlowTypeEnum $flowTypeEnum = null,
         ?string $txCode = null,
     ): AuthCodeEntity {
         return new AuthCodeEntity(
@@ -43,7 +44,7 @@ class AuthCodeEntityFactory
             $redirectUri,
             $nonce,
             $isRevoked,
-            $isPreAuthorized,
+            $flowTypeEnum,
             $txCode,
         );
     }
@@ -85,7 +86,7 @@ class AuthCodeEntityFactory
         $redirectUri = empty($state['redirect_uri']) ? null : (string)$state['redirect_uri'];
         $nonce = empty($state['nonce']) ? null : (string)$state['nonce'];
         $isRevoked = (bool) $state['is_revoked'];
-        $isPreAuthorized = (bool) $state['is_pre_authorized'];
+        $flowType = empty($state['flow_type']) ? null : FlowTypeEnum::tryFrom((string)$state['flow_type']);
         $txCode = empty($state['tx_code']) ? null : (string)$state['tx_code'];
 
         return $this->fromData(
@@ -97,7 +98,7 @@ class AuthCodeEntityFactory
             $redirectUri,
             $nonce,
             $isRevoked,
-            $isPreAuthorized,
+            $flowType,
             $txCode,
         );
     }

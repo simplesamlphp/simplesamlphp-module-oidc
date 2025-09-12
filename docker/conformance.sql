@@ -82,7 +82,7 @@ CREATE TABLE oidc_auth_code (
             client_id VARCHAR(191) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
             redirect_uri TEXT NOT NULL, nonce TEXT NULL,
-            is_pre_authorized BOOLEAN NOT NULL DEFAULT false,
+            flow_type CHAR(64) DEFAULT NULL,
             tx_code varchar(191) DEFAULT NULL,
             CONSTRAINT FK_97D32CA7A76ED395 FOREIGN KEY (user_id)
                 REFERENCES oidc_user (id) ON DELETE CASCADE,

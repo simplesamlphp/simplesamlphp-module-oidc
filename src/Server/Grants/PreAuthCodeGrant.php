@@ -142,7 +142,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
             throw OidcServerException::invalidGrant('Invalid pre-authorized code.');
         }
 
-        if (!$preAuthorizedCode->isPreAuthorized()) {
+        if (!$preAuthorizedCode->isVciPreAuthorized()) {
             $this->loggerService->error(
                 'Pre-authorized code is not pre-authorized. Value was: ' . $preAuthorizedCodeId,
             );

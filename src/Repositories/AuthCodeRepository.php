@@ -80,7 +80,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
                 is_revoked,
                 redirect_uri,
                 nonce,
-                is_pre_authorized,
+                flow_type,
                 tx_code
             ) VALUES (
                 :id,
@@ -91,7 +91,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
                 :is_revoked,
                 :redirect_uri,
                 :nonce,
-                :is_pre_authorized,
+                :flow_type,
                 :tx_code
             )
             EOS,
@@ -214,7 +214,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
                 is_revoked = :is_revoked,
                 redirect_uri = :redirect_uri,
                 nonce = :nonce,
-                is_pre_authorized = :is_pre_authorized,
+                flow_type = :flow_type,
                 tx_code = :tx_code
             WHERE id = :id
 EOS
@@ -239,10 +239,8 @@ EOS
     protected function preparePdoState(array $state): array
     {
         $isRevoked = (bool)($state['is_revoked'] ?? true);
-        $isPreAuthorized = (bool)($state['is_pre_authorized'] ?? false);
 
         $state['is_revoked'] = [$isRevoked, PDO::PARAM_BOOL];
-        $state['is_pre_authorized'] = [$isPreAuthorized, PDO::PARAM_BOOL];
 
         return $state;
     }
