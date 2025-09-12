@@ -54,11 +54,11 @@ use SimpleSAML\Module\oidc\Factories\Grant\AuthCodeGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\ImplicitGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\PreAuthCodeGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\RefreshTokenGrantFactory;
-use SimpleSAML\Module\oidc\Factories\IdTokenResponseFactory;
 use SimpleSAML\Module\oidc\Factories\JwksFactory;
 use SimpleSAML\Module\oidc\Factories\ProcessingChainFactory;
 use SimpleSAML\Module\oidc\Factories\ResourceServerFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
+use SimpleSAML\Module\oidc\Factories\TokenResponseFactory;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -98,7 +98,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeOfflineAccessRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
-use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\TokenResponse;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
@@ -438,13 +438,13 @@ class Container implements ContainerInterface
         $sessionLogoutTicketStoreBuilder = new LogoutTicketStoreBuilder($sessionLogoutTicketStoreDb);
         $this->services[LogoutTicketStoreBuilder::class] = $sessionLogoutTicketStoreBuilder;
 
-        $idTokenResponseFactory = new IdTokenResponseFactory(
+        $tokenResponseFactory = new TokenResponseFactory(
             $moduleConfig,
             $userRepository,
             $this->services[IdTokenBuilder::class],
             $privateKey,
         );
-        $this->services[IdTokenResponse::class] = $idTokenResponseFactory->build();
+        $this->services[TokenResponse::class] = $tokenResponseFactory->build();
 
         $this->services[Helpers::class] = $helpers;
 
@@ -512,7 +512,7 @@ class Container implements ContainerInterface
             $this->services[AuthCodeGrant::class],
             $this->services[ImplicitGrant::class],
             $this->services[RefreshTokenGrant::class],
-            $this->services[IdTokenResponse::class],
+            $this->services[TokenResponse::class],
             $requestRuleManager,
             $privateKey,
             $this->services[PreAuthCodeGrant::class],

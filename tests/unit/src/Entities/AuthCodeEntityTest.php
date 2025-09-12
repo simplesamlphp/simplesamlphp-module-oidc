@@ -103,6 +103,7 @@ class AuthCodeEntityTest extends TestCase
                 'nonce' => 'nonce',
                 'flow_type' => null,
                 'tx_code' => null,
+                'authorization_details' => null,
             ],
         );
     }

@@ -27,7 +27,7 @@ use SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant;
 use SimpleSAML\Module\oidc\Server\Grants\PreAuthCodeGrant;
 use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
-use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\TokenResponse;
 
 class AuthorizationServerFactory
 {
@@ -39,7 +39,7 @@ class AuthorizationServerFactory
         private readonly AuthCodeGrant $authCodeGrant,
         private readonly ImplicitGrant $implicitGrant,
         private readonly RefreshTokenGrant $refreshTokenGrant,
-        private readonly IdTokenResponse $idTokenResponse,
+        private readonly TokenResponse $tokenResponse,
         private readonly RequestRulesManager $requestRulesManager,
         private readonly CryptKey $privateKey,
         private readonly PreAuthCodeGrant $preAuthCodeGrant,
@@ -54,7 +54,7 @@ class AuthorizationServerFactory
             $this->scopeRepository,
             $this->privateKey,
             $this->moduleConfig->getEncryptionKey(),
-            $this->idTokenResponse,
+            $this->tokenResponse,
             $this->requestRulesManager,
         );
 

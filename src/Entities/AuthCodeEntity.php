@@ -74,7 +74,9 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
             'nonce' => $this->getNonce(),
             'flow_type' => $this->flowTypeEnum?->value,
             'tx_code' => $this->txCode,
-            'authorization_details' => json_encode($this->authorizationDetails, JSON_THROW_ON_ERROR),
+            'authorization_details' => is_array($this->authorizationDetails) ?
+                json_encode($this->authorizationDetails, JSON_THROW_ON_ERROR) :
+                null,
         ];
     }
 
