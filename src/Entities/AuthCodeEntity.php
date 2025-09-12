@@ -46,6 +46,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
         bool $isRevoked = false,
         protected readonly ?FlowTypeEnum $flowTypeEnum = null,
         protected readonly ?string $txCode = null,
+        protected readonly ?array $authorizationDetails = null,
     ) {
         $this->identifier = $id;
         $this->client = $client;
@@ -73,6 +74,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
             'nonce' => $this->getNonce(),
             'flow_type' => $this->flowTypeEnum?->value,
             'tx_code' => $this->txCode,
+            'authorization_details' => json_encode($this->authorizationDetails, JSON_THROW_ON_ERROR),
         ];
     }
 
@@ -89,5 +91,10 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
     public function getFlowTypeEnum(): ?FlowTypeEnum
     {
         return $this->flowTypeEnum;
+    }
+
+    public function getAuthorizationDetails(): ?array
+    {
+        return $this->authorizationDetails;
     }
 }

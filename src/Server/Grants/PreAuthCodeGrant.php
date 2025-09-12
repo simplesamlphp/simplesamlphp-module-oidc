@@ -236,6 +236,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
         object $authCodePayload,
         OAuth2ClientEntityInterface $client,
         ServerRequestInterface $request,
+        AuthCodeEntity $storedAuthCodeEntity,
     ): void {
     }
 

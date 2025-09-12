@@ -81,7 +81,8 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
                 redirect_uri,
                 nonce,
                 flow_type,
-                tx_code
+                tx_code,
+                authorization_details
             ) VALUES (
                 :id,
                 :scopes,
@@ -92,7 +93,8 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
                 :redirect_uri,
                 :nonce,
                 :flow_type,
-                :tx_code
+                :tx_code,
+                :authorization_details
             )
             EOS,
             $this->getTableName(),
@@ -116,7 +118,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
      * Find Auth Code by id.
      * @throws \Exception
      */
-    public function findById(string $codeId): ?AuthCodeEntityInterface
+    public function findById(string $codeId): ?AuthCodeEntity
     {
         /** @var ?array $data */
         $data = $this->protocolCache?->get(null, $this->getCacheKey($codeId));
@@ -215,7 +217,8 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
                 redirect_uri = :redirect_uri,
                 nonce = :nonce,
                 flow_type = :flow_type,
-                tx_code = :tx_code
+                tx_code = :tx_code,
+                authorization_details = :authorization_details
             WHERE id = :id
 EOS
             ,

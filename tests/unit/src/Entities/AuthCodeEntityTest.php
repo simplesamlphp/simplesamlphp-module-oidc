@@ -28,6 +28,7 @@ class AuthCodeEntityTest extends TestCase
     protected string $redirectUri;
     protected string $nonce;
     protected DateTimeImmutable $expiryDateTime;
+    protected ?array $authorizationDetails;
 
     /**
      * @throws \Exception
@@ -49,6 +50,7 @@ class AuthCodeEntityTest extends TestCase
         $this->isRevoked = false;
         $this->redirectUri = 'https://localhost/redirect';
         $this->nonce = 'nonce';
+        $this->authorizationDetails = null;
     }
 
     /**
@@ -66,6 +68,7 @@ class AuthCodeEntityTest extends TestCase
             $this->redirectUri,
             $this->nonce,
             $this->isRevoked,
+            $this->authorizationDetails,
         );
     }
 

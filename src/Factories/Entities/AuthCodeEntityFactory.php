@@ -34,6 +34,7 @@ class AuthCodeEntityFactory
         bool $isRevoked = false,
         ?FlowTypeEnum $flowTypeEnum = null,
         ?string $txCode = null,
+        ?array $authorizationDetails = null,
     ): AuthCodeEntity {
         return new AuthCodeEntity(
             $id,
@@ -46,6 +47,7 @@ class AuthCodeEntityFactory
             $isRevoked,
             $flowTypeEnum,
             $txCode,
+            $authorizationDetails,
         );
     }
 
@@ -89,6 +91,12 @@ class AuthCodeEntityFactory
         $flowType = empty($state['flow_type']) ? null : FlowTypeEnum::tryFrom((string)$state['flow_type']);
         $txCode = empty($state['tx_code']) ? null : (string)$state['tx_code'];
 
+        /** @psalm-suppress MixedAssignment */
+        $authorizationDetails = isset($state['authorization_details']) && is_string($state['authorization_details']) ?
+        json_decode($state['authorization_details'], true, 512, JSON_THROW_ON_ERROR) :
+        null;
+        $authorizationDetails = is_array($authorizationDetails) ? $authorizationDetails : null;
+
         return $this->fromData(
             $id,
             $client,
@@ -100,6 +108,7 @@ class AuthCodeEntityFactory
             $isRevoked,
             $flowType,
             $txCode,
+            $authorizationDetails,
         );
     }
 }

@@ -179,6 +179,11 @@ class DatabaseMigration
             $this->version20250912163000();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20250912163000')");
         }
+
+        if (!in_array('20250913163000', $versions, true)) {
+            $this->version20250913163000();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20250913163000')");
+        }
     }
 
     private function versionsTableName(): string
@@ -587,6 +592,17 @@ EOT
         $this->database->write(<<< EOT
         ALTER TABLE {$authCodeTableName}
             ADD flow_type CHAR(64) NULL;
+EOT
+            ,);
+    }
+
+    private function version20250913163000(): void
+    {
+        $authCodeTableName = $this->database->applyPrefix(AuthCodeRepository::TABLE_NAME);
+
+        $this->database->write(<<< EOT
+        ALTER TABLE {$authCodeTableName}
+            ADD authorization_details TEXT NULL;
 EOT
             ,);
     }

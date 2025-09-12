@@ -15,6 +15,7 @@ use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AddClaimsToIdTokenRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AuthorizationDetailsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientAuthenticationRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
@@ -146,6 +147,7 @@ class RequestRulesManagerFactory
             ),
             new CodeVerifierRule($this->requestParamsResolver, $this->helpers),
             new IssuerStateRule($this->requestParamsResolver, $this->helpers, $this->issuerStateRepository),
+            new AuthorizationDetailsRule($this->requestParamsResolver, $this->helpers, $this->moduleConfig),
         ];
     }
 }

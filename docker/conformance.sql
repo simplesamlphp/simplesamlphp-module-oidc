@@ -84,6 +84,7 @@ CREATE TABLE oidc_auth_code (
             redirect_uri TEXT NOT NULL, nonce TEXT NULL,
             flow_type CHAR(64) DEFAULT NULL,
             tx_code varchar(191) DEFAULT NULL,
+            authorization_details TEXT NULL,
             CONSTRAINT FK_97D32CA7A76ED395 FOREIGN KEY (user_id)
                 REFERENCES oidc_user (id) ON DELETE CASCADE,
             CONSTRAINT FK_97D32CA719EB6921 FOREIGN KEY (client_id)

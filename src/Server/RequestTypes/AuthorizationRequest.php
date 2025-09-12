@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Server\RequestTypes;
 
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
+use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 
 class AuthorizationRequest extends OAuth2AuthorizationRequest
 {
@@ -50,6 +51,13 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
      * @var bool
      */
     protected bool $isVciRequest = false;
+
+    protected ?FlowTypeEnum $flowType = null;
+
+    /**
+     * @var mixed[]|null
+     */
+    protected ?array $authorizationDetails = null;
 
     /**
      * Verifiable Credential Issuer state.
@@ -237,5 +245,25 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     public function setIssuerState(?string $issuerState): void
     {
         $this->issuerState = $issuerState;
+    }
+
+    public function getFlowType(): ?FlowTypeEnum
+    {
+        return $this->flowType;
+    }
+
+    public function setFlowType(?FlowTypeEnum $flowType): void
+    {
+        $this->flowType = $flowType;
+    }
+
+    public function getAuthorizationDetails(): ?array
+    {
+        return $this->authorizationDetails;
+    }
+
+    public function setAuthorizationDetails(?array $authorizationDetails): void
+    {
+        $this->authorizationDetails = $authorizationDetails;
     }
 }
