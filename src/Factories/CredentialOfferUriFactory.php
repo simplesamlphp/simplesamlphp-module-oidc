@@ -132,7 +132,7 @@ class CredentialOfferUriFactory
 
         // Currently, we need a dedicated client for which the PreAuthZed code will be bound to.
         // TODO mivanci: Remove requirement for dedicated client for (pre-)authorization codes.
-        $client = $this->clientEntityFactory->getGenericForVciPreAuthZFlow();
+        $client = $this->clientEntityFactory->getGenericForVci();
         if ($this->clientRepository->findById($client->getIdentifier()) === null) {
             $this->clientRepository->add($client);
         } else {

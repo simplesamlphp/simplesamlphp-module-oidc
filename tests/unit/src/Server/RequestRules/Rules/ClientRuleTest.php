@@ -26,7 +26,7 @@ use SimpleSAML\OpenID\Federation;
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule
  */
-class ClientIdRuleTest extends TestCase
+class ClientRuleTest extends TestCase
 {
     protected Stub $clientEntityStub;
     protected Stub $clientRepositoryStub;
@@ -73,6 +73,7 @@ class ClientIdRuleTest extends TestCase
             $this->federationStub,
             $this->jwksResolverStub,
             $this->federationParticipationValidatorStub,
+            $this->loggerServiceStub,
             $this->federationCacheStub,
         );
     }
@@ -111,7 +112,7 @@ class ClientIdRuleTest extends TestCase
      */
     public function testCheckRuleForValidClientId(): void
     {
-        $this->requestParamsResolverStub->method('getBasedOnAllowedMethods')->willReturn('123');
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('123');
         $this->clientRepositoryStub->method('getClientEntity')->willReturn($this->clientEntityStub);
 
         $result = $this->sut()->checkRule(

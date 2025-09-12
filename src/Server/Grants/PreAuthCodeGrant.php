@@ -124,7 +124,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
         );
 
         if (empty($preAuthorizedCodeId)) {
-            $this->loggerService->warning('Empty pre-authorized code ID.');
+            $this->loggerService->error('Empty pre-authorized code ID.');
             throw OidcServerException::invalidRequest(ParamsEnum::PreAuthorizedCode->value);
         }
 
@@ -140,6 +140,13 @@ class PreAuthCodeGrant extends AuthCodeGrant
         ) {
             $this->loggerService->error('Invalid pre-authorized code ID. Value was: ' . $preAuthorizedCodeId);
             throw OidcServerException::invalidGrant('Invalid pre-authorized code.');
+        }
+
+        if (!$preAuthorizedCode->isPreAuthorized()) {
+            $this->loggerService->error(
+                'Pre-authorized code is not pre-authorized. Value was: ' . $preAuthorizedCodeId,
+            );
+            throw OidcServerException::invalidGrant('Pre-authorized code is not pre-authorized.');
         }
 
         if ($preAuthorizedCode->isRevoked()) {

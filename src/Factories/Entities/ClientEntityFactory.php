@@ -383,7 +383,7 @@ class ClientEntityFactory
         );
     }
 
-    public function getGenericForVciPreAuthZFlow(): ClientEntityInterface
+    public function getGenericForVci(): ClientEntityInterface
     {
         $clientId = 'vci_' .
         hash('sha256', 'vci_'  . $this->moduleConfig->sspConfig()->getString('secretsalt'));
@@ -397,8 +397,8 @@ class ClientEntityFactory
         return $this->fromData(
             id: $clientId,
             secret: $clientSecret,
-            name: 'VCI Pre-authorized Code Generic Client',
-            description: 'Generic client for VCI Pre-authorized Code',
+            name: 'VCI Generic Client',
+            description: 'Generic client for Verifiable Credential Issuance flows.',
             redirectUri: ['openid-credential-offer://'],
             scopes: ['openid', ...$credentialConfigurationIdsSupported],
             isEnabled: true,

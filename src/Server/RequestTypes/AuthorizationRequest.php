@@ -44,6 +44,20 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
      */
     protected ?string $sessionId = null;
 
+    /**
+     * Indicates if the request is related to Verifiable Credential Issuance (VCI request).
+     *
+     * @var bool
+     */
+    protected bool $isVciRequest = false;
+
+    /**
+     * Verifiable Credential Issuer state.
+     *
+     * @var string|null
+     */
+    protected ?string $issuerState = null;
+
     public static function fromOAuth2AuthorizationRequest(
         OAuth2AuthorizationRequest $oAuth2authorizationRequest,
     ): AuthorizationRequest {
@@ -203,5 +217,25 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     public function setSessionId(?string $sessionId): void
     {
         $this->sessionId = $sessionId;
+    }
+
+    public function isVciRequest(): bool
+    {
+        return $this->isVciRequest;
+    }
+
+    public function setIsVciRequest(bool $isVciRequest): void
+    {
+        $this->isVciRequest = $isVciRequest;
+    }
+
+    public function getIssuerState(): ?string
+    {
+        return $this->issuerState;
+    }
+
+    public function setIssuerState(?string $issuerState): void
+    {
+        $this->issuerState = $issuerState;
     }
 }

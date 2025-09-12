@@ -510,6 +510,25 @@ $config = [
     // Enable or disable verifiable credentials capabilities. Default is disabled (false).
     ModuleConfig::OPTION_VERIFIABLE_CREDENTIAL_ENABLED => false,
 
+    // Allow or disallow non-registered clients to request verifiable credentials. Default is disallowed (false).
+    ModuleConfig::OPTION_ALLOW_NON_REGISTERED_CLIENTS_FOR_VCI => false,
+
+    // Allowed redirect URI prefixes for non-registered clients. By default, this is set to
+    // 'openid-credential-offer://' to allow only redirect URIs with this prefix.
+    //
+    // Example:
+    // [
+    //     'https://example.org/redirect',
+    //     'https://example.org/redirect2',
+    // ]
+    //
+    ModuleConfig::OPTION_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS_FOR_VCI => [
+        'openid-credential-offer://',
+    ],
+
+    // Allow or disallow clients to request verifiable credentials using Authorization Code Grant without client ID.
+    // Default is disallowed (false).
+    ModuleConfig::OPTION_ALLOW_VCI_AUTHORIZATION_CODE_REQUESTS_WITHOUT_CLIENT_ID => false,
 
     // (optional) Credential configuration statements, as per `credential_configurations_supported` claim definition in
     // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#credential-issuer-parameters.
@@ -813,11 +832,8 @@ $config = [
     // (optional) Enable or disable API capabilities. Default is disabled (false).
     ModuleConfig::OPTION_API_ENABLED => false,
 
-    /**
-     * List of API tokens which can be used to access API endpoints based on given scopes.
-     *
-     * The format is: ['token' => [ApiScopesEnum]]
-     */
+    // List of API tokens which can be used to access API endpoints based on given scopes.
+    // The format is: ['token' => [ApiScopesEnum]]
     ModuleConfig::OPTION_API_TOKENS => [
 //        'strong-random-token-string' => [
 //            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::All, // Gives access to the whole API.

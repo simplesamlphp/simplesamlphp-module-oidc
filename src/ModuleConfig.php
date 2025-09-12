@@ -109,6 +109,11 @@ class ModuleConfig
     final public const OPTION_AUTH_SOURCES_TO_USERS_EMAIL_ATTRIBUTE_NAME_MAP =
     'auth_sources_to_users_email_attribute_name_map';
     final public const OPTION_ISSUER_STATE_TTL = 'issuer_state_ttl';
+    final public const OPTION_ALLOW_NON_REGISTERED_CLIENTS_FOR_VCI = 'allow_non_registered_clients_for_vci';
+    final public const OPTION_ALLOW_VCI_AUTHORIZATION_CODE_REQUESTS_WITHOUT_CLIENT_ID =
+    'allow_vci_authorization_code_requests_without_client_id';
+    final public const OPTION_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS_FOR_VCI =
+    'allowed_redirect_uri_prefixes_for_non_registered_clients_for_vci';
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
@@ -1046,6 +1051,27 @@ class ModuleConfig
 
         return new DateInterval(
             $this->config()->getString(self::OPTION_ISSUER_STATE_TTL),
+        );
+    }
+
+    public function getAllowNonRegisteredClientsForVci(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_ALLOW_NON_REGISTERED_CLIENTS_FOR_VCI, false);
+    }
+
+    public function getAllowVciAuthorizationCodeRequestsWithoutClientId(): bool
+    {
+        return $this->config()->getOptionalBoolean(
+            self::OPTION_ALLOW_VCI_AUTHORIZATION_CODE_REQUESTS_WITHOUT_CLIENT_ID,
+            false,
+        );
+    }
+
+    public function getAllowedRedirectUriPrefixesForNonRegisteredClientsForVci(): array
+    {
+        return $this->config()->getOptionalArray(
+            self::OPTION_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS_FOR_VCI,
+            ['openid-credential-offer://',],
         );
     }
 }

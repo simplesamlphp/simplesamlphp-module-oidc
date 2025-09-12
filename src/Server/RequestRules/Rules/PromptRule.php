@@ -88,7 +88,7 @@ class PromptRule extends AbstractRule
                 $requestParams,
             );
 
-            $this->authenticationService->authenticate($client, $loginParams);
+            $this->authenticationService->authenticateForClient($client, $loginParams);
         }
 
         return null;

@@ -10,6 +10,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
@@ -32,6 +33,7 @@ class RedirectUriRuleTest extends TestCase
     protected Stub $loggerServiceStub;
     protected Stub $requestParamsResolverStub;
     protected Helpers $helpers;
+    protected Stub $moduleConfigStub;
 
 
     /**
@@ -45,18 +47,22 @@ class RedirectUriRuleTest extends TestCase
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
         $this->helpers = new Helpers();
+        $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
     }
 
     protected function sut(
         ?RequestParamsResolver $requestParamsResolver = null,
         ?Helpers $helpers = null,
+        ?ModuleConfig $moduleConfig = null,
     ): RedirectUriRule {
         $requestParamsResolver ??= $this->requestParamsResolverStub;
         $helpers ??= $this->helpers;
+        $moduleConfig ??= $this->moduleConfigStub;
 
         return new RedirectUriRule(
             $requestParamsResolver,
             $helpers,
+            $moduleConfig,
         );
     }
 

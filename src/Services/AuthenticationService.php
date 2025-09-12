@@ -16,6 +16,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Services;
 
+use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Auth\ProcessingChain;
@@ -32,7 +33,6 @@ use SimpleSAML\Module\oidc\Exceptions\OidcException;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
 use SimpleSAML\Module\oidc\Factories\ProcessingChainFactory;
-use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
@@ -66,7 +66,6 @@ class AuthenticationService
         private readonly ModuleConfig $moduleConfig,
         private readonly ProcessingChainFactory $processingChainFactory,
         private readonly StateService $stateService,
-        private readonly Helpers $helpers,
         private readonly RequestParamsResolver $requestParamsResolver,
         private readonly UserEntityFactory $userEntityFactory,
     ) {
@@ -89,14 +88,13 @@ class AuthenticationService
         ServerRequestInterface $request,
         OAuth2AuthorizationRequest $authorizationRequest,
     ): array {
-        // TODO mivanci v7 Fix: client has already been resolved up to this point, but we are again fetching it from DB.
-        $oidcClient = $this->helpers->client()->getFromRequest($request, $this->clientRepository);
+        $oidcClient = $authorizationRequest->getClient();
         $authSimple = $this->authSimpleFactory->build($oidcClient);
 
         $this->authSourceId = $authSimple->getAuthSource()->getAuthId();
 
         if (! $authSimple->isAuthenticated()) {
-            $this->authenticate($oidcClient);
+            $this->authenticate($authSimple);
         } elseif ($this->sessionService->getIsAuthnPerformedInPreviousRequest()) {
             $this->sessionService->setIsAuthnPerformedInPreviousRequest(false);
 
@@ -197,7 +195,7 @@ class AuthenticationService
 
     /**
      * @param   Simple                      $authSimple
-     * @param   ClientEntityInterface       $client
+     * @param   OAuth2ClientEntityInterface       $client
      * @param   ServerRequestInterface      $request
      * @param   OAuth2AuthorizationRequest  $authorizationRequest
      *
@@ -207,16 +205,18 @@ class AuthenticationService
 
     public function prepareStateArray(
         Simple $authSimple,
-        ClientEntityInterface $client,
+        OAuth2ClientEntityInterface $client,
         ServerRequestInterface $request,
         OAuth2AuthorizationRequest $authorizationRequest,
     ): array {
         $state = $authSimple->getAuthDataArray();
 
+        $clientArray = $client instanceof ClientEntityInterface ? $client->toArray() : [];
+
         $state['Oidc'] = [
             'OpenIdProviderMetadata' => $this->opMetadataService->getMetadata(),
             'RelyingPartyMetadata' => array_filter(
-                $client->toArray(),
+                $clientArray,
                 fn(/** @param array-key $key */ $key) => $key !== 'secret',
                 ARRAY_FILTER_USE_KEY,
             ),
@@ -272,18 +272,29 @@ class AuthenticationService
      * @throws Error\NotFound
      * @throws \JsonException
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \Exception
      */
-
     public function authenticate(
-        ClientEntityInterface $clientEntity,
+        Simple $authSimple,
         array $loginParams = [],
     ): void {
-        $authSimple = $this->authSimpleFactory->build($clientEntity);
-
         $this->sessionService->setIsCookieBasedAuthn(false);
         $this->sessionService->setIsAuthnPerformedInPreviousRequest(true);
 
         $authSimple->login($loginParams);
+    }
+
+    /**
+     * @throws Error\BadRequest
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws Error\NotFound
+     * @throws \JsonException
+     */
+    public function authenticateForClient(
+        ClientEntityInterface $clientEntity,
+        array $loginParams = [],
+    ): void {
+        $this->authenticate($this->authSimpleFactory->build($clientEntity), $loginParams);
     }
 
     /**

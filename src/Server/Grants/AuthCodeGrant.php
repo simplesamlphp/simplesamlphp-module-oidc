@@ -44,6 +44,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeVerifierRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
@@ -658,6 +659,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             RequiredOpenIdScopeRule::class,
             CodeChallengeRule::class,
             CodeChallengeMethodRule::class,
+            IssuerStateRule::class,
         ];
 
         // Since we have already validated redirect_uri, and we have state, make it available for other checkers.
@@ -737,6 +739,17 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         /** @var array|null $acrValues */
         $acrValues = $resultBag->getOrFail(AcrValuesRule::class)->getValue();
         $authorizationRequest->setRequestedAcrValues($acrValues);
+
+        $authorizationRequest->setIsVciRequest(
+            $this->requestParamsResolver->isVciAuthorizationCodeRequest(
+                $request,
+                $this->allowedAuthorizationHttpMethods,
+            ),
+        );
+
+        /** @var ?string $issuerState */
+        $issuerState = $resultBag->get(IssuerStateRule::class)?->getValue();
+        $authorizationRequest->setIssuerState($issuerState);
 
         return $authorizationRequest;
     }

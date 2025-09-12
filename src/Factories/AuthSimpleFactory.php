@@ -16,6 +16,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Factories;
 
+use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -31,7 +32,7 @@ class AuthSimpleFactory
      * @codeCoverageIgnore
      * @throws \Exception
      */
-    public function build(ClientEntityInterface $clientEntity): Simple
+    public function build(OAuth2ClientEntityInterface $clientEntity): Simple
     {
         $authSourceId = $this->resolveAuthSourceId($clientEntity);
 
@@ -52,9 +53,15 @@ class AuthSimpleFactory
      *
      * @throws \Exception
      */
-    public function resolveAuthSourceId(ClientEntityInterface $client): string
+    public function resolveAuthSourceId(OAuth2ClientEntityInterface $client): string
     {
-        return $client->getAuthSourceId() ?? $this->moduleConfig->getDefaultAuthSourceId();
+        $defaultAuthSourceId = $this->moduleConfig->getDefaultAuthSourceId();
+
+        if ($client instanceof ClientEntityInterface) {
+            $client->getAuthSourceId() ?? $this->moduleConfig->getDefaultAuthSourceId();
+        }
+
+        return $defaultAuthSourceId;
     }
 
     public function forAuthSourceId(string $authSourceId): Simple

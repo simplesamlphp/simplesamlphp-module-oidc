@@ -94,7 +94,7 @@ class MaxAgeRule extends AbstractRule
                 $requestParams,
             );
 
-            $this->authenticationService->authenticate($client, $loginParams);
+            $this->authenticationService->authenticateForClient($client, $loginParams);
         }
 
         return new Result($this->getKey(), $lastAuth);

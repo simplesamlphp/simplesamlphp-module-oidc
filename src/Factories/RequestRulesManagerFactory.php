@@ -10,6 +10,7 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\CodeChallengeVerifiersRepository;
+use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule;
@@ -20,6 +21,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeVerifierRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
@@ -62,6 +64,7 @@ class RequestRulesManagerFactory
         private readonly JwksResolver $jwksResolver,
         private readonly FederationParticipationValidator $federationParticipationValidator,
         private readonly SspBridge $sspBridge,
+        private readonly IssuerStateRepository $issuerStateRepository,
         private readonly ?FederationCache $federationCache = null,
         private readonly ?ProtocolCache $protocolCache = null,
     ) {
@@ -93,9 +96,10 @@ class RequestRulesManagerFactory
                 $this->federation,
                 $this->jwksResolver,
                 $this->federationParticipationValidator,
+                $this->logger,
                 $this->federationCache,
             ),
-            new RedirectUriRule($this->requestParamsResolver, $this->helpers),
+            new RedirectUriRule($this->requestParamsResolver, $this->helpers, $this->moduleConfig),
             new RequestObjectRule($this->requestParamsResolver, $this->helpers, $this->jwksResolver),
             new PromptRule(
                 $this->requestParamsResolver,
@@ -141,6 +145,7 @@ class RequestRulesManagerFactory
                 $this->protocolCache,
             ),
             new CodeVerifierRule($this->requestParamsResolver, $this->helpers),
+            new IssuerStateRule($this->requestParamsResolver, $this->helpers, $this->issuerStateRepository),
         ];
     }
 }
