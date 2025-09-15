@@ -34,6 +34,7 @@ use SimpleSAML\Module\oidc\Repositories\Interfaces\IdentityProviderInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\TokenResponse;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
 /**
@@ -59,6 +60,7 @@ class TokenResponseTest extends TestCase
     protected CryptKey $privateKey;
     protected IdTokenBuilder $idTokenBuilder;
     protected Stub $claimSetEntityFactoryStub;
+    protected MockObject $loggerMock;
 
     /**
      * @throws \PHPUnit\Framework\MockObject\Exception
@@ -119,6 +121,8 @@ class TokenResponseTest extends TestCase
             new JsonWebTokenBuilderService($this->moduleConfigMock),
             new ClaimTranslatorExtractor(self::USER_ID_ATTR, $this->claimSetEntityFactoryStub),
         );
+
+        $this->loggerMock = $this->createMock(LoggerService::class);
     }
 
     protected function prepareMockedInstance(): TokenResponse
@@ -127,6 +131,7 @@ class TokenResponseTest extends TestCase
             $this->identityProviderMock,
             $this->idTokenBuilder,
             $this->privateKey,
+            $this->loggerMock,
         );
 
         $tokenResponse->setNonce(null);

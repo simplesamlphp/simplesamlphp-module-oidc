@@ -39,8 +39,10 @@ class ScopeRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
+        $loggerService->debug('ScopeRule: Running.');
+
         /** @var string $redirectUri */
-        $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
+        $redirectUri = $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
         /** @var string $defaultScope */
@@ -48,12 +50,16 @@ class ScopeRule extends AbstractRule
         /** @var non-empty-string $scopeDelimiterString */
         $scopeDelimiterString = $data['scope_delimiter_string'] ?? ' ';
 
+        $loggerService->debug('ScopeRule: defaultScope: ' . ($defaultScope ? $defaultScope : 'N/A'));
+        ;
+
         $scopeParam = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
             ParamsEnum::Scope->value,
             $request,
             $allowedServerRequestMethods,
         ) ?? $defaultScope;
 
+        $loggerService->debug('ScopeRule: scopeParam: ' . $scopeParam);
         $scopes = $this->helpers->str()->convertScopesStringToArray($scopeParam, $scopeDelimiterString);
 
         $validScopes = [];
@@ -62,9 +68,10 @@ class ScopeRule extends AbstractRule
             $scope = $this->scopeRepository->getScopeEntityByIdentifier($scopeItem);
 
             if ($scope instanceof ScopeEntityInterface === false) {
+                $loggerService->error('ScopeRule: Invalid scope: ' . $scopeItem);
                 throw OidcServerException::invalidScope($scopeItem, $redirectUri, $state);
             }
-
+            $loggerService->debug('ScopeRule: Valid scope: ' . $scopeItem);
             $validScopes[] = $scope;
         }
 

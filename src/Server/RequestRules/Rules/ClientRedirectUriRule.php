@@ -18,7 +18,7 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
-class RedirectUriRule extends AbstractRule
+class ClientRedirectUriRule extends AbstractRule
 {
     public function __construct(
         RequestParamsResolver $requestParamsResolver,

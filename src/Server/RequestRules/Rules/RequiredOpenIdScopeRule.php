@@ -28,7 +28,7 @@ class RequiredOpenIdScopeRule extends AbstractRule
     ): ?ResultInterface {
         $loggerService->debug('RequiredOpenIdScopeRule: Checking if required openid scope is present.');
         /** @var string $redirectUri */
-        $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
+        $redirectUri = $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
         /** @var \League\OAuth2\Server\Entities\ScopeEntityInterface[] $validScopes */

@@ -13,7 +13,7 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
-use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
@@ -42,7 +42,7 @@ class RequiredOpenIdScopeRuleTest extends TestCase
      */
     protected function setUp(): void
     {
-        $this->redirectUriResult = new Result(RedirectUriRule::class, 'https://some-uri.org');
+        $this->redirectUriResult = new Result(ClientRedirectUriRule::class, 'https://some-uri.org');
         $this->stateResult = new Result(StateRule::class, '123');
         $this->requestStub = $this->createStub(ServerRequestInterface::class);
         $this->scopeEntities = [

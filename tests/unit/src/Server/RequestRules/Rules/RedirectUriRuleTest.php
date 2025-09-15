@@ -15,17 +15,17 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
-use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
 /**
- * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule
+ * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule
  */
 class RedirectUriRuleTest extends TestCase
 {
-    protected RedirectUriRule $rule;
+    protected ClientRedirectUriRule $rule;
     protected ResultBag $resultBag;
     protected Stub $clientStub;
     protected Stub $requestStub;
@@ -54,12 +54,12 @@ class RedirectUriRuleTest extends TestCase
         ?RequestParamsResolver $requestParamsResolver = null,
         ?Helpers $helpers = null,
         ?ModuleConfig $moduleConfig = null,
-    ): RedirectUriRule {
+    ): ClientRedirectUriRule {
         $requestParamsResolver ??= $this->requestParamsResolverStub;
         $helpers ??= $this->helpers;
         $moduleConfig ??= $this->moduleConfigStub;
 
-        return new RedirectUriRule(
+        return new ClientRedirectUriRule(
             $requestParamsResolver,
             $helpers,
             $moduleConfig,

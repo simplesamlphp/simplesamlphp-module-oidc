@@ -80,6 +80,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AddClaimsToIdTokenRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientAuthenticationRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
@@ -88,7 +89,6 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
-use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredNonceRule;
@@ -397,7 +397,7 @@ class Container implements ContainerInterface
                 $loggerService,
                 $federationCache,
             ),
-            new RedirectUriRule($requestParamsResolver, $helpers, $moduleConfig),
+            new ClientRedirectUriRule($requestParamsResolver, $helpers, $moduleConfig),
             new RequestObjectRule($requestParamsResolver, $helpers, $jwksResolver),
             new PromptRule($requestParamsResolver, $helpers, $authSimpleFactory, $authenticationService, $sspBridge),
             new MaxAgeRule($requestParamsResolver, $helpers, $authSimpleFactory, $authenticationService, $sspBridge),
@@ -443,6 +443,7 @@ class Container implements ContainerInterface
             $userRepository,
             $this->services[IdTokenBuilder::class],
             $privateKey,
+            $loggerService,
         );
         $this->services[TokenResponse::class] = $tokenResponseFactory->build();
 

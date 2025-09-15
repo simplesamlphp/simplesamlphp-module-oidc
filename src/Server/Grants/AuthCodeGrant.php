@@ -23,6 +23,7 @@ use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
+use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
@@ -41,9 +42,12 @@ use SimpleSAML\Module\oidc\Server\Grants\Interfaces\PkceEnabledGrantTypeInterfac
 use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
+use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AuthorizationDetailsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientAuthenticationRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
@@ -51,7 +55,6 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeVerifierRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
-use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule;
@@ -344,6 +347,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                     $authorizationRequest->getNonce(),
                     flowTypeEnum: $flowType,
                     authorizationDetails: $authorizationRequest->getAuthorizationDetails(),
+                    boundClientId: $authorizationRequest->getBoundClientId(),
+                    boundRedirectUri: $authorizationRequest->getBoundRedirectUri(),
                 );
                 $this->authCodeRepository->persistNewAuthCode($authCode);
 
@@ -398,12 +403,97 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         // OAuth2 implementation
         //[$clientId] = $this->getClientCredentials($request);
 
+        $this->loggerService->debug(
+            'AuthCodeGrant::respondToAccessTokenRequest',
+            $this->requestParamsResolver->getAllBasedOnAllowedMethods($request, $this->allowedTokenHttpMethods),
+        );
+
+        $encryptedAuthCode = $this->getRequestParameter('code', $request);
+
+        if ($encryptedAuthCode === null) {
+            $this->loggerService->debug('Code parameter not provided.');
+            throw OAuthServerException::invalidRequest('code');
+        }
+
+        try {
+            /**
+             * @noinspection PhpUndefinedClassInspection
+             * @psalm-var AuthCodePayloadObject $authCodePayload
+             */
+            $authCodePayload = json_decode($this->decrypt($encryptedAuthCode), null, 512, JSON_THROW_ON_ERROR);
+        } catch (LogicException $e) {
+            throw OAuthServerException::invalidRequest('code', 'Cannot decrypt the authorization code', $e);
+        }
+
+        if (!property_exists($authCodePayload, 'auth_code_id')) {
+            throw OAuthServerException::invalidRequest('code', 'Authorization code malformed');
+        }
+
+        if (! is_a($this->authCodeRepository, AuthCodeRepository::class)) {
+            throw OidcServerException::serverError('Unexpected auth code repository entity type.');
+        }
+
+        $storedAuthCodeEntity = $this->authCodeRepository->findById($authCodePayload->auth_code_id);
+
+        if ($storedAuthCodeEntity === null) {
+            throw OAuthServerException::invalidGrant('Authorization code not found');
+        }
+
+        // Client used during authorization request.
+        $authorizationClientEntity = $storedAuthCodeEntity->getClient();
+
+        if (! $authorizationClientEntity instanceof ClientEntity) {
+            throw OidcServerException::serverError('Unexpected Client Entity instance.');
+        }
+
         $rulesToExecute = [
-            ClientRule::class,
-            RedirectUriRule::class,
-            ClientAuthenticationRule::class,
             CodeVerifierRule::class,
         ];
+
+        if (! $authorizationClientEntity->isGeneric()) {
+            $this->loggerService->debug('Executing standard rules for non-generic clients.');
+            $rulesToExecute = [
+                ClientRule::class,
+                ClientRedirectUriRule::class,
+                ClientAuthenticationRule::class,
+                ...$rulesToExecute,
+            ];
+        } else {
+            $this->loggerService->debug('Generic client encountered. Checking for authorization bound params.');
+            // We used generic client in the flow, so check for bound client_id and redirect_uri.
+            // Currently used client_id and redirect_uri must be the same as in authorization request.
+            $clientId = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
+                ParamsEnum::ClientId->value,
+                $request,
+                $this->allowedTokenHttpMethods,
+            );
+
+            // For now, we require client_id, however, in the future this will have to be resolved based on used
+            // client authentication...
+            if (! $clientId) {
+                throw OidcServerException::invalidRequest('client_id');
+            }
+
+            if ($clientId !== $storedAuthCodeEntity->getBoundClientId()) {
+                throw OAuthServerException::invalidGrant('Authorization code not intended for this client_id.');
+            }
+
+            $redirectUri = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
+                ParamsEnum::RedirectUri->value,
+                $request,
+                $this->allowedTokenHttpMethods,
+            );
+
+            if (! $redirectUri) {
+                throw OidcServerException::invalidRequest(ParamsEnum::RedirectUri->value);
+            }
+
+            if ($redirectUri !== $storedAuthCodeEntity->getBoundRedirectUri()) {
+                throw OAuthServerException::invalidGrant('Authorization code not intended for this redirect_uri.');
+            }
+
+            $this->requestRulesManager->predefineResult(new Result(ClientRule::class, $authorizationClientEntity));
+        }
 
         $resultBag = $this->requestRulesManager->check(
             $request,
@@ -413,9 +503,15 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         );
 
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
-        $client = $resultBag->getOrFail(ClientRule::class)->getValue();
+        $client = $authorizationClientEntity->isGeneric() ?
+        $authorizationClientEntity :
+        $resultBag->getOrFail(ClientRule::class)->getValue();
+
         /** @var ?string $clientAuthenticationParam */
-        $clientAuthenticationParam = $resultBag->getOrFail(ClientAuthenticationRule::class)->getValue();
+        $clientAuthenticationParam = $authorizationClientEntity->isGeneric() ?
+        null :
+        $resultBag->getOrFail(ClientAuthenticationRule::class)->getValue();
+
         /** @var ?string $codeVerifier */
         $codeVerifier = $resultBag->getOrFail(CodeVerifierRule::class)->getValue();
 
@@ -441,44 +537,15 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 //            $this->validateClient($request);
 //        }
 
-        $encryptedAuthCode = $this->getRequestParameter('code', $request);
+        $this->validateAuthorizationCode($authCodePayload, $client, $request, $storedAuthCodeEntity);
 
-        if ($encryptedAuthCode === null) {
-            throw OAuthServerException::invalidRequest('code');
-        }
+        $scopes = $this->scopeRepository->finalizeScopes(
+            $this->validateScopes($authCodePayload->scopes),
+            $this->getIdentifier(),
+            $client,
+            $authCodePayload->user_id,
+        );
 
-        try {
-            /**
-             * @noinspection PhpUndefinedClassInspection
-             * @psalm-var AuthCodePayloadObject $authCodePayload
-             */
-            $authCodePayload = json_decode($this->decrypt($encryptedAuthCode), null, 512, JSON_THROW_ON_ERROR);
-
-            if (!property_exists($authCodePayload, 'auth_code_id')) {
-                throw OAuthServerException::invalidRequest('code', 'Authorization code malformed');
-            }
-
-            if (! is_a($this->authCodeRepository, AuthCodeRepository::class)) {
-                throw OidcServerException::serverError('Unexpected auth code repository entity type.');
-            }
-
-            $storedAuthCodeEntity = $this->authCodeRepository->findById($authCodePayload->auth_code_id);
-
-            if ($storedAuthCodeEntity === null) {
-                throw OAuthServerException::invalidGrant('Authorization code not found');
-            }
-
-            $this->validateAuthorizationCode($authCodePayload, $client, $request, $storedAuthCodeEntity);
-
-            $scopes = $this->scopeRepository->finalizeScopes(
-                $this->validateScopes($authCodePayload->scopes),
-                $this->getIdentifier(),
-                $client,
-                $authCodePayload->user_id,
-            );
-        } catch (LogicException $e) {
-            throw OAuthServerException::invalidRequest('code', 'Cannot decrypt the authorization code', $e);
-        }
         // OAuth2 implementation
 //        $codeVerifier = $this->getRequestParameter('code_verifier', $request);
 
@@ -542,6 +609,10 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $scopes,
             $authCodePayload->auth_code_id,
             $claims,
+            $storedAuthCodeEntity->getFlowTypeEnum(),
+            $storedAuthCodeEntity->getAuthorizationDetails(),
+            $storedAuthCodeEntity->getBoundClientId(),
+            $storedAuthCodeEntity->getBoundRedirectUri(),
         );
         $this->getEmitter()->emit(new RequestEvent(RequestEvent::ACCESS_TOKEN_ISSUED, $request));
         $responseType->setAccessToken($accessToken);
@@ -662,6 +733,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         ResultBagInterface $resultBag,
     ): OAuth2AuthorizationRequest {
         $rulesToExecute = [
+            ClientIdRule::class,
             RequestObjectRule::class,
             PromptRule::class,
             MaxAgeRule::class,
@@ -680,7 +752,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $this->requestRulesManager->predefineResultBag($resultBag);
 
         /** @var string $redirectUri */
-        $redirectUri = $resultBag->getOrFail(RedirectUriRule::class)->getValue();
+        $redirectUri = $resultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
         /** @var string|null $state */
         $state = $resultBag->getOrFail(StateRule::class)->getValue();
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
@@ -777,6 +849,17 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         /** @var ?array $authorizationDetails */
         $authorizationDetails = $resultBag->get(AuthorizationDetailsRule::class)?->getValue();
         $authorizationRequest->setAuthorizationDetails($authorizationDetails);
+
+        // Check if we are using a generic client for this request. This can happen for non-registered clients
+        // in VCI flows. This can be removed once the VCI clients (wallets) are properly registered using DCR.
+        if ($client->isGeneric()) {
+            // The generic client was used. Make sure to store actually used client_id and redirect_uri params.
+            /** @var string $clientId */
+            $clientId = $resultBag->getOrFail(ClientIdRule::class)->getValue();
+            $authorizationRequest->setBoundClientId($clientId);
+
+            $authorizationRequest->setBoundRedirectUri($redirectUri);
+        }
 
         return $authorizationRequest;
     }

@@ -18,10 +18,10 @@ use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithRequestRules;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule;
-use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
@@ -80,7 +80,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         $rulesToExecute = [
             StateRule::class,
             ClientRule::class,
-            RedirectUriRule::class,
+            ClientRedirectUriRule::class,
         ];
 
         try {
@@ -99,7 +99,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         /** @var ?string $state */
         $state = $resultBag->getOrFail(StateRule::class)->getValue();
         /** @var string $redirectUri */
-        $redirectUri = $resultBag->getOrFail(RedirectUriRule::class)->getValue();
+        $redirectUri = $resultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
 
         foreach ($this->enabledGrantTypes as $grantType) {
             if ($grantType->canRespondToAuthorizationRequest($request)) {

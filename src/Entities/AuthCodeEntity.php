@@ -47,6 +47,8 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
         protected readonly ?FlowTypeEnum $flowTypeEnum = null,
         protected readonly ?string $txCode = null,
         protected readonly ?array $authorizationDetails = null,
+        protected readonly ?string $boundClientId = null,
+        protected readonly ?string $boundRedirectUri = null,
     ) {
         $this->identifier = $id;
         $this->client = $client;
@@ -77,6 +79,8 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
             'authorization_details' => is_array($this->authorizationDetails) ?
                 json_encode($this->authorizationDetails, JSON_THROW_ON_ERROR) :
                 null,
+            'bound_client_id' => $this->boundClientId,
+            'bound_redirect_uri' => $this->boundRedirectUri,
         ];
     }
 
@@ -98,5 +102,15 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
     public function getAuthorizationDetails(): ?array
     {
         return $this->authorizationDetails;
+    }
+
+    public function getBoundClientId(): ?string
+    {
+        return $this->boundClientId;
+    }
+
+    public function getBoundRedirectUri(): ?string
+    {
+        return $this->boundRedirectUri;
     }
 }

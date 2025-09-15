@@ -59,6 +59,10 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
      */
     protected ?array $authorizationDetails = null;
 
+    protected ?string $boundClientId = null;
+
+    protected ?string $boundRedirectUri = null;
+
     /**
      * Verifiable Credential Issuer state.
      *
@@ -265,5 +269,25 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     public function setAuthorizationDetails(?array $authorizationDetails): void
     {
         $this->authorizationDetails = $authorizationDetails;
+    }
+
+    public function getBoundClientId(): ?string
+    {
+        return $this->boundClientId;
+    }
+
+    public function setBoundClientId(?string $boundClientId): void
+    {
+        $this->boundClientId = $boundClientId;
+    }
+
+    public function getBoundRedirectUri(): ?string
+    {
+        return $this->boundRedirectUri;
+    }
+
+    public function setBoundRedirectUri(?string $boundRedirectUri): void
+    {
+        $this->boundRedirectUri = $boundRedirectUri;
     }
 }

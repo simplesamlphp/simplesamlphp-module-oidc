@@ -61,7 +61,7 @@ class MaxAgeRule extends AbstractRule
         }
 
         /** @var string $redirectUri */
-        $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
+        $redirectUri = $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
         /** @var ?string $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 

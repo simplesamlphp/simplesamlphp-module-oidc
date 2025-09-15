@@ -66,7 +66,7 @@ class PromptRule extends AbstractRule
             throw OAuthServerException::invalidRequest(ParamsEnum::Prompt->value, 'Invalid prompt parameter');
         }
         /** @var string $redirectUri */
-        $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
+        $redirectUri = $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
         /** @var ?string $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 

@@ -14,8 +14,8 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
-use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
@@ -40,7 +40,7 @@ class RequestObjectRuleTest extends TestCase
         $this->resultBagStub = $this->createStub(ResultBag::class);
         $this->resultBagStub->method('getOrFail')->willReturnMap([
             [ClientRule::class, new Result(ClientRule::class, $this->clientStub)],
-            [RedirectUriRule::class, new Result(RedirectUriRule::class, 'https://example.com/redirect')],
+            [ClientRedirectUriRule::class, new Result(ClientRedirectUriRule::class, 'https://example.com/redirect')],
         ]);
         $this->requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
         $this->requestObjectMock = $this->createMock(RequestObject::class);

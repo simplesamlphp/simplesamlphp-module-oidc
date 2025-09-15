@@ -9,6 +9,7 @@ use DateTimeImmutable;
 use League\OAuth2\Server\Entities\ClientEntityInterface;
 use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use League\OAuth2\Server\Grant\AbstractGrant;
+use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
@@ -50,6 +51,10 @@ trait IssueAccessTokenTrait
         array $scopes = [],
         ?string $authCodeId = null,
         ?array $requestedClaims = null,
+        ?FlowTypeEnum $flowTypeEnum = null,
+        ?array $authorizationDetails = null,
+        ?string $boundClientId = null,
+        ?string $boundRedirectUri = null,
     ): AccessTokenEntityInterface {
         $maxGenerationAttempts = AbstractGrant::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
 
@@ -70,6 +75,10 @@ trait IssueAccessTokenTrait
                     $userIdentifier,
                     $authCodeId,
                     $requestedClaims,
+                    flowTypeEnum: $flowTypeEnum,
+                    authorizationDetails: $authorizationDetails,
+                    boundClientId: $boundClientId,
+                    boundRedirectUri: $boundRedirectUri,
                 );
                 $this->accessTokenRepository->persistNewAccessToken($accessToken);
                 return $accessToken;

@@ -43,15 +43,16 @@ CREATE TABLE oidc_client (
             updated_at TIMESTAMP NULL DEFAULT NULL,
             created_at TIMESTAMP NULL DEFAULT NULL,
             expires_at TIMESTAMP NULL DEFAULT NULL,
-            is_federated BOOLEAN NOT NULL DEFAULT false
+            is_federated BOOLEAN NOT NULL DEFAULT false,
+            is_generic BOOLEAN NOT NULL DEFAULT false
 );
 -- Used 'httpd' host for back-channel logout url (https://httpd:8443/test/a/simplesamlphp-module-oidc/backchannel_logout)
 -- since this is the hostname of conformance server while running in container environment
-INSERT INTO oidc_client VALUES('_55a99a1d298da921cb27d700d4604352e51171ebc4','_8967dd97d07cc59db7055e84ac00e79005157c1132','Conformance Client 1',replace('Client 1 for Conformance Testing  https://openid.net/certification/connect_op_testing/\n','\n',char(10)),'example-userpass','["https:\/\/localhost.emobix.co.uk:8443\/test\/a\/simplesamlphp-module-oidc\/callback","https:\/\/www.certification.openid.net\/test\/a\/simplesamlphp-module-oidc\/callback"]','["openid","profile","email","address","phone","offline_access"]',1,1,NULL,'["https:\/\/localhost.emobix.co.uk:8443\/test\/a\/simplesamlphp-module-oidc\/post_logout_redirect"]','https://httpd:8443/test/a/simplesamlphp-module-oidc/backchannel_logout',NULL,NULL, NULL, NULL, NULL, NULL, 'manual', NULL, NULL, NULL, false);
-INSERT INTO oidc_client VALUES('_34efb61060172a11d62101bc804db789f8f9100b0e','_91a4607a1c10ba801268929b961b3f6c067ff82d21','Conformance Client 2','','example-userpass','["https:\/\/localhost.emobix.co.uk:8443\/test\/a\/simplesamlphp-module-oidc\/callback","https:\/\/www.certification.openid.net\/test\/a\/simplesamlphp-module-oidc\/callback"]','["openid","profile","email","offline_access"]',1,1,NULL,NULL,NULL,NULL,NULL, NULL, NULL, NULL, NULL, 'manual', NULL, NULL, NULL, false);
-INSERT INTO oidc_client VALUES('_0afb7d18e54b2de8205a93e38ca119e62ee321d031','_944e73bbeec7850d32b68f1b5c780562c955967e4e','Conformance Client 3','Client for client_secret_post','example-userpass','["https:\/\/localhost.emobix.co.uk:8443\/test\/a\/simplesamlphp-module-oidc\/callback","https:\/\/www.certification.openid.net\/test\/a\/simplesamlphp-module-oidc\/callback"]','["openid","profile","email"]',1,1,NULL,NULL,NULL,NULL,NULL, NULL, NULL, NULL, NULL, 'manual', NULL, NULL, NULL, false);
-INSERT INTO oidc_client VALUES('_8957eda35234902ba8343c0cdacac040310f17dfca','_322d16999f9da8b5abc9e9c0c08e853f60f4dc4804','RP-Initiated Logout Client','Client for testing RP-Initiated Logout','example-userpass','["https:\/\/localhost.emobix.co.uk:8443\/test\/a\/simplesamlphp-module-oidc\/callback","https:\/\/www.certification.openid.net\/test\/a\/simplesamlphp-module-oidc\/callback"]','["openid","profile","email","address","phone"]',1,1,NULL,'["https:\/\/localhost.emobix.co.uk:8443\/test\/a\/simplesamlphp-module-oidc\/post_logout_redirect"]',NULL,NULL,NULL, NULL, NULL, NULL, NULL, 'manual', NULL, NULL, NULL, false);
-INSERT INTO oidc_client VALUES('_9fe2f7589ece1b71f5ef75a91847d71bc5125ec2a6','_3c0beb20194179c01d7796c6836f62801e9ed4b368','Back-Channel Logout Client','Client for testing Back-Channel Logout','example-userpass','["https:\/\/localhost.emobix.co.uk:8443\/test\/a\/simplesamlphp-module-oidc\/callback","https:\/\/www.certification.openid.net\/test\/a\/simplesamlphp-module-oidc\/callback"]','["openid","profile","email","address","phone"]',1,1,NULL,'["https:\/\/localhost.emobix.co.uk:8443\/test\/a\/simplesamlphp-module-oidc\/post_logout_redirect"]','https://httpd:8443/test/a/simplesamlphp-module-oidc/backchannel_logout',NULL,NULL, NULL, NULL, NULL, NULL, 'manual', NULL, NULL, NULL, false);
+INSERT INTO oidc_client VALUES('_55a99a1d298da921cb27d700d4604352e51171ebc4','_8967dd97d07cc59db7055e84ac00e79005157c1132','Conformance Client 1',replace('Client 1 for Conformance Testing  https://openid.net/certification/connect_op_testing/\n','\n',char(10)),'example-userpass','["https:\/\/localhost.emobix.co.uk:8443\/test\/a\/simplesamlphp-module-oidc\/callback","https:\/\/www.certification.openid.net\/test\/a\/simplesamlphp-module-oidc\/callback"]','["openid","profile","email","address","phone","offline_access"]',1,1,NULL,'["https:\/\/localhost.emobix.co.uk:8443\/test\/a\/simplesamlphp-module-oidc\/post_logout_redirect"]','https://httpd:8443/test/a/simplesamlphp-module-oidc/backchannel_logout',NULL,NULL, NULL, NULL, NULL, NULL, 'manual', NULL, NULL, NULL, false, false);
+INSERT INTO oidc_client VALUES('_34efb61060172a11d62101bc804db789f8f9100b0e','_91a4607a1c10ba801268929b961b3f6c067ff82d21','Conformance Client 2','','example-userpass','["https:\/\/localhost.emobix.co.uk:8443\/test\/a\/simplesamlphp-module-oidc\/callback","https:\/\/www.certification.openid.net\/test\/a\/simplesamlphp-module-oidc\/callback"]','["openid","profile","email","offline_access"]',1,1,NULL,NULL,NULL,NULL,NULL, NULL, NULL, NULL, NULL, 'manual', NULL, NULL, NULL, false, false);
+INSERT INTO oidc_client VALUES('_0afb7d18e54b2de8205a93e38ca119e62ee321d031','_944e73bbeec7850d32b68f1b5c780562c955967e4e','Conformance Client 3','Client for client_secret_post','example-userpass','["https:\/\/localhost.emobix.co.uk:8443\/test\/a\/simplesamlphp-module-oidc\/callback","https:\/\/www.certification.openid.net\/test\/a\/simplesamlphp-module-oidc\/callback"]','["openid","profile","email"]',1,1,NULL,NULL,NULL,NULL,NULL, NULL, NULL, NULL, NULL, 'manual', NULL, NULL, NULL, false, false);
+INSERT INTO oidc_client VALUES('_8957eda35234902ba8343c0cdacac040310f17dfca','_322d16999f9da8b5abc9e9c0c08e853f60f4dc4804','RP-Initiated Logout Client','Client for testing RP-Initiated Logout','example-userpass','["https:\/\/localhost.emobix.co.uk:8443\/test\/a\/simplesamlphp-module-oidc\/callback","https:\/\/www.certification.openid.net\/test\/a\/simplesamlphp-module-oidc\/callback"]','["openid","profile","email","address","phone"]',1,1,NULL,'["https:\/\/localhost.emobix.co.uk:8443\/test\/a\/simplesamlphp-module-oidc\/post_logout_redirect"]',NULL,NULL,NULL, NULL, NULL, NULL, NULL, 'manual', NULL, NULL, NULL, false, false);
+INSERT INTO oidc_client VALUES('_9fe2f7589ece1b71f5ef75a91847d71bc5125ec2a6','_3c0beb20194179c01d7796c6836f62801e9ed4b368','Back-Channel Logout Client','Client for testing Back-Channel Logout','example-userpass','["https:\/\/localhost.emobix.co.uk:8443\/test\/a\/simplesamlphp-module-oidc\/callback","https:\/\/www.certification.openid.net\/test\/a\/simplesamlphp-module-oidc\/callback"]','["openid","profile","email","address","phone"]',1,1,NULL,'["https:\/\/localhost.emobix.co.uk:8443\/test\/a\/simplesamlphp-module-oidc\/post_logout_redirect"]','https://httpd:8443/test/a/simplesamlphp-module-oidc/backchannel_logout',NULL,NULL, NULL, NULL, NULL, NULL, 'manual', NULL, NULL, NULL, false, false);
 CREATE TABLE oidc_access_token (
             id VARCHAR(191) PRIMARY KEY NOT NULL,
             scopes TEXT,
@@ -60,6 +61,10 @@ CREATE TABLE oidc_access_token (
             client_id VARCHAR(191) NOT NULL,
             is_revoked BOOLEAN NOT NULL DEFAULT false,
             auth_code_id varchar(191) DEFAULT NULL, requested_claims TEXT NULL,
+            flow_type CHAR(64) NULL,
+            authorization_details TEXT NULL,
+            bound_client_id TEXT NULL,
+            bound_redirect_uri TEXT NULL,
             CONSTRAINT FK_43C1650EA76ED395 FOREIGN KEY (user_id)
                 REFERENCES oidc_user (id) ON DELETE CASCADE,
             CONSTRAINT FK_43C1650E19EB6921 FOREIGN KEY (client_id)
@@ -85,6 +90,8 @@ CREATE TABLE oidc_auth_code (
             flow_type CHAR(64) DEFAULT NULL,
             tx_code varchar(191) DEFAULT NULL,
             authorization_details TEXT NULL,
+            bound_client_id TEXT NULL,
+            bound_redirect_uri TEXT NULL,
             CONSTRAINT FK_97D32CA7A76ED395 FOREIGN KEY (user_id)
                 REFERENCES oidc_user (id) ON DELETE CASCADE,
             CONSTRAINT FK_97D32CA719EB6921 FOREIGN KEY (client_id)

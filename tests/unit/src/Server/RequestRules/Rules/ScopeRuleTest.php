@@ -17,7 +17,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
-use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
@@ -55,7 +55,7 @@ class ScopeRuleTest extends TestCase
     {
         $this->scopeRepositoryStub = $this->createStub(ScopeRepositoryInterface::class);
         $this->resultBagStub = $this->createStub(ResultBagInterface::class);
-        $this->redirectUriResult = new Result(RedirectUriRule::class, 'https://some-uri.org');
+        $this->redirectUriResult = new Result(ClientRedirectUriRule::class, 'https://some-uri.org');
         $this->stateResult = new Result(StateRule::class, '123');
         $this->requestStub = $this->createStub(ServerRequestInterface::class);
         $this->scopeEntities = [

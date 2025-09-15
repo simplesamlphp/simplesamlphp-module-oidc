@@ -82,7 +82,9 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
                 nonce,
                 flow_type,
                 tx_code,
-                authorization_details
+                authorization_details,
+                bound_client_id,
+                bound_redirect_uri
             ) VALUES (
                 :id,
                 :scopes,
@@ -94,7 +96,9 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
                 :nonce,
                 :flow_type,
                 :tx_code,
-                :authorization_details
+                :authorization_details,
+                :bound_client_id,
+                :bound_redirect_uri
             )
             EOS,
             $this->getTableName(),
@@ -218,7 +222,9 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
                 nonce = :nonce,
                 flow_type = :flow_type,
                 tx_code = :tx_code,
-                authorization_details = :authorization_details
+                authorization_details = :authorization_details,
+                bound_client_id = :bound_client_id,
+                bound_redirect_uri = :bound_redirect_uri
             WHERE id = :id
 EOS
             ,

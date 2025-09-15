@@ -108,7 +108,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
         DateInterval $accessTokenTTL,
     ): ResponseTypeInterface {
 
-        // TODO mivanci client authentication
+        // TODO mivanci client authentication?
 
         $this->loggerService->debug(
             'Pre-authorized code grant respondToAccessTokenRequest',
@@ -200,10 +200,12 @@ class PreAuthCodeGrant extends AuthCodeGrant
             }
         }
 
-        // TODO handle authorization_details parameter, add to response.
+        // TODO handle authorization_details parameter, add to
+        // * access token
+        // * and response itself.
         //dd($authorizationDetails);
 
-
+        // TODO mivanci add flow, authorization details, bound client_id and redirect_uri to access token.
         // Issue and persist new access token
         $accessToken = $this->issueAccessToken(
             $accessTokenTTL,

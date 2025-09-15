@@ -17,6 +17,8 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AddClaimsToIdTokenRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AuthorizationDetailsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientAuthenticationRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
@@ -26,7 +28,6 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
-use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredNonceRule;
@@ -100,7 +101,7 @@ class RequestRulesManagerFactory
                 $this->logger,
                 $this->federationCache,
             ),
-            new RedirectUriRule($this->requestParamsResolver, $this->helpers, $this->moduleConfig),
+            new ClientRedirectUriRule($this->requestParamsResolver, $this->helpers, $this->moduleConfig),
             new RequestObjectRule($this->requestParamsResolver, $this->helpers, $this->jwksResolver),
             new PromptRule(
                 $this->requestParamsResolver,
@@ -148,6 +149,7 @@ class RequestRulesManagerFactory
             new CodeVerifierRule($this->requestParamsResolver, $this->helpers),
             new IssuerStateRule($this->requestParamsResolver, $this->helpers, $this->issuerStateRepository),
             new AuthorizationDetailsRule($this->requestParamsResolver, $this->helpers, $this->moduleConfig),
+            new ClientIdRule($this->requestParamsResolver, $this->helpers),
         ];
     }
 }

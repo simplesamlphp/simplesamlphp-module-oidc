@@ -459,7 +459,12 @@ class ModuleConfig
      */
     public function getScopes(): array
     {
-        return array_merge(self::$standardScopes, $this->getPrivateScopes());
+        return array_merge(
+            self::$standardScopes,
+            $this->getPrivateScopes(),
+            // Also include VCI scopes if enabled.
+            $this->getVciScopes(),
+        );
     }
 
     /**
@@ -909,6 +914,25 @@ class ModuleConfig
         );
     }
 
+    /**
+     * Helper function to get the credential configuration IDs in a format suitable for creating ScopeEntity instances.
+     * Returns an empty array if VCI is not enabled.
+     *
+     * @return array<string, array<string, string>>
+     */
+    public function getVciScopes(): array
+    {
+        if (! $this->getVerifiableCredentialEnabled()) {
+            return [];
+        }
+
+        $vciScopes = [];
+        foreach ($this->getCredentialConfigurationIdsSupported() as $credentialConfigurationId) {
+            $vciScopes[$credentialConfigurationId] = ['description' => $credentialConfigurationId];
+        }
+        return $vciScopes;
+    }
+
     public function getCredentialConfigurationIdForCredentialDefinitionType(array $credentialDefinitionType): ?string
     {
         foreach (
@@ -978,6 +1002,45 @@ class ModuleConfig
         return [];
     }
 
+    /**
+     * Get Issuer State Duration (TTL) if set. If not set, it will fall back to Authorization Code Duration.
+     *
+     * @return DateInterval
+     * @throws \Exception
+     */
+    public function getIssuerStateDuration(): DateInterval
+    {
+        $issuerStateDuration = $this->config()->getOptionalString(self::OPTION_ISSUER_STATE_TTL, null);
+
+        if (is_null($issuerStateDuration)) {
+            return $this->getAuthCodeDuration();
+        }
+
+        return new DateInterval(
+            $this->config()->getString(self::OPTION_ISSUER_STATE_TTL),
+        );
+    }
+
+    public function getAllowNonRegisteredClientsForVci(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_ALLOW_NON_REGISTERED_CLIENTS_FOR_VCI, false);
+    }
+
+    public function getAllowVciAuthorizationCodeRequestsWithoutClientId(): bool
+    {
+        return $this->config()->getOptionalBoolean(
+            self::OPTION_ALLOW_VCI_AUTHORIZATION_CODE_REQUESTS_WITHOUT_CLIENT_ID,
+            false,
+        );
+    }
+
+    public function getAllowedRedirectUriPrefixesForNonRegisteredClientsForVci(): array
+    {
+        return $this->config()->getOptionalArray(
+            self::OPTION_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS_FOR_VCI,
+            ['openid-credential-offer://',],
+        );
+    }
 
 
     /*****************************************************************************************************************
@@ -1033,45 +1096,5 @@ class ModuleConfig
     public function getDefaultUsersEmailAttributeName(): string
     {
         return $this->config()->getOptionalString(self::OPTION_DEFAULT_USERS_EMAIL_ATTRIBUTE_NAME, 'mail');
-    }
-
-    /**
-     * Get Issuer State Duration (TTL) if set. If not set, it will fall back to Authorization Code Duration.
-     *
-     * @return DateInterval
-     * @throws \Exception
-     */
-    public function getIssuerStateDuration(): DateInterval
-    {
-        $issuerStateDuration = $this->config()->getOptionalString(self::OPTION_ISSUER_STATE_TTL, null);
-
-        if (is_null($issuerStateDuration)) {
-            return $this->getAuthCodeDuration();
-        }
-
-        return new DateInterval(
-            $this->config()->getString(self::OPTION_ISSUER_STATE_TTL),
-        );
-    }
-
-    public function getAllowNonRegisteredClientsForVci(): bool
-    {
-        return $this->config()->getOptionalBoolean(self::OPTION_ALLOW_NON_REGISTERED_CLIENTS_FOR_VCI, false);
-    }
-
-    public function getAllowVciAuthorizationCodeRequestsWithoutClientId(): bool
-    {
-        return $this->config()->getOptionalBoolean(
-            self::OPTION_ALLOW_VCI_AUTHORIZATION_CODE_REQUESTS_WITHOUT_CLIENT_ID,
-            false,
-        );
-    }
-
-    public function getAllowedRedirectUriPrefixesForNonRegisteredClientsForVci(): array
-    {
-        return $this->config()->getOptionalArray(
-            self::OPTION_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS_FOR_VCI,
-            ['openid-credential-offer://',],
-        );
     }
 }

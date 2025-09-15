@@ -161,7 +161,8 @@ class ClientRule extends AbstractRule
             return new Result($this->getKey(), $this->getGenericVciClient());
         } else {
             $this->loggerService->debug(
-                'ClientRule: Verifiable Credential capabilities with non-registered clients are not enabled.',
+                'ClientRule: Not a VCI request, or VCI capabilities not enabled, or VCI with non-registered' .
+                ' clients not enabled.',
             );
         }
 

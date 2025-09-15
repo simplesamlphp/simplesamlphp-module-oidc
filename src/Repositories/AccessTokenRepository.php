@@ -101,8 +101,34 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         }
 
         $stmt = sprintf(
-            "INSERT INTO %s (id, scopes, expires_at, user_id, client_id, is_revoked, auth_code_id, requested_claims) "
-            . "VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked, :auth_code_id, :requested_claims)",
+            "INSERT INTO %s (
+                id,
+                scopes,
+                expires_at,
+                user_id,
+                client_id,
+                is_revoked,
+                auth_code_id,
+                requested_claims,
+                flow_type,
+                authorization_details,
+                bound_client_id,
+                bound_redirect_uri
+                ) "
+            . "VALUES (
+                          :id,
+                          :scopes,
+                          :expires_at,
+                          :user_id,
+                          :client_id,
+                          :is_revoked,
+                          :auth_code_id,
+                          :requested_claims,
+                          :flow_type,
+                          :authorization_details,
+                          :bound_client_id,
+                          :bound_redirect_uri
+                          )",
             $this->getTableName(),
         );
 
@@ -239,7 +265,9 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         $stmt = sprintf(
             "UPDATE %s SET scopes = :scopes, expires_at = :expires_at, user_id = :user_id, "
                 . "client_id = :client_id, is_revoked = :is_revoked, auth_code_id = :auth_code_id, "
-                . "requested_claims = :requested_claims WHERE id = :id",
+                . "requested_claims = :requested_claims, flow_type = :flow_type, " .
+            "authorization_details = :authorization_details, bound_client_id = :bound_client_id, " .
+            "bound_redirect_uri = :bound_redirect_uri WHERE id = :id",
             $this->getTableName(),
         );
 

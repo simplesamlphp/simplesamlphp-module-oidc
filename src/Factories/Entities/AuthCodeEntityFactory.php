@@ -35,6 +35,8 @@ class AuthCodeEntityFactory
         ?FlowTypeEnum $flowTypeEnum = null,
         ?string $txCode = null,
         ?array $authorizationDetails = null,
+        ?string $boundClientId = null,
+        ?string $boundRedirectUri = null,
     ): AuthCodeEntity {
         return new AuthCodeEntity(
             $id,
@@ -48,6 +50,8 @@ class AuthCodeEntityFactory
             $flowTypeEnum,
             $txCode,
             $authorizationDetails,
+            $boundClientId,
+            $boundRedirectUri,
         );
     }
 
@@ -97,6 +101,9 @@ class AuthCodeEntityFactory
         null;
         $authorizationDetails = is_array($authorizationDetails) ? $authorizationDetails : null;
 
+        $boundClientId = empty($state['bound_client_id']) ? null : (string)$state['bound_client_id'];
+        $boundRedirectUri = empty($state['bound_redirect_uri']) ? null : (string)$state['bound_redirect_uri'];
+
         return $this->fromData(
             $id,
             $client,
@@ -109,6 +116,8 @@ class AuthCodeEntityFactory
             $flowType,
             $txCode,
             $authorizationDetails,
+            $boundClientId,
+            $boundRedirectUri,
         );
     }
 }

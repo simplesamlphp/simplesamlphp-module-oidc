@@ -21,6 +21,7 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\TokenResponse;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 
 class TokenResponseFactory
 {
@@ -29,6 +30,7 @@ class TokenResponseFactory
         private readonly UserRepository $userRepository,
         private readonly IdTokenBuilder $idTokenBuilder,
         private readonly CryptKey $privateKey,
+        private readonly LoggerService $loggerService,
     ) {
     }
 
@@ -38,6 +40,7 @@ class TokenResponseFactory
             $this->userRepository,
             $this->idTokenBuilder,
             $this->privateKey,
+            $this->loggerService,
         );
         $tokenResponse->setEncryptionKey($this->moduleConfig->getEncryptionKey());
 

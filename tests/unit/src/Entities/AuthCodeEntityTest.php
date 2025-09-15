@@ -104,6 +104,8 @@ class AuthCodeEntityTest extends TestCase
                 'flow_type' => null,
                 'tx_code' => null,
                 'authorization_details' => null,
+                'bound_client_id' => null,
+                'bound_redirect_uri' => null,
             ],
         );
     }

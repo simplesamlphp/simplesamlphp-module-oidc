@@ -184,6 +184,21 @@ class DatabaseMigration
             $this->version20250913163000();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20250913163000')");
         }
+
+        if (!in_array('20250915163000', $versions, true)) {
+            $this->version20250915163000();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20250915163000')");
+        }
+
+        if (!in_array('20250916163000', $versions, true)) {
+            $this->version20250916163000();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20250916163000')");
+        }
+
+        if (!in_array('20250917163000', $versions, true)) {
+            $this->version20250917163000();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20250917163000')");
+        }
     }
 
     private function versionsTableName(): string
@@ -603,6 +618,62 @@ EOT
         $this->database->write(<<< EOT
         ALTER TABLE {$authCodeTableName}
             ADD authorization_details TEXT NULL;
+EOT
+            ,);
+    }
+
+    private function version20250915163000(): void
+    {
+        $authCodeTableName = $this->database->applyPrefix(AuthCodeRepository::TABLE_NAME);
+
+        $this->database->write(<<< EOT
+        ALTER TABLE {$authCodeTableName}
+            ADD bound_client_id TEXT NULL;
+EOT
+            ,);
+
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+
+        $this->database->write(<<< EOT
+        ALTER TABLE {$clientTableName}
+            ADD is_generic BOOLEAN NOT NULL DEFAULT false;
+EOT
+            ,);
+    }
+
+    private function version20250916163000(): void
+    {
+        $authCodeTableName = $this->database->applyPrefix(AuthCodeRepository::TABLE_NAME);
+
+        $this->database->write(<<< EOT
+        ALTER TABLE {$authCodeTableName}
+            ADD bound_redirect_uri TEXT NULL;
+EOT
+            ,);
+    }
+
+    private function version20250917163000(): void
+    {
+        $accessTokenTableName = $this->database->applyPrefix(AccessTokenRepository::TABLE_NAME);
+
+        $this->database->write(<<< EOT
+        ALTER TABLE {$accessTokenTableName}
+            ADD flow_type CHAR(64) NULL;
+EOT
+            ,);
+        $this->database->write(<<< EOT
+        ALTER TABLE {$accessTokenTableName}
+            ADD authorization_details TEXT NULL;
+EOT
+            ,);
+        $this->database->write(<<< EOT
+        ALTER TABLE {$accessTokenTableName}
+            ADD bound_client_id TEXT NULL;
+EOT
+            ,);
+        $this->database->write(<<< EOT
+        ALTER TABLE {$accessTokenTableName}
+            ADD bound_redirect_uri TEXT NULL;
 EOT
             ,);
     }
