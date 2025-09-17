@@ -100,6 +100,17 @@ class CredentialIssuerCredentialController
             );
         }
 
+        if (
+            ($flowType = $accessToken->getFlowTypeEnum()) === null ||
+            $flowType->isVciFlow() === false
+        ) {
+            return $this->routes->newJsonErrorResponse(
+                'invalid_token',
+                'Access token is not intended for verifiable credential issuance.',
+                401,
+            );
+        }
+
         // TODO mivanci Validate credential request
 
         $credentialFormatId = $requestData[ClaimsEnum::Format->value] ?? null;
