@@ -55,7 +55,8 @@ class CredentialIssuerCredentialController
         protected readonly Did $did,
     ) {
         if (!$this->moduleConfig->getVerifiableCredentialEnabled()) {
-            throw OidcServerException::forbidden('Verifiable Credential capabilities not enabled');
+            $this->loggerService->warning('Verifiable Credential capabilities not enabled.');
+            throw OidcServerException::forbidden('Verifiable Credential capabilities not enabled.');
         }
     }
 

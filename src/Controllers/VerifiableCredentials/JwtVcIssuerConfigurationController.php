@@ -16,6 +16,7 @@ namespace SimpleSAML\Module\oidc\Controllers\VerifiableCredentials;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use Symfony\Component\HttpFoundation\Response;
@@ -28,9 +29,11 @@ class JwtVcIssuerConfigurationController
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
         protected readonly Routes $routes,
+        protected readonly LoggerService $loggerService,
     ) {
         if (!$this->moduleConfig->getVerifiableCredentialEnabled()) {
-            throw OidcServerException::forbidden('Verifiable Credential capabilities not enabled');
+            $this->loggerService->warning('Verifiable Credential capabilities not enabled.');
+            throw OidcServerException::forbidden('Verifiable Credential capabilities not enabled.');
         }
     }
 
