@@ -69,13 +69,15 @@ class CredentialIssuerCredentialController
      */
     public function credential(Request $request): Response
     {
+        $this->loggerService->debug('CredentialIssuerCredentialController::credential');
+
         $requestData = $this->requestParamsResolver->getAllFromRequestBasedOnAllowedMethods(
             $this->psrHttpBridge->getPsrHttpFactory()->createRequest($request),
             [HttpMethodsEnum::POST],
         );
 
         $this->loggerService->debug(
-            'CredentialIssuerCredentialController::credential: Verifiable Credential request data: ',
+            'CredentialIssuerCredentialController: Request data: ',
             $requestData,
         );
 
@@ -83,7 +85,6 @@ class CredentialIssuerCredentialController
             $this->psrHttpBridge->getPsrHttpFactory()->createRequest($request),
         );
 
-        // TODO mivanci validate access token
         $accessToken = $this->accessTokenRepository->findById(
             (string)$authorization->getAttribute('oauth_access_token_id'),
         );
@@ -109,8 +110,8 @@ class CredentialIssuerCredentialController
             $flowType->isVciFlow() === false
         ) {
             $this->loggerService->warning(
-                'CredentialIssuerCredentialController::credential: Access token is not intended for verifiable' .
-                ' credential issuance.',
+                'CredentialIssuerCredentialController::credential: Access token is not intended for Verifiable' .
+                ' Credential Issuance.',
                 ['access_token' => $accessToken],
             );
             return $this->routes->newJsonErrorResponse(

@@ -13,7 +13,6 @@ use SimpleSAML\Module\oidc\Codebooks\ParametersEnum;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
-use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\IssuerStateEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -36,7 +35,6 @@ class CredentialOfferUriFactory
         protected readonly SspBridge $sspBridge,
         protected readonly AuthCodeRepository $authCodeRepository,
         protected readonly AuthCodeEntityFactory $authCodeEntityFactory,
-        protected readonly ClientEntityFactory $clientEntityFactory,
         protected readonly ClientRepository $clientRepository,
         protected readonly LoggerService $loggerService,
         protected readonly UserRepository $userRepository,
@@ -132,13 +130,9 @@ class CredentialOfferUriFactory
         );
 
         // Currently, we need a dedicated client for which the PreAuthZed code will be bound to.
-        // TODO mivanci: Remove requirement for dedicated client for (pre-)authorization codes.
-        $client = $this->clientEntityFactory->getGenericForVci();
-        if ($this->clientRepository->findById($client->getIdentifier()) === null) {
-            $this->clientRepository->add($client);
-        } else {
-            $this->clientRepository->update($client);
-        }
+        // TODO mivanci: Remove requirement for dedicated client for (pre-)authorization codes once the dynamic
+        // client registration is enabled.
+        $client = $this->clientRepository->getGenericForVci();
 
         $userId = null;
         try {

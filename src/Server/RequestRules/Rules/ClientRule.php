@@ -132,7 +132,7 @@ class ClientRule extends AbstractRule
                 'Falling back to generic VCI client.',
             );
 
-            return new Result($this->getKey(), $this->getGenericVciClient());
+            return new Result($this->getKey(), $this->clientRepository->getGenericForVci());
         } else {
             $this->loggerService->debug(
                 'ClientRule: Not a VCI request, or VCI capabilities not enabled, or VCI with non-registered' .
@@ -364,17 +364,5 @@ class ClientRule extends AbstractRule
         $currentResultBag->add(new Result(RequestObjectRule::class, $requestObject->getPayload()));
 
         return $registrationClient;
-    }
-
-    protected function getGenericVciClient(): ClientEntityInterface
-    {
-        $client = $this->clientEntityFactory->getGenericForVci();
-        if ($this->clientRepository->findById($client->getIdentifier()) === null) {
-            $this->clientRepository->add($client);
-        } else {
-            $this->clientRepository->update($client);
-        }
-
-        return $client;
     }
 }

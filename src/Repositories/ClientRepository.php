@@ -564,4 +564,16 @@ EOF
 
         return $state;
     }
+
+    public function getGenericForVci(): ClientEntityInterface
+    {
+        $client = $this->clientEntityFactory->getGenericForVci();
+        if ($this->findById($client->getIdentifier()) === null) {
+            $this->add($client);
+        } else {
+            $this->update($client);
+        }
+
+        return $client;
+    }
 }
