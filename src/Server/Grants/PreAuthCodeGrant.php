@@ -142,22 +142,9 @@ class PreAuthCodeGrant extends AuthCodeGrant
             throw OidcServerException::invalidGrant('Invalid pre-authorized code.');
         }
 
-        if (!$preAuthorizedCode->isVciPreAuthorized()) {
-            $this->loggerService->error(
-                'Pre-authorized code is not pre-authorized. Value was: ' . $preAuthorizedCodeId,
-            );
-            throw OidcServerException::invalidGrant('Pre-authorized code is not pre-authorized.');
-        }
-
-        if ($preAuthorizedCode->isRevoked()) {
-            $this->loggerService->error('Pre-authorized code is revoked. Value was: ' . $preAuthorizedCodeId);
-            throw OidcServerException::invalidGrant('Pre-authorized code is revoked.');
-        }
-
         $client = $preAuthorizedCode->getClient();
 
-        // TODO validate code
-        // $this->validateAuthorizationCode($preAuthorizedCode, $client, $request);
+        $this->validateAuthorizationCode($preAuthorizedCode, $client, $request, $preAuthorizedCode);
 
         // Validate Transaction Code.
         if (($preAuthorizedCodeTxCode = $preAuthorizedCode->getTxCode()) !== null) {
@@ -200,7 +187,6 @@ class PreAuthCodeGrant extends AuthCodeGrant
         /** @var ?array $authorizationDetails */
         $authorizationDetails = $resultBag->get(AuthorizationDetailsRule::class)?->getValue();
 
-        // TODO mivanci add flow, authorization details, bound client_id and redirect_uri to access token.
         // Issue and persist new access token
         $accessToken = $this->issueAccessToken(
             $accessTokenTTL,
@@ -238,6 +224,34 @@ class PreAuthCodeGrant extends AuthCodeGrant
         ServerRequestInterface $request,
         AuthCodeEntity $storedAuthCodeEntity,
     ): void {
+        $this->loggerService->debug('PreAuthCodeGrant::validateAuthorizationCode');
+
+        if (!$storedAuthCodeEntity->isVciPreAuthorized()) {
+            $this->loggerService->error(
+                'Pre-authorized code is not pre-authorized. ID was: ',
+                ['preAuthCodeId' => $storedAuthCodeEntity->getIdentifier()],
+            );
+            throw OidcServerException::invalidGrant('Pre-authorized code is not pre-authorized.');
+        }
+
+        if ($storedAuthCodeEntity->getExpiryDateTime()->getTimestamp() < time()) {
+            $this->loggerService->error(
+                'Pre-authorized code is expired. ID was: ',
+                ['preAuthCodeId' => $storedAuthCodeEntity->getIdentifier()],
+            );
+
+            throw OidcServerException::invalidGrant('Pre-authorized code is expired.');
+        }
+
+        if ($storedAuthCodeEntity->isRevoked()) {
+            $this->loggerService->error(
+                'Pre-authorized code is revoked. ID was: ',
+                ['preAuthCodeId' => $storedAuthCodeEntity->getIdentifier()],
+            );
+            throw OidcServerException::invalidGrant('Pre-authorized code is revoked.');
+        }
+
+        $this->loggerService->debug('PreAuthCodeGrant::validateAuthorizationCode passed.');
     }
 
     /**
