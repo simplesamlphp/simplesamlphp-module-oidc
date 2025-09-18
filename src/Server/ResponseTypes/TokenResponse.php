@@ -105,7 +105,7 @@ class TokenResponse extends BearerTokenResponse implements
         ) {
             $extraParams = [
                 ...$extraParams,
-//                ...$this->prepareVciAuthorizationDetailsExtraParam($accessToken),
+                ...$this->prepareVciAuthorizationDetailsExtraParam($accessToken),
             ];
         }
 

@@ -74,14 +74,7 @@ class ClientRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
-
-        $this->loggerService->debug(
-            'ClientRule: Request parameters:',
-            $this->requestParamsResolver->getAllBasedOnAllowedMethods(
-                $request,
-                $allowedServerRequestMethods,
-            ),
-        );
+        $loggerService->debug('ClientRule::checkRule.');
 
         /** @var ?string $clientId */
         $clientId = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
@@ -91,26 +84,7 @@ class ClientRule extends AbstractRule
         ) ?? $request->getServerParams()['PHP_AUTH_USER'] ?? null;
 
         if ($clientId === null) {
-            $this->loggerService->debug(
-                'ClientRule: Client ID not found in request parameters or PHP_AUTH_USER.',
-            );
-            // Check to see if this is a Verifiable Credential Request. Is yes, check if VCI is
-            // enabled, and if client_id is allowed to be empty. We know that this is a VCI request because the
-            // Issuer State parameter must be present.
-            if (
-                $this->requestParamsResolver->isVciAuthorizationCodeRequest($request, $allowedServerRequestMethods) &&
-                $this->moduleConfig->getVerifiableCredentialEnabled() &&
-                $this->moduleConfig->getAllowVciAuthorizationCodeRequestsWithoutClientId() &&
-                $this->moduleConfig->getAllowNonRegisteredClientsForVci()
-            ) {
-                // We will use a VCI generic client in this case.
-                $this->loggerService->warning(
-                    'ClientRule: VCI authorization code request without client_id detected.' .
-                    ' Using generic VCI client.',
-                );
-
-                return new Result($this->getKey(), $this->getGenericVciClient());
-            }
+            $this->loggerService->debug('ClientRule: Client ID not found in request parameters or PHP_AUTH_USER.');
 
             throw OidcServerException::invalidRequest('client_id');
         }

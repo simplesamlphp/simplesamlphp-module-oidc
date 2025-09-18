@@ -37,6 +37,8 @@ class RequestedClaimsRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
+        $loggerService->debug('RequestedClaimsRule::checkRule');
+
         /** @psalm-suppress MixedAssignment We'll check the type. */
         $claimsParam = $this->requestParamsResolver->getBasedOnAllowedMethods(
             ParamsEnum::Claims->value,

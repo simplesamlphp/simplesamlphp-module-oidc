@@ -204,6 +204,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      */
     public function canRespondToAuthorizationRequest(ServerRequestInterface $request): bool
     {
+        $this->loggerService->debug('AuthCodeGrant::canRespondToAuthorizationRequest');
+
         $requestParams = $this->requestParamsResolver->getAllBasedOnAllowedMethods(
             $request,
             $this->allowedAuthorizationHttpMethods,
@@ -732,6 +734,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         ServerRequestInterface $request,
         ResultBagInterface $resultBag,
     ): OAuth2AuthorizationRequest {
+        $this->loggerService->debug('AuthCodeGrant::validateAuthorizationRequestWithRequestRules');
+
         $rulesToExecute = [
             ClientIdRule::class,
             RequestObjectRule::class,
@@ -758,6 +762,12 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $resultBag->getOrFail(ClientRule::class)->getValue();
 
+        $this->loggerService->debug('AuthCodeGrant: Resolved data:', [
+            'redirectUri' => $redirectUri,
+            'state' => $state,
+            'clientId' => $client->getIdentifier(),
+        ]);
+
         // Some rules have to have certain things available in order to work properly...
         $this->requestRulesManager->setData('default_scope', $this->defaultScope);
         $this->requestRulesManager->setData('scope_delimiter_string', self::SCOPE_DELIMITER_STRING);
@@ -769,8 +779,12 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $this->allowedAuthorizationHttpMethods,
         );
 
+        $this->loggerService->debug('AuthCodeGrant: executed rules.', ['rulesToExecute' => $rulesToExecute]);
+
         /** @var \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes */
         $scopes = $resultBag->getOrFail(ScopeRule::class)->getValue();
+
+        $this->loggerService->debug('AuthCodeGrant: Resolved scopes: ', ['scopes' => $scopes]);
 
         $oAuth2AuthorizationRequest = new OAuth2AuthorizationRequest();
 
@@ -786,24 +800,45 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         /** @var ?string $codeChallenge */
         $codeChallenge = $resultBag->getOrFail(CodeChallengeRule::class)->getValue();
         if ($codeChallenge) {
+            $this->loggerService->debug('AuthCodeGrant: Code challenge: ', [
+                'codeChallenge' => $codeChallenge,
+            ]);
             /** @var string $codeChallengeMethod */
             $codeChallengeMethod = $resultBag->getOrFail(CodeChallengeMethodRule::class)->getValue();
 
             $oAuth2AuthorizationRequest->setCodeChallenge($codeChallenge);
             $oAuth2AuthorizationRequest->setCodeChallengeMethod($codeChallengeMethod);
+        } else {
+            $this->loggerService->debug('AuthCodeGrant: No code challenge present.');
         }
+
+        $isOidcCandidate = $this->isOidcCandidate($oAuth2AuthorizationRequest);
+
+
+
+        $this->loggerService->debug('AuthCodeGrant: Is OIDC candidate: ', [
+            'isOidcCandidate' => $isOidcCandidate,
+        ]);
 
         $isVciAuthorizationCodeRequest = $this->requestParamsResolver->isVciAuthorizationCodeRequest(
             $request,
             $this->allowedAuthorizationHttpMethods,
         );
 
+        $this->loggerService->debug('AuthCodeGrant: Is VCI authorization code request: ', [
+            'isVciAuthorizationCodeRequest' => $isVciAuthorizationCodeRequest,
+        ]);
+
+
         if (
-            (! $this->isOidcCandidate($oAuth2AuthorizationRequest)) &&
+            (! $isOidcCandidate) &&
             (! $isVciAuthorizationCodeRequest)
         ) {
+            $this->loggerService->debug('Not an OIDC nor VCI request, returning as OAuth2 request.');
             return $oAuth2AuthorizationRequest;
         }
+
+        $this->loggerService->debug('AuthCodeGrant: OIDC or VCI request, continuing with request setup.');
 
         $authorizationRequest = AuthorizationRequest::fromOAuth2AuthorizationRequest($oAuth2AuthorizationRequest);
 
@@ -812,16 +847,19 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $request,
             $this->allowedAuthorizationHttpMethods,
         );
+        $this->loggerService->debug('AuthCodeGrant: Nonce: ', ['nonce' => $nonce]);
         if ($nonce !== null) {
             $authorizationRequest->setNonce($nonce);
         }
 
         $maxAge = $resultBag->get(MaxAgeRule::class);
+        $this->loggerService->debug('AuthCodeGrant: MaxAge: ', ['maxAge' => $maxAge]);
         if (null !== $maxAge) {
             $authorizationRequest->setAuthTime((int) $maxAge->getValue());
         }
 
         $requestClaims = $resultBag->get(RequestedClaimsRule::class);
+        $this->loggerService->debug('AuthCodeGrant: Requested claims: ', ['requestClaims' => $requestClaims]);
         if (null !== $requestClaims) {
             /** @var ?array $requestClaimValues */
             $requestClaimValues = $requestClaims->getValue();
@@ -832,34 +870,53 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         /** @var array|null $acrValues */
         $acrValues = $resultBag->getOrFail(AcrValuesRule::class)->getValue();
+        $this->loggerService->debug('AuthCodeGrant: ACR values: ', ['acrValues' => $acrValues]);
         $authorizationRequest->setRequestedAcrValues($acrValues);
 
 
         $authorizationRequest->setIsVciRequest($isVciAuthorizationCodeRequest);
-        $authorizationRequest->setFlowType(
-            $isVciAuthorizationCodeRequest ?
-                FlowTypeEnum::VciAuthorizationCode :
-                FlowTypeEnum::OidcAuthorizationCode,
-        );
+        $flowType = $isVciAuthorizationCodeRequest ?
+        FlowTypeEnum::VciAuthorizationCode : FlowTypeEnum::OidcAuthorizationCode;
+        $this->loggerService->debug('AuthCodeGrant: FlowType: ', ['flowType' => $flowType]);
+        $authorizationRequest->setFlowType($flowType);
 
         /** @var ?string $issuerState */
         $issuerState = $resultBag->get(IssuerStateRule::class)?->getValue();
+        $this->loggerService->debug('AuthCodeGrant: Issuer state: ', ['issuerState' => $issuerState]);
         $authorizationRequest->setIssuerState($issuerState);
 
         /** @var ?array $authorizationDetails */
         $authorizationDetails = $resultBag->get(AuthorizationDetailsRule::class)?->getValue();
+        $this->loggerService->debug(
+            'AuthCodeGrant: Authorization details: ',
+            ['authorizationDetails' => $authorizationDetails],
+        );
         $authorizationRequest->setAuthorizationDetails($authorizationDetails);
 
         // Check if we are using a generic client for this request. This can happen for non-registered clients
         // in VCI flows. This can be removed once the VCI clients (wallets) are properly registered using DCR.
         if ($client->isGeneric()) {
+            $this->loggerService->debug(
+                'AuthCodeGrant: Generic client is used for authorization request.',
+                ['genericClientId' => $client->getIdentifier()],
+            );
             // The generic client was used. Make sure to store actually used client_id and redirect_uri params.
-            /** @var string $clientId */
-            $clientId = $resultBag->getOrFail(ClientIdRule::class)->getValue();
-            $authorizationRequest->setBoundClientId($clientId);
+            /** @var string $clientIdParam */
+            $clientIdParam = $resultBag->getOrFail(ClientIdRule::class)->getValue();
+            $this->loggerService->debug(
+                'AuthCodeGrant: Binding client_id param to request: ',
+                ['clientIdParam' => $clientIdParam],
+            );
+            $authorizationRequest->setBoundClientId($clientIdParam);
 
+            $this->loggerService->debug(
+                'AuthCodeGrant: Binding redirect_uri param to request: ',
+                ['redirectUri' => $redirectUri],
+            );
             $authorizationRequest->setBoundRedirectUri($redirectUri);
         }
+
+        $this->loggerService->debug('AuthCodeGrant: Finished setting up authorization request.');
 
         return $authorizationRequest;
     }

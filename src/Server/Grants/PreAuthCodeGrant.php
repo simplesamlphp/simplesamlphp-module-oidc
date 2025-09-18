@@ -12,6 +12,7 @@ use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2Authorizatio
 use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
@@ -19,6 +20,7 @@ use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AuthorizationDetailsRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
@@ -111,7 +113,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
         // TODO mivanci client authentication?
 
         $this->loggerService->debug(
-            'Pre-authorized code grant respondToAccessTokenRequest',
+            'PreAuthCodeGrant::respondToAccessTokenRequest: Request parameters: ',
             $this->requestParamsResolver->getAllFromRequest($request),
         );
 
@@ -182,28 +184,21 @@ class PreAuthCodeGrant extends AuthCodeGrant
             }
         }
 
-        $authorizationDetails = null;
-        $authorizationDetailsParam = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
-            ParamsEnum::AuthorizationDetails->value,
+        $resultBag = $this->requestRulesManager->check(
+            $request,
+            [AuthorizationDetailsRule::class],
+            false,
+            $this->allowedTokenHttpMethods,
+        );
+
+        $clientId = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
+            ParamsEnum::ClientId->value,
             $request,
             $this->allowedTokenHttpMethods,
         );
 
-        if (!empty($authorizationDetailsParam)) {
-            /** @psalm-suppress MixedAssignment */
-            $authorizationDetails = json_decode($authorizationDetailsParam, true, 512, JSON_THROW_ON_ERROR);
-        }
-
-        if ($authorizationDetails !== null) {
-            if (!is_array($authorizationDetails)) {
-                throw OidcServerException::invalidRequest(ParamsEnum::AuthorizationDetails->value);
-            }
-        }
-
-        // TODO handle authorization_details parameter, add to
-        // * access token
-        // * and response itself.
-        //dd($authorizationDetails);
+        /** @var ?array $authorizationDetails */
+        $authorizationDetails = $resultBag->get(AuthorizationDetailsRule::class)?->getValue();
 
         // TODO mivanci add flow, authorization details, bound client_id and redirect_uri to access token.
         // Issue and persist new access token
@@ -213,6 +208,9 @@ class PreAuthCodeGrant extends AuthCodeGrant
             $preAuthorizedCode->getUserIdentifier() ? (string) $preAuthorizedCode->getUserIdentifier() : null,
             [], // TODO mivanci handle scopes
             $preAuthorizedCodeId,
+            flowTypeEnum: FlowTypeEnum::VciPreAuthorizedCode,
+            authorizationDetails: $authorizationDetails,
+            boundClientId: $clientId,
         );
 
         $this->getEmitter()->emit(new RequestEvent(RequestEvent::ACCESS_TOKEN_ISSUED, $request));

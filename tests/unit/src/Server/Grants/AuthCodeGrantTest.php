@@ -76,6 +76,7 @@ class AuthCodeGrantTest extends TestCase
                 $this->refreshTokenIssuerStub,
                 $this->helpersStub,
                 $this->loggerMock,
+                $this->moduleConfigStub,
             ),
         );
     }

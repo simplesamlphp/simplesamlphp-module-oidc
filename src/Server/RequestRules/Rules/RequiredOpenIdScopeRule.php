@@ -26,7 +26,8 @@ class RequiredOpenIdScopeRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
-        $loggerService->debug('RequiredOpenIdScopeRule: Checking if required openid scope is present.');
+        $loggerService->debug('RequiredOpenIdScopeRule::checkRule.');
+
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
         /** @var string|null $state */
@@ -37,6 +38,11 @@ class RequiredOpenIdScopeRule extends AbstractRule
         $isOpenIdScopePresent = (bool) array_filter(
             $validScopes,
             fn($scopeEntity) => $scopeEntity->getIdentifier() === 'openid',
+        );
+
+        $loggerService->debug(
+            'RequiredOpenIdScopeRule: Is openid scope present: ',
+            ['isOpenIdScopePresent' => $isOpenIdScopePresent],
         );
 
         try {
@@ -52,8 +58,9 @@ class RequiredOpenIdScopeRule extends AbstractRule
             }
         } catch (\Throwable $e) {
             if ($this->requestParamsResolver->isVciAuthorizationCodeRequest($request, $allowedServerRequestMethods)) {
-                $loggerService->error('RequiredOpenIdScopeRule: Skippping openid scope check for VCI request.');
+                $loggerService->info('RequiredOpenIdScopeRule: Skippping openid scope check for VCI request.');
             } else {
+                $loggerService->error('RequiredOpenIdScopeRule: Scope openid is required.');
                 throw $e;
             }
         }

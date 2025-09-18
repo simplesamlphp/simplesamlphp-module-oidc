@@ -46,6 +46,8 @@ class MaxAgeRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
+        $loggerService->debug('MaxAgeRule::checkRule');
+
         $requestParams = $this->requestParamsResolver->getAllBasedOnAllowedMethods(
             $request,
             $allowedServerRequestMethods,

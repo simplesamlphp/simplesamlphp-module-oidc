@@ -39,7 +39,7 @@ class ScopeRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
-        $loggerService->debug('ScopeRule: Running.');
+        $loggerService->debug('ScopeRule::checkRule.');
 
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();

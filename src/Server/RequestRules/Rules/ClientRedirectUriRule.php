@@ -40,6 +40,7 @@ class ClientRedirectUriRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
+        $loggerService->debug('RedirectUriRule::checkRule');
         $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
         if (! $client instanceof ClientEntityInterface) {
             throw new LogicException('Can not check redirect_uri, client is not ClientEntityInterface.');

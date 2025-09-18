@@ -38,6 +38,8 @@ class RequestObjectRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
+        $loggerService->debug('RequestObjectRule::checkRule');
+
         $requestParam = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
             ParamsEnum::Request->value,
             $request,

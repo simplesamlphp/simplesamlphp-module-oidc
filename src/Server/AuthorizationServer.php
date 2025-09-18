@@ -25,6 +25,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 class AuthorizationServer extends OAuth2AuthorizationServer
@@ -51,6 +52,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         Key|string $encryptionKey,
         ?ResponseTypeInterface $responseType = null,
         ?RequestRulesManager $requestRulesManager = null,
+        protected readonly ?LoggerService $loggerService = null,
     ) {
         parent::__construct(
             $clientRepository,
@@ -77,6 +79,8 @@ class AuthorizationServer extends OAuth2AuthorizationServer
      */
     public function validateAuthorizationRequest(ServerRequestInterface $request): OAuth2AuthorizationRequest
     {
+        $this->loggerService?->debug('AuthorizationServer::validateAuthorizationRequest');
+
         $rulesToExecute = [
             StateRule::class,
             ClientRule::class,
@@ -91,9 +95,19 @@ class AuthorizationServer extends OAuth2AuthorizationServer
                 [HttpMethodsEnum::GET, HttpMethodsEnum::POST],
             );
         } catch (OidcServerException $exception) {
-            $reason = sprintf("%s %s", $exception->getMessage(), $exception->getHint() ?? '');
+            $reason = sprintf(
+                "AuthorizationServer: %s %s",
+                $exception->getMessage(),
+                $exception->getHint() ?? '',
+            );
+            $this->loggerService?->error($reason);
             throw new BadRequest($reason);
         }
+
+        $this->loggerService?->debug(
+            'AuthorizationServer: Result bag validated',
+            ['rulesToExecute' => $rulesToExecute],
+        );
 
         // state and redirectUri is used here, so we can return HTTP redirect error in case of invalid response_type.
         /** @var ?string $state */
@@ -102,16 +116,47 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         $redirectUri = $resultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
 
         foreach ($this->enabledGrantTypes as $grantType) {
+            $this->loggerService?->debug(
+                'AuthorizationServer: Checking if grant type can respond to authorization request: ' .
+                $grantType::class,
+            );
             if ($grantType->canRespondToAuthorizationRequest($request)) {
+                $this->loggerService?->debug(
+                    'AuthorizationServer: Grant type can respond to authorization request: ' .
+                    $grantType::class,
+                );
+
                 if (! $grantType instanceof AuthorizationValidatableWithRequestRules) {
+                    $this->loggerService?->error(
+                        'AuthorizationServer: grant type must be validatable with ' .
+                        'already validated result bag: ' . $grantType::class,
+                    );
                     throw OidcServerException::serverError('grant type must be validatable with already validated ' .
                                                            'result bag');
                 }
 
+                $this->loggerService?->debug(
+                    sprintf(
+                        'AuthorizationServer: Grant type class: %s, identifier: %s ',
+                        $grantType::class,
+                        $grantType->getIdentifier(),
+                    ),
+                );
+
                 return $grantType->validateAuthorizationRequestWithRequestRules($request, $resultBag);
+            } else {
+                $this->loggerService?->debug(
+                    'AuthorizationServer: Grant type can NOT respond to ' .
+                    'authorization request: ' . $grantType::class,
+                );
             }
         }
 
+        $this->loggerService?->error(
+            'AuthorizationServer: Not a single registered grant type can respond to authorization ' .
+            'request.',
+            ['requestQueryParams' => $request->getQueryParams()],
+        );
         throw OidcServerException::unsupportedResponseType($redirectUri, $state);
     }
 

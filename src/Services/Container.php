@@ -517,6 +517,7 @@ class Container implements ContainerInterface
             $requestRuleManager,
             $privateKey,
             $this->services[PreAuthCodeGrant::class],
+            $loggerService,
         );
         $this->services[AuthorizationServer::class] = $authorizationServerFactory->build();
 

@@ -110,8 +110,6 @@ class ModuleConfig
     'auth_sources_to_users_email_attribute_name_map';
     final public const OPTION_ISSUER_STATE_TTL = 'issuer_state_ttl';
     final public const OPTION_ALLOW_NON_REGISTERED_CLIENTS_FOR_VCI = 'allow_non_registered_clients_for_vci';
-    final public const OPTION_ALLOW_VCI_AUTHORIZATION_CODE_REQUESTS_WITHOUT_CLIENT_ID =
-    'allow_vci_authorization_code_requests_without_client_id';
     final public const OPTION_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS_FOR_VCI =
     'allowed_redirect_uri_prefixes_for_non_registered_clients_for_vci';
 
@@ -1024,14 +1022,6 @@ class ModuleConfig
     public function getAllowNonRegisteredClientsForVci(): bool
     {
         return $this->config()->getOptionalBoolean(self::OPTION_ALLOW_NON_REGISTERED_CLIENTS_FOR_VCI, false);
-    }
-
-    public function getAllowVciAuthorizationCodeRequestsWithoutClientId(): bool
-    {
-        return $this->config()->getOptionalBoolean(
-            self::OPTION_ALLOW_VCI_AUTHORIZATION_CODE_REQUESTS_WITHOUT_CLIENT_ID,
-            false,
-        );
     }
 
     public function getAllowedRedirectUriPrefixesForNonRegisteredClientsForVci(): array

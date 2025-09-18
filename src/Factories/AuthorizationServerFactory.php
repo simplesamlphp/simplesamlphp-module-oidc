@@ -28,6 +28,7 @@ use SimpleSAML\Module\oidc\Server\Grants\PreAuthCodeGrant;
 use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\TokenResponse;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 
 class AuthorizationServerFactory
 {
@@ -43,6 +44,7 @@ class AuthorizationServerFactory
         private readonly RequestRulesManager $requestRulesManager,
         private readonly CryptKey $privateKey,
         private readonly PreAuthCodeGrant $preAuthCodeGrant,
+        private readonly LoggerService $loggerService,
     ) {
     }
 
@@ -56,6 +58,7 @@ class AuthorizationServerFactory
             $this->moduleConfig->getEncryptionKey(),
             $this->tokenResponse,
             $this->requestRulesManager,
+            $this->loggerService,
         );
 
         $authorizationServer->enableGrantType(

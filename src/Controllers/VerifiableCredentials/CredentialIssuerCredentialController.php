@@ -73,7 +73,10 @@ class CredentialIssuerCredentialController
             [HttpMethodsEnum::POST],
         );
 
-        $this->loggerService->debug('Verifiable Credential request data: ', $requestData);
+        $this->loggerService->debug(
+            'CredentialIssuerCredentialController::credential: Verifiable Credential request data: ',
+            $requestData,
+        );
 
         $authorization = $this->resourceServer->validateAuthenticatedRequest(
             $this->psrHttpBridge->getPsrHttpFactory()->createRequest($request),
@@ -104,6 +107,11 @@ class CredentialIssuerCredentialController
             ($flowType = $accessToken->getFlowTypeEnum()) === null ||
             $flowType->isVciFlow() === false
         ) {
+            $this->loggerService->warning(
+                'CredentialIssuerCredentialController::credential: Access token is not intended for verifiable' .
+                ' credential issuance.',
+                ['access_token' => $accessToken],
+            );
             return $this->routes->newJsonErrorResponse(
                 'invalid_token',
                 'Access token is not intended for verifiable credential issuance.',
@@ -111,65 +119,237 @@ class CredentialIssuerCredentialController
             );
         }
 
-        // TODO mivanci Validate credential request
-
-        $credentialFormatId = $requestData[ClaimsEnum::Format->value] ?? null;
-
-        if (!is_string($credentialFormatId)) {
-            throw OidcServerException::serverError('Credential format missing in request.');
-        }
-
         if (
-            !in_array($credentialFormatId, [
-                CredentialFormatIdentifiersEnum::JwtVcJson->value,
-                CredentialFormatIdentifiersEnum::DcSdJwt->value,
-                CredentialFormatIdentifiersEnum::VcSdJwt->value, // Deprecated value, but let's support it for now.
-            ])
+            isset($requestData[ClaimsEnum::CredentialConfigurationId->value]) &&
+            isset($requestData[ClaimsEnum::CredentialIdentifier->value])
         ) {
+            $this->loggerService->error(
+                'CredentialIssuerCredentialController::credential: Credential configuration ID ' .
+                '(credential_configuration_id) present in request together with credential identifier ' .
+                '(credential_identifier).',
+            );
+
             return $this->routes->newJsonErrorResponse(
-                'unsupported_credential_type',
-                sprintf('Credential format ID "%s" is not supported.', $credentialFormatId),
+                'invalid_credential_request',
+                'Credential configuration ID must not be used together with credential identifier.',
             );
         }
 
-        // TODO mivanci Check / handle credential_identifier parameter.
+        // Resolve the requested credential identifier.
+        $resolvedCredentialIdentifier = null;
 
-        $credentialConfigurationId = $requestData[ClaimsEnum::CredentialConfigurationId->value] ?? null;
+        // If the `authorization_details` parameter was used in the grant flow, the credential request has to use
+        // `credential_identifier` to request a specific credential. In this case `credential_configuration_id`
+        // must not be present.
+        if (($authorizationDetails = $accessToken->getAuthorizationDetails()) !== null) {
+            $credentialIdentifier = $requestData[ClaimsEnum::CredentialIdentifier->value] ?? null;
 
-        /** @psalm-suppress MixedAssignment */
-        if (is_null($credentialConfigurationId)) {
+            if (!is_string($credentialIdentifier)) {
+                $this->loggerService->error(
+                    'CredentialIssuerCredentialController::credential: Credential identifier missing in request.',
+                );
+                return $this->routes->newJsonErrorResponse(
+                    'invalid_credential_request',
+                    'Can not resolve credential identifier.',
+                );
+            }
+
+            $isCredentialIdentifierUsedInFlow = false;
+            foreach ($authorizationDetails as $authorizationDetail) {
+
+                /** @psalm-suppress MixedAssignment */
+                if (
+                    !is_array($authorizationDetail) ||
+                    !isset($authorizationDetail[ClaimsEnum::Type->value]) ||
+                    $authorizationDetail[ClaimsEnum::Type->value] !== 'openid_credential' ||
+                    !isset($authorizationDetail[ClaimsEnum::CredentialConfigurationId->value]) ||
+                    !is_string(
+                        $authorizationDetailCredentialConfigurationId =
+                            $authorizationDetail[ClaimsEnum::CredentialConfigurationId->value],
+                    )
+                ) {
+                    $this->loggerService->warning(
+                        'CredentialIssuerCredentialController::credential: Unusable authorization detail.',
+                        ['authorization_detail' => $authorizationDetail],
+                    );
+                    continue;
+                }
+
+                if ($credentialIdentifier === $authorizationDetailCredentialConfigurationId) {
+                    $this->loggerService->debug(
+                        'CredentialIssuerCredentialController::credential: Credential identifier used in flow.',
+                        ['credential_identifier' => $credentialIdentifier],
+                    );
+                    $isCredentialIdentifierUsedInFlow = true;
+                    break;
+                }
+            }
+
+            if (!$isCredentialIdentifierUsedInFlow) {
+                $this->loggerService->error(
+                    'CredentialIssuerCredentialController::credential: Credential identifier not used in flow.',
+                    ['credential_identifier' => $credentialIdentifier],
+                );
+                return $this->routes->newJsonErrorResponse(
+                    'invalid_credential_request',
+                    'Credential identifier not used in flow.',
+                );
+            }
+
+            $resolvedCredentialIdentifier = $credentialIdentifier;
+
+            $this->loggerService->debug(
+                'CredentialIssuerCredentialController::credential: Resolved credential identifier from ' .
+                'credential_identifier parameter.',
+                ['resolvedCredentialIdentifier' => $resolvedCredentialIdentifier],
+            );
+        } else {
+            $this->loggerService->debug(
+                'CredentialIssuerCredentialController::credential: No authorization details found in access' .
+                ' token. Skipping credential identifier resolution from credential_identifier parameter.',
+            );
+        }
+
+        if (!is_string($resolvedCredentialIdentifier)) {
+            $this->loggerService->debug(
+                'CredentialIssuerCredentialController::credential: Resolving credential identifier from ' .
+                'credential_configuration_id parameter.',
+            );
+
+            /** @psalm-suppress MixedAssignment */
+            $credentialConfigurationId = $requestData[ClaimsEnum::CredentialConfigurationId->value] ?? null;
+
+            if (is_string($credentialConfigurationId)) {
+                /** @psalm-suppress MixedAssignment */
+                $resolvedCredentialIdentifier = $credentialConfigurationId;
+
+                $this->loggerService->debug(
+                    'CredentialIssuerCredentialController::credential: Resolved credential identifier from ' .
+                    'credential_configuration_id parameter.',
+                    ['resolvedCredentialIdentifier' => $resolvedCredentialIdentifier],
+                );
+            } else {
+                $this->loggerService->error(
+                    'CredentialIssuerCredentialController::credential: Credential configuration ID missing in ' .
+                    'request.',
+                );
+            }
+        }
+
+        if (!is_string($resolvedCredentialIdentifier)) {
+            $this->loggerService->warning(
+                'CredentialIssuerCredentialController::credential: No credential identifier found in request. ' .
+                'Falling back to resolution from format and credential type.',
+            );
+
+            $requestedCredentialFormatId = $requestData[ClaimsEnum::Format->value] ?? null;
+
+            if (!is_string($requestedCredentialFormatId)) {
+                $this->loggerService->error(
+                    'CredentialIssuerCredentialController::credential: Credential format missing in request.',
+                );
+                return $this->routes->newJsonErrorResponse(
+                    'invalid_credential_request',
+                    'Can not resolve credential format.',
+                );
+            }
+
+            if (
+                !in_array($requestedCredentialFormatId, [
+                    CredentialFormatIdentifiersEnum::JwtVcJson->value,
+                    CredentialFormatIdentifiersEnum::DcSdJwt->value,
+                    CredentialFormatIdentifiersEnum::VcSdJwt->value, // Deprecated value, but let's support it for now.
+                ])
+            ) {
+                $this->loggerService->error(
+                    'CredentialIssuerCredentialController::credential: Unsupported credential format.',
+                    ['requestedCredentialFormatId' => $requestedCredentialFormatId],
+                );
+                return $this->routes->newJsonErrorResponse(
+                    'unsupported_credential_type',
+                    sprintf('Credential format ID "%s" is not supported.', $requestedCredentialFormatId),
+                );
+            }
+
+            $this->loggerService->debug(
+                'CredentialIssuerCredentialController::credential: Resolved credential format.',
+                ['requestedCredentialFormatId' => $requestedCredentialFormatId],
+            );
+
+            $fallbackCredentialConfigurationId = null;
+
             // TODO mivanci Update this to newest draft.
             // Check per draft 14 (Sphereon wallet case).
+            /** @psalm-suppress MixedAssignment */
             if (
-                $credentialFormatId === CredentialFormatIdentifiersEnum::JwtVcJson->value &&
+                $requestedCredentialFormatId === CredentialFormatIdentifiersEnum::JwtVcJson->value &&
                 is_array(
                     $credentialDefinitionType =
-                    $requestData[ClaimsEnum::CredentialDefinition->value][ClaimsEnum::Type->value] ?? null,
+                        $requestData[ClaimsEnum::CredentialDefinition->value][ClaimsEnum::Type->value] ?? null,
                 )
             ) {
-                $credentialConfigurationId =
+                $this->loggerService->debug(
+                    'CredentialIssuerCredentialController::credential: Resolving credential configuration ID ' .
+                    'from credential definition type.',
+                    ['credentialDefinitionType' => $credentialDefinitionType],
+                );
+                $fallbackCredentialConfigurationId =
                 $this->moduleConfig->getCredentialConfigurationIdForCredentialDefinitionType(
                     $credentialDefinitionType,
                 );
             } elseif (
-                in_array($credentialFormatId, self::SD_JWT_FORMAT_IDS, true) &&
+                in_array($requestedCredentialFormatId, self::SD_JWT_FORMAT_IDS, true) &&
                 is_string($vct = $requestData[ClaimsEnum::Vct->value] ?? null)
             ) {
-                $credentialConfigurationId = $vct;
+                $this->loggerService->debug(
+                    'CredentialIssuerCredentialController::credential: Resolving credential configuration ID ' .
+                    'from VCT.',
+                    ['vct' => $vct],
+                );
+                $fallbackCredentialConfigurationId = $vct;
+            }
+
+            if (!is_string($fallbackCredentialConfigurationId)) {
+                $this->loggerService->error(
+                    'CredentialIssuerCredentialController::credential: Could not resolve credential from ' .
+                    'format and credential type.',
+                );
+            } else {
+                $this->loggerService->debug(
+                    'CredentialIssuerCredentialController::credential: Resolved credential configuration ID ' .
+                    'from format and credential type.',
+                    ['fallbackCredentialConfigurationId' => $fallbackCredentialConfigurationId],
+                );
+
+                $resolvedCredentialIdentifier = $fallbackCredentialConfigurationId;
             }
         }
-
-        if (!is_string($credentialConfigurationId)) {
+        if (!is_string($resolvedCredentialIdentifier)) {
             return $this->routes->newJsonErrorResponse(
                 'invalid_credential_request',
                 'Can not resolve credential configuration ID.',
             );
         }
 
-        if (!is_array($this->moduleConfig->getCredentialConfiguration($credentialConfigurationId))) {
+        $resolvedCredentialConfiguration = $this->moduleConfig->getCredentialConfiguration(
+            $resolvedCredentialIdentifier,
+        );
+        if (!is_array($resolvedCredentialConfiguration)) {
             return $this->routes->newJsonErrorResponse(
                 'unsupported_credential_type',
-                sprintf('Credential configuration ID "%s" is not supported.', $credentialConfigurationId),
+                sprintf('Credential ID "%s" is not supported.', $resolvedCredentialIdentifier),
+            );
+        }
+
+        $credentialFormatId = $resolvedCredentialConfiguration[ClaimsEnum::Format->value] ?? null;
+        if (!is_string($credentialFormatId)) {
+            $this->loggerService->error(
+                'CredentialIssuerCredentialController::credential: Credential format ID missing in ' .
+                'resolved credential configuration.',
+                ['resolvedCredentialConfiguration' => $resolvedCredentialConfiguration],
+            );
+            throw OidcServerException::serverError(
+                'Credential format ID missing in resolved credential configuration (format is mandatory).',
             );
         }
 
@@ -242,9 +422,32 @@ class CredentialIssuerCredentialController
                     $sub = $didKey;
                 } else {
                     $this->loggerService->warning(
-                        'Proof currently not supported. ',
+                        'Proof currently not supported (no did:key:z). ',
                         ['header' => $proof->getHeader(), 'payload' => $proof->getPayload()],
                     );
+                    // TODO mivanci Consider adding support for other proof keys, like in sample for Lissi ('jwk')
+                    /**
+                     * 'header' =>
+                     * array (
+                     * 'alg' => 'ES256',
+                     * 'typ' => 'openid4vci-proof+jwt',
+                     * 'jwk' =>
+                     * array (
+                     * 'kty' => 'EC',
+                     * 'crv' => 'P-256',
+                     * 'x' => '7d1peDK5BTcnw45yGrRHcJJOxYrEj2sOvBnIXRyhxEM',
+                     * 'y' => 'Z5x8pVp85PouIYkvQT2eJWZP3YgfUXPc6BIhJ2pETbM',
+                     * ),
+                     * ),
+                     * 'payload' =>
+                     * array (
+                     * 'aud' => 'https://idp.mivanci.incubator.hexaa.eu',
+                     * 'nonce' => NULL,
+                     * 'iat' => 1758102462,
+                     * 'iss' => '9c481dc3-2ad0-4fe0-881d-c32ad02fe0fc',
+                     * ),
+                     * )
+                     */
                 }
             } catch (\Exception $e) {
                 $message = 'Error processing proof JWT: ' . $e->getMessage();
@@ -260,13 +463,13 @@ class CredentialIssuerCredentialController
 
         // Get valid claim paths so we can check if the user attribute is allowed to be included in the credential,
         // as per the credential configuration supported configuration.
-        $validClaimPaths = $this->moduleConfig->getValidCredentialClaimPathsFor($credentialConfigurationId);
+        $validClaimPaths = $this->moduleConfig->getValidCredentialClaimPathsFor($resolvedCredentialIdentifier);
 
         // Map user attributes to credential claims
         $credentialSubject = []; // For JwtVcJson
         $disclosureBag = $this->verifiableCredentials->disclosureBagFactory()->build(); // For DcSdJwt
         $attributeToCredentialClaimPathMap = $this->moduleConfig->getUserAttributeToCredentialClaimPathMapFor(
-            $credentialConfigurationId,
+            $resolvedCredentialIdentifier,
         );
         foreach ($attributeToCredentialClaimPathMap as $mapEntry) {
             if (!is_array($mapEntry)) {
@@ -393,7 +596,7 @@ class CredentialIssuerCredentialController
                         ],
                         ClaimsEnum::Type->value => [
                             CredentialTypesEnum::VerifiableCredential->value,
-                            $credentialConfigurationId,
+                            $resolvedCredentialIdentifier,
                         ],
                         //ClaimsEnum::Issuer->value => $this->moduleConfig->getIssuer(),
                         ClaimsEnum::Issuer->value => $issuerDid,
@@ -422,7 +625,7 @@ class CredentialIssuerCredentialController
                 ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
                 ClaimsEnum::Sub->value => $sub,
                 ClaimsEnum::Jti->value => $vcId,
-                ClaimsEnum::Vct->value => $credentialConfigurationId,
+                ClaimsEnum::Vct->value => $resolvedCredentialIdentifier,
             ];
 
             if ($proof instanceof OpenId4VciProof) {

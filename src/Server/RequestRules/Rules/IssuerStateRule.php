@@ -37,7 +37,7 @@ class IssuerStateRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
-        $loggerService->debug('IssuerStateRule: Running issuer state rule.');
+        $loggerService->debug('IssuerStateRule::checkRule');
 
         $issuerState = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
             ParamsEnum::IssuerState->value,

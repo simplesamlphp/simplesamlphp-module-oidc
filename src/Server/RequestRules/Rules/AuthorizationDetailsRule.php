@@ -37,7 +37,7 @@ class AuthorizationDetailsRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
-        $loggerService->debug('AuthorizationDetailsRule: Running.');
+        $loggerService->debug('AuthorizationDetailsRule::checkRule.');
 
         $authorizationDetailsParam = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
             ParamsEnum::AuthorizationDetails->value,

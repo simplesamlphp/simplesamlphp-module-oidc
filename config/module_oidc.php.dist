@@ -526,10 +526,6 @@ $config = [
         'openid-credential-offer://',
     ],
 
-    // Allow or disallow clients to request verifiable credentials using Authorization Code Grant without client ID.
-    // Default is disallowed (false).
-    ModuleConfig::OPTION_ALLOW_VCI_AUTHORIZATION_CODE_REQUESTS_WITHOUT_CLIENT_ID => false,
-
     // (optional) Credential configuration statements, as per `credential_configurations_supported` claim definition in
     // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#credential-issuer-parameters.
     // Check the example below on how this can be used.
