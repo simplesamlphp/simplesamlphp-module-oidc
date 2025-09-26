@@ -16,9 +16,6 @@ use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * TODO mivanci Add API documentation.
- */
 class VciCredentialOfferApiController
 {
     /**
