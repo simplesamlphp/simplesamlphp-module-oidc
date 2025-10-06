@@ -16,6 +16,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile
       args:
+        SSP_VERSION: "${SSP_VERSION}"
         OIDC_VERSION: "${OIDC_VERSION}"
     environment:
       - STAGINGCOMPOSERREPOS=oidc
