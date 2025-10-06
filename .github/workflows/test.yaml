@@ -208,6 +208,10 @@ jobs:
 
   conformance-suite:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ssp-version: ["v2.3.7", "v2.4.2"]
     env:
       SUITE_BASE_URL: https://localhost.emobix.co.uk:8443
       VERSION: release-v5.1.35
@@ -240,7 +244,7 @@ jobs:
         working-directory: ./main
         # Must run after conformance suite since they share a docker network.
         run: |
-          OIDC_VERSION=@dev docker compose -f docker/docker-compose.yml --project-directory . up -d --build
+          SSP_VERSION=${{ matrix.ssp-version }} OIDC_VERSION=@dev docker compose -f docker/docker-compose.yml --project-directory . up -d --build
           sleep 30
         # while ! curl -skfail https://op.local.stack-dev.cirrusidentity.com/.well-known/openid-configuration >/dev/null; do sleep 2; done
       - name: Run Basic conformance tests
