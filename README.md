@@ -39,13 +39,13 @@ during module development. SimpleSAMLphp has followed semantic versioning for it
 for example, that v5.* of the OIDC module should work with any v2.* of SimpleSAMLphp. However, please note that
 PHP version requirements have changed in minor SimpleSAMLphp releases.
 
-| OIDC module | Tested SimpleSAMLphp |  PHP   | Note                        |
-|:------------|:---------------------|:------:|-----------------------------|
-| v6.\*       | v2.3.\*              | \>=8.2 | Recommended                 |
-| v5.\*       | v2.1.\*              | \>=8.1 |                             |
-| v4.\*       | v2.0.\*              | \>=8.0 |                             |
-| v3.\*       | v2.0.\*              | \>=7.4 | Abandoned from August 2023. |
-| v2.\*       | v1.19.\*             | \>=7.4 |                             |
+| OIDC module | Tested SimpleSAMLphp |  PHP   | Note        |
+|:------------|:---------------------|:------:|-------------|
+| v6.\*       | v2.3.\*, v2.4.\*     | \>=8.2 | Recommended |
+| v5.\*       | v2.1.\*              | \>=8.1 |             |
+| v4.\*       | v2.0.\*              | \>=8.0 |             |
+| v3.\*       | v2.0.\*              | \>=7.4 |             |
+| v2.\*       | v1.19.\*             | \>=7.4 |             |
 
 ### Upgrading?
 
