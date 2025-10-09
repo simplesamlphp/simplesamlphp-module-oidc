@@ -133,7 +133,7 @@ This is only relevant for new installations, since initially it is necessary
 to copy the template file to the default SSP config dir.
 
 Below are also some internal changes that should not have an impact on the
-OIDC OP implementors. However, if you are using this module as a library or
+OIDC OP implementers. However, if you are using this module as a library or
 extending from it, you will probably encounter breaking changes, since a lot
 of code has been refactored:
 
@@ -168,7 +168,7 @@ Low-impact changes:
 (from v2 of the module, the 'kid' value is the fingerprint of the certificate).
 
 Below are some internal changes that should not have an impact on the OIDC OP
-implementors. However, if you are using this module as a library or extending
+implementers. However, if you are using this module as a library or extending
 from it, you will probably encounter breaking changes, since a lot of code
 has been refactored:
 
