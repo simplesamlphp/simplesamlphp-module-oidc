@@ -7,4 +7,4 @@
 
 ![Main screen capture](docs/oidc.png)
 
-To get started, refer to our [Documentation](docs/oidc.md).
+To get started, refer to our [documentation](docs/oidc.md).

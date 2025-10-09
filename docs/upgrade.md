@@ -6,6 +6,7 @@ apply those relevant to your deployment.
 ## Version 5 to 6
 
 New features:
+
 - Caching support for OIDC protocol artifacts like Access Tokens,
 Authorization Codes, Refresh Tokens, but also client and user data.
 The cache layer stands in front of the database store, so it can
@@ -48,17 +49,17 @@ find appropriate.
 HTTP POST method, in addition to GET.
 - Added support for passing authorization request parameters as JWTs,
 specifically - passing a Request Object by Value:
-  https://openid.net/specs/openid-connect-core-1_0.html#RequestObject
+[https://openid.net/specs/openid-connect-core-1_0.html#RequestObject](https://openid.net/specs/openid-connect-core-1_0.html#RequestObject)
 - Added support for `private_key_jwt` client authentication method at
 token endpoint:
-  https://openid.net/specs/openid-connect-core-1_0.html#ClientAuthentication
+[https://openid.net/specs/openid-connect-core-1_0.html#ClientAuthentication](https://openid.net/specs/openid-connect-core-1_0.html#ClientAuthentication)
 
 New configuration options:
 
 - (from v6.1) Show `claims_supported` claim in OP Discovery endpoint -
 you can now choose to show supported claims, as is recommended by OpenID
 Connect Discovery specification
-https://openid.net/specs/openid-connect-discovery-1_0.html.
+[https://openid.net/specs/openid-connect-discovery-1_0.html](https://openid.net/specs/openid-connect-discovery-1_0.html).
 - (optional) Issuer - you can now override the issuer (OP identifier).
 If not set, it falls back to the current scheme, host, and optionally
 a port (as in all previous module versions).
@@ -110,7 +111,7 @@ Old routes will be removed in version 7.
 - If you are using Apache web server: you should check the README file which
 now contains a note on how to configure Apache to preserve Authorization
 HTTP headers with a Bearer token scheme (stripping of this header in Apache is a
-known 'issue': https://github.com/symfony/symfony/issues/19693). If you don't
+known [issue](https://github.com/symfony/symfony/issues/19693)). If you don't
 set this config, you'll now get warnings about this situation in your logs.
 The new authproc filter processing will look in an additional location for
 filters, in the main `config.php` under key `authproc.oidc`
@@ -118,7 +119,7 @@ filters, in the main `config.php` under key `authproc.oidc`
 because of very low usage. Note that the OIDC Implicit flow is still supported
 (response_type `id_token token` or `id_token`).
 
-Low-impact changes
+Low-impact changes:
 
 - In an effort to move to SimpleSAMLphp way of working with user interface (UI),
 the client management UI was updatedto extend from the SimpleSAMLphp base
@@ -136,9 +137,8 @@ OIDC OP implementors. However, if you are using this module as a library or
 extending from it, you will probably encounter breaking changes, since a lot
 of code has been refactored:
 
-- Upgraded to v5 of lcobucci/jwt https://github.com/lcobucci/jwt
-- Upgraded to v3 of laminas/laminas-diactoros
-https://github.com/laminas/laminas-diactoros
+- Upgraded to v5 of [lcobucci/jwt](https://github.com/lcobucci/jwt)
+- Upgraded to v3 of [laminas/laminas-diactoros](https://github.com/laminas/laminas-diactoros)
 - SimpleSAMLphp version used during development was bumped to v2.3
 - In Authorization Code Flow, a new validation was added which checks for
 'openid' value in the 'scope' parameter. Up to now, the 'openid' value was
@@ -181,12 +181,14 @@ like using constructor property promotion, match expressions...
 (low maintenance)
 
 # Version 3 to 4
+
 - PHP version requirement was bumped to v8.0 to enable updating important
 dependent packages like 'league/oauth2-server' which has already moved to
 PHPv8 between their minor releases.
 - SimpleSAMLphp version used during development was bumped v2.0
 
 # Version 2 to 3
+
 - Module code was refactored to make it compatible with SimpleSAMLphp v2
 - The default key name was changed from oidc_module.pem to oidc_module.key.
 If you don't set a custom key name using the option 'privatekey' in a module
@@ -199,11 +201,11 @@ oidc_module.pem to oidc_module.key.
 
 There are many DB changes that need to be applied. Perform the migration by
 logging in as an SSP admin to
-https://server/simplesaml/module.php/oidc/install.php
+[https://server/simplesaml/module.php/oidc/install.php](https://server/simplesaml/module.php/oidc/install.php)
 
 An SSP admin should now use
-https://server/simplesaml/module.php/oidc/admin-clients/ to manage clients.
-The previous `/clients/` path is for authorized users.
+[https://server/simplesaml/module.php/oidc/admin-clients/](https://server/simplesaml/module.php/oidc/admin-clients/)
+to manage clients. The previous `/clients/` path is for authorized users.
 
 Review the changes to `config-templates/module_oidc.php` and apply relevant
 changes to your configuration. For example, claim types are now supported.

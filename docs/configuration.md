@@ -32,6 +32,7 @@ After you create the database schema, go to the SimpleSAMLphp admin area:
 - OIDC > Client Registry
 
 Notes:
+
 - Clients can be public or confidential.
 - Public clients using Authorization Code flow must send PKCE parameters.
 - Client ID and secret are generated; use the "show" button to reveal.
@@ -39,8 +40,7 @@ Notes:
 ## Cron integration
 
 Enable and configure the SimpleSAMLphp cron module to purge expired tokens:
-
-- https://simplesamlphp.org/docs/stable/cron/cron.html
+[cron](https://simplesamlphp.org/docs/stable/cron/cron.html)
 
 ## Endpoint locations and well-known URLs
 
@@ -51,9 +51,9 @@ After deployment, visit the SimpleSAMLphp admin area:
 There you can see discovery URLs. Typical discovery endpoints are:
 
 - OpenID Connect Discovery:
-  https://yourserver/simplesaml/module.php/oidc/.well-known/openid-configuration
+[https://yourserver/simplesaml/module.php/oidc/.well-known/openid-configuration](https://yourserver/simplesaml/module.php/oidc/.well-known/openid-configuration)
 - OpenID Federation configuration:
-  https://yourserver/simplesaml/module.php/oidc/.well-known/openid-federation
+[https://yourserver/simplesaml/module.php/oidc/.well-known/openid-federation](https://yourserver/simplesaml/module.php/oidc/.well-known/openid-federation)
 
 You may publish these as ".well-known" URLs at the web root using your
 web server. For example, for `openid-configuration`:
@@ -163,21 +163,21 @@ all SAML entities are present (like a Service Provider). Instead, use the
 The OIDC authN state does not include all keys present in SAML authN.
 Available SAML-like keys include:
 
-- ['Attributes']
-- ['Authority']
-- ['AuthnInstant']
-- ['Expire']
+- \['Attributes'\]
+- \['Authority'\]
+- \['AuthnInstant'\]
+- \['Expire'\]
 
 Source and Destination entity IDs correspond to OP issuer and Client ID:
 
-- ['Source']['entityid']      → OP issuer ID
-- ['Destination']['entityid'] → RP (client) ID
+- \['Source'\]\['entityid'\]      → OP issuer ID
+- \['Destination'\]\['entityid'\] → RP (client) ID
 
 Additional OIDC data in the state:
 
-- ['Oidc']['OpenIdProviderMetadata']
-- ['Oidc']['RelyingPartyMetadata']
-- ['Oidc']['AuthorizationRequestParameters']
+- \['Oidc'\]\['OpenIdProviderMetadata'\]
+- \['Oidc'\]\['RelyingPartyMetadata'\]
+- \['Oidc'\]\['AuthorizationRequestParameters'\]
 
 Example filter configuration:
 
