@@ -84,8 +84,8 @@ perform the key switch.
 
 ## Apache Authorization header note
 
-Apache may strip the `Authorization` header (Bearer) from requests, a known
-issue: https://github.com/symfony/symfony/issues/19693
+Apache may strip the `Authorization` header (Bearer) from requests (a known
+[issue](https://github.com/symfony/symfony/issues/19693)).
 
 Although the module includes a fallback, it has performance implications.
 Configure Apache to preserve the header using one of these snippets:
@@ -126,8 +126,8 @@ $config = [
 
 ## Attribute translation
 
-Default SAML-to-OIDC claim mapping follows the REFEDS guidance:
-https://wiki.refeds.org/display/GROUPS/Mapping+SAML+attributes+to+OIDC+Claims
+Default SAML-to-OIDC claim mapping follows the
+[REFEDS guidance](https://wiki.refeds.org/display/GROUPS/Mapping+SAML+attributes+to+OIDC+Claims).
 
 You can change or extend this mapping in `module_oidc.php`. Example:
 
@@ -217,4 +217,4 @@ $config = [
 
 Users can visit the following link for administration:
 
-- https://example.com/simplesaml/module.php/oidc/clients/
+- [https://example.com/simplesaml/module.php/oidc/clients/](https://example.com/simplesaml/module.php/oidc/clients/)

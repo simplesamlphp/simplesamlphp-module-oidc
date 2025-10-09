@@ -1,7 +1,7 @@
 # Upgrade guide
 
 This is an upgrade guide from versions 1 → 6. Review the changes and
-apply those relevant to your deployment. 
+apply those relevant to your deployment.
 
 ## Version 5 to 6
 
@@ -149,7 +149,7 @@ someone will upgrade from the legacy OAuth2 module to v6 of oidc module.
 If needed, one can upgrade to earlier versions of the `oidc` module, and then
 to v6.
 
-# Version 4 to 5
+## Version 4 to 5
 
 Major impact changes:
 
@@ -180,14 +180,14 @@ like using constructor property promotion, match expressions...
 - removed dependency on steverhoades/oauth2-openid-connect-server
 (low maintenance)
 
-# Version 3 to 4
+## Version 3 to 4
 
 - PHP version requirement was bumped to v8.0 to enable updating important
 dependent packages like 'league/oauth2-server' which has already moved to
 PHPv8 between their minor releases.
 - SimpleSAMLphp version used during development was bumped v2.0
 
-# Version 2 to 3
+## Version 2 to 3
 
 - Module code was refactored to make it compatible with SimpleSAMLphp v2
 - The default key name was changed from oidc_module.pem to oidc_module.key.
@@ -197,7 +197,7 @@ oidc_module.pem to oidc_module.key.
 - Removed config option 'alwaysIssueRefreshToken'
 - Removed config option 'alwaysAddClaimsToIdToken'
 
-# Version 1 to 2
+## Version 1 to 2
 
 There are many DB changes that need to be applied. Perform the migration by
 logging in as an SSP admin to
@@ -237,6 +237,6 @@ the change. Note that in that case the client must have the
 
 Token endpoint was renamed from '.../access_token.php' to '.../token.php'.
 This is a potential breaking change for clients that do not fetch
-OP configuration from the /.well-known/openid-configuration URI dynamically, but 
-instead hardcode endpoints in their configuration. You should probably warn
-existing Relying Parties about this change.
+OP configuration from the /.well-known/openid-configuration URI dynamically,
+but instead hardcode endpoints in their configuration. You should probably
+warn existing Relying Parties about this change.

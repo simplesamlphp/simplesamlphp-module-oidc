@@ -30,11 +30,11 @@ docker run --name ssp-oidc-dev \
 
 Then visit:
 
-- https://localhost/simplesaml/
+- [https://localhost/simplesaml/](https://localhost/simplesaml/)
 
 The OIDC configuration endpoint is available at:
 
-- https://localhost/.well-known/openid-configuration
+- [https://localhost/.well-known/openid-configuration](https://localhost/.well-known/openid-configuration)
 
 ## Local testing with other DBs
 
@@ -78,7 +78,8 @@ When running Docker, adjust `COMPOSER_REQUIRE` to include the module:
  simplesamlphp/simplesamlphp-module-preprodwarning"
 ```
 
-You can register a client from https://oidcdebugger.com/ to test.
+You can register a client from
+[https://oidcdebugger.com/](https://oidcdebugger.com/) to test.
 
 ## Build image for conformance tests
 
@@ -132,4 +133,4 @@ OIDC_VERSION=dev-master docker-compose -f docker/docker-compose.yml --project-di
 
 Visit the OP and verify a few clients exist:
 
-- https://op.local.stack-dev.cirrusidentity.com/simplesaml/
+- [https://op.local.stack-dev.cirrusidentity.com/simplesaml/](https://op.local.stack-dev.cirrusidentity.com/simplesaml/)

@@ -24,7 +24,7 @@ docker-compose up
 
 This starts the Java conformance app and a MongoDB server. Then:
 
-- Visit https://localhost:8443/
+- Visit [https://localhost:8443/](https://localhost:8443/)
 - Create a new plan:
   "OpenID Connect Core: Basic Certification Profile Authorization server test"
 - Click the JSON tab and paste
@@ -48,8 +48,8 @@ warnings as needed.
 
 ### Run automated tests
 
-Once manual tests pass, you can automate the browser portion:
-https://gitlab.com/openid/conformance-suite/-/wikis/Design/BrowserControl
+Once manual tests pass, you can
+[automate the browser portion](https://gitlab.com/openid/conformance-suite/-/wikis/Design/BrowserControl).
 
 From the `simplesamlphp-module-oidc` directory:
 
@@ -97,7 +97,7 @@ pre-populated with data for the tests. Build and run the image.
 
 ### Register and create conformance tests
 
-Visit https://openid.net/certification/instructions/
+Visit [https://openid.net/certification/instructions/](https://openid.net/certification/instructions/).
 
 Use the `json` configs under `conformance-tests` to configure your cloud
 instances. Update `discoveryUrl` to the deployed location. Adjust `alias`
