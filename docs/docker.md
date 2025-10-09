@@ -40,13 +40,13 @@ The OIDC configuration endpoint is available at:
 
 You can test it against another database such as PostgreSQL.
 
-1) Create a Docker network:
+1 - Create a Docker network:
 
 ```bash
 docker network create ssp-oidc-test
 ```
 
-2) Run a DB container:
+2 - Run a DB container:
 
 ```bash
 docker run --name oidc-db \
@@ -56,7 +56,7 @@ docker run --name oidc-db \
   -d postgres:15
 ```
 
-3) Run SSP (from the prior command) with these additions:
+3 - Run SSP (from the prior command) with these additions:
 
 ```bash
 -e DB.DSN="pgsql:host=oidc-db;dbname=postgres" \
