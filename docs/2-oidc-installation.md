@@ -106,6 +106,6 @@ php modules/oidc/bin/install.php
 ## 7. Next steps
 
 - Configure caches, endpoints, and other options:
-  see [Configuration](oidc-configuration.md)
+  see [Configuration](3-oidc-configuration.md)
 - Administer clients from the UI:
-  see [Relying Party (RP) Administration](oidc-configuration.md#relying-party-rp-administration)
+  see [Relying Party (RP) Administration](3-oidc-configuration.md#relying-party-rp-administration)

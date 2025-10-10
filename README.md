@@ -8,4 +8,4 @@
 
 ![Main screen capture](docs/oidc.png)
 
-To get started, refer to our [documentation](docs/oidc.md).
+To get started, refer to module [documentation](docs/1-oidc.md).
