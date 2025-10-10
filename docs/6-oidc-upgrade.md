@@ -3,6 +3,9 @@
 This is an upgrade guide from versions 1 → 7. Review the changes and
 apply those relevant to your deployment.
 
+## TODO mivanci
+* Move to specific simplesamlphp/openid release (composer.json).
+
 ## Version 6 to 7
 
 New features:

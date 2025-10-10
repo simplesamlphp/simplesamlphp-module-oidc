@@ -54,6 +54,12 @@ There you can see discovery URLs. Typical discovery endpoints are:
 [https://yourserver/simplesaml/module.php/oidc/.well-known/openid-configuration](https://yourserver/simplesaml/module.php/oidc/.well-known/openid-configuration)
 - OpenID Federation configuration:
 [https://yourserver/simplesaml/module.php/oidc/.well-known/openid-federation](https://yourserver/simplesaml/module.php/oidc/.well-known/openid-federation)
+- OpenID for Verifiable Credential Issuance configuration:
+[https://yourserver/simplesaml/module.php/oidc/.well-known/openid-credential-issuer](https://yourserver/simplesaml/module.php/oidc/.well-known/openid-credential-issuer)
+- OAuth2 Authorization Server configuration:
+[https://yourserver/simplesaml/module.php/oidc/.well-known/oauth-authorization-server](https://yourserver/simplesaml/module.php/oidc/.well-known/oauth-authorization-server)
+- JWT VC Issuer configuration:
+[https://yourserver/simplesaml/module.php/oidc/.well-known/jwt-vc-issuer](https://yourserver/simplesaml/module.php/oidc/.well-known/jwt-vc-issuer)
 
 You may publish these as ".well-known" URLs at the web root using your
 web server. For example, for `openid-configuration`:

@@ -34,11 +34,13 @@ and ensure at least the following parameters are set:
 
 Note: SQLite, PostgreSQL, and MySQL are supported.
 
-## 4. Create RSA key pairs
+## 4. Create key pairs
 
 ID and Access tokens are signed JWTs. Create a public/private RSA key
 pair for OIDC protocol operations. If you plan to use OpenID Federation,
 create a separate key pair for federation operations.
+
+### RSA key pair generation
 
 Generate private keys without a passphrase:
 
@@ -68,6 +70,43 @@ With a passphrase:
 ```bash
 openssl rsa -in cert/oidc_module.key -passin pass:myPassPhrase -pubout -out cert/oidc_module.crt
 openssl rsa -in cert/oidc_module_federation.key -passin pass:myPassPhrase -pubout -out cert/oidc_module_federation.crt
+```
+
+If you use different file names or a passphrase, update
+`config/module_oidc.php` accordingly.
+
+### EC key pair generation
+
+If you prefer to use Elliptic Curve Cryptography (ECC) instead of RSA.
+
+Generate private keys without a passphrase:
+
+```bash
+openssl ecparam -name prime256v1 -genkey -noout -out cert/oidc_module.key
+openssl ecparam -name prime256v1 -genkey -noout -out cert/oidc_module_federation.key
+```
+
+Generate private keys with a passphrase:
+
+```bash
+openssl ecparam -genkey -name secp384r1 -noout -out cert/oidc_module.key -passout pass:myPassPhrase
+openssl ecparam -genkey -name secp384r1 -noout -out cert/oidc_module_federation.key -passout pass:myPassPhrase
+```
+
+Extract public keys:
+
+Without passphrase:
+
+```bash
+openssl ec -in cert/oidc_module.key -pubout -out cert/oidc_module.crt
+openssl ec -in cert/oidc_module_federation.key -pubout -out cert/oidc_module_federation.crt
+```
+
+With a passphrase:
+
+```bash
+openssl ec -in cert/oidc_module.key -passin pass:myPassPhrase -pubout -out cert/oidc_module.crt
+openssl ec -in cert/oidc_module.key -passin pass:myPassPhrase -pubout -out cert/oidc_module.crt
 ```
 
 If you use different file names or a passphrase, update
