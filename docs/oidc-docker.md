@@ -1,4 +1,4 @@
-# Using Docker
+# OIDC Module - Using Docker
 
 This document shows how to run and test the module with Docker.
 
@@ -115,7 +115,7 @@ docker exec ssp-oidc-dev-image sqlite3 /var/simplesamlphp/data/mydb.sq3 '.dump' 
   > docker/conformance.sql
 ```
 
-Conformance tests are easier to run locally. See [Conformance](conformance.md).
+Conformance tests are easier to run locally. See [Conformance](oidc-conformance.md).
 
 ## Docker Compose
 
