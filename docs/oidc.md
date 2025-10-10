@@ -11,8 +11,6 @@ Supported flows:
 - Implicit (response_type: `id_token token` or `id_token`)
 - Refresh Token
 
-![Main screen capture](oidc.png)
-
 ## Note on OpenID Federation (OIDFed)
 
 OpenID Federation support is in draft, as is the
