@@ -1,4 +1,4 @@
-# OpenID Conformance
+# OIDC Module - OpenID Conformance
 
 This guide summarizes how to run the OpenID Foundation conformance tests
 against this module, both locally and using the hosted service.

@@ -1,4 +1,4 @@
-# Installation
+# OIDC Module - Installation
 
 This guide walks you through installing, enabling, and preparing the OIDC
 module in SimpleSAMLphp.
@@ -106,6 +106,6 @@ php modules/oidc/bin/install.php
 ## 7. Next steps
 
 - Configure caches, endpoints, and other options:
-  see [Configuration](configuration.md)
+  see [Configuration](oidc-configuration.md)
 - Administer clients from the UI:
-  see [Relying Party (RP) Administration](configuration.md#relying-party-rp-administration)
+  see [Relying Party (RP) Administration](oidc-configuration.md#relying-party-rp-administration)

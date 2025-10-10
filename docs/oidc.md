@@ -47,16 +47,16 @@ any v2.\* of SimpleSAMLphp. PHP version requirements may differ.
 | v3.\*       | v2.0.\*              | \>=7.4 |             |
 | v2.\*       | v1.19.\*             | \>=7.4 |             |
 
-Upgrading? See the [upgrade guide](upgrade.md).
+Upgrading? See the [upgrade guide](oidc-upgrade.md).
 
 ## Documentation
 
-- Getting started: [Installation](installation.md)
-- Configure and operate: [Configuration](configuration.md)
-- Manage clients and UI: see [Configuration](configuration.md#relying-party-rp-administration)
+- Getting started: [Installation](oidc-installation.md)
+- Configure and operate: [Configuration](oidc-configuration.md)
+- Manage clients and UI: see [Configuration](oidc-configuration.md#relying-party-rp-administration)
 - Endpoints and discovery: see
-  [Configuration](configuration.md#endpoint-locations-and-well-known-urls)
-- Running with containers: [Using Docker](docker.md)
-- Conformance tests: [OpenID Conformance](conformance.md)
-- Upgrading between versions: [Upgrade guide](upgrade.md)
-- Common questions: [FAQ](faq.md)
+  [Configuration](oidc-configuration.md#endpoint-locations-and-well-known-urls)
+- Running with containers: [Using Docker](oidc-docker.md)
+- Conformance tests: [OpenID Conformance](oidc-conformance.md)
+- Upgrading between versions: [Upgrade guide](oidc-upgrade.md)
+- Common questions: [FAQ](oidc-faq.md)

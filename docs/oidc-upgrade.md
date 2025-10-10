@@ -1,4 +1,4 @@
-# Upgrade guide
+# OIDC Module - Upgrade guide
 
 This is an upgrade guide from versions 1 → 6. Review the changes and
 apply those relevant to your deployment.

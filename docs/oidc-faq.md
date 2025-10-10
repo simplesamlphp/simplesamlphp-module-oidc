@@ -1,4 +1,4 @@
-# FAQ
+# OIDC Module - FAQ
 
 A few common questions gathered from prior discussions.
 

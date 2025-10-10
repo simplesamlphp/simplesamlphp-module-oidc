@@ -1,4 +1,4 @@
-# Configuration
+# OIDC Module - Configuration
 
 This guide summarizes key configuration topics for the OIDC module.
 It complements the inline comments in `config/module_oidc.php`.
