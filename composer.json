@@ -67,7 +67,8 @@
     },
     "autoload": {
         "psr-4": {
-            "SimpleSAML\\Module\\oidc\\": "src/"
+            "SimpleSAML\\Module\\oidc\\": "src/",
+            "SimpleSAML\\Module\\oidcMigrations\\": "migrations/"
         }
     },
     "autoload-dev": {
