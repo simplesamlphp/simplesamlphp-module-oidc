@@ -34,7 +34,6 @@ $config = [
         'dbname' => 'dbname', // (string): Name of the database/schema to connect to.
         //'unix_socket' => 'unix_socet', // (string): Name of the socket used to connect to the database.
         'charset' => 'utf8', // (string): The charset used when connecting to the database.
-        //'url' => 'mysql://user:secret@localhost/mydb?charset=utf8', // ...alternative way of providing parameters.
         // Additional parameters not originally available in Doctrine DBAL
         'table_prefix' => '', // (string): Prefix for each table.
     ],
