@@ -21,9 +21,10 @@ use SimpleSAML\Module\oidc\ModuleConfig;
  */
 $config = [
     /**
-     * Database connection parameters, Doctrine DBAL compatible (more info on
-     * https://www.doctrine-project.org/projects/doctrine-dbal/en/latest/reference/configuration.html).
-     * There are additional parameters for: table prefix.
+     * Database connection parameters, Doctrine DBAL compatible. Below are an example and common parameters for
+     * MySQL DB, with additional parameters for table prefix. Refer to Doctrine DBAL documentation on how to
+     * configure different database types:
+     * https://www.doctrine-project.org/projects/doctrine-dbal/en/latest/reference/configuration.html
      */
     ModuleConfig::OPTION_DB_CONNECTION_PARAMETERS => [
         'driver' => 'pdo_mysql', // (string): The built-in driver implementation to use.
