@@ -98,6 +98,7 @@ class ModuleConfig
     final public const OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_PASSPHRASE = 'federation_new_private_key_passphrase';
     final public const OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_FILENAME = 'federation_new_private_key_filename';
     final public const OPTION_PKI_FEDERATION_NEW_CERTIFICATE_FILENAME = 'federation_new_certificate_filename';
+    final public const OPTION_DB_CONNECTION_PARAMETERS = 'db_connection_parameters';
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
@@ -239,6 +240,11 @@ class ModuleConfig
     public function config(): Configuration
     {
         return $this->moduleConfig;
+    }
+
+    public function getDbConnectionParameters(): array
+    {
+        return $this->config()->getArray(self::OPTION_DB_CONNECTION_PARAMETERS);
     }
 
     // TODO mivanci v7 Move to dedicated \SimpleSAML\Module\oidc\Utils\Routes::getModuleUrl
