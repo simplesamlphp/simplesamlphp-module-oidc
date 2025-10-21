@@ -24,7 +24,6 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeVerifierRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
-use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
@@ -36,6 +35,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeOfflineAccessRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
@@ -89,6 +89,7 @@ class RequestRulesManagerFactory
     {
         return [
             new StateRule($this->requestParamsResolver, $this->helpers),
+            new IssuerStateRule($this->requestParamsResolver, $this->helpers),
             new ClientRule(
                 $this->requestParamsResolver,
                 $this->helpers,
@@ -147,7 +148,6 @@ class RequestRulesManagerFactory
                 $this->protocolCache,
             ),
             new CodeVerifierRule($this->requestParamsResolver, $this->helpers),
-            new IssuerStateRule($this->requestParamsResolver, $this->helpers, $this->issuerStateRepository),
             new AuthorizationDetailsRule($this->requestParamsResolver, $this->helpers, $this->moduleConfig),
             new ClientIdRule($this->requestParamsResolver, $this->helpers),
         ];

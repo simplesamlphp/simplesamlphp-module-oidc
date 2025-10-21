@@ -55,6 +55,7 @@ trait IssueAccessTokenTrait
         ?array $authorizationDetails = null,
         ?string $boundClientId = null,
         ?string $boundRedirectUri = null,
+        ?string $issuerState = null,
     ): AccessTokenEntityInterface {
         $maxGenerationAttempts = AbstractGrant::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
 
@@ -79,6 +80,7 @@ trait IssueAccessTokenTrait
                     authorizationDetails: $authorizationDetails,
                     boundClientId: $boundClientId,
                     boundRedirectUri: $boundRedirectUri,
+                    issuerState: $issuerState
                 );
                 $this->accessTokenRepository->persistNewAccessToken($accessToken);
                 return $accessToken;
