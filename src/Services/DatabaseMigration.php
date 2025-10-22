@@ -690,9 +690,9 @@ EOT
 
     private function version20251021000001(): void
     {
-        $clientTableName = $this->database->applyPrefix(AuthCodeRepository::TABLE_NAME);
+        $authCodeTableName = $this->database->applyPrefix(AuthCodeRepository::TABLE_NAME);
         $this->database->write(<<< EOT
-        ALTER TABLE {$clientTableName}
+        ALTER TABLE {$authCodeTableName}
             ADD issuer_state TEXT NULL
 EOT
         ,);
@@ -700,9 +700,9 @@ EOT
 
     private function version20251021000002(): void
     {
-        $clientTableName = $this->database->applyPrefix(AccessTokenRepository::TABLE_NAME);
+        $accessTokenTableName = $this->database->applyPrefix(AccessTokenRepository::TABLE_NAME);
         $this->database->write(<<< EOT
-        ALTER TABLE {$clientTableName}
+        ALTER TABLE {$accessTokenTableName}
             ADD issuer_state TEXT NULL
 EOT
         ,);
