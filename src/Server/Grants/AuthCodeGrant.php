@@ -762,8 +762,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $redirectUri = $resultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
         /** @var string|null $state */
         $state = $resultBag->getOrFail(StateRule::class)->getValue();
-        /** @var string|null $issuer_state */
-        $issuer_state = $resultBag->getOrFail(IssuerStateRule::class)->getValue();
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $resultBag->getOrFail(ClientRule::class)->getValue();
 
@@ -886,9 +884,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $authorizationRequest->setFlowType($flowType);
 
         /** @var ?string $issuerState */
-        if ($issuer_state !== null) {
-            $authorizationRequest->setIssuerState($issuer_state);
-        }
+        $issuerState = $resultBag->get(IssuerStateRule::class)?->getValue();
+        $this->loggerService->debug('AuthCodeGrant: Issuer state: ', ['issuerState' => $issuerState]);
+        $authorizationRequest->setIssuerState($issuerState);
 
         /** @var ?array $authorizationDetails */
         $authorizationDetails = $resultBag->get(AuthorizationDetailsRule::class)?->getValue();
