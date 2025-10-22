@@ -31,7 +31,7 @@ class AuthCodeEntityFactory
         ?string $userIdentifier = null,
         ?string $redirectUri = null,
         ?string $nonce = null,
-        ?string $issuer_state = null,
+        ?string $issuerState = null,
         bool $isRevoked = false,
         ?FlowTypeEnum $flowTypeEnum = null,
         ?string $txCode = null,
@@ -53,7 +53,7 @@ class AuthCodeEntityFactory
             $authorizationDetails,
             $boundClientId,
             $boundRedirectUri,
-            $issuer_state,
+            $issuerState,
         );
     }
 
