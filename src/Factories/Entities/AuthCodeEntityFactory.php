@@ -96,7 +96,7 @@ class AuthCodeEntityFactory
         $isRevoked = (bool) $state['is_revoked'];
         $flowType = empty($state['flow_type']) ? null : FlowTypeEnum::tryFrom((string)$state['flow_type']);
         $txCode = empty($state['tx_code']) ? null : (string)$state['tx_code'];
-        $issuerState = (string) $state['issuer_state'];
+        $issuerState = empty($state['issuer_state']) ? null : (string)$state['issuer_state'];
 
         /** @psalm-suppress MixedAssignment */
         $authorizationDetails = isset($state['authorization_details']) && is_string($state['authorization_details']) ?
