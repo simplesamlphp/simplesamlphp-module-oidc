@@ -72,6 +72,7 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
      */
     protected function initJwtConfiguration(): void
     {
+        /** @psalm-suppress ArgumentTypeCoercion */
         $this->jwtConfiguration = Configuration::forSymmetricSigner(
             $this->moduleConfig->getProtocolSigner(),
             InMemory::plainText('empty', 'empty'),
