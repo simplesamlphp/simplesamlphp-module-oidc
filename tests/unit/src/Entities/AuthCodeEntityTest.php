@@ -106,6 +106,7 @@ class AuthCodeEntityTest extends TestCase
                 'authorization_details' => null,
                 'bound_client_id' => null,
                 'bound_redirect_uri' => null,
+                'issuer_state' => null,
             ],
         );
     }
