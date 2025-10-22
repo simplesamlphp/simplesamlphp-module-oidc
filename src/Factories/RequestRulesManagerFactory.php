@@ -66,7 +66,6 @@ class RequestRulesManagerFactory
         private readonly JwksResolver $jwksResolver,
         private readonly FederationParticipationValidator $federationParticipationValidator,
         private readonly SspBridge $sspBridge,
-        private readonly IssuerStateRepository $issuerStateRepository,
         private readonly ?FederationCache $federationCache = null,
         private readonly ?ProtocolCache $protocolCache = null,
     ) {
