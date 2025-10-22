@@ -25,12 +25,12 @@ class IssuerStateRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
-        $issuer_state = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
+        $issuerState = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
             ParamsEnum::IssuerState->value,
             $request,
             $allowedServerRequestMethods,
         );
 
-        return new Result($this->getKey(), $issuer_state);
+        return new Result($this->getKey(), $issuerState);
     }
 }
