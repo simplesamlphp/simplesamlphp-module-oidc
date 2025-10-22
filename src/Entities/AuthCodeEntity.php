@@ -120,5 +120,4 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
     {
         return $this->issuerState;
     }
-
 }

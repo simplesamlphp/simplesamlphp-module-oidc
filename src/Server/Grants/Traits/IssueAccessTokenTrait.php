@@ -80,7 +80,7 @@ trait IssueAccessTokenTrait
                     authorizationDetails: $authorizationDetails,
                     boundClientId: $boundClientId,
                     boundRedirectUri: $boundRedirectUri,
-                    issuerState: $issuerState
+                    issuerState: $issuerState,
                 );
                 $this->accessTokenRepository->persistNewAccessToken($accessToken);
                 return $accessToken;
