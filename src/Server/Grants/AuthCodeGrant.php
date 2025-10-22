@@ -605,12 +605,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         json_decode(json_encode($authCodePayload->claims, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR)
         : null;
 
-        $auth_code_id = $authCodePayload->auth_code_id;
-        $authCodeEntity = $this->authCodeRepository->findById($auth_code_id);
-
-        /** @var string $issuerState */
-        $issuerState = $authCodeEntity->getIssuerState();
-
         // Issue and persist new access token
         $accessToken = $this->issueAccessToken(
             $accessTokenTTL,
@@ -623,7 +617,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $storedAuthCodeEntity->getAuthorizationDetails(),
             $storedAuthCodeEntity->getBoundClientId(),
             $storedAuthCodeEntity->getBoundRedirectUri(),
-            $issuerState,
+            $storedAuthCodeEntity->getIssuerState(),
         );
         $this->getEmitter()->emit(new RequestEvent(RequestEvent::ACCESS_TOKEN_ISSUED, $request));
         $responseType->setAccessToken($accessToken);
