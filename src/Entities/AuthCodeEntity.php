@@ -33,12 +33,6 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
     use RevokeTokenTrait;
 
     /**
-     * issuer state
-     * @var string $issuerState
-     */
-    protected ?string $issuerState = null;
-
-    /**
      * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
      */
     public function __construct(
@@ -55,7 +49,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
         protected readonly ?array $authorizationDetails = null,
         protected readonly ?string $boundClientId = null,
         protected readonly ?string $boundRedirectUri = null,
-        protected ?string $issuer_state = null,
+        protected readonly ?string $issuerState = null,
     ) {
         $this->identifier = $id;
         $this->client = $client;
@@ -65,7 +59,6 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
         $this->redirectUri = $redirectUri;
         $this->nonce = $nonce;
         $this->isRevoked = $isRevoked;
-        $this->issuerState = $issuer_state;
     }
 
     /**
