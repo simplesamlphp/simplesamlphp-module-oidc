@@ -899,19 +899,24 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         // TODO This is a band-aid fix for having credential claims in the userinfo endpoint when
         // only VCI authorizationDetails are supplied. This requires configuring a matching OIDC scope
         // that has all the credential type claims as well.
-        foreach ($authorizationDetails as $authorizationDetail) {
-            if (
-                (isset($authorizationDetail['type'])) &&
-                ($authorizationDetail['type']) === 'openid_credential'
-            ) {
-                $credentialConfigurationId = $authorizationDetail['credential_configuration_id'] ?? null;
-                if ($credentialConfigurationId !== null) {
-                    array_push($scopes, new ScopeEntity($credentialConfigurationId));
+        if (is_array($authorizationDetails)) {
+            /** @psalm-suppress MixedAssignment */
+            foreach ($authorizationDetails as $authorizationDetail) {
+                if (
+                    is_array($authorizationDetail) &&
+                    (isset($authorizationDetail['type'])) &&
+                    ($authorizationDetail['type']) === 'openid_credential'
+                ) {
+                    /** @psalm-suppress MixedAssignment */
+                    $credentialConfigurationId = $authorizationDetail['credential_configuration_id'] ?? null;
+                    if (is_string($credentialConfigurationId)) {
+                        $scopes[] = new ScopeEntity($credentialConfigurationId);
+                    }
                 }
             }
+            $this->loggerService->debug('authorizationDetails Resolved Scopes: ', ['scopes' => $scopes]);
+            $authorizationRequest->setScopes($scopes);
         }
-        $this->loggerService->debug('authorizationDetails Resolved Scopes: ', ['scopes' => $scopes]);
-        $authorizationRequest->setScopes($scopes);
 
         // Check if we are using a generic client for this request. This can happen for non-registered clients
         // in VCI flows. This can be removed once the VCI clients (wallets) are properly registered using DCR.
