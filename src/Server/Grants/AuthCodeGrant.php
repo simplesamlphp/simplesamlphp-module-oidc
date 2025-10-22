@@ -28,6 +28,7 @@ use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
+use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
@@ -902,6 +903,23 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             ['authorizationDetails' => $authorizationDetails],
         );
         $authorizationRequest->setAuthorizationDetails($authorizationDetails);
+
+        // TODO This is a band-aid fix for having credential claims in the userinfo endpoint when
+        // only VCI authorizationDetails are supplied. This requires configuring a matching OIDC scope
+        // that has all the credential type claims as well.
+        foreach ($authorizationDetails as $authorizationDetail) {
+            if (
+                (isset($authorizationDetail['type'])) &&
+                ($authorizationDetail['type']) === 'openid_credential'
+            ) {
+                $credentialConfigurationId = $authorizationDetail['credential_configuration_id'] ?? null;
+                if ($credentialConfigurationId !== null) {
+                    array_push($scopes, new ScopeEntity($credentialConfigurationId));
+                }
+            }
+        }
+        $this->loggerService->debug('authorizationDetails Resolved Scopes: ', ['scopes' => $scopes]);
+        $authorizationRequest->setScopes($scopes);
 
         // Check if we are using a generic client for this request. This can happen for non-registered clients
         // in VCI flows. This can be removed once the VCI clients (wallets) are properly registered using DCR.
