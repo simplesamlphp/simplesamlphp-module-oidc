@@ -74,7 +74,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         protected readonly ?array $authorizationDetails = null,
         protected readonly ?string $boundClientId = null,
         protected readonly ?string $boundRedirectUri = null,
-        protected ?string $issuerState = null,
+        protected readonly ?string $issuerState = null,
     ) {
         $this->setIdentifier($id);
         $this->setClient($clientEntity);
