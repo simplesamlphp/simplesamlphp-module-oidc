@@ -194,4 +194,9 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
     {
         return $this->boundRedirectUri;
     }
+
+    public function getIssuerState(): ?string
+    {
+        return $this->issuerState;
+    }
 }
