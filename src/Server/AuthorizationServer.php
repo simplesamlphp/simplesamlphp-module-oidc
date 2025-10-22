@@ -84,7 +84,6 @@ class AuthorizationServer extends OAuth2AuthorizationServer
 
         $rulesToExecute = [
             StateRule::class,
-            IssuerStateRule::class,
             ClientRule::class,
             ClientRedirectUriRule::class,
         ];
