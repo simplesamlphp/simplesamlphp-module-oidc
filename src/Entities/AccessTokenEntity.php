@@ -90,7 +90,6 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
             $this->revoke();
         }
         $jwtConfiguration !== null ? $this->jwtConfiguration = $jwtConfiguration : $this->initJwtConfiguration();
-        $this->issuerState = $issuerState;
     }
 
     /**
