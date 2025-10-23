@@ -10,6 +10,7 @@ use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
@@ -53,6 +54,7 @@ class CredentialIssuerCredentialController
         protected readonly RequestParamsResolver $requestParamsResolver,
         protected readonly UserRepository $userRepository,
         protected readonly Did $did,
+        protected readonly IssuerStateRepository $issuerStateRepository,
     ) {
         if (!$this->moduleConfig->getVerifiableCredentialEnabled()) {
             $this->loggerService->warning('Verifiable Credential capabilities not enabled.');
@@ -118,6 +120,30 @@ class CredentialIssuerCredentialController
                 'invalid_token',
                 'Access token is not intended for verifiable credential issuance.',
                 401,
+            );
+        }
+
+        $issuerState = $accessToken->getIssuerState();
+        if (!is_string($issuerState)) {
+            $this->loggerService->error(
+                'CredentialIssuerCredentialController::credential: Issuer state missing in access token.',
+                ['access_token' => $accessToken],
+            );
+            return $this->routes->newJsonErrorResponse(
+                'invalid_token',
+                'Issuer state missing in access token.',
+                401,
+            );
+        }
+
+        if ($this->issuerStateRepository->findValid($issuerState) === null) {
+            $this->loggerService->warning(
+                'CredentialIssuerCredentialController::credential: Issuer state not valid.',
+                ['issuer_state' => $issuerState],
+            );
+            return $this->routes->newJsonErrorResponse(
+                'invalid_token',
+                'Issuer state not valid.',
             );
         }
 
@@ -652,7 +678,11 @@ class CredentialIssuerCredentialController
             throw new OpenIdException('Invalid credential format ID.');
         }
 
-        $this->loggerService->debug('response', [
+        $this->loggerService->debug('Revoking issuer state.', ['issuerState' => $issuerState]);
+        ;
+        $this->issuerStateRepository->revoke($issuerState);
+
+        $this->loggerService->debug('Returning credential response.', [
             'credentials' => [
                 ['credential' => $verifiableCredential->getToken()],
             ],
