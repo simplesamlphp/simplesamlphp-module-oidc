@@ -21,6 +21,9 @@ use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Controllers\AuthorizationController
@@ -57,6 +60,11 @@ class AuthorizationControllerTest extends TestCase
 
     protected static array $sampleRequestedAcrs = ['values' => ['1', '0'], 'essential' => false];
 
+    protected MockObject $symfonyRequestMock;
+    protected MockObject $symfonyResponseMock;
+    protected MockObject $responseHeaderBagMock;
+    protected MockObject $httpFoundationFactoryMock;
+
     /**
      * @throws \Exception
      */
@@ -84,6 +92,15 @@ class AuthorizationControllerTest extends TestCase
             ],
             'authorizationRequest' => $this->authorizationRequestMock,
         ];
+
+        $this->symfonyRequestMock = $this->createMock(Request::class);
+        $this->symfonyResponseMock = $this->createMock(\Symfony\Component\HttpFoundation\Response::class);
+        $this->responseHeaderBagMock = $this->createMock(ResponseHeaderBag::class);
+        $this->symfonyResponseMock->headers = $this->responseHeaderBagMock;
+
+        $this->httpFoundationFactoryMock = $this->createMock(HttpFoundationFactory::class);
+        $this->httpFoundationFactoryMock->method('createResponse')->willReturn($this->symfonyResponseMock);
+        $this->psrHttpBridgeMock->method('getHttpFoundationFactory')->willReturn($this->httpFoundationFactoryMock);
     }
 
     public static function queryParameterValues(): array
@@ -96,6 +113,31 @@ class AuthorizationControllerTest extends TestCase
                 [],
             ],
         ];
+    }
+
+    protected function mock(
+        ?AuthenticationService $authenticationService = null,
+        ?AuthorizationServer $authorizationServer = null,
+        ?ModuleConfig $moduleConfig = null,
+        ?LoggerService $loggerService = null,
+        ?PsrHttpBridge $psrHttpBridge = null,
+        ?ErrorResponder $errorResponder = null,
+    ): AuthorizationController {
+        $authenticationService ??= $this->authenticationServiceStub;
+        $authorizationServer ??= $this->authorizationServerStub;
+        $moduleConfig ??= $this->moduleConfigStub;
+        $loggerService ??= $this->loggerServiceMock;
+        $psrHttpBridge ??= $this->psrHttpBridgeMock;
+        $errorResponder ??= $this->errorResponderMock;
+
+        return new AuthorizationController(
+            $authenticationService,
+            $authorizationServer,
+            $moduleConfig,
+            $loggerService,
+            $psrHttpBridge,
+            $errorResponder,
+        );
     }
 
     /**
@@ -128,6 +170,7 @@ class AuthorizationControllerTest extends TestCase
             ->method('getAuthorizationRequestFromState')
             ->willReturn($this->authorizationRequestMock);
 
+        // TODO mivanci Move to mock() method.
         $controller = new AuthorizationController(
             $this->authenticationServiceStub,
             $this->authorizationServerStub,
@@ -485,5 +528,18 @@ class AuthorizationControllerTest extends TestCase
             $this->psrHttpBridgeMock,
             $this->errorResponderMock,
         ))($this->serverRequestStub);
+    }
+
+    public function testItAlwaysReturnsAccessControlAllowOrigin(): void
+    {
+        $this->authorizationServerStub
+            ->method('completeAuthorizationRequest')
+            ->willReturn($this->responseStub);
+
+        $this->responseHeaderBagMock->expects($this->once())
+            ->method('set')
+            ->with('Access-Control-Allow-Origin', '*');
+
+        $this->mock()->authorization($this->symfonyRequestMock);
     }
 }

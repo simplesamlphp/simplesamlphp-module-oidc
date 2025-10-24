@@ -10,6 +10,8 @@ use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Controllers\JwksController;
 use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
+use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Controllers\JwksController
@@ -18,7 +20,10 @@ class JwksControllerTest extends TestCase
 {
     protected MockObject $jsonWebKeySetServiceMock;
     protected MockObject $serverRequestMock;
-    protected MockObject $psrHttpBridge;
+    protected MockObject $psrHttpBridgeMock;
+    protected MockObject $symfonyResponseMock;
+    protected MockObject $responseHeaderBagMock;
+    protected MockObject $httpFoundationFactoryMock;
 
     /**
      * @throws \Exception
@@ -27,14 +32,27 @@ class JwksControllerTest extends TestCase
     {
         $this->jsonWebKeySetServiceMock = $this->createMock(JsonWebKeySetService::class);
         $this->serverRequestMock = $this->createMock(ServerRequest::class);
-        $this->psrHttpBridge = $this->createMock(PsrHttpBridge::class);
+        $this->psrHttpBridgeMock = $this->createMock(PsrHttpBridge::class);
+
+        $this->symfonyResponseMock = $this->createMock(\Symfony\Component\HttpFoundation\Response::class);
+        $this->responseHeaderBagMock = $this->createMock(ResponseHeaderBag::class);
+        $this->symfonyResponseMock->headers = $this->responseHeaderBagMock;
+
+        $this->httpFoundationFactoryMock = $this->createMock(HttpFoundationFactory::class);
+        $this->httpFoundationFactoryMock->method('createResponse')->willReturn($this->symfonyResponseMock);
+        $this->psrHttpBridgeMock->method('getHttpFoundationFactory')->willReturn($this->httpFoundationFactoryMock);
     }
 
-    protected function mock(): JwksController
-    {
+    protected function mock(
+        ?JsonWebKeySetService $jsonWebKeySetService = null,
+        ?PsrHttpBridge $psrHttpBridge = null,
+    ): JwksController {
+        $jsonWebKeySetService ??= $this->jsonWebKeySetServiceMock;
+        $psrHttpBridge ??= $this->psrHttpBridgeMock;
+
         return new JwksController(
-            $this->jsonWebKeySetServiceMock,
-            $this->psrHttpBridge,
+            $jsonWebKeySetService,
+            $psrHttpBridge,
         );
     }
 
@@ -65,5 +83,13 @@ class JwksControllerTest extends TestCase
             ['keys' => $keys],
             $this->mock()->__invoke()->getPayload(),
         );
+    }
+
+    public function testItAlwaysReturnsAccessControlAllowOrigin(): void
+    {
+        $this->responseHeaderBagMock->expects($this->once())->method('set')
+            ->with('Access-Control-Allow-Origin', '*');
+
+        $this->mock()->jwks();
     }
 }
