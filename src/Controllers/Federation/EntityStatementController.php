@@ -310,7 +310,10 @@ class EntityStatementController
         return $this->routes->newResponse(
             $entityStatementToken,
             200,
-            [HttpHeadersEnum::ContentType->value => ContentTypesEnum::ApplicationEntityStatementJwt->value,],
+            [
+                HttpHeadersEnum::ContentType->value => ContentTypesEnum::ApplicationEntityStatementJwt->value,
+                'Access-Control-Allow-Origin' => '*',
+            ],
         );
     }
 }

@@ -30,7 +30,7 @@ class ConfigurationDiscoveryControllerTest extends TestCase
         'end_session_endpoint' => 'http://localhost/end-session',
     ];
 
-    protected MockObject $oidcOpenIdProviderMetadataServiceMock;
+    protected MockObject $opMetadataServiceMock;
     protected MockObject $serverRequestMock;
 
     /**
@@ -38,30 +38,38 @@ class ConfigurationDiscoveryControllerTest extends TestCase
      */
     protected function setUp(): void
     {
-        $this->oidcOpenIdProviderMetadataServiceMock  = $this->createMock(OpMetadataService::class);
-        $this->oidcOpenIdProviderMetadataServiceMock->method('getMetadata')->willReturn(self::OIDC_OP_METADATA);
+        $this->opMetadataServiceMock  = $this->createMock(OpMetadataService::class);
+        $this->opMetadataServiceMock->method('getMetadata')->willReturn(self::OIDC_OP_METADATA);
 
         $this->serverRequestMock = $this->createMock(ServerRequest::class);
+    }
+
+    protected function mock(
+        ?OpMetadataService $opMetadataService = null,
+    ): ConfigurationDiscoveryController {
+        $opMetadataService ??= $this->opMetadataServiceMock;
+
+        return new ConfigurationDiscoveryController($opMetadataService);
     }
 
     public function testItIsInitializable(): void
     {
         $this->assertInstanceOf(
             ConfigurationDiscoveryController::class,
-            new ConfigurationDiscoveryController($this->oidcOpenIdProviderMetadataServiceMock),
+            $this->mock(),
         );
-    }
-
-    protected function getStubbedInstance(): ConfigurationDiscoveryController
-    {
-        return new ConfigurationDiscoveryController($this->oidcOpenIdProviderMetadataServiceMock);
     }
 
     public function testItReturnsOpenIdConnectConfiguration(): void
     {
         $this->assertSame(
-            json_decode($this->getStubbedInstance()->__invoke()->getContent(), true),
+            json_decode($this->mock()->__invoke()->getContent(), true),
             self::OIDC_OP_METADATA,
         );
+    }
+
+    public function testItAlwaysReturnsAccessControlAllowOrigin(): void
+    {
+        $this->assertTrue($this->mock()->__invoke()->headers->has('Access-Control-Allow-Origin'),);
     }
 }
