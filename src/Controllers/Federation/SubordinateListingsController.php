@@ -63,6 +63,7 @@ class SubordinateListingsController
 
         return $this->routes->newJsonResponse(
             $subordinateEntityIdList,
+            headers: ['Access-Control-Allow-Origin' => '*'],
         );
     }
 }
