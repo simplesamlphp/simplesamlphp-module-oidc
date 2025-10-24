@@ -16,6 +16,9 @@ use SimpleSAML\Module\oidc\Controllers\Traits\RequestTrait;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
+use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Controllers\AccessTokenController
@@ -30,6 +33,14 @@ class AccessTokenControllerTest extends TestCase
     protected MockObject $errorResponderMock;
     protected MockObject $requestFactoryMock;
     protected MockObject $responseFactoryMock;
+
+    protected MockObject $symfonyRequestMock;
+
+    protected MockObject $symfonyResponseMock;
+
+    protected MockObject $httpFoundationFactoryMock;
+
+    protected MockObject $responseHeaderBagMock;
 
 
     /**
@@ -47,6 +58,15 @@ class AccessTokenControllerTest extends TestCase
         $this->responseFactoryMock = $this->createMock(ResponseFactoryInterface::class);
         $this->responseFactoryMock->method('createResponse')->willReturn($this->responseMock);
         $this->psrHttpBridgeMock->method('getResponseFactory')->willReturn($this->responseFactoryMock);
+
+        $this->symfonyRequestMock = $this->createMock(Request::class);
+        $this->symfonyResponseMock = $this->createMock(\Symfony\Component\HttpFoundation\Response::class);
+        $this->responseHeaderBagMock = $this->createMock(ResponseHeaderBag::class);
+        $this->symfonyResponseMock->headers = $this->responseHeaderBagMock;
+
+        $this->httpFoundationFactoryMock = $this->createMock(HttpFoundationFactory::class);
+        $this->httpFoundationFactoryMock->method('createResponse')->willReturn($this->symfonyResponseMock);
+        $this->psrHttpBridgeMock->method('getHttpFoundationFactory')->willReturn($this->httpFoundationFactoryMock);
     }
 
     protected function mock(): AccessTokenController
@@ -98,6 +118,20 @@ class AccessTokenControllerTest extends TestCase
         $this->responseMock->method('withBody')->willReturnSelf();
 
         $this->mock()->__invoke($this->serverRequestMock);
+    }
+
+    public function testItAlwaysReturnsAccessControlAllowOrigin(): void
+    {
+        $this->authorizationServerMock
+            ->expects($this->once())
+            ->method('respondToAccessTokenRequest')
+            ->willReturn($this->responseMock);
+
+        $this->responseHeaderBagMock->expects($this->once())
+            ->method('set')
+            ->with('Access-Control-Allow-Origin', '*');
+
+        $this->mock()->token($this->symfonyRequestMock);
     }
 
     public function testItUsesRequestTrait(): void

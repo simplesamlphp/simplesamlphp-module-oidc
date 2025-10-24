@@ -27,6 +27,9 @@ class ConfigurationDiscoveryController
 
     public function __invoke(): JsonResponse
     {
-        return new JsonResponse($this->opMetadataService->getMetadata());
+        return new JsonResponse(
+            $this->opMetadataService->getMetadata(),
+            headers: ['Access-Control-Allow-Origin' => '*'],
+        );
     }
 }

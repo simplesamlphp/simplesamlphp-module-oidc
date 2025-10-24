@@ -38,6 +38,8 @@ class JwksController
 
     public function jwks(): Response
     {
-        return $this->psrHttpBridge->getHttpFoundationFactory()->createResponse($this->__invoke());
+        $response = $this->psrHttpBridge->getHttpFoundationFactory()->createResponse($this->__invoke());
+        $response->headers->set('Access-Control-Allow-Origin', '*');
+        return $response;
     }
 }
