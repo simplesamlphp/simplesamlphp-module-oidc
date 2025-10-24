@@ -72,13 +72,11 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
      */
     protected function initJwtConfiguration(): void
     {
+        /** @psalm-suppress ArgumentTypeCoercion */
         $this->jwtConfiguration = Configuration::forSymmetricSigner(
             $this->moduleConfig->getProtocolSigner(),
             InMemory::plainText('empty', 'empty'),
-        );
-
-        /** @psalm-suppress DeprecatedMethod, ArgumentTypeCoercion */
-        $this->jwtConfiguration->setValidationConstraints(
+        )->withValidationConstraints(
             new StrictValidAt(new SystemClock(new DateTimeZone(date_default_timezone_get()))),
             new SignedWith(
                 $this->moduleConfig->getProtocolSigner(),

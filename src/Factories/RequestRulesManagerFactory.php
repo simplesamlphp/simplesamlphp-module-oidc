@@ -10,7 +10,6 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\CodeChallengeVerifiersRepository;
-use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule;
@@ -66,7 +65,6 @@ class RequestRulesManagerFactory
         private readonly JwksResolver $jwksResolver,
         private readonly FederationParticipationValidator $federationParticipationValidator,
         private readonly SspBridge $sspBridge,
-        private readonly IssuerStateRepository $issuerStateRepository,
         private readonly ?FederationCache $federationCache = null,
         private readonly ?ProtocolCache $protocolCache = null,
     ) {
@@ -89,6 +87,7 @@ class RequestRulesManagerFactory
     {
         return [
             new StateRule($this->requestParamsResolver, $this->helpers),
+            new IssuerStateRule($this->requestParamsResolver, $this->helpers),
             new ClientRule(
                 $this->requestParamsResolver,
                 $this->helpers,
@@ -147,7 +146,6 @@ class RequestRulesManagerFactory
                 $this->protocolCache,
             ),
             new CodeVerifierRule($this->requestParamsResolver, $this->helpers),
-            new IssuerStateRule($this->requestParamsResolver, $this->helpers, $this->issuerStateRepository),
             new AuthorizationDetailsRule($this->requestParamsResolver, $this->helpers, $this->moduleConfig),
             new ClientIdRule($this->requestParamsResolver, $this->helpers),
         ];

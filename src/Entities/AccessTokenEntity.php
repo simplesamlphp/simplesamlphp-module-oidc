@@ -74,6 +74,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         protected readonly ?array $authorizationDetails = null,
         protected readonly ?string $boundClientId = null,
         protected readonly ?string $boundRedirectUri = null,
+        protected readonly ?string $issuerState = null,
     ) {
         $this->setIdentifier($id);
         $this->setClient($clientEntity);
@@ -125,6 +126,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
                 null,
             'bound_client_id' => $this->boundClientId,
             'bound_redirect_uri' => $this->boundRedirectUri,
+            'issuer_state' => $this->issuerState,
         ];
     }
 
@@ -166,6 +168,9 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
             ->expiresAt($this->getExpiryDateTime())
             ->relatedTo((string) $this->getUserIdentifier())
             ->withClaim('scopes', $this->getScopes());
+        if ($this->issuerState !== null) {
+            $jwtBuilder = $jwtBuilder->withClaim('issuer_state', $this->issuerState);
+        }
 
         return $this->jsonWebTokenBuilderService->getSignedProtocolJwt($jwtBuilder);
     }
@@ -188,5 +193,10 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
     public function getBoundRedirectUri(): ?string
     {
         return $this->boundRedirectUri;
+    }
+
+    public function getIssuerState(): ?string
+    {
+        return $this->issuerState;
     }
 }

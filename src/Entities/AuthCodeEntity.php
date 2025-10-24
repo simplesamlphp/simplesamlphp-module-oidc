@@ -49,6 +49,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
         protected readonly ?array $authorizationDetails = null,
         protected readonly ?string $boundClientId = null,
         protected readonly ?string $boundRedirectUri = null,
+        protected readonly ?string $issuerState = null,
     ) {
         $this->identifier = $id;
         $this->client = $client;
@@ -81,6 +82,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
                 null,
             'bound_client_id' => $this->boundClientId,
             'bound_redirect_uri' => $this->boundRedirectUri,
+            'issuer_state' => $this->issuerState,
         ];
     }
 
@@ -112,5 +114,10 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
     public function getBoundRedirectUri(): ?string
     {
         return $this->boundRedirectUri;
+    }
+
+    public function getIssuerState(): ?string
+    {
+        return $this->issuerState;
     }
 }

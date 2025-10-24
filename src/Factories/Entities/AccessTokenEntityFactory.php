@@ -40,6 +40,7 @@ class AccessTokenEntityFactory
         ?array $authorizationDetails = null,
         ?string $boundClientId = null,
         ?string $boundRedirectUri = null,
+        ?string $issuerState = null,
     ): AccessTokenEntity {
         return new AccessTokenEntity(
             $id,
@@ -56,6 +57,7 @@ class AccessTokenEntityFactory
             authorizationDetails: $authorizationDetails,
             boundClientId: $boundClientId,
             boundRedirectUri: $boundRedirectUri,
+            issuerState: $issuerState,
         );
     }
 

@@ -65,6 +65,7 @@ CREATE TABLE oidc_access_token (
             authorization_details TEXT NULL,
             bound_client_id TEXT NULL,
             bound_redirect_uri TEXT NULL,
+            issuer_state TEXT NULL,
             CONSTRAINT FK_43C1650EA76ED395 FOREIGN KEY (user_id)
                 REFERENCES oidc_user (id) ON DELETE CASCADE,
             CONSTRAINT FK_43C1650E19EB6921 FOREIGN KEY (client_id)
@@ -92,6 +93,7 @@ CREATE TABLE oidc_auth_code (
             authorization_details TEXT NULL,
             bound_client_id TEXT NULL,
             bound_redirect_uri TEXT NULL,
+            issuer_state TEXT NULL,
             CONSTRAINT FK_97D32CA7A76ED395 FOREIGN KEY (user_id)
                 REFERENCES oidc_user (id) ON DELETE CASCADE,
             CONSTRAINT FK_97D32CA719EB6921 FOREIGN KEY (client_id)

@@ -31,6 +31,7 @@ class AuthCodeEntityFactory
         ?string $userIdentifier = null,
         ?string $redirectUri = null,
         ?string $nonce = null,
+        ?string $issuerState = null,
         bool $isRevoked = false,
         ?FlowTypeEnum $flowTypeEnum = null,
         ?string $txCode = null,
@@ -52,6 +53,7 @@ class AuthCodeEntityFactory
             $authorizationDetails,
             $boundClientId,
             $boundRedirectUri,
+            $issuerState,
         );
     }
 
@@ -94,6 +96,7 @@ class AuthCodeEntityFactory
         $isRevoked = (bool) $state['is_revoked'];
         $flowType = empty($state['flow_type']) ? null : FlowTypeEnum::tryFrom((string)$state['flow_type']);
         $txCode = empty($state['tx_code']) ? null : (string)$state['tx_code'];
+        $issuerState = empty($state['issuer_state']) ? null : (string)$state['issuer_state'];
 
         /** @psalm-suppress MixedAssignment */
         $authorizationDetails = isset($state['authorization_details']) && is_string($state['authorization_details']) ?
@@ -112,6 +115,7 @@ class AuthCodeEntityFactory
             $userIdentifier,
             $redirectUri,
             $nonce,
+            $issuerState,
             $isRevoked,
             $flowType,
             $txCode,

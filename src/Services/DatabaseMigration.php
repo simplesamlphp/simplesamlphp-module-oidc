@@ -199,6 +199,16 @@ class DatabaseMigration
             $this->version20250917163000();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20250917163000')");
         }
+
+        if (!in_array('20251021000001', $versions, true)) {
+            $this->version20251021000001();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20251021000001')");
+        }
+
+        if (!in_array('20251021000002', $versions, true)) {
+            $this->version20251021000002();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20251021000002')");
+        }
     }
 
     private function versionsTableName(): string
@@ -676,6 +686,26 @@ EOT
             ADD bound_redirect_uri TEXT NULL;
 EOT
             ,);
+    }
+
+    private function version20251021000001(): void
+    {
+        $authCodeTableName = $this->database->applyPrefix(AuthCodeRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE {$authCodeTableName}
+            ADD issuer_state TEXT NULL
+EOT
+        ,);
+    }
+
+    private function version20251021000002(): void
+    {
+        $accessTokenTableName = $this->database->applyPrefix(AccessTokenRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE {$accessTokenTableName}
+            ADD issuer_state TEXT NULL
+EOT
+        ,);
     }
 
     /**
