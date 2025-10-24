@@ -106,9 +106,16 @@ class AuthorizationController
              * @psalm-suppress DeprecatedMethod Until we drop support for old public/*.php routes, we need to bridge
              * between PSR and Symfony HTTP messages.
              */
-            return $this->psrHttpBridge->getHttpFoundationFactory()->createResponse(
+            $response = $this->psrHttpBridge->getHttpFoundationFactory()->createResponse(
                 $this->__invoke($this->psrHttpBridge->getPsrHttpFactory()->createRequest($request)),
             );
+
+            // If not already handled, allow CORS (for JS clients).
+            if (!$response->headers->has('Access-Control-Allow-Origin')) {
+                $response->headers->set('Access-Control-Allow-Origin', '*');
+            }
+
+            return $response;
         } catch (OAuthServerException $exception) {
             return $this->errorResponder->forException($exception);
         }
