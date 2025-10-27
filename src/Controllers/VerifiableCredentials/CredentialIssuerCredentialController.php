@@ -115,7 +115,7 @@ class CredentialIssuerCredentialController
             $this->loggerService->warning(
                 'CredentialIssuerCredentialController::credential: Access token is not intended for Verifiable' .
                 ' Credential Issuance.',
-                ['access_token' => $accessToken],
+                ['accessTokenState' => $accessToken->getState()],
             );
             return $this->routes->newJsonErrorResponse(
                 'invalid_token',
@@ -131,7 +131,7 @@ class CredentialIssuerCredentialController
         ) {
             $this->loggerService->error(
                 'CredentialIssuerCredentialController::credential: Issuer state missing in access token.',
-                ['access_token' => $accessToken],
+                ['accessTokenState' => $accessToken->getState()],
             );
             return $this->routes->newJsonErrorResponse(
                 'invalid_token',
@@ -143,7 +143,7 @@ class CredentialIssuerCredentialController
         if (is_string($issuerState) && $this->issuerStateRepository->findValid($issuerState) === null) {
             $this->loggerService->warning(
                 'CredentialIssuerCredentialController::credential: Issuer state not valid.',
-                ['issuer_state' => $issuerState],
+                ['issuerState' => $issuerState],
             );
             return $this->routes->newJsonErrorResponse(
                 'invalid_token',
@@ -202,7 +202,7 @@ class CredentialIssuerCredentialController
                 ) {
                     $this->loggerService->warning(
                         'CredentialIssuerCredentialController::credential: Unusable authorization detail.',
-                        ['authorization_detail' => $authorizationDetail],
+                        ['authorizationDetail' => $authorizationDetail],
                     );
                     continue;
                 }
@@ -210,7 +210,7 @@ class CredentialIssuerCredentialController
                 if ($credentialIdentifier === $authorizationDetailCredentialConfigurationId) {
                     $this->loggerService->debug(
                         'CredentialIssuerCredentialController::credential: Credential identifier used in flow.',
-                        ['credential_identifier' => $credentialIdentifier],
+                        ['credentialIdentifier' => $credentialIdentifier],
                     );
                     $isCredentialIdentifierUsedInFlow = true;
                     break;
@@ -220,7 +220,7 @@ class CredentialIssuerCredentialController
             if (!$isCredentialIdentifierUsedInFlow) {
                 $this->loggerService->error(
                     'CredentialIssuerCredentialController::credential: Credential identifier not used in flow.',
-                    ['credential_identifier' => $credentialIdentifier],
+                    ['credentialIdentifier' => $credentialIdentifier],
                 );
                 return $this->routes->newJsonErrorResponse(
                     'invalid_credential_request',
