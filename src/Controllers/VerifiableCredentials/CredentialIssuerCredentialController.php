@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Controllers\VerifiableCredentials;
 use Base64Url\Base64Url;
 use League\OAuth2\Server\ResourceServer;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
+use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
@@ -124,7 +125,10 @@ class CredentialIssuerCredentialController
         }
 
         $issuerState = $accessToken->getIssuerState();
-        if (!is_string($issuerState)) {
+        if (
+            !is_string($issuerState) &&
+            ($accessToken->getFlowTypeEnum() === FlowTypeEnum::VciAuthorizationCode)
+        ) {
             $this->loggerService->error(
                 'CredentialIssuerCredentialController::credential: Issuer state missing in access token.',
                 ['access_token' => $accessToken],
@@ -136,7 +140,7 @@ class CredentialIssuerCredentialController
             );
         }
 
-        if ($this->issuerStateRepository->findValid($issuerState) === null) {
+        if (is_string($issuerState) && $this->issuerStateRepository->findValid($issuerState) === null) {
             $this->loggerService->warning(
                 'CredentialIssuerCredentialController::credential: Issuer state not valid.',
                 ['issuer_state' => $issuerState],
@@ -678,9 +682,10 @@ class CredentialIssuerCredentialController
             throw new OpenIdException('Invalid credential format ID.');
         }
 
-        $this->loggerService->debug('Revoking issuer state.', ['issuerState' => $issuerState]);
-        ;
-        $this->issuerStateRepository->revoke($issuerState);
+        if (is_string($issuerState)) {
+            $this->loggerService->debug('Revoking issuer state.', ['issuerState' => $issuerState]);
+            $this->issuerStateRepository->revoke($issuerState);
+        }
 
         $this->loggerService->debug('Returning credential response.', [
             'credentials' => [
