@@ -103,6 +103,8 @@ class IssuerStateRepository extends AbstractDatabaseRepository
             <<<EOS
             UPDATE %s
             SET
+                created_at = :created_at,
+                expires_at = :expires_at,
                 is_revoked = :is_revoked
             WHERE
                 value = :value
