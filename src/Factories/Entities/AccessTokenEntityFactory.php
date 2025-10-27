@@ -110,6 +110,7 @@ class AccessTokenEntityFactory
 
         $boundClientId = empty($state['bound_client_id']) ? null : (string)$state['bound_client_id'];
         $boundRedirectUri = empty($state['bound_redirect_uri']) ? null : (string)$state['bound_redirect_uri'];
+        $issuerState = empty($state['issuer_state']) ? null : (string)$state['issuer_state'];
 
         return $this->fromData(
             $id,
@@ -124,6 +125,7 @@ class AccessTokenEntityFactory
             $authorizationDetails,
             $boundClientId,
             $boundRedirectUri,
+            $issuerState,
         );
     }
 }
