@@ -422,6 +422,13 @@ $config = [
         ],
     ],
 
+    // (optional) Trust Mark Status Endpoint Usage Policy. Check the TrustMarkStatusEndpointUsagePolicyEnum for the
+    // available options. Default is RequiredIfEndpointProvidedForNonExpiringTrustMarksOnly, meaning that the
+    // Trust Mark Status Endpoint will be used to check the status of non-expiring Trust Marks if the
+    // Trust Mark Status Endpoint is provided by the Trust Mark Issuer.
+    ModuleConfig::OPTION_FEDERATION_TRUST_MARK_STATUS_ENDPOINT_USAGE_POLICY =>
+        \SimpleSAML\OpenID\Codebooks\TrustMarkStatusEndpointUsagePolicyEnum::RequiredIfEndpointProvidedForNonExpiringTrustMarksOnly,
+
     // (optional) Dedicated federation cache adapter, used to cache federation artifacts like trust chains, entity
     // statements, etc. It will also be used for token reuse check in federation context. Setting this option is
     // recommended in production environments. If set to null, no caching will be used. Can be set to any
