@@ -74,6 +74,7 @@ capabilities are to be used):
   statements
   - federation participation limiting based on Trust Marks for RPs
   - (from v6.1) own Trust Marks to dynamically fetch
+  - (from v6.3) Trust Mark Status Endpoint Usage Policy
   - signer algorithm
   - entity statement duration
   - organization name
@@ -131,6 +132,13 @@ menu in the Administration area.
 `config-templates/module_oidc.php` to `config/module_oidc.php.dist`.
 This is only relevant for new installations, since initially it is necessary
 to copy the template file to the default SSP config dir.
+- (from v6.3) A new option for Trust Mark Status Endpoint Usage Policy has
+been introduced, which can be used to control how the Trust Mark Status
+Endpoint is used when validating Trust Marks. The default value is
+`RequiredIfEndpointProvidedForNonExpiringTrustMarksOnly`, which
+means that the Trust Mark Status Endpoint is only used if the
+endpoint is provided by the Trust Mark Issuer, and the Trust
+Mark does not expire.
 
 Below are also some internal changes that should not have an impact on the
 OIDC OP implementers. However, if you are using this module as a library or
