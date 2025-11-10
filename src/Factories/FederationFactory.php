@@ -43,6 +43,8 @@ class FederationFactory
             maxCacheDuration: $this->moduleConfig->getFederationCacheMaxDurationForFetched(),
             cache: $this->federationCache?->cache,
             logger: $this->loggerService,
+            defaultTrustMarkStatusEndpointUsagePolicyEnum:
+            $this->moduleConfig->getFederationTrustMarkStatusEndpointUsagePolicy(),
         );
     }
 }
