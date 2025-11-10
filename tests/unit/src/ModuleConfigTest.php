@@ -15,6 +15,7 @@ use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\OpenID\Codebooks\TrustMarkStatusEndpointUsagePolicyEnum;
 use SimpleSAML\Utils\Config;
 use SimpleSAML\Utils\HTTP;
 use stdClass;
@@ -474,6 +475,27 @@ class ModuleConfigTest extends TestCase
     {
         $this->assertTrue(
             $this->sut()->isFederationParticipationLimitedByTrustMarksFor('https://ta.example.org/'),
+        );
+    }
+
+    public function testCanGetFederationTrustMarkStatusEndpointUsagePolicy(): void
+    {
+        // Assert default policy.
+        $this->assertSame(
+            TrustMarkStatusEndpointUsagePolicyEnum::RequiredIfEndpointProvidedForNonExpiringTrustMarksOnly,
+            $this->sut()->getFederationTrustMarkStatusEndpointUsagePolicy(),
+        );
+
+        // Assert custom configuration.
+        $sut = $this->sut(
+            overrides: [
+                ModuleConfig::OPTION_FEDERATION_TRUST_MARK_STATUS_ENDPOINT_USAGE_POLICY =>
+                    TrustMarkStatusEndpointUsagePolicyEnum::Required,
+            ],
+        );
+        $this->assertSame(
+            TrustMarkStatusEndpointUsagePolicyEnum::Required,
+            $sut->getFederationTrustMarkStatusEndpointUsagePolicy(),
         );
     }
 }
