@@ -28,6 +28,7 @@ class VerifiableCredentialsFactory
         $supportedAlgorithms = new SupportedAlgorithms(
             new SignatureAlgorithmBag(
                 SignatureAlgorithmEnum::from($this->moduleConfig->getProtocolSigner()->algorithmId()),
+                SignatureAlgorithmEnum::RS256,
                 SignatureAlgorithmEnum::RS384,
                 SignatureAlgorithmEnum::RS512,
                 SignatureAlgorithmEnum::ES256,
