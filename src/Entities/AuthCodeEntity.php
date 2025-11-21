@@ -19,6 +19,7 @@ use DateTimeImmutable;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\TokenEntityTrait;
+use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\MementoInterface;
 use SimpleSAML\Module\oidc\Entities\Traits\OidcAuthCodeTrait;
@@ -43,6 +44,12 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
         ?string $redirectUri = null,
         ?string $nonce = null,
         bool $isRevoked = false,
+        protected readonly ?FlowTypeEnum $flowTypeEnum = null,
+        protected readonly ?string $txCode = null,
+        protected readonly ?array $authorizationDetails = null,
+        protected readonly ?string $boundClientId = null,
+        protected readonly ?string $boundRedirectUri = null,
+        protected readonly ?string $issuerState = null,
     ) {
         $this->identifier = $id;
         $this->client = $client;
@@ -68,6 +75,49 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
             'is_revoked' => $this->isRevoked(),
             'redirect_uri' => $this->getRedirectUri(),
             'nonce' => $this->getNonce(),
+            'flow_type' => $this->flowTypeEnum?->value,
+            'tx_code' => $this->txCode,
+            'authorization_details' => is_array($this->authorizationDetails) ?
+                json_encode($this->authorizationDetails, JSON_THROW_ON_ERROR) :
+                null,
+            'bound_client_id' => $this->boundClientId,
+            'bound_redirect_uri' => $this->boundRedirectUri,
+            'issuer_state' => $this->issuerState,
         ];
+    }
+
+    public function isVciPreAuthorized(): bool
+    {
+        return $this->flowTypeEnum === FlowTypeEnum::VciPreAuthorizedCode;
+    }
+
+    public function getTxCode(): ?string
+    {
+        return $this->txCode;
+    }
+
+    public function getFlowTypeEnum(): ?FlowTypeEnum
+    {
+        return $this->flowTypeEnum;
+    }
+
+    public function getAuthorizationDetails(): ?array
+    {
+        return $this->authorizationDetails;
+    }
+
+    public function getBoundClientId(): ?string
+    {
+        return $this->boundClientId;
+    }
+
+    public function getBoundRedirectUri(): ?string
+    {
+        return $this->boundRedirectUri;
+    }
+
+    public function getIssuerState(): ?string
+    {
+        return $this->issuerState;
     }
 }

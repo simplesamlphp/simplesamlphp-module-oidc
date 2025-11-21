@@ -7,7 +7,13 @@ apply those relevant to your deployment.
 
 New features:
 
+- Initial support for OpenID for Verifiable Credential Issuance
+(OpenID4VCI). Note that the implementation is experimental. You should not use
+it in production yet. 
+
 New configuration options:
+
+- Several new options regarding support for OpenID4VCI.
 
 Major impact changes:
 

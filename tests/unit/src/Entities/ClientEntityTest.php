@@ -38,6 +38,7 @@ class ClientEntityTest extends TestCase
     protected ?DateTimeImmutable $createdAt = null;
     protected ?DateTimeImmutable $expiresAt = null;
     protected bool $isFederated = false;
+    protected bool $isGeneric = false;
 
     protected function setUp(): void
     {
@@ -59,6 +60,7 @@ class ClientEntityTest extends TestCase
             'created_at' => null,
             'expires_at' => null,
             'is_federated' => false,
+            'is_generic' => false,
         ];
     }
 
@@ -92,6 +94,7 @@ class ClientEntityTest extends TestCase
             $this->createdAt,
             $this->expiresAt,
             $this->isFederated,
+            $this->isGeneric,
         );
     }
 
@@ -183,6 +186,7 @@ class ClientEntityTest extends TestCase
                 'created_at' => null,
                 'expires_at' => null,
                 'is_federated' => $this->state['is_federated'],
+                'is_generic' => $this->state['is_generic'],
             ],
         );
     }
@@ -219,6 +223,7 @@ class ClientEntityTest extends TestCase
                 'created_at' => null,
                 'expires_at' => null,
                 'is_federated' => false,
+                'is_generic' => false,
             ],
         );
     }

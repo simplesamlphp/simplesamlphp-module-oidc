@@ -24,6 +24,7 @@ use SimpleSAML\Configuration;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ScopesEnum;
 use SimpleSAML\OpenID\Codebooks\TrustMarkStatusEndpointUsagePolicyEnum;
 
@@ -101,6 +102,19 @@ class ModuleConfig
     final public const OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_PASSPHRASE = 'federation_new_private_key_passphrase';
     final public const OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_FILENAME = 'federation_new_private_key_filename';
     final public const OPTION_PKI_FEDERATION_NEW_CERTIFICATE_FILENAME = 'federation_new_certificate_filename';
+    final public const OPTION_VERIFIABLE_CREDENTIAL_ENABLED = 'verifiable_credentials_enabled';
+    final public const OPTION_CREDENTIAL_CONFIGURATIONS_SUPPORTED = 'credential_configurations_supported';
+    final public const OPTION_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP =
+    'user_attribute_to_credential_claim_path_map';
+    final public const OPTION_API_ENABLED = 'api_enabled';
+    final public const OPTION_API_TOKENS = 'api_tokens';
+    final public const OPTION_DEFAULT_USERS_EMAIL_ATTRIBUTE_NAME = 'users_email_attribute_name';
+    final public const OPTION_AUTH_SOURCES_TO_USERS_EMAIL_ATTRIBUTE_NAME_MAP =
+    'auth_sources_to_users_email_attribute_name_map';
+    final public const OPTION_ISSUER_STATE_TTL = 'issuer_state_ttl';
+    final public const OPTION_ALLOW_NON_REGISTERED_CLIENTS_FOR_VCI = 'allow_non_registered_clients_for_vci';
+    final public const OPTION_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS_FOR_VCI =
+    'allowed_redirect_uri_prefixes_for_non_registered_clients_for_vci';
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
@@ -349,6 +363,8 @@ class ModuleConfig
     /**
      * Get the path to the private key used in OIDC protocol.
      * @throws \Exception
+     * @return non-empty-string The file system path
+     * @psalm-suppress LessSpecificReturnStatement, MoreSpecificReturnType
      */
     public function getProtocolPrivateKeyPath(): string
     {
@@ -371,8 +387,9 @@ class ModuleConfig
 
     /**
      * Get the path to the public certificate used in OIDC protocol.
-     * @return string The file system path
+     * @return non-empty-string The file system path
      * @throws \Exception
+     * @psalm-suppress LessSpecificReturnStatement, MoreSpecificReturnType
      */
     public function getProtocolCertPath(): string
     {
@@ -443,7 +460,12 @@ class ModuleConfig
      */
     public function getScopes(): array
     {
-        return array_merge(self::$standardScopes, $this->getPrivateScopes());
+        return array_merge(
+            self::$standardScopes,
+            $this->getPrivateScopes(),
+            // Also include VCI scopes if enabled.
+            $this->getVciScopes(),
+        );
     }
 
     /**
@@ -854,5 +876,233 @@ class ModuleConfig
     public function isFederationParticipationLimitedByTrustMarksFor(string $trustAnchorId): bool
     {
         return !empty($this->getTrustMarksNeededForFederationParticipationFor($trustAnchorId));
+    }
+
+
+    /*****************************************************************************************************************
+     * OpenID Verifiable Credential Issuance related config.
+     ****************************************************************************************************************/
+
+    public function getVerifiableCredentialEnabled(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_VERIFIABLE_CREDENTIAL_ENABLED, false);
+    }
+
+    public function getCredentialConfigurationsSupported(): array
+    {
+        return $this->config()->getOptionalArray(self::OPTION_CREDENTIAL_CONFIGURATIONS_SUPPORTED, []);
+    }
+
+    /**
+     * @param string $credentialConfigurationId
+     * @return mixed[]|null
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getCredentialConfiguration(string $credentialConfigurationId): ?array
+    {
+        $credentialConfiguration = $this->getCredentialConfigurationsSupported()[$credentialConfigurationId] ?? null;
+
+        if (is_null($credentialConfiguration)) {
+            return null;
+        }
+
+        if (!is_array($credentialConfiguration)) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Invalid configuration for credential configuration %s: %s',
+                    $credentialConfigurationId,
+                    var_export($credentialConfiguration, true),
+                ),
+            );
+        }
+
+        return $credentialConfiguration;
+    }
+
+    /**
+     * @return array<string>
+     */
+    public function getCredentialConfigurationIdsSupported(): array
+    {
+        return array_map(
+            'strval',
+            array_keys($this->getCredentialConfigurationsSupported()),
+        );
+    }
+
+    /**
+     * Helper function to get the credential configuration IDs in a format suitable for creating ScopeEntity instances.
+     * Returns an empty array if VCI is not enabled.
+     *
+     * @return array<string, array<string, string>>
+     */
+    public function getVciScopes(): array
+    {
+        if (! $this->getVerifiableCredentialEnabled()) {
+            return [];
+        }
+
+        $vciScopes = [];
+        foreach ($this->getCredentialConfigurationIdsSupported() as $credentialConfigurationId) {
+            $vciScopes[$credentialConfigurationId] = ['description' => $credentialConfigurationId];
+        }
+        return $vciScopes;
+    }
+
+    public function getCredentialConfigurationIdForCredentialDefinitionType(array $credentialDefinitionType): ?string
+    {
+        foreach (
+            $this->getCredentialConfigurationsSupported() as $credentialConfigurationId => $credentialConfiguration
+        ) {
+            if (!is_array($credentialConfiguration)) {
+                continue;
+            }
+
+            $credentialDefinition = $credentialConfiguration[ClaimsEnum::CredentialDefinition->value] ?? null;
+
+            if (!is_array($credentialDefinition)) {
+                continue;
+            }
+
+            /** @psalm-suppress MixedAssignment */
+            $configuredType = $credentialDefinition[ClaimsEnum::Type->value] ?? null;
+
+            if ($configuredType === $credentialDefinitionType) {
+                return (string)$credentialConfigurationId;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract and parse the claims path definition from the credential configuration supported.
+     * Returns an array of valid paths for the claims.
+     */
+    public function getValidCredentialClaimPathsFor(string $credentialConfigurationId): array
+    {
+        $claimsConfig = $this->getCredentialConfigurationsSupported()[$credentialConfigurationId]
+        [ClaimsEnum::Claims->value] ?? [];
+
+        $validPaths = [];
+
+        if (!is_array($claimsConfig)) {
+            return $validPaths;
+        }
+
+        /** @psalm-suppress MixedAssignment */
+        foreach ($claimsConfig as $claim) {
+            if (is_array($claim)) {
+                /** @psalm-suppress MixedAssignment */
+                $validPaths[] = $claim[ClaimsEnum::Path->value] ?? null;
+            }
+        }
+
+        return array_filter($validPaths);
+    }
+
+    public function getUserAttributeToCredentialClaimPathMap(): array
+    {
+        return $this->config()->getOptionalArray(self::OPTION_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP, []);
+    }
+
+    public function getUserAttributeToCredentialClaimPathMapFor(string $credentialConfigurationId): array
+    {
+        /** @psalm-suppress MixedAssignment */
+        $map = $this->getUserAttributeToCredentialClaimPathMap()[$credentialConfigurationId] ?? [];
+
+        if (is_array($map)) {
+            return $map;
+        }
+
+        return [];
+    }
+
+    /**
+     * Get Issuer State Duration (TTL) if set. If not set, it will fall back to Authorization Code Duration.
+     *
+     * @return DateInterval
+     * @throws \Exception
+     */
+    public function getIssuerStateDuration(): DateInterval
+    {
+        $issuerStateDuration = $this->config()->getOptionalString(self::OPTION_ISSUER_STATE_TTL, null);
+
+        if (is_null($issuerStateDuration)) {
+            return $this->getAuthCodeDuration();
+        }
+
+        return new DateInterval(
+            $this->config()->getString(self::OPTION_ISSUER_STATE_TTL),
+        );
+    }
+
+    public function getAllowNonRegisteredClientsForVci(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_ALLOW_NON_REGISTERED_CLIENTS_FOR_VCI, false);
+    }
+
+    public function getAllowedRedirectUriPrefixesForNonRegisteredClientsForVci(): array
+    {
+        return $this->config()->getOptionalArray(
+            self::OPTION_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS_FOR_VCI,
+            ['openid-credential-offer://',],
+        );
+    }
+
+
+    /*****************************************************************************************************************
+     * API-related config.
+     ****************************************************************************************************************/
+
+    public function getApiEnabled(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_API_ENABLED, false);
+    }
+
+    /**
+     * @return mixed[]|null
+     */
+    public function getApiTokens(): ?array
+    {
+        return $this->config()->getOptionalArray(self::OPTION_API_TOKENS, null);
+    }
+
+    /**
+     * @param string $token
+     * @return mixed[]
+     */
+    public function getApiTokenScopes(string $token): ?array
+    {
+        /** @psalm-suppress MixedAssignment */
+        $tokenScopes = $this->getApiTokens()[$token] ?? null;
+
+        if (is_array($tokenScopes)) {
+            return $tokenScopes;
+        }
+
+        return null;
+    }
+
+    public function getAuthSourcesToUsersEmailAttributeMap(): array
+    {
+        return $this->config()->getOptionalArray(self::OPTION_AUTH_SOURCES_TO_USERS_EMAIL_ATTRIBUTE_NAME_MAP, []);
+    }
+
+    public function getUsersEmailAttributeNameForAuthSourceId(string $authSource): string
+    {
+        /** @psalm-suppress MixedAssignment */
+        $attributeName = $this->getAuthSourcesToUsersEmailAttributeMap()[$authSource] ?? null;
+
+        if (is_string($attributeName)) {
+            return $attributeName;
+        }
+
+        return $this->getDefaultUsersEmailAttributeName();
+    }
+
+    public function getDefaultUsersEmailAttributeName(): string
+    {
+        return $this->config()->getOptionalString(self::OPTION_DEFAULT_USERS_EMAIL_ATTRIBUTE_NAME, 'mail');
     }
 }

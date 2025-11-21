@@ -12,6 +12,7 @@ enum RoutesEnum: string
 
     case AdminConfigProtocol = 'admin/config/protocol';
     case AdminConfigFederation = 'admin/config/federation';
+    case AdminConfigVerifiableCredential = 'admin/config/verifiable-credential';
     case AdminMigrations = 'admin/migrations';
     case AdminMigrationsRun = 'admin/migrations/run';
 
@@ -27,6 +28,7 @@ enum RoutesEnum: string
     // Testing
     case AdminTestTrustChainResolution = 'admin/test/trust-chain-resolution';
     case AdminTestTrustMarkValidation = 'admin/test/trust-mark-validation';
+    case AdminTestVerifiableCredentialIssuance = 'admin/test/verifiable-credential-issuance';
 
 
     /*****************************************************************************************************************
@@ -41,10 +43,36 @@ enum RoutesEnum: string
     case EndSession = 'end-session';
 
     /*****************************************************************************************************************
+     * OAuth 2.0 Authorization Server
+     ****************************************************************************************************************/
+
+    // OAuth 2.0 Authorization Server Metadata https://www.rfc-editor.org/rfc/rfc8414.html
+    case OAuth2Configuration = '.well-known/oauth-authorization-server';
+
+    /*****************************************************************************************************************
      * OpenID Federation
      ****************************************************************************************************************/
 
     case FederationConfiguration = '.well-known/openid-federation';
     case FederationFetch = 'federation/fetch';
     case FederationList = 'federation/list';
+
+    /*****************************************************************************************************************
+     * OpenID for Verifiable Credential Issuance
+     ****************************************************************************************************************/
+
+    case CredentialIssuerConfiguration = '.well-known/openid-credential-issuer';
+    case CredentialIssuerCredential = 'credential-issuer/credential';
+
+    /*****************************************************************************************************************
+     * SD-JWT-based Verifiable Credentials (SD-JWT VC)
+     ****************************************************************************************************************/
+
+    case JwtVcIssuerConfiguration = '.well-known/jwt-vc-issuer';
+
+    /*****************************************************************************************************************
+     * API
+     ****************************************************************************************************************/
+
+    case ApiVciCredentialOffer = 'api/vci/credential-offer';
 }

@@ -28,6 +28,7 @@ use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeI
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\SessionIdResponseTypeInterface;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 
 /**
  * Class IdTokenResponse.
@@ -37,7 +38,7 @@ use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
  *
  * @see https://github.com/steverhoades/oauth2-openid-connect-server/blob/master/src/IdTokenResponse.php
  */
-class IdTokenResponse extends BearerTokenResponse implements
+class TokenResponse extends BearerTokenResponse implements
     // phpcs:ignore
     NonceResponseTypeInterface,
     // phpcs:ignore
@@ -71,6 +72,7 @@ class IdTokenResponse extends BearerTokenResponse implements
         private readonly IdentityProviderInterface $identityProvider,
         protected IdTokenBuilder $idTokenBuilder,
         CryptKey $privateKey,
+        protected LoggerService $loggerService,
     ) {
         $this->privateKey = $privateKey;
     }
@@ -82,14 +84,36 @@ class IdTokenResponse extends BearerTokenResponse implements
      */
     protected function getExtraParams(AccessTokenEntityInterface $accessToken): array
     {
-        if (false === $this->isOpenIDRequest($accessToken->getScopes())) {
-            return [];
-        }
-
         if ($accessToken instanceof AccessTokenEntity === false) {
             throw new RuntimeException('AccessToken must be ' . AccessTokenEntity::class);
         }
 
+        $extraParams = [];
+
+        if ($this->isOpenIDRequest($accessToken->getScopes())) {
+            $extraParams = [
+                ...$extraParams,
+                ...$this->prepareIdTokenExtraParam($accessToken),
+            ];
+        }
+
+        // For VCI, in token response for authorization code flow we need to return authorization details.
+        if (
+            ($flowType = $accessToken->getFlowTypeEnum()) !== null &&
+            $flowType->isVciFlow() &&
+            $accessToken->getAuthorizationDetails() !== null
+        ) {
+            $extraParams = [
+                ...$extraParams,
+                ...$this->prepareVciAuthorizationDetailsExtraParam($accessToken),
+            ];
+        }
+
+        return array_filter($extraParams);
+    }
+
+    protected function prepareIdTokenExtraParam(AccessTokenEntity $accessToken): array
+    {
         $userIdentifier = $accessToken->getUserIdentifier();
 
         if (empty($userIdentifier)) {
@@ -116,6 +140,42 @@ class IdTokenResponse extends BearerTokenResponse implements
         return [
             'id_token' => $token->toString(),
         ];
+    }
+
+    protected function prepareVciAuthorizationDetailsExtraParam(AccessTokenEntity $accessToken): array
+    {
+        $normalizedAuthorizationDetails = [];
+
+        $this->loggerService->debug(
+            'TokenResponse::prepareAuthorizationDetailsExtraParam',
+            ['accessTokenAuthorizationDetails' => $accessToken->getAuthorizationDetails()],
+        );
+
+        if (($accessTokenAuthorizationDetails = $accessToken->getAuthorizationDetails()) === null) {
+            return $normalizedAuthorizationDetails;
+        }
+
+        /** @psalm-suppress MixedAssignment */
+        foreach ($accessTokenAuthorizationDetails as $authorizationDetail) {
+            if (
+                (isset($authorizationDetail['type'])) &&
+                ($authorizationDetail['type']) === 'openid_credential'
+            ) {
+                /** @psalm-suppress MixedAssignment */
+                $credentialConfigurationId = $authorizationDetail['credential_configuration_id'] ?? null;
+                if ($credentialConfigurationId !== null) {
+                    $authorizationDetail['credential_identifiers'] = [$credentialConfigurationId];
+                }
+                $normalizedAuthorizationDetails[] = $authorizationDetail;
+            }
+        }
+
+        $this->loggerService->debug(
+            'TokenResponse::prepareAuthorizationDetailsExtraParam. Summarized authorization details: ',
+            ['authorizationDetails' => $normalizedAuthorizationDetails],
+        );
+
+        return ['authorization_details' => $normalizedAuthorizationDetails];
     }
 
     /**

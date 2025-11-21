@@ -25,6 +25,8 @@ class AcrValuesRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
+        $loggerService->debug('AcrValuesRule::checkRule');
+
         $acrValues = [
             'essential' => false,
             'values' => [],

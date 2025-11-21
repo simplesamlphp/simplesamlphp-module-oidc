@@ -37,6 +37,8 @@ class RequestedClaimsRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
+        $loggerService->debug('RequestedClaimsRule::checkRule');
+
         /** @psalm-suppress MixedAssignment We'll check the type. */
         $claimsParam = $this->requestParamsResolver->getBasedOnAllowedMethods(
             ParamsEnum::Claims->value,
@@ -56,7 +58,7 @@ class RequestedClaimsRule extends AbstractRule
             return null;
         }
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
-        $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
+        $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
 
         $authorizedClaims = [];
         foreach ($client->getScopes() as $scope) {

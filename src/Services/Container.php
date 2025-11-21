@@ -44,6 +44,7 @@ use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
+use SimpleSAML\Module\oidc\Factories\Entities\IssuerStateEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\RefreshTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ScopeEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
@@ -51,12 +52,13 @@ use SimpleSAML\Module\oidc\Factories\FederationFactory;
 use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\AuthCodeGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\ImplicitGrantFactory;
+use SimpleSAML\Module\oidc\Factories\Grant\PreAuthCodeGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\RefreshTokenGrantFactory;
-use SimpleSAML\Module\oidc\Factories\IdTokenResponseFactory;
 use SimpleSAML\Module\oidc\Factories\JwksFactory;
 use SimpleSAML\Module\oidc\Factories\ProcessingChainFactory;
 use SimpleSAML\Module\oidc\Factories\ResourceServerFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
+use SimpleSAML\Module\oidc\Factories\TokenResponseFactory;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -65,18 +67,21 @@ use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\CodeChallengeVerifiersRepository;
+use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
 use SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant;
+use SimpleSAML\Module\oidc\Server\Grants\PreAuthCodeGrant;
 use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AddClaimsToIdTokenRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientAuthenticationRule;
-use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeVerifierRule;
@@ -84,7 +89,6 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
-use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredNonceRule;
@@ -94,7 +98,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeOfflineAccessRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
-use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\TokenResponse;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
@@ -233,6 +237,7 @@ class Container implements ContainerInterface
             $helpers,
             $claimTranslatorExtractor,
             $requestParamsResolver,
+            $moduleConfig,
         );
         $this->services[ClientEntityFactory::class] = $clientEntityFactory;
 
@@ -327,6 +332,21 @@ class Container implements ContainerInterface
         );
         $this->services[AllowedOriginRepository::class] = $allowedOriginRepository;
 
+        $issuerStateEntityFactory = new IssuerStateEntityFactory(
+            $moduleConfig,
+            $helpers,
+        );
+        $this->services[IssuerStateEntityFactory::class] = $issuerStateEntityFactory;
+
+        $issuerStateRepository = new IssuerStateRepository(
+            $moduleConfig,
+            $database,
+            $protocolCache,
+            $issuerStateEntityFactory,
+            $helpers,
+        );
+        $this->services[IssuerStateRepository::class] = $issuerStateRepository;
+
         $databaseMigration = new DatabaseMigration($database);
         $this->services[DatabaseMigration::class] = $databaseMigration;
 
@@ -340,7 +360,6 @@ class Container implements ContainerInterface
             $moduleConfig,
             $processingChainFactory,
             $stateService,
-            $helpers,
             $requestParamsResolver,
             $userEntityFactory,
         );
@@ -366,7 +385,7 @@ class Container implements ContainerInterface
 
         $requestRules = [
             new StateRule($requestParamsResolver, $helpers),
-            new ClientIdRule(
+            new ClientRule(
                 $requestParamsResolver,
                 $helpers,
                 $clientRepository,
@@ -375,9 +394,10 @@ class Container implements ContainerInterface
                 $federation,
                 $jwksResolver,
                 $federationParticipationValidator,
+                $loggerService,
                 $federationCache,
             ),
-            new RedirectUriRule($requestParamsResolver, $helpers),
+            new ClientRedirectUriRule($requestParamsResolver, $helpers, $moduleConfig),
             new RequestObjectRule($requestParamsResolver, $helpers, $jwksResolver),
             new PromptRule($requestParamsResolver, $helpers, $authSimpleFactory, $authenticationService, $sspBridge),
             new MaxAgeRule($requestParamsResolver, $helpers, $authSimpleFactory, $authenticationService, $sspBridge),
@@ -418,13 +438,14 @@ class Container implements ContainerInterface
         $sessionLogoutTicketStoreBuilder = new LogoutTicketStoreBuilder($sessionLogoutTicketStoreDb);
         $this->services[LogoutTicketStoreBuilder::class] = $sessionLogoutTicketStoreBuilder;
 
-        $idTokenResponseFactory = new IdTokenResponseFactory(
+        $tokenResponseFactory = new TokenResponseFactory(
             $moduleConfig,
             $userRepository,
             $this->services[IdTokenBuilder::class],
             $privateKey,
+            $loggerService,
         );
-        $this->services[IdTokenResponse::class] = $idTokenResponseFactory->build();
+        $this->services[TokenResponse::class] = $tokenResponseFactory->build();
 
         $this->services[Helpers::class] = $helpers;
 
@@ -447,6 +468,7 @@ class Container implements ContainerInterface
             $authCodeEntityFactory,
             $refreshTokenIssuer,
             $helpers,
+            $loggerService,
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 
@@ -468,6 +490,21 @@ class Container implements ContainerInterface
         );
         $this->services[RefreshTokenGrant::class] = $refreshTokenGrantFactory->build();
 
+        $preAuthCodeGrantFactory = new PreAuthCodeGrantFactory(
+            $moduleConfig,
+            $authCodeRepository,
+            $accessTokenRepository,
+            $refreshTokenRepository,
+            $requestRuleManager,
+            $requestParamsResolver,
+            $accessTokenEntityFactory,
+            $authCodeEntityFactory,
+            $refreshTokenIssuer,
+            $helpers,
+            $loggerService,
+        );
+        $this->services[PreAuthCodeGrant::class] = $preAuthCodeGrantFactory->build();
+
         $authorizationServerFactory = new AuthorizationServerFactory(
             $moduleConfig,
             $clientRepository,
@@ -476,13 +513,19 @@ class Container implements ContainerInterface
             $this->services[AuthCodeGrant::class],
             $this->services[ImplicitGrant::class],
             $this->services[RefreshTokenGrant::class],
-            $this->services[IdTokenResponse::class],
+            $this->services[TokenResponse::class],
             $requestRuleManager,
             $privateKey,
+            $this->services[PreAuthCodeGrant::class],
+            $loggerService,
         );
         $this->services[AuthorizationServer::class] = $authorizationServerFactory->build();
 
-        $bearerTokenValidator = new BearerTokenValidator($accessTokenRepository, $publicKey);
+        $bearerTokenValidator = new BearerTokenValidator(
+            $accessTokenRepository,
+            $publicKey,
+            $moduleConfig,
+        );
         $this->services[BearerTokenValidator::class] = $bearerTokenValidator;
 
         $resourceServerFactory = new ResourceServerFactory(

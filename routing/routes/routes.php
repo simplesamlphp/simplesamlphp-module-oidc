@@ -10,14 +10,20 @@ use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Controllers\AccessTokenController;
 use SimpleSAML\Module\oidc\Controllers\Admin\ClientController;
 use SimpleSAML\Module\oidc\Controllers\Admin\ConfigController;
-use SimpleSAML\Module\oidc\Controllers\Admin\TestController;
+use SimpleSAML\Module\oidc\Controllers\Admin\FederationTestController;
+use SimpleSAML\Module\oidc\Controllers\Admin\VerifiableCredentailsTestController;
+use SimpleSAML\Module\oidc\Controllers\Api\VciCredentialOfferApiController;
 use SimpleSAML\Module\oidc\Controllers\AuthorizationController;
 use SimpleSAML\Module\oidc\Controllers\ConfigurationDiscoveryController;
 use SimpleSAML\Module\oidc\Controllers\EndSessionController;
 use SimpleSAML\Module\oidc\Controllers\Federation\EntityStatementController;
 use SimpleSAML\Module\oidc\Controllers\Federation\SubordinateListingsController;
 use SimpleSAML\Module\oidc\Controllers\JwksController;
+use SimpleSAML\Module\oidc\Controllers\OAuth2\OAuth2ServerConfigurationController;
 use SimpleSAML\Module\oidc\Controllers\UserInfoController;
+use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\CredentialIssuerConfigurationController;
+use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\CredentialIssuerCredentialController;
+use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\JwtVcIssuerConfigurationController;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 
@@ -38,6 +44,8 @@ return function (RoutingConfigurator $routes): void {
         ->controller([ConfigController::class, 'protocolSettings']);
     $routes->add(RoutesEnum::AdminConfigFederation->name, RoutesEnum::AdminConfigFederation->value)
         ->controller([ConfigController::class, 'federationSettings']);
+    $routes->add(RoutesEnum::AdminConfigVerifiableCredential->name, RoutesEnum::AdminConfigVerifiableCredential->value)
+        ->controller([ConfigController::class, 'verifiableCredentialSettings']);
 
     // Client management
 
@@ -62,11 +70,16 @@ return function (RoutingConfigurator $routes): void {
     // Testing
 
     $routes->add(RoutesEnum::AdminTestTrustChainResolution->name, RoutesEnum::AdminTestTrustChainResolution->value)
-        ->controller([TestController::class, 'trustChainResolution'])
+        ->controller([FederationTestController::class, 'trustChainResolution'])
         ->methods([HttpMethodsEnum::GET->value, HttpMethodsEnum::POST->value]);
     $routes->add(RoutesEnum::AdminTestTrustMarkValidation->name, RoutesEnum::AdminTestTrustMarkValidation->value)
-        ->controller([TestController::class, 'trustMarkValidation'])
+        ->controller([FederationTestController::class, 'trustMarkValidation'])
         ->methods([HttpMethodsEnum::GET->value, HttpMethodsEnum::POST->value]);
+    $routes->add(
+        RoutesEnum::AdminTestVerifiableCredentialIssuance->name,
+        RoutesEnum::AdminTestVerifiableCredentialIssuance->value,
+    )->controller([VerifiableCredentailsTestController::class, 'verifiableCredentialIssuance'])
+    ->methods([HttpMethodsEnum::GET->value, HttpMethodsEnum::POST->value]);
 
     /*****************************************************************************************************************
      * OpenID Connect
@@ -87,6 +100,13 @@ return function (RoutingConfigurator $routes): void {
         ->controller([JwksController::class, 'jwks']);
 
     /*****************************************************************************************************************
+     * OAuth 2.0 Authorization Server
+     ****************************************************************************************************************/
+
+    $routes->add(RoutesEnum::OAuth2Configuration->name, RoutesEnum::OAuth2Configuration->value)
+        ->controller(OAuth2ServerConfigurationController::class);
+
+    /*****************************************************************************************************************
      * OpenID Federation
      ****************************************************************************************************************/
 
@@ -101,4 +121,34 @@ return function (RoutingConfigurator $routes): void {
     $routes->add(RoutesEnum::FederationList->name, RoutesEnum::FederationList->value)
         ->controller([SubordinateListingsController::class, 'list'])
         ->methods([HttpMethodsEnum::GET->value]);
+
+    /*****************************************************************************************************************
+     * OpenID for Verifiable Credential Issuance
+     ****************************************************************************************************************/
+
+    $routes->add(RoutesEnum::CredentialIssuerConfiguration->name, RoutesEnum::CredentialIssuerConfiguration->value)
+        ->controller([CredentialIssuerConfigurationController::class, 'configuration'])
+        ->methods([HttpMethodsEnum::GET->value]);
+
+    $routes->add(RoutesEnum::CredentialIssuerCredential->name, RoutesEnum::CredentialIssuerCredential->value)
+        ->controller([CredentialIssuerCredentialController::class, 'credential'])
+        ->methods([HttpMethodsEnum::GET->value, HttpMethodsEnum::POST->value]);
+
+    /*****************************************************************************************************************
+     * SD-JWT-based Verifiable Credentials (SD-JWT VC)
+     ****************************************************************************************************************/
+
+    $routes->add(RoutesEnum::JwtVcIssuerConfiguration->name, RoutesEnum::JwtVcIssuerConfiguration->value)
+        ->controller([JwtVcIssuerConfigurationController::class, 'configuration'])
+        ->methods([HttpMethodsEnum::GET->value]);
+
+    /*****************************************************************************************************************
+     * API
+     ****************************************************************************************************************/
+
+    $routes->add(
+        RoutesEnum::ApiVciCredentialOffer->name,
+        RoutesEnum::ApiVciCredentialOffer->value,
+    )->controller([VciCredentialOfferApiController::class, 'credentialOffer'])
+        ->methods([HttpMethodsEnum::POST->value]);
 };

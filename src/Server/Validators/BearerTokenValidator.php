@@ -9,7 +9,6 @@ use DateTimeZone;
 use Lcobucci\Clock\SystemClock;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Signer\Key\InMemory;
-use Lcobucci\JWT\Signer\Rsa\Sha256;
 use Lcobucci\JWT\Validation\Constraint\SignedWith;
 use Lcobucci\JWT\Validation\Constraint\StrictValidAt;
 use Lcobucci\JWT\Validation\RequiredConstraintsViolated;
@@ -18,6 +17,7 @@ use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
 use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface as OAuth2AccessTokenRepositoryInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 
@@ -44,6 +44,7 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
     public function __construct(
         AccessTokenRepositoryInterface $accessTokenRepository,
         CryptKey $publicKey,
+        protected readonly ModuleConfig $moduleConfig,
         ?DateInterval $jwtValidAtDateLeeway = null,
         protected LoggerService $loggerService = new LoggerService(),
     ) {
@@ -71,16 +72,14 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
      */
     protected function initJwtConfiguration(): void
     {
+        /** @psalm-suppress ArgumentTypeCoercion */
         $this->jwtConfiguration = Configuration::forSymmetricSigner(
-            new Sha256(),
+            $this->moduleConfig->getProtocolSigner(),
             InMemory::plainText('empty', 'empty'),
-        );
-
-        /** @psalm-suppress DeprecatedMethod, ArgumentTypeCoercion */
-        $this->jwtConfiguration->setValidationConstraints(
+        )->withValidationConstraints(
             new StrictValidAt(new SystemClock(new DateTimeZone(date_default_timezone_get()))),
             new SignedWith(
-                new Sha256(),
+                $this->moduleConfig->getProtocolSigner(),
                 InMemory::plainText($this->publicKey->getKeyContents(), $this->publicKey->getPassPhrase() ?? ''),
             ),
         );

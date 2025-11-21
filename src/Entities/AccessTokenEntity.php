@@ -24,6 +24,7 @@ use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInt
 use League\OAuth2\Server\Entities\Traits\AccessTokenTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\TokenEntityTrait;
+use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\Entities\Traits\AssociateWithAuthCodeTrait;
@@ -69,6 +70,11 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         ?array $requestedClaims = null,
         ?bool $isRevoked = false,
         ?Configuration $jwtConfiguration = null,
+        protected readonly ?FlowTypeEnum $flowTypeEnum = null,
+        protected readonly ?array $authorizationDetails = null,
+        protected readonly ?string $boundClientId = null,
+        protected readonly ?string $boundRedirectUri = null,
+        protected readonly ?string $issuerState = null,
     ) {
         $this->setIdentifier($id);
         $this->setClient($clientEntity);
@@ -114,6 +120,13 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
             'is_revoked' => $this->isRevoked(),
             'auth_code_id' => $this->getAuthCodeId(),
             'requested_claims' => json_encode($this->requestedClaims, JSON_THROW_ON_ERROR),
+            'flow_type' => $this->flowTypeEnum?->value,
+            'authorization_details' => is_array($this->authorizationDetails) ?
+                json_encode($this->authorizationDetails, JSON_THROW_ON_ERROR) :
+                null,
+            'bound_client_id' => $this->boundClientId,
+            'bound_redirect_uri' => $this->boundRedirectUri,
+            'issuer_state' => $this->issuerState,
         ];
     }
 
@@ -155,7 +168,35 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
             ->expiresAt($this->getExpiryDateTime())
             ->relatedTo((string) $this->getUserIdentifier())
             ->withClaim('scopes', $this->getScopes());
+        if ($this->issuerState !== null) {
+            $jwtBuilder = $jwtBuilder->withClaim('issuer_state', $this->issuerState);
+        }
 
         return $this->jsonWebTokenBuilderService->getSignedProtocolJwt($jwtBuilder);
+    }
+
+    public function getFlowTypeEnum(): ?FlowTypeEnum
+    {
+        return $this->flowTypeEnum;
+    }
+
+    public function getAuthorizationDetails(): ?array
+    {
+        return $this->authorizationDetails;
+    }
+
+    public function getBoundClientId(): ?string
+    {
+        return $this->boundClientId;
+    }
+
+    public function getBoundRedirectUri(): ?string
+    {
+        return $this->boundRedirectUri;
+    }
+
+    public function getIssuerState(): ?string
+    {
+        return $this->issuerState;
     }
 }

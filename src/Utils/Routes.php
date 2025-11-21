@@ -146,6 +146,20 @@ class Routes
         return $this->getModuleUrl(RoutesEnum::AdminTestTrustMarkValidation->value, $parameters);
     }
 
+    public function urlAdminTestVerifiableCredentialIssuance(array $parameters = []): string
+    {
+        return $this->getModuleUrl(RoutesEnum::AdminTestVerifiableCredentialIssuance->value, $parameters);
+    }
+
+    /*****************************************************************************************************************
+     * OAuth 2.0 Authorization Server
+     ****************************************************************************************************************/
+
+    public function urlOAuth2Configuration(array $parameters = []): string
+    {
+        return $this->getModuleUrl(RoutesEnum::OAuth2Configuration->value, $parameters);
+    }
+
     /*****************************************************************************************************************
      * OpenID Connect URLs.
      ****************************************************************************************************************/
@@ -197,5 +211,37 @@ class Routes
     public function urlFederationList(array $parameters = []): string
     {
         return $this->getModuleUrl(RoutesEnum::FederationList->value, $parameters);
+    }
+
+    /*****************************************************************************************************************
+     * OpenID for Verifiable Credential Issuance URLs.
+     ****************************************************************************************************************/
+
+    public function urlCredentialIssuerConfiguration(array $parameters = []): string
+    {
+        return $this->getModuleUrl(RoutesEnum::CredentialIssuerConfiguration->value, $parameters);
+    }
+
+    public function urlCredentialIssuerCredential(array $parameters = []): string
+    {
+        return $this->getModuleUrl(RoutesEnum::CredentialIssuerCredential->value, $parameters);
+    }
+
+    /*****************************************************************************************************************
+     * SD-JWT-based Verifiable Credentials (SD-JWT VC)
+     ****************************************************************************************************************/
+
+    public function urlJwtVcIssuerConfiguration(array $parameters = []): string
+    {
+        return $this->getModuleUrl(RoutesEnum::JwtVcIssuerConfiguration->value, $parameters);
+    }
+
+    /*****************************************************************************************************************
+     * API
+     ****************************************************************************************************************/
+
+    public function urlApiVciCredentialOffer(array $parameters = []): string
+    {
+        return $this->getModuleUrl(RoutesEnum::ApiVciCredentialOffer->value, $parameters);
     }
 }

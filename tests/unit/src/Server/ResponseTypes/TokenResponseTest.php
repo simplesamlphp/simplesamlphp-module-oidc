@@ -31,15 +31,16 @@ use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\IdentityProviderInterface;
-use SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\TokenResponse;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
 /**
- * @covers \SimpleSAML\Module\oidc\Server\ResponseTypes\IdTokenResponse
+ * @covers \SimpleSAML\Module\oidc\Server\ResponseTypes\TokenResponse
  */
-class IdTokenResponseTest extends TestCase
+class TokenResponseTest extends TestCase
 {
     final public const TOKEN_ID = 'tokenId';
     final public const ISSUER = 'someIssuer';
@@ -59,6 +60,7 @@ class IdTokenResponseTest extends TestCase
     protected CryptKey $privateKey;
     protected IdTokenBuilder $idTokenBuilder;
     protected Stub $claimSetEntityFactoryStub;
+    protected MockObject $loggerMock;
 
     /**
      * @throws \PHPUnit\Framework\MockObject\Exception
@@ -119,28 +121,31 @@ class IdTokenResponseTest extends TestCase
             new JsonWebTokenBuilderService($this->moduleConfigMock),
             new ClaimTranslatorExtractor(self::USER_ID_ATTR, $this->claimSetEntityFactoryStub),
         );
+
+        $this->loggerMock = $this->createMock(LoggerService::class);
     }
 
-    protected function prepareMockedInstance(): IdTokenResponse
+    protected function prepareMockedInstance(): TokenResponse
     {
-        $idTokenResponse = new IdTokenResponse(
+        $tokenResponse = new TokenResponse(
             $this->identityProviderMock,
             $this->idTokenBuilder,
             $this->privateKey,
+            $this->loggerMock,
         );
 
-        $idTokenResponse->setNonce(null);
-        $idTokenResponse->setAuthTime(null);
-        $idTokenResponse->setAcr(null);
-        $idTokenResponse->setSessionId(null);
+        $tokenResponse->setNonce(null);
+        $tokenResponse->setAuthTime(null);
+        $tokenResponse->setAcr(null);
+        $tokenResponse->setSessionId(null);
 
-        return $idTokenResponse;
+        return $tokenResponse;
     }
 
     public function testItIsInitializable(): void
     {
         $this->assertInstanceOf(
-            IdTokenResponse::class,
+            TokenResponse::class,
             $this->prepareMockedInstance(),
         );
     }
