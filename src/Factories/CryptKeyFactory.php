@@ -22,6 +22,7 @@ class CryptKeyFactory
         return new CryptKey(
             $this->moduleConfig->getProtocolPrivateKeyPath(),
             $this->moduleConfig->getProtocolPrivateKeyPassPhrase(),
+            true,
         );
     }
 
@@ -30,6 +31,6 @@ class CryptKeyFactory
      */
     public function buildPublicKey(): CryptKey
     {
-        return new CryptKey($this->moduleConfig->getProtocolCertPath());
+        return new CryptKey($this->moduleConfig->getProtocolCertPath(), null, false);
     }
 }

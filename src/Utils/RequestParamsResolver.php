@@ -197,4 +197,29 @@ class RequestParamsResolver
     {
         return $this->core->clientAssertionFactory()->fromToken($clientAssertionParam);
     }
+
+    /**
+     * @param ServerRequestInterface $request
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods
+     * @return bool
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     */
+    public function isVciAuthorizationCodeRequest(
+        ServerRequestInterface $request,
+        array $allowedMethods,
+    ): bool {
+        return
+            // Only applies to VCI Authorization Code flow.
+        $this->getAsStringBasedOnAllowedMethods(
+            ParamsEnum::ResponseType->value,
+            $request,
+            $allowedMethods,
+        ) === 'code' &&
+            // Issuer State is only used for VCI Authorization Code flow requests, so use it as a form of detection.
+        is_string($this->getAsStringBasedOnAllowedMethods(
+            ParamsEnum::IssuerState->value,
+            $request,
+            $allowedMethods,
+        ));
+    }
 }

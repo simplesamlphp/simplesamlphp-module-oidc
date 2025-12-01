@@ -116,6 +116,11 @@ class AccessTokenRepositoryTest extends TestCase
             'is_revoked' => false,
             'auth_code_id' => self::AUTH_CODE_ID,
             'requested_claims' => '[]',
+            'flow_type' => null,
+            'authorization_details' => null,
+            'bound_client_id' => null,
+            'bound_redirect_uri' => null,
+            'issuer_state' => null,
         ];
 
         $this->accessTokenEntityMock = $this->createMock(AccessTokenEntity::class);

@@ -33,6 +33,9 @@ class CoreFactory
                 SignatureAlgorithmEnum::ES256,
                 SignatureAlgorithmEnum::ES384,
                 SignatureAlgorithmEnum::ES512,
+                SignatureAlgorithmEnum::PS256,
+                SignatureAlgorithmEnum::PS384,
+                SignatureAlgorithmEnum::PS512,
             ),
         );
 

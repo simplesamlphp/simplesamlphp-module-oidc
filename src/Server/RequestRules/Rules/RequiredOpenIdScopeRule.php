@@ -26,8 +26,10 @@ class RequiredOpenIdScopeRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
+        $loggerService->debug('RequiredOpenIdScopeRule::checkRule.');
+
         /** @var string $redirectUri */
-        $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
+        $redirectUri = $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
         /** @var \League\OAuth2\Server\Entities\ScopeEntityInterface[] $validScopes */
@@ -38,15 +40,29 @@ class RequiredOpenIdScopeRule extends AbstractRule
             fn($scopeEntity) => $scopeEntity->getIdentifier() === 'openid',
         );
 
-        if (! $isOpenIdScopePresent) {
-            throw OidcServerException::invalidRequest(
-                'scope',
-                'Scope openid is required',
-                null,
-                $redirectUri,
-                $state,
-                $useFragmentInHttpErrorResponses,
-            );
+        $loggerService->debug(
+            'RequiredOpenIdScopeRule: Is openid scope present: ',
+            ['isOpenIdScopePresent' => $isOpenIdScopePresent],
+        );
+
+        try {
+            if (! $isOpenIdScopePresent) {
+                throw OidcServerException::invalidRequest(
+                    'scope',
+                    'Scope openid is required',
+                    null,
+                    $redirectUri,
+                    $state,
+                    $useFragmentInHttpErrorResponses,
+                );
+            }
+        } catch (\Throwable $e) {
+            if ($this->requestParamsResolver->isVciAuthorizationCodeRequest($request, $allowedServerRequestMethods)) {
+                $loggerService->info('RequiredOpenIdScopeRule: Skippping openid scope check for VCI request.');
+            } else {
+                $loggerService->error('RequiredOpenIdScopeRule: Scope openid is required.');
+                throw $e;
+            }
         }
 
         return new Result($this->getKey(), true);

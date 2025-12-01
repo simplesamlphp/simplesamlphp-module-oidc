@@ -361,7 +361,8 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
                 updated_at,
                 created_at,
                 expires_at,
-                is_federated
+                is_federated,
+                is_generic
             )
             VALUES (
                 :id,
@@ -386,7 +387,8 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
                 :updated_at,
                 :created_at,
                 :expires_at,
-                :is_federated
+                :is_federated,
+                :is_generic
             )
 EOS
             ,
@@ -458,7 +460,8 @@ EOS
                 updated_at = :updated_at,
                 created_at = :created_at,
                 expires_at = :expires_at,
-                is_federated = :is_federated
+                is_federated = :is_federated,
+                is_generic = :is_generic
             WHERE id = :id
 EOF
             ,
@@ -552,11 +555,25 @@ EOF
         $isEnabled = (bool)($state[ClientEntity::KEY_IS_ENABLED] ?? false);
         $isConfidential = (bool)($state[ClientEntity::KEY_IS_CONFIDENTIAL] ?? false);
         $isFederated = (bool)($state[ClientEntity::KEY_IS_FEDERATED] ?? false);
+        $isGeneric = (bool)($state[ClientEntity::KEY_IS_GENERIC] ?? false);
 
         $state[ClientEntity::KEY_IS_ENABLED] = [$isEnabled, PDO::PARAM_BOOL];
         $state[ClientEntity::KEY_IS_CONFIDENTIAL] = [$isConfidential, PDO::PARAM_BOOL];
         $state[ClientEntity::KEY_IS_FEDERATED] = [$isFederated, PDO::PARAM_BOOL];
+        $state[ClientEntity::KEY_IS_GENERIC] = [$isGeneric, PDO::PARAM_BOOL];
 
         return $state;
+    }
+
+    public function getGenericForVci(): ClientEntityInterface
+    {
+        $client = $this->clientEntityFactory->getGenericForVci();
+        if ($this->findById($client->getIdentifier()) === null) {
+            $this->add($client);
+        } else {
+            $this->update($client);
+        }
+
+        return $client;
     }
 }

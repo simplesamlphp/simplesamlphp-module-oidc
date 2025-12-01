@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Server\RequestTypes;
 
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
+use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 
 class AuthorizationRequest extends OAuth2AuthorizationRequest
 {
@@ -43,6 +44,31 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
      * Current Session ID
      */
     protected ?string $sessionId = null;
+
+    /**
+     * Indicates if the request is related to Verifiable Credential Issuance (VCI request).
+     *
+     * @var bool
+     */
+    protected bool $isVciRequest = false;
+
+    protected ?FlowTypeEnum $flowType = null;
+
+    /**
+     * @var mixed[]|null
+     */
+    protected ?array $authorizationDetails = null;
+
+    protected ?string $boundClientId = null;
+
+    protected ?string $boundRedirectUri = null;
+
+    /**
+     * Verifiable Credential Issuer state.
+     *
+     * @var string|null
+     */
+    protected ?string $issuerState = null;
 
     public static function fromOAuth2AuthorizationRequest(
         OAuth2AuthorizationRequest $oAuth2authorizationRequest,
@@ -203,5 +229,65 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     public function setSessionId(?string $sessionId): void
     {
         $this->sessionId = $sessionId;
+    }
+
+    public function isVciRequest(): bool
+    {
+        return $this->isVciRequest;
+    }
+
+    public function setIsVciRequest(bool $isVciRequest): void
+    {
+        $this->isVciRequest = $isVciRequest;
+    }
+
+    public function getIssuerState(): ?string
+    {
+        return $this->issuerState;
+    }
+
+    public function setIssuerState(?string $issuerState): void
+    {
+        $this->issuerState = $issuerState;
+    }
+
+    public function getFlowType(): ?FlowTypeEnum
+    {
+        return $this->flowType;
+    }
+
+    public function setFlowType(?FlowTypeEnum $flowType): void
+    {
+        $this->flowType = $flowType;
+    }
+
+    public function getAuthorizationDetails(): ?array
+    {
+        return $this->authorizationDetails;
+    }
+
+    public function setAuthorizationDetails(?array $authorizationDetails): void
+    {
+        $this->authorizationDetails = $authorizationDetails;
+    }
+
+    public function getBoundClientId(): ?string
+    {
+        return $this->boundClientId;
+    }
+
+    public function setBoundClientId(?string $boundClientId): void
+    {
+        $this->boundClientId = $boundClientId;
+    }
+
+    public function getBoundRedirectUri(): ?string
+    {
+        return $this->boundRedirectUri;
+    }
+
+    public function setBoundRedirectUri(?string $boundRedirectUri): void
+    {
+        $this->boundRedirectUri = $boundRedirectUri;
     }
 }

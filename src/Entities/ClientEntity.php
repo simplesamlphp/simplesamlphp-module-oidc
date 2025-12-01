@@ -51,6 +51,7 @@ class ClientEntity implements ClientEntityInterface
     public const KEY_CREATED_AT = 'created_at';
     public const KEY_EXPIRES_AT = 'expires_at';
     public const KEY_IS_FEDERATED = 'is_federated';
+    public const KEY_IS_GENERIC = 'is_generic';
 
     private string $secret;
 
@@ -93,6 +94,7 @@ class ClientEntity implements ClientEntityInterface
     private ?DateTimeImmutable $createdAt;
     private ?DateTimeImmutable $expiresAt;
     private bool $isFederated;
+    private bool $isGeneric;
 
     /**
      * @param string[] $redirectUri
@@ -126,6 +128,7 @@ class ClientEntity implements ClientEntityInterface
         ?DateTimeImmutable $createdAt = null,
         ?DateTimeImmutable $expiresAt = null,
         bool $isFederated = false,
+        bool $isGeneric = false,
     ) {
         $this->identifier = $identifier;
         $this->secret = $secret;
@@ -150,6 +153,7 @@ class ClientEntity implements ClientEntityInterface
         $this->createdAt = $createdAt;
         $this->expiresAt = $expiresAt;
         $this->isFederated = $isFederated;
+        $this->isGeneric = $isGeneric;
     }
 
     /**
@@ -188,6 +192,7 @@ class ClientEntity implements ClientEntityInterface
             self::KEY_CREATED_AT => $this->getCreatedAt()?->format('Y-m-d H:i:s'),
             self::KEY_EXPIRES_AT => $this->getExpiresAt()?->format('Y-m-d H:i:s'),
             self::KEY_IS_FEDERATED => $this->isFederated(),
+            self::KEY_IS_GENERIC => $this->isGeneric(),
         ];
     }
 
@@ -217,6 +222,7 @@ class ClientEntity implements ClientEntityInterface
             self::KEY_CREATED_AT => $this->createdAt,
             self::KEY_EXPIRES_AT => $this->expiresAt,
             self::KEY_IS_FEDERATED => $this->isFederated,
+            self::KEY_IS_GENERIC => $this->isGeneric,
         ];
     }
 
@@ -354,5 +360,10 @@ class ClientEntity implements ClientEntityInterface
     public function isFederated(): bool
     {
         return $this->isFederated;
+    }
+
+    public function isGeneric(): bool
+    {
+        return $this->isGeneric;
     }
 }

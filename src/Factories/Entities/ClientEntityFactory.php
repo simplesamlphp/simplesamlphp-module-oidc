@@ -11,6 +11,7 @@ use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
@@ -29,6 +30,7 @@ class ClientEntityFactory
         private readonly Helpers $helpers,
         private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
         private readonly RequestParamsResolver $requestParamsResolver,
+        private readonly ModuleConfig $moduleConfig,
     ) {
     }
 
@@ -64,6 +66,7 @@ class ClientEntityFactory
         ?DateTimeImmutable $createdAt = null,
         ?DateTimeImmutable $expiresAt = null,
         bool $isFederated = false,
+        bool $isGeneric = false,
     ): ClientEntityInterface {
         return new ClientEntity(
             $id,
@@ -89,6 +92,7 @@ class ClientEntityFactory
             $createdAt,
             $expiresAt,
             $isFederated,
+            $isGeneric,
         );
     }
 
@@ -190,6 +194,7 @@ class ClientEntityFactory
 //        $expiresAt = $expiresAt;
 
         $isFederated = $existingClient?->isFederated() ?? false;
+        $isGeneric = $existingClient?->isGeneric() ?? false;
 
         return $this->fromData(
             $id,
@@ -215,6 +220,7 @@ class ClientEntityFactory
             $createdAt,
             $expiresAt,
             $isFederated,
+            $isGeneric,
         );
     }
 
@@ -353,6 +359,7 @@ class ClientEntityFactory
         $this->helpers->dateTime()->getUtc((string)$state[ClientEntity::KEY_EXPIRES_AT]);
 
         $isFederated = (bool)$state[ClientEntity::KEY_IS_FEDERATED];
+        $isGeneric = (bool)$state[ClientEntity::KEY_IS_GENERIC];
 
         return $this->fromData(
             $id,
@@ -378,6 +385,32 @@ class ClientEntityFactory
             $createdAt,
             $expiresAt,
             $isFederated,
+            $isGeneric,
+        );
+    }
+
+    public function getGenericForVci(): ClientEntityInterface
+    {
+        $clientId = 'vci_' .
+        hash('sha256', 'vci_'  . $this->moduleConfig->sspConfig()->getString('secretsalt'));
+
+        $clientSecret = $this->helpers->random()->getIdentifier();
+
+        $credentialConfigurationIdsSupported = $this->moduleConfig->getCredentialConfigurationIdsSupported();
+
+        $createdAt = $this->helpers->dateTime()->getUtc();
+
+        return $this->fromData(
+            id: $clientId,
+            secret: $clientSecret,
+            name: 'VCI Generic Client',
+            description: 'Generic client for Verifiable Credential Issuance flows.',
+            redirectUri: ['openid-credential-offer://'],
+            scopes: ['openid', ...$credentialConfigurationIdsSupported],
+            isEnabled: true,
+            updatedAt: $createdAt,
+            createdAt: $createdAt,
+            isGeneric: true,
         );
     }
 }

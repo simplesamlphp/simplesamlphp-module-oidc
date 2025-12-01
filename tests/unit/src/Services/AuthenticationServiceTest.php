@@ -148,7 +148,6 @@ class AuthenticationServiceTest extends TestCase
                      $this->moduleConfigMock,
                      $this->processingChainFactoryMock,
                      $this->stateServiceMock,
-                     $this->helpersMock,
                      $this->requestParamsResolverMock,
                      $this->userEntityFactoryMock,
                 ],
@@ -332,7 +331,7 @@ class AuthenticationServiceTest extends TestCase
     {
         $this->authSimpleMock->expects($this->once())->method('login')->with([]);
 
-        $this->mock()->authenticate($this->clientEntityMock);
+        $this->mock()->authenticateForClient($this->clientEntityMock);
     }
 
     /**
@@ -399,7 +398,6 @@ class AuthenticationServiceTest extends TestCase
                                      $this->moduleConfigMock,
                                      $this->processingChainFactoryMock,
                                      $this->stateServiceMock,
-                                     $this->helpersMock,
                                      $this->requestParamsResolverMock,
                                      $this->userEntityFactoryMock,
                                  ])
@@ -408,7 +406,7 @@ class AuthenticationServiceTest extends TestCase
 
         $this->moduleConfigMock->method('getAuthProcFilters')->willReturn([]);
         $this->authSimpleMock->expects($this->once())->method('isAuthenticated')->willReturn(true);
-        $this->clientHelperMock->method('getFromRequest')->willReturn($this->clientEntityMock);
+        $this->authorizationRequestMock->method('getClient')->willReturn($this->clientEntityMock);
         $authenticationServiceMock->method('prepareStateArray')->with(
             $this->authSimpleMock,
             $this->clientEntityMock,
@@ -490,7 +488,6 @@ class AuthenticationServiceTest extends TestCase
             $this->moduleConfigMock,
             $this->processingChainFactoryMock,
             $this->stateServiceMock,
-            $this->helpersMock,
             $this->requestParamsResolverMock,
             $this->userEntityFactoryMock,
         ) extends AuthenticationService {

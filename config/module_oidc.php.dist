@@ -3,6 +3,13 @@
 declare(strict_types=1);
 
 /*
+ *        |
+ *   \  ___  /                           _________
+ *  _  /   \  _    GÉANT                 |  * *  | Co-Funded by
+ *     | ~ |       Trust & Identity      | *   * | the European
+ *      \_/        Incubator             |__*_*__| Union
+ *       =
+ *
  * This file is part of the simplesamlphp-module-oidc.
  *
  * Copyright (C) 2018 by the Spanish Research and Academic Network.
@@ -13,7 +20,12 @@ declare(strict_types=1);
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
+
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
+use SimpleSAML\OpenID\Codebooks\CredentialTypesEnum;
+use SimpleSAML\OpenID\Codebooks\LanguageTagsEnum;
 
 /*
  * Note: In v5 of this module, all config keys have been moved to constants for easier handling and verification.
@@ -514,4 +526,346 @@ $config = [
      * 'organization_uri'. Use 'organization_uri' instead.
      */
     ModuleConfig::OPTION_HOMEPAGE_URI => null,
+
+
+    /**
+     * (optional) OpenID Verifiable Credential related options. If these are not set, OpenID Verifiable
+     * Credential capabilities will be disabled.
+     */
+
+    // Enable or disable verifiable credentials capabilities. Default is disabled (false).
+    ModuleConfig::OPTION_VERIFIABLE_CREDENTIAL_ENABLED => false,
+
+    // Allow or disallow non-registered clients to request verifiable credentials. Default is disallowed (false).
+    ModuleConfig::OPTION_ALLOW_NON_REGISTERED_CLIENTS_FOR_VCI => false,
+
+    // Allowed redirect URI prefixes for non-registered clients. By default, this is set to
+    // 'openid-credential-offer://' to allow only redirect URIs with this prefix.
+    //
+    // Example:
+    // [
+    //     'https://example.org/redirect',
+    //     'https://example.org/redirect2',
+    // ]
+    //
+    ModuleConfig::OPTION_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS_FOR_VCI => [
+        'openid-credential-offer://',
+    ],
+
+    // (optional) Credential configuration statements, as per `credential_configurations_supported` claim definition in
+    // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#credential-issuer-parameters.
+    // Check the example below on how this can be used.
+    ModuleConfig::OPTION_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+        // Sample for 'jwt_vc_json' format with notes about required and optional fields.
+        'ResearchAndScholarshipCredentialJwtVcJson' => [
+            // REQUIRED
+            ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::JwtVcJson->value,
+            // OPTIONAL
+            ClaimsEnum::Scope->value => 'ResearchAndScholarshipCredentialJwtVcJson',
+
+            // OPTIONAL
+            // cryptographic_binding_methods_supported
+
+            // OPTIONAL - will be set / overridden to the protocol signing algorithm.
+            // credential_signing_alg_values_supported
+
+            // OPTIONAL
+            // proof_types_supported
+
+            // OPTIONAL
+            // cryptographic_binding_methods_supported
+
+            ClaimsEnum::Display->value => [
+                [
+                    ClaimsEnum::Name->value => 'ResearchAndScholarshipCredentialJwtVcJson',
+                    ClaimsEnum::Locale->value => 'en-US',
+
+                    // OPTIONAL
+                    // logo
+
+                    // OPTIONAL
+                    ClaimsEnum::Description->value => 'Research and Scholarship Credential',
+
+                    // OPTIONAL
+                    // background_color
+
+                    // OPTIONAL
+                    // background_image
+
+                    // OPTIONAL
+                    // text_color
+                ],
+            ],
+
+            // OPTIONAL A.1.1.2. https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-vc-signed-as-a-jwt-not-usin
+            ClaimsEnum::Claims->value => [
+                /**
+                 * https://refeds.org/category/research-and-scholarship
+                 *
+                 * The R&S attribute bundle consists (abstractly) of the following required data elements:
+                 *
+                 * shared user identifier
+                 * person name
+                 * email address
+                 *
+                 * and one optional data element:
+                 *
+                 * affiliation
+                 *
+                 * where shared user identifier is a persistent, non-reassigned, non-targeted identifier
+                 * defined to be either of the following:
+                 *
+                 * eduPersonPrincipalName (if non-reassigned)
+                 * eduPersonPrincipalName + eduPersonTargetedID
+                 *
+                 * and where person name is defined to be either (or both) of the following:
+                 *
+                 * displayName
+                 * givenName + sn
+                 *
+                 * and where email address is defined to be the mail attribute,
+                 *
+                 * and where affiliation is defined to be the eduPersonScopedAffiliation attribute.
+                 *
+                 * All of the above attributes are defined or referenced in the [eduPerson] specification. The
+                 * specific naming and format of these attributes is guided by the protocol in use. For SAML
+                 * 2.0 the [SAMLAttr] profile MUST be used. This specification may be extended to reference
+                 * other protocol-specific formulations as circumstances warrant.
+                 */
+                [
+                    // REQUIRED
+                    ClaimsEnum::Path->value => [ClaimsEnum::Credential_Subject->value, 'eduPersonPrincipalName'],
+                    // OPTIONAL
+                    ClaimsEnum::Mandatory->value => true,
+                    // OPTIONAL
+                    ClaimsEnum::Display->value => [
+                        [
+                            // OPTIONAL
+                            ClaimsEnum::Name->value => 'Principal Name',
+                            // OPTIONAL
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+                [
+                    ClaimsEnum::Path->value => [ClaimsEnum::Credential_Subject->value, 'eduPersonTargetedID'],
+                    ClaimsEnum::Mandatory->value => false,
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Targeted ID',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+                [
+                    ClaimsEnum::Path->value => [ClaimsEnum::Credential_Subject->value, 'displayName'],
+                    ClaimsEnum::Mandatory->value => false,
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Display Name',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+                [
+                    ClaimsEnum::Path->value => [ClaimsEnum::Credential_Subject->value, 'givenName'],
+                    ClaimsEnum::Mandatory->value => false,
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Given Name',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+                [
+                    ClaimsEnum::Path->value => [ClaimsEnum::Credential_Subject->value, 'sn'],
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Last Name',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+                [
+                    ClaimsEnum::Path->value => [ClaimsEnum::Credential_Subject->value, 'mail'],
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Email Address',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+                [
+                    ClaimsEnum::Path->value => [ClaimsEnum::Credential_Subject->value, 'eduPersonScopedAffiliation'],
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Scoped Affiliation',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+            ],
+
+            // REQUIRED
+            ClaimsEnum::CredentialDefinition->value => [
+                ClaimsEnum::Type->value => [
+                    CredentialTypesEnum::VerifiableCredential->value,
+                    'ResearchAndScholarshipCredentialJwtVcJson',
+                ],
+            ],
+        ],
+
+        // Sample for 'dc+sd-jwt' format without notes about required and optional fields.
+        'ResearchAndScholarshipCredentialDcSdJwt' => [
+            ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::DcSdJwt->value,
+            // In earlier drafts it was vc+sd-jwt.
+            //ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::VcSdJwt->value,
+            ClaimsEnum::Scope->value => 'ResearchAndScholarshipCredentialDcSdJwt',
+            ClaimsEnum::Display->value => [
+                [
+                    ClaimsEnum::Name->value => 'ResearchAndScholarshipCredentialDcSdJwt',
+                    ClaimsEnum::Locale->value => 'en-US',
+                    ClaimsEnum::Description->value => 'Research and Scholarship Credential',
+                ],
+            ],
+            ClaimsEnum::Claims->value => [
+                [
+                    ClaimsEnum::Path->value => ['eduPersonPrincipalName'],
+                    ClaimsEnum::Mandatory->value => true,
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Principal Name',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+                [
+                    ClaimsEnum::Path->value => ['eduPersonTargetedID'],
+                    ClaimsEnum::Mandatory->value => false,
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Targeted ID',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+                [
+                    ClaimsEnum::Path->value => ['displayName'],
+                    ClaimsEnum::Mandatory->value => false,
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Display Name',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+                [
+                    ClaimsEnum::Path->value => ['givenName'],
+                    ClaimsEnum::Mandatory->value => false,
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Given Name',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+                [
+                    ClaimsEnum::Path->value => ['sn'],
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Last Name',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+                [
+                    ClaimsEnum::Path->value => ['mail'],
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Email Address',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+                [
+                    ClaimsEnum::Path->value => ['eduPersonScopedAffiliation'],
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Scoped Affiliation',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+            ],
+
+            // REQUIRED
+            ClaimsEnum::Vct->value => 'ResearchAndScholarshipCredentialDcSdJwt',
+        ],
+    ],
+
+    // Mapping of user attributes to a credential claim path, per credential configuration ID.
+    // Note that the path must be present in the credential configuration supported above.
+    // This is an array of arrays, with the following format:
+    // [
+    //    'credential-configuration-id' => [
+    //         ['user-attribute-name' => ['path-element', 'path-element', ...]],
+    //         '...',
+    //     ],
+    // ],
+    ModuleConfig::OPTION_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP => [
+        'ResearchAndScholarshipCredentialJwtVcJson' => [
+            ['eduPersonPrincipalName' => [ClaimsEnum::Credential_Subject->value, 'eduPersonPrincipalName']],
+            ['eduPersonTargetedID' => [ClaimsEnum::Credential_Subject->value, 'eduPersonTargetedID']],
+            ['displayName' => [ClaimsEnum::Credential_Subject->value, 'displayName']],
+            ['givenName' => [ClaimsEnum::Credential_Subject->value, 'givenName']],
+            ['sn' => [ClaimsEnum::Credential_Subject->value, 'sn']],
+            ['mail' => [ClaimsEnum::Credential_Subject->value, 'mail']],
+            ['eduPersonScopedAffiliation' => [ClaimsEnum::Credential_Subject->value, 'eduPersonScopedAffiliation']],
+        ],
+        'ResearchAndScholarshipCredentialDcSdJwt' => [
+            ['eduPersonPrincipalName' => ['eduPersonPrincipalName']],
+            ['eduPersonTargetedID' => ['eduPersonTargetedID']],
+            ['displayName' => ['displayName']],
+            ['givenName' => ['givenName']],
+            ['sn' => ['sn']],
+            ['mail' => ['mail']],
+            ['eduPersonScopedAffiliation' => ['eduPersonScopedAffiliation']],
+        ],
+    ],
+
+    // Map of authentication sources and user's email attribute names. This enables you to define a specific attribute
+    // name which contains the user's email address, per authentication source. This is used, for example, to send
+    // Transaction Code in the case of pre-authorized codes for verifiable credential issuance. If not set, the
+    // default user's email attribute name will be used (see the option below).
+    //
+    // Format is: 'authentication-source-id' => 'email-attribute-name'.
+    ModuleConfig::OPTION_AUTH_SOURCES_TO_USERS_EMAIL_ATTRIBUTE_NAME_MAP => [
+        'example-auth-source-id' => 'mail',
+    ],
+
+    // The default name of the attribute which contains the user's email address. If not set, it will
+    // fall back to 'mail'.
+    ModuleConfig::OPTION_DEFAULT_USERS_EMAIL_ATTRIBUTE_NAME => 'mail',
+
+    /**
+     * (optional) API-related options.
+     */
+
+    // (optional) Enable or disable API capabilities. Default is disabled (false).
+    ModuleConfig::OPTION_API_ENABLED => false,
+
+    // List of API tokens which can be used to access API endpoints based on given scopes.
+    // The format is: ['token' => [ApiScopesEnum]]
+    ModuleConfig::OPTION_API_TOKENS => [
+//        'strong-random-token-string' => [
+//            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::All, // Gives access to the whole API.
+//            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::VciAll, // Gives access to all VCI-related endpoints.
+//            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::VciCredentialOffer, // Gives access to the credential offer endpoint.
+//        ],
+    ],
+
+    // (optional) Issuer State TTL (validity duration), with the given example. If not set, falls back to
+    // Authorization Code TTL. For duration format info, check
+    // https://www.php.net/manual/en/dateinterval.construct.php
+    ModuleConfig::OPTION_ISSUER_STATE_TTL => 'PT10M', // 10 minutes
 ];

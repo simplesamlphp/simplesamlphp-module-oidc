@@ -46,13 +46,15 @@ class MaxAgeRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
+        $loggerService->debug('MaxAgeRule::checkRule');
+
         $requestParams = $this->requestParamsResolver->getAllBasedOnAllowedMethods(
             $request,
             $allowedServerRequestMethods,
         );
 
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
-        $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
+        $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
 
         $authSimple = $this->authSimpleFactory->build($client);
 
@@ -61,7 +63,7 @@ class MaxAgeRule extends AbstractRule
         }
 
         /** @var string $redirectUri */
-        $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
+        $redirectUri = $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
         /** @var ?string $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
@@ -94,7 +96,7 @@ class MaxAgeRule extends AbstractRule
                 $requestParams,
             );
 
-            $this->authenticationService->authenticate($client, $loginParams);
+            $this->authenticationService->authenticateForClient($client, $loginParams);
         }
 
         return new Result($this->getKey(), $lastAuth);

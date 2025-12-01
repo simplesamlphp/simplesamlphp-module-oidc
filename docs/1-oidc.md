@@ -30,6 +30,26 @@ Currently supported OIDFed features:
 OIDFed is implemented using the
 [SimpleSAMLphp OpenID library](https://github.com/simplesamlphp/openid).
 
+## Note on OpenID for Verifiable Credential Issuance (OpenID4VCI) support
+
+OpenID4VCI support was done as per draft 15 of the specification and is in the
+experimental stage. You should NOT use it in production environments.
+
+Currently implemented OpenID4VCI features:
+
+- Grant types:
+  - Pre-authorized Code flow (new flow defined by the OpenID4VCI spec)
+  - Authorization Code flow
+- Credential formats:
+  - jwt_vc_json, using VCDM v1.1
+  - dc+sd-jwt (previously vc+sd-jwt) (SD-JWT VC)
+- Proof types:
+  - jwt
+- API for credential offer fetching
+
+OpenID4VCI is also implemented using the
+[SimpleSAMLphp OpenID library](https://github.com/simplesamlphp/openid).
+
 ## Version compatibility
 
 Minor versions listed show which SimpleSAMLphp versions were used during
