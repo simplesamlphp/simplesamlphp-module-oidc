@@ -211,7 +211,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ssp-version: ["v2.3.7", "v2.4.2"]
+        ssp-version: ["v2.3.7", "v2.4.4"]
     env:
       SUITE_BASE_URL: https://localhost.emobix.co.uk:8443
       VERSION: release-v5.1.35
