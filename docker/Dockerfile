@@ -1,4 +1,4 @@
-ARG SSP_VERSION="v2.4.2"
+ARG SSP_VERSION="v2.4.4"
 FROM cirrusid/simplesamlphp:${SSP_VERSION}
 #FROM cicnavi/simplesamlphp:${SSP_VERSION}
 
