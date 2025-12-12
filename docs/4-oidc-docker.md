@@ -25,7 +25,7 @@ docker run --name ssp-oidc-dev \
   --mount type=bind,source="$(pwd)/docker/ssp/oidc_module.crt",target=/var/simplesamlphp/cert/oidc_module.crt,readonly \
   --mount type=bind,source="$(pwd)/docker/ssp/oidc_module.key",target=/var/simplesamlphp/cert/oidc_module.key,readonly \
   --mount type=bind,source="$(pwd)/docker/apache-override.cf",target=/etc/apache2/sites-enabled/ssp-override.cf,readonly \
-  -p 443:443 cirrusid/simplesamlphp:v2.3.5
+  -p 443:443 cirrusid/simplesamlphp:v2.4.4
 ```
 
 Then visit:
