@@ -11,7 +11,10 @@
     <h4>{{ 'Entity'|trans }}</h4>
     <p>
         {{ 'Configuration URL'|trans }}:
-        <a href="{{ routes.urlFederationConfiguration }}" target="_blank">{{ routes.urlFederationConfiguration }}</a>
+        <a href="{{ routes.urlFederationConfiguration }}"
+           target="_blank"
+           rel="noopener noreferrer"
+        >{{ routes.urlFederationConfiguration }}</a>
     </p>
     <p>
         {{ 'Issuer'|trans }}: {{ moduleConfig.getIssuer }}
@@ -19,13 +22,22 @@
         {{ 'Organization Name'|trans }}: {{ moduleConfig.getOrganizationName }}
         <br>
         {{ 'Logo URI'|trans }}:
-        <a href="{{ moduleConfig.getLogoUri }}" target="_blank">{{ moduleConfig.getLogoUri }}</a>
+        <a href="{{ moduleConfig.getLogoUri }}"
+           target="_blank"
+           rel="noopener noreferrer"
+        >{{ moduleConfig.getLogoUri }}</a>
         <br>
         {{ 'Policy URI'|trans }}:
-        <a href="{{ moduleConfig.getPolicyUri }}" target="_blank">{{ moduleConfig.getPolicyUri }}</a>
+        <a href="{{ moduleConfig.getPolicyUri }}"
+           target="_blank"
+           rel="noopener noreferrer"
+        >{{ moduleConfig.getPolicyUri }}</a>
         <br>
         {{ 'Homepage URI'|trans }}:
-        <a href="{{ moduleConfig.getHomepageUri }}" target="_blank">{{ moduleConfig.getHomepageUri }}</a>
+        <a href="{{ moduleConfig.getHomepageUri }}"
+           target="_blank"
+           rel="noopener noreferrer"
+        >{{ moduleConfig.getHomepageUri }}</a>
         <br>
         {{ 'Contacts'|trans }}:
         {% if moduleConfig.getContacts is not empty %}
