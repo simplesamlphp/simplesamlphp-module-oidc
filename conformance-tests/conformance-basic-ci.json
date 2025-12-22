@@ -37,6 +37,12 @@
                     "commands": [["click", "id", "submit_button"]]
                 },
                 {
+                    "task": "Post Login Redirect",
+                    "optional": true,
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/postredirect*",
+                    "commands": [["wait", "id", "submission_complete", 10]]
+                },
+                {
                     "task": "Verify Complete",
                     "match": "*/test/a/simplesamlphp-module-oidc/callback*",
                     "commands": [["wait", "id", "submission_complete", 10]]
