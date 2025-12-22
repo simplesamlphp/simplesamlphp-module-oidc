@@ -7,7 +7,10 @@
     <h4>{{ 'Entity'|trans }}</h4>
     <p>
         {{ 'Discovery URL'|trans }}:
-        <a href="{{ routes.urlConfiguration }}" target="_blank">{{ routes.urlConfiguration }}</a>
+        <a href="{{ routes.urlConfiguration }}"
+           target="_blank"
+           rel="noopener noreferrer"
+        >{{ routes.urlConfiguration }}</a>
     </p>
     <p>
         {{ 'Issuer'|trans }}: {{ moduleConfig.getIssuer }}
