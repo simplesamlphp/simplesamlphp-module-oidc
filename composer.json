@@ -52,6 +52,9 @@
         "testcontainers/testcontainers": "^0.2",
         "nimut/phpunit-merger": "^2.0"
     },
+    "conflict": {
+        "rector/rector": "2.3.0"
+    },
     "config": {
         "preferred-install": {
             "*": "dist"
