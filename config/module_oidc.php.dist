@@ -22,6 +22,7 @@ declare(strict_types=1);
  */
 
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\ValueAbstracts\SignatureKeyPairConfig;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialTypesEnum;
@@ -51,6 +52,12 @@ $config = [
     ModuleConfig::OPTION_PKI_PRIVATE_KEY_FILENAME => ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME,
     ModuleConfig::OPTION_PKI_CERTIFICATE_FILENAME => ModuleConfig::DEFAULT_PKI_CERTIFICATE_FILENAME,
 
+    // Token signer, with given default.
+    // See Lcobucci\JWT\Signer algorithms in https://github.com/lcobucci/jwt/tree/master/src/Signer
+    ModuleConfig::OPTION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Rsa\Sha256::class,
+//    ModuleConfig::OPTION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Hmac\Sha256::class,
+//    ModuleConfig::OPTION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Ecdsa\Sha256::class,
+
     /**
      * (optional) Key rollover settings related to OIDC protocol. If set, this new private / public key pair will only
      * be published on JWKS endpoint as available, so Relying Parties can pick them up for future use. The signing
@@ -64,6 +71,39 @@ $config = [
 //    ModuleConfig::OPTION_PKI_NEW_CERTIFICATE_FILENAME => 'new_oidc_module.crt',
 
     /**
+     * Default protocol (Connect) signature algorithm and key-pair definition.
+     * This algorithm and key will be used, for example, to sign ID Token JWS,
+     * if no other algorithm is negotiated with the client.
+     */
+    ModuleConfig::DEFAULT_PROTOCOL_SIGNATURE_KEY_PAIR => [
+        'algorithm' => \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum::RS256,
+        'privateKeyFilename' => ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME,
+        'publicKeyFilename' => ModuleConfig::DEFAULT_PKI_CERTIFICATE_FILENAME,
+//        'privateKeyPassword' => 'private-key-password', // Optional
+//        'keyId' => 'rsa-connect-signing-key-2026', // Optional
+    ],
+
+    /**
+     * Additionally supported protocol (Connect) signing algorithms and
+     * key-pairs. These entries will be used in signing algorithm negotiation
+     * with the client. The order in which the entries are set is important,
+     * as the entries set first will have higher priority during negotiation.
+     *
+     * You can also use this config option to advertise any
+     * (new) keys, for example, for key-rollover scenarios. Just add those
+     * entries last.
+     */
+    ModuleConfig::ADDITIONAL_PROTOCOL_SIGNATURE_KEY_PAIRS => [
+        [
+            'algorithm' => \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum::ES256,
+            'privateKeyFilename' => 'oidc_module_ec256.key',
+            'publicKeyFilename' => 'oidc_module_ec256.pub',
+//            'privateKeyPassword' => 'private-key-password', // Optional
+//            'keyId' => 'ec-connect-signing-key-01', // Optional
+        ],
+    ],
+
+    /**
      * Token related options.
      */
     // Authorization code and tokens TTL (validity duration), with given examples. For duration format info, check
@@ -71,12 +111,6 @@ $config = [
     ModuleConfig::OPTION_TOKEN_AUTHORIZATION_CODE_TTL => 'PT10M', // 10 minutes
     ModuleConfig::OPTION_TOKEN_REFRESH_TOKEN_TTL => 'P1M', // 1 month
     ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_TTL => 'PT1H', // 1 hour,
-
-    // Token signer, with given default.
-    // See Lcobucci\JWT\Signer algorithms in https://github.com/lcobucci/jwt/tree/master/src/Signer
-    ModuleConfig::OPTION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Rsa\Sha256::class,
-//    ModuleConfig::OPTION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Hmac\Sha256::class,
-//    ModuleConfig::OPTION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Ecdsa\Sha256::class,
 
     /**
      * Authentication related options.

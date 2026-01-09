@@ -115,6 +115,8 @@ class ModuleConfig
     final public const OPTION_ALLOW_NON_REGISTERED_CLIENTS_FOR_VCI = 'allow_non_registered_clients_for_vci';
     final public const OPTION_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS_FOR_VCI =
     'allowed_redirect_uri_prefixes_for_non_registered_clients_for_vci';
+    final public const DEFAULT_PROTOCOL_SIGNATURE_KEY_PAIR = 'default_protocol_signature_key_pair';
+    final public const ADDITIONAL_PROTOCOL_SIGNATURE_KEY_PAIRS = 'additional_protocol_signature_key_pairs';
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
