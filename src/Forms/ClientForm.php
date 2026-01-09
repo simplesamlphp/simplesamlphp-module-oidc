@@ -22,6 +22,7 @@ use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
 use Traversable;
 
@@ -278,6 +279,10 @@ class ClientForm extends Form
         $signedJwksUri = trim((string)$values['signed_jwks_uri']);
         $values['signed_jwks_uri'] = empty($signedJwksUri) ? null : $signedJwksUri;
 
+        $idTokenSignedResponseAlg = trim((string)$values[ClaimsEnum::IdTokenSignedResponseAlg->value]);
+        $values[ClaimsEnum::IdTokenSignedResponseAlg->value] = empty($idTokenSignedResponseAlg) ?
+        null : $idTokenSignedResponseAlg;
+
         return $values;
     }
 
@@ -414,6 +419,12 @@ class ClientForm extends Form
 
         $this->addCheckbox('is_federated', '{oidc:client:is_federated}')
             ->setHtmlAttribute('class', 'full-width');
+
+        // TODO mivanci Properly fetch the list of supported algos
+        $this->addSelect('id_token_signed_response_alg', Translate::noop('ID Token Signing Algorithm'))
+            ->setHtmlAttribute('class', 'full-width')
+            ->setItems(['RS256'], false)
+            ->setPrompt(Translate::noop('-'));
     }
 
     /**

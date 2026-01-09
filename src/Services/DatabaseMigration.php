@@ -209,6 +209,11 @@ class DatabaseMigration
             $this->version20251021000002();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20251021000002')");
         }
+
+        if (!in_array('20260109000001', $versions, true)) {
+            $this->version20260109000001();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20260109000001')");
+        }
     }
 
     private function versionsTableName(): string
@@ -706,6 +711,16 @@ EOT
             ADD issuer_state TEXT NULL
 EOT
         ,);
+    }
+
+    private function version20260109000001(): void
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE {$clientTableName}
+            ADD extra_metadata TEXT NULL
+EOT
+            ,);
     }
 
     /**

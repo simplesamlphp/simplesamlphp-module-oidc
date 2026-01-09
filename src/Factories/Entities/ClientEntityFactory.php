@@ -67,6 +67,7 @@ class ClientEntityFactory
         ?DateTimeImmutable $expiresAt = null,
         bool $isFederated = false,
         bool $isGeneric = false,
+        ?array $extraMetadata = null,
     ): ClientEntityInterface {
         return new ClientEntity(
             $id,
@@ -93,6 +94,7 @@ class ClientEntityFactory
             $expiresAt,
             $isFederated,
             $isGeneric,
+            $extraMetadata,
         );
     }
 
@@ -196,6 +198,20 @@ class ClientEntityFactory
         $isFederated = $existingClient?->isFederated() ?? false;
         $isGeneric = $existingClient?->isGeneric() ?? false;
 
+        $extraMetadata = $existingClient?->getExtraMetadata() ?? [];
+
+        // Handle any other supported client metadata as extra metadata.
+        // id_token_signed_response_alg
+        $idTokenSignedResponseAlg = isset($metadata[ClaimsEnum::IdTokenSignedResponseAlg->value]) &&
+        is_string($metadata[ClaimsEnum::IdTokenSignedResponseAlg->value]) ?
+        $metadata[ClaimsEnum::IdTokenSignedResponseAlg->value] :
+        $existingClient?->getIdTokenSignedResponseAlg();
+
+        // TODO mivanci Check if id_token_signed_response_alg is supported.
+
+        $extraMetadata[ClaimsEnum::IdTokenSignedResponseAlg->value] = $idTokenSignedResponseAlg;
+
+
         return $this->fromData(
             $id,
             $secret,
@@ -221,6 +237,7 @@ class ClientEntityFactory
             $expiresAt,
             $isFederated,
             $isGeneric,
+            $extraMetadata,
         );
     }
 
@@ -361,6 +378,11 @@ class ClientEntityFactory
         $isFederated = (bool)$state[ClientEntity::KEY_IS_FEDERATED];
         $isGeneric = (bool)$state[ClientEntity::KEY_IS_GENERIC];
 
+        /** @var ?mixed[] $extraMetadata */
+        $extraMetadata = empty($state[ClientEntity::KEY_EXTRA_METADATA]) ?
+        null :
+        json_decode((string)$state[ClientEntity::KEY_EXTRA_METADATA], true, 512, JSON_THROW_ON_ERROR);
+
         return $this->fromData(
             $id,
             $secret,
@@ -386,6 +408,7 @@ class ClientEntityFactory
             $expiresAt,
             $isFederated,
             $isGeneric,
+            $extraMetadata,
         );
     }
 

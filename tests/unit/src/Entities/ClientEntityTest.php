@@ -187,6 +187,7 @@ class ClientEntityTest extends TestCase
                 'expires_at' => null,
                 'is_federated' => $this->state['is_federated'],
                 'is_generic' => $this->state['is_generic'],
+                'extra_metadata' => null,
             ],
         );
     }
@@ -224,6 +225,7 @@ class ClientEntityTest extends TestCase
                 'expires_at' => null,
                 'is_federated' => false,
                 'is_generic' => false,
+                'id_token_signed_response_alg' => null,
             ],
         );
     }

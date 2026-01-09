@@ -207,6 +207,14 @@
             </tr>
             <tr>
                 <td class="client-col col-property">
+                    {{ 'ID Token Signing Algorithm'|trans }}
+                </td>
+                <td>
+                    {{ client.idTokenSignedResponseAlg|default('N/A'|trans) }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
                     {{ 'Owner'|trans }}
                 </td>
                 <td>

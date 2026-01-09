@@ -362,7 +362,8 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
                 created_at,
                 expires_at,
                 is_federated,
-                is_generic
+                is_generic,
+                extra_metadata
             )
             VALUES (
                 :id,
@@ -388,7 +389,8 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
                 :created_at,
                 :expires_at,
                 :is_federated,
-                :is_generic
+                :is_generic,
+                :extra_metadata
             )
 EOS
             ,
@@ -461,7 +463,8 @@ EOS
                 created_at = :created_at,
                 expires_at = :expires_at,
                 is_federated = :is_federated,
-                is_generic = :is_generic
+                is_generic = :is_generic,
+                extra_metadata = :extra_metadata
             WHERE id = :id
 EOF
             ,

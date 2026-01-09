@@ -141,6 +141,15 @@
             <span class="pure-form-message red-text">{{ form.jwks.getError }}</span>
         {% endif %}
 
+        <label for="frm-id_token_signed_response_alg">{{ 'ID Token Signing Algorithm'|trans }}</label>
+        {{ form.id_token_signed_response_alg.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}JWS alg algorithm for signing the ID Token issued to this Client. If not set, the default one from configuration file will be used.{% endtrans %}
+        </span>
+        {% if form.id_token_signed_response_alg.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.id_token_signed_response_alg.getError }}</span>
+        {% endif %}
+
         <br>
         <h4>{{ 'OpenID Federation Related Properties'|trans }}</h4>
             <span class="pure-form-message">

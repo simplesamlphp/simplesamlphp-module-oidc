@@ -7,13 +7,16 @@ apply those relevant to your deployment.
 
 New features:
 
+- Clients can now be configured with new properties:
+  - ID Token Signing Algorithm (id_token_signed_response_alg)
 - Initial support for OpenID for Verifiable Credential Issuance
 (OpenID4VCI). Note that the implementation is experimental. You should not use
-it in production yet. 
+it in production.
 
 New configuration options:
 
-- Several new options regarding support for OpenID4VCI.
+- Several new options are available in module config file regarding support for
+OpenID4VCI.
 
 Major impact changes:
 
