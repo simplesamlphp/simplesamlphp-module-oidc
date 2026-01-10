@@ -39,6 +39,7 @@ class OpMetadataService
      */
     private function initMetadata(): void
     {
+        // Signature algorithms that this OP can use to sign JWS artifacts.
         $protocolSignatureAlgorithmNames = array_values(
             array_map(
                 fn(SignatureKeyPair $signatureKeyPair): string => $signatureKeyPair->getSignatureAlgorithm()->value,
@@ -46,6 +47,8 @@ class OpMetadataService
             ),
         );
 
+        // Signature algorithms that this OP can use to validate signature on
+        // signed JWS artifacts.
         $supportedSignatureAlgorithmNames = array_values(
             array_map(
                 fn(SignatureAlgorithmEnum $signatureAlgorithm): string => $signatureAlgorithm->value,
