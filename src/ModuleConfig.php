@@ -24,14 +24,26 @@ use SimpleSAML\Configuration;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
+use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ScopesEnum;
 use SimpleSAML\OpenID\Codebooks\TrustMarkStatusEndpointUsagePolicyEnum;
+use SimpleSAML\OpenID\SupportedAlgorithms;
+use SimpleSAML\OpenID\ValueAbstracts;
+use SimpleSAML\OpenID\ValueAbstracts\KeyPairFilenameConfig;
+use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
+use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairConfig;
 
 class ModuleConfig
 {
     final public const MODULE_NAME = 'oidc';
     protected const KEY_DESCRIPTION = 'description';
+    public const KEY_ALGORITHM = 'algorithm';
+    public const KEY_PRIVATE_KEY_FILENAME = 'private_key_filename';
+    public const KEY_PUBLIC_KEY_FILENAME = 'public_key_filename';
+    public const KEY_PRIVATE_KEY_PASSWORD = 'private_key_password';
+    public const KEY_KEY_ID = 'key_id';
 
     /**
      * Default file name for module configuration. Can be overridden in constructor, for example, for testing purposes.
@@ -115,8 +127,7 @@ class ModuleConfig
     final public const OPTION_ALLOW_NON_REGISTERED_CLIENTS_FOR_VCI = 'allow_non_registered_clients_for_vci';
     final public const OPTION_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS_FOR_VCI =
     'allowed_redirect_uri_prefixes_for_non_registered_clients_for_vci';
-    final public const DEFAULT_PROTOCOL_SIGNATURE_KEY_PAIR = 'default_protocol_signature_key_pair';
-    final public const ADDITIONAL_PROTOCOL_SIGNATURE_KEY_PAIRS = 'additional_protocol_signature_key_pairs';
+    final public const OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS = 'protocol_signature_key_pairs';
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
@@ -147,6 +158,7 @@ class ModuleConfig
      * @var Configuration SimpleSAMLphp configuration instance.
      */
     private readonly Configuration $sspConfig;
+    protected ?SignatureKeyPairBag $protocolSignatureKeyPairBag = null;
 
     /**
      * @throws \Exception
@@ -155,7 +167,8 @@ class ModuleConfig
         string $fileName = self::DEFAULT_FILE_NAME, // Primarily used for easy (unit) testing overrides.
         array $overrides = [], // Primarily used for easy (unit) testing overrides.
         ?Configuration $sspConfig = null,
-        private readonly SspBridge $sspBridge = new SspBridge(),
+        protected readonly SspBridge $sspBridge = new SspBridge(),
+        protected readonly ValueAbstracts $valueAbstracts = new ValueAbstracts(),
     ) {
         $this->moduleConfig = Configuration::loadFromArray(
             array_merge(Configuration::getConfig($fileName)->toArray(), $overrides),
@@ -198,31 +211,31 @@ class ModuleConfig
 
         $acrValuesSupported = $this->getAcrValuesSupported();
         foreach ($acrValuesSupported as $acrValueSupported) {
-            if (! is_string($acrValueSupported)) {
+            if (!is_string($acrValueSupported)) {
                 throw new ConfigurationError('Config option acrValuesSupported should contain strings only.');
             }
         }
 
         $authSourcesToAcrValuesMap = $this->getAuthSourcesToAcrValuesMap();
         foreach ($authSourcesToAcrValuesMap as $authSource => $acrValues) {
-            if (! is_string($authSource)) {
+            if (!is_string($authSource)) {
                 throw new ConfigurationError('Config option authSourcesToAcrValuesMap should have string keys ' .
                     'indicating auth sources.');
             }
 
-            if (! is_array($acrValues)) {
+            if (!is_array($acrValues)) {
                 throw new ConfigurationError('Config option authSourcesToAcrValuesMap should have array ' .
                     'values containing supported ACRs for each auth source key.');
             }
 
             /** @psalm-suppress MixedAssignment */
             foreach ($acrValues as $acrValue) {
-                if (! is_string($acrValue)) {
+                if (!is_string($acrValue)) {
                     throw new ConfigurationError('Config option authSourcesToAcrValuesMap should have array ' .
                         'values with strings only.');
                 }
 
-                if (! in_array($acrValue, $acrValuesSupported, true)) {
+                if (!in_array($acrValue, $acrValuesSupported, true)) {
                     throw new ConfigurationError('Config option authSourcesToAcrValuesMap should have ' .
                         'supported ACR values only.');
                 }
@@ -231,8 +244,8 @@ class ModuleConfig
 
         $forcedAcrValueForCookieAuthentication = $this->getForcedAcrValueForCookieAuthentication();
 
-        if (! is_null($forcedAcrValueForCookieAuthentication)) {
-            if (! in_array($forcedAcrValueForCookieAuthentication, $acrValuesSupported, true)) {
+        if (!is_null($forcedAcrValueForCookieAuthentication)) {
+            if (!in_array($forcedAcrValueForCookieAuthentication, $acrValuesSupported, true)) {
                 throw new ConfigurationError('Config option forcedAcrValueForCookieAuthentication should have' .
                     ' null value or string value indicating particular supported ACR.');
             }
@@ -294,8 +307,8 @@ class ModuleConfig
      ****************************************************************************************************************/
 
     /**
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @return non-empty-string
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function getIssuer(): string
     {
@@ -345,6 +358,120 @@ class ModuleConfig
         return $this->config()->getString(ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE);
     }
 
+    public function getSupportedAlgorithms(): SupportedAlgorithms
+    {
+        return new SupportedAlgorithms(
+            new SignatureAlgorithmBag(
+                SignatureAlgorithmEnum::RS256,
+                SignatureAlgorithmEnum::RS384,
+                SignatureAlgorithmEnum::RS512,
+                SignatureAlgorithmEnum::ES256,
+                SignatureAlgorithmEnum::ES384,
+                SignatureAlgorithmEnum::ES512,
+                SignatureAlgorithmEnum::PS256,
+                SignatureAlgorithmEnum::PS384,
+                SignatureAlgorithmEnum::PS512,
+            ),
+        );
+    }
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @psalm-suppress MixedAssignment, ArgumentTypeCoercion
+     */
+    public function getProtocolSignatureKeyPairBag(): SignatureKeyPairBag
+    {
+        if ($this->protocolSignatureKeyPairBag instanceof SignatureKeyPairBag) {
+            return $this->protocolSignatureKeyPairBag;
+        }
+
+        $signatureKeyPairs = $this->config()->getArray(ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS);
+
+        if (empty($signatureKeyPairs)) {
+            throw new ConfigurationError('At least one protocol signature key-pair pair should be provided.');
+        }
+
+        $signatureKeyPairConfigBag = new ValueAbstracts\SignatureKeyPairConfigBag();
+
+        foreach ($signatureKeyPairs as $signatureKeyPair) {
+            if (!is_array($signatureKeyPair)) {
+                throw new ConfigurationError(
+                    'Invalid value for signature key pair. Expected array, got "' .
+                    var_export($signatureKeyPair, true) . '".',
+                );
+            }
+
+            $algorithm = $signatureKeyPair[self::KEY_ALGORITHM] ?? null;
+            if (!$algorithm instanceof SignatureAlgorithmEnum) {
+                throw new ConfigurationError(
+                    'Invalid protocol signature algorithm encountered. Expected instance of ' .
+                    SignatureAlgorithmEnum::class,
+                );
+            }
+
+            $privateKeyFilename = $signatureKeyPair[self::KEY_PRIVATE_KEY_FILENAME] ?? null;
+            if ((!is_string($privateKeyFilename)) || $privateKeyFilename === '') {
+                throw new ConfigurationError(
+                    sprintf(
+                        'Unexpected value for private key filename. Expected a non-empty string, got "%s".',
+                        var_export($privateKeyFilename, true),
+                    ),
+                );
+            }
+
+            $publicKeyFilename = $signatureKeyPair[self::KEY_PUBLIC_KEY_FILENAME] ?? null;
+            if ((!is_string($publicKeyFilename)) || $publicKeyFilename === '') {
+                throw new ConfigurationError(
+                    sprintf(
+                        'Unexpected value for public key filename. Expected a non-empty string, got "%s".',
+                        var_export($publicKeyFilename, true),
+                    ),
+                );
+            }
+
+            $privateKeyPassword = $signatureKeyPair[self::KEY_PRIVATE_KEY_PASSWORD] ?? null;
+            if (
+                ((!is_string($privateKeyPassword)) && (!is_null($privateKeyPassword))) ||
+                $privateKeyPassword === ''
+            ) {
+                throw new ConfigurationError(
+                    sprintf(
+                        'Unexpected value for private key password. Expected a non-empty string or null, got "%s".',
+                        var_export($privateKeyPassword, true),
+                    ),
+                );
+            }
+
+            $keyId = $signatureKeyPair[self::KEY_KEY_ID] ?? null;
+            if (
+                ((!is_string($keyId)) && (!is_null($keyId))) ||
+                $keyId === ''
+            ) {
+                throw new ConfigurationError(
+                    sprintf(
+                        'Unexpected value for key ID signature key pair. Expected a string or null, got "%s".',
+                        var_export($keyId, true),
+                    ),
+                );
+            }
+
+
+            $signatureKeyPairConfigBag->add(new SignatureKeyPairConfig(
+                $algorithm,
+                new KeyPairFilenameConfig(
+                    $this->sspBridge->utils()->config()->getCertPath($privateKeyFilename),
+                    $this->sspBridge->utils()->config()->getCertPath($publicKeyFilename),
+                    $privateKeyPassword,
+                    $keyId,
+                ),
+            ));
+        }
+
+        return $this->protocolSignatureKeyPairBag = $this->valueAbstracts
+            ->signatureKeyPairBagFactory()
+            ->fromConfig($signatureKeyPairConfigBag);
+    }
+
     /**
      * Get signer for OIDC protocol.
      *
@@ -364,9 +491,9 @@ class ModuleConfig
 
     /**
      * Get the path to the private key used in OIDC protocol.
-     * @throws \Exception
      * @return non-empty-string The file system path
      * @psalm-suppress LessSpecificReturnStatement, MoreSpecificReturnType
+     * @throws \Exception
      */
     public function getProtocolPrivateKeyPath(): string
     {
@@ -454,7 +581,7 @@ class ModuleConfig
             return null;
         }
 
-        return (string) $value;
+        return (string)$value;
     }
 
     /**
@@ -806,9 +933,9 @@ class ModuleConfig
     }
 
     /**
-     * @throws \SimpleSAML\Error\ConfigurationError
      * @return non-empty-array<array-key, non-empty-string>
      * @psalm-suppress LessSpecificReturnStatement, MoreSpecificReturnType
+     * @throws \SimpleSAML\Error\ConfigurationError
      */
     public function getFederationTrustAnchorIds(): array
     {
@@ -940,7 +1067,7 @@ class ModuleConfig
      */
     public function getVciScopes(): array
     {
-        if (! $this->getVerifiableCredentialEnabled()) {
+        if (!$this->getVerifiableCredentialEnabled()) {
             return [];
         }
 

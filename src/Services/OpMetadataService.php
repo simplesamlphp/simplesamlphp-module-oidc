@@ -7,9 +7,11 @@ namespace SimpleSAML\Module\oidc\Services;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
+use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
+use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
 
 /**
  * OpenID Provider Metadata Service - provides information about OIDC authentication server.
@@ -37,7 +39,19 @@ class OpMetadataService
      */
     private function initMetadata(): void
     {
-        $signer = $this->moduleConfig->getProtocolSigner();
+        $protocolSignatureAlgorithmNames = array_values(
+            array_map(
+                fn(SignatureKeyPair $signatureKeyPair): string => $signatureKeyPair->getSignatureAlgorithm()->value,
+                $this->moduleConfig->getProtocolSignatureKeyPairBag()->getAll(),
+            ),
+        );
+
+        $supportedSignatureAlgorithmNames = array_values(
+            array_map(
+                fn(SignatureAlgorithmEnum $signatureAlgorithm): string => $signatureAlgorithm->value,
+                $this->moduleConfig->getSupportedAlgorithms()->getSignatureAlgorithmBag()->getAll(),
+            ),
+        );
 
         $this->metadata = [];
         $this->metadata[ClaimsEnum::Issuer->value] = $this->moduleConfig->getIssuer();
@@ -53,22 +67,19 @@ class OpMetadataService
         $this->metadata[ClaimsEnum::ScopesSupported->value] = array_keys($this->moduleConfig->getScopes());
         $this->metadata[ClaimsEnum::ResponseTypesSupported->value] = ['code', 'token', 'id_token', 'id_token token'];
         $this->metadata[ClaimsEnum::SubjectTypesSupported->value] = ['public'];
-        $this->metadata[ClaimsEnum::IdTokenSigningAlgValuesSupported->value] = [
-            $signer->algorithmId(),
-        ];
+        $this->metadata[ClaimsEnum::IdTokenSigningAlgValuesSupported->value] = $protocolSignatureAlgorithmNames;
         $this->metadata[ClaimsEnum::CodeChallengeMethodsSupported->value] = ['plain', 'S256'];
         $this->metadata[ClaimsEnum::TokenEndpointAuthMethodsSupported->value] = [
             TokenEndpointAuthMethodsEnum::ClientSecretPost->value,
             TokenEndpointAuthMethodsEnum::ClientSecretBasic->value,
             TokenEndpointAuthMethodsEnum::PrivateKeyJwt->value,
         ];
-        $this->metadata[ClaimsEnum::TokenEndpointAuthSigningAlgValuesSupported->value] = [
-            $signer->algorithmId(),
-        ];
+        $this->metadata[ClaimsEnum::TokenEndpointAuthSigningAlgValuesSupported->value] =
+        $supportedSignatureAlgorithmNames;
         $this->metadata[ClaimsEnum::RequestParameterSupported->value] = true;
         $this->metadata[ClaimsEnum::RequestObjectSigningAlgValuesSupported->value] = [
             'none',
-            $signer->algorithmId(),
+            ...$supportedSignatureAlgorithmNames,
         ];
         $this->metadata[ClaimsEnum::RequestUriParameterSupported->value] = false;
 

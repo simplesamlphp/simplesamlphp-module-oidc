@@ -22,7 +22,6 @@ declare(strict_types=1);
  */
 
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\ValueAbstracts\SignatureKeyPairConfig;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialTypesEnum;
@@ -71,35 +70,59 @@ $config = [
 //    ModuleConfig::OPTION_PKI_NEW_CERTIFICATE_FILENAME => 'new_oidc_module.crt',
 
     /**
-     * Default protocol (Connect) signature algorithm and key-pair definition.
-     * This algorithm and key will be used, for example, to sign ID Token JWS,
-     * if no other algorithm is negotiated with the client.
-     */
-    ModuleConfig::DEFAULT_PROTOCOL_SIGNATURE_KEY_PAIR => [
-        'algorithm' => \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum::RS256,
-        'privateKeyFilename' => ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME,
-        'publicKeyFilename' => ModuleConfig::DEFAULT_PKI_CERTIFICATE_FILENAME,
-//        'privateKeyPassword' => 'private-key-password', // Optional
-//        'keyId' => 'rsa-connect-signing-key-2026', // Optional
-    ],
-
-    /**
-     * Additionally supported protocol (Connect) signing algorithms and
-     * key-pairs. These entries will be used in signing algorithm negotiation
-     * with the client. The order in which the entries are set is important,
-     * as the entries set first will have higher priority during negotiation.
+     * Protocol (Connect) signature algorithm and key-pair definitions,
+     * representing supported algorithms for signing, for example, ID Token JWS.
+     * The order in which the entries are set is important. The entry set
+     * first will have higher priority during signing algorithm negotiation
+     * with the client. If the client doesn't designate desired signing
+     * algorithm, the first algorithm in the list will be used for signing (the
+     * first entry represents default algorithm and signing key). Note that
+     * the OpenID Connect specification designates `RS256` as the signing
+     * algorithm that should be used by default, so you would probably want
+     * to use that algorithm as the default (first) one. However, you are free
+     * to set other default (first) algorithm as needed.
+     * You can also use this config option to advertise any (new) keys, for
+     * example, for key-rollover scenarios. Just add those entries later in
+     * the list, so they can be published on the OP discovery endpoint.
      *
-     * You can also use this config option to advertise any
-     * (new) keys, for example, for key-rollover scenarios. Just add those
-     * entries last.
+     * The format is array of associative arrays, where each array value
+     * consists of the following properties (keys):
+     * - ModuleConfig::KEY_ALGORITHM - \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum case
+     * representing the algorithm.
+     * - ModuleConfig::KEY_PRIVATE_KEY_FILENAME - the name of the file
+     * containing private key inPEM format, which is available in SSP `cert`
+     * folder.
+     * - ModuleConfig::KEY_PUBLIC_KEY_FILENAME - the name of the file containing
+     * corresponding public key in PEM format, which is available in SSP `cert`
+     * folder.
+     * - ModuleConfig::KEY_PRIVATE_KEY_PASSWORD - private key password, if
+     * needed.
+     * - ModuleConfig::KEY_KEY_ID - Optional string representing key identifier.
+     * Use if you need to manually set key identifiers to be published. If not
+     * set, a public key thumbprint will be generated on the fly and used as a
+     * key ID.
+     *
+     * Note: in v7 of the module, a new way of automatic key ID generation is
+     * used. In previous versions, a hash of a public key file was used as a
+     * key ID. In v7, a public key thumbprint is used. If you are migrating from
+     * previous version of the module, and you want to keep the old signing key,
+     * you should manually set the key ID to the previous value, so that clients
+     * know that the key did not change.
      */
-    ModuleConfig::ADDITIONAL_PROTOCOL_SIGNATURE_KEY_PAIRS => [
+    ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS => [
         [
-            'algorithm' => \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum::ES256,
-            'privateKeyFilename' => 'oidc_module_ec256.key',
-            'publicKeyFilename' => 'oidc_module_ec256.pub',
-//            'privateKeyPassword' => 'private-key-password', // Optional
-//            'keyId' => 'ec-connect-signing-key-01', // Optional
+            ModuleConfig::KEY_ALGORITHM => \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum::RS256,
+            ModuleConfig::KEY_PRIVATE_KEY_FILENAME => ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME,
+            ModuleConfig::KEY_PUBLIC_KEY_FILENAME => ModuleConfig::DEFAULT_PKI_CERTIFICATE_FILENAME,
+//            ModuleConfig::KEY_PRIVATE_KEY_PASSWORD => 'private-key-password', // Optional
+//            ModuleConfig::KEY_KEY_ID => 'rsa-connect-signing-key-2026', // Optional
+        ],
+        [
+            ModuleConfig::KEY_ALGORITHM => \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum::ES256,
+            ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module_ec256.key',
+            ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'oidc_module_ec256.pub',
+//            ModuleConfig::KEY_PRIVATE_KEY_PASSWORD => 'private-key-password', // Optional
+//            ModuleConfig::KEY_KEY_ID => 'ec-connect-signing-key-01', // Optional
         ],
     ],
 
