@@ -12,7 +12,6 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
@@ -20,13 +19,14 @@ use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Federation;
 use SimpleSAML\OpenID\Jwk;
+use SimpleSAML\OpenID\Jwks;
 
 #[CoversClass(EntityStatementController::class)]
 class EntityStatementControllerTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
     protected MockObject $jsonWebTokenBuilderServiceMock;
-    protected MockObject $jsonWebKeySetServiceMock;
+    protected MockObject $jwksMock;
     protected MockObject $opMetadataServiceMock;
     protected MockObject $clientRepositoryMock;
     protected MockObject $helpersMock;
@@ -40,7 +40,7 @@ class EntityStatementControllerTest extends TestCase
     {
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->jsonWebTokenBuilderServiceMock = $this->createMock(JsonWebTokenBuilderService::class);
-        $this->jsonWebKeySetServiceMock = $this->createMock(JsonWebKeySetService::class);
+        $this->jwksMock = $this->createMock(Jwks::class);
         $this->opMetadataServiceMock = $this->createMock(OpMetadataService::class);
         $this->clientRepositoryMock = $this->createMock(ClientRepository::class);
         $this->helpersMock = $this->createMock(Helpers::class);
@@ -54,7 +54,7 @@ class EntityStatementControllerTest extends TestCase
     protected function sut(
         ?ModuleConfig $moduleConfig = null,
         ?JsonWebTokenBuilderService $jsonWebTokenBuilderService = null,
-        ?JsonWebKeySetService $jsonWebKeySetService = null,
+        ?Jwks $jwks = null,
         ?OpMetadataService $opMetadataService = null,
         ?ClientRepository $clientRepository = null,
         ?Helpers $helpers = null,
@@ -66,7 +66,7 @@ class EntityStatementControllerTest extends TestCase
     ): EntityStatementController {
         $moduleConfig ??= $this->moduleConfigMock;
         $jsonWebTokenBuilderService ??= $this->jsonWebTokenBuilderServiceMock;
-        $jsonWebKeySetService ??= $this->jsonWebKeySetServiceMock;
+        $jwks ??= $this->jwksMock;
         $opMetadataService ??= $this->opMetadataServiceMock;
         $clientRepository ??= $this->clientRepositoryMock;
         $helpers ??= $this->helpersMock;
@@ -79,7 +79,7 @@ class EntityStatementControllerTest extends TestCase
         return new EntityStatementController(
             $moduleConfig,
             $jsonWebTokenBuilderService,
-            $jsonWebKeySetService,
+            $jwks,
             $opMetadataService,
             $clientRepository,
             $helpers,

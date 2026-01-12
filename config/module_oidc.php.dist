@@ -46,13 +46,17 @@ $config = [
      * sign ID Token JWT.
      */
     // (optional) The private key passphrase.
+    /** @deprecated  */
 //    ModuleConfig::OPTION_PKI_PRIVATE_KEY_PASSPHRASE => 'secret',
     // The certificate and private key filenames, with given defaults.
+    /** @deprecated  */
     ModuleConfig::OPTION_PKI_PRIVATE_KEY_FILENAME => ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME,
     ModuleConfig::OPTION_PKI_CERTIFICATE_FILENAME => ModuleConfig::DEFAULT_PKI_CERTIFICATE_FILENAME,
 
+
     // Token signer, with given default.
     // See Lcobucci\JWT\Signer algorithms in https://github.com/lcobucci/jwt/tree/master/src/Signer
+    /** @deprecated  */
     ModuleConfig::OPTION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Rsa\Sha256::class,
 //    ModuleConfig::OPTION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Hmac\Sha256::class,
 //    ModuleConfig::OPTION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Ecdsa\Sha256::class,
@@ -65,6 +69,7 @@ $config = [
      * PKI options.
      */
 //    // (optional) The (new) private key passphrase.
+    /** @deprecated  */
 //    ModuleConfig::OPTION_PKI_NEW_PRIVATE_KEY_PASSPHRASE => 'new-secret',
 //    ModuleConfig::OPTION_PKI_NEW_PRIVATE_KEY_FILENAME => 'new_oidc_module.key',
 //    ModuleConfig::OPTION_PKI_NEW_CERTIFICATE_FILENAME => 'new_oidc_module.crt',
@@ -83,7 +88,7 @@ $config = [
      * to set other default (first) algorithm as needed.
      * You can also use this config option to advertise any (new) keys, for
      * example, for key-rollover scenarios. Just add those entries later in
-     * the list, so they can be published on the OP discovery endpoint.
+     * the list, so they can be published on the OP JWKS discovery endpoint.
      *
      * The format is array of associative arrays, where each array value
      * consists of the following properties (keys):
@@ -516,6 +521,7 @@ $config = [
     // The federation private key passphrase (optional).
 //    ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_PASSPHRASE => 'secret',
     // The federation certificate and private key filenames, with given defaults.
+    /** @deprecated  */
     ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME =>
         ModuleConfig::DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
     ModuleConfig::OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME =>
@@ -526,11 +532,38 @@ $config = [
      * on how this works.
      */
     // The federation (new) private key passphrase (optional).
+    /** @deprecated  */
 //    ModuleConfig::OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_PASSPHRASE => 'new-secret',
 //    ModuleConfig::OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_FILENAME => 'new_oidc_module_federation.key',
 //    ModuleConfig::OPTION_PKI_FEDERATION_NEW_CERTIFICATE_FILENAME => 'new_oidc_module_federation.crt',
 
+    /**
+     * Federation signature algorithm and key-pair definitions, representing
+     * supported algorithms for signing, for example, Entity Statements.
+     * The first algorithm in the list will be used for signing (the
+     * first entry represents default algorithm and signing key).
+     * You can also use this config option to advertise any (new) keys, for
+     * example, for key-rollover scenarios. Just add those entries later in
+     * the list, so they can be published in Federation JWKS.
+     *
+     * Note that these keys SHOULD NOT be the same as the ones used in the
+     * protocol (Connect) itself.
+     *
+     * The format is the same as for the protocol (Connect) signature key pairs
+     * (option ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS)
+     */
+    ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS => [
+        [
+            ModuleConfig::KEY_ALGORITHM => \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum::ES256,
+            ModuleConfig::KEY_PRIVATE_KEY_FILENAME => ModuleConfig::DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
+            ModuleConfig::KEY_PUBLIC_KEY_FILENAME => ModuleConfig::OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME,
+//            ModuleConfig::KEY_PRIVATE_KEY_PASSWORD => 'private-key-password', // Optional
+//            ModuleConfig::KEY_KEY_ID => 'ec-connect-signing-key-01', // Optional
+        ],
+    ],
+
     // Federation token signer, with given default.
+    /** @deprecated  */
     ModuleConfig::OPTION_FEDERATION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Rsa\Sha256::class,
 
     // Federation entity statement duration which determines the Expiration Time (exp) claim set in entity

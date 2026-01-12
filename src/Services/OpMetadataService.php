@@ -7,11 +7,9 @@ namespace SimpleSAML\Module\oidc\Services;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
-use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
-use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
 
 /**
  * OpenID Provider Metadata Service - provides information about OIDC authentication server.
@@ -40,21 +38,16 @@ class OpMetadataService
     private function initMetadata(): void
     {
         // Signature algorithms that this OP can use to sign JWS artifacts.
-        $protocolSignatureAlgorithmNames = array_values(
-            array_map(
-                fn(SignatureKeyPair $signatureKeyPair): string => $signatureKeyPair->getSignatureAlgorithm()->value,
-                $this->moduleConfig->getProtocolSignatureKeyPairBag()->getAll(),
-            ),
-        );
+        $protocolSignatureAlgorithmNames = $this->moduleConfig
+            ->getProtocolSignatureKeyPairBag()
+            ->getAllAlgorithmNamesUnique();
 
         // Signature algorithms that this OP can use to validate signature on
         // signed JWS artifacts.
-        $supportedSignatureAlgorithmNames = array_values(
-            array_map(
-                fn(SignatureAlgorithmEnum $signatureAlgorithm): string => $signatureAlgorithm->value,
-                $this->moduleConfig->getSupportedAlgorithms()->getSignatureAlgorithmBag()->getAll(),
-            ),
-        );
+        $supportedSignatureAlgorithmNames = $this->moduleConfig
+            ->getSupportedAlgorithms()
+            ->getSignatureAlgorithmBag()
+            ->getAllNamesUnique();
 
         $this->metadata = [];
         $this->metadata[ClaimsEnum::Issuer->value] = $this->moduleConfig->getIssuer();

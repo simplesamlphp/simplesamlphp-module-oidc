@@ -18,22 +18,29 @@ namespace SimpleSAML\Module\oidc\Controllers;
 
 use Laminas\Diactoros\Response\JsonResponse;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
-use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
+use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\OpenID\Jwks;
 use Symfony\Component\HttpFoundation\Response;
 
 class JwksController
 {
     public function __construct(
-        private readonly JsonWebKeySetService $jsonWebKeySetService,
-        private readonly PsrHttpBridge $psrHttpBridge,
+        protected readonly PsrHttpBridge $psrHttpBridge,
+        protected readonly ModuleConfig $moduleConfig,
+        protected readonly Jwks $jwks,
     ) {
     }
 
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
     public function __invoke(): JsonResponse
     {
-        return new JsonResponse([
-            'keys' => array_values($this->jsonWebKeySetService->protocolKeys()),
-        ]);
+        return new JsonResponse(
+            $this->jwks->jwksDecoratorFactory()->fromJwkDecorators(
+                ...$this->moduleConfig->getProtocolSignatureKeyPairBag()->getAllPublicKeys(),
+            )->jsonSerialize(),
+        );
     }
 
     public function jwks(): Response

@@ -8,7 +8,6 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
@@ -25,6 +24,7 @@ use SimpleSAML\OpenID\Codebooks\HttpHeadersEnum;
 use SimpleSAML\OpenID\Codebooks\JwtTypesEnum;
 use SimpleSAML\OpenID\Federation;
 use SimpleSAML\OpenID\Jwk;
+use SimpleSAML\OpenID\Jwks;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -37,17 +37,17 @@ class EntityStatementController
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function __construct(
-        private readonly ModuleConfig $moduleConfig,
-        private readonly JsonWebTokenBuilderService $jsonWebTokenBuilderService,
-        private readonly JsonWebKeySetService $jsonWebKeySetService,
-        private readonly OpMetadataService $opMetadataService,
-        private readonly ClientRepository $clientRepository,
-        private readonly Helpers $helpers,
-        private readonly Routes $routes,
-        private readonly Federation $federation,
-        private readonly Jwk $jwk,
-        private readonly LoggerService $loggerService,
-        private readonly ?FederationCache $federationCache,
+        protected readonly ModuleConfig $moduleConfig,
+        protected readonly JsonWebTokenBuilderService $jsonWebTokenBuilderService,
+        protected readonly Jwks $jwks,
+        protected readonly OpMetadataService $opMetadataService,
+        protected readonly ClientRepository $clientRepository,
+        protected readonly Helpers $helpers,
+        protected readonly Routes $routes,
+        protected readonly Federation $federation,
+        protected readonly Jwk $jwk,
+        protected readonly LoggerService $loggerService,
+        protected readonly ?FederationCache $federationCache,
     ) {
         if (!$this->moduleConfig->getFederationEnabled()) {
             throw OidcServerException::forbidden('federation capabilities not enabled');
@@ -82,6 +82,10 @@ class EntityStatementController
             ),
         ];
 
+        $jwks = $this->jwks->jwksDecoratorFactory()->fromJwkDecorators(
+            ...$this->moduleConfig->getFederationSignatureKeyPairBag()->getAllPublicKeys(),
+        )->jsonSerialize();
+
         $payload = [
             ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
             ClaimsEnum::Iat->value => $currentTimestamp,
@@ -91,7 +95,7 @@ class EntityStatementController
             ClaimsEnum::Exp->value => $this->helpers->dateTime()->getUtc()->add(
                 $this->moduleConfig->getFederationEntityStatementDuration(),
             )->getTimestamp(),
-            ClaimsEnum::Jwks->value => ['keys' => array_values($this->jsonWebKeySetService->federationKeys()),],
+            ClaimsEnum::Jwks->value => $jwks,
             ClaimsEnum::Metadata->value => [
                 EntityTypesEnum::FederationEntity->value => [
                     // Common https://openid.net/specs/openid-federation-1_0.html#name-common-metadata-parameters

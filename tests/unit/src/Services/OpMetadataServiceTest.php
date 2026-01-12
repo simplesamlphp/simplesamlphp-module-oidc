@@ -62,8 +62,8 @@ class OpMetadataServiceTest extends TestCase
         $this->claimTranslatorExtractorMock = $this->createMock(ClaimTranslatorExtractor::class);
 
         $this->signatureAlgorithmBag = $this->createMock(SignatureAlgorithmBag::class);
-        $this->signatureAlgorithmBag->method('getAll')
-            ->willReturn([SignatureAlgorithmEnum::RS256]);
+        $this->signatureAlgorithmBag->method('getAllNamesUnique')
+            ->willReturn(['RS256']);
 
         $this->supportedAlgorithmsMock = $this->createMock(SupportedAlgorithms::class);
         $this->supportedAlgorithmsMock->method('getSignatureAlgorithmBag')
@@ -79,6 +79,8 @@ class OpMetadataServiceTest extends TestCase
         $this->signatureKeyPairBagMock = $this->createMock(SignatureKeyPairBag::class);
         $this->signatureKeyPairBagMock->method('getAll')
             ->willReturn([$this->signatureKeyPairMock]);
+        $this->signatureKeyPairBagMock->method('getAllAlgorithmNamesUnique')
+            ->willReturn(['RS256']);
 
         $this->moduleConfigMock->method('getProtocolSignatureKeyPairBag')
             ->willReturn($this->signatureKeyPairBagMock);

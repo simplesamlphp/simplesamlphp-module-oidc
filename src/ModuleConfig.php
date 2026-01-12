@@ -34,6 +34,7 @@ use SimpleSAML\OpenID\ValueAbstracts;
 use SimpleSAML\OpenID\ValueAbstracts\KeyPairFilenameConfig;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairConfig;
+use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairConfigBag;
 
 class ModuleConfig
 {
@@ -128,6 +129,7 @@ class ModuleConfig
     final public const OPTION_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS_FOR_VCI =
     'allowed_redirect_uri_prefixes_for_non_registered_clients_for_vci';
     final public const OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS = 'protocol_signature_key_pairs';
+    final public const OPTION_FEDERATION_SIGNATURE_KEY_PAIRS = 'federation_signature_key_pairs';
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
@@ -159,6 +161,7 @@ class ModuleConfig
      */
     private readonly Configuration $sspConfig;
     protected ?SignatureKeyPairBag $protocolSignatureKeyPairBag = null;
+    protected ?SignatureKeyPairBag $federationSignatureKeyPairBag = null;
 
     /**
      * @throws \Exception
@@ -391,81 +394,7 @@ class ModuleConfig
             throw new ConfigurationError('At least one protocol signature key-pair pair should be provided.');
         }
 
-        $signatureKeyPairConfigBag = new ValueAbstracts\SignatureKeyPairConfigBag();
-
-        foreach ($signatureKeyPairs as $signatureKeyPair) {
-            if (!is_array($signatureKeyPair)) {
-                throw new ConfigurationError(
-                    'Invalid value for signature key pair. Expected array, got "' .
-                    var_export($signatureKeyPair, true) . '".',
-                );
-            }
-
-            $algorithm = $signatureKeyPair[self::KEY_ALGORITHM] ?? null;
-            if (!$algorithm instanceof SignatureAlgorithmEnum) {
-                throw new ConfigurationError(
-                    'Invalid protocol signature algorithm encountered. Expected instance of ' .
-                    SignatureAlgorithmEnum::class,
-                );
-            }
-
-            $privateKeyFilename = $signatureKeyPair[self::KEY_PRIVATE_KEY_FILENAME] ?? null;
-            if ((!is_string($privateKeyFilename)) || $privateKeyFilename === '') {
-                throw new ConfigurationError(
-                    sprintf(
-                        'Unexpected value for private key filename. Expected a non-empty string, got "%s".',
-                        var_export($privateKeyFilename, true),
-                    ),
-                );
-            }
-
-            $publicKeyFilename = $signatureKeyPair[self::KEY_PUBLIC_KEY_FILENAME] ?? null;
-            if ((!is_string($publicKeyFilename)) || $publicKeyFilename === '') {
-                throw new ConfigurationError(
-                    sprintf(
-                        'Unexpected value for public key filename. Expected a non-empty string, got "%s".',
-                        var_export($publicKeyFilename, true),
-                    ),
-                );
-            }
-
-            $privateKeyPassword = $signatureKeyPair[self::KEY_PRIVATE_KEY_PASSWORD] ?? null;
-            if (
-                ((!is_string($privateKeyPassword)) && (!is_null($privateKeyPassword))) ||
-                $privateKeyPassword === ''
-            ) {
-                throw new ConfigurationError(
-                    sprintf(
-                        'Unexpected value for private key password. Expected a non-empty string or null, got "%s".',
-                        var_export($privateKeyPassword, true),
-                    ),
-                );
-            }
-
-            $keyId = $signatureKeyPair[self::KEY_KEY_ID] ?? null;
-            if (
-                ((!is_string($keyId)) && (!is_null($keyId))) ||
-                $keyId === ''
-            ) {
-                throw new ConfigurationError(
-                    sprintf(
-                        'Unexpected value for key ID signature key pair. Expected a string or null, got "%s".',
-                        var_export($keyId, true),
-                    ),
-                );
-            }
-
-
-            $signatureKeyPairConfigBag->add(new SignatureKeyPairConfig(
-                $algorithm,
-                new KeyPairFilenameConfig(
-                    $this->sspBridge->utils()->config()->getCertPath($privateKeyFilename),
-                    $this->sspBridge->utils()->config()->getCertPath($publicKeyFilename),
-                    $privateKeyPassword,
-                    $keyId,
-                ),
-            ));
-        }
+        $signatureKeyPairConfigBag = $this->getSignatureKeyPairConfigBag($signatureKeyPairs);
 
         return $this->protocolSignatureKeyPairBag = $this->valueAbstracts
             ->signatureKeyPairBagFactory()
@@ -681,6 +610,29 @@ class ModuleConfig
     public function getFederationEnabled(): bool
     {
         return $this->config()->getOptionalBoolean(self::OPTION_FEDERATION_ENABLED, false);
+    }
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @psalm-suppress MixedAssignment, ArgumentTypeCoercion
+     */
+    public function getFederationSignatureKeyPairBag(): SignatureKeyPairBag
+    {
+        if ($this->federationSignatureKeyPairBag instanceof SignatureKeyPairBag) {
+            return $this->federationSignatureKeyPairBag;
+        }
+
+        $signatureKeyPairs = $this->config()->getArray(ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS);
+
+        if (empty($signatureKeyPairs)) {
+            throw new ConfigurationError('At least one federation signature key-pair pair should be provided.');
+        }
+
+        $signatureKeyPairConfigBag = $this->getSignatureKeyPairConfigBag($signatureKeyPairs);
+
+        return $this->federationSignatureKeyPairBag = $this->valueAbstracts
+            ->signatureKeyPairBagFactory()
+            ->fromConfig($signatureKeyPairConfigBag);
     }
 
     /**
@@ -1233,5 +1185,147 @@ class ModuleConfig
     public function getDefaultUsersEmailAttributeName(): string
     {
         return $this->config()->getOptionalString(self::OPTION_DEFAULT_USERS_EMAIL_ATTRIBUTE_NAME, 'mail');
+    }
+
+    /**
+     * @throws ConfigurationError
+     * @return array{
+     *     algorithm: \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum,
+     *     private_key_filename: non-empty-string,
+     *     public_key_filename: non-empty-string,
+     *     private_key_password: ?non-empty-string,
+     *     key_id: ?non-empty-string
+     * }
+     *
+     */
+    protected function getValidateSignatureKeyPairArray(mixed $signatureKeyPair): array
+    {
+        if (!is_array($signatureKeyPair)) {
+            throw new ConfigurationError(
+                'Invalid value for signature key pair. Expected array, got "' .
+                var_export($signatureKeyPair, true) . '".',
+            );
+        }
+
+        $algorithm = $signatureKeyPair[self::KEY_ALGORITHM] ?? null;
+        if (!$algorithm instanceof SignatureAlgorithmEnum) {
+            throw new ConfigurationError(
+                'Invalid protocol signature algorithm encountered. Expected instance of ' .
+                SignatureAlgorithmEnum::class,
+            );
+        }
+
+        $privateKeyFilename = $signatureKeyPair[self::KEY_PRIVATE_KEY_FILENAME] ?? null;
+        if ((!is_string($privateKeyFilename)) || $privateKeyFilename === '') {
+            throw new ConfigurationError(
+                sprintf(
+                    'Unexpected value for private key filename. Expected a non-empty string, got "%s".',
+                    var_export($privateKeyFilename, true),
+                ),
+            );
+        }
+        $privateKeyFilename = $this->sspBridge->utils()->config()->getCertPath($privateKeyFilename);
+        if (!file_exists($privateKeyFilename)) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Private key file does not exist: %s',
+                    $privateKeyFilename,
+                ),
+            );
+        }
+        /** @var non-empty-string $privateKeyFilename */
+
+        $publicKeyFilename = $signatureKeyPair[self::KEY_PUBLIC_KEY_FILENAME] ?? null;
+        if ((!is_string($publicKeyFilename)) || $publicKeyFilename === '') {
+            throw new ConfigurationError(
+                sprintf(
+                    'Unexpected value for public key filename. Expected a non-empty string, got "%s".',
+                    var_export($publicKeyFilename, true),
+                ),
+            );
+        }
+        $publicKeyFilename = $this->sspBridge->utils()->config()->getCertPath($publicKeyFilename);
+        if (!file_exists($publicKeyFilename)) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Public key file does not exist: %s',
+                    $publicKeyFilename,
+                ),
+            );
+        }
+        /** @var non-empty-string $publicKeyFilename */
+
+        $privateKeyPassword = $signatureKeyPair[self::KEY_PRIVATE_KEY_PASSWORD] ?? null;
+        if (
+            ((!is_string($privateKeyPassword)) && (!is_null($privateKeyPassword))) ||
+            $privateKeyPassword === ''
+        ) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Unexpected value for private key password. Expected a non-empty string or null, got "%s".',
+                    var_export($privateKeyPassword, true),
+                ),
+            );
+        }
+
+        $keyId = $signatureKeyPair[self::KEY_KEY_ID] ?? null;
+        if (
+            ((!is_string($keyId)) && (!is_null($keyId))) ||
+            $keyId === ''
+        ) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Unexpected value for key ID signature key pair. Expected a string or null, got "%s".',
+                    var_export($keyId, true),
+                ),
+            );
+        }
+
+
+        return [
+            self::KEY_ALGORITHM => $algorithm,
+            self::KEY_PRIVATE_KEY_FILENAME => $privateKeyFilename,
+            self::KEY_PUBLIC_KEY_FILENAME => $publicKeyFilename,
+            self::KEY_PRIVATE_KEY_PASSWORD => $privateKeyPassword,
+            self::KEY_KEY_ID => $keyId,
+        ];
+    }
+
+    /**
+     * @throws ConfigurationError
+     * @psalm-suppress MixedAssignment
+     */
+    protected function getSignatureKeyPairConfigBag(array $signatureKeyPairs): SignatureKeyPairConfigBag
+    {
+        $signatureKeyPairConfigBag = new SignatureKeyPairConfigBag();
+
+        foreach ($signatureKeyPairs as $signatureKeyPair) {
+            /**
+             * @var SignatureAlgorithmEnum $algorithm
+             * @var non-empty-string $privateKeyFilename
+             * @var non-empty-string $publicKeyFilename
+             * @var ?non-empty-string $privateKeyPassword
+             * @var ?non-empty-string $keyId
+             */
+            [
+                self::KEY_ALGORITHM => $algorithm,
+                self::KEY_PRIVATE_KEY_FILENAME => $privateKeyFilename,
+                self::KEY_PUBLIC_KEY_FILENAME => $publicKeyFilename,
+                self::KEY_PRIVATE_KEY_PASSWORD => $privateKeyPassword,
+                self::KEY_KEY_ID => $keyId,
+            ] = $this->getValidateSignatureKeyPairArray($signatureKeyPair);
+
+            $signatureKeyPairConfigBag->add(new SignatureKeyPairConfig(
+                $algorithm,
+                new KeyPairFilenameConfig(
+                    $privateKeyFilename,
+                    $publicKeyFilename,
+                    $privateKeyPassword,
+                    $keyId,
+                ),
+            ));
+        }
+
+        return $signatureKeyPairConfigBag;
     }
 }
