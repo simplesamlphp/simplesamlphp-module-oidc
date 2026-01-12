@@ -312,6 +312,7 @@ class AuthenticationService
                 (string)($claims['sub'] ?? $user->getIdentifier()),
                 $this->getSessionId(),
                 $oidcClient->getBackChannelLogoutUri(),
+                $oidcClient->getIdTokenSignedResponseAlg(),
             ),
         );
     }

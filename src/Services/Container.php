@@ -423,10 +423,15 @@ class Container implements ContainerInterface
         $requestRuleManager = new RequestRulesManager($requestRules, $loggerService);
         $this->services[RequestRulesManager::class] = $requestRuleManager;
 
-        $idTokenBuilder = new IdTokenBuilder($jsonWebTokenBuilderService, $claimTranslatorExtractor);
+        $idTokenBuilder = new IdTokenBuilder(
+            $jsonWebTokenBuilderService,
+            $claimTranslatorExtractor,
+            $core,
+            $moduleConfig,
+        );
         $this->services[IdTokenBuilder::class] = $idTokenBuilder;
 
-        $logoutTokenBuilder = new LogoutTokenBuilder($jsonWebTokenBuilderService);
+        $logoutTokenBuilder = new LogoutTokenBuilder($moduleConfig, $loggerService);
         $this->services[LogoutTokenBuilder::class] = $logoutTokenBuilder;
 
         $sessionLogoutTicketStoreDb = new LogoutTicketStoreDb($database);

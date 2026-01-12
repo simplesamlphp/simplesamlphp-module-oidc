@@ -261,7 +261,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
             $responseParams['expires_in'] = $accessToken->getExpiryDateTime()->getTimestamp() - time();
         }
 
-        $idToken = $this->idTokenBuilder->build(
+        $idToken = $this->idTokenBuilder->buildFor(
             $user,
             $accessToken,
             $authorizationRequest->getAddClaimsToIdToken(),
@@ -272,7 +272,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
             $authorizationRequest->getSessionId(),
         );
 
-        $responseParams['id_token'] = $idToken->toString();
+        $responseParams['id_token'] = $idToken->getToken();
 
         $response = new RedirectResponse();
 
