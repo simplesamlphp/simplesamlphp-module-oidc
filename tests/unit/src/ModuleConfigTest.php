@@ -177,12 +177,6 @@ class ModuleConfigTest extends TestCase
         $this->assertInstanceOf(Signer::class, $this->sut()->getProtocolSigner());
     }
 
-    public function testCanGetProtocolPrivateKeyPassphrase(): void
-    {
-        $this->overrides[ModuleConfig::OPTION_PKI_PRIVATE_KEY_PASSPHRASE] = 'test';
-        $this->assertNotEmpty($this->sut()->getProtocolPrivateKeyPassPhrase());
-    }
-
     public function testCanGetAuthProcFilters(): void
     {
         $this->assertIsArray($this->sut()->getAuthProcFilters());

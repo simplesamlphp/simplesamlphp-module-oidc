@@ -52,7 +52,7 @@ class LogoutTokenBuilder
             ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
             ClaimsEnum::Iat->value => $currentTimestamp,
             ClaimsEnum::Exp->value => $this->core->helpers()->dateTime()->getUtc()->add(
-                $this->moduleConfig->getAccessTokenDuration(),
+                $this->moduleConfig->getAuthCodeDuration(),
             )->getTimestamp(),
             ClaimsEnum::Jti->value => $this->core->helpers()->random()->string(),
             ClaimsEnum::Aud->value => $relyingPartyAssociation->getClientId(),

@@ -15,6 +15,7 @@ use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\Session;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -60,9 +61,9 @@ class EndSessionController
         // If id_token_hint was provided, resolve session ID
         $idTokenHint = $logoutRequest->getIdTokenHint();
         if ($idTokenHint !== null) {
-            $sidClaim = empty($idTokenHint->claims()->get('sid')) ?
-            null :
-            (string)$idTokenHint->claims()->get('sid');
+            /** @psalm-suppress MixedAssignment */
+            $sidClaim = $idTokenHint->getPayloadClaim(ClaimsEnum::Sid->value);
+            $sidClaim = is_string($sidClaim) && $sidClaim !== '' ? $sidClaim : null;
         }
 
         $this->loggerService->debug(

@@ -4,12 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 
-use Lcobucci\JWT\Configuration;
-use Lcobucci\JWT\Signer\Key\InMemory;
-use Lcobucci\JWT\Validation\Constraint\IssuedBy;
-use Lcobucci\JWT\Validation\Constraint\SignedWith;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Factories\CryptKeyFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -20,15 +15,17 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
-use Throwable;
+use SimpleSAML\OpenID\Core;
+use SimpleSAML\OpenID\Jwks;
 
 class IdTokenHintRule extends AbstractRule
 {
     public function __construct(
         RequestParamsResolver $requestParamsResolver,
         Helpers $helpers,
-        protected ModuleConfig $moduleConfig,
-        protected CryptKeyFactory $cryptKeyFactory,
+        protected readonly ModuleConfig $moduleConfig,
+        protected readonly Jwks $jwks,
+        protected readonly Core $core,
     ) {
         parent::__construct($requestParamsResolver, $helpers);
     }
@@ -58,16 +55,6 @@ class IdTokenHintRule extends AbstractRule
             return new Result($this->getKey(), $idTokenHintParam);
         }
 
-        // TODO v7 mivanci Fix: unmockable services... inject instead.
-        $privateKey = $this->cryptKeyFactory->buildPrivateKey();
-        $publicKey = $this->cryptKeyFactory->buildPublicKey();
-        /** @psalm-suppress ArgumentTypeCoercion */
-        $jwtConfig = Configuration::forAsymmetricSigner(
-            $this->moduleConfig->getProtocolSigner(),
-            InMemory::plainText($privateKey->getKeyContents(), $privateKey->getPassPhrase() ?? ''),
-            InMemory::plainText($publicKey->getKeyContents()),
-        );
-
         if (empty($idTokenHintParam)) {
             throw OidcServerException::invalidRequest(
                 ParamsEnum::IdTokenHint->value,
@@ -78,23 +65,25 @@ class IdTokenHintRule extends AbstractRule
             );
         }
 
-        try {
-            /** @var \Lcobucci\JWT\UnencryptedToken $idTokenHint */
-            $idTokenHint = $jwtConfig->parser()->parse($idTokenHintParam);
+        $jwks = $this->jwks->jwksDecoratorFactory()->fromJwkDecorators(
+            ...$this->moduleConfig->getProtocolSignatureKeyPairBag()->getAllPublicKeys(),
+        )->jsonSerialize();
 
-            /** @psalm-suppress ArgumentTypeCoercion */
-            $jwtConfig->validator()->assert(
-                $idTokenHint,
-                new IssuedBy($this->moduleConfig->getIssuer()),
-                // Note: although logout spec does not mention it, validating signature seems like an important check
-                // to make. However, checking the signature in a key roll-over scenario will fail for ID tokens
-                // signed with previous key...
-                new SignedWith(
-                    $this->moduleConfig->getProtocolSigner(),
-                    InMemory::plainText($publicKey->getKeyContents()),
-                ),
+        $idTokenHint = $this->core->idTokenFactory()->fromToken($idTokenHintParam);
+
+        if ($idTokenHint->getIssuer() !== $this->moduleConfig->getIssuer()) {
+            throw OidcServerException::invalidRequest(
+                ParamsEnum::IdTokenHint->value,
+                'Invalid ID Token Hint Issuer',
+                null,
+                null,
+                $state,
             );
-        } catch (Throwable $exception) {
+        }
+
+        try {
+            $idTokenHint->verifyWithKeySet($jwks);
+        } catch (\Throwable $exception) {
             throw OidcServerException::invalidRequest(
                 ParamsEnum::IdTokenHint->value,
                 $exception->getMessage(),
@@ -103,6 +92,7 @@ class IdTokenHintRule extends AbstractRule
                 $state,
             );
         }
+
 
         return new Result($this->getKey(), $idTokenHint);
     }

@@ -7,6 +7,9 @@ apply those relevant to your deployment.
 
 New features:
 
+- Instance can now be configured to support multiple protocol (Connect) and
+Federation signing algorithms and key pairs. This was introduced in order to
+support signature algorithm negotiation with the clients. 
 - Clients can now be configured with new properties:
   - ID Token Signing Algorithm (id_token_signed_response_alg)
 - Initial support for OpenID for Verifiable Credential Issuance
@@ -15,11 +18,16 @@ it in production.
 
 New configuration options:
 
-- Several new options are available in module config file regarding support for
-OpenID4VCI.
+- ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS - enables defining multiple
+protocol (Connect) related signing algorithms and key pairs.
+- ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS - enables defining
+multiple Federation related signing algorithms and key pairs.
+- Several new options regarding experimental support for OpenID4VCI.
 
 Major impact changes:
 
+- The following configuration options are removed:
+  - 
 - In v6 of the module, when defining custom scopes, there was a possibility to
 use standard claims with the 'are_multiple_claim_values_allowed' option.
 This would allow multiple values (array of values) for standard claims which

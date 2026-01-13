@@ -47,7 +47,6 @@ $config = [
      */
     // (optional) The private key passphrase.
     /** @deprecated  */
-//    ModuleConfig::OPTION_PKI_PRIVATE_KEY_PASSPHRASE => 'secret',
     // The certificate and private key filenames, with given defaults.
     /** @deprecated  */
     ModuleConfig::OPTION_PKI_PRIVATE_KEY_FILENAME => ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME,
