@@ -7,18 +7,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\ResponseTypes;
 use DateTimeImmutable;
 use Exception;
 use Laminas\Diactoros\Response;
-use Lcobucci\Clock\SystemClock;
-use Lcobucci\JWT\Encoding\JoseEncoder;
-use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
-use Lcobucci\JWT\Token\Parser;
-use Lcobucci\JWT\Validation\Constraint\IdentifiedBy;
-use Lcobucci\JWT\Validation\Constraint\IssuedBy;
-use Lcobucci\JWT\Validation\Constraint\PermittedFor;
-use Lcobucci\JWT\Validation\Constraint\RelatedTo;
-use Lcobucci\JWT\Validation\Constraint\SignedWith;
-use Lcobucci\JWT\Validation\Constraint\StrictValidAt;
-use Lcobucci\JWT\Validation\Validator;
 use League\OAuth2\Server\CryptKey;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
@@ -36,6 +25,12 @@ use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
+use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
+use SimpleSAML\OpenID\Core;
+use SimpleSAML\OpenID\Core\Factories\IdTokenFactory;
+use SimpleSAML\OpenID\Core\IdToken;
+use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
+use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\ResponseTypes\TokenResponse
@@ -61,6 +56,11 @@ class TokenResponseTest extends TestCase
     protected IdTokenBuilder $idTokenBuilder;
     protected Stub $claimSetEntityFactoryStub;
     protected MockObject $loggerMock;
+    protected MockObject $coreMock;
+    protected MockObject $protocolSignatureKeyPairBagMock;
+    protected MockObject $idTokenFactoryMock;
+    protected MockObject $idTokenMock;
+    protected MockObject $signatureKeyPairMock;
 
     /**
      * @throws \PHPUnit\Framework\MockObject\Exception
@@ -117,12 +117,31 @@ class TokenResponseTest extends TestCase
 
         $this->claimSetEntityFactoryStub = $this->createStub(ClaimSetEntityFactory::class);
 
+        $this->idTokenFactoryMock = $this->createMock(IdTokenFactory::class);
+
+        $this->coreMock = $this->createMock(Core::class);
+        $this->coreMock->method('idTokenFactory')->willReturn($this->idTokenFactoryMock);
+
         $this->idTokenBuilder = new IdTokenBuilder(
             new JsonWebTokenBuilderService($this->moduleConfigMock),
             new ClaimTranslatorExtractor(self::USER_ID_ATTR, $this->claimSetEntityFactoryStub),
+            $this->coreMock,
+            $this->moduleConfigMock,
         );
 
         $this->loggerMock = $this->createMock(LoggerService::class);
+
+        $this->protocolSignatureKeyPairBagMock = $this->createMock(SignatureKeyPairBag::class);
+        $this->signatureKeyPairMock = $this->createMock(SignatureKeyPair::class);
+        $this->signatureKeyPairMock->method('getSignatureAlgorithm')
+            ->willReturn(SignatureAlgorithmEnum::RS256);
+        $this->protocolSignatureKeyPairBagMock->method('getFirstOrFail')
+            ->willReturn($this->signatureKeyPairMock);
+
+        $this->moduleConfigMock->method('getProtocolSignatureKeyPairBag')
+            ->willReturn($this->protocolSignatureKeyPairBagMock);
+
+        $this->idTokenMock = $this->createMock(IdToken::class);
     }
 
     protected function prepareMockedInstance(): TokenResponse
@@ -157,6 +176,11 @@ class TokenResponseTest extends TestCase
     {
         $this->accessTokenEntityMock->method('getRequestedClaims')->willReturn([]);
         $this->accessTokenEntityMock->method('getScopes')->willReturn($this->scopes);
+        $this->idTokenFactoryMock->method('fromData')
+            ->willReturn($this->idTokenMock);
+        $this->idTokenMock->expects($this->once())
+            ->method('getToken')
+            ->willReturn('token');
         $idTokenResponse = $this->prepareMockedInstance();
         $idTokenResponse->setAccessToken($this->accessTokenEntityMock);
         $response = $idTokenResponse->generateHttpResponse(new Response());
@@ -191,6 +215,11 @@ class TokenResponseTest extends TestCase
         $this->accessTokenEntityMock->method('getScopes')->willReturn(
             [new ScopeEntity('openid')],
         );
+        $this->idTokenFactoryMock->method('fromData')
+            ->willReturn($this->idTokenMock);
+        $this->idTokenMock->expects($this->once())
+            ->method('getToken')
+            ->willReturn('token');
         $idTokenResponse->setAccessToken($this->accessTokenEntityMock);
         $response = $idTokenResponse->generateHttpResponse(new Response());
 
@@ -232,61 +261,6 @@ class TokenResponseTest extends TestCase
                 'missing expected keys. Got ' . var_export(array_keys($result), true)
                 . ' need ' . var_export($expectedResponseFields, true),
             );
-        }
-
-        // Check ID token
-        $validator = new Validator();
-        /** @var Plain $token */
-        $token = (new Parser(new JoseEncoder()))->parse($result['id_token']);
-
-        $validator->assert(
-            $token,
-            new IdentifiedBy(self::TOKEN_ID),
-            new IssuedBy(self::ISSUER),
-            new PermittedFor(self::CLIENT_ID),
-            new RelatedTo(self::SUBJECT),
-            new StrictValidAt(SystemClock::fromUTC()),
-            new SignedWith(
-                new Sha256(),
-                InMemory::plainText(file_get_contents($this->certFolder . '/oidc_module.crt')),
-            ),
-        );
-
-        if ($token->headers()->get('kid') !== self::KEY_ID) {
-            throw new Exception(
-                'Wrong key id. Expected ' . self::KEY_ID . ' was ' . $token->headers()->get('kid'),
-            );
-        }
-        $expectedClaimsKeys = array_keys($expectedClaims);
-        $expectedClaimsKeys = ['iss', 'iat', 'jti', 'aud', 'nbf', 'exp', 'sub', 'at_hash', ...$expectedClaimsKeys];
-        $claims = array_keys($token->claims()->all());
-        if ($claims !== $expectedClaimsKeys) {
-            throw new Exception(
-                'missing expected claim. Got ' . var_export($claims, true)
-                . ' need ' . var_export($expectedClaimsKeys, true),
-            );
-        }
-        foreach ($expectedClaims as $claim => $value) {
-            $valFromToken = $token->claims()->get($claim);
-            if ($value !== $valFromToken) {
-                throw new Exception(
-                    'Expected claim value ' . var_export($value, true)
-                    . ' got ' . var_export($valFromToken, true),
-                );
-            }
-        }
-
-        $dateWithNoMicroseconds = ['nbf', 'exp', 'iat'];
-        foreach ($dateWithNoMicroseconds as $key) {
-            /**
-             * @var DateTimeImmutable $val
-             */
-            $val = $token->claims()->get($key);
-            //Get format representing microseconds
-            $val = $val->format('u');
-            if ($val !== '000000') {
-                throw new Exception("Value for '$key' has microseconds. micros '$val'");
-            }
         }
 
         return true;

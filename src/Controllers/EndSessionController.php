@@ -65,7 +65,9 @@ class EndSessionController
             (string)$idTokenHint->claims()->get('sid');
         }
 
-        $this->loggerService->debug('EndSession: ID Token Hint Session ID: ' . $sidClaim ?? 'N/A');
+        $this->loggerService->debug(
+            'EndSession: ID Token Hint Session ID: ' . var_export($sidClaim, true),
+        );
 
         // Check if RP is requesting logout for session that previously existed (not this current session).
         // Claim 'sid' from 'id_token_hint' logout parameter indicates for which session should log out be
@@ -119,7 +121,9 @@ class EndSessionController
                 $this->sessionService->getCurrentSession()->doLogout($authSourceId);
             }
         } else {
-            $this->loggerService->debug('Current session authorities not found for ID: ' . $sidClaim);
+            $this->loggerService->debug(
+                'Current session authorities not found for ID: ' . var_export($sidClaim, true),
+            );
         }
 
         $this->loggerService->debug('Was logout action called: ' . var_export($wasLogoutActionCalled, true));
@@ -213,12 +217,12 @@ class EndSessionController
                 'Logout request includes post-logout redirect URI: ' . $postLogoutRedirectUri,
             );
 
-            if ($logoutRequest->getState() !== null) {
+            if (($logoutState = $logoutRequest->getState()) !== null) {
                 $this->loggerService->debug(
-                    'Appending logout request state: ' . $logoutRequest->getState(),
+                    'Appending logout request state: ' . $logoutState,
                 );
                 $postLogoutRedirectUri .= (!str_contains($postLogoutRedirectUri, '?')) ? '?' : '&';
-                $postLogoutRedirectUri .= http_build_query(['state' => $logoutRequest->getState()]);
+                $postLogoutRedirectUri .= http_build_query(['state' => $logoutState]);
             } else {
                 $this->loggerService->debug(
                     'No state provided for post logout',
