@@ -5,22 +5,22 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Factories\Entities;
 
 use DateTimeImmutable;
-use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
+use SimpleSAML\OpenID\Jws;
 
 class AccessTokenEntityFactory
 {
     public function __construct(
         protected readonly Helpers $helpers,
-        protected readonly CryptKey $privateKey,
-        protected readonly JsonWebTokenBuilderService $jsonWebTokenBuilderService,
         protected readonly ScopeEntityFactory $scopeEntityFactory,
+        protected readonly Jws $jws,
+        protected readonly ModuleConfig $moduleConfig,
     ) {
     }
 
@@ -47,8 +47,8 @@ class AccessTokenEntityFactory
             $clientEntity,
             $scopes,
             $expiryDateTime,
-            $this->privateKey,
-            $this->jsonWebTokenBuilderService,
+            $this->jws,
+            $this->moduleConfig,
             $userIdentifier,
             $authCodeId,
             $requestedClaims,

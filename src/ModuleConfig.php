@@ -29,7 +29,10 @@ use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ScopesEnum;
 use SimpleSAML\OpenID\Codebooks\TrustMarkStatusEndpointUsagePolicyEnum;
+use SimpleSAML\OpenID\Serializers\JwsSerializerBag;
+use SimpleSAML\OpenID\Serializers\JwsSerializerEnum;
 use SimpleSAML\OpenID\SupportedAlgorithms;
+use SimpleSAML\OpenID\SupportedSerializers;
 use SimpleSAML\OpenID\ValueAbstracts;
 use SimpleSAML\OpenID\ValueAbstracts\KeyPairFilenameConfig;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
@@ -130,6 +133,7 @@ class ModuleConfig
     'allowed_redirect_uri_prefixes_for_non_registered_clients_for_vci';
     final public const OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS = 'protocol_signature_key_pairs';
     final public const OPTION_FEDERATION_SIGNATURE_KEY_PAIRS = 'federation_signature_key_pairs';
+    final public const OPTION_TIMESTAMP_VALIDATION_LEEWAY = 'timestamp_validation_leeway';
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
@@ -161,6 +165,7 @@ class ModuleConfig
      */
     private readonly Configuration $sspConfig;
     protected ?SignatureKeyPairBag $protocolSignatureKeyPairBag = null;
+    protected ?SignatureKeyPairConfigBag $protocolSignatureKeyPairConfigBag = null;
     protected ?SignatureKeyPairBag $federationSignatureKeyPairBag = null;
 
     /**
@@ -378,6 +383,46 @@ class ModuleConfig
         );
     }
 
+    public function getSupportedSerializers(): SupportedSerializers
+    {
+        return new SupportedSerializers(
+            new JwsSerializerBag(
+                JwsSerializerEnum::Compact,
+            ),
+        );
+    }
+
+    /**
+     * @throws ConfigurationError
+     * @return non-empty-array
+     */
+    public function getProtocolSignatureKeyPairs(): array
+    {
+
+        $signatureKeyPairs = $this->config()->getArray(ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS);
+
+        if (empty($signatureKeyPairs)) {
+            throw new ConfigurationError('At least one protocol signature key-pair pair must be provided.');
+        }
+
+        return $signatureKeyPairs;
+    }
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @psalm-suppress MixedAssignment, ArgumentTypeCoercion
+     */
+    public function getProtocolSignatureKeyPairConfigBag(): SignatureKeyPairConfigBag
+    {
+        if ($this->protocolSignatureKeyPairConfigBag instanceof SignatureKeyPairConfigBag) {
+            return $this->protocolSignatureKeyPairConfigBag;
+        }
+
+        return $this->protocolSignatureKeyPairConfigBag = $this->getSignatureKeyPairConfigBag(
+            $this->getProtocolSignatureKeyPairs(),
+        );
+    }
+
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
      * @psalm-suppress MixedAssignment, ArgumentTypeCoercion
@@ -388,17 +433,9 @@ class ModuleConfig
             return $this->protocolSignatureKeyPairBag;
         }
 
-        $signatureKeyPairs = $this->config()->getArray(ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS);
-
-        if (empty($signatureKeyPairs)) {
-            throw new ConfigurationError('At least one protocol signature key-pair pair should be provided.');
-        }
-
-        $signatureKeyPairConfigBag = $this->getSignatureKeyPairConfigBag($signatureKeyPairs);
-
         return $this->protocolSignatureKeyPairBag = $this->valueAbstracts
             ->signatureKeyPairBagFactory()
-            ->fromConfig($signatureKeyPairConfigBag);
+            ->fromConfig($this->getProtocolSignatureKeyPairConfigBag());
     }
 
     /**
@@ -1188,7 +1225,6 @@ class ModuleConfig
     }
 
     /**
-     * @throws ConfigurationError
      * @return array{
      *     algorithm: \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum,
      *     private_key_filename: non-empty-string,
@@ -1196,9 +1232,9 @@ class ModuleConfig
      *     private_key_password: ?non-empty-string,
      *     key_id: ?non-empty-string
      * }
-     *
+     * @throws ConfigurationError     *
      */
-    protected function getValidateSignatureKeyPairArray(mixed $signatureKeyPair): array
+    public function getValidatedSignatureKeyPairArray(mixed $signatureKeyPair): array
     {
         if (!is_array($signatureKeyPair)) {
             throw new ConfigurationError(
@@ -1313,7 +1349,7 @@ class ModuleConfig
                 self::KEY_PUBLIC_KEY_FILENAME => $publicKeyFilename,
                 self::KEY_PRIVATE_KEY_PASSWORD => $privateKeyPassword,
                 self::KEY_KEY_ID => $keyId,
-            ] = $this->getValidateSignatureKeyPairArray($signatureKeyPair);
+            ] = $this->getValidatedSignatureKeyPairArray($signatureKeyPair);
 
             $signatureKeyPairConfigBag->add(new SignatureKeyPairConfig(
                 $algorithm,
@@ -1327,5 +1363,15 @@ class ModuleConfig
         }
 
         return $signatureKeyPairConfigBag;
+    }
+
+    public function getTimestampValidationLeeway(): DateInterval
+    {
+        return new DateInterval(
+            $this->config()->getOptionalString(
+                self::OPTION_TIMESTAMP_VALIDATION_LEEWAY,
+                'PT1M',
+            ),
+        );
     }
 }

@@ -133,11 +133,24 @@ $config = [
     /**
      * Token related options.
      */
-    // Authorization code and tokens TTL (validity duration), with given examples. For duration format info, check
+    // Authorization code and tokens TTL (validity duration), with given examples.
+    // For duration format info, check
     // https://www.php.net/manual/en/dateinterval.construct.php
     ModuleConfig::OPTION_TOKEN_AUTHORIZATION_CODE_TTL => 'PT10M', // 10 minutes
     ModuleConfig::OPTION_TOKEN_REFRESH_TOKEN_TTL => 'P1M', // 1 month
     ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_TTL => 'PT1H', // 1 hour,
+
+    /**
+     * (optional) Timestamp Validation Leeway - additional time tolerance
+     * allowed for timestamp validation. This is used when validating
+     * timestamps like Expiration Time (exp), Issued At (iat), Not
+     * Before (nbf), and similar claims on JWS artifacts.
+     * If not set, falls back to 'PT1M' (1 minute).
+     *
+     * For duration format info, check
+     * https://www.php.net/manual/en/dateinterval.construct.php
+     */
+    ModuleConfig::OPTION_TIMESTAMP_VALIDATION_LEEWAY => 'PT1M',
 
     /**
      * Authentication related options.

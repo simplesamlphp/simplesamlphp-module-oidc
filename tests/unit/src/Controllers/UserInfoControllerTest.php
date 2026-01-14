@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers;
 
 use Laminas\Diactoros\ServerRequest;
-use League\OAuth2\Server\ResourceServer;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -18,6 +17,7 @@ use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Server\ResourceServer;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;

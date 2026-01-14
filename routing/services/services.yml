@@ -75,29 +75,19 @@ services:
     class: League\OAuth2\Server\CryptKey
     factory: ['@SimpleSAML\Module\oidc\Factories\CryptKeyFactory', 'buildPublicKey']
 
-  SimpleSAML\Module\oidc\Factories\ResourceServerFactory:
-    arguments:
-      $publicKey: '@oidc.key.public'
   SimpleSAML\Module\oidc\Factories\AuthorizationServerFactory:
     arguments:
       $privateKey: '@oidc.key.private'
   SimpleSAML\Module\oidc\Factories\TokenResponseFactory:
     arguments:
       $privateKey: '@oidc.key.private'
-  SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory:
-    arguments:
-      $privateKey: '@oidc.key.private'
 
-  SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator:
-    arguments:
-      $publicKey: '@oidc.key.public'
+  SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory: ~
 
+  SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator: ~
+  SimpleSAML\Module\oidc\Server\ResourceServer: ~
   SimpleSAML\Module\oidc\Server\AuthorizationServer:
     factory: ['@SimpleSAML\Module\oidc\Factories\AuthorizationServerFactory', 'build']
-
-  # OAuth2 Server
-  League\OAuth2\Server\ResourceServer:
-    factory: ['@SimpleSAML\Module\oidc\Factories\ResourceServerFactory', 'build']
 
   # Utils
   SimpleSAML\Module\oidc\Utils\Debug\ArrayLogger: ~
@@ -134,6 +124,8 @@ services:
     factory: [ '@SimpleSAML\Module\oidc\Factories\JwksFactory', 'build' ]
   SimpleSAML\OpenID\Jwk: ~
   SimpleSAML\OpenID\Did: ~
+  SimpleSAML\OpenID\Jws:
+    factory: [ '@SimpleSAML\Module\oidc\Factories\JwsFactory', 'build' ]
 
 
   # SSP

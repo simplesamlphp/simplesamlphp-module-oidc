@@ -27,6 +27,7 @@ class FederationFactory
         return new Federation(
             supportedAlgorithms: $this->moduleConfig->getSupportedAlgorithms(),
             maxCacheDuration: $this->moduleConfig->getFederationCacheMaxDurationForFetched(),
+            timestampValidationLeeway: $this->moduleConfig->getTimestampValidationLeeway(),
             cache: $this->federationCache?->cache,
             logger: $this->loggerService,
             defaultTrustMarkStatusEndpointUsagePolicyEnum:

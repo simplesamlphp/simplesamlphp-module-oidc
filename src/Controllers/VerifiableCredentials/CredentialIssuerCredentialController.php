@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Controllers\VerifiableCredentials;
 
 use Base64Url\Base64Url;
-use League\OAuth2\Server\ResourceServer;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
@@ -14,6 +13,7 @@ use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Server\ResourceServer;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
