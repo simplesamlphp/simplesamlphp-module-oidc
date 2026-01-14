@@ -7,7 +7,6 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\ResponseTypes;
 use DateTimeImmutable;
 use Exception;
 use Laminas\Diactoros\Response;
-use Lcobucci\JWT\Signer\Rsa\Sha256;
 use League\OAuth2\Server\CryptKey;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
@@ -22,7 +21,6 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\IdentityProviderInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\TokenResponse;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
-use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
@@ -100,15 +98,7 @@ class TokenResponseTest extends TestCase
             ->willReturn($this->userEntity);
 
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
-        $this->moduleConfigMock->method('getProtocolSigner')->willReturn(new Sha256());
         $this->moduleConfigMock->method('getIssuer')->willReturn(self::ISSUER);
-        $this->moduleConfigMock->method('getProtocolCertPath')
-            ->willReturn($this->certFolder . '/oidc_module.crt');
-        $this->moduleConfigMock->method('getProtocolPrivateKeyPath')
-            ->willReturn($this->certFolder . '/oidc_module.key');
-        $this->moduleConfigMock
-            ->expects($this->atLeast(1))
-            ->method('getProtocolPrivateKeyPassPhrase');
         $this->sspConfigurationMock = $this->createMock(Configuration::class);
         $this->moduleConfigMock->method('config')
             ->willReturn($this->sspConfigurationMock);
@@ -123,7 +113,6 @@ class TokenResponseTest extends TestCase
         $this->coreMock->method('idTokenFactory')->willReturn($this->idTokenFactoryMock);
 
         $this->idTokenBuilder = new IdTokenBuilder(
-            new JsonWebTokenBuilderService($this->moduleConfigMock),
             new ClaimTranslatorExtractor(self::USER_ID_ATTR, $this->claimSetEntityFactoryStub),
             $this->coreMock,
             $this->moduleConfigMock,

@@ -13,7 +13,6 @@ declare(strict_types=1);
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-use Lcobucci\JWT\Signer\Rsa\Sha256;
 use SimpleSAML\Module\oidc\ModuleConfig;
 
 $config = [
@@ -22,8 +21,6 @@ $config = [
     ModuleConfig::OPTION_TOKEN_AUTHORIZATION_CODE_TTL => 'PT10M',
     ModuleConfig::OPTION_TOKEN_REFRESH_TOKEN_TTL => 'P1M',
     ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_TTL => 'PT1H',
-
-    ModuleConfig::OPTION_TOKEN_SIGNER => Sha256::class,
 
     ModuleConfig::OPTION_AUTH_SOURCE => 'default-sp',
 
@@ -98,14 +95,6 @@ $config = [
 
     ModuleConfig::OPTION_FEDERATION_CACHE_MAX_DURATION_FOR_FETCHED => 'PT6H',
 
-    ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME =>
-        ModuleConfig::DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
-    ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_PASSPHRASE => 'abc123',
-    ModuleConfig::OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME =>
-        ModuleConfig::DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME,
-
-    ModuleConfig::OPTION_FEDERATION_TOKEN_SIGNER => Sha256::class,
-
     ModuleConfig::OPTION_ORGANIZATION_NAME => 'Foo corp',
     ModuleConfig::OPTION_DISPLAY_NAME => 'Foo corp',
     ModuleConfig::OPTION_DESCRIPTION => 'Foo provider',
@@ -116,6 +105,5 @@ $config = [
     ModuleConfig::OPTION_LOGO_URI => 'https://example.org/logo',
     ModuleConfig::OPTION_POLICY_URI => 'https://example.org/policy',
     ModuleConfig::OPTION_INFORMATION_URI => 'https://example.org/info',
-    ModuleConfig::OPTION_HOMEPAGE_URI => 'https://example.org',
     ModuleConfig::OPTION_ORGANIZATION_URI => 'https://example.org',
 ];

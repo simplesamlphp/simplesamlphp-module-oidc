@@ -17,7 +17,6 @@ use SimpleSAML\Module\oidc\Server\ResourceServer;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
-use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\AtContextsEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
@@ -27,7 +26,6 @@ use SimpleSAML\OpenID\Codebooks\JwtTypesEnum;
 use SimpleSAML\OpenID\Did;
 use SimpleSAML\OpenID\Exceptions\OpenId4VciProofException;
 use SimpleSAML\OpenID\Exceptions\OpenIdException;
-use SimpleSAML\OpenID\Jwk;
 use SimpleSAML\OpenID\VerifiableCredentials;
 use SimpleSAML\OpenID\VerifiableCredentials\OpenId4VciProof;
 use Symfony\Component\HttpFoundation\Request;
@@ -50,7 +48,6 @@ class CredentialIssuerCredentialController
         protected readonly Routes $routes,
         protected readonly PsrHttpBridge $psrHttpBridge,
         protected readonly VerifiableCredentials $verifiableCredentials,
-        protected readonly Jwk $jwk,
         protected readonly LoggerService $loggerService,
         protected readonly RequestParamsResolver $requestParamsResolver,
         protected readonly UserRepository $userRepository,
@@ -592,18 +589,13 @@ class CredentialIssuerCredentialController
             $sub,
         );
 
-        $signingKey = $this->jwk->jwkDecoratorFactory()->fromPkcs1Or8KeyFile(
-            $this->moduleConfig->getProtocolPrivateKeyPath(),
-            null,
-        );
+        $protocolSignatureKeyPair = $this->moduleConfig
+            ->getProtocolSignatureKeyPairBag()
+            ->getFirstOrFail();
 
-        $publicKey = $this->jwk->jwkDecoratorFactory()->fromPkcs1Or8KeyFile(
-            $this->moduleConfig->getProtocolCertPath(),
-            null,
-            [
-                //ClaimsEnum::Use->value => 'sig',
-            ],
-        );
+        $signingKey = $protocolSignatureKeyPair->getKeyPair()->getPrivateKey();
+
+        $publicKey = $protocolSignatureKeyPair->getKeyPair()->getPublicKey();
 
         $base64PublicKey = json_encode($publicKey->jwk()->all(), JSON_UNESCAPED_SLASHES);
         $base64PublicKey = Base64Url::encode($base64PublicKey);
@@ -613,7 +605,7 @@ class CredentialIssuerCredentialController
         $issuedAt = new \DateTimeImmutable();
 
         $vcId = $this->moduleConfig->getIssuer() . '/vc/' . uniqid();
-        $signatureAlgorithm = SignatureAlgorithmEnum::from($this->moduleConfig->getProtocolSigner()->algorithmId());
+        $signatureAlgorithm = $protocolSignatureKeyPair->getSignatureAlgorithm();
 
         $verifiableCredential = null;
 

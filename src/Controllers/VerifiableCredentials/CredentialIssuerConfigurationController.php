@@ -40,7 +40,7 @@ class CredentialIssuerConfigurationController
     {
         // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-issuer-metadata-p
 
-        $signer = $this->moduleConfig->getProtocolSigner();
+        $signatureKeyPair = $this->moduleConfig->getProtocolSignatureKeyPairBag()->getFirstOrFail();
 
         $credentialConfigurationsSupported = $this->moduleConfig->getCredentialConfigurationsSupported();
 
@@ -50,12 +50,12 @@ class CredentialIssuerConfigurationController
             if (is_array($credentialConfiguration)) {
                 // Draft 17
                 $credentialConfiguration[ClaimsEnum::CredentialSigningAlgValuesSupported->value] = [
-                    $signer->algorithmId(),
+                    $signatureKeyPair->getSignatureAlgorithm()->value,
                 ];
                 // Earlier drafts
                 // TODO mivanci Delete CryptographicSuitesSupported once we are on the final draft.
                 $credentialConfiguration[ClaimsEnum::CryptographicSuitesSupported->value] = [
-                    $signer->algorithmId(),
+                    $signatureKeyPair->getSignatureAlgorithm()->value,
                 ];
                 $credentialConfigurationsSupported[$credentialConfigurationId] = $credentialConfiguration;
             }

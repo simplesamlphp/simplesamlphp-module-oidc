@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
-use Lcobucci\JWT\Signer\Rsa\Sha256;
 use League\OAuth2\Server\CryptKey;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
@@ -59,7 +58,6 @@ class IdTokenHintRuleTest extends TestCase
         $this->resultBagStub = $this->createStub(ResultBagInterface::class);
 
         $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
-        $this->moduleConfigStub->method('getProtocolSigner')->willReturn(new Sha256());
         $this->moduleConfigStub->method('getIssuer')->willReturn(self::$issuer);
 
         $this->loggerServiceStub = $this->createStub(LoggerService::class);

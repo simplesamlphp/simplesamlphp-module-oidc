@@ -8,22 +8,17 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
-use SimpleSAML\Module\oidc\Utils\FingerprintGenerator;
 use SimpleSAML\Module\oidc\Utils\Routes;
-use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ContentTypesEnum;
 use SimpleSAML\OpenID\Codebooks\EntityTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ErrorsEnum;
 use SimpleSAML\OpenID\Codebooks\HttpHeadersEnum;
-use SimpleSAML\OpenID\Codebooks\JwtTypesEnum;
 use SimpleSAML\OpenID\Federation;
-use SimpleSAML\OpenID\Jwk;
 use SimpleSAML\OpenID\Jwks;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -38,14 +33,12 @@ class EntityStatementController
      */
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
-        protected readonly JsonWebTokenBuilderService $jsonWebTokenBuilderService,
         protected readonly Jwks $jwks,
         protected readonly OpMetadataService $opMetadataService,
         protected readonly ClientRepository $clientRepository,
         protected readonly Helpers $helpers,
         protected readonly Routes $routes,
         protected readonly Federation $federation,
-        protected readonly Jwk $jwk,
         protected readonly LoggerService $loggerService,
         protected readonly ?FederationCache $federationCache,
     ) {
@@ -76,12 +69,6 @@ class EntityStatementController
 
         $currentTimestamp = $this->helpers->dateTime()->getUtc()->getTimestamp();
 
-        $header = [
-            ClaimsEnum::Kid->value => FingerprintGenerator::forFile(
-                $this->moduleConfig->getFederationCertPath(),
-            ),
-        ];
-
         $jwks = $this->jwks->jwksDecoratorFactory()->fromJwkDecorators(
             ...$this->moduleConfig->getFederationSignatureKeyPairBag()->getAllPublicKeys(),
         )->jsonSerialize();
@@ -89,7 +76,7 @@ class EntityStatementController
         $payload = [
             ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
             ClaimsEnum::Iat->value => $currentTimestamp,
-            ClaimsEnum::Jti->value => $this->helpers->random()->getIdentifier(),
+            ClaimsEnum::Jti->value => $this->federation->helpers()->random()->string(),
             // This is entity configuration (statement about itself).
             ClaimsEnum::Sub->value => $this->moduleConfig->getIssuer(),
             ClaimsEnum::Exp->value => $this->helpers->dateTime()->getUtc()->add(
@@ -211,16 +198,21 @@ class EntityStatementController
         // Remaining claims, add if / when ready.
         // * crit
 
+        $signingKeyPair = $this->moduleConfig
+            ->getFederationSignatureKeyPairBag()
+            ->getFirstOrFail();
+
+        $header = [
+            ClaimsEnum::Kid->value => $signingKeyPair->getKeyPair()->getKeyId(),
+        ];
+
         /** @psalm-suppress ArgumentTypeCoercion */
         $entityConfigurationToken = $this->federation->entityStatementFactory()->fromData(
-            $this->jwk->jwkDecoratorFactory()->fromPkcs1Or8KeyFile(
-                $this->moduleConfig->getFederationPrivateKeyPath(),
-            ),
-            SignatureAlgorithmEnum::from($this->moduleConfig->getFederationSigner()->algorithmId()),
+            $signingKeyPair->getKeyPair()->getPrivateKey(),
+            $signingKeyPair->getSignatureAlgorithm(),
             $payload,
             $header,
-        )
-        ->getToken();
+        )->getToken();
 
         $this->federationCache?->set(
             $entityConfigurationToken,
@@ -274,37 +266,38 @@ class EntityStatementController
             );
         }
 
-        $builder = $this->jsonWebTokenBuilderService->getFederationJwtBuilder()
-            ->withHeader(ClaimsEnum::Typ->value, JwtTypesEnum::EntityStatementJwt->value)
-            ->relatedTo($subject)
-            ->expiresAt(
-                $this->helpers->dateTime()->getUtc()->add($this->moduleConfig->getFederationEntityStatementDuration()),
-            )->withClaim(
-                ClaimsEnum::Jwks->value,
-                $jwks,
-            )
-            ->withClaim(
-                ClaimsEnum::Metadata->value,
-                [
-                    EntityTypesEnum::OpenIdRelyingParty->value => [
-                        ClaimsEnum::ClientName->value => $client->getName(),
-                        ClaimsEnum::ClientId->value => $client->getIdentifier(),
-                        ClaimsEnum::RedirectUris->value => $client->getRedirectUris(),
-                        ClaimsEnum::Scope->value => implode(' ', $client->getScopes()),
-                        ClaimsEnum::ClientRegistrationTypes->value => $client->getClientRegistrationTypes(),
-                        // Optional claims...
-                        ...(array_filter(
-                            [
-                                ClaimsEnum::BackChannelLogoutUri->value => $client->getBackChannelLogoutUri(),
-                                ClaimsEnum::PostLogoutRedirectUris->value => $client->getPostLogoutRedirectUri(),
-                            ],
-                        )),
-                        // TODO v7 mivanci Continue
-                        // https://openid.net/specs/openid-connect-registration-1_0.html#ClientMetadata
-                        // https://www.iana.org/assignments/oauth-parameters/oauth-parameters.xhtml#client-metadata
-                    ],
+        $currentTimestamp = $this->helpers->dateTime()->getUtc()->getTimestamp();
+
+        $payload = [
+            ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
+            ClaimsEnum::Iat->value => $currentTimestamp,
+            ClaimsEnum::Jti->value => $this->helpers->random()->getIdentifier(),
+
+            ClaimsEnum::Sub->value => $subject,
+            ClaimsEnum::Exp->value => $this->helpers->dateTime()->getUtc()->add(
+                $this->moduleConfig->getFederationEntityStatementDuration(),
+            )->getTimestamp(),
+            ClaimsEnum::Jwks->value => $jwks,
+            ClaimsEnum::Metadata->value => [
+                EntityTypesEnum::OpenIdRelyingParty->value => [
+                    ClaimsEnum::ClientName->value => $client->getName(),
+                    ClaimsEnum::ClientId->value => $client->getIdentifier(),
+                    ClaimsEnum::RedirectUris->value => $client->getRedirectUris(),
+                    ClaimsEnum::Scope->value => implode(' ', $client->getScopes()),
+                    ClaimsEnum::ClientRegistrationTypes->value => $client->getClientRegistrationTypes(),
+                    // Optional claims...
+                    ...(array_filter(
+                        [
+                            ClaimsEnum::BackChannelLogoutUri->value => $client->getBackChannelLogoutUri(),
+                            ClaimsEnum::PostLogoutRedirectUris->value => $client->getPostLogoutRedirectUri(),
+                        ],
+                    )),
+                    // TODO v7 mivanci Continue
+                    // https://openid.net/specs/openid-connect-registration-1_0.html#ClientMetadata
+                    // https://www.iana.org/assignments/oauth-parameters/oauth-parameters.xhtml#client-metadata
                 ],
-            );
+            ],
+        ];
 
         // TODO v7 mivanci Continue
         // Note: claims which can be present in subordinate statements:
@@ -312,9 +305,21 @@ class EntityStatementController
         // * constraints
         // * metadata_policy_crit
 
-        $jws = $this->jsonWebTokenBuilderService->getSignedFederationJwt($builder);
+        $signingKeyPair = $this->moduleConfig
+            ->getFederationSignatureKeyPairBag()
+            ->getFirstOrFail();
 
-        $subordinateStatementToken = $jws->toString();
+
+        $header = [
+            ClaimsEnum::Kid->value => $signingKeyPair->getKeyPair()->getKeyId(),
+        ];
+
+        $subordinateStatementToken = $this->federation->entityStatementFactory()->fromData(
+            $signingKeyPair->getKeyPair()->getPrivateKey(),
+            $signingKeyPair->getSignatureAlgorithm(),
+            $payload,
+            $header,
+        )->getToken();
 
         $this->federationCache?->set(
             $subordinateStatementToken,

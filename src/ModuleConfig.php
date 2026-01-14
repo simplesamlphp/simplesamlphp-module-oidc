@@ -18,7 +18,6 @@ namespace SimpleSAML\Module\oidc;
 
 use DateInterval;
 use Lcobucci\JWT\Signer;
-use Lcobucci\JWT\Signer\Rsa\Sha256;
 use ReflectionClass;
 use SimpleSAML\Configuration;
 use SimpleSAML\Error\ConfigurationError;
@@ -48,21 +47,13 @@ class ModuleConfig
     public const KEY_PUBLIC_KEY_FILENAME = 'public_key_filename';
     public const KEY_PRIVATE_KEY_PASSWORD = 'private_key_password';
     public const KEY_KEY_ID = 'key_id';
-
-    /**
-     * Default file name for module configuration. Can be overridden in constructor, for example, for testing purposes.
-     */
     final public const DEFAULT_FILE_NAME = 'module_oidc.php';
-
     final public const OPTION_PKI_PRIVATE_KEY_PASSPHRASE = 'pass_phrase';
-    final public const OPTION_PKI_PRIVATE_KEY_FILENAME = 'privatekey';
     final public const DEFAULT_PKI_PRIVATE_KEY_FILENAME = 'oidc_module.key';
-    final public const OPTION_PKI_CERTIFICATE_FILENAME = 'certificate';
     final public const DEFAULT_PKI_CERTIFICATE_FILENAME = 'oidc_module.crt';
     final public const OPTION_TOKEN_AUTHORIZATION_CODE_TTL = 'authCodeDuration';
     final public const OPTION_TOKEN_REFRESH_TOKEN_TTL = 'refreshTokenDuration';
     final public const OPTION_TOKEN_ACCESS_TOKEN_TTL = 'accessTokenDuration';
-    final public const OPTION_TOKEN_SIGNER = 'signer';
     final public const OPTION_AUTH_SOURCE = 'auth';
     final public const OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE = 'useridattr';
     final public const OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE = 'translate';
@@ -74,11 +65,7 @@ class ModuleConfig
     final public const OPTION_CRON_TAG = 'cron_tag';
     final public const OPTION_ADMIN_UI_PERMISSIONS = 'permissions';
     final public const OPTION_ADMIN_UI_PAGINATION_ITEMS_PER_PAGE = 'items_per_page';
-    final public const OPTION_FEDERATION_TOKEN_SIGNER = 'federation_token_signer';
-    final public const OPTION_PKI_FEDERATION_PRIVATE_KEY_PASSPHRASE = 'federation_private_key_passphrase';
-    final public const OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME = 'federation_private_key_filename';
     final public const DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME = 'oidc_module_federation.key';
-    final public const OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME = 'federation_certificate_filename';
     final public const DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME = 'oidc_module_federation.crt';
     final public const OPTION_ISSUER = 'issuer';
     final public const OPTION_FEDERATION_ENTITY_STATEMENT_DURATION = 'federation_entity_statement_duration';
@@ -91,7 +78,6 @@ class ModuleConfig
     final public const OPTION_LOGO_URI = 'logo_uri';
     final public const OPTION_POLICY_URI = 'policy_uri';
     final public const OPTION_INFORMATION_URI = 'information_uri';
-    final public const OPTION_HOMEPAGE_URI = 'homepage_uri';
     final public const OPTION_ORGANIZATION_URI = 'organization_uri';
     final public const OPTION_FEDERATION_ENABLED = 'federation_enabled';
     final public const OPTION_FEDERATION_CACHE_ADAPTER = 'federation_cache_adapter';
@@ -111,13 +97,6 @@ class ModuleConfig
     final public const OPTION_PROTOCOL_CLIENT_ENTITY_CACHE_DURATION = 'protocol_client_entity_cache_duration';
     final public const OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED = 'protocol_discover_show_claims_supported';
 
-    final public const OPTION_PKI_NEW_PRIVATE_KEY_PASSPHRASE = 'new_private_key_passphrase';
-    final public const OPTION_PKI_NEW_PRIVATE_KEY_FILENAME = 'new_privatekey';
-    final public const OPTION_PKI_NEW_CERTIFICATE_FILENAME = 'new_certificate';
-
-    final public const OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_PASSPHRASE = 'federation_new_private_key_passphrase';
-    final public const OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_FILENAME = 'federation_new_private_key_filename';
-    final public const OPTION_PKI_FEDERATION_NEW_CERTIFICATE_FILENAME = 'federation_new_certificate_filename';
     final public const OPTION_VERIFIABLE_CREDENTIAL_ENABLED = 'verifiable_credentials_enabled';
     final public const OPTION_CREDENTIAL_CONFIGURATIONS_SUPPORTED = 'credential_configurations_supported';
     final public const OPTION_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP =
@@ -439,79 +418,6 @@ class ModuleConfig
     }
 
     /**
-     * Get signer for OIDC protocol.
-     *
-     * @throws \ReflectionException
-     * @throws \Exception
-     */
-    public function getProtocolSigner(): Signer
-    {
-        /** @psalm-var class-string $signerClassname */
-        $signerClassname = $this->config()->getOptionalString(
-            self::OPTION_TOKEN_SIGNER,
-            Sha256::class,
-        );
-
-        return $this->instantiateSigner($signerClassname);
-    }
-
-    /**
-     * Get the path to the private key used in OIDC protocol.
-     * @return non-empty-string The file system path
-     * @psalm-suppress LessSpecificReturnStatement, MoreSpecificReturnType
-     * @throws \Exception
-     */
-    public function getProtocolPrivateKeyPath(): string
-    {
-        $keyName = $this->config()->getOptionalString(
-            self::OPTION_PKI_PRIVATE_KEY_FILENAME,
-            self::DEFAULT_PKI_PRIVATE_KEY_FILENAME,
-        );
-        return $this->sspBridge->utils()->config()->getCertPath($keyName);
-    }
-
-    /**
-     * Get the OIDC protocol private key passphrase.
-     * @return ?string
-     * @throws \Exception
-     */
-    public function getProtocolPrivateKeyPassPhrase(): ?string
-    {
-        return $this->config()->getOptionalString(self::OPTION_PKI_PRIVATE_KEY_PASSPHRASE, null);
-    }
-
-    /**
-     * Get the path to the public certificate used in OIDC protocol.
-     * @return non-empty-string The file system path
-     * @throws \Exception
-     * @psalm-suppress LessSpecificReturnStatement, MoreSpecificReturnType
-     */
-    public function getProtocolCertPath(): string
-    {
-        $certName = $this->config()->getOptionalString(
-            self::OPTION_PKI_CERTIFICATE_FILENAME,
-            self::DEFAULT_PKI_CERTIFICATE_FILENAME,
-        );
-        return $this->sspBridge->utils()->config()->getCertPath($certName);
-    }
-
-    /**
-     * Get the path to the new public certificate to be used in OIDC protocol.
-     * @return ?string Null if not set, or file system path
-     * @throws \Exception
-     */
-    public function getProtocolNewCertPath(): ?string
-    {
-        $certName = $this->config()->getOptionalString(self::OPTION_PKI_NEW_CERTIFICATE_FILENAME, null);
-
-        if (is_string($certName)) {
-            return $this->sspBridge->utils()->config()->getCertPath($certName);
-        }
-
-        return null;
-    }
-
-    /**
      * Get supported Authentication Context Class References (ACRs).
      *
      * @return array
@@ -673,69 +579,6 @@ class ModuleConfig
     }
 
     /**
-     * @throws \ReflectionException
-     * @throws \SimpleSAML\Error\ConfigurationError
-     */
-    public function getFederationSigner(): Signer
-    {
-        /** @psalm-var class-string $signerClassname */
-        $signerClassname = $this->config()->getOptionalString(
-            self::OPTION_FEDERATION_TOKEN_SIGNER,
-            Sha256::class,
-        );
-
-        return $this->instantiateSigner($signerClassname);
-    }
-
-    public function getFederationPrivateKeyPath(): string
-    {
-        $keyName = $this->config()->getOptionalString(
-            self::OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
-            self::DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
-        );
-
-        return $this->sspBridge->utils()->config()->getCertPath($keyName);
-    }
-
-    public function getFederationPrivateKeyPassPhrase(): ?string
-    {
-        return $this->config()->getOptionalString(self::OPTION_PKI_FEDERATION_PRIVATE_KEY_PASSPHRASE, null);
-    }
-
-    /**
-     * Return the path to the federation public certificate
-     * @throws \Exception
-     */
-    public function getFederationCertPath(): string
-    {
-        $certName = $this->config()->getOptionalString(
-            self::OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME,
-            self::DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME,
-        );
-
-        return $this->sspBridge->utils()->config()->getCertPath($certName);
-    }
-
-    /**
-     * Return the path to the new federation public certificate
-     * @return ?string The file system path or null if not set.
-     * @throws \Exception
-     */
-    public function getFederationNewCertPath(): ?string
-    {
-        $certName = $this->config()->getOptionalString(
-            self::OPTION_PKI_FEDERATION_NEW_CERTIFICATE_FILENAME,
-            null,
-        );
-
-        if (is_string($certName)) {
-            return $this->sspBridge->utils()->config()->getCertPath($certName);
-        }
-
-        return null;
-    }
-
-    /**
      * @throws \Exception
      */
     public function getFederationEntityStatementDuration(): DateInterval
@@ -863,21 +706,6 @@ class ModuleConfig
     {
         return $this->config()->getOptionalString(
             self::OPTION_INFORMATION_URI,
-            null,
-        );
-    }
-
-    /**
-     * @return string|null
-     * TODO mivanci v7 Remove in next major release, as well as config constant.
-     * In Draft-43 of OIDFed specification, metadata claim 'homepage_uri' has been renamed to
-     *  'organization_uri'. Use 'organization_uri' instead.
-     * @see self::getOrganizationUri()
-     */
-    public function getHomepageUri(): ?string
-    {
-        return $this->config()->getOptionalString(
-            self::OPTION_HOMEPAGE_URI,
             null,
         );
     }

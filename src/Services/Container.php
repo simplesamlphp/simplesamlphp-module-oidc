@@ -285,9 +285,6 @@ class Container implements ContainerInterface
 
         $privateKey = $cryptKeyFactory->buildPrivateKey();
 
-        $jsonWebTokenBuilderService = new JsonWebTokenBuilderService($moduleConfig);
-        $this->services[JsonWebTokenBuilderService::class] = $jsonWebTokenBuilderService;
-
         $jwsFactory = new JwsFactory($moduleConfig, $loggerService);
         $this->services[JwsFactory::class] = $jwsFactory;
 
@@ -437,7 +434,6 @@ class Container implements ContainerInterface
         $this->services[RequestRulesManager::class] = $requestRuleManager;
 
         $idTokenBuilder = new IdTokenBuilder(
-            $jsonWebTokenBuilderService,
             $claimTranslatorExtractor,
             $core,
             $moduleConfig,

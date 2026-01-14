@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Services;
 
-use Lcobucci\JWT\Signer\Rsa;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
@@ -54,10 +53,6 @@ class OpMetadataServiceTest extends TestCase
                 return $paths[$path] ?? null;
             });
         $this->moduleConfigMock->method('getAcrValuesSupported')->willReturn(['1']);
-
-        $signer = $this->createMock(Rsa::class);
-        $signer->method('algorithmId')->willReturn('RS256');
-        $this->moduleConfigMock->method('getProtocolSigner')->willReturn($signer);
 
         $this->claimTranslatorExtractorMock = $this->createMock(ClaimTranslatorExtractor::class);
 

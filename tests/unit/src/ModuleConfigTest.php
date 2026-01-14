@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit;
 
 use DateInterval;
-use Lcobucci\JWT\Signer;
-use Lcobucci\JWT\Signer\Rsa\Sha256;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -18,7 +16,6 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\OpenID\Codebooks\TrustMarkStatusEndpointUsagePolicyEnum;
 use SimpleSAML\Utils\Config;
 use SimpleSAML\Utils\HTTP;
-use stdClass;
 
 #[CoversClass(ModuleConfig::class)]
 class ModuleConfigTest extends TestCase
@@ -35,8 +32,6 @@ class ModuleConfigTest extends TestCase
         ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_TTL => 'PT1H',
 
         ModuleConfig::OPTION_CRON_TAG => 'hourly',
-
-        ModuleConfig::OPTION_TOKEN_SIGNER => Sha256::class,
 
         ModuleConfig::OPTION_AUTH_SOURCE => 'default-sp',
 
@@ -55,12 +50,6 @@ class ModuleConfigTest extends TestCase
 
         ModuleConfig::OPTION_AUTH_FORCED_ACR_VALUE_FOR_COOKIE_AUTHENTICATION => null,
 
-        ModuleConfig::OPTION_FEDERATION_TOKEN_SIGNER => Sha256::class,
-        ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME =>
-            ModuleConfig::DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
-        ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_PASSPHRASE => 'abc123',
-        ModuleConfig::OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME =>
-            ModuleConfig::DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME,
         ModuleConfig::OPTION_FEDERATION_AUTHORITY_HINTS => [
             'abc123',
         ],
@@ -135,28 +124,6 @@ class ModuleConfigTest extends TestCase
         );
     }
 
-    /**
-     * @throws \Exception
-     */
-    public function testSigningKeyNameCanBeCustomized(): void
-    {
-        // Test default cert and pem
-        $this->assertStringContainsString(
-            ModuleConfig::DEFAULT_PKI_CERTIFICATE_FILENAME,
-            $this->sut()->getProtocolCertPath(),
-        );
-        $this->assertStringContainsString(
-            ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME,
-            $this->sut()->getProtocolPrivateKeyPath(),
-        );
-
-        // Set customized
-        $this->overrides[ModuleConfig::OPTION_PKI_PRIVATE_KEY_FILENAME] = 'myPrivateKey.key';
-        $this->overrides[ModuleConfig::OPTION_PKI_CERTIFICATE_FILENAME] = 'myCertificate.crt';
-        $this->assertStringContainsString('myCertificate.crt', $this->sut()->getProtocolCertPath());
-        $this->assertStringContainsString('myPrivateKey.key', $this->sut()->getProtocolPrivateKeyPath());
-    }
-
     public function testCanGetSspConfig(): void
     {
         $this->assertInstanceOf(Configuration::class, $this->sut()->sspConfig());
@@ -170,11 +137,6 @@ class ModuleConfigTest extends TestCase
     public function testCanGetOpenIdScopes(): void
     {
         $this->assertNotEmpty($this->sut()->getScopes());
-    }
-
-    public function testCanGetProtocolSigner(): void
-    {
-        $this->assertInstanceOf(Signer::class, $this->sut()->getProtocolSigner());
     }
 
     public function testCanGetAuthProcFilters(): void
@@ -219,16 +181,6 @@ class ModuleConfigTest extends TestCase
     public function testCanGetCommonFederationOptions(): void
     {
         $this->assertFalse($this->sut()->getFederationEnabled());
-        $this->assertInstanceOf(Signer::class, $this->sut()->getFederationSigner());
-        $this->assertStringContainsString(
-            ModuleConfig::DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
-            $this->sut()->getFederationPrivateKeyPath(),
-        );
-        $this->assertNotEmpty($this->sut()->getFederationPrivateKeyPassPhrase());
-        $this->assertStringContainsString(
-            ModuleConfig::DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME,
-            $this->sut()->getFederationCertPath(),
-        );
         $this->assertNotEmpty($this->sut()->getFederationEntityStatementDuration());
         $this->assertNotEmpty($this->sut()->getFederationEntityStatementCacheDurationForProduced());
         $this->assertNotEmpty($this->sut()->getFederationAuthorityHints());
@@ -241,7 +193,6 @@ class ModuleConfigTest extends TestCase
         $this->assertNotEmpty($this->sut()->getLogoUri());
         $this->assertNotEmpty($this->sut()->getPolicyUri());
         $this->assertNotEmpty($this->sut()->getInformationUri());
-        $this->assertNotEmpty($this->sut()->getHomepageUri());
         $this->assertNotEmpty($this->sut()->getOrganizationUri());
         $this->assertNotEmpty($this->sut()->getFederationCacheAdapterClass());
         $this->assertIsArray($this->sut()->getFederationCacheAdapterArguments());
@@ -360,13 +311,6 @@ class ModuleConfigTest extends TestCase
         $this->sut();
     }
 
-    public function testThrowsIfInvalidSignerProvided(): void
-    {
-        $this->overrides[ModuleConfig::OPTION_TOKEN_SIGNER] = stdClass::class;
-        $this->expectException(ConfigurationError::class);
-        $this->sut()->getProtocolSigner();
-    }
-
     public function testCanGetEncryptionKey(): void
     {
         $this->sspBridgeUtilsConfigMock->expects($this->once())->method('getSecretSalt')
@@ -392,28 +336,6 @@ class ModuleConfigTest extends TestCase
                 overrides: [ModuleConfig::OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED => true],
             )->getProtocolDiscoveryShowClaimsSupported(),
         );
-    }
-
-    public function testCanGetProtocolNewCertPath(): void
-    {
-        $this->assertNull($this->sut()->getProtocolNewCertPath());
-
-        $sut = $this->sut(
-            overrides: [ModuleConfig::OPTION_PKI_NEW_CERTIFICATE_FILENAME => 'new-cert'],
-        );
-
-        $this->assertStringContainsString('new-cert', $sut->getProtocolNewCertPath());
-    }
-
-    public function testCanGetFederationNewCertPath(): void
-    {
-        $this->assertNull($this->sut()->getFederationNewCertPath());
-
-        $sut = $this->sut(
-            overrides: [ModuleConfig::OPTION_PKI_FEDERATION_NEW_CERTIFICATE_FILENAME => 'new-cert'],
-        );
-
-        $this->assertStringContainsString('new-cert', $sut->getFederationNewCertPath());
     }
 
     public function testCanGetFederationDynamicTrustMarks(): void

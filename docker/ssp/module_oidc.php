@@ -21,8 +21,6 @@ $config = [
     ModuleConfig::OPTION_TOKEN_REFRESH_TOKEN_TTL => 'P1M',
     ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_TTL => 'PT1H',
 
-    ModuleConfig::OPTION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Rsa\Sha256::class,
-
     ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS => [
         [
             ModuleConfig::KEY_ALGORITHM => \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum::RS256,

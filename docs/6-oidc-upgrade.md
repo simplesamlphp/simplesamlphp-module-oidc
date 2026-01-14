@@ -11,28 +11,54 @@ New features:
 Federation signing algorithms and key pairs. This was introduced in order to
 support signature algorithm negotiation with the clients. 
 - Clients can now be configured with new properties:
-  - ID Token Signing Algorithm (id_token_signed_response_alg)
+  - ID Token Signing Algorithm (`id_token_signed_response_alg`)
 - Initial support for OpenID for Verifiable Credential Issuance
 (OpenID4VCI). Note that the implementation is experimental. You should not use
 it in production.
 
 New configuration options:
 
-- ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS - (required) enables defining
+- `ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS` - (required) enables defining
 multiple protocol (Connect) related signing algorithms and key pairs. 
-- ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS - (required if federation
+- `ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS` - (required if federation
 capabilities are enabled) enables defining multiple key pairs for 
 Federation purposes like signing Entity Statements, publishing new key for
 key roll-ower scenarios, etc.
-- ModuleConfig::OPTION_TIMESTAMP_VALIDATION_LEEWAY - optional, used for setting
+- `ModuleConfig::OPTION_TIMESTAMP_VALIDATION_LEEWAY` - optional, used for setting
 allowed time tolerance for timestamp validation in artifacts like JWSs.
 multiple Federation related signing algorithms and key pairs.
 - Several new options regarding experimental support for OpenID4VCI.
 
 Major impact changes:
 
-- The following configuration options are removed:
-  - 
+- The following configuration options related to protocol (Connect) 
+signature algorithm and key pair are removed:
+  - `ModuleConfig::OPTION_PKI_PRIVATE_KEY_PASSPHRASE`
+  - `ModuleConfig::OPTION_PKI_PRIVATE_KEY_FILENAME`
+  - `ModuleConfig::OPTION_PKI_CERTIFICATE_FILENAME`
+  - `ModuleConfig::OPTION_TOKEN_SIGNER`
+  - `ModuleConfig::OPTION_PKI_NEW_PRIVATE_KEY_PASSPHRASE`
+  - `ModuleConfig::OPTION_PKI_NEW_PRIVATE_KEY_FILENAME`
+  - `ModuleConfig::OPTION_PKI_NEW_CERTIFICATE_FILENAME`
+
+  Instead of those options, now you must use option
+  `ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS` in which you can define
+  all supported signature keys for protocol (Connect) purposes.
+- The following configuration options related to Federation signature algorithm
+and key pair are removed:
+  - `ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_PASSPHRASE`
+  - `ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME`
+  - `ModuleConfig::OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME`
+  - `ModuleConfig::OPTION_FEDERATION_TOKEN_SIGNER`
+  - `ModuleConfig::OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_PASSPHRASE`
+  - `ModuleConfig::OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_FILENAME`
+  - `ModuleConfig::OPTION_PKI_FEDERATION_NEW_CERTIFICATE_FILENAME`
+  
+  Instead of those options, now you must use option
+  `ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS` in which you can define
+  all the supported signature keys for Federation purposes.
+- Removed config option `ModuleConfig::OPTION_HOMEPAGE_URI`. Use 
+`ModuleConfig::OPTION_ORGANIZATION_URI` instead.
 - In v6 of the module, when defining custom scopes, there was a possibility to
 use standard claims with the 'are_multiple_claim_values_allowed' option.
 This would allow multiple values (array of values) for standard claims which

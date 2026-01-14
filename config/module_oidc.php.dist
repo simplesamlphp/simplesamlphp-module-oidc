@@ -27,10 +27,6 @@ use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialTypesEnum;
 use SimpleSAML\OpenID\Codebooks\LanguageTagsEnum;
 
-/*
- * Note: In v5 of this module, all config keys have been moved to constants for easier handling and verification.
- * However, all the key values have been preserved from previous module versions.
- */
 $config = [
     /**
      * (optional) Issuer (OP) identifier which will be used as an issuer (iss) claim in tokens. If not set, it will
@@ -41,37 +37,6 @@ $config = [
      */
 //    ModuleConfig::OPTION_ISSUER => 'https://op.example.org',
 
-    /**
-     * PKI (public / private key) settings related to OIDC protocol. These keys will be used, for example, to
-     * sign ID Token JWT.
-     */
-    // (optional) The private key passphrase.
-    /** @deprecated  */
-    // The certificate and private key filenames, with given defaults.
-    /** @deprecated  */
-    ModuleConfig::OPTION_PKI_PRIVATE_KEY_FILENAME => ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME,
-    ModuleConfig::OPTION_PKI_CERTIFICATE_FILENAME => ModuleConfig::DEFAULT_PKI_CERTIFICATE_FILENAME,
-
-
-    // Token signer, with given default.
-    // See Lcobucci\JWT\Signer algorithms in https://github.com/lcobucci/jwt/tree/master/src/Signer
-    /** @deprecated  */
-    ModuleConfig::OPTION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Rsa\Sha256::class,
-//    ModuleConfig::OPTION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Hmac\Sha256::class,
-//    ModuleConfig::OPTION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Ecdsa\Sha256::class,
-
-    /**
-     * (optional) Key rollover settings related to OIDC protocol. If set, this new private / public key pair will only
-     * be published on JWKS endpoint as available, so Relying Parties can pick them up for future use. The signing
-     * of artifacts will still be done using the 'current' private key (settings above). After some time, when all
-     * RPs have fetched all public keys from JWKS endpoint, simply set these new keys as active values for above
-     * PKI options.
-     */
-//    // (optional) The (new) private key passphrase.
-    /** @deprecated  */
-//    ModuleConfig::OPTION_PKI_NEW_PRIVATE_KEY_PASSPHRASE => 'new-secret',
-//    ModuleConfig::OPTION_PKI_NEW_PRIVATE_KEY_FILENAME => 'new_oidc_module.key',
-//    ModuleConfig::OPTION_PKI_NEW_CERTIFICATE_FILENAME => 'new_oidc_module.crt',
 
     /**
      * Protocol (Connect) signature algorithm and key-pair definitions,
@@ -131,11 +96,10 @@ $config = [
     ],
 
     /**
-     * Token related options.
+     * Authorization code and tokens TTL (validity duration), with given
+     * examples. For duration format info, check
+     * https://www.php.net/manual/en/dateinterval.construct.php
      */
-    // Authorization code and tokens TTL (validity duration), with given examples.
-    // For duration format info, check
-    // https://www.php.net/manual/en/dateinterval.construct.php
     ModuleConfig::OPTION_TOKEN_AUTHORIZATION_CODE_TTL => 'PT10M', // 10 minutes
     ModuleConfig::OPTION_TOKEN_REFRESH_TOKEN_TTL => 'P1M', // 1 month
     ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_TTL => 'PT1H', // 1 hour,
@@ -153,19 +117,24 @@ $config = [
     ModuleConfig::OPTION_TIMESTAMP_VALIDATION_LEEWAY => 'PT1M',
 
     /**
-     * Authentication related options.
+     * The default authentication source to be used for authentication if the
+     * authentication source is not specified on particular client.
      */
-    // The default authentication source to be used for authentication if the auth source is not specified on
-    // particular client.
     ModuleConfig::OPTION_AUTH_SOURCE => 'default-sp',
 
-    // The attribute name that contains the user identifier returned from IdP. By default, this attribute will be
-    // dynamically added to the 'sub' claim in the attribute-to-claim translation table (you will probably want
-    // to use this attribute as the 'sub' claim since it designates unique identifier for the user).
+    /**
+     * The attribute name that contains the user identifier returned from IdP.
+     * By default, this attribute will be dynamically added to the 'sub'
+     * claim in the attribute-to-claim translation table (you will probably want
+     * to use this attribute as the 'sub' claim since it designates unique
+     * identifier for the user).
+     */
     ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE => 'uid',
 
-    // The default translate table from SAML attributes to OIDC claims. If you don't want to support specific default
-    // claim, set it to an empty array.
+    /**
+     * The default translate table from SAML attributes to OIDC claims. If you
+     * don't want to support specific default claim, set it to an empty array.
+     */
     ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE => [
         /*
          * The basic format is
@@ -180,13 +149,15 @@ $config = [
          *      ]
          *  ]
          *
-         * For convenience the default type is "string" so type does not need to be defined.
-         * If "attributes" is not set, then it is assumed that the rest of the values are saml
-         * attribute names.
+         * For convenience the default type is "string" so type does not need
+         * to be defined. If "attributes" is not set, then it is assumed that
+         * the rest of the values are saml attribute names.
          *
-         * Note on 'sub' claim: by default, the list of attributes for 'sub' claim will also contain attribute defined
-         * in 'useridattr' setting. You will probably want to use this attribute as the 'sub' claim since it
-         * designates unique identifier for the user, However, override as necessary.
+         * Note on 'sub' claim: by default, the list of attributes for 'sub'
+         * claim will also contain attribute defined in 'useridattr' setting.
+         * You will probably want to use this attribute as the 'sub' claim since
+         * it designates unique identifier for the user, However, override as
+         * necessary.
          */
 //        'sub' => [
 //            'attribute-defined-in-useridattr', // will be dynamically added if the list for 'sub' claim is not set.
@@ -270,7 +241,10 @@ $config = [
 //        ],
     ],
 
-    // Optional custom scopes. You can create as many scopes as you want and assign claims to them.
+    /**
+     * Optional custom scopes. You can create as many scopes as you want and
+     * assign claims to them.
+     */
     ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES => [
 //        'private' => [ // The key represents the scope name.
 //            'description' => 'private scope',
@@ -280,13 +254,16 @@ $config = [
 //        ],
     ],
 
-    // Optional list of the Authentication Context Class References that this OP supports.
-    // If populated, this list will be available in OP discovery document (OP Metadata) as 'acr_values_supported'.
-    // @see https://datatracker.ietf.org/doc/html/rfc6711
-    // @see https://www.iana.org/assignments/loa-profiles/loa-profiles.xhtml
-    // @see https://openid.net/specs/openid-connect-core-1_0.html#IDToken (acr claim)
-    // @see https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest (acr_values parameter)
-    // Syntax: string[] (array of strings)
+    /**
+     * Optional list of the Authentication Context Class References that this OP
+     * supports. If populated, this list will be available in OP discovery
+     * document (OP Metadata) as 'acr_values_supported'.
+     * @see https://datatracker.ietf.org/doc/html/rfc6711
+     * @see https://www.iana.org/assignments/loa-profiles/loa-profiles.xhtml
+     * @see https://openid.net/specs/openid-connect-core-1_0.html#IDToken (acr claim)
+     * @see https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest (acr_values parameter)
+     * Syntax: string[] (array of strings)
+     */
     ModuleConfig::OPTION_AUTH_ACR_VALUES_SUPPORTED => [
 //        'https://refeds.org/assurance/profile/espresso',
 //        'https://refeds.org/assurance/profile/cappuccino',
@@ -302,9 +279,13 @@ $config = [
 //        '...',
     ],
 
-    // If this OP supports ACRs, indicate which usable auth source supports which ACRs.
-    // Order of ACRs is important, more important ones being first.
-    // Syntax: array<string,string[]> (array with auth source as key and value being array of ACR values as strings)
+    /**
+     * If this OP supports ACRs, indicate which usable auth source supports
+     * which ACRs. Order of ACRs is important, more important ones being first.
+     * Syntax: array<string,string[]> (array with auth source as key and value
+     * being array of ACR values as strings)
+     */
+
     ModuleConfig::OPTION_AUTH_SOURCES_TO_ACR_VALUES_MAP => [
 //        'example-userpass' => ['1', '0'],
 //        'default-sp' => ['http://id.incommon.org/assurance/bronze', '2', '1', '0'],
@@ -320,54 +301,78 @@ $config = [
 //        ],
     ],
 
-    // If this OP supports ACRs, indicate if authentication using cookie should be forced to specific ACR value.
-    // If this option is set to null, no specific ACR will be forced for cookie authentication and the resulting ACR
-    // will be one of the ACRs supported on used auth source during authentication, that is, session creation.
-    // If this option is set to specific ACR, with ACR value being one of the ACR value this OP supports, it will be
-    // set to that ACR for cookie authentication.
-    // For example, OIDC Core Spec notes that authentication using a long-lived browser cookie is one example where
-    // the use of "level 0" is appropriate:
+    /**
+     * If this OP supports ACRs, indicate if authentication using cookie should
+     * be forced to specific ACR value. If this option is set to null, no
+     * specific ACR will be forced for cookie authentication and the resulting
+     * ACR will be one of the ACRs supported on used auth source during
+     * authentication, that is, session creation. If this option is set to
+     * specific ACR, with ACR value being one of the ACR value this OP supports,
+     * it will be set to that ACR for cookie authentication.
+     * For example, OIDC Core Spec notes that authentication using a long-lived
+     * browser cookie is one example where the use of "level 0" is appropriate:
+     */
 //     ModuleConfig::OPTION_AUTH_FORCED_ACR_VALUE_FOR_COOKIE_AUTHENTICATION => '0',
     ModuleConfig::OPTION_AUTH_FORCED_ACR_VALUE_FOR_COOKIE_AUTHENTICATION => null,
 
-    // Choose if OP discovery document will include 'claims_supported' claim, which is recommended per OpenID Connect
-    // Discovery specification https://openid.net/specs/openid-connect-discovery-1_0.html. The list will include all
-    // claims for which "SAML attribute to OIDC claim translation" has been defined above.
+    /**
+     * Choose if OP discovery document will include 'claims_supported' claim,
+     * which is recommended per OpenID Connect Discovery specification
+     * https://openid.net/specs/openid-connect-discovery-1_0.html. The list will
+     * include all claims for which "SAML attribute to OIDC claim translation"
+     * has been defined above.
+     */
     ModuleConfig::OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED => false,
 
-    // Settings regarding Authentication Processing Filters.
-    // Note: OIDC authN state array will not contain all the keys which are available during SAML authN,
-    // like Service Provider metadata, etc.
-    //
-    // At the moment, the following SAML authN data will be available during OIDC authN in the sate array:
-    // - ['Attributes'], ['Authority'], ['AuthnInstant'], ['Expire']
-    // Source and destination will have entity IDs corresponding to the OP issuer ID and Client ID respectively.
-    // - ['Source']['entityid'] - contains OpenId Provider issuer ID
-    // - ['Destination']['entityid'] - contains Relying Party (OIDC Client) ID
-    // In addition to that, the following OIDC related data will be available in the state array:
-    // - ['Oidc']['OpenIdProviderMetadata'] - contains information otherwise available from the OIDC configuration URL.
-    // - ['Oidc']['RelyingPartyMetadata'] - contains information about the OIDC client making the authN request.
-    // - ['Oidc']['AuthorizationRequestParameters'] - contains relevant authorization request query parameters.
-    //
-    // List of authproc filters which will run for every OIDC authN. Add filters as described in docs for SAML authproc
-    // @see https://simplesamlphp.org/docs/stable/simplesamlphp-authproc
+    /**
+     * Settings regarding Authentication Processing Filters.
+     * Note: OIDC authN state array will not contain all the keys which are
+     * available during SAML authN, like Service Provider metadata, etc.
+     *
+     * At the moment, the following SAML authN data will be available during
+     * OIDC authN in the sate array:
+     * - ['Attributes'], ['Authority'], ['AuthnInstant'], ['Expire']
+     * Source and destination will have entity IDs corresponding to the OP
+     * issuer ID and Client ID respectively.
+     * - ['Source']['entityid'] - contains OpenId Provider issuer ID
+     * - ['Destination']['entityid'] - contains Relying Party (OIDC Client) ID
+     * In addition to that, the following OIDC related data will be available
+     * in the state array:
+     * - ['Oidc']['OpenIdProviderMetadata'] - contains information otherwise
+     * available from the OIDC configuration URL.
+     * - ['Oidc']['RelyingPartyMetadata'] - contains information about the OIDC
+     * client making the authN request.
+     * - ['Oidc']['AuthorizationRequestParameters'] - contains relevant
+     * authorization request query parameters.
+     *
+     * List of authproc filters which will run for every OIDC authN. Add filters
+     * as described in docs for SAML authproc.
+     * @see https://simplesamlphp.org/docs/stable/simplesamlphp-authproc
+     */
     ModuleConfig::OPTION_AUTH_PROCESSING_FILTERS => [
         // Add authproc filters here
     ],
 
-    // (optional) Dedicated OIDC protocol cache adapter, used to cache artifacts like access tokens, authorization
-    // codes, refresh tokens, client data, user data, etc. It will also be used for token reuse check in protocol
-    // context. Setting this option is recommended in production environments. If set to null, no caching will
-    // be used. Can be set to any Symfony Cache Adapter class, like in examples below. If set, make sure to
-    // also give proper adapter arguments for its instantiation below.
-    // @see https://symfony.com/doc/current/components/cache.html#available-cache-adapters
+    /**
+     * (optional) Dedicated OIDC protocol cache adapter, used to cache artifacts
+     * like access tokens, authorization codes, refresh tokens, client data,
+     * user data, etc. It will also be used for token reuse check in protocol
+     * context. Setting this option is recommended in production environments.
+     * If set to null, no caching will be used. Can be set to any Symfony Cache
+     * Adapter class, like in examples below. If set, make sure to also give
+     * proper adapter arguments for its instantiation below.
+     * @see https://symfony.com/doc/current/components/cache.html#available-cache-adapters
+     */
     ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => null,
 //    ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\FilesystemAdapter::class,
 //    ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\MemcachedAdapter::class,
 
-    // Protocol cache adapter arguments used for adapter instantiation. Refer to documentation for particular
-    // adapter on which arguments are needed to create its instance, in the order of constructor arguments.
-    // See examples below.
+    /**
+     * Protocol cache adapter arguments used for adapter instantiation. Refer
+     * to documentation for particular adapter on which arguments are needed
+     * to create its instance, in the order of constructor arguments. See
+     * examples below.
+     */
     ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS => [
         // Adapter arguments here...
     ],
@@ -393,83 +398,112 @@ $config = [
 //    ],
 
     /**
-    * Protocol cache duration for particular entities. This is only relevant if protocol cache adapter is set up.
-    * For duration format info, check https://www.php.net/manual/en/dateinterval.construct.php.
-    */
-    // Cache duration for user entities (authenticated users data). If not set, cache duration will be the same as
-    // session duration.
+     * Protocol cache duration for user entities (authenticated users data).
+     * If not set, cache duration will be the same as session duration.
+     * This is only relevant if protocol cache adapter is set up. For duration
+     * format info, check
+     * https://www.php.net/manual/en/dateinterval.construct.php.
+     */
 //    ModuleConfig::OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION => 'PT1H', // 1 hour
     ModuleConfig::OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION => null, // Fallback to session duration
-    // Cache duration for client entities, with given default.
+    /**
+     * Protocol cache duration for client entities, with given default.
+     * This is only relevant if protocol cache adapter is set up. For duration
+     * format info, check
+     * https://www.php.net/manual/en/dateinterval.construct.php.
+     */
     ModuleConfig::OPTION_PROTOCOL_CLIENT_ENTITY_CACHE_DURATION => 'PT10M', // 10 minutes
-    // Cache duration for Authorization Code, Access Token, and Refresh Token will fall back to their TTL.
-
 
     /**
-     * Cron related options.
+     * Note: cache duration for Authorization Code, Access Token, and Refresh Token
+     * will fall back to their TTL.
      */
-    // Cron tag used to run storage cleanup script using the cron module.
+
+    /**
+     * Cron tag used to run storage cleanup script using the cron module.
+     */
     ModuleConfig::OPTION_CRON_TAG => 'hourly',
 
     /**
-     * Admin backend UI related options.
+     * Permissions which let the module expose functionality to specific users. In the below configuration, a user's
+     * eduPersonEntitlement attribute is examined. If the user tries to do something that requires the 'client'
+     * permission (such as registering their own client), then they will need one of the eduPersonEntitlements
+     * from the `client` permission array. A permission can be disabled by commenting it out.
      */
-    // Permissions which let the module expose functionality to specific users. In the below configuration, a user's
-    // eduPersonEntitlement attribute is examined. If the user tries to do something that requires the 'client'
-    // permission (such as registering their own client), then they will need one of the eduPersonEntitlements
-    // from the `client` permission array. A permission can be disabled by commenting it out.
     ModuleConfig::OPTION_ADMIN_UI_PERMISSIONS => [
         // Attribute to inspect to determine user's permissions
         'attribute' => 'eduPersonEntitlement',
-        // Which entitlements allow for registering, editing, delete a client. OIDC clients are owned by the creator
+        // Which entitlements allow for registering, editing, delete a client.
+        // OIDC clients are owned by the creator
         'client' => ['urn:example:oidc:manage:client'],
     ],
 
-    // Pagination options.
+    /**
+     * Pagination options, for example, on client listing page.
+     */
     ModuleConfig::OPTION_ADMIN_UI_PAGINATION_ITEMS_PER_PAGE => 20,
 
-    /**
-     * (optional) OpenID Federation related options. If these are not set, OpenID Federation capabilities will be
-     * disabled.
-     */
+    /***************************************************************************
+     * (optional) OpenID Federation related options. If these are not set,
+     * OpenID Federation capabilities will be disabled.
+     **************************************************************************/
 
-    // Enable or disable federation capabilities. Default is disabled (false).
+    /**
+     * Enable or disable federation capabilities. Default is disabled (false).
+     */
     ModuleConfig::OPTION_FEDERATION_ENABLED => false,
 
-    // Trust Anchors which are valid for this entity. The key represents the Trust Anchor Entity ID, while the value can
-    // be the Trust Anchor's JWKS JSON object string value, or null. If JWKS is provided, it will be used to validate
-    // Trust Anchor Configuration Statement in addition to using JWKS acquired during Trust Chain resolution. If
-    // JWKS is not provided (value null), the validity of Trust Anchor Configuration Statement will "only" be
-    // validated by the JWKS acquired during Trust Chain resolution, meaning that security will rely "only"
-    // on protection implied from using TLS on endpoints used during Trust Chain resolution.
+    /**
+     * Trust Anchors which are valid for this entity. The key represents the
+     * Trust Anchor Entity ID, while the value can be the Trust Anchor's JWKS
+     * JSON object string value, or null. If JWKS is provided, it will be used
+     * to validate Trust Anchor Configuration Statement in addition to using
+     * JWKS acquired during Trust Chain resolution. If JWKS is not provided
+     * (value null), the validity of Trust Anchor Configuration Statement will
+     * "only" be validated by the JWKS acquired during Trust Chain resolution,
+     * meaning that security will rely "only" on protection implied from using
+     * TLS on endpoints used during Trust Chain resolution.
+     */
     ModuleConfig::OPTION_FEDERATION_TRUST_ANCHORS => [
         // phpcs:ignore
 //        'https://ta.example.org/' => '{"keys":[{"kty": "RSA","alg": "RS256","use": "sig","kid": "Nzb...9Xs","e": "AQAB","n": "pnXB...ub9J"}]}',
 //        'https://ta2.example.org/' => null,
     ],
 
-    // Federation authority hints. An array of strings representing the Entity Identifiers of Intermediate Entities
-    // (or Trust Anchors). Required if this entity has a Superior entity above it.
+    /**
+     * Federation authority hints. An array of strings representing the Entity
+     * Identifiers of Intermediate Entities (or Trust Anchors). Required if
+     * this entity has a Superior entity above it.
+     */
     ModuleConfig::OPTION_FEDERATION_AUTHORITY_HINTS => [
 //        'https://intermediate.example.org/',
     ],
 
-    // (optional) Federation Trust Mark tokens. An array of tokens (signed JWTs), each representing a Trust Mark
-    // issued to this entity. This option is primarily intended for long-lasting or non-expiring tokens, so it
-    // is not necessary to dynamically fetch / refresh them.
+    /**
+     * (optional) Federation Trust Mark tokens. An array of tokens
+     * (signed JWTs), each representing a Trust Mark  issued to this entity.
+     * This option is primarily intended for long-lasting or non-expiring
+     * tokens, so it is not necessary to dynamically fetch / refresh them.
+     */
     ModuleConfig::OPTION_FEDERATION_TRUST_MARK_TOKENS => [
 //        'eyJ...GHg',
     ],
 
-    // (optional) Federation Trust Marks for dynamic fetching. An array of key-value pairs, where key is Trust Mark Type
-    // and value is Trust Mark Issuer ID, each representing a Trust Mark issued to this entity. Each Trust Mark Type
-    // in this array will be dynamically fetched from the noted Trust Mark Issuer as necessary. If federation
-    // caching is enabled (recommended), fetched Trust Marks will also be cached until their expiry.
+    /**
+     * (optional) Federation Trust Marks for dynamic fetching. An array of
+     * key-value pairs, where key is Trust Mark Type and value is Trust Mark
+     * Issuer ID, each representing a Trust Mark issued to this entity. Each
+     * Trust Mark Type in this array will be dynamically fetched from the noted
+     * Trust Mark Issuer as necessary. If federation caching is enabled
+     * (recommended), fetched Trust Marks will also be cached until their
+     * expiry.
+     */
     ModuleConfig::OPTION_FEDERATION_DYNAMIC_TRUST_MARKS => [
 //        'trust-mark-type' => 'trust-mark-issuer-id',
     ],
 
-    // (optional) Federation participation limit by Trust Marks. This is an array with the following format:
+    // (optional) Federation participation limit by Trust Marks. This is an
+    // array with the following format:
     // [
     //    'trust-anchor-id' => [
     //         'limit-id' => [
@@ -478,10 +512,12 @@ $config = [
     //          ],
     //     ],
     // ],
-    // Check example below on how this can be used. If federation participation limit is configured for particular
-    // Trust Anchor ID, at least one combination of "limit ID" => "trust mark list" should be defined.
+    // Check example below on how this can be used. If federation participation
+    // limit is configured for particular Trust Anchor ID, at least one
+    // combination of "limit ID" => "trust mark list" should be defined.
     ModuleConfig::OPTION_FEDERATION_PARTICIPATION_LIMIT_BY_TRUST_MARKS => [
-        // We are limiting federation participation using Trust Marks for 'https://ta.example.org/'.
+        // We are limiting federation participation using Trust Marks for
+        // 'https://ta.example.org/'.
         'https://ta.example.org/' => [
             // Entities must have (at least) one Trust Mark from the list below.
             \SimpleSAML\Module\oidc\Codebooks\LimitsEnum::OneOf->value => [
@@ -496,58 +532,52 @@ $config = [
         ],
     ],
 
-    // (optional) Trust Mark Status Endpoint Usage Policy. Check the TrustMarkStatusEndpointUsagePolicyEnum for the
-    // available options. Default is RequiredIfEndpointProvidedForNonExpiringTrustMarksOnly, meaning that the
-    // Trust Mark Status Endpoint will be used to check the status of non-expiring Trust Marks if the
-    // Trust Mark Status Endpoint is provided by the Trust Mark Issuer.
+    /**
+     * (optional) Trust Mark Status Endpoint Usage Policy. Check the
+     * TrustMarkStatusEndpointUsagePolicyEnum for the available options. Default
+     * is RequiredIfEndpointProvidedForNonExpiringTrustMarksOnly, meaning that
+     * the Trust Mark Status Endpoint will be used to check the status of
+     * non-expiring Trust Marks if the Trust Mark Status Endpoint is provided
+     * by the Trust Mark Issuer.
+     */
     ModuleConfig::OPTION_FEDERATION_TRUST_MARK_STATUS_ENDPOINT_USAGE_POLICY =>
         \SimpleSAML\OpenID\Codebooks\TrustMarkStatusEndpointUsagePolicyEnum::RequiredIfEndpointProvidedForNonExpiringTrustMarksOnly,
 
-    // (optional) Dedicated federation cache adapter, used to cache federation artifacts like trust chains, entity
-    // statements, etc. It will also be used for token reuse check in federation context. Setting this option is
-    // recommended in production environments. If set to null, no caching will be used. Can be set to any
-    // Symfony Cache Adapter class. If set, make sure to also give proper adapter arguments for its
-    // instantiation below. See examples for protocol cache adapter option.
-    // @see https://symfony.com/doc/current/components/cache.html#available-cache-adapters
+    /**
+     * (optional) Dedicated federation cache adapter, used to cache federation
+     * artifacts like trust chains, entity statements, etc. It will also be
+     * used for token reuse check in federation context. Setting this option is
+     * recommended in production environments. If set to null, no caching will
+     * be used. Can be set to any Symfony Cache Adapter class. If set, make
+     * sure to also give proper adapter arguments for its instantiation below.
+     * See examples for protocol cache adapter option.
+     * @see https://symfony.com/doc/current/components/cache.html#available-cache-adapters
+     */
     ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER => null,
 
-    // Federation cache adapter arguments used for adapter instantiation. Refer to documentation for particular
-    // adapter on which arguments are needed to create its instance, in the order of constructor arguments.
-    // See examples for protocol cache adapter option.
+    /**
+     * Federation cache adapter arguments used for adapter instantiation. Refer
+     * to documentation for particular adapter on which arguments are needed to
+     * create its instance, in the order of constructor arguments.
+     * See examples for protocol cache adapter option.
+     */
     ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS => [
         // Adapter arguments here...
     ],
 
-    // Maximum federation cache duration for fetched artifacts. Federation cache duration will typically be resolved
-    // based on the expiry of the fetched artifact. For example, when caching fetched entity statements, cache
-    // duration will be based on the 'exp' claim (expiration time). Since those claims are set by issuer (can
-    // be long), it could be desirable to limit the maximum time, so that items in cache get refreshed more
-    // regularly (and changes propagate more quickly). This is only relevant if federation cache adapter
-    // is set up. For duration format info, check https://www.php.net/manual/en/dateinterval.construct.php.
+    /**
+     * Maximum federation cache duration for fetched artifacts. Federation cache
+     * duration will typically be resolved based on the expiry of the fetched
+     * artifact. For example, when caching fetched entity statements, cache
+     * duration will be based on the 'exp' claim (expiration time). Since those
+     * claims are set by issuer (can be long), it could be desirable to limit
+     * the maximum time, so that items in cache get refreshed more regularly
+     * (and changes propagate more quickly). This is only relevant if federation
+     * cache adapter is set up. For duration format info, check
+     * https://www.php.net/manual/en/dateinterval.construct.php.
+     */
     ModuleConfig::OPTION_FEDERATION_CACHE_MAX_DURATION_FOR_FETCHED => 'PT6H', // 6 hours
 
-    /**
-     * PKI settings related to OpenID Federation. These keys will be used, for example, to sign federation
-     * entity statements. Note that these keys SHOULD NOT be the same as the ones used in OIDC protocol itself.
-     */
-    // The federation private key passphrase (optional).
-//    ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_PASSPHRASE => 'secret',
-    // The federation certificate and private key filenames, with given defaults.
-    /** @deprecated  */
-    ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME =>
-        ModuleConfig::DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
-    ModuleConfig::OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME =>
-        ModuleConfig::DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME,
-
-    /**
-     * (optional) Key rollover settings related to OpenID Federation. Check the OIDC protocol key rollover description
-     * on how this works.
-     */
-    // The federation (new) private key passphrase (optional).
-    /** @deprecated  */
-//    ModuleConfig::OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_PASSPHRASE => 'new-secret',
-//    ModuleConfig::OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_FILENAME => 'new_oidc_module_federation.key',
-//    ModuleConfig::OPTION_PKI_FEDERATION_NEW_CERTIFICATE_FILENAME => 'new_oidc_module_federation.crt',
 
     /**
      * Federation signature algorithm and key-pair definitions, representing
@@ -568,29 +598,33 @@ $config = [
         [
             ModuleConfig::KEY_ALGORITHM => \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum::ES256,
             ModuleConfig::KEY_PRIVATE_KEY_FILENAME => ModuleConfig::DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
-            ModuleConfig::KEY_PUBLIC_KEY_FILENAME => ModuleConfig::OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME,
+            ModuleConfig::KEY_PUBLIC_KEY_FILENAME => ModuleConfig::DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME,
 //            ModuleConfig::KEY_PRIVATE_KEY_PASSWORD => 'private-key-password', // Optional
 //            ModuleConfig::KEY_KEY_ID => 'ec-connect-signing-key-01', // Optional
         ],
     ],
 
-    // Federation token signer, with given default.
-    /** @deprecated  */
-    ModuleConfig::OPTION_FEDERATION_TOKEN_SIGNER => \Lcobucci\JWT\Signer\Rsa\Sha256::class,
-
-    // Federation entity statement duration which determines the Expiration Time (exp) claim set in entity
-    // statement JWSs published by this OP. If not set, default of 1 day will be used. For duration format info, check
-    // https://www.php.net/manual/en/dateinterval.construct.php
+    /**
+     * Federation entity statement duration which determines the Expiration Time
+     * (exp) claim set in entity statement JWSs published by this OP. If not
+     * set, default of 1 day will be used. For duration format info, check
+     * https://www.php.net/manual/en/dateinterval.construct.php
+     */
     ModuleConfig::OPTION_FEDERATION_ENTITY_STATEMENT_DURATION => 'P1D', // 1 day
 
-    // Cache duration for federation entity statements produced by this OP. This can be used to avoid calculating JWS
-    // signature on every HTTP request for OP Configuration statement, Subordinate Statements... This is only
-    // relevant if federation cache adapter is set up. For duration format info, check
-    // https://www.php.net/manual/en/dateinterval.construct.php.
+    /**
+     * Cache duration for federation entity statements produced by this OP.
+     * This can be used to avoid calculating JWS signature on every HTTP request
+     * for OP Configuration statement, Subordinate Statements... This is only
+     * relevant if federation cache adapter is set up. For duration format info,
+     * check https://www.php.net/manual/en/dateinterval.construct.php.
+     */
     ModuleConfig::OPTION_FEDERATION_CACHE_DURATION_FOR_PRODUCED => 'PT2M', // 2 minutes
 
-    // Common federation entity parameters:
-    // https://openid.net/specs/openid-federation-1_0.html#name-common-metadata-parameters
+    /**
+     * Common federation entity parameters:
+     * https://openid.net/specs/openid-federation-1_0.html#name-common-metadata-parameters
+     */
     ModuleConfig::OPTION_ORGANIZATION_NAME => null,
     ModuleConfig::OPTION_DISPLAY_NAME => null,
     ModuleConfig::OPTION_DESCRIPTION => null,
@@ -604,42 +638,48 @@ $config = [
     ModuleConfig::OPTION_POLICY_URI => null,
     ModuleConfig::OPTION_INFORMATION_URI => null,
     ModuleConfig::OPTION_ORGANIZATION_URI => null,
+
+
+    /***************************************************************************
+     * (optional) OpenID Verifiable Credential related options. If these are
+     * not set, OpenID Verifiable Credential capabilities will be disabled.
+     **************************************************************************/
+
     /**
-     * @deprecated In Draft-43 of OIDFed specification, metadata claim 'homepage_uri' has been renamed to
-     * 'organization_uri'. Use 'organization_uri' instead.
+     * Enable or disable verifiable credentials capabilities. Default is
+     * disabled (false).
      */
-    ModuleConfig::OPTION_HOMEPAGE_URI => null,
-
-
-    /**
-     * (optional) OpenID Verifiable Credential related options. If these are not set, OpenID Verifiable
-     * Credential capabilities will be disabled.
-     */
-
-    // Enable or disable verifiable credentials capabilities. Default is disabled (false).
     ModuleConfig::OPTION_VERIFIABLE_CREDENTIAL_ENABLED => false,
 
-    // Allow or disallow non-registered clients to request verifiable credentials. Default is disallowed (false).
+    /**
+     * Allow or disallow non-registered clients to request verifiable
+     * credentials. Default is disallowed (false).
+     */
     ModuleConfig::OPTION_ALLOW_NON_REGISTERED_CLIENTS_FOR_VCI => false,
 
-    // Allowed redirect URI prefixes for non-registered clients. By default, this is set to
-    // 'openid-credential-offer://' to allow only redirect URIs with this prefix.
-    //
-    // Example:
-    // [
-    //     'https://example.org/redirect',
-    //     'https://example.org/redirect2',
-    // ]
-    //
+    /**
+     * Allowed redirect URI prefixes for non-registered clients. By default, this is set to
+     * 'openid-credential-offer://' to allow only redirect URIs with this prefix.
+     *
+     * Example:
+     *  [
+     *      'https://example.org/redirect',
+     *      'https://example.org/redirect2',
+     *  ]
+     */
     ModuleConfig::OPTION_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS_FOR_VCI => [
         'openid-credential-offer://',
     ],
 
-    // (optional) Credential configuration statements, as per `credential_configurations_supported` claim definition in
-    // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#credential-issuer-parameters.
-    // Check the example below on how this can be used.
+    /**
+     * (optional) Credential configuration statements, as per
+     * `credential_configurations_supported` claim definition in
+     * https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#credential-issuer-parameters.
+     * Check the example below on how this can be used.
+     */
     ModuleConfig::OPTION_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
-        // Sample for 'jwt_vc_json' format with notes about required and optional fields.
+        // Sample for 'jwt_vc_json' format with notes about required and
+        // optional fields.
         'ResearchAndScholarshipCredentialJwtVcJson' => [
             // REQUIRED
             ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::JwtVcJson->value,
@@ -649,7 +689,8 @@ $config = [
             // OPTIONAL
             // cryptographic_binding_methods_supported
 
-            // OPTIONAL - will be set / overridden to the protocol signing algorithm.
+            // OPTIONAL - will be set / overridden to the protocol signing
+            // algorithm.
             // credential_signing_alg_values_supported
 
             // OPTIONAL
@@ -685,7 +726,8 @@ $config = [
                 /**
                  * https://refeds.org/category/research-and-scholarship
                  *
-                 * The R&S attribute bundle consists (abstractly) of the following required data elements:
+                 * The R&S attribute bundle consists (abstractly) of the
+                 * following required data elements:
                  *
                  * shared user identifier
                  * person name
@@ -695,25 +737,29 @@ $config = [
                  *
                  * affiliation
                  *
-                 * where shared user identifier is a persistent, non-reassigned, non-targeted identifier
-                 * defined to be either of the following:
+                 * where shared user identifier is a persistent, non-reassigned,
+                 * non-targeted identifier defined to be either of the
+                 * following:
                  *
                  * eduPersonPrincipalName (if non-reassigned)
                  * eduPersonPrincipalName + eduPersonTargetedID
                  *
-                 * and where person name is defined to be either (or both) of the following:
+                 * and where person name is defined to be either (or both) of
+                 * the following:
                  *
                  * displayName
                  * givenName + sn
                  *
                  * and where email address is defined to be the mail attribute,
+                 * and where affiliation is defined to be the
+                 * eduPersonScopedAffiliation attribute.
                  *
-                 * and where affiliation is defined to be the eduPersonScopedAffiliation attribute.
-                 *
-                 * All of the above attributes are defined or referenced in the [eduPerson] specification. The
-                 * specific naming and format of these attributes is guided by the protocol in use. For SAML
-                 * 2.0 the [SAMLAttr] profile MUST be used. This specification may be extended to reference
-                 * other protocol-specific formulations as circumstances warrant.
+                 * All of the above attributes are defined or referenced in the
+                 * [eduPerson] specification. The specific naming and format of
+                 * these attributes is guided by the protocol in use. For SAML
+                 * 2.0 the [SAMLAttr] profile MUST be used. This specification
+                 * may be extended to reference other protocol-specific
+                 * formulations as circumstances warrant.
                  */
                 [
                     // REQUIRED
@@ -798,7 +844,8 @@ $config = [
             ],
         ],
 
-        // Sample for 'dc+sd-jwt' format without notes about required and optional fields.
+        // Sample for 'dc+sd-jwt' format without notes about required and
+        // optional fields.
         'ResearchAndScholarshipCredentialDcSdJwt' => [
             ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::DcSdJwt->value,
             // In earlier drafts it was vc+sd-jwt.
@@ -886,15 +933,18 @@ $config = [
         ],
     ],
 
-    // Mapping of user attributes to a credential claim path, per credential configuration ID.
-    // Note that the path must be present in the credential configuration supported above.
-    // This is an array of arrays, with the following format:
-    // [
-    //    'credential-configuration-id' => [
-    //         ['user-attribute-name' => ['path-element', 'path-element', ...]],
-    //         '...',
-    //     ],
-    // ],
+    /**
+     * Mapping of user attributes to a credential claim path, per credential
+     * configuration ID. Note that the path must be present in the credential
+     * configuration supported above. This is an array of arrays, with the
+     * following format:
+     *  [
+     *     'credential-configuration-id' => [
+     *          ['user-attribute-name' => ['path-element', 'path-element', ...]],
+     *          '...',
+     *      ],
+     *  ],
+     */
     ModuleConfig::OPTION_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP => [
         'ResearchAndScholarshipCredentialJwtVcJson' => [
             ['eduPersonPrincipalName' => [ClaimsEnum::Credential_Subject->value, 'eduPersonPrincipalName']],
@@ -916,29 +966,48 @@ $config = [
         ],
     ],
 
-    // Map of authentication sources and user's email attribute names. This enables you to define a specific attribute
-    // name which contains the user's email address, per authentication source. This is used, for example, to send
-    // Transaction Code in the case of pre-authorized codes for verifiable credential issuance. If not set, the
-    // default user's email attribute name will be used (see the option below).
-    //
-    // Format is: 'authentication-source-id' => 'email-attribute-name'.
+    /**
+     * Map of authentication sources and user's email attribute names. This
+     * enables you to define a specific attribute name which contains the
+     * user's email address, per authentication source. This is used, for
+     * example, to send Transaction Code in the case of pre-authorized
+     * codes for verifiable credential issuance. If not set, the default
+     * user's email attribute name will be used (see the option below).
+     *
+     * Format is: 'authentication-source-id' => 'email-attribute-name'.
+     */
     ModuleConfig::OPTION_AUTH_SOURCES_TO_USERS_EMAIL_ATTRIBUTE_NAME_MAP => [
         'example-auth-source-id' => 'mail',
     ],
 
-    // The default name of the attribute which contains the user's email address. If not set, it will
-    // fall back to 'mail'.
+    /**
+     * The default name of the attribute which contains the user's email
+     * address. If not set, it will fall back to 'mail'.
+     */
     ModuleConfig::OPTION_DEFAULT_USERS_EMAIL_ATTRIBUTE_NAME => 'mail',
 
     /**
-     * (optional) API-related options.
+     * (optional) Issuer State TTL (validity duration), with the given example.
+     * If not set, falls back to Authorization Code TTL. For duration format
+     * info, check https://www.php.net/manual/en/dateinterval.construct.php
      */
+    ModuleConfig::OPTION_ISSUER_STATE_TTL => 'PT10M', // 10 minutes
 
-    // (optional) Enable or disable API capabilities. Default is disabled (false).
+
+    /***************************************************************************
+     * (optional) API-related options.
+     **************************************************************************/
+
+    /**
+     * (optional) Enable or disable API capabilities. Default is disabled
+     * (false).
+     */
     ModuleConfig::OPTION_API_ENABLED => false,
 
-    // List of API tokens which can be used to access API endpoints based on given scopes.
-    // The format is: ['token' => [ApiScopesEnum]]
+    /**
+     * List of API tokens which can be used to access API endpoints based on
+     * given scopes. The format is: ['token' => [ApiScopesEnum]]
+     */
     ModuleConfig::OPTION_API_TOKENS => [
 //        'strong-random-token-string' => [
 //            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::All, // Gives access to the whole API.
@@ -946,9 +1015,4 @@ $config = [
 //            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::VciCredentialOffer, // Gives access to the credential offer endpoint.
 //        ],
     ],
-
-    // (optional) Issuer State TTL (validity duration), with the given example. If not set, falls back to
-    // Authorization Code TTL. For duration format info, check
-    // https://www.php.net/manual/en/dateinterval.construct.php
-    ModuleConfig::OPTION_ISSUER_STATE_TTL => 'PT10M', // 10 minutes
 ];
