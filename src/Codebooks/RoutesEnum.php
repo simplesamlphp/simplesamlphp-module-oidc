@@ -40,7 +40,7 @@ enum RoutesEnum: string
     case Jwks = 'jwks';
     case EndSession = 'end-session';
 
-    case TokenIntrospect = 'token-introspect';
+    case TokenIntrospection = 'introspect';
 
     /*****************************************************************************************************************
      * OpenID Federation

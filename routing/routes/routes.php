@@ -19,7 +19,7 @@ use SimpleSAML\Module\oidc\Controllers\Federation\SubordinateListingsController;
 use SimpleSAML\Module\oidc\Controllers\JwksController;
 use SimpleSAML\Module\oidc\Controllers\UserInfoController;
 
-use SimpleSAML\Module\oidc\Controllers\TokenIntrospectController;
+use SimpleSAML\Module\oidc\Controllers\TokenIntrospectionController;
 
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
@@ -89,8 +89,8 @@ return function (RoutingConfigurator $routes): void {
     $routes->add(RoutesEnum::Jwks->name, RoutesEnum::Jwks->value)
         ->controller([JwksController::class, 'jwks']);
 
-    $routes->add(RoutesEnum::TokenIntrospect->name, RoutesEnum::TokenIntrospect->value)
-        ->controller([TokenIntrospectController::class, 'introspect']);
+    $routes->add(RoutesEnum::TokenIntrospection->name, RoutesEnum::TokenIntrospection->value)
+        ->controller(TokenIntrospectionController::class);
 
     /*****************************************************************************************************************
      * OpenID Federation

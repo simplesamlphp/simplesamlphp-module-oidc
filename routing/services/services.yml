@@ -22,6 +22,12 @@ services:
     resource: '../../src/Controllers/*'
     tags: ['controller.service_arguments']
 
+  SimpleSAML\Module\oidc\Controllers\TokenIntrospectionController:
+    autowire: true
+    autoconfigure: true
+    public: true
+    tags: [ 'controller.service_arguments' ]
+
   SimpleSAML\Module\oidc\Services\:
     resource: '../../src/Services/*'
     exclude: '../../src/Services/{Container.php}'
