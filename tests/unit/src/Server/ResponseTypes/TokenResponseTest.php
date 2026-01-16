@@ -55,7 +55,7 @@ class TokenResponseTest extends TestCase
     protected Stub $claimSetEntityFactoryStub;
     protected MockObject $loggerMock;
     protected MockObject $coreMock;
-    protected MockObject $connectSignatureKeyPairBagMock;
+    protected MockObject $protocolSignatureKeyPairBagMock;
     protected MockObject $idTokenFactoryMock;
     protected MockObject $idTokenMock;
     protected MockObject $signatureKeyPairMock;
@@ -120,15 +120,15 @@ class TokenResponseTest extends TestCase
 
         $this->loggerMock = $this->createMock(LoggerService::class);
 
-        $this->connectSignatureKeyPairBagMock = $this->createMock(SignatureKeyPairBag::class);
+        $this->protocolSignatureKeyPairBagMock = $this->createMock(SignatureKeyPairBag::class);
         $this->signatureKeyPairMock = $this->createMock(SignatureKeyPair::class);
         $this->signatureKeyPairMock->method('getSignatureAlgorithm')
             ->willReturn(SignatureAlgorithmEnum::RS256);
-        $this->connectSignatureKeyPairBagMock->method('getFirstOrFail')
+        $this->protocolSignatureKeyPairBagMock->method('getFirstOrFail')
             ->willReturn($this->signatureKeyPairMock);
 
-        $this->moduleConfigMock->method('getConnectSignatureKeyPairBag')
-            ->willReturn($this->connectSignatureKeyPairBagMock);
+        $this->moduleConfigMock->method('getProtocolSignatureKeyPairBag')
+            ->willReturn($this->protocolSignatureKeyPairBagMock);
 
         $this->idTokenMock = $this->createMock(IdToken::class);
     }

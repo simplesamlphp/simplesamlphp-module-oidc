@@ -55,7 +55,7 @@ class CryptKeyFactory
      */
     protected function getDefaultProtocolSignatureKeyPairConfig(): array
     {
-        $defaultProtocolKeyPair = $this->moduleConfig->getConnectSignatureKeyPairs();
+        $defaultProtocolKeyPair = $this->moduleConfig->getProtocolSignatureKeyPairs();
 
         /** @psalm-suppress MixedAssignment */
         $defaultProtocolKeyPair = $defaultProtocolKeyPair[array_key_first($defaultProtocolKeyPair)];

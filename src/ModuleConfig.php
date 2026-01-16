@@ -110,7 +110,7 @@ class ModuleConfig
     final public const OPTION_VCI_ALLOW_NON_REGISTERED_CLIENTS = 'vci_allow_non_registered_clients';
     final public const OPTION_VCI_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS =
     'vci_allowed_redirect_uri_prefixes_for_non_registered_clients';
-    final public const OPTION_CONNECT_SIGNATURE_KEY_PAIRS = 'connect_signature_key_pairs';
+    final public const OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS = 'protocol_signature_key_pairs';
     final public const OPTION_FEDERATION_SIGNATURE_KEY_PAIRS = 'federation_signature_key_pairs';
     final public const OPTION_TIMESTAMP_VALIDATION_LEEWAY = 'timestamp_validation_leeway';
     final public const OPTION_VCI_SIGNATURE_KEY_PAIRS = 'vci_signature_key_pairs';
@@ -144,10 +144,11 @@ class ModuleConfig
      * @var Configuration SimpleSAMLphp configuration instance.
      */
     private readonly Configuration $sspConfig;
-    protected ?SignatureKeyPairBag $connectSignatureKeyPairBag = null;
-    protected ?SignatureKeyPairConfigBag $connectSignatureKeyPairConfigBag = null;
+    protected ?SignatureKeyPairBag $protocolSignatureKeyPairBag = null;
+    protected ?SignatureKeyPairConfigBag $protocolSignatureKeyPairConfigBag = null;
     protected ?SignatureKeyPairBag $federationSignatureKeyPairBag = null;
     protected ?SignatureKeyPairBag $vciSignatureKeyPairBag = null;
+    protected ?SignatureKeyPairConfigBag $vciSignatureKeyPairConfigBag = null;
 
     /**
      * @throws \Exception
@@ -377,10 +378,10 @@ class ModuleConfig
      * @throws ConfigurationError
      * @return non-empty-array
      */
-    public function getConnectSignatureKeyPairs(): array
+    public function getProtocolSignatureKeyPairs(): array
     {
 
-        $signatureKeyPairs = $this->config()->getArray(ModuleConfig::OPTION_CONNECT_SIGNATURE_KEY_PAIRS);
+        $signatureKeyPairs = $this->config()->getArray(ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS);
 
         if (empty($signatureKeyPairs)) {
             throw new ConfigurationError('At least one protocol signature key-pair pair must be provided.');
@@ -393,14 +394,14 @@ class ModuleConfig
      * @throws \SimpleSAML\Error\ConfigurationError
      * @psalm-suppress MixedAssignment, ArgumentTypeCoercion
      */
-    public function getConnectSignatureKeyPairConfigBag(): SignatureKeyPairConfigBag
+    public function getProtocolSignatureKeyPairConfigBag(): SignatureKeyPairConfigBag
     {
-        if ($this->connectSignatureKeyPairConfigBag instanceof SignatureKeyPairConfigBag) {
-            return $this->connectSignatureKeyPairConfigBag;
+        if ($this->protocolSignatureKeyPairConfigBag instanceof SignatureKeyPairConfigBag) {
+            return $this->protocolSignatureKeyPairConfigBag;
         }
 
-        return $this->connectSignatureKeyPairConfigBag = $this->getSignatureKeyPairConfigBag(
-            $this->getConnectSignatureKeyPairs(),
+        return $this->protocolSignatureKeyPairConfigBag = $this->getSignatureKeyPairConfigBag(
+            $this->getProtocolSignatureKeyPairs(),
         );
     }
 
@@ -408,15 +409,15 @@ class ModuleConfig
      * @throws \SimpleSAML\Error\ConfigurationError
      * @psalm-suppress MixedAssignment, ArgumentTypeCoercion
      */
-    public function getConnectSignatureKeyPairBag(): SignatureKeyPairBag
+    public function getProtocolSignatureKeyPairBag(): SignatureKeyPairBag
     {
-        if ($this->connectSignatureKeyPairBag instanceof SignatureKeyPairBag) {
-            return $this->connectSignatureKeyPairBag;
+        if ($this->protocolSignatureKeyPairBag instanceof SignatureKeyPairBag) {
+            return $this->protocolSignatureKeyPairBag;
         }
 
-        return $this->connectSignatureKeyPairBag = $this->valueAbstracts
+        return $this->protocolSignatureKeyPairBag = $this->valueAbstracts
             ->signatureKeyPairBagFactory()
-            ->fromConfig($this->getConnectSignatureKeyPairConfigBag());
+            ->fromConfig($this->getProtocolSignatureKeyPairConfigBag());
     }
 
     /**
@@ -836,6 +837,39 @@ class ModuleConfig
         return $this->config()->getOptionalBoolean(self::OPTION_VCI_ENABLED, false);
     }
 
+
+    /**
+     * @throws ConfigurationError
+     * @return non-empty-array
+     */
+    public function getVciSignatureKeyPairs(): array
+    {
+
+        $signatureKeyPairs = $this->config()->getArray(ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS);
+
+        if (empty($signatureKeyPairs)) {
+            throw new ConfigurationError('At least one VCI signature key-pair pair must be provided.');
+        }
+
+        return $signatureKeyPairs;
+    }
+
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @psalm-suppress MixedAssignment, ArgumentTypeCoercion
+     */
+    public function getVciSignatureKeyPairConfigBag(): SignatureKeyPairConfigBag
+    {
+        if ($this->vciSignatureKeyPairConfigBag instanceof SignatureKeyPairConfigBag) {
+            return $this->vciSignatureKeyPairConfigBag;
+        }
+
+        return $this->vciSignatureKeyPairConfigBag = $this->getSignatureKeyPairConfigBag(
+            $this->getVciSignatureKeyPairs(),
+        );
+    }
+
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
      * @psalm-suppress MixedAssignment, ArgumentTypeCoercion
@@ -848,7 +882,7 @@ class ModuleConfig
 
         return $this->vciSignatureKeyPairBag = $this->valueAbstracts
             ->signatureKeyPairBagFactory()
-            ->fromConfig($this->getConnectSignatureKeyPairConfigBag());
+            ->fromConfig($this->getVciSignatureKeyPairConfigBag());
     }
 
     public function getVciCredentialConfigurationsSupported(): array

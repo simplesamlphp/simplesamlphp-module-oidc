@@ -29,22 +29,24 @@ use SimpleSAML\OpenID\Codebooks\LanguageTagsEnum;
 
 $config = [
     /**
-     * (optional) Issuer (OP) identifier which will be used as an issuer (iss) claim in tokens. If not set, it will
-     * fall back to current HTTP scheme, host and port number if no standard port is used.
-     * Description of issuer from OIDC Core specification: "Verifiable Identifier for an Issuer. An Issuer Identifier
-     * is a case-sensitive URL using the https scheme that contains scheme, host, and optionally, port number and
-     * path components and no query or fragment components."
+     * (optional) Issuer (OP) identifier which will be used as an issuer (iss)
+     * claim in tokens. If not set, it will fall back to the current HTTP
+     * scheme, host and port number if no standard port is used.
+     * Description of the issuer from OIDC Core specification: "Verifiable
+     * Identifier for an Issuer. An Issuer Identifier is a case-sensitive URL
+     * using the https scheme that contains scheme, host, and optionally,
+     * port number and path components and no query or fragment components."
      */
 //    ModuleConfig::OPTION_ISSUER => 'https://op.example.org',
 
     /**
-     * Connect protocol signature algorithm and key-pair definitions,
+     * Protocol (Connect) signature algorithm and key-pair definitions,
      * representing supported algorithms for signing, for example, ID Token JWS.
      * The order in which the entries are set is important. The entry set
      * first will have higher priority during signing algorithm negotiation
-     * with the client. If the client doesn't designate desired signing
+     * with the client. If the client doesn't designate the desired signing
      * algorithm, the first algorithm in the list will be used for signing (the
-     * first entry represents default algorithm and signing key). Note that
+     * first entry represents the default algorithm and signing key). Note that
      * the OpenID Connect specification designates `RS256` as the signing
      * algorithm that should be used by default, so you would probably want
      * to use that algorithm as the default (first) one. However, you are free
@@ -77,7 +79,7 @@ $config = [
      * key, you should manually set the key ID to the previous value
      * so that clients know that the key did not change.
      */
-    ModuleConfig::OPTION_CONNECT_SIGNATURE_KEY_PAIRS => [
+    ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS => [
         [
             ModuleConfig::KEY_ALGORITHM => \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum::RS256,
             ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module_connect_rsa_01.key',
@@ -119,7 +121,7 @@ $config = [
 
     /**
      * The default authentication source to be used for authentication if the
-     * authentication source is not specified on particular client.
+     * authentication source is not specified on a particular client.
      */
     ModuleConfig::OPTION_AUTH_SOURCE => 'default-sp',
 
@@ -127,14 +129,14 @@ $config = [
      * The attribute name that contains the user identifier returned from IdP.
      * By default, this attribute will be dynamically added to the 'sub'
      * claim in the attribute-to-claim translation table (you will probably want
-     * to use this attribute as the 'sub' claim since it designates unique
+     * to use this attribute as the 'sub' claim since it designates a unique
      * identifier for the user).
      */
     ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE => 'uid',
 
     /**
      * The default translate table from SAML attributes to OIDC claims. If you
-     * don't want to support specific default claim, set it to an empty array.
+     * don't want to support a specific default claim, set it to an empty array.
      */
     ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE => [
         /*
@@ -142,7 +144,7 @@ $config = [
          *
          * 'claimName' => [
          *     'type' => 'string|int|bool|json',
-         *      // For non JSON types
+         *      // For non-JSON types
          *     'attributes' => ['samlAttribute1', 'samlAttribute2']
          *      // For JSON types
          *     'claims => [
@@ -150,14 +152,15 @@ $config = [
          *      ]
          *  ]
          *
-         * For convenience the default type is "string" so type does not need
-         * to be defined. If "attributes" is not set, then it is assumed that
-         * the rest of the values are saml attribute names.
+         * For convenience the default type is "string" so the type does not
+         * need to be defined. If the "attributes" key is not set, then it is
+         *  assumed that the rest of the values are SAML attribute names.
          *
-         * Note on 'sub' claim: by default, the list of attributes for 'sub'
-         * claim will also contain attribute defined in 'useridattr' setting.
+         * Note on the 'sub' claim: by default, the list of attributes for 'sub'
+         * claim will also contain an attribute defined in the
+         * `ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE` setting.
          * You will probably want to use this attribute as the 'sub' claim since
-         * it designates unique identifier for the user, However, override as
+         * it designates a unique identifier for the user. However, override as
          * necessary.
          */
 //        'sub' => [
@@ -190,7 +193,7 @@ $config = [
 //            'description',
 //        ],
 //        'picture' => [
-//            // Empty. Previously 'jpegPhoto' however spec calls for a URL to photo, not an actual photo.
+//            // Empty. Previously 'jpegPhoto' however, spec calls for a URL to a photo, not an actual photo.
 //        ],
 //        'website' => [
 //            // Empty
@@ -218,7 +221,7 @@ $config = [
 //            'type' => 'bool',
 //            'attributes' => [],
 //        ],
-//         // address is a json object. Set the 'formatted' sub-claim to postalAddress
+//         // address is a JSON object. Set the 'formatted' subclaim to postalAddress
 //        'address' => [
 //            'type' => 'json',
 //            'claims' => [
@@ -257,7 +260,7 @@ $config = [
 
     /**
      * Optional list of the Authentication Context Class References that this OP
-     * supports. If populated, this list will be available in OP discovery
+     * supports. If populated, this list will be available in the OP discovery
      * document (OP Metadata) as 'acr_values_supported'.
      * @see https://datatracker.ietf.org/doc/html/rfc6711
      * @see https://www.iana.org/assignments/loa-profiles/loa-profiles.xhtml
@@ -283,8 +286,8 @@ $config = [
     /**
      * If this OP supports ACRs, indicate which usable auth source supports
      * which ACRs. Order of ACRs is important, more important ones being first.
-     * Syntax: array<string,string[]> (array with auth source as key and value
-     * being array of ACR values as strings)
+     * Syntax: array<string,string[]> (array with an auth source as a key and
+     * value being array of ACR values as strings)
      */
 
     ModuleConfig::OPTION_AUTH_SOURCES_TO_ACR_VALUES_MAP => [
@@ -305,20 +308,20 @@ $config = [
     /**
      * If this OP supports ACRs, indicate if authentication using cookie should
      * be forced to specific ACR value. If this option is set to null, no
-     * specific ACR will be forced for cookie authentication and the resulting
-     * ACR will be one of the ACRs supported on used auth source during
+     * specific ACR will be forced for cookie authentication, and the resulting
+     * ACR will be one of the ACRs supported on a used auth source during
      * authentication, that is, session creation. If this option is set to
-     * specific ACR, with ACR value being one of the ACR value this OP supports,
-     * it will be set to that ACR for cookie authentication.
+     * a specific ACR, with ACR value being one of the ACR values this OP
+     * supports, it will be set to that ACR for cookie authentication.
      * For example, OIDC Core Spec notes that authentication using a long-lived
-     * browser cookie is one example where the use of "level 0" is appropriate:
+     * browser cookie is one example where the use of "level 0" is appropriate.
      */
 //     ModuleConfig::OPTION_AUTH_FORCED_ACR_VALUE_FOR_COOKIE_AUTHENTICATION => '0',
     ModuleConfig::OPTION_AUTH_FORCED_ACR_VALUE_FOR_COOKIE_AUTHENTICATION => null,
 
     /**
-     * Choose if OP discovery document will include 'claims_supported' claim,
-     * which is recommended per OpenID Connect Discovery specification
+     * Choose if an OP discovery document will include the 'claims_supported'
+     * claim, which is recommended per OpenID Connect Discovery specification
      * https://openid.net/specs/openid-connect-discovery-1_0.html. The list will
      * include all claims for which "SAML attribute to OIDC claim translation"
      * has been defined above.
@@ -327,11 +330,11 @@ $config = [
 
     /**
      * Settings regarding Authentication Processing Filters.
-     * Note: OIDC authN state array will not contain all the keys which are
+     * Note: An OIDC authN state array will not contain all the keys which are
      * available during SAML authN, like Service Provider metadata, etc.
      *
      * At the moment, the following SAML authN data will be available during
-     * OIDC authN in the sate array:
+     * OIDC authN in the state array:
      * - ['Attributes'], ['Authority'], ['AuthnInstant'], ['Expire']
      * Source and destination will have entity IDs corresponding to the OP
      * issuer ID and Client ID respectively.
@@ -357,11 +360,12 @@ $config = [
     /**
      * (optional) Dedicated OIDC protocol cache adapter, used to cache artifacts
      * like access tokens, authorization codes, refresh tokens, client data,
-     * user data, etc. It will also be used for token reuse check in protocol
-     * context. Setting this option is recommended in production environments.
-     * If set to null, no caching will be used. Can be set to any Symfony Cache
-     * Adapter class, like in examples below. If set, make sure to also give
-     * proper adapter arguments for its instantiation below.
+     * user data, etc. It will also be used for token reuse check in the
+     * protocol context. Setting this option is recommended in production
+     * environments. If set to null, no caching will be used. Can be set to
+     * any Symfony Cache Adapter class, like in the examples below. If set,
+     * make sure to also give proper adapter arguments for its instantiation
+     * below.
      * @see https://symfony.com/doc/current/components/cache.html#available-cache-adapters
      */
     ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => null,
@@ -370,7 +374,7 @@ $config = [
 
     /**
      * Protocol cache adapter arguments used for adapter instantiation. Refer
-     * to documentation for particular adapter on which arguments are needed
+     * to documentation for a particular adapter on which arguments are needed
      * to create its instance, in the order of constructor arguments. See
      * examples below.
      */
@@ -380,13 +384,13 @@ $config = [
     // Example for FileSystemAdapter:
 //    ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS => [
 //        'openidFederation', // Namespace, subdirectory of main cache directory
-//        60 * 60 * 6, // Default lifetime in seconds (used when particular cache item doesn't define its own lifetime)
-//        '/path/to/main/cache/directory' // Must be writable. Can be set to null to use system temporary directory.
+//        60 * 60 * 6, // Default lifetime in seconds (used when a particular cache item doesn't define its own lifetime)
+//        '/path/to/main/cache/directory' // Must be writable. Can be set to null to use the system temporary directory.
 //    ],
 //     Example for MemcachedAdapter:
 //    ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS => [
 //        // First argument is a connection instance, so we can use the helper method to create it. In this example a
-//        // single server is used. Refer to documentation on how to use multiple servers, and / or to provide other
+//        // single server is used. Refer to documentation on how to use multiple servers and / or to provide other
 //        // options.
 //        \Symfony\Component\Cache\Adapter\MemcachedAdapter::createConnection(
 //            'memcached://localhost'
@@ -395,47 +399,49 @@ $config = [
 //        // 'memcached://localhost:11222?socket_recv_size=1&socket_send_size=2'
 //        ),
 //        'openidProtocol', // Namespace, key prefix.
-//        60 * 60 * 6, // Default lifetime in seconds (used when particular cache item doesn't define its own lifetime)
+//        60 * 60 * 6, // Default lifetime in seconds (used when a particular cache item doesn't define its own lifetime)
 //    ],
 
     /**
      * Protocol cache duration for user entities (authenticated users data).
      * If not set, cache duration will be the same as session duration.
-     * This is only relevant if protocol cache adapter is set up. For duration
+     * This is only relevant if a protocol cache adapter is set up. For duration
      * format info, check
      * https://www.php.net/manual/en/dateinterval.construct.php.
      */
 //    ModuleConfig::OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION => 'PT1H', // 1 hour
     ModuleConfig::OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION => null, // Fallback to session duration
     /**
-     * Protocol cache duration for client entities, with given default.
-     * This is only relevant if protocol cache adapter is set up. For duration
+     * Protocol cache duration for client entities, with a given default.
+     * This is only relevant if a protocol cache adapter is set up. For duration
      * format info, check
      * https://www.php.net/manual/en/dateinterval.construct.php.
      */
     ModuleConfig::OPTION_PROTOCOL_CLIENT_ENTITY_CACHE_DURATION => 'PT10M', // 10 minutes
 
     /**
-     * Note: cache duration for Authorization Code, Access Token, and Refresh Token
-     * will fall back to their TTL.
+     * Note: cache duration for Authorization Code, Access Token, and Refresh
+     * Token will fall back to their TTL.
      */
 
     /**
-     * Cron tag used to run storage cleanup script using the cron module.
+     * Cron tag used to run a storage cleanup script using the cron module.
      */
     ModuleConfig::OPTION_CRON_TAG => 'hourly',
 
     /**
-     * Permissions which let the module expose functionality to specific users. In the below configuration, a user's
-     * eduPersonEntitlement attribute is examined. If the user tries to do something that requires the 'client'
-     * permission (such as registering their own client), then they will need one of the eduPersonEntitlements
-     * from the `client` permission array. A permission can be disabled by commenting it out.
+     * Permissions which let the module expose functionality to specific users.
+     * In the below configuration, a user's eduPersonEntitlement attribute is
+     * examined. If the user tries to do something that requires the 'client'
+     * permission (such as registering their own client), then they will need
+     * one of the eduPersonEntitlements from the `client` permission array.
+     * A permission can be disabled by commenting it out.
      */
     ModuleConfig::OPTION_ADMIN_UI_PERMISSIONS => [
         // Attribute to inspect to determine user's permissions
         'attribute' => 'eduPersonEntitlement',
-        // Which entitlements allow for registering, editing, delete a client.
-        // OIDC clients are owned by the creator
+        // Which entitlements allow for registering, editing, deleting a client?
+        // The creator owns OIDC clients
         'client' => ['urn:example:oidc:manage:client'],
     ],
 
@@ -579,16 +585,16 @@ $config = [
      * recommended in production environments. If set to null, no caching will
      * be used. Can be set to any Symfony Cache Adapter class. If set, make
      * sure to also give proper adapter arguments for its instantiation below.
-     * See examples for protocol cache adapter option.
+     * See examples for a protocol cache adapter option.
      * @see https://symfony.com/doc/current/components/cache.html#available-cache-adapters
      */
     ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER => null,
 
     /**
      * Federation cache adapter arguments used for adapter instantiation. Refer
-     * to documentation for particular adapter on which arguments are needed to
-     * create its instance, in the order of constructor arguments.
-     * See examples for protocol cache adapter option.
+     * to documentation for a particular adapter on which arguments are needed
+     * to create its instance, in the order of constructor arguments.
+     * See examples for a protocol cache adapter option.
      */
     ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS => [
         // Adapter arguments here...
@@ -600,9 +606,9 @@ $config = [
      * artifact. For example, when caching fetched entity statements, cache
      * duration will be based on the 'exp' claim (expiration time). Since those
      * claims are set by issuer (can be long), it could be desirable to limit
-     * the maximum time, so that items in cache get refreshed more regularly
-     * (and changes propagate more quickly). This is only relevant if federation
-     * cache adapter is set up. For duration format info, check
+     * the maximum time so that items in the cache get refreshed more regularly
+     * (and changes propagate more quickly). This is only relevant if a
+     * federation cache adapter is set up. For duration format info, check
      * https://www.php.net/manual/en/dateinterval.construct.php.
      */
     ModuleConfig::OPTION_FEDERATION_CACHE_MAX_DURATION_FOR_FETCHED => 'PT6H', // 6 hours
@@ -610,7 +616,7 @@ $config = [
     /**
      * Federation entity statement duration which determines the Expiration Time
      * (exp) claim set in entity statement JWSs published by this OP. If not
-     * set, default of 1 day will be used. For duration format info, check
+     * set, a default of 1 day will be used. For duration format info, check
      * https://www.php.net/manual/en/dateinterval.construct.php
      */
     ModuleConfig::OPTION_FEDERATION_ENTITY_STATEMENT_DURATION => 'P1D', // 1 day
@@ -618,9 +624,9 @@ $config = [
     /**
      * Cache duration for federation entity statements produced by this OP.
      * This can be used to avoid calculating JWS signature on every HTTP request
-     * for OP Configuration statement, Subordinate Statements... This is only
-     * relevant if federation cache adapter is set up. For duration format info,
-     * check https://www.php.net/manual/en/dateinterval.construct.php.
+     * for an OP Configuration statement, Subordinate Statements... This is only
+     * relevant if a federation cache adapter is set up. For duration format
+     * info, check https://www.php.net/manual/en/dateinterval.construct.php.
      */
     ModuleConfig::OPTION_FEDERATION_CACHE_DURATION_FOR_PRODUCED => 'PT2M', // 2 minutes
 
@@ -686,7 +692,8 @@ $config = [
     ModuleConfig::OPTION_VCI_ALLOW_NON_REGISTERED_CLIENTS => false,
 
     /**
-     * Allowed redirect URI prefixes for non-registered clients. By default, this is set to
+     * Allowed redirect URI prefixes for non-registered clients. By default,
+     * this is set to
      * 'openid-credential-offer://' to allow only redirect URIs with this prefix.
      *
      * Example:

@@ -21,7 +21,7 @@ $config = [
     ModuleConfig::OPTION_TOKEN_REFRESH_TOKEN_TTL => 'P1M',
     ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_TTL => 'PT1H',
 
-    ModuleConfig::OPTION_CONNECT_SIGNATURE_KEY_PAIRS => [
+    ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS => [
         [
             ModuleConfig::KEY_ALGORITHM => \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum::RS256,
             ModuleConfig::KEY_PRIVATE_KEY_FILENAME => ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME,

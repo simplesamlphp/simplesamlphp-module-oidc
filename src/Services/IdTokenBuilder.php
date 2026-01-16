@@ -50,7 +50,7 @@ class IdTokenBuilder
             throw new RuntimeException('Client is expected to be instance of ' . ClientEntity::class);
         }
 
-        $protocolSignatureKeyPairBag = $this->moduleConfig->getConnectSignatureKeyPairBag();
+        $protocolSignatureKeyPairBag = $this->moduleConfig->getProtocolSignatureKeyPairBag();
         $protocolSignatureKeyPair = $protocolSignatureKeyPairBag->getFirstOrFail();
 
         // ID Token signing algorithm that the client wants.

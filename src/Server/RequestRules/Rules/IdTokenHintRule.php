@@ -66,7 +66,7 @@ class IdTokenHintRule extends AbstractRule
         }
 
         $jwks = $this->jwks->jwksDecoratorFactory()->fromJwkDecorators(
-            ...$this->moduleConfig->getConnectSignatureKeyPairBag()->getAllPublicKeys(),
+            ...$this->moduleConfig->getProtocolSignatureKeyPairBag()->getAllPublicKeys(),
         )->jsonSerialize();
 
         $idTokenHint = $this->core->idTokenFactory()->fromToken($idTokenHintParam);

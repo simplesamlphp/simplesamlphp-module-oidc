@@ -77,7 +77,7 @@ class OpMetadataServiceTest extends TestCase
         $this->signatureKeyPairBagMock->method('getAllAlgorithmNamesUnique')
             ->willReturn(['RS256']);
 
-        $this->moduleConfigMock->method('getConnectSignatureKeyPairBag')
+        $this->moduleConfigMock->method('getProtocolSignatureKeyPairBag')
             ->willReturn($this->signatureKeyPairBagMock);
     }
 
