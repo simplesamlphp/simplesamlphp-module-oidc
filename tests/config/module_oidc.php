@@ -18,6 +18,14 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 $config = [
     ModuleConfig::OPTION_ISSUER => 'http://test.issuer',
 
+    ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS => [
+        [
+            ModuleConfig::KEY_ALGORITHM => \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum::RS256,
+            ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module.key',
+            ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'oidc_module.crt',
+        ],
+    ],
+
     ModuleConfig::OPTION_TOKEN_AUTHORIZATION_CODE_TTL => 'PT10M',
     ModuleConfig::OPTION_TOKEN_REFRESH_TOKEN_TTL => 'P1M',
     ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_TTL => 'PT1H',
@@ -57,6 +65,14 @@ $config = [
     ModuleConfig::OPTION_ADMIN_UI_PAGINATION_ITEMS_PER_PAGE => 20,
 
     ModuleConfig::OPTION_FEDERATION_ENABLED => false,
+
+    ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS => [
+        [
+            ModuleConfig::KEY_ALGORITHM => \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum::RS256,
+            ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module.key',
+            ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'oidc_module.crt',
+        ],
+    ],
 
     ModuleConfig::OPTION_FEDERATION_TRUST_ANCHORS => [
         // phpcs:ignore

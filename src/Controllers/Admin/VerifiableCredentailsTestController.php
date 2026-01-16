@@ -44,7 +44,7 @@ class VerifiableCredentailsTestController
     {
         $setupErrors = [];
 
-        if (!$this->moduleConfig->getVerifiableCredentialEnabled()) {
+        if (!$this->moduleConfig->getVciEnabled()) {
             $setupErrors[] = 'Verifiable Credential functionalities are not enabled.';
         }
 

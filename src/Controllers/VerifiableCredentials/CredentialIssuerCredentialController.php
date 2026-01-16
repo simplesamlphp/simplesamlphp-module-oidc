@@ -54,7 +54,7 @@ class CredentialIssuerCredentialController
         protected readonly Did $did,
         protected readonly IssuerStateRepository $issuerStateRepository,
     ) {
-        if (!$this->moduleConfig->getVerifiableCredentialEnabled()) {
+        if (!$this->moduleConfig->getVciEnabled()) {
             $this->loggerService->warning('Verifiable Credential capabilities not enabled.');
             throw OidcServerException::forbidden('Verifiable Credential capabilities not enabled.');
         }

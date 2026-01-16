@@ -17,8 +17,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc;
 
 use DateInterval;
-use Lcobucci\JWT\Signer;
-use ReflectionClass;
 use SimpleSAML\Configuration;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
@@ -275,23 +273,6 @@ class ModuleConfig
         return $base;
     }
 
-    /**
-     * @param class-string $className
-     * @throws \SimpleSAML\Error\ConfigurationError
-     * @throws \ReflectionException
-     */
-    protected function instantiateSigner(string $className): Signer
-    {
-        $class = new ReflectionClass($className);
-        $signer = $class->newInstance();
-
-        if (!$signer instanceof Signer) {
-            throw new ConfigurationError(sprintf('Unsupported signer class provided (%s).', $className));
-        }
-
-        return $signer;
-    }
-
     /*****************************************************************************************************************
      * OpenID Connect related config.
      ****************************************************************************************************************/
@@ -361,6 +342,7 @@ class ModuleConfig
                 SignatureAlgorithmEnum::PS256,
                 SignatureAlgorithmEnum::PS384,
                 SignatureAlgorithmEnum::PS512,
+                SignatureAlgorithmEnum::EdDSA,
             ),
         );
     }
@@ -380,7 +362,6 @@ class ModuleConfig
      */
     public function getProtocolSignatureKeyPairs(): array
     {
-
         $signatureKeyPairs = $this->config()->getArray(ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS);
 
         if (empty($signatureKeyPairs)) {
@@ -832,7 +813,7 @@ class ModuleConfig
      * OpenID Verifiable Credential Issuance related config.
      ****************************************************************************************************************/
 
-    public function getVerifiableCredentialEnabled(): bool
+    public function getVciEnabled(): bool
     {
         return $this->config()->getOptionalBoolean(self::OPTION_VCI_ENABLED, false);
     }
@@ -935,7 +916,7 @@ class ModuleConfig
      */
     public function getVciScopes(): array
     {
-        if (!$this->getVerifiableCredentialEnabled()) {
+        if (!$this->getVciEnabled()) {
             return [];
         }
 
@@ -1190,7 +1171,7 @@ class ModuleConfig
         ) {
             throw new ConfigurationError(
                 sprintf(
-                    'Unexpected value for key ID signature key pair. Expected a string or null, got "%s".',
+                    'Unexpected value for key ID signature key pair. Expected a non-empty string or null, got "%s".',
                     var_export($keyId, true),
                 ),
             );

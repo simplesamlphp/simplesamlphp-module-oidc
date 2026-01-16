@@ -75,7 +75,7 @@ class AuthorizationDetailsRule extends AbstractRule
 
         // Since we only use AuthorizationDetailsRule for VCI, we will throw as per RAR spec.
         // https://www.rfc-editor.org/rfc/rfc9396.html#name-authorization-error-respons
-        if (! $this->moduleConfig->getVerifiableCredentialEnabled()) {
+        if (! $this->moduleConfig->getVciEnabled()) {
             $loggerService->error('AuthorizationDetailsRule: Rich Authorization Requests are not used by this server.');
             throw OidcServerException::invalidRequest(
                 'authorization_details',

@@ -124,7 +124,7 @@ class ClientRule extends AbstractRule
 
         if (
             $this->requestParamsResolver->isVciAuthorizationCodeRequest($request, $allowedServerRequestMethods) &&
-            $this->moduleConfig->getVerifiableCredentialEnabled() &&
+            $this->moduleConfig->getVciEnabled() &&
             $this->moduleConfig->getVciAllowNonRegisteredClients()
         ) {
             $this->loggerService->debug(

@@ -72,7 +72,7 @@ class ClientRedirectUriRule extends AbstractRule
         } catch (\Throwable $exception) {
             if (
                 $this->requestParamsResolver->isVciAuthorizationCodeRequest($request, $allowedServerRequestMethods) &&
-                $this->moduleConfig->getVerifiableCredentialEnabled() &&
+                $this->moduleConfig->getVciEnabled() &&
                 $this->moduleConfig->getVciAllowNonRegisteredClients()
             ) {
                 $loggerService->debug(

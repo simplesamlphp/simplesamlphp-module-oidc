@@ -83,7 +83,7 @@ class OpMetadataService
             GrantTypesEnum::AuthorizationCode->value,
             GrantTypesEnum::RefreshToken->value,
         ];
-        if ($this->moduleConfig->getVerifiableCredentialEnabled()) {
+        if ($this->moduleConfig->getVciEnabled()) {
             $grantTypesSupported[] = GrantTypesEnum::PreAuthorizedCode->value;
         }
         $this->metadata[ClaimsEnum::GrantTypesSupported->value] = $grantTypesSupported;
