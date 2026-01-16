@@ -97,22 +97,23 @@ class ModuleConfig
     final public const OPTION_PROTOCOL_CLIENT_ENTITY_CACHE_DURATION = 'protocol_client_entity_cache_duration';
     final public const OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED = 'protocol_discover_show_claims_supported';
 
-    final public const OPTION_VERIFIABLE_CREDENTIAL_ENABLED = 'verifiable_credentials_enabled';
-    final public const OPTION_CREDENTIAL_CONFIGURATIONS_SUPPORTED = 'credential_configurations_supported';
-    final public const OPTION_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP =
-    'user_attribute_to_credential_claim_path_map';
+    final public const OPTION_VCI_ENABLED = 'vci_enabled';
+    final public const OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED = 'vci_credential_configurations_supported';
+    final public const OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP =
+    'vci_user_attribute_to_credential_claim_path_map';
     final public const OPTION_API_ENABLED = 'api_enabled';
     final public const OPTION_API_TOKENS = 'api_tokens';
     final public const OPTION_DEFAULT_USERS_EMAIL_ATTRIBUTE_NAME = 'users_email_attribute_name';
     final public const OPTION_AUTH_SOURCES_TO_USERS_EMAIL_ATTRIBUTE_NAME_MAP =
     'auth_sources_to_users_email_attribute_name_map';
-    final public const OPTION_ISSUER_STATE_TTL = 'issuer_state_ttl';
-    final public const OPTION_ALLOW_NON_REGISTERED_CLIENTS_FOR_VCI = 'allow_non_registered_clients_for_vci';
-    final public const OPTION_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS_FOR_VCI =
-    'allowed_redirect_uri_prefixes_for_non_registered_clients_for_vci';
-    final public const OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS = 'protocol_signature_key_pairs';
+    final public const OPTION_VCI_ISSUER_STATE_TTL = 'vci_issuer_state_ttl';
+    final public const OPTION_VCI_ALLOW_NON_REGISTERED_CLIENTS = 'vci_allow_non_registered_clients';
+    final public const OPTION_VCI_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS =
+    'vci_allowed_redirect_uri_prefixes_for_non_registered_clients';
+    final public const OPTION_CONNECT_SIGNATURE_KEY_PAIRS = 'connect_signature_key_pairs';
     final public const OPTION_FEDERATION_SIGNATURE_KEY_PAIRS = 'federation_signature_key_pairs';
     final public const OPTION_TIMESTAMP_VALIDATION_LEEWAY = 'timestamp_validation_leeway';
+    final public const OPTION_VCI_SIGNATURE_KEY_PAIRS = 'vci_signature_key_pairs';
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
@@ -143,9 +144,10 @@ class ModuleConfig
      * @var Configuration SimpleSAMLphp configuration instance.
      */
     private readonly Configuration $sspConfig;
-    protected ?SignatureKeyPairBag $protocolSignatureKeyPairBag = null;
-    protected ?SignatureKeyPairConfigBag $protocolSignatureKeyPairConfigBag = null;
+    protected ?SignatureKeyPairBag $connectSignatureKeyPairBag = null;
+    protected ?SignatureKeyPairConfigBag $connectSignatureKeyPairConfigBag = null;
     protected ?SignatureKeyPairBag $federationSignatureKeyPairBag = null;
+    protected ?SignatureKeyPairBag $vciSignatureKeyPairBag = null;
 
     /**
      * @throws \Exception
@@ -375,10 +377,10 @@ class ModuleConfig
      * @throws ConfigurationError
      * @return non-empty-array
      */
-    public function getProtocolSignatureKeyPairs(): array
+    public function getConnectSignatureKeyPairs(): array
     {
 
-        $signatureKeyPairs = $this->config()->getArray(ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS);
+        $signatureKeyPairs = $this->config()->getArray(ModuleConfig::OPTION_CONNECT_SIGNATURE_KEY_PAIRS);
 
         if (empty($signatureKeyPairs)) {
             throw new ConfigurationError('At least one protocol signature key-pair pair must be provided.');
@@ -391,14 +393,14 @@ class ModuleConfig
      * @throws \SimpleSAML\Error\ConfigurationError
      * @psalm-suppress MixedAssignment, ArgumentTypeCoercion
      */
-    public function getProtocolSignatureKeyPairConfigBag(): SignatureKeyPairConfigBag
+    public function getConnectSignatureKeyPairConfigBag(): SignatureKeyPairConfigBag
     {
-        if ($this->protocolSignatureKeyPairConfigBag instanceof SignatureKeyPairConfigBag) {
-            return $this->protocolSignatureKeyPairConfigBag;
+        if ($this->connectSignatureKeyPairConfigBag instanceof SignatureKeyPairConfigBag) {
+            return $this->connectSignatureKeyPairConfigBag;
         }
 
-        return $this->protocolSignatureKeyPairConfigBag = $this->getSignatureKeyPairConfigBag(
-            $this->getProtocolSignatureKeyPairs(),
+        return $this->connectSignatureKeyPairConfigBag = $this->getSignatureKeyPairConfigBag(
+            $this->getConnectSignatureKeyPairs(),
         );
     }
 
@@ -406,15 +408,15 @@ class ModuleConfig
      * @throws \SimpleSAML\Error\ConfigurationError
      * @psalm-suppress MixedAssignment, ArgumentTypeCoercion
      */
-    public function getProtocolSignatureKeyPairBag(): SignatureKeyPairBag
+    public function getConnectSignatureKeyPairBag(): SignatureKeyPairBag
     {
-        if ($this->protocolSignatureKeyPairBag instanceof SignatureKeyPairBag) {
-            return $this->protocolSignatureKeyPairBag;
+        if ($this->connectSignatureKeyPairBag instanceof SignatureKeyPairBag) {
+            return $this->connectSignatureKeyPairBag;
         }
 
-        return $this->protocolSignatureKeyPairBag = $this->valueAbstracts
+        return $this->connectSignatureKeyPairBag = $this->valueAbstracts
             ->signatureKeyPairBagFactory()
-            ->fromConfig($this->getProtocolSignatureKeyPairConfigBag());
+            ->fromConfig($this->getConnectSignatureKeyPairConfigBag());
     }
 
     /**
@@ -831,12 +833,27 @@ class ModuleConfig
 
     public function getVerifiableCredentialEnabled(): bool
     {
-        return $this->config()->getOptionalBoolean(self::OPTION_VERIFIABLE_CREDENTIAL_ENABLED, false);
+        return $this->config()->getOptionalBoolean(self::OPTION_VCI_ENABLED, false);
     }
 
-    public function getCredentialConfigurationsSupported(): array
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @psalm-suppress MixedAssignment, ArgumentTypeCoercion
+     */
+    public function getVciSignatureKeyPairBag(): SignatureKeyPairBag
     {
-        return $this->config()->getOptionalArray(self::OPTION_CREDENTIAL_CONFIGURATIONS_SUPPORTED, []);
+        if ($this->vciSignatureKeyPairBag instanceof SignatureKeyPairBag) {
+            return $this->vciSignatureKeyPairBag;
+        }
+
+        return $this->vciSignatureKeyPairBag = $this->valueAbstracts
+            ->signatureKeyPairBagFactory()
+            ->fromConfig($this->getConnectSignatureKeyPairConfigBag());
+    }
+
+    public function getVciCredentialConfigurationsSupported(): array
+    {
+        return $this->config()->getOptionalArray(self::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED, []);
     }
 
     /**
@@ -844,9 +861,9 @@ class ModuleConfig
      * @return mixed[]|null
      * @throws \SimpleSAML\Error\ConfigurationError
      */
-    public function getCredentialConfiguration(string $credentialConfigurationId): ?array
+    public function getVciCredentialConfiguration(string $credentialConfigurationId): ?array
     {
-        $credentialConfiguration = $this->getCredentialConfigurationsSupported()[$credentialConfigurationId] ?? null;
+        $credentialConfiguration = $this->getVciCredentialConfigurationsSupported()[$credentialConfigurationId] ?? null;
 
         if (is_null($credentialConfiguration)) {
             return null;
@@ -868,11 +885,11 @@ class ModuleConfig
     /**
      * @return array<string>
      */
-    public function getCredentialConfigurationIdsSupported(): array
+    public function getVciCredentialConfigurationIdsSupported(): array
     {
         return array_map(
             'strval',
-            array_keys($this->getCredentialConfigurationsSupported()),
+            array_keys($this->getVciCredentialConfigurationsSupported()),
         );
     }
 
@@ -889,16 +906,16 @@ class ModuleConfig
         }
 
         $vciScopes = [];
-        foreach ($this->getCredentialConfigurationIdsSupported() as $credentialConfigurationId) {
+        foreach ($this->getVciCredentialConfigurationIdsSupported() as $credentialConfigurationId) {
             $vciScopes[$credentialConfigurationId] = ['description' => $credentialConfigurationId];
         }
         return $vciScopes;
     }
 
-    public function getCredentialConfigurationIdForCredentialDefinitionType(array $credentialDefinitionType): ?string
+    public function getVciCredentialConfigurationIdForCredentialDefinitionType(array $credentialDefinitionType): ?string
     {
         foreach (
-            $this->getCredentialConfigurationsSupported() as $credentialConfigurationId => $credentialConfiguration
+            $this->getVciCredentialConfigurationsSupported() as $credentialConfigurationId => $credentialConfiguration
         ) {
             if (!is_array($credentialConfiguration)) {
                 continue;
@@ -925,9 +942,9 @@ class ModuleConfig
      * Extract and parse the claims path definition from the credential configuration supported.
      * Returns an array of valid paths for the claims.
      */
-    public function getValidCredentialClaimPathsFor(string $credentialConfigurationId): array
+    public function getVciValidCredentialClaimPathsFor(string $credentialConfigurationId): array
     {
-        $claimsConfig = $this->getCredentialConfigurationsSupported()[$credentialConfigurationId]
+        $claimsConfig = $this->getVciCredentialConfigurationsSupported()[$credentialConfigurationId]
         [ClaimsEnum::Claims->value] ?? [];
 
         $validPaths = [];
@@ -947,15 +964,15 @@ class ModuleConfig
         return array_filter($validPaths);
     }
 
-    public function getUserAttributeToCredentialClaimPathMap(): array
+    public function getVciUserAttributeToCredentialClaimPathMap(): array
     {
-        return $this->config()->getOptionalArray(self::OPTION_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP, []);
+        return $this->config()->getOptionalArray(self::OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP, []);
     }
 
-    public function getUserAttributeToCredentialClaimPathMapFor(string $credentialConfigurationId): array
+    public function getVciUserAttributeToCredentialClaimPathMapFor(string $credentialConfigurationId): array
     {
         /** @psalm-suppress MixedAssignment */
-        $map = $this->getUserAttributeToCredentialClaimPathMap()[$credentialConfigurationId] ?? [];
+        $map = $this->getVciUserAttributeToCredentialClaimPathMap()[$credentialConfigurationId] ?? [];
 
         if (is_array($map)) {
             return $map;
@@ -970,28 +987,28 @@ class ModuleConfig
      * @return DateInterval
      * @throws \Exception
      */
-    public function getIssuerStateDuration(): DateInterval
+    public function getVciIssuerStateDuration(): DateInterval
     {
-        $issuerStateDuration = $this->config()->getOptionalString(self::OPTION_ISSUER_STATE_TTL, null);
+        $issuerStateDuration = $this->config()->getOptionalString(self::OPTION_VCI_ISSUER_STATE_TTL, null);
 
         if (is_null($issuerStateDuration)) {
             return $this->getAuthCodeDuration();
         }
 
         return new DateInterval(
-            $this->config()->getString(self::OPTION_ISSUER_STATE_TTL),
+            $this->config()->getString(self::OPTION_VCI_ISSUER_STATE_TTL),
         );
     }
 
-    public function getAllowNonRegisteredClientsForVci(): bool
+    public function getVciAllowNonRegisteredClients(): bool
     {
-        return $this->config()->getOptionalBoolean(self::OPTION_ALLOW_NON_REGISTERED_CLIENTS_FOR_VCI, false);
+        return $this->config()->getOptionalBoolean(self::OPTION_VCI_ALLOW_NON_REGISTERED_CLIENTS, false);
     }
 
-    public function getAllowedRedirectUriPrefixesForNonRegisteredClientsForVci(): array
+    public function getVciAllowedRedirectUriPrefixesForNonRegisteredClients(): array
     {
         return $this->config()->getOptionalArray(
-            self::OPTION_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS_FOR_VCI,
+            self::OPTION_VCI_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS,
             ['openid-credential-offer://',],
         );
     }

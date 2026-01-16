@@ -156,7 +156,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
      */
     protected function convertToJWT(): ParsedJws
     {
-        $protocolSignatureKeyPair = $this->moduleConfig->getProtocolSignatureKeyPairBag()->getFirstOrFail();
+        $protocolSignatureKeyPair = $this->moduleConfig->getConnectSignatureKeyPairBag()->getFirstOrFail();
         $currentTimestamp = $this->jws->helpers()->dateTime()->getUtc()->getTimestamp();
 
         $payload = array_filter([

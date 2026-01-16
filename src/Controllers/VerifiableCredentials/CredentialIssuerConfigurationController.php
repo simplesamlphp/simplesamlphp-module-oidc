@@ -40,9 +40,10 @@ class CredentialIssuerConfigurationController
     {
         // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-issuer-metadata-p
 
-        $signatureKeyPair = $this->moduleConfig->getProtocolSignatureKeyPairBag()->getFirstOrFail();
+        // TODO mivanci Add support for multiple signature key pairs. For now, we only support (first) one.
+        $signatureKeyPair = $this->moduleConfig->getVciSignatureKeyPairBag()->getFirstOrFail();
 
-        $credentialConfigurationsSupported = $this->moduleConfig->getCredentialConfigurationsSupported();
+        $credentialConfigurationsSupported = $this->moduleConfig->getVciCredentialConfigurationsSupported();
 
         // For now, we only support one credential signing algorithm.
         /** @psalm-suppress MixedAssignment */

@@ -73,7 +73,7 @@ class ClientRedirectUriRule extends AbstractRule
             if (
                 $this->requestParamsResolver->isVciAuthorizationCodeRequest($request, $allowedServerRequestMethods) &&
                 $this->moduleConfig->getVerifiableCredentialEnabled() &&
-                $this->moduleConfig->getAllowNonRegisteredClientsForVci()
+                $this->moduleConfig->getVciAllowNonRegisteredClients()
             ) {
                 $loggerService->debug(
                     'RedirectUriRule: Verifiable Credential capabilities with non-registered clients are enabled. ' .
@@ -82,7 +82,7 @@ class ClientRedirectUriRule extends AbstractRule
 
                 /** @psalm-suppress MixedAssignment */
                 foreach (
-                    $this->moduleConfig->getAllowedRedirectUriPrefixesForNonRegisteredClientsForVci(
+                    $this->moduleConfig->getVciAllowedRedirectUriPrefixesForNonRegisteredClients(
                     ) as $clientRedirectUriPrefix
                 ) {
                     if (str_starts_with($redirectUri, (string)$clientRedirectUriPrefix)) {

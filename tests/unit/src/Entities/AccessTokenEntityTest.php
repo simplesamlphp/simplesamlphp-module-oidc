@@ -80,7 +80,7 @@ class AccessTokenEntityTest extends TestCase
         $this->signatureKeyPairBagMock->method('getFirstOrFail')
             ->willReturn($this->signatureKeyPairMock);
 
-        $this->moduleConfigMock->method('getProtocolSignatureKeyPairBag')
+        $this->moduleConfigMock->method('getConnectSignatureKeyPairBag')
             ->willReturn($this->signatureKeyPairBagMock);
     }
 

@@ -84,7 +84,7 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
         try {
             // Attempt to validate the JWT
             $jwks = $this->jwks->jwksDecoratorFactory()->fromJwkDecorators(
-                ...$this->moduleConfig->getProtocolSignatureKeyPairBag()->getAllPublicKeys(),
+                ...$this->moduleConfig->getConnectSignatureKeyPairBag()->getAllPublicKeys(),
             )->jsonSerialize();
             $token->verifyWithKeySet($jwks);
         } catch (JwsException) {

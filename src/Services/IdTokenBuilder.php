@@ -50,7 +50,7 @@ class IdTokenBuilder
             throw new RuntimeException('Client is expected to be instance of ' . ClientEntity::class);
         }
 
-        $protocolSignatureKeyPairBag = $this->moduleConfig->getProtocolSignatureKeyPairBag();
+        $protocolSignatureKeyPairBag = $this->moduleConfig->getConnectSignatureKeyPairBag();
         $protocolSignatureKeyPair = $protocolSignatureKeyPairBag->getFirstOrFail();
 
         // ID Token signing algorithm that the client wants.
@@ -121,16 +121,25 @@ class IdTokenBuilder
     }
 
     /**
-     * @param string $jwsAlgorithm JWS Algorithm designation (like RS256, RS384...)
+     * @param string $jwsAlgorithm JWS Algorithm designation (like RS256,
+     * RS384...).
      */
     public function generateAccessTokenHash(AccessTokenEntityInterface $accessToken, string $jwsAlgorithm): string
     {
-        $validBitLengths = [256, 384, 512];
+        if ($jwsAlgorithm === SignatureAlgorithmEnum::EdDSA->value) {
+            $hashAlgorithm = 'sha512';
+            $hashByteLength = 32; // 256 bits / 8
+        } else {
+            $validBitLengths = [256, 384, 512];
 
-        $jwsAlgorithmBitLength = (int) substr($jwsAlgorithm, 2);
+            $jwsAlgorithmBitLength = (int) substr($jwsAlgorithm, 2);
 
-        if (!in_array($jwsAlgorithmBitLength, $validBitLengths, true)) {
-            throw new RuntimeException(sprintf('JWS algorithm not supported (%s)', $jwsAlgorithm));
+            if (!in_array($jwsAlgorithmBitLength, $validBitLengths, true)) {
+                throw new RuntimeException(sprintf('JWS algorithm not supported (%s)', $jwsAlgorithm));
+            }
+
+            $hashAlgorithm = 'sha' . $jwsAlgorithmBitLength;
+            $hashByteLength = $jwsAlgorithmBitLength / 2 / 8;
         }
 
         if ($accessToken instanceof EntityStringRepresentationInterface === false) {
@@ -138,13 +147,9 @@ class IdTokenBuilder
                                         EntityStringRepresentationInterface::class);
         }
 
-        // Try to use toString() so that it uses the string representation if it was already cast to string,
-        // otherwise, use the cast version.
+        // Try to use toString() so that it uses the string representation if
+        // it was already cast to string, otherwise, use the cast version.
         $accessTokenString = $accessToken->toString() ?? (string) $accessToken;
-
-        $hashAlgorithm = 'sha' . $jwsAlgorithmBitLength;
-
-        $hashByteLength = $jwsAlgorithmBitLength / 2 / 8;
 
         return Base64Url::encode(
             substr(

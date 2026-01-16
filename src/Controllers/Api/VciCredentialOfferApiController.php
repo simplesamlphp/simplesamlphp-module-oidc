@@ -81,7 +81,7 @@ class VciCredentialOfferApiController
             );
         }
 
-        $credentialConfiguration = $this->moduleConfig->getCredentialConfiguration($credentialConfigurationId);
+        $credentialConfiguration = $this->moduleConfig->getVciCredentialConfiguration($credentialConfigurationId);
 
         if (!is_array($credentialConfiguration)) {
             $this->loggerService->error(

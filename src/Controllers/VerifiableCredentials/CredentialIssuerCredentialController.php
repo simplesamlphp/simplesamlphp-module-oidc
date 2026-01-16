@@ -323,7 +323,7 @@ class CredentialIssuerCredentialController
                     ['credentialDefinitionType' => $credentialDefinitionType],
                 );
                 $fallbackCredentialConfigurationId =
-                $this->moduleConfig->getCredentialConfigurationIdForCredentialDefinitionType(
+                $this->moduleConfig->getVciCredentialConfigurationIdForCredentialDefinitionType(
                     $credentialDefinitionType,
                 );
             } elseif (
@@ -360,7 +360,7 @@ class CredentialIssuerCredentialController
             );
         }
 
-        $resolvedCredentialConfiguration = $this->moduleConfig->getCredentialConfiguration(
+        $resolvedCredentialConfiguration = $this->moduleConfig->getVciCredentialConfiguration(
             $resolvedCredentialIdentifier,
         );
         if (!is_array($resolvedCredentialConfiguration)) {
@@ -492,12 +492,12 @@ class CredentialIssuerCredentialController
 
         // Get valid claim paths so we can check if the user attribute is allowed to be included in the credential,
         // as per the credential configuration supported configuration.
-        $validClaimPaths = $this->moduleConfig->getValidCredentialClaimPathsFor($resolvedCredentialIdentifier);
+        $validClaimPaths = $this->moduleConfig->getVciValidCredentialClaimPathsFor($resolvedCredentialIdentifier);
 
         // Map user attributes to credential claims
         $credentialSubject = []; // For JwtVcJson
         $disclosureBag = $this->verifiableCredentials->disclosureBagFactory()->build(); // For DcSdJwt
-        $attributeToCredentialClaimPathMap = $this->moduleConfig->getUserAttributeToCredentialClaimPathMapFor(
+        $attributeToCredentialClaimPathMap = $this->moduleConfig->getVciUserAttributeToCredentialClaimPathMapFor(
             $resolvedCredentialIdentifier,
         );
         foreach ($attributeToCredentialClaimPathMap as $mapEntry) {
@@ -589,13 +589,14 @@ class CredentialIssuerCredentialController
             $sub,
         );
 
-        $protocolSignatureKeyPair = $this->moduleConfig
-            ->getProtocolSignatureKeyPairBag()
+        // TODO mivanci Add support for multiple signature key pairs. For now, we only support (first) one.
+        $vciSignatureKeyPair = $this->moduleConfig
+            ->getVciSignatureKeyPairBag()
             ->getFirstOrFail();
 
-        $signingKey = $protocolSignatureKeyPair->getKeyPair()->getPrivateKey();
+        $signingKey = $vciSignatureKeyPair->getKeyPair()->getPrivateKey();
 
-        $publicKey = $protocolSignatureKeyPair->getKeyPair()->getPublicKey();
+        $publicKey = $vciSignatureKeyPair->getKeyPair()->getPublicKey();
 
         $base64PublicKey = json_encode($publicKey->jwk()->all(), JSON_UNESCAPED_SLASHES);
         $base64PublicKey = Base64Url::encode($base64PublicKey);
@@ -605,7 +606,7 @@ class CredentialIssuerCredentialController
         $issuedAt = new \DateTimeImmutable();
 
         $vcId = $this->moduleConfig->getIssuer() . '/vc/' . uniqid();
-        $signatureAlgorithm = $protocolSignatureKeyPair->getSignatureAlgorithm();
+        $signatureAlgorithm = $vciSignatureKeyPair->getSignatureAlgorithm();
 
         $verifiableCredential = null;
 

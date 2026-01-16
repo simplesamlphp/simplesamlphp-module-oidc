@@ -419,7 +419,7 @@ class ClientEntityFactory
 
         $clientSecret = $this->helpers->random()->getIdentifier();
 
-        $credentialConfigurationIdsSupported = $this->moduleConfig->getCredentialConfigurationIdsSupported();
+        $credentialConfigurationIdsSupported = $this->moduleConfig->getVciCredentialConfigurationIdsSupported();
 
         $createdAt = $this->helpers->dateTime()->getUtc();
 

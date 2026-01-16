@@ -35,7 +35,7 @@ class LogoutTokenBuilder
      */
     public function forRelyingPartyAssociation(RelyingPartyAssociationInterface $relyingPartyAssociation): string
     {
-        $protocolSignatureKeyPairBag = $this->moduleConfig->getProtocolSignatureKeyPairBag();
+        $protocolSignatureKeyPairBag = $this->moduleConfig->getConnectSignatureKeyPairBag();
         $protocolSignatureKeyPair = $protocolSignatureKeyPairBag->getFirstOrFail();
 
         // ID Token signing algorithm that the client wants. As per spec, the

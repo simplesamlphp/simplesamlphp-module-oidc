@@ -48,7 +48,7 @@ class LogoutTokenBuilderTest extends TestCase
     private MockObject $relyingPartyAssociationMock;
     private MockObject $loggerServiceMock;
     private MockObject $coreFactoryMock;
-    private MockObject $protocolSignatureKeyPairBagMock;
+    private MockObject $connectSignatureKeyPairBagMock;
     private MockObject $signatureKeyPairMock;
     private MockObject $coreMock;
     private MockObject $logoutTokenFactoryMock;
@@ -75,7 +75,7 @@ class LogoutTokenBuilderTest extends TestCase
 
         $this->coreFactoryMock = $this->createMock(CoreFactory::class);
 
-        $this->protocolSignatureKeyPairBagMock = $this->createMock(SignatureKeyPairBag::class);
+        $this->connectSignatureKeyPairBagMock = $this->createMock(SignatureKeyPairBag::class);
 
         $this->signatureKeyPairMock = $this->createMock(SignatureKeyPair::class);
         $this->signatureKeyPairMock->method('getSignatureAlgorithm')
@@ -117,10 +117,10 @@ class LogoutTokenBuilderTest extends TestCase
     public function testForRelyingPartyAssociationCallsLogoutTokenFactory(): void
     {
         $this->moduleConfigMock->expects($this->once())
-            ->method('getProtocolSignatureKeyPairBag')
-            ->willReturn($this->protocolSignatureKeyPairBagMock);
+            ->method('getConnectSignatureKeyPairBag')
+            ->willReturn($this->connectSignatureKeyPairBagMock);
 
-        $this->protocolSignatureKeyPairBagMock->expects($this->once())
+        $this->connectSignatureKeyPairBagMock->expects($this->once())
             ->method('getFirstOrFail')
             ->willReturn($this->signatureKeyPairMock);
 
@@ -143,10 +143,10 @@ class LogoutTokenBuilderTest extends TestCase
     public function testForRelyingPartyAssociationUsesNegotiatedSignatureKeyPair(): void
     {
         $this->moduleConfigMock->expects($this->once())
-            ->method('getProtocolSignatureKeyPairBag')
-            ->willReturn($this->protocolSignatureKeyPairBagMock);
+            ->method('getConnectSignatureKeyPairBag')
+            ->willReturn($this->connectSignatureKeyPairBagMock);
 
-        $this->protocolSignatureKeyPairBagMock->expects($this->once())
+        $this->connectSignatureKeyPairBagMock->expects($this->once())
             ->method('getFirstOrFail')
             ->willReturn($this->signatureKeyPairMock);
 
@@ -158,7 +158,7 @@ class LogoutTokenBuilderTest extends TestCase
         $negotiatedSignatureKeyPairMock->method('getSignatureAlgorithm')
             ->willReturn(SignatureAlgorithmEnum::ES256);
 
-        $this->protocolSignatureKeyPairBagMock->expects($this->once())
+        $this->connectSignatureKeyPairBagMock->expects($this->once())
             ->method('getFirstByAlgorithmOrFail')
             ->with(SignatureAlgorithmEnum::ES256)
             ->willReturn($negotiatedSignatureKeyPairMock);

@@ -100,7 +100,7 @@ class VerifiableCredentailsTestController
             $selectedCredentialConfigurationId = $newCredentialConfigurationId;
         }
 
-        $credentialConfigurationIdsSupported = $this->moduleConfig->getCredentialConfigurationIdsSupported();
+        $credentialConfigurationIdsSupported = $this->moduleConfig->getVciCredentialConfigurationIdsSupported();
 
         if (empty($credentialConfigurationIdsSupported)) {
             $setupErrors[] = 'No credential configuration IDs configured.';

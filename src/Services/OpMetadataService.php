@@ -39,7 +39,7 @@ class OpMetadataService
     {
         // Signature algorithms that this OP can use to sign JWS artifacts.
         $protocolSignatureAlgorithmNames = $this->moduleConfig
-            ->getProtocolSignatureKeyPairBag()
+            ->getConnectSignatureKeyPairBag()
             ->getAllAlgorithmNamesUnique();
 
         // Signature algorithms that this OP can use to validate signature on

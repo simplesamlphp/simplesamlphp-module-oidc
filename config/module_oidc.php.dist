@@ -37,9 +37,8 @@ $config = [
      */
 //    ModuleConfig::OPTION_ISSUER => 'https://op.example.org',
 
-
     /**
-     * Protocol (Connect) signature algorithm and key-pair definitions,
+     * Connect protocol signature algorithm and key-pair definitions,
      * representing supported algorithms for signing, for example, ID Token JWS.
      * The order in which the entries are set is important. The entry set
      * first will have higher priority during signing algorithm negotiation
@@ -74,22 +73,24 @@ $config = [
      * Note: in v7 of the module, a new way of automatic key ID generation is
      * used. In previous versions, a hash of a public key file was used as a
      * key ID. In v7, a public key thumbprint is used. If you are migrating from
-     * previous version of the module, and you want to keep the old signing key,
-     * you should manually set the key ID to the previous value, so that clients
-     * know that the key did not change.
+     * a previous version of the module, and you want to keep the old signing
+     * key, you should manually set the key ID to the previous value
+     * so that clients know that the key did not change.
      */
-    ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS => [
+    ModuleConfig::OPTION_CONNECT_SIGNATURE_KEY_PAIRS => [
         [
             ModuleConfig::KEY_ALGORITHM => \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum::RS256,
-            ModuleConfig::KEY_PRIVATE_KEY_FILENAME => ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME,
-            ModuleConfig::KEY_PUBLIC_KEY_FILENAME => ModuleConfig::DEFAULT_PKI_CERTIFICATE_FILENAME,
+            ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module_connect_rsa_01.key',
+            ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'oidc_module_connect_rsa_01.pub',
 //            ModuleConfig::KEY_PRIVATE_KEY_PASSWORD => 'private-key-password', // Optional
 //            ModuleConfig::KEY_KEY_ID => 'rsa-connect-signing-key-2026', // Optional
         ],
+        // Example for additionally supported ES256 algorithm with EC keys.
+        // Delete it if not needed:
         [
             ModuleConfig::KEY_ALGORITHM => \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum::ES256,
-            ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module_ec256.key',
-            ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'oidc_module_ec256.pub',
+            ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module_connect_ec_p256_01.key',
+            ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'oidc_module_connect_ec_p256_01.pub',
 //            ModuleConfig::KEY_PRIVATE_KEY_PASSWORD => 'private-key-password', // Optional
 //            ModuleConfig::KEY_KEY_ID => 'ec-connect-signing-key-01', // Optional
         ],
@@ -439,12 +440,12 @@ $config = [
     ],
 
     /**
-     * Pagination options, for example, on client listing page.
+     * Pagination options, for example, on the client listing page.
      */
     ModuleConfig::OPTION_ADMIN_UI_PAGINATION_ITEMS_PER_PAGE => 20,
 
     /***************************************************************************
-     * (optional) OpenID Federation related options. If these are not set,
+     * (optional) OpenID Federation-related options. If these are not set,
      * OpenID Federation capabilities will be disabled.
      **************************************************************************/
 
@@ -452,6 +453,31 @@ $config = [
      * Enable or disable federation capabilities. Default is disabled (false).
      */
     ModuleConfig::OPTION_FEDERATION_ENABLED => false,
+
+    /**
+     * Federation signature algorithm and key-pair definitions, representing
+     * supported algorithms for signing, for example, Entity Statements.
+     * The first algorithm in the list will be used for signing (the
+     * first entry represents the default algorithm and signing key).
+     * You can also use this config option to advertise any (new) keys, for
+     * example, for key-rollover scenarios. Add those entries later in
+     * the list, so they can be published in Federation JWKS.
+     *
+     * Note that these keys SHOULD NOT be the same as the ones used in the
+     * protocol (Connect) itself.
+     *
+     * The format is the same as for the protocol (Connect) signature key pairs
+     * (option ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS)
+     */
+    ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS => [
+        [
+            ModuleConfig::KEY_ALGORITHM => \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum::RS256,
+            ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module_federation_rsa_01.key',
+            ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'oidc_module_federation_rsa_01.pub',
+//            ModuleConfig::KEY_PRIVATE_KEY_PASSWORD => 'private-key-password', // Optional
+//            ModuleConfig::KEY_KEY_ID => 'rsa-federation-signing-key-01', // Optional
+        ],
+    ],
 
     /**
      * Trust Anchors which are valid for this entity. The key represents the
@@ -502,19 +528,22 @@ $config = [
 //        'trust-mark-type' => 'trust-mark-issuer-id',
     ],
 
-    // (optional) Federation participation limit by Trust Marks. This is an
-    // array with the following format:
-    // [
-    //    'trust-anchor-id' => [
-    //         'limit-id' => [
-    //              'trust-mark-type',
-    //              'trust-mark-type-2',
-    //          ],
-    //     ],
-    // ],
-    // Check example below on how this can be used. If federation participation
-    // limit is configured for particular Trust Anchor ID, at least one
-    // combination of "limit ID" => "trust mark list" should be defined.
+    /**
+     * (optional) Federation participation limit by Trust Marks. This is an
+     * array with the following format:
+     *  [
+     *     'trust-anchor-id' => [
+     *          'limit-id' => [
+     *               'trust-mark-type',
+     *               'trust-mark-type-2',
+     *           ],
+     *      ],
+     *  ],
+     * Check the example below on how this can be used. If a federation
+     * participation limit is configured for a particular Trust Anchor ID, at
+     * least one combination of "limit ID" => "trust mark list" should be
+     * defined.
+     */
     ModuleConfig::OPTION_FEDERATION_PARTICIPATION_LIMIT_BY_TRUST_MARKS => [
         // We are limiting federation participation using Trust Marks for
         // 'https://ta.example.org/'.
@@ -578,32 +607,6 @@ $config = [
      */
     ModuleConfig::OPTION_FEDERATION_CACHE_MAX_DURATION_FOR_FETCHED => 'PT6H', // 6 hours
 
-
-    /**
-     * Federation signature algorithm and key-pair definitions, representing
-     * supported algorithms for signing, for example, Entity Statements.
-     * The first algorithm in the list will be used for signing (the
-     * first entry represents default algorithm and signing key).
-     * You can also use this config option to advertise any (new) keys, for
-     * example, for key-rollover scenarios. Just add those entries later in
-     * the list, so they can be published in Federation JWKS.
-     *
-     * Note that these keys SHOULD NOT be the same as the ones used in the
-     * protocol (Connect) itself.
-     *
-     * The format is the same as for the protocol (Connect) signature key pairs
-     * (option ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS)
-     */
-    ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS => [
-        [
-            ModuleConfig::KEY_ALGORITHM => \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum::ES256,
-            ModuleConfig::KEY_PRIVATE_KEY_FILENAME => ModuleConfig::DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
-            ModuleConfig::KEY_PUBLIC_KEY_FILENAME => ModuleConfig::DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME,
-//            ModuleConfig::KEY_PRIVATE_KEY_PASSWORD => 'private-key-password', // Optional
-//            ModuleConfig::KEY_KEY_ID => 'ec-connect-signing-key-01', // Optional
-        ],
-    ],
-
     /**
      * Federation entity statement duration which determines the Expiration Time
      * (exp) claim set in entity statement JWSs published by this OP. If not
@@ -649,13 +652,38 @@ $config = [
      * Enable or disable verifiable credentials capabilities. Default is
      * disabled (false).
      */
-    ModuleConfig::OPTION_VERIFIABLE_CREDENTIAL_ENABLED => false,
+    ModuleConfig::OPTION_VCI_ENABLED => false,
+
+    /**
+     * Verifiable Credential signature algorithm and key-pair definitions,
+     * representing supported algorithms for signing verifiable credentials.
+     * The first algorithm in the list will be used for signing (the
+     * first entry represents the default algorithm and signing key).
+     * You can also use this config option to advertise any (new) keys, for
+     * example, for key-rollover scenarios. Add those entries later in
+     * the list, so they can be published in appropriate JWKS.
+     *
+     * Note that these keys SHOULD NOT be the same as the ones used in the
+     * protocol (Connect) itself.
+     *
+     * The format is the same as for the protocol (Connect) signature key pairs
+     * (option ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS)
+     */
+    ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS => [
+        [
+            ModuleConfig::KEY_ALGORITHM => \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum::ES256,
+            ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module_vci_ec_p256_01.key',
+            ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'oidc_module_vci_ec_p256_01.pub',
+//            ModuleConfig::KEY_PRIVATE_KEY_PASSWORD => 'private-key-password', // Optional
+//            ModuleConfig::KEY_KEY_ID => 'ec-vci-signing-key-01', // Optional
+        ],
+    ],
 
     /**
      * Allow or disallow non-registered clients to request verifiable
      * credentials. Default is disallowed (false).
      */
-    ModuleConfig::OPTION_ALLOW_NON_REGISTERED_CLIENTS_FOR_VCI => false,
+    ModuleConfig::OPTION_VCI_ALLOW_NON_REGISTERED_CLIENTS => false,
 
     /**
      * Allowed redirect URI prefixes for non-registered clients. By default, this is set to
@@ -667,7 +695,7 @@ $config = [
      *      'https://example.org/redirect2',
      *  ]
      */
-    ModuleConfig::OPTION_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS_FOR_VCI => [
+    ModuleConfig::OPTION_VCI_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS => [
         'openid-credential-offer://',
     ],
 
@@ -677,7 +705,7 @@ $config = [
      * https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#credential-issuer-parameters.
      * Check the example below on how this can be used.
      */
-    ModuleConfig::OPTION_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+    ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
         // Sample for 'jwt_vc_json' format with notes about required and
         // optional fields.
         'ResearchAndScholarshipCredentialJwtVcJson' => [
@@ -945,7 +973,7 @@ $config = [
      *      ],
      *  ],
      */
-    ModuleConfig::OPTION_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP => [
+    ModuleConfig::OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP => [
         'ResearchAndScholarshipCredentialJwtVcJson' => [
             ['eduPersonPrincipalName' => [ClaimsEnum::Credential_Subject->value, 'eduPersonPrincipalName']],
             ['eduPersonTargetedID' => [ClaimsEnum::Credential_Subject->value, 'eduPersonTargetedID']],
@@ -967,11 +995,18 @@ $config = [
     ],
 
     /**
+     * (optional) Issuer State TTL (validity duration), with the given example.
+     * If not set, falls back to Authorization Code TTL. For duration format
+     * info, check https://www.php.net/manual/en/dateinterval.construct.php
+     */
+    ModuleConfig::OPTION_VCI_ISSUER_STATE_TTL => 'PT10M', // 10 minutes
+
+    /**
      * Map of authentication sources and user's email attribute names. This
      * enables you to define a specific attribute name which contains the
      * user's email address, per authentication source. This is used, for
      * example, to send Transaction Code in the case of pre-authorized
-     * codes for verifiable credential issuance. If not set, the default
+     * codes for Verifiable Credential Issuance. If not set, the default
      * user's email attribute name will be used (see the option below).
      *
      * Format is: 'authentication-source-id' => 'email-attribute-name'.
@@ -985,13 +1020,6 @@ $config = [
      * address. If not set, it will fall back to 'mail'.
      */
     ModuleConfig::OPTION_DEFAULT_USERS_EMAIL_ATTRIBUTE_NAME => 'mail',
-
-    /**
-     * (optional) Issuer State TTL (validity duration), with the given example.
-     * If not set, falls back to Authorization Code TTL. For duration format
-     * info, check https://www.php.net/manual/en/dateinterval.construct.php
-     */
-    ModuleConfig::OPTION_ISSUER_STATE_TTL => 'PT10M', // 10 minutes
 
 
     /***************************************************************************

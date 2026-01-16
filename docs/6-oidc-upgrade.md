@@ -57,8 +57,19 @@ and key pair are removed:
   Instead of those options, now you must use option
   `ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS` in which you can define
   all the supported signature keys for Federation purposes.
-- Removed config option `ModuleConfig::OPTION_HOMEPAGE_URI`. Use 
+- Config option `ModuleConfig::OPTION_HOMEPAGE_URI` is removed. Use 
 `ModuleConfig::OPTION_ORGANIZATION_URI` instead.
+- New algorithm for generating Key ID claim value (`kid`) for signature keys
+is used. Previously, key ID was based on public key file hash. In v7, key ID
+is a thumbprint of the public key as per
+https://datatracker.ietf.org/doc/html/rfc7638. If you want to keep using your
+current signature keys, you will probably want to keep the old `kid` values,
+so that the clients know the keys did not change. You can set the old
+`kid` value manually for signature keys in
+`ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS` and
+`ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS`. Once you do a key 
+roll-over, you can omit setting the `kid` manually, so you start using the
+automatically generated thumbprint.
 - In v6 of the module, when defining custom scopes, there was a possibility to
 use standard claims with the 'are_multiple_claim_values_allowed' option.
 This would allow multiple values (array of values) for standard claims which
