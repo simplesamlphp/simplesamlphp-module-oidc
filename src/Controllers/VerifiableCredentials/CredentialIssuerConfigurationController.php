@@ -30,7 +30,7 @@ class CredentialIssuerConfigurationController
         protected readonly Routes $routes,
         protected readonly LoggerService $loggerService,
     ) {
-        if (!$this->moduleConfig->getVerifiableCredentialEnabled()) {
+        if (!$this->moduleConfig->getVciEnabled()) {
             $this->loggerService->warning('Verifiable Credential capabilities not enabled.');
             throw OidcServerException::forbidden('Verifiable Credential capabilities not enabled.');
         }
@@ -40,9 +40,10 @@ class CredentialIssuerConfigurationController
     {
         // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-issuer-metadata-p
 
-        $signer = $this->moduleConfig->getProtocolSigner();
+        // TODO mivanci Add support for multiple signature key pairs. For now, we only support (first) one.
+        $signatureKeyPair = $this->moduleConfig->getVciSignatureKeyPairBag()->getFirstOrFail();
 
-        $credentialConfigurationsSupported = $this->moduleConfig->getCredentialConfigurationsSupported();
+        $credentialConfigurationsSupported = $this->moduleConfig->getVciCredentialConfigurationsSupported();
 
         // For now, we only support one credential signing algorithm.
         /** @psalm-suppress MixedAssignment */
@@ -50,12 +51,12 @@ class CredentialIssuerConfigurationController
             if (is_array($credentialConfiguration)) {
                 // Draft 17
                 $credentialConfiguration[ClaimsEnum::CredentialSigningAlgValuesSupported->value] = [
-                    $signer->algorithmId(),
+                    $signatureKeyPair->getSignatureAlgorithm()->value,
                 ];
                 // Earlier drafts
                 // TODO mivanci Delete CryptographicSuitesSupported once we are on the final draft.
                 $credentialConfiguration[ClaimsEnum::CryptographicSuitesSupported->value] = [
-                    $signer->algorithmId(),
+                    $signatureKeyPair->getSignatureAlgorithm()->value,
                 ];
                 $credentialConfigurationsSupported[$credentialConfigurationId] = $credentialConfiguration;
             }

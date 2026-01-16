@@ -6,15 +6,16 @@ namespace SimpleSAML\Test\Module\oidc\unit\Entities;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use Lcobucci\JWT\UnencryptedToken;
-use League\OAuth2\Server\CryptKey;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
+use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
+use SimpleSAML\OpenID\Jws;
+use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
+use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Entities\AccessTokenEntity
@@ -36,19 +37,17 @@ class AccessTokenEntityTest extends TestCase
 
     protected ScopeEntity $scopeEntityOpenId;
 
-    /**
-     * @var \SimpleSAML\Module\oidc\Entities\ScopeEntity
-     */
     protected ScopeEntity $scopeEntityProfile;
-    protected CryptKey $privateKey;
-    protected MockObject $jsonWebTokenBuilderServiceMock;
     protected MockObject $unencryptedTokenMock;
     protected DateTimeImmutable $expiryDateTime;
-//    protected Stub $jwtConfigurationStub;
+
+    protected MockObject $moduleConfigMock;
+    protected MockObject $jwsMock;
+    protected MockObject $signatureKeyPairMock;
+    protected MockObject $signatureKeyPairBagMock;
 
     /**
      * @throws \Exception
-     * @throws \JsonException
      */
     protected function setUp(): void
     {
@@ -70,15 +69,19 @@ class AccessTokenEntityTest extends TestCase
         $this->expiryDateTime = (new DateTimeImmutable('now', new DateTimeZone('UTC')))
             ->add(new \DateInterval('PT1M'));
 
-        $this->jsonWebTokenBuilderServiceMock = $this->createMock(JsonWebTokenBuilderService::class);
-        $this->unencryptedTokenMock = $this->createMock(UnencryptedToken::class);
-        $this->jsonWebTokenBuilderServiceMock->method('getSignedProtocolJwt')
-            ->willReturn($this->unencryptedTokenMock);
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->jwsMock = $this->createMock(Jws::class);
 
-        //$this->jwtConfigurationStub = $this->createStub(\Lcobucci\JWT\Configuration::class); // Final class :(
-        $certFolder = dirname(__DIR__, 4) . '/docker/ssp/';
-        $privateKeyPath = $certFolder . ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME;
-        $this->privateKey = new CryptKey($privateKeyPath);
+        $this->signatureKeyPairMock = $this->createMock(SignatureKeyPair::class);
+        $this->signatureKeyPairMock->method('getSignatureAlgorithm')
+            ->willReturn(SignatureAlgorithmEnum::RS256);
+
+        $this->signatureKeyPairBagMock = $this->createMock(SignatureKeyPairBag::class);
+        $this->signatureKeyPairBagMock->method('getFirstOrFail')
+            ->willReturn($this->signatureKeyPairMock);
+
+        $this->moduleConfigMock->method('getProtocolSignatureKeyPairBag')
+            ->willReturn($this->signatureKeyPairBagMock);
     }
 
     public function mock(): AccessTokenEntity
@@ -88,13 +91,12 @@ class AccessTokenEntityTest extends TestCase
             $this->clientEntityStub,
             $this->scopes,
             $this->expiryDateTime,
-            $this->privateKey,
-            $this->jsonWebTokenBuilderServiceMock,
+            $this->jwsMock,
+            $this->moduleConfigMock,
             $this->userId,
             $this->authCodeId,
             $this->requestedClaims,
             $this->isRevoked,
-            //            $this->jwtConfigurationStub,
         );
     }
 
@@ -126,7 +128,6 @@ class AccessTokenEntityTest extends TestCase
      */
     public function testHasImmutableStringRepresentation(): void
     {
-        $this->unencryptedTokenMock->method('toString')->willReturn('token');
         $instance = $this->mock();
         $this->assertNull($instance->toString());
 

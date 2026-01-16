@@ -16,6 +16,7 @@ class RelyingPartyAssociation implements RelyingPartyAssociationInterface
          * Registered back-channel logout URI for the client.
          */
         protected ?string $backChannelLogoutUri = null,
+        protected ?string $idTokenSignedResponseAlg = null,
     ) {
     }
 
@@ -57,5 +58,15 @@ class RelyingPartyAssociation implements RelyingPartyAssociationInterface
     public function setBackChannelLogoutUri(?string $backChannelLogoutUri): void
     {
         $this->backChannelLogoutUri = $backChannelLogoutUri;
+    }
+
+    public function getClientIdTokenSignedResponseAlg(): ?string
+    {
+        return $this->idTokenSignedResponseAlg;
+    }
+
+    public function setClientIdTokenSignedResponseAlg(?string $idTokenSignedResponseAlg): void
+    {
+        $this->idTokenSignedResponseAlg = $idTokenSignedResponseAlg;
     }
 }

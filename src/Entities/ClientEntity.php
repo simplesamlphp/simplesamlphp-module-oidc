@@ -21,6 +21,7 @@ use League\OAuth2\Server\Entities\Traits\ClientTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
 
 class ClientEntity implements ClientEntityInterface
@@ -52,6 +53,7 @@ class ClientEntity implements ClientEntityInterface
     public const KEY_EXPIRES_AT = 'expires_at';
     public const KEY_IS_FEDERATED = 'is_federated';
     public const KEY_IS_GENERIC = 'is_generic';
+    public const KEY_EXTRA_METADATA = 'extra_metadata';
 
     private string $secret;
 
@@ -95,6 +97,7 @@ class ClientEntity implements ClientEntityInterface
     private ?DateTimeImmutable $expiresAt;
     private bool $isFederated;
     private bool $isGeneric;
+    private ?array $extraMetadata;
 
     /**
      * @param string[] $redirectUri
@@ -129,6 +132,7 @@ class ClientEntity implements ClientEntityInterface
         ?DateTimeImmutable $expiresAt = null,
         bool $isFederated = false,
         bool $isGeneric = false,
+        ?array $extraMetadata = null,
     ) {
         $this->identifier = $identifier;
         $this->secret = $secret;
@@ -154,6 +158,7 @@ class ClientEntity implements ClientEntityInterface
         $this->expiresAt = $expiresAt;
         $this->isFederated = $isFederated;
         $this->isGeneric = $isGeneric;
+        $this->extraMetadata = $extraMetadata;
     }
 
     /**
@@ -193,6 +198,9 @@ class ClientEntity implements ClientEntityInterface
             self::KEY_EXPIRES_AT => $this->getExpiresAt()?->format('Y-m-d H:i:s'),
             self::KEY_IS_FEDERATED => $this->isFederated(),
             self::KEY_IS_GENERIC => $this->isGeneric(),
+            self::KEY_EXTRA_METADATA => is_null($this->extraMetadata) ?
+                null :
+                json_encode($this->extraMetadata, JSON_THROW_ON_ERROR),
         ];
     }
 
@@ -223,6 +231,9 @@ class ClientEntity implements ClientEntityInterface
             self::KEY_EXPIRES_AT => $this->expiresAt,
             self::KEY_IS_FEDERATED => $this->isFederated,
             self::KEY_IS_GENERIC => $this->isGeneric,
+
+            // Extra metadata
+            ClaimsEnum::IdTokenSignedResponseAlg->value => $this->getIdTokenSignedResponseAlg(),
         ];
     }
 
@@ -365,5 +376,25 @@ class ClientEntity implements ClientEntityInterface
     public function isGeneric(): bool
     {
         return $this->isGeneric;
+    }
+
+    public function getExtraMetadata(): array
+    {
+        return $this->extraMetadata ?? [];
+    }
+
+    public function getIdTokenSignedResponseAlg(): ?string
+    {
+        if (!is_array($this->extraMetadata)) {
+            return null;
+        }
+
+        $idTokenSignedResponseAlg = $this->extraMetadata['id_token_signed_response_alg'] ?? null;
+
+        if (!is_string($idTokenSignedResponseAlg)) {
+            return null;
+        }
+
+        return $idTokenSignedResponseAlg;
     }
 }

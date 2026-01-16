@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit;
 
 use DateInterval;
-use Lcobucci\JWT\Signer;
-use Lcobucci\JWT\Signer\Rsa\Sha256;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -15,10 +13,15 @@ use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\TrustMarkStatusEndpointUsagePolicyEnum;
+use SimpleSAML\OpenID\SupportedAlgorithms;
+use SimpleSAML\OpenID\SupportedSerializers;
+use SimpleSAML\OpenID\ValueAbstracts;
+use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
+use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairConfigBag;
 use SimpleSAML\Utils\Config;
 use SimpleSAML\Utils\HTTP;
-use stdClass;
 
 #[CoversClass(ModuleConfig::class)]
 class ModuleConfigTest extends TestCase
@@ -30,13 +33,19 @@ class ModuleConfigTest extends TestCase
     protected array $moduleConfig = [
         ModuleConfig::OPTION_ISSUER => 'http://test.issuer',
 
+        ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS => [
+            [
+                ModuleConfig::KEY_ALGORITHM => \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum::RS256,
+                ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module_connect_rsa_01.key',
+                ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'oidc_module_connect_rsa_01.pub',
+            ],
+        ],
+
         ModuleConfig::OPTION_TOKEN_AUTHORIZATION_CODE_TTL => 'PT10M',
         ModuleConfig::OPTION_TOKEN_REFRESH_TOKEN_TTL => 'P1M',
         ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_TTL => 'PT1H',
 
         ModuleConfig::OPTION_CRON_TAG => 'hourly',
-
-        ModuleConfig::OPTION_TOKEN_SIGNER => Sha256::class,
 
         ModuleConfig::OPTION_AUTH_SOURCE => 'default-sp',
 
@@ -55,12 +64,6 @@ class ModuleConfigTest extends TestCase
 
         ModuleConfig::OPTION_AUTH_FORCED_ACR_VALUE_FOR_COOKIE_AUTHENTICATION => null,
 
-        ModuleConfig::OPTION_FEDERATION_TOKEN_SIGNER => Sha256::class,
-        ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME =>
-            ModuleConfig::DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
-        ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_PASSPHRASE => 'abc123',
-        ModuleConfig::OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME =>
-            ModuleConfig::DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME,
         ModuleConfig::OPTION_FEDERATION_AUTHORITY_HINTS => [
             'abc123',
         ],
@@ -75,6 +78,7 @@ class ModuleConfigTest extends TestCase
     private MockObject $sspBridgeUtilsHttpMock;
     private MockObject $sspBridgeModuleMock;
     private MockObject $sspBridgeUtilsConfigMock;
+    private MockObject $valueAbstractMock;
 
     protected function setUp(): void
     {
@@ -88,7 +92,9 @@ class ModuleConfigTest extends TestCase
 
         $this->sspBridgeUtilsConfigMock = $this->createMock(Config::class);
         $this->sspBridgeUtilsConfigMock->method('getCertPath')
-            ->willReturnCallback(fn(string $filename): string => '/path/to/cert' . $filename);
+            ->willReturnCallback(
+                fn(string $filename): string => dirname(__DIR__, 2) . '/cert/' . $filename,
+            );
         $this->sspBridgeUtilsHttpMock = $this->createMock(HTTP::class);
 
         $this->sspBridgeModuleMock = $this->createMock(SspBridge\Module::class);
@@ -100,6 +106,8 @@ class ModuleConfigTest extends TestCase
 
         $this->sspBridgeUtilsMock->method('http')->willReturn($this->sspBridgeUtilsHttpMock);
         $this->sspBridgeUtilsMock->method('config')->willReturn($this->sspBridgeUtilsConfigMock);
+
+        $this->valueAbstractMock = $this->createMock(ValueAbstracts::class);
     }
 
     protected function sut(
@@ -107,17 +115,20 @@ class ModuleConfigTest extends TestCase
         ?array $overrides = null,
         ?Configuration $sspConfig = null,
         ?SspBridge $sspBridge = null,
+        ?ValueAbstracts $valueAbstracts = null,
     ): ModuleConfig {
         $fileName ??= $this->fileName;
         $overrides ??= $this->overrides;
         $sspConfig ??= $this->sspConfigMock;
         $sspBridge ??= $this->sspBridgeMock;
+        $valueAbstracts ??= $this->valueAbstractMock;
 
         return new ModuleConfig(
             $fileName,
             $overrides,
             $sspConfig,
             $sspBridge,
+            $valueAbstracts,
         );
     }
 
@@ -129,32 +140,56 @@ class ModuleConfigTest extends TestCase
         $this->assertInstanceOf(DateInterval::class, $this->sut()->getAccessTokenDuration());
         $this->assertInstanceOf(DateInterval::class, $this->sut()->getRefreshTokenDuration());
 
+        $this->assertInstanceOf(SupportedAlgorithms::class, $this->sut()->getSupportedAlgorithms());
+        $this->assertInstanceOf(SupportedSerializers::class, $this->sut()->getSupportedSerializers());
+
         $this->assertSame(
             $this->moduleConfig[ModuleConfig::OPTION_AUTH_SOURCE],
             $this->sut()->getDefaultAuthSourceId(),
         );
     }
 
-    /**
-     * @throws \Exception
-     */
-    public function testSigningKeyNameCanBeCustomized(): void
+    public function testCanGetProtocolSignatureKeyPairs(): void
     {
-        // Test default cert and pem
-        $this->assertStringContainsString(
-            ModuleConfig::DEFAULT_PKI_CERTIFICATE_FILENAME,
-            $this->sut()->getProtocolCertPath(),
-        );
-        $this->assertStringContainsString(
-            ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME,
-            $this->sut()->getProtocolPrivateKeyPath(),
-        );
+        $this->assertNotEmpty($this->sut()->getProtocolSignatureKeyPairs());
+    }
 
-        // Set customized
-        $this->overrides[ModuleConfig::OPTION_PKI_PRIVATE_KEY_FILENAME] = 'myPrivateKey.key';
-        $this->overrides[ModuleConfig::OPTION_PKI_CERTIFICATE_FILENAME] = 'myCertificate.crt';
-        $this->assertStringContainsString('myCertificate.crt', $this->sut()->getProtocolCertPath());
-        $this->assertStringContainsString('myPrivateKey.key', $this->sut()->getProtocolPrivateKeyPath());
+    public function testGetProtocolSignatureKeyPairsThrowsOnInvalidConfigValue(): void
+    {
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('At least one ');
+
+        $this->sut(
+            overrides: [ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS => []],
+        )->getProtocolSignatureKeyPairs();
+    }
+
+    public function testCanGetProtocolSignatureKeyPairConfigBag(): void
+    {
+        $sut = $this->sut();
+
+        $this->assertInstanceOf(
+            SignatureKeyPairConfigBag::class,
+            $sut->getProtocolSignatureKeyPairConfigBag(),
+        );
+        $this->assertInstanceOf(
+            SignatureKeyPairConfigBag::class,
+            $sut->getProtocolSignatureKeyPairConfigBag(),
+        );
+    }
+
+    public function testCanGetProtocolSignatureKeyPairgBag(): void
+    {
+        $sut = $this->sut();
+
+        $this->assertInstanceOf(
+            SignatureKeyPairBag::class,
+            $sut->getProtocolSignatureKeyPairBag(),
+        );
+        $this->assertInstanceOf(
+            SignatureKeyPairBag::class,
+            $sut->getProtocolSignatureKeyPairBag(),
+        );
     }
 
     public function testCanGetSspConfig(): void
@@ -170,17 +205,6 @@ class ModuleConfigTest extends TestCase
     public function testCanGetOpenIdScopes(): void
     {
         $this->assertNotEmpty($this->sut()->getScopes());
-    }
-
-    public function testCanGetProtocolSigner(): void
-    {
-        $this->assertInstanceOf(Signer::class, $this->sut()->getProtocolSigner());
-    }
-
-    public function testCanGetProtocolPrivateKeyPassphrase(): void
-    {
-        $this->overrides[ModuleConfig::OPTION_PKI_PRIVATE_KEY_PASSPHRASE] = 'test';
-        $this->assertNotEmpty($this->sut()->getProtocolPrivateKeyPassPhrase());
     }
 
     public function testCanGetAuthProcFilters(): void
@@ -225,16 +249,6 @@ class ModuleConfigTest extends TestCase
     public function testCanGetCommonFederationOptions(): void
     {
         $this->assertFalse($this->sut()->getFederationEnabled());
-        $this->assertInstanceOf(Signer::class, $this->sut()->getFederationSigner());
-        $this->assertStringContainsString(
-            ModuleConfig::DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
-            $this->sut()->getFederationPrivateKeyPath(),
-        );
-        $this->assertNotEmpty($this->sut()->getFederationPrivateKeyPassPhrase());
-        $this->assertStringContainsString(
-            ModuleConfig::DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME,
-            $this->sut()->getFederationCertPath(),
-        );
         $this->assertNotEmpty($this->sut()->getFederationEntityStatementDuration());
         $this->assertNotEmpty($this->sut()->getFederationEntityStatementCacheDurationForProduced());
         $this->assertNotEmpty($this->sut()->getFederationAuthorityHints());
@@ -247,13 +261,31 @@ class ModuleConfigTest extends TestCase
         $this->assertNotEmpty($this->sut()->getLogoUri());
         $this->assertNotEmpty($this->sut()->getPolicyUri());
         $this->assertNotEmpty($this->sut()->getInformationUri());
-        $this->assertNotEmpty($this->sut()->getHomepageUri());
         $this->assertNotEmpty($this->sut()->getOrganizationUri());
         $this->assertNotEmpty($this->sut()->getFederationCacheAdapterClass());
         $this->assertIsArray($this->sut()->getFederationCacheAdapterArguments());
         $this->assertNotEmpty($this->sut()->getFederationCacheMaxDurationForFetched());
         $this->assertNotEmpty($this->sut()->getFederationTrustAnchors());
         $this->assertNotEmpty($this->sut()->getFederationTrustAnchorIds());
+
+        $this->assertInstanceOf(DateInterval::class, $this->sut()->getTimestampValidationLeeway());
+    }
+
+    public function testCanGetFederationSignatureKeyPairBag(): void
+    {
+        $sut = $this->sut();
+        $this->assertInstanceOf(SignatureKeyPairBag::class, $sut->getFederationSignatureKeyPairBag());
+        $this->assertInstanceOf(SignatureKeyPairBag::class, $sut->getFederationSignatureKeyPairBag());
+    }
+
+    public function testGetFederationSignatureKeyPairBagThrowsOnInvalidConfigValue(): void
+    {
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('At least one ');
+
+        $this->sut(
+            overrides: [ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS => []],
+        )->getFederationSignatureKeyPairBag();
     }
 
     public function testKeywordsCanBeNull(): void
@@ -366,13 +398,6 @@ class ModuleConfigTest extends TestCase
         $this->sut();
     }
 
-    public function testThrowsIfInvalidSignerProvided(): void
-    {
-        $this->overrides[ModuleConfig::OPTION_TOKEN_SIGNER] = stdClass::class;
-        $this->expectException(ConfigurationError::class);
-        $this->sut()->getProtocolSigner();
-    }
-
     public function testCanGetEncryptionKey(): void
     {
         $this->sspBridgeUtilsConfigMock->expects($this->once())->method('getSecretSalt')
@@ -398,28 +423,6 @@ class ModuleConfigTest extends TestCase
                 overrides: [ModuleConfig::OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED => true],
             )->getProtocolDiscoveryShowClaimsSupported(),
         );
-    }
-
-    public function testCanGetProtocolNewCertPath(): void
-    {
-        $this->assertNull($this->sut()->getProtocolNewCertPath());
-
-        $sut = $this->sut(
-            overrides: [ModuleConfig::OPTION_PKI_NEW_CERTIFICATE_FILENAME => 'new-cert'],
-        );
-
-        $this->assertStringContainsString('new-cert', $sut->getProtocolNewCertPath());
-    }
-
-    public function testCanGetFederationNewCertPath(): void
-    {
-        $this->assertNull($this->sut()->getFederationNewCertPath());
-
-        $sut = $this->sut(
-            overrides: [ModuleConfig::OPTION_PKI_FEDERATION_NEW_CERTIFICATE_FILENAME => 'new-cert'],
-        );
-
-        $this->assertStringContainsString('new-cert', $sut->getFederationNewCertPath());
     }
 
     public function testCanGetFederationDynamicTrustMarks(): void
@@ -497,5 +500,110 @@ class ModuleConfigTest extends TestCase
             TrustMarkStatusEndpointUsagePolicyEnum::Required,
             $sut->getFederationTrustMarkStatusEndpointUsagePolicy(),
         );
+    }
+
+    public function testGetValidatedSignatureKeyPairArrayThrowsOnInvalidValue(): void
+    {
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('Invalid value');
+
+        $this->sut()->getValidatedSignatureKeyPairArray('invalid');
+    }
+
+    public function testGetValidatedSignatureKeyPairArrayThrowsOnInvalidSignature(): void
+    {
+        $value = [
+            ModuleConfig::KEY_ALGORITHM => 'invalid',
+        ];
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('Invalid protocol signature algorithm');
+
+        $this->sut()->getValidatedSignatureKeyPairArray($value);
+    }
+
+    public function testGetValidatedSignatureKeyPairArrayThrowsOnInvalidPrivateKey(): void
+    {
+        $value = [
+            ModuleConfig::KEY_ALGORITHM => SignatureAlgorithmEnum::RS256,
+            ModuleConfig::KEY_PRIVATE_KEY_FILENAME => '',
+        ];
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('Unexpected value for private key filename');
+
+        $this->sut()->getValidatedSignatureKeyPairArray($value);
+    }
+
+    public function testGetValidatedSignatureKeyPairArrayThrowsOnNonExistingPrivateKey(): void
+    {
+        $value = [
+            ModuleConfig::KEY_ALGORITHM => SignatureAlgorithmEnum::RS256,
+            ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'non-existing.key',
+        ];
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('Private key file does not exist');
+
+        $this->sut()->getValidatedSignatureKeyPairArray($value);
+    }
+
+    public function testGetValidatedSignatureKeyPairArrayThrowsOnInvalidPublicKey(): void
+    {
+        $value = [
+            ModuleConfig::KEY_ALGORITHM => SignatureAlgorithmEnum::RS256,
+            ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module.key',
+            ModuleConfig::KEY_PUBLIC_KEY_FILENAME => '',
+        ];
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('Unexpected value for public key filename');
+
+        $this->sut()->getValidatedSignatureKeyPairArray($value);
+    }
+
+    public function testGetValidatedSignatureKeyPairArrayThrowsOnNonExistingPublicKey(): void
+    {
+        $value = [
+            ModuleConfig::KEY_ALGORITHM => SignatureAlgorithmEnum::RS256,
+            ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module.key',
+            ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'non-existing.pub',
+        ];
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('Public key file does not exist');
+
+        $this->sut()->getValidatedSignatureKeyPairArray($value);
+    }
+
+    public function testGetValidatedSignatureKeyPairArrayThrowsOnEmptyPasswordString(): void
+    {
+        $value = [
+            ModuleConfig::KEY_ALGORITHM => SignatureAlgorithmEnum::RS256,
+            ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module.key',
+            ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'oidc_module.crt',
+            ModuleConfig::KEY_PRIVATE_KEY_PASSWORD => '',
+        ];
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('Expected a non-empty string');
+
+        $this->sut()->getValidatedSignatureKeyPairArray($value);
+    }
+
+    public function testGetValidatedSignatureKeyPairArrayThrowsOnEmptyKeyIdString(): void
+    {
+        $value = [
+            ModuleConfig::KEY_ALGORITHM => SignatureAlgorithmEnum::RS256,
+            ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module.key',
+            ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'oidc_module.crt',
+            ModuleConfig::KEY_PRIVATE_KEY_PASSWORD => 'password',
+            ModuleConfig::KEY_KEY_ID => '',
+        ];
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('Expected a non-empty string');
+
+        $this->sut()->getValidatedSignatureKeyPairArray($value);
     }
 }

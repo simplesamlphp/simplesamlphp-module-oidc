@@ -126,7 +126,8 @@ class TokenResponse extends BearerTokenResponse implements
             throw OidcServerException::accessDenied('No user available for provided user identifier.');
         }
 
-        $token = $this->idTokenBuilder->build(
+        //$token = $this->idTokenBuilder->build(
+        $token = $this->idTokenBuilder->buildFor(
             $userEntity,
             $accessToken,
             false,
@@ -138,7 +139,7 @@ class TokenResponse extends BearerTokenResponse implements
         );
 
         return [
-            'id_token' => $token->toString(),
+            'id_token' => $token->getToken(),
         ];
     }
 

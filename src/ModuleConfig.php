@@ -17,36 +17,41 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc;
 
 use DateInterval;
-use Lcobucci\JWT\Signer;
-use Lcobucci\JWT\Signer\Rsa\Sha256;
-use ReflectionClass;
 use SimpleSAML\Configuration;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
+use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ScopesEnum;
 use SimpleSAML\OpenID\Codebooks\TrustMarkStatusEndpointUsagePolicyEnum;
+use SimpleSAML\OpenID\Serializers\JwsSerializerBag;
+use SimpleSAML\OpenID\Serializers\JwsSerializerEnum;
+use SimpleSAML\OpenID\SupportedAlgorithms;
+use SimpleSAML\OpenID\SupportedSerializers;
+use SimpleSAML\OpenID\ValueAbstracts;
+use SimpleSAML\OpenID\ValueAbstracts\KeyPairFilenameConfig;
+use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
+use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairConfig;
+use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairConfigBag;
 
 class ModuleConfig
 {
     final public const MODULE_NAME = 'oidc';
     protected const KEY_DESCRIPTION = 'description';
-
-    /**
-     * Default file name for module configuration. Can be overridden in constructor, for example, for testing purposes.
-     */
+    public const KEY_ALGORITHM = 'algorithm';
+    public const KEY_PRIVATE_KEY_FILENAME = 'private_key_filename';
+    public const KEY_PUBLIC_KEY_FILENAME = 'public_key_filename';
+    public const KEY_PRIVATE_KEY_PASSWORD = 'private_key_password';
+    public const KEY_KEY_ID = 'key_id';
     final public const DEFAULT_FILE_NAME = 'module_oidc.php';
-
     final public const OPTION_PKI_PRIVATE_KEY_PASSPHRASE = 'pass_phrase';
-    final public const OPTION_PKI_PRIVATE_KEY_FILENAME = 'privatekey';
     final public const DEFAULT_PKI_PRIVATE_KEY_FILENAME = 'oidc_module.key';
-    final public const OPTION_PKI_CERTIFICATE_FILENAME = 'certificate';
     final public const DEFAULT_PKI_CERTIFICATE_FILENAME = 'oidc_module.crt';
     final public const OPTION_TOKEN_AUTHORIZATION_CODE_TTL = 'authCodeDuration';
     final public const OPTION_TOKEN_REFRESH_TOKEN_TTL = 'refreshTokenDuration';
     final public const OPTION_TOKEN_ACCESS_TOKEN_TTL = 'accessTokenDuration';
-    final public const OPTION_TOKEN_SIGNER = 'signer';
     final public const OPTION_AUTH_SOURCE = 'auth';
     final public const OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE = 'useridattr';
     final public const OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE = 'translate';
@@ -58,11 +63,7 @@ class ModuleConfig
     final public const OPTION_CRON_TAG = 'cron_tag';
     final public const OPTION_ADMIN_UI_PERMISSIONS = 'permissions';
     final public const OPTION_ADMIN_UI_PAGINATION_ITEMS_PER_PAGE = 'items_per_page';
-    final public const OPTION_FEDERATION_TOKEN_SIGNER = 'federation_token_signer';
-    final public const OPTION_PKI_FEDERATION_PRIVATE_KEY_PASSPHRASE = 'federation_private_key_passphrase';
-    final public const OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME = 'federation_private_key_filename';
     final public const DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME = 'oidc_module_federation.key';
-    final public const OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME = 'federation_certificate_filename';
     final public const DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME = 'oidc_module_federation.crt';
     final public const OPTION_ISSUER = 'issuer';
     final public const OPTION_FEDERATION_ENTITY_STATEMENT_DURATION = 'federation_entity_statement_duration';
@@ -75,7 +76,6 @@ class ModuleConfig
     final public const OPTION_LOGO_URI = 'logo_uri';
     final public const OPTION_POLICY_URI = 'policy_uri';
     final public const OPTION_INFORMATION_URI = 'information_uri';
-    final public const OPTION_HOMEPAGE_URI = 'homepage_uri';
     final public const OPTION_ORGANIZATION_URI = 'organization_uri';
     final public const OPTION_FEDERATION_ENABLED = 'federation_enabled';
     final public const OPTION_FEDERATION_CACHE_ADAPTER = 'federation_cache_adapter';
@@ -95,26 +95,23 @@ class ModuleConfig
     final public const OPTION_PROTOCOL_CLIENT_ENTITY_CACHE_DURATION = 'protocol_client_entity_cache_duration';
     final public const OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED = 'protocol_discover_show_claims_supported';
 
-    final public const OPTION_PKI_NEW_PRIVATE_KEY_PASSPHRASE = 'new_private_key_passphrase';
-    final public const OPTION_PKI_NEW_PRIVATE_KEY_FILENAME = 'new_privatekey';
-    final public const OPTION_PKI_NEW_CERTIFICATE_FILENAME = 'new_certificate';
-
-    final public const OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_PASSPHRASE = 'federation_new_private_key_passphrase';
-    final public const OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_FILENAME = 'federation_new_private_key_filename';
-    final public const OPTION_PKI_FEDERATION_NEW_CERTIFICATE_FILENAME = 'federation_new_certificate_filename';
-    final public const OPTION_VERIFIABLE_CREDENTIAL_ENABLED = 'verifiable_credentials_enabled';
-    final public const OPTION_CREDENTIAL_CONFIGURATIONS_SUPPORTED = 'credential_configurations_supported';
-    final public const OPTION_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP =
-    'user_attribute_to_credential_claim_path_map';
+    final public const OPTION_VCI_ENABLED = 'vci_enabled';
+    final public const OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED = 'vci_credential_configurations_supported';
+    final public const OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP =
+    'vci_user_attribute_to_credential_claim_path_map';
     final public const OPTION_API_ENABLED = 'api_enabled';
     final public const OPTION_API_TOKENS = 'api_tokens';
     final public const OPTION_DEFAULT_USERS_EMAIL_ATTRIBUTE_NAME = 'users_email_attribute_name';
     final public const OPTION_AUTH_SOURCES_TO_USERS_EMAIL_ATTRIBUTE_NAME_MAP =
     'auth_sources_to_users_email_attribute_name_map';
-    final public const OPTION_ISSUER_STATE_TTL = 'issuer_state_ttl';
-    final public const OPTION_ALLOW_NON_REGISTERED_CLIENTS_FOR_VCI = 'allow_non_registered_clients_for_vci';
-    final public const OPTION_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS_FOR_VCI =
-    'allowed_redirect_uri_prefixes_for_non_registered_clients_for_vci';
+    final public const OPTION_VCI_ISSUER_STATE_TTL = 'vci_issuer_state_ttl';
+    final public const OPTION_VCI_ALLOW_NON_REGISTERED_CLIENTS = 'vci_allow_non_registered_clients';
+    final public const OPTION_VCI_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS =
+    'vci_allowed_redirect_uri_prefixes_for_non_registered_clients';
+    final public const OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS = 'protocol_signature_key_pairs';
+    final public const OPTION_FEDERATION_SIGNATURE_KEY_PAIRS = 'federation_signature_key_pairs';
+    final public const OPTION_TIMESTAMP_VALIDATION_LEEWAY = 'timestamp_validation_leeway';
+    final public const OPTION_VCI_SIGNATURE_KEY_PAIRS = 'vci_signature_key_pairs';
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
@@ -145,6 +142,11 @@ class ModuleConfig
      * @var Configuration SimpleSAMLphp configuration instance.
      */
     private readonly Configuration $sspConfig;
+    protected ?SignatureKeyPairBag $protocolSignatureKeyPairBag = null;
+    protected ?SignatureKeyPairConfigBag $protocolSignatureKeyPairConfigBag = null;
+    protected ?SignatureKeyPairBag $federationSignatureKeyPairBag = null;
+    protected ?SignatureKeyPairBag $vciSignatureKeyPairBag = null;
+    protected ?SignatureKeyPairConfigBag $vciSignatureKeyPairConfigBag = null;
 
     /**
      * @throws \Exception
@@ -153,7 +155,8 @@ class ModuleConfig
         string $fileName = self::DEFAULT_FILE_NAME, // Primarily used for easy (unit) testing overrides.
         array $overrides = [], // Primarily used for easy (unit) testing overrides.
         ?Configuration $sspConfig = null,
-        private readonly SspBridge $sspBridge = new SspBridge(),
+        protected readonly SspBridge $sspBridge = new SspBridge(),
+        protected readonly ValueAbstracts $valueAbstracts = new ValueAbstracts(),
     ) {
         $this->moduleConfig = Configuration::loadFromArray(
             array_merge(Configuration::getConfig($fileName)->toArray(), $overrides),
@@ -196,31 +199,31 @@ class ModuleConfig
 
         $acrValuesSupported = $this->getAcrValuesSupported();
         foreach ($acrValuesSupported as $acrValueSupported) {
-            if (! is_string($acrValueSupported)) {
+            if (!is_string($acrValueSupported)) {
                 throw new ConfigurationError('Config option acrValuesSupported should contain strings only.');
             }
         }
 
         $authSourcesToAcrValuesMap = $this->getAuthSourcesToAcrValuesMap();
         foreach ($authSourcesToAcrValuesMap as $authSource => $acrValues) {
-            if (! is_string($authSource)) {
+            if (!is_string($authSource)) {
                 throw new ConfigurationError('Config option authSourcesToAcrValuesMap should have string keys ' .
                     'indicating auth sources.');
             }
 
-            if (! is_array($acrValues)) {
+            if (!is_array($acrValues)) {
                 throw new ConfigurationError('Config option authSourcesToAcrValuesMap should have array ' .
                     'values containing supported ACRs for each auth source key.');
             }
 
             /** @psalm-suppress MixedAssignment */
             foreach ($acrValues as $acrValue) {
-                if (! is_string($acrValue)) {
+                if (!is_string($acrValue)) {
                     throw new ConfigurationError('Config option authSourcesToAcrValuesMap should have array ' .
                         'values with strings only.');
                 }
 
-                if (! in_array($acrValue, $acrValuesSupported, true)) {
+                if (!in_array($acrValue, $acrValuesSupported, true)) {
                     throw new ConfigurationError('Config option authSourcesToAcrValuesMap should have ' .
                         'supported ACR values only.');
                 }
@@ -229,8 +232,8 @@ class ModuleConfig
 
         $forcedAcrValueForCookieAuthentication = $this->getForcedAcrValueForCookieAuthentication();
 
-        if (! is_null($forcedAcrValueForCookieAuthentication)) {
-            if (! in_array($forcedAcrValueForCookieAuthentication, $acrValuesSupported, true)) {
+        if (!is_null($forcedAcrValueForCookieAuthentication)) {
+            if (!in_array($forcedAcrValueForCookieAuthentication, $acrValuesSupported, true)) {
                 throw new ConfigurationError('Config option forcedAcrValueForCookieAuthentication should have' .
                     ' null value or string value indicating particular supported ACR.');
             }
@@ -270,30 +273,13 @@ class ModuleConfig
         return $base;
     }
 
-    /**
-     * @param class-string $className
-     * @throws \SimpleSAML\Error\ConfigurationError
-     * @throws \ReflectionException
-     */
-    protected function instantiateSigner(string $className): Signer
-    {
-        $class = new ReflectionClass($className);
-        $signer = $class->newInstance();
-
-        if (!$signer instanceof Signer) {
-            throw new ConfigurationError(sprintf('Unsupported signer class provided (%s).', $className));
-        }
-
-        return $signer;
-    }
-
     /*****************************************************************************************************************
      * OpenID Connect related config.
      ****************************************************************************************************************/
 
     /**
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @return non-empty-string
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function getIssuer(): string
     {
@@ -343,77 +329,76 @@ class ModuleConfig
         return $this->config()->getString(ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE);
     }
 
-    /**
-     * Get signer for OIDC protocol.
-     *
-     * @throws \ReflectionException
-     * @throws \Exception
-     */
-    public function getProtocolSigner(): Signer
+    public function getSupportedAlgorithms(): SupportedAlgorithms
     {
-        /** @psalm-var class-string $signerClassname */
-        $signerClassname = $this->config()->getOptionalString(
-            self::OPTION_TOKEN_SIGNER,
-            Sha256::class,
+        return new SupportedAlgorithms(
+            new SignatureAlgorithmBag(
+                SignatureAlgorithmEnum::RS256,
+                SignatureAlgorithmEnum::RS384,
+                SignatureAlgorithmEnum::RS512,
+                SignatureAlgorithmEnum::ES256,
+                SignatureAlgorithmEnum::ES384,
+                SignatureAlgorithmEnum::ES512,
+                SignatureAlgorithmEnum::PS256,
+                SignatureAlgorithmEnum::PS384,
+                SignatureAlgorithmEnum::PS512,
+                SignatureAlgorithmEnum::EdDSA,
+            ),
         );
-
-        return $this->instantiateSigner($signerClassname);
     }
 
-    /**
-     * Get the path to the private key used in OIDC protocol.
-     * @throws \Exception
-     * @return non-empty-string The file system path
-     * @psalm-suppress LessSpecificReturnStatement, MoreSpecificReturnType
-     */
-    public function getProtocolPrivateKeyPath(): string
+    public function getSupportedSerializers(): SupportedSerializers
     {
-        $keyName = $this->config()->getOptionalString(
-            self::OPTION_PKI_PRIVATE_KEY_FILENAME,
-            self::DEFAULT_PKI_PRIVATE_KEY_FILENAME,
+        return new SupportedSerializers(
+            new JwsSerializerBag(
+                JwsSerializerEnum::Compact,
+            ),
         );
-        return $this->sspBridge->utils()->config()->getCertPath($keyName);
     }
 
     /**
-     * Get the OIDC protocol private key passphrase.
-     * @return ?string
-     * @throws \Exception
+     * @throws ConfigurationError
+     * @return non-empty-array
      */
-    public function getProtocolPrivateKeyPassPhrase(): ?string
+    public function getProtocolSignatureKeyPairs(): array
     {
-        return $this->config()->getOptionalString(self::OPTION_PKI_PRIVATE_KEY_PASSPHRASE, null);
-    }
+        $signatureKeyPairs = $this->config()->getArray(ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS);
 
-    /**
-     * Get the path to the public certificate used in OIDC protocol.
-     * @return non-empty-string The file system path
-     * @throws \Exception
-     * @psalm-suppress LessSpecificReturnStatement, MoreSpecificReturnType
-     */
-    public function getProtocolCertPath(): string
-    {
-        $certName = $this->config()->getOptionalString(
-            self::OPTION_PKI_CERTIFICATE_FILENAME,
-            self::DEFAULT_PKI_CERTIFICATE_FILENAME,
-        );
-        return $this->sspBridge->utils()->config()->getCertPath($certName);
-    }
-
-    /**
-     * Get the path to the new public certificate to be used in OIDC protocol.
-     * @return ?string Null if not set, or file system path
-     * @throws \Exception
-     */
-    public function getProtocolNewCertPath(): ?string
-    {
-        $certName = $this->config()->getOptionalString(self::OPTION_PKI_NEW_CERTIFICATE_FILENAME, null);
-
-        if (is_string($certName)) {
-            return $this->sspBridge->utils()->config()->getCertPath($certName);
+        if (empty($signatureKeyPairs)) {
+            throw new ConfigurationError('At least one protocol signature key-pair pair must be provided.');
         }
 
-        return null;
+        return $signatureKeyPairs;
+    }
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @psalm-suppress MixedAssignment, ArgumentTypeCoercion
+     */
+    public function getProtocolSignatureKeyPairConfigBag(): SignatureKeyPairConfigBag
+    {
+        if ($this->protocolSignatureKeyPairConfigBag instanceof SignatureKeyPairConfigBag) {
+            return $this->protocolSignatureKeyPairConfigBag;
+        }
+
+        return $this->protocolSignatureKeyPairConfigBag = $this->getSignatureKeyPairConfigBag(
+            $this->getProtocolSignatureKeyPairs(),
+        );
+    }
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @psalm-suppress MixedAssignment, ArgumentTypeCoercion
+     */
+    public function getProtocolSignatureKeyPairBag(): SignatureKeyPairBag
+    {
+        if ($this->protocolSignatureKeyPairBag instanceof SignatureKeyPairBag) {
+            return $this->protocolSignatureKeyPairBag;
+        }
+
+        return $this->protocolSignatureKeyPairBag = $this->valueAbstracts
+            ->signatureKeyPairBagFactory()
+            ->fromConfig($this->getProtocolSignatureKeyPairConfigBag());
     }
 
     /**
@@ -452,7 +437,7 @@ class ModuleConfig
             return null;
         }
 
-        return (string) $value;
+        return (string)$value;
     }
 
     /**
@@ -555,66 +540,26 @@ class ModuleConfig
     }
 
     /**
-     * @throws \ReflectionException
      * @throws \SimpleSAML\Error\ConfigurationError
+     * @psalm-suppress MixedAssignment, ArgumentTypeCoercion
      */
-    public function getFederationSigner(): Signer
+    public function getFederationSignatureKeyPairBag(): SignatureKeyPairBag
     {
-        /** @psalm-var class-string $signerClassname */
-        $signerClassname = $this->config()->getOptionalString(
-            self::OPTION_FEDERATION_TOKEN_SIGNER,
-            Sha256::class,
-        );
-
-        return $this->instantiateSigner($signerClassname);
-    }
-
-    public function getFederationPrivateKeyPath(): string
-    {
-        $keyName = $this->config()->getOptionalString(
-            self::OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
-            self::DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME,
-        );
-
-        return $this->sspBridge->utils()->config()->getCertPath($keyName);
-    }
-
-    public function getFederationPrivateKeyPassPhrase(): ?string
-    {
-        return $this->config()->getOptionalString(self::OPTION_PKI_FEDERATION_PRIVATE_KEY_PASSPHRASE, null);
-    }
-
-    /**
-     * Return the path to the federation public certificate
-     * @throws \Exception
-     */
-    public function getFederationCertPath(): string
-    {
-        $certName = $this->config()->getOptionalString(
-            self::OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME,
-            self::DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME,
-        );
-
-        return $this->sspBridge->utils()->config()->getCertPath($certName);
-    }
-
-    /**
-     * Return the path to the new federation public certificate
-     * @return ?string The file system path or null if not set.
-     * @throws \Exception
-     */
-    public function getFederationNewCertPath(): ?string
-    {
-        $certName = $this->config()->getOptionalString(
-            self::OPTION_PKI_FEDERATION_NEW_CERTIFICATE_FILENAME,
-            null,
-        );
-
-        if (is_string($certName)) {
-            return $this->sspBridge->utils()->config()->getCertPath($certName);
+        if ($this->federationSignatureKeyPairBag instanceof SignatureKeyPairBag) {
+            return $this->federationSignatureKeyPairBag;
         }
 
-        return null;
+        $signatureKeyPairs = $this->config()->getArray(ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS);
+
+        if (empty($signatureKeyPairs)) {
+            throw new ConfigurationError('At least one federation signature key-pair pair should be provided.');
+        }
+
+        $signatureKeyPairConfigBag = $this->getSignatureKeyPairConfigBag($signatureKeyPairs);
+
+        return $this->federationSignatureKeyPairBag = $this->valueAbstracts
+            ->signatureKeyPairBagFactory()
+            ->fromConfig($signatureKeyPairConfigBag);
     }
 
     /**
@@ -749,21 +694,6 @@ class ModuleConfig
         );
     }
 
-    /**
-     * @return string|null
-     * TODO mivanci v7 Remove in next major release, as well as config constant.
-     * In Draft-43 of OIDFed specification, metadata claim 'homepage_uri' has been renamed to
-     *  'organization_uri'. Use 'organization_uri' instead.
-     * @see self::getOrganizationUri()
-     */
-    public function getHomepageUri(): ?string
-    {
-        return $this->config()->getOptionalString(
-            self::OPTION_HOMEPAGE_URI,
-            null,
-        );
-    }
-
     public function getOrganizationUri(): ?string
     {
         return $this->config()->getOptionalString(
@@ -804,9 +734,9 @@ class ModuleConfig
     }
 
     /**
-     * @throws \SimpleSAML\Error\ConfigurationError
      * @return non-empty-array<array-key, non-empty-string>
      * @psalm-suppress LessSpecificReturnStatement, MoreSpecificReturnType
+     * @throws \SimpleSAML\Error\ConfigurationError
      */
     public function getFederationTrustAnchorIds(): array
     {
@@ -883,14 +813,62 @@ class ModuleConfig
      * OpenID Verifiable Credential Issuance related config.
      ****************************************************************************************************************/
 
-    public function getVerifiableCredentialEnabled(): bool
+    public function getVciEnabled(): bool
     {
-        return $this->config()->getOptionalBoolean(self::OPTION_VERIFIABLE_CREDENTIAL_ENABLED, false);
+        return $this->config()->getOptionalBoolean(self::OPTION_VCI_ENABLED, false);
     }
 
-    public function getCredentialConfigurationsSupported(): array
+
+    /**
+     * @throws ConfigurationError
+     * @return non-empty-array
+     */
+    public function getVciSignatureKeyPairs(): array
     {
-        return $this->config()->getOptionalArray(self::OPTION_CREDENTIAL_CONFIGURATIONS_SUPPORTED, []);
+
+        $signatureKeyPairs = $this->config()->getArray(ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS);
+
+        if (empty($signatureKeyPairs)) {
+            throw new ConfigurationError('At least one VCI signature key-pair pair must be provided.');
+        }
+
+        return $signatureKeyPairs;
+    }
+
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @psalm-suppress MixedAssignment, ArgumentTypeCoercion
+     */
+    public function getVciSignatureKeyPairConfigBag(): SignatureKeyPairConfigBag
+    {
+        if ($this->vciSignatureKeyPairConfigBag instanceof SignatureKeyPairConfigBag) {
+            return $this->vciSignatureKeyPairConfigBag;
+        }
+
+        return $this->vciSignatureKeyPairConfigBag = $this->getSignatureKeyPairConfigBag(
+            $this->getVciSignatureKeyPairs(),
+        );
+    }
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @psalm-suppress MixedAssignment, ArgumentTypeCoercion
+     */
+    public function getVciSignatureKeyPairBag(): SignatureKeyPairBag
+    {
+        if ($this->vciSignatureKeyPairBag instanceof SignatureKeyPairBag) {
+            return $this->vciSignatureKeyPairBag;
+        }
+
+        return $this->vciSignatureKeyPairBag = $this->valueAbstracts
+            ->signatureKeyPairBagFactory()
+            ->fromConfig($this->getVciSignatureKeyPairConfigBag());
+    }
+
+    public function getVciCredentialConfigurationsSupported(): array
+    {
+        return $this->config()->getOptionalArray(self::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED, []);
     }
 
     /**
@@ -898,9 +876,9 @@ class ModuleConfig
      * @return mixed[]|null
      * @throws \SimpleSAML\Error\ConfigurationError
      */
-    public function getCredentialConfiguration(string $credentialConfigurationId): ?array
+    public function getVciCredentialConfiguration(string $credentialConfigurationId): ?array
     {
-        $credentialConfiguration = $this->getCredentialConfigurationsSupported()[$credentialConfigurationId] ?? null;
+        $credentialConfiguration = $this->getVciCredentialConfigurationsSupported()[$credentialConfigurationId] ?? null;
 
         if (is_null($credentialConfiguration)) {
             return null;
@@ -922,11 +900,11 @@ class ModuleConfig
     /**
      * @return array<string>
      */
-    public function getCredentialConfigurationIdsSupported(): array
+    public function getVciCredentialConfigurationIdsSupported(): array
     {
         return array_map(
             'strval',
-            array_keys($this->getCredentialConfigurationsSupported()),
+            array_keys($this->getVciCredentialConfigurationsSupported()),
         );
     }
 
@@ -938,21 +916,21 @@ class ModuleConfig
      */
     public function getVciScopes(): array
     {
-        if (! $this->getVerifiableCredentialEnabled()) {
+        if (!$this->getVciEnabled()) {
             return [];
         }
 
         $vciScopes = [];
-        foreach ($this->getCredentialConfigurationIdsSupported() as $credentialConfigurationId) {
+        foreach ($this->getVciCredentialConfigurationIdsSupported() as $credentialConfigurationId) {
             $vciScopes[$credentialConfigurationId] = ['description' => $credentialConfigurationId];
         }
         return $vciScopes;
     }
 
-    public function getCredentialConfigurationIdForCredentialDefinitionType(array $credentialDefinitionType): ?string
+    public function getVciCredentialConfigurationIdForCredentialDefinitionType(array $credentialDefinitionType): ?string
     {
         foreach (
-            $this->getCredentialConfigurationsSupported() as $credentialConfigurationId => $credentialConfiguration
+            $this->getVciCredentialConfigurationsSupported() as $credentialConfigurationId => $credentialConfiguration
         ) {
             if (!is_array($credentialConfiguration)) {
                 continue;
@@ -979,9 +957,9 @@ class ModuleConfig
      * Extract and parse the claims path definition from the credential configuration supported.
      * Returns an array of valid paths for the claims.
      */
-    public function getValidCredentialClaimPathsFor(string $credentialConfigurationId): array
+    public function getVciValidCredentialClaimPathsFor(string $credentialConfigurationId): array
     {
-        $claimsConfig = $this->getCredentialConfigurationsSupported()[$credentialConfigurationId]
+        $claimsConfig = $this->getVciCredentialConfigurationsSupported()[$credentialConfigurationId]
         [ClaimsEnum::Claims->value] ?? [];
 
         $validPaths = [];
@@ -1001,15 +979,15 @@ class ModuleConfig
         return array_filter($validPaths);
     }
 
-    public function getUserAttributeToCredentialClaimPathMap(): array
+    public function getVciUserAttributeToCredentialClaimPathMap(): array
     {
-        return $this->config()->getOptionalArray(self::OPTION_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP, []);
+        return $this->config()->getOptionalArray(self::OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP, []);
     }
 
-    public function getUserAttributeToCredentialClaimPathMapFor(string $credentialConfigurationId): array
+    public function getVciUserAttributeToCredentialClaimPathMapFor(string $credentialConfigurationId): array
     {
         /** @psalm-suppress MixedAssignment */
-        $map = $this->getUserAttributeToCredentialClaimPathMap()[$credentialConfigurationId] ?? [];
+        $map = $this->getVciUserAttributeToCredentialClaimPathMap()[$credentialConfigurationId] ?? [];
 
         if (is_array($map)) {
             return $map;
@@ -1024,28 +1002,28 @@ class ModuleConfig
      * @return DateInterval
      * @throws \Exception
      */
-    public function getIssuerStateDuration(): DateInterval
+    public function getVciIssuerStateDuration(): DateInterval
     {
-        $issuerStateDuration = $this->config()->getOptionalString(self::OPTION_ISSUER_STATE_TTL, null);
+        $issuerStateDuration = $this->config()->getOptionalString(self::OPTION_VCI_ISSUER_STATE_TTL, null);
 
         if (is_null($issuerStateDuration)) {
             return $this->getAuthCodeDuration();
         }
 
         return new DateInterval(
-            $this->config()->getString(self::OPTION_ISSUER_STATE_TTL),
+            $this->config()->getString(self::OPTION_VCI_ISSUER_STATE_TTL),
         );
     }
 
-    public function getAllowNonRegisteredClientsForVci(): bool
+    public function getVciAllowNonRegisteredClients(): bool
     {
-        return $this->config()->getOptionalBoolean(self::OPTION_ALLOW_NON_REGISTERED_CLIENTS_FOR_VCI, false);
+        return $this->config()->getOptionalBoolean(self::OPTION_VCI_ALLOW_NON_REGISTERED_CLIENTS, false);
     }
 
-    public function getAllowedRedirectUriPrefixesForNonRegisteredClientsForVci(): array
+    public function getVciAllowedRedirectUriPrefixesForNonRegisteredClients(): array
     {
         return $this->config()->getOptionalArray(
-            self::OPTION_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS_FOR_VCI,
+            self::OPTION_VCI_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS,
             ['openid-credential-offer://',],
         );
     }
@@ -1104,5 +1082,156 @@ class ModuleConfig
     public function getDefaultUsersEmailAttributeName(): string
     {
         return $this->config()->getOptionalString(self::OPTION_DEFAULT_USERS_EMAIL_ATTRIBUTE_NAME, 'mail');
+    }
+
+    /**
+     * @return array{
+     *     algorithm: \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum,
+     *     private_key_filename: non-empty-string,
+     *     public_key_filename: non-empty-string,
+     *     private_key_password: ?non-empty-string,
+     *     key_id: ?non-empty-string
+     * }
+     * @throws ConfigurationError     *
+     */
+    public function getValidatedSignatureKeyPairArray(mixed $signatureKeyPair): array
+    {
+        if (!is_array($signatureKeyPair)) {
+            throw new ConfigurationError(
+                'Invalid value for signature key pair. Expected array, got "' .
+                var_export($signatureKeyPair, true) . '".',
+            );
+        }
+
+        $algorithm = $signatureKeyPair[self::KEY_ALGORITHM] ?? null;
+        if (!$algorithm instanceof SignatureAlgorithmEnum) {
+            throw new ConfigurationError(
+                'Invalid protocol signature algorithm encountered. Expected instance of ' .
+                SignatureAlgorithmEnum::class,
+            );
+        }
+
+        $privateKeyFilename = $signatureKeyPair[self::KEY_PRIVATE_KEY_FILENAME] ?? null;
+        if ((!is_string($privateKeyFilename)) || $privateKeyFilename === '') {
+            throw new ConfigurationError(
+                sprintf(
+                    'Unexpected value for private key filename. Expected a non-empty string, got "%s".',
+                    var_export($privateKeyFilename, true),
+                ),
+            );
+        }
+        $privateKeyFilename = $this->sspBridge->utils()->config()->getCertPath($privateKeyFilename);
+        if (!file_exists($privateKeyFilename)) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Private key file does not exist: %s',
+                    $privateKeyFilename,
+                ),
+            );
+        }
+        /** @var non-empty-string $privateKeyFilename */
+
+        $publicKeyFilename = $signatureKeyPair[self::KEY_PUBLIC_KEY_FILENAME] ?? null;
+        if ((!is_string($publicKeyFilename)) || $publicKeyFilename === '') {
+            throw new ConfigurationError(
+                sprintf(
+                    'Unexpected value for public key filename. Expected a non-empty string, got "%s".',
+                    var_export($publicKeyFilename, true),
+                ),
+            );
+        }
+        $publicKeyFilename = $this->sspBridge->utils()->config()->getCertPath($publicKeyFilename);
+        if (!file_exists($publicKeyFilename)) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Public key file does not exist: %s',
+                    $publicKeyFilename,
+                ),
+            );
+        }
+        /** @var non-empty-string $publicKeyFilename */
+
+        $privateKeyPassword = $signatureKeyPair[self::KEY_PRIVATE_KEY_PASSWORD] ?? null;
+        if (
+            ((!is_string($privateKeyPassword)) && (!is_null($privateKeyPassword))) ||
+            $privateKeyPassword === ''
+        ) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Unexpected value for private key password. Expected a non-empty string or null, got "%s".',
+                    var_export($privateKeyPassword, true),
+                ),
+            );
+        }
+
+        $keyId = $signatureKeyPair[self::KEY_KEY_ID] ?? null;
+        if (
+            ((!is_string($keyId)) && (!is_null($keyId))) ||
+            $keyId === ''
+        ) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Unexpected value for key ID signature key pair. Expected a non-empty string or null, got "%s".',
+                    var_export($keyId, true),
+                ),
+            );
+        }
+
+
+        return [
+            self::KEY_ALGORITHM => $algorithm,
+            self::KEY_PRIVATE_KEY_FILENAME => $privateKeyFilename,
+            self::KEY_PUBLIC_KEY_FILENAME => $publicKeyFilename,
+            self::KEY_PRIVATE_KEY_PASSWORD => $privateKeyPassword,
+            self::KEY_KEY_ID => $keyId,
+        ];
+    }
+
+    /**
+     * @throws ConfigurationError
+     * @psalm-suppress MixedAssignment
+     */
+    protected function getSignatureKeyPairConfigBag(array $signatureKeyPairs): SignatureKeyPairConfigBag
+    {
+        $signatureKeyPairConfigBag = new SignatureKeyPairConfigBag();
+
+        foreach ($signatureKeyPairs as $signatureKeyPair) {
+            /**
+             * @var SignatureAlgorithmEnum $algorithm
+             * @var non-empty-string $privateKeyFilename
+             * @var non-empty-string $publicKeyFilename
+             * @var ?non-empty-string $privateKeyPassword
+             * @var ?non-empty-string $keyId
+             */
+            [
+                self::KEY_ALGORITHM => $algorithm,
+                self::KEY_PRIVATE_KEY_FILENAME => $privateKeyFilename,
+                self::KEY_PUBLIC_KEY_FILENAME => $publicKeyFilename,
+                self::KEY_PRIVATE_KEY_PASSWORD => $privateKeyPassword,
+                self::KEY_KEY_ID => $keyId,
+            ] = $this->getValidatedSignatureKeyPairArray($signatureKeyPair);
+
+            $signatureKeyPairConfigBag->add(new SignatureKeyPairConfig(
+                $algorithm,
+                new KeyPairFilenameConfig(
+                    $privateKeyFilename,
+                    $publicKeyFilename,
+                    $privateKeyPassword,
+                    $keyId,
+                ),
+            ));
+        }
+
+        return $signatureKeyPairConfigBag;
+    }
+
+    public function getTimestampValidationLeeway(): DateInterval
+    {
+        return new DateInterval(
+            $this->config()->getOptionalString(
+                self::OPTION_TIMESTAMP_VALIDATION_LEEWAY,
+                'PT1M',
+            ),
+        );
     }
 }

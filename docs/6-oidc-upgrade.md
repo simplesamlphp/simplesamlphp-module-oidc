@@ -7,16 +7,73 @@ apply those relevant to your deployment.
 
 New features:
 
+- Instance can now be configured to support multiple algorithms and signature
+keys for protocol (Connect), Federation, and VCI purposes. This was introduced
+to support signature algorithm negotiation with the clients. 
+- Clients can now be configured with new properties:
+  - ID Token Signing Algorithm (`id_token_signed_response_alg`)
 - Initial support for OpenID for Verifiable Credential Issuance
 (OpenID4VCI). Note that the implementation is experimental. You should not use
-it in production yet. 
+it in production.
 
 New configuration options:
 
-- Several new options regarding support for OpenID4VCI.
+- `ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS` - (required) enables
+defining multiple protocol (Connect) related signing algorithms and key pairs. 
+- `ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS` - (required if
+federation capabilities are enabled) enables defining multiple key pairs for 
+Federation purposes like signing Entity Statements, publishing new key for
+key roll-ower scenarios, etc.
+- `ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS` - (required if VCI
+capabilities are enabled) enables defining multiple key pairs for
+VCI purposes like signing Verifiable Credentials, publishing new key for
+key roll-ower scenarios, etc.
+- `ModuleConfig::OPTION_TIMESTAMP_VALIDATION_LEEWAY` - optional, used for
+setting allowed time tolerance for timestamp validation in artifacts like JWSs.
+multiple Federation-related signing algorithms and key pairs.
+- Several new options regarding experimental support for OpenID4VCI.
 
 Major impact changes:
 
+- The following configuration options related to the protocol (Connect) 
+signature algorithm and key pair are removed:
+  - `ModuleConfig::OPTION_PKI_PRIVATE_KEY_PASSPHRASE`
+  - `ModuleConfig::OPTION_PKI_PRIVATE_KEY_FILENAME`
+  - `ModuleConfig::OPTION_PKI_CERTIFICATE_FILENAME`
+  - `ModuleConfig::OPTION_TOKEN_SIGNER`
+  - `ModuleConfig::OPTION_PKI_NEW_PRIVATE_KEY_PASSPHRASE`
+  - `ModuleConfig::OPTION_PKI_NEW_PRIVATE_KEY_FILENAME`
+  - `ModuleConfig::OPTION_PKI_NEW_CERTIFICATE_FILENAME`
+
+  Instead of those options, now you must use option
+  `ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS` in which you can define
+  all supported signature keys for protocol (Connect) purposes.
+- The following configuration options related to Federation signature algorithm
+and key pair are removed:
+  - `ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_PASSPHRASE`
+  - `ModuleConfig::OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME`
+  - `ModuleConfig::OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME`
+  - `ModuleConfig::OPTION_FEDERATION_TOKEN_SIGNER`
+  - `ModuleConfig::OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_PASSPHRASE`
+  - `ModuleConfig::OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_FILENAME`
+  - `ModuleConfig::OPTION_PKI_FEDERATION_NEW_CERTIFICATE_FILENAME`
+  
+  Instead of those options, now you must use option
+  `ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS` in which you can define
+  all the supported signature keys for Federation purposes.
+- Config option `ModuleConfig::OPTION_HOMEPAGE_URI` is removed. Use 
+`ModuleConfig::OPTION_ORGANIZATION_URI` instead.
+- New algorithm for generating Key ID claim value (`kid`) for signature keys
+is used. Previously, key ID was based on public key file hash. In v7, key ID
+is a thumbprint of the public key as per
+https://datatracker.ietf.org/doc/html/rfc7638. If you want to keep using your
+current signature keys, you will probably want to keep the old `kid` values,
+so that the clients know the keys did not change. You can set the old
+`kid` value manually for signature keys in
+`ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS` and
+`ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS`. Once you do a key 
+roll-over, you can omit setting the `kid` manually, so you start using the
+automatically generated thumbprint.
 - In v6 of the module, when defining custom scopes, there was a possibility to
 use standard claims with the 'are_multiple_claim_values_allowed' option.
 This would allow multiple values (array of values) for standard claims which
@@ -58,7 +115,7 @@ find appropriate.
     - Entity Identifier
     - Supported OpenID Federation Registration Types
     - Federation JWKS
-    - Protocol JWKS, JWKS URI and Signed JWKS URI,
+    - Protocol JWKS, JWKS URI, and Signed JWKS URI,
     - Registration type (manual, federated_automatic, or other in the future)
     - Is Federated flag (indicates participation in federation context)
     - Timestamps: created_at, updated_at, expires_at

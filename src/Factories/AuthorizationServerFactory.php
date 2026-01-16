@@ -76,7 +76,7 @@ class AuthorizationServerFactory
             $this->moduleConfig->getAccessTokenDuration(),
         );
 
-        if ($this->moduleConfig->getVerifiableCredentialEnabled()) {
+        if ($this->moduleConfig->getVciEnabled()) {
             $authorizationServer->enableGrantType(
                 $this->preAuthCodeGrant,
                 $this->moduleConfig->getAccessTokenDuration(),

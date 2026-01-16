@@ -17,9 +17,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Entities;
 
 use DateTimeImmutable;
-use Lcobucci\JWT\Configuration;
-use Lcobucci\JWT\Token;
-use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\Traits\AccessTokenTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
@@ -29,7 +26,10 @@ use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\Entities\Traits\AssociateWithAuthCodeTrait;
 use SimpleSAML\Module\oidc\Entities\Traits\RevokeTokenTrait;
-use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
+use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Jws;
+use SimpleSAML\OpenID\Jws\ParsedJws;
 use Stringable;
 
 /**
@@ -63,13 +63,12 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         OAuth2ClientEntityInterface $clientEntity,
         array $scopes,
         DateTimeImmutable $expiryDateTime,
-        CryptKey $privateKey,
-        protected JsonWebTokenBuilderService $jsonWebTokenBuilderService,
+        protected readonly Jws $jws,
+        protected readonly ModuleConfig $moduleConfig,
         int|string|null $userIdentifier = null,
         ?string $authCodeId = null,
         ?array $requestedClaims = null,
         ?bool $isRevoked = false,
-        ?Configuration $jwtConfiguration = null,
         protected readonly ?FlowTypeEnum $flowTypeEnum = null,
         protected readonly ?array $authorizationDetails = null,
         protected readonly ?string $boundClientId = null,
@@ -82,14 +81,12 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
             $this->addScope($scope);
         }
         $this->setExpiryDateTime($expiryDateTime);
-        $this->setPrivateKey($privateKey);
         $this->setUserIdentifier($userIdentifier);
         $this->setAuthCodeId($authCodeId);
         $this->setRequestedClaims($requestedClaims ?? []);
         if ($isRevoked) {
             $this->revoke();
         }
-        $jwtConfiguration !== null ? $this->jwtConfiguration = $jwtConfiguration : $this->initJwtConfiguration();
     }
 
     /**
@@ -137,7 +134,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
      */
     public function __toString(): string
     {
-        return $this->stringRepresentation = $this->convertToJWT()->toString();
+        return $this->stringRepresentation = $this->convertToJWT()->getToken();
     }
 
     /**
@@ -150,29 +147,40 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
     }
 
     /**
-     * Implemented instead of original AccessTokenTrait::convertToJWT() method in order to remove microseconds from
-     * timestamps and to add claims like iss, etc., by using our own JWT builder service.
+     * Implemented instead of original AccessTokenTrait::convertToJWT() method
+     * in order to remove microseconds from timestamps and to add claims
+     * like iss, etc.
      *
-     * @return \Lcobucci\JWT\Token
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \Exception
      */
-    protected function convertToJWT(): Token
+    protected function convertToJWT(): ParsedJws
     {
-        /** @psalm-suppress ArgumentTypeCoercion */
-        $jwtBuilder = $this->jsonWebTokenBuilderService->getProtocolJwtBuilder()
-            ->permittedFor($this->getClient()->getIdentifier())
-            ->identifiedBy((string)$this->getIdentifier())
-            ->issuedAt(new DateTimeImmutable())
-            ->canOnlyBeUsedAfter(new DateTimeImmutable())
-            ->expiresAt($this->getExpiryDateTime())
-            ->relatedTo((string) $this->getUserIdentifier())
-            ->withClaim('scopes', $this->getScopes());
-        if ($this->issuerState !== null) {
-            $jwtBuilder = $jwtBuilder->withClaim('issuer_state', $this->issuerState);
-        }
+        $protocolSignatureKeyPair = $this->moduleConfig->getProtocolSignatureKeyPairBag()->getFirstOrFail();
+        $currentTimestamp = $this->jws->helpers()->dateTime()->getUtc()->getTimestamp();
 
-        return $this->jsonWebTokenBuilderService->getSignedProtocolJwt($jwtBuilder);
+        $payload = array_filter([
+            ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
+            ClaimsEnum::Iat->value => $currentTimestamp,
+            ClaimsEnum::Jti->value => (string)$this->getIdentifier(),
+            ClaimsEnum::Aud->value => $this->getClient()->getIdentifier(),
+            ClaimsEnum::Nbf->value => $currentTimestamp,
+            ClaimsEnum::Exp->value => $this->expiryDateTime->getTimestamp(),
+            ClaimsEnum::Sub->value => (string)$this->getUserIdentifier(),
+            'scopes' => $this->getScopes(),
+            ClaimsEnum::IssuerState->value => $this->issuerState,
+        ]);
+
+        $header = [
+            ClaimsEnum::Kid->value => $protocolSignatureKeyPair->getKeyPair()->getKeyId(),
+        ];
+
+        return $this->jws->parsedJwsFactory()->fromData(
+            $protocolSignatureKeyPair->getKeyPair()->getPrivateKey(),
+            $protocolSignatureKeyPair->getSignatureAlgorithm(),
+            $payload,
+            $header,
+        );
     }
 
     public function getFlowTypeEnum(): ?FlowTypeEnum

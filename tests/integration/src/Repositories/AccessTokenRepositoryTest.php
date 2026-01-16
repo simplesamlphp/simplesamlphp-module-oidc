@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\integration\Repositories;
 
-use League\OAuth2\Server\CryptKey;
 use PDO;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -28,7 +27,7 @@ use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
-use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
+use SimpleSAML\OpenID\Jws;
 use Testcontainers\Container\MySQLContainer;
 use Testcontainers\Container\PostgresContainer;
 use Testcontainers\Wait\WaitForHealthCheck;
@@ -66,7 +65,8 @@ class AccessTokenRepositoryTest extends TestCase
     protected MockObject $accessTokenEntityMock;
     protected array $accessTokenState;
     protected AccessTokenEntityFactory $accessTokenEntityFactory;
-    protected CryptKey $privateKey;
+    protected MockObject $jwsMock;
+    protected MockObject $moduleConfigMock;
 
     public static function setUpBeforeClass(): void
     {
@@ -125,14 +125,15 @@ class AccessTokenRepositoryTest extends TestCase
 
         $this->accessTokenEntityMock = $this->createMock(AccessTokenEntity::class);
         $this->accessTokenEntityFactoryMock = $this->createMock(AccessTokenEntityFactory::class);
-        $certFolder = dirname(__DIR__, 4) . '/docker/ssp/';
-        $privateKeyPath = $certFolder . ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME;
-        $this->privateKey = new CryptKey($privateKeyPath);
+
+        $this->jwsMock = $this->createMock(Jws::class);
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+
         $this->accessTokenEntityFactory = new AccessTokenEntityFactory(
             new Helpers(),
-            $this->privateKey,
-            $this->createMock(JsonWebTokenBuilderService::class),
             new ScopeEntityFactory(),
+            $this->jwsMock,
+            $this->moduleConfigMock,
         );
     }
 
