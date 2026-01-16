@@ -18,20 +18,24 @@ it in production.
 
 New configuration options:
 
-- `ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS` - (required) enables defining
-multiple protocol (Connect) related signing algorithms and key pairs. 
-- `ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS` - (required if federation
-capabilities are enabled) enables defining multiple key pairs for 
+- `ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS` - (required) enables
+defining multiple protocol (Connect) related signing algorithms and key pairs. 
+- `ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS` - (required if
+federation capabilities are enabled) enables defining multiple key pairs for 
 Federation purposes like signing Entity Statements, publishing new key for
 key roll-ower scenarios, etc.
-- `ModuleConfig::OPTION_TIMESTAMP_VALIDATION_LEEWAY` - optional, used for setting
-allowed time tolerance for timestamp validation in artifacts like JWSs.
-multiple Federation related signing algorithms and key pairs.
+- `ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS` - (required if VCI
+capabilities are enabled) enables defining multiple key pairs for
+VCI purposes like signing Verifiable Credentials, publishing new key for
+key roll-ower scenarios, etc.
+- `ModuleConfig::OPTION_TIMESTAMP_VALIDATION_LEEWAY` - optional, used for
+setting allowed time tolerance for timestamp validation in artifacts like JWSs.
+multiple Federation-related signing algorithms and key pairs.
 - Several new options regarding experimental support for OpenID4VCI.
 
 Major impact changes:
 
-- The following configuration options related to protocol (Connect) 
+- The following configuration options related to the protocol (Connect) 
 signature algorithm and key pair are removed:
   - `ModuleConfig::OPTION_PKI_PRIVATE_KEY_PASSPHRASE`
   - `ModuleConfig::OPTION_PKI_PRIVATE_KEY_FILENAME`
