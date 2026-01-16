@@ -7,9 +7,9 @@ apply those relevant to your deployment.
 
 New features:
 
-- Instance can now be configured to support multiple protocol (Connect) and
-Federation signing algorithms and key pairs. This was introduced in order to
-support signature algorithm negotiation with the clients. 
+- Instance can now be configured to support multiple algorithms and signature
+keys for protocol (Connect), Federation, and VCI purposes. This was introduced
+to support signature algorithm negotiation with the clients. 
 - Clients can now be configured with new properties:
   - ID Token Signing Algorithm (`id_token_signed_response_alg`)
 - Initial support for OpenID for Verifiable Credential Issuance
@@ -111,7 +111,7 @@ find appropriate.
     - Entity Identifier
     - Supported OpenID Federation Registration Types
     - Federation JWKS
-    - Protocol JWKS, JWKS URI and Signed JWKS URI,
+    - Protocol JWKS, JWKS URI, and Signed JWKS URI,
     - Registration type (manual, federated_automatic, or other in the future)
     - Is Federated flag (indicates participation in federation context)
     - Timestamps: created_at, updated_at, expires_at

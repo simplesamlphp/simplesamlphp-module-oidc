@@ -93,7 +93,7 @@ class ModuleConfigTest extends TestCase
         $this->sspBridgeUtilsConfigMock = $this->createMock(Config::class);
         $this->sspBridgeUtilsConfigMock->method('getCertPath')
             ->willReturnCallback(
-                fn(string $filename): string => dirname(__DIR__, 2) . '/cert/' . $filename
+                fn(string $filename): string => dirname(__DIR__, 2) . '/cert/' . $filename,
             );
         $this->sspBridgeUtilsHttpMock = $this->createMock(HTTP::class);
 
@@ -286,7 +286,6 @@ class ModuleConfigTest extends TestCase
         $this->sut(
             overrides: [ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS => []],
         )->getFederationSignatureKeyPairBag();
-
     }
 
     public function testKeywordsCanBeNull(): void
