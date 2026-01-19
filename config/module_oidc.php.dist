@@ -674,6 +674,8 @@ $config = [
      *
      * The format is the same as for the protocol (Connect) signature key pairs
      * (option ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS)
+     *
+     * NOTE: for the time being, only one key-pair is supported.
      */
     ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS => [
         [
