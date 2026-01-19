@@ -20,7 +20,6 @@ use Laminas\Diactoros\ResponseFactory;
 use Laminas\Diactoros\ServerRequestFactory;
 use Laminas\Diactoros\StreamFactory;
 use Laminas\Diactoros\UploadedFileFactory;
-use League\OAuth2\Server\ResourceServer;
 use Psr\Container\ContainerInterface;
 use Psr\Container\NotFoundExceptionInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
@@ -55,8 +54,8 @@ use SimpleSAML\Module\oidc\Factories\Grant\ImplicitGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\PreAuthCodeGrantFactory;
 use SimpleSAML\Module\oidc\Factories\Grant\RefreshTokenGrantFactory;
 use SimpleSAML\Module\oidc\Factories\JwksFactory;
+use SimpleSAML\Module\oidc\Factories\JwsFactory;
 use SimpleSAML\Module\oidc\Factories\ProcessingChainFactory;
-use SimpleSAML\Module\oidc\Factories\ResourceServerFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Factories\TokenResponseFactory;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
@@ -98,6 +97,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeOfflineAccessRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
+use SimpleSAML\Module\oidc\Server\ResourceServer;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\TokenResponse;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
@@ -114,6 +114,7 @@ use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Federation;
 use SimpleSAML\OpenID\Jwks;
+use SimpleSAML\OpenID\Jws;
 use SimpleSAML\Session;
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
 
@@ -164,9 +165,6 @@ class Container implements ContainerInterface
             $helpers,
         );
         $this->services[FormFactory::class] = $formFactory;
-
-        $jsonWebKeySetService = new JsonWebKeySetService($moduleConfig);
-        $this->services[JsonWebKeySetService::class] = $jsonWebKeySetService;
 
         $sessionService = new SessionService($session);
         $this->services[SessionService::class] = $sessionService;
@@ -285,17 +283,20 @@ class Container implements ContainerInterface
 
         $cryptKeyFactory = new CryptKeyFactory($moduleConfig);
 
-        $publicKey = $cryptKeyFactory->buildPublicKey();
         $privateKey = $cryptKeyFactory->buildPrivateKey();
 
-        $jsonWebTokenBuilderService = new JsonWebTokenBuilderService($moduleConfig);
-        $this->services[JsonWebTokenBuilderService::class] = $jsonWebTokenBuilderService;
+        $jwsFactory = new JwsFactory($moduleConfig, $loggerService);
+        $this->services[JwsFactory::class] = $jwsFactory;
+
+        $jws = $jwsFactory->build();
+        $this->services[Jws::class] = $jws;
+
 
         $accessTokenEntityFactory = new AccessTokenEntityFactory(
             $helpers,
-            $privateKey,
-            $jsonWebTokenBuilderService,
             $scopeEntityFactory,
+            $jws,
+            $moduleConfig,
         );
         $this->services[AccessTokenEntityFactory::class] = $accessTokenEntityFactory;
 
@@ -409,7 +410,13 @@ class Container implements ContainerInterface
             new AddClaimsToIdTokenRule($requestParamsResolver, $helpers),
             new RequiredNonceRule($requestParamsResolver, $helpers),
             new ResponseTypeRule($requestParamsResolver, $helpers),
-            new IdTokenHintRule($requestParamsResolver, $helpers, $moduleConfig, $cryptKeyFactory),
+            new IdTokenHintRule(
+                $requestParamsResolver,
+                $helpers,
+                $moduleConfig,
+                $jwks,
+                $core,
+            ),
             new PostLogoutRedirectUriRule($requestParamsResolver, $helpers, $clientRepository),
             new UiLocalesRule($requestParamsResolver, $helpers),
             new AcrValuesRule($requestParamsResolver, $helpers),
@@ -426,10 +433,14 @@ class Container implements ContainerInterface
         $requestRuleManager = new RequestRulesManager($requestRules, $loggerService);
         $this->services[RequestRulesManager::class] = $requestRuleManager;
 
-        $idTokenBuilder = new IdTokenBuilder($jsonWebTokenBuilderService, $claimTranslatorExtractor);
+        $idTokenBuilder = new IdTokenBuilder(
+            $claimTranslatorExtractor,
+            $core,
+            $moduleConfig,
+        );
         $this->services[IdTokenBuilder::class] = $idTokenBuilder;
 
-        $logoutTokenBuilder = new LogoutTokenBuilder($jsonWebTokenBuilderService);
+        $logoutTokenBuilder = new LogoutTokenBuilder($moduleConfig, $loggerService);
         $this->services[LogoutTokenBuilder::class] = $logoutTokenBuilder;
 
         $sessionLogoutTicketStoreDb = new LogoutTicketStoreDb($database);
@@ -523,17 +534,17 @@ class Container implements ContainerInterface
 
         $bearerTokenValidator = new BearerTokenValidator(
             $accessTokenRepository,
-            $publicKey,
             $moduleConfig,
+            $jws,
+            $jwks,
+            $loggerService,
         );
         $this->services[BearerTokenValidator::class] = $bearerTokenValidator;
 
-        $resourceServerFactory = new ResourceServerFactory(
-            $accessTokenRepository,
-            $publicKey,
+        $resourceServer = new ResourceServer(
             $bearerTokenValidator,
         );
-        $this->services[ResourceServer::class] = $resourceServerFactory->build();
+        $this->services[ResourceServer::class] = $resourceServer;
 
         $httpFoundationFactory = new HttpFoundationFactory();
         $this->services[HttpFoundationFactory::class] = $httpFoundationFactory;

@@ -4,15 +4,11 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
-use Lcobucci\JWT\Configuration;
-use Lcobucci\JWT\Signer\Key\InMemory;
-use Lcobucci\JWT\Signer\Rsa\Sha256;
-use Lcobucci\JWT\UnencryptedToken;
 use League\OAuth2\Server\CryptKey;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Factories\CryptKeyFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
@@ -20,6 +16,10 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\OpenID\Core;
+use SimpleSAML\OpenID\Core\Factories\IdTokenFactory;
+use SimpleSAML\OpenID\Core\IdToken;
+use SimpleSAML\OpenID\Jwks;
 use Throwable;
 
 /**
@@ -30,7 +30,6 @@ class IdTokenHintRuleTest extends TestCase
     protected Stub $requestStub;
     protected Stub $resultBagStub;
     protected Stub $moduleConfigStub;
-    protected Stub $cryptKeyFactoryStub;
 
     protected static string $certFolder;
     protected static string $privateKeyPath;
@@ -39,20 +38,14 @@ class IdTokenHintRuleTest extends TestCase
     protected static CryptKey $publicKey;
 
     protected static string $issuer = 'https://example.org';
-    private Configuration $jwtConfig;
 
     protected Stub $loggerServiceStub;
     protected Stub $requestParamsResolverStub;
     protected Helpers $helpers;
-
-    public static function setUpBeforeClass(): void
-    {
-        self::$certFolder = dirname(__DIR__, 6) . '/docker/ssp/';
-        self::$privateKeyPath = self::$certFolder . ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME;
-        self::$publicKeyPath = self::$certFolder . ModuleConfig::DEFAULT_PKI_CERTIFICATE_FILENAME;
-        self::$privateKey = new CryptKey(self::$privateKeyPath, null, false);
-        self::$publicKey = new CryptKey(self::$publicKeyPath, null, false);
-    }
+    protected MockObject $jwksMock;
+    protected MockObject $coreMock;
+    protected MockObject $idTokenFactoryMock;
+    protected MockObject $idTokenMock;
 
     /**
      * @throws \ReflectionException
@@ -65,42 +58,40 @@ class IdTokenHintRuleTest extends TestCase
         $this->resultBagStub = $this->createStub(ResultBagInterface::class);
 
         $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
-        $this->moduleConfigStub->method('getProtocolSigner')->willReturn(new Sha256());
         $this->moduleConfigStub->method('getIssuer')->willReturn(self::$issuer);
-
-        $this->cryptKeyFactoryStub = $this->createStub(CryptKeyFactory::class);
-        $this->cryptKeyFactoryStub->method('buildPrivateKey')->willReturn(self::$privateKey);
-        $this->cryptKeyFactoryStub->method('buildPublicKey')->willReturn(self::$publicKey);
-
-        $this->jwtConfig = Configuration::forAsymmetricSigner(
-            $this->moduleConfigStub->getProtocolSigner(),
-            InMemory::plainText(self::$privateKey->getKeyContents()),
-            InMemory::plainText(self::$publicKey->getKeyContents()),
-        );
 
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
 
         $this->helpers = new Helpers();
+
+        $this->jwksMock = $this->createMock(Jwks::class);
+        $this->coreMock = $this->createMock(Core::class);
+        $this->idTokenFactoryMock = $this->createMock(IdTokenFactory::class);
+        $this->idTokenMock = $this->createMock(IdToken::class);
+        $this->coreMock->method('idTokenFactory')->willReturn($this->idTokenFactoryMock);
     }
 
     protected function sut(
         ?RequestParamsResolver $requestParamsResolver = null,
         ?Helpers $helpers = null,
         ?ModuleConfig $moduleConfig = null,
-        ?CryptKeyFactory $cryptKeyFactory = null,
+        ?Jwks $jwks = null,
+        ?Core $core = null,
     ): IdTokenHintRule {
 
         $requestParamsResolver ??= $this->requestParamsResolverStub;
         $helpers ??= $this->helpers;
         $moduleConfig ??= $this->moduleConfigStub;
-        $cryptKeyFactory ??= $this->cryptKeyFactoryStub;
+        $jwks ??= $this->jwksMock;
+        $core ??= $this->coreMock;
 
         return new IdTokenHintRule(
             $requestParamsResolver,
             $helpers,
             $moduleConfig,
-            $cryptKeyFactory,
+            $jwks,
+            $core,
         );
     }
 
@@ -139,14 +130,14 @@ class IdTokenHintRuleTest extends TestCase
      */
     public function testCheckRuleThrowsForIdTokenWithInvalidSignature(): void
     {
-        $invalidSignatureJwt = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2V4YW1wbGUub3JnIiwic3ViIjo' .
-        'iMTIzNDU2Nzg5MCIsIm5hbWUiOiJKb2huIERvZSIsImlhdCI6MTUxNjIzOTAyMn0.JGJ_KSiXiRsgVc5nYFTSqbaeeM3UA5DGnOTaz3' .
-        'UqbyHM0ogO3rq_-8FwLRzGk-7942U6rQ1ARziLsYYsUtH7yaUTWi6xSvh_mJQuF8hl_X3OghJWeXWms42OjAkHXtB-H7LQ_bEQNV' .
-        'nF8XYLsq06MoHeHxAnDkVpVcZyDrmhauAqV1PTWsC9FMMKaxfoVsIbeQ0-PV_gAgzSK5-T0bliXPUdWFjvPXJ775jqqy4ZyNJYh' .
-        '1_rZ1WyOrJu7AHkT9R4FNQNCw40BRzfI3S_OYBNirKAh5G0sctNwEEaJL_a3lEwKYSC-d_sZ6WBvFP8B138b7T6nPzI71tvfXE' .
-        'Ru7Q7rA';
-
-        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn($invalidSignatureJwt);
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')
+            ->willReturn('invalid-it-token');
+        $this->idTokenMock->method('getIssuer')->willReturn(self::$issuer);
+        $this->idTokenMock->method('verifyWithKeySet')
+            ->willThrowException(new \Exception('invalid-signature'));
+        $this->idTokenFactoryMock->method('fromToken')
+            ->with('invalid-it-token')
+            ->willReturn($this->idTokenMock);
         $this->expectException(Throwable::class);
         $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
     }
@@ -158,12 +149,13 @@ class IdTokenHintRuleTest extends TestCase
     public function testCheckRuleThrowsForIdTokenWithInvalidIssuer(): void
     {
         $this->requestStub->method('getMethod')->willReturn('GET');
+        $this->idTokenMock->method('getIssuer')->willReturn('invalid');
+        $this->idTokenFactoryMock->method('fromToken')
+            ->with('id-token')
+            ->willReturn($this->idTokenMock);
 
-        $invalidIssuerJwt = $this->jwtConfig->builder()->issuedBy('invalid')->getToken(
-            $this->moduleConfigStub->getProtocolSigner(),
-            InMemory::plainText(self::$privateKey->getKeyContents()),
-        )->toString();
-        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn($invalidIssuerJwt);
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')
+            ->willReturn('id-token');
         $this->expectException(Throwable::class);
         $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
     }
@@ -175,15 +167,14 @@ class IdTokenHintRuleTest extends TestCase
      */
     public function testCheckRulePassesForValidIdToken(): void
     {
-        $idToken = $this->jwtConfig->builder()->issuedBy(self::$issuer)->getToken(
-            $this->moduleConfigStub->getProtocolSigner(),
-            InMemory::plainText(self::$privateKey->getKeyContents()),
-        )->toString();
-
-        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn($idToken);
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')
+            ->willReturn('id-token');
+        $this->idTokenMock->method('getIssuer')->willReturn(self::$issuer);
+        $this->idTokenFactoryMock->method('fromToken')
+            ->willReturn($this->idTokenMock);
         $result = $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
         new Result(IdTokenHintRule::class);
 
-        $this->assertInstanceOf(UnencryptedToken::class, $result->getValue());
+        $this->assertInstanceOf(IdToken::class, $result->getValue());
     }
 }

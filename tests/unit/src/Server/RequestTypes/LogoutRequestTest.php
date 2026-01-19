@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestTypes;
 
-use Lcobucci\JWT\UnencryptedToken;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
+use SimpleSAML\OpenID\Core\IdToken;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest
@@ -25,7 +25,7 @@ class LogoutRequestTest extends TestCase
      */
     protected function setUp(): void
     {
-        $this->idTokenHintStub = $this->createStub(UnencryptedToken::class);
+        $this->idTokenHintStub = $this->createStub(IdToken::class);
     }
 
     public function testConstructWithoutParams(): void

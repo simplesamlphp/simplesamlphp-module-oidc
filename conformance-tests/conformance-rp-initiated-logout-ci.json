@@ -556,7 +556,7 @@
                                     "xpath",
                                     "//*",
                                     10,
-                                    "The JWT string is missing the Signature part",
+                                    "The algorithm \"none\" is not supported.",
                                     "update-image-placeholder"
                                 ]
                             ]
@@ -620,7 +620,7 @@
                                     "xpath",
                                     "//*",
                                     10,
-                                    "The token was not issued by the given issuers",
+                                    "Issuer claim",
                                     "update-image-placeholder"
                                 ]
                             ]

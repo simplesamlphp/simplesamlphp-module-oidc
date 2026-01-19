@@ -22,7 +22,7 @@
     {% endif %}
 
     <div class="message-box">
-        {{ 'Before running the migrations, make sure that the database user has proper privileges to change the scheme (for example, <kbd>alter, create, drop, index</kbd>). After running the migrations, it is a good practice to remove those privileges.'|trans }}
+        {{ 'Before running the migrations, make sure that the database user has proper privileges to change the scheme (for example, <kbd>alter, create, drop, index</kbd>). After running the migrations, it is a good practice to remove those privileges.'|trans|raw }}
     </div>
 
 {% endblock oidcContent -%}

@@ -44,7 +44,9 @@ use SimpleSAML\Module\oidc\Utils\FederationParticipationValidator;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Federation;
+use SimpleSAML\OpenID\Jwks;
 
 class RequestRulesManagerFactory
 {
@@ -57,7 +59,6 @@ class RequestRulesManagerFactory
         private readonly ScopeRepository $scopeRepository,
         private readonly CodeChallengeVerifiersRepository $codeChallengeVerifiersRepository,
         private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
-        private readonly CryptKeyFactory $cryptKeyFactory,
         private readonly RequestParamsResolver $requestParamsResolver,
         private readonly ClientEntityFactory $clientEntityFactory,
         private readonly Federation $federation,
@@ -65,6 +66,8 @@ class RequestRulesManagerFactory
         private readonly JwksResolver $jwksResolver,
         private readonly FederationParticipationValidator $federationParticipationValidator,
         private readonly SspBridge $sspBridge,
+        private readonly Jwks $jwks,
+        private readonly Core $core,
         private readonly ?FederationCache $federationCache = null,
         private readonly ?ProtocolCache $protocolCache = null,
     ) {
@@ -132,7 +135,8 @@ class RequestRulesManagerFactory
                 $this->requestParamsResolver,
                 $this->helpers,
                 $this->moduleConfig,
-                $this->cryptKeyFactory,
+                $this->jwks,
+                $this->core,
             ),
             new PostLogoutRedirectUriRule($this->requestParamsResolver, $this->helpers, $this->clientRepository),
             new UiLocalesRule($this->requestParamsResolver, $this->helpers),

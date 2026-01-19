@@ -4,19 +4,21 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Services;
 
-use Lcobucci\JWT\Configuration;
-use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
-use Lcobucci\JWT\Validation\Constraint\IssuedBy;
-use Lcobucci\JWT\Validation\Constraint\PermittedFor;
-use Lcobucci\JWT\Validation\Constraint\RelatedTo;
-use Lcobucci\JWT\Validation\Constraint\SignedWith;
-use PHPUnit\Framework\MockObject\Stub;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\Factories\CoreFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Associations\Interfaces\RelyingPartyAssociationInterface;
-use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\LogoutTokenBuilder;
+use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Core;
+use SimpleSAML\OpenID\Core\Factories\LogoutTokenFactory;
+use SimpleSAML\OpenID\Jwk\JwkDecorator;
+use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
+use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Services\LogoutTokenBuilder
@@ -38,21 +40,19 @@ class LogoutTokenBuilderTest extends TestCase
     /**
      * @var mixed
      */
-    private Stub $moduleConfigStub;
+    private MockObject $moduleConfigMock;
 
     /**
      * @var mixed
      */
-    private Stub $relyingPartyAssociationStub;
-    private JsonWebTokenBuilderService $jsonWebTokenBuilderService;
+    private MockObject $relyingPartyAssociationMock;
+    private MockObject $loggerServiceMock;
+    private MockObject $coreFactoryMock;
+    private MockObject $protocolSignatureKeyPairBagMock;
+    private MockObject $signatureKeyPairMock;
+    private MockObject $coreMock;
+    private MockObject $logoutTokenFactoryMock;
 
-    public static function setUpBeforeClass(): void
-    {
-        self::$certFolder = dirname(__DIR__, 4) . '/docker/ssp/';
-        self::$privateKeyPath = self::$certFolder . ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME;
-        self::$publicKeyPath = self::$certFolder . ModuleConfig::DEFAULT_PKI_CERTIFICATE_FILENAME;
-        self::$signerSha256 = new Sha256();
-    }
 
     /**
      * @throws \ReflectionException
@@ -61,59 +61,110 @@ class LogoutTokenBuilderTest extends TestCase
      */
     public function setUp(): void
     {
-        $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
-        $this->moduleConfigStub->method('getProtocolSigner')->willReturn(self::$signerSha256);
-        $this->moduleConfigStub->method('getProtocolPrivateKeyPath')->willReturn(self::$privateKeyPath);
-        $this->moduleConfigStub->method('getProtocolCertPath')->willReturn(self::$publicKeyPath);
-        $this->moduleConfigStub->method('getIssuer')->willReturn(self::$selfUrlHost);
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
 
-        $this->relyingPartyAssociationStub = $this->createStub(RelyingPartyAssociationInterface::class);
-        $this->relyingPartyAssociationStub->method('getClientId')->willReturn(self::$clientId);
-        $this->relyingPartyAssociationStub->method('getUserId')->willReturn(self::$userId);
-        $this->relyingPartyAssociationStub->method('getSessionId')->willReturn(self::$sessionId);
-        $this->relyingPartyAssociationStub
+        $this->relyingPartyAssociationMock = $this->createMock(RelyingPartyAssociationInterface::class);
+        $this->relyingPartyAssociationMock->method('getClientId')->willReturn(self::$clientId);
+        $this->relyingPartyAssociationMock->method('getUserId')->willReturn(self::$userId);
+        $this->relyingPartyAssociationMock->method('getSessionId')->willReturn(self::$sessionId);
+        $this->relyingPartyAssociationMock
             ->method('getBackChannelLogoutUri')
             ->willReturn(self::$backChannelLogoutUri);
 
-        $this->jsonWebTokenBuilderService = new JsonWebTokenBuilderService($this->moduleConfigStub);
+        $this->loggerServiceMock = $this->createMock(LoggerService::class);
+
+        $this->coreFactoryMock = $this->createMock(CoreFactory::class);
+
+        $this->protocolSignatureKeyPairBagMock = $this->createMock(SignatureKeyPairBag::class);
+
+        $this->signatureKeyPairMock = $this->createMock(SignatureKeyPair::class);
+        $this->signatureKeyPairMock->method('getSignatureAlgorithm')
+            ->willReturn(SignatureAlgorithmEnum::RS256);
+
+        $this->coreMock = $this->createMock(Core::class);
+        $this->coreFactoryMock->method('build')->willReturn($this->coreMock);
+
+        $this->logoutTokenFactoryMock = $this->createMock(LogoutTokenFactory::class);
+
+        $this->coreMock->method('logoutTokenFactory')->willReturn($this->logoutTokenFactoryMock);
+    }
+
+    protected function sut(
+        ?ModuleConfig $moduleConfig = null,
+        ?LoggerService $loggerService = null,
+        ?CoreFactory $coreFactory = null,
+    ): LogoutTokenBuilder {
+        $moduleConfig ??= $this->moduleConfigMock;
+        $loggerService ??= $this->loggerServiceMock;
+        $coreFactory ??= $this->coreFactoryMock;
+
+        return new LogoutTokenBuilder(
+            $moduleConfig,
+            $loggerService,
+            $coreFactory,
+        );
+    }
+
+    public function testCanCreateInstance(): void
+    {
+        $this->assertInstanceOf(LogoutTokenBuilder::class, $this->sut());
     }
 
     /**
      * @throws \ReflectionException
      * @throws \Exception
      */
-    public function testCanGenerateSignedTokenForRelyingPartyAssociation(): void
+    public function testForRelyingPartyAssociationCallsLogoutTokenFactory(): void
     {
-        $logoutTokenBuilder = new LogoutTokenBuilder($this->jsonWebTokenBuilderService);
+        $this->moduleConfigMock->expects($this->once())
+            ->method('getProtocolSignatureKeyPairBag')
+            ->willReturn($this->protocolSignatureKeyPairBagMock);
 
-        $token = $logoutTokenBuilder->forRelyingPartyAssociation($this->relyingPartyAssociationStub);
+        $this->protocolSignatureKeyPairBagMock->expects($this->once())
+            ->method('getFirstOrFail')
+            ->willReturn($this->signatureKeyPairMock);
 
-        // Check token validity
-        $jwtConfig = Configuration::forAsymmetricSigner(
-            $this->moduleConfigStub->getProtocolSigner(),
-            InMemory::file(
-                $this->moduleConfigStub->getProtocolPrivateKeyPath(),
-                $this->moduleConfigStub->getProtocolPrivateKeyPassPhrase() ?? '',
-            ),
-            InMemory::file($this->moduleConfigStub->getProtocolCertPath()),
+        $this->moduleConfigMock->expects($this->once())
+            ->method('getIssuer')
+            ->willReturn('issuerId');
+
+        $this->logoutTokenFactoryMock->expects($this->once())
+            ->method('fromData')
+            ->with(
+                $this->isInstanceOf(JwkDecorator::class),
+                $this->isInstanceOf(SignatureAlgorithmEnum::class),
+                $this->arrayHasKey(ClaimsEnum::Iss->value),
+                $this->arrayHasKey(ClaimsEnum::Kid->value),
+            );
+
+        $this->sut()->forRelyingPartyAssociation($this->relyingPartyAssociationMock);
+    }
+
+    public function testForRelyingPartyAssociationUsesNegotiatedSignatureKeyPair(): void
+    {
+        $this->moduleConfigMock->expects($this->once())
+            ->method('getProtocolSignatureKeyPairBag')
+            ->willReturn($this->protocolSignatureKeyPairBagMock);
+
+        $this->protocolSignatureKeyPairBagMock->expects($this->once())
+            ->method('getFirstOrFail')
+            ->willReturn($this->signatureKeyPairMock);
+
+        $this->relyingPartyAssociationMock->expects($this->once())
+            ->method('getClientIdTokenSignedResponseAlg')
+            ->willReturn('ES256');
+
+        $negotiatedSignatureKeyPairMock = $this->createMock(SignatureKeyPair::class);
+        $negotiatedSignatureKeyPairMock->method('getSignatureAlgorithm')
+            ->willReturn(SignatureAlgorithmEnum::ES256);
+
+        $this->protocolSignatureKeyPairBagMock->expects($this->once())
+            ->method('getFirstByAlgorithmOrFail')
+            ->with(SignatureAlgorithmEnum::ES256)
+            ->willReturn($negotiatedSignatureKeyPairMock);
+
+        $this->sut()->forRelyingPartyAssociation(
+            $this->relyingPartyAssociationMock,
         );
-
-        $parsedToken = $jwtConfig->parser()->parse($token);
-
-        $this->assertTrue(
-            $jwtConfig->validator()->validate(
-                $parsedToken,
-                new IssuedBy(self::$selfUrlHost),
-                new PermittedFor(self::$clientId),
-                new RelatedTo(self::$userId),
-                new SignedWith(
-                    $this->moduleConfigStub->getProtocolSigner(),
-                    InMemory::file($this->moduleConfigStub->getProtocolCertPath()),
-                ),
-            ),
-        );
-
-        $this->assertTrue($parsedToken->headers()->has('typ'));
-        $this->assertSame($parsedToken->headers()->get('typ'), self::$logoutTokenType);
     }
 }

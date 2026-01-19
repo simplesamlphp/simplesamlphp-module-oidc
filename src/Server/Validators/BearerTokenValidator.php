@@ -4,90 +4,36 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Server\Validators;
 
-use DateInterval;
-use DateTimeZone;
-use Lcobucci\Clock\SystemClock;
-use Lcobucci\JWT\Configuration;
-use Lcobucci\JWT\Signer\Key\InMemory;
-use Lcobucci\JWT\Validation\Constraint\SignedWith;
-use Lcobucci\JWT\Validation\Constraint\StrictValidAt;
-use Lcobucci\JWT\Validation\RequiredConstraintsViolated;
-use League\OAuth2\Server\AuthorizationValidators\BearerTokenValidator as OAuth2BearerTokenValidator;
-use League\OAuth2\Server\CryptKey;
-use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
-use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface as OAuth2AccessTokenRepositoryInterface;
+use League\OAuth2\Server\AuthorizationValidators\AuthorizationValidatorInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\OpenID\Exceptions\JwsException;
+use SimpleSAML\OpenID\Jwks;
+use SimpleSAML\OpenID\Jws;
 
 use function count;
-use function date_default_timezone_get;
 use function is_array;
 use function preg_replace;
 use function trim;
 
-class BearerTokenValidator extends OAuth2BearerTokenValidator
+class BearerTokenValidator implements AuthorizationValidatorInterface
 {
-    /** @var \Lcobucci\JWT\Configuration */
-    protected Configuration $jwtConfiguration;
-
-    /** @var \League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface */
-    protected OAuth2AccessTokenRepositoryInterface $accessTokenRepository;
-
-    /** @var \League\OAuth2\Server\CryptKey */
-    protected $publicKey;
-
-    /**
-     * @throws \Exception
-     */
     public function __construct(
-        AccessTokenRepositoryInterface $accessTokenRepository,
-        CryptKey $publicKey,
+        protected readonly AccessTokenRepository $accessTokenRepository,
         protected readonly ModuleConfig $moduleConfig,
-        ?DateInterval $jwtValidAtDateLeeway = null,
-        protected LoggerService $loggerService = new LoggerService(),
+        protected readonly Jws $jws,
+        protected readonly Jwks $jwks,
+        protected readonly LoggerService $loggerService,
     ) {
-        parent::__construct($accessTokenRepository, $jwtValidAtDateLeeway);
-        $this->accessTokenRepository = $accessTokenRepository;
-        $this->setPublicKey($publicKey);
-    }
-
-    /**
-     * Set the public key
-     *
-     * @param \League\OAuth2\Server\CryptKey $key
-     * @throws \Exception
-     */
-    public function setPublicKey(CryptKey $key): void
-    {
-        $this->publicKey = $key;
-
-        $this->initJwtConfiguration();
-    }
-
-    /**
-     * Initialise the JWT configuration.
-     * @throws \Exception
-     */
-    protected function initJwtConfiguration(): void
-    {
-        /** @psalm-suppress ArgumentTypeCoercion */
-        $this->jwtConfiguration = Configuration::forSymmetricSigner(
-            $this->moduleConfig->getProtocolSigner(),
-            InMemory::plainText('empty', 'empty'),
-        )->withValidationConstraints(
-            new StrictValidAt(new SystemClock(new DateTimeZone(date_default_timezone_get()))),
-            new SignedWith(
-                $this->moduleConfig->getProtocolSigner(),
-                InMemory::plainText($this->publicKey->getKeyContents(), $this->publicKey->getPassPhrase() ?? ''),
-            ),
-        );
     }
 
     /**
      * {@inheritdoc}
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      */
     public function validateAuthorization(ServerRequestInterface $request): ServerRequestInterface
     {
@@ -119,7 +65,7 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
             $this->loggerService->warning(
                 'Apache stripping of Authorization Bearer request header encountered. You should modify your' .
                 ' Apache configuration to preserve to Authorization Bearer token in requests to avoid performance ' .
-                'implications. Check the OIDC module README file on how to do that.',
+                'implications. Check the OIDC module documentation on how to do that.',
             );
             $jwt = $accessToken;
         }
@@ -130,23 +76,22 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
 
         try {
             // Attempt to parse the JWT
-            /** @var \Lcobucci\JWT\Token\Plain $token */
-            $token = $this->jwtConfiguration->parser()->parse($jwt);
-        } catch (\Lcobucci\JWT\Exception $exception) {
+            $token = $this->jws->parsedJwsFactory()->fromToken($jwt);
+        } catch (JwsException $exception) {
             throw OidcServerException::accessDenied($exception->getMessage(), null, $exception);
         }
 
         try {
             // Attempt to validate the JWT
-            $constraints = $this->jwtConfiguration->validationConstraints();
-            $this->jwtConfiguration->validator()->assert($token, ...$constraints);
-        } catch (RequiredConstraintsViolated) {
+            $jwks = $this->jwks->jwksDecoratorFactory()->fromJwkDecorators(
+                ...$this->moduleConfig->getProtocolSignatureKeyPairBag()->getAllPublicKeys(),
+            )->jsonSerialize();
+            $token->verifyWithKeySet($jwks);
+        } catch (JwsException) {
             throw OidcServerException::accessDenied('Access token could not be verified');
         }
 
-        $claims = $token->claims();
-
-        if (is_null($jti = $claims->get('jti')) || empty($jti) || !is_string($jti)) {
+        if (is_null($jti = $token->getJwtId()) || empty($jti)) {
             throw OidcServerException::accessDenied('Access token malformed (jti missing or unexpected type)');
         }
 
@@ -158,9 +103,9 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
         // Return the request with additional attributes
         return $request
             ->withAttribute('oauth_access_token_id', $jti)
-            ->withAttribute('oauth_client_id', $this->convertSingleRecordAudToString($claims->get('aud')))
-            ->withAttribute('oauth_user_id', $claims->get('sub'))
-            ->withAttribute('oauth_scopes', $claims->get('scopes'));
+            ->withAttribute('oauth_client_id', $this->convertSingleRecordAudToString($token->getAudience()))
+            ->withAttribute('oauth_user_id', $token->getSubject())
+            ->withAttribute('oauth_scopes', $token->getPayloadClaim('scopes'));
     }
 
     protected function getTokenFromAuthorizationBearer(string $authorizationHeader): string
@@ -190,6 +135,6 @@ class BearerTokenValidator extends OAuth2BearerTokenValidator
             }
         }
 
-        throw OidcServerException::accessDenied('Unexpected sub claim value.');
+        throw OidcServerException::accessDenied('Unexpected aud claim value.');
     }
 }

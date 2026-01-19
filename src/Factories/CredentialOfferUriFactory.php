@@ -111,7 +111,7 @@ class CredentialOfferUriFactory
             throw new RuntimeException('No credential configuration IDs provided.');
         }
 
-        $credentialConfigurationIdsSupported = $this->moduleConfig->getCredentialConfigurationIdsSupported();
+        $credentialConfigurationIdsSupported = $this->moduleConfig->getVciCredentialConfigurationIdsSupported();
 
         if (empty($credentialConfigurationIdsSupported)) {
             throw new RuntimeException('No credential configuration IDs configured.');

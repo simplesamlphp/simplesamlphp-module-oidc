@@ -6,28 +6,22 @@ namespace SimpleSAML\Module\oidc\Factories;
 
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\FederationCache;
-use SimpleSAML\OpenID\Jwks;
+use SimpleSAML\OpenID\Jws;
 
-class JwksFactory
+class JwsFactory
 {
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
         protected readonly LoggerService $loggerService,
-        protected readonly ?FederationCache $federationCache = null,
     ) {
     }
 
-    /**
-     * @throws \ReflectionException
-     * @throws \SimpleSAML\Error\ConfigurationError
-     */
-    public function build(): Jwks
+    public function build(): Jws
     {
-        return new Jwks(
+        return new Jws(
             supportedAlgorithms: $this->moduleConfig->getSupportedAlgorithms(),
-            maxCacheDuration: $this->moduleConfig->getFederationCacheMaxDurationForFetched(),
-            cache: $this->federationCache?->cache,
+            supportedSerializers: $this->moduleConfig->getSupportedSerializers(),
+            timestampValidationLeeway: $this->moduleConfig->getTimestampValidationLeeway(),
             logger: $this->loggerService,
         );
     }

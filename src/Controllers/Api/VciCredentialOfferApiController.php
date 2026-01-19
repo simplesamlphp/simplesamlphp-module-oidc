@@ -33,7 +33,7 @@ class VciCredentialOfferApiController
             throw OidcServerException::forbidden('API capabilities not enabled.');
         }
 
-        if (!$this->moduleConfig->getVerifiableCredentialEnabled()) {
+        if (!$this->moduleConfig->getVciEnabled()) {
             $this->loggerService->warning('Verifiable Credential capabilities not enabled.');
             throw OidcServerException::forbidden('Verifiable Credential capabilities not enabled.');
         }
@@ -81,7 +81,7 @@ class VciCredentialOfferApiController
             );
         }
 
-        $credentialConfiguration = $this->moduleConfig->getCredentialConfiguration($credentialConfigurationId);
+        $credentialConfiguration = $this->moduleConfig->getVciCredentialConfiguration($credentialConfigurationId);
 
         if (!is_array($credentialConfiguration)) {
             $this->loggerService->error(

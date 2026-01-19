@@ -32,7 +32,7 @@ class IssuerStateEntityFactory
         $value ??= hash('sha256', $this->helpers->random()->getIdentifier());
 
         $createdAt ??= $this->helpers->dateTime()->getUtc();
-        $expiresAt ??= $createdAt->add($this->moduleConfig->getIssuerStateDuration());
+        $expiresAt ??= $createdAt->add($this->moduleConfig->getVciIssuerStateDuration());
 
         return $this->fromData($value, $createdAt, $expiresAt, $isRevoked);
     }

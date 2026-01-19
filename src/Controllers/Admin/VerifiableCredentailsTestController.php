@@ -44,7 +44,7 @@ class VerifiableCredentailsTestController
     {
         $setupErrors = [];
 
-        if (!$this->moduleConfig->getVerifiableCredentialEnabled()) {
+        if (!$this->moduleConfig->getVciEnabled()) {
             $setupErrors[] = 'Verifiable Credential functionalities are not enabled.';
         }
 
@@ -100,7 +100,7 @@ class VerifiableCredentailsTestController
             $selectedCredentialConfigurationId = $newCredentialConfigurationId;
         }
 
-        $credentialConfigurationIdsSupported = $this->moduleConfig->getCredentialConfigurationIdsSupported();
+        $credentialConfigurationIdsSupported = $this->moduleConfig->getVciCredentialConfigurationIdsSupported();
 
         if (empty($credentialConfigurationIdsSupported)) {
             $setupErrors[] = 'No credential configuration IDs configured.';

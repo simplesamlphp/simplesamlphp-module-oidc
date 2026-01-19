@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Server\RequestTypes;
 
-use Lcobucci\JWT\UnencryptedToken;
+use SimpleSAML\OpenID\Core\IdToken;
 
 class LogoutRequest
 {
@@ -14,7 +14,7 @@ class LogoutRequest
          * current authenticated session with the Client. This is used as an indication of the identity of the
          * End-User that the RP is requesting be logged out by the OP.
          */
-        protected ?UnencryptedToken $idTokenHint = null,
+        protected ?IdToken $idTokenHint = null,
         /**
          * URL to which the RP is requesting that the End-User's User Agent be redirected after a logout has been
          * performed. The value MUST have been previously registered with the OP.An id_token_hint is also
@@ -35,12 +35,12 @@ class LogoutRequest
     ) {
     }
 
-    public function getIdTokenHint(): ?UnencryptedToken
+    public function getIdTokenHint(): ?IdToken
     {
         return $this->idTokenHint;
     }
 
-    public function setIdTokenHint(?UnencryptedToken $idTokenHint): LogoutRequest
+    public function setIdTokenHint(?IdToken $idTokenHint): LogoutRequest
     {
         $this->idTokenHint = $idTokenHint;
         return $this;

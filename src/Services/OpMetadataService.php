@@ -37,7 +37,17 @@ class OpMetadataService
      */
     private function initMetadata(): void
     {
-        $signer = $this->moduleConfig->getProtocolSigner();
+        // Signature algorithms that this OP can use to sign JWS artifacts.
+        $protocolSignatureAlgorithmNames = $this->moduleConfig
+            ->getProtocolSignatureKeyPairBag()
+            ->getAllAlgorithmNamesUnique();
+
+        // Signature algorithms that this OP can use to validate signature on
+        // signed JWS artifacts.
+        $supportedSignatureAlgorithmNames = $this->moduleConfig
+            ->getSupportedAlgorithms()
+            ->getSignatureAlgorithmBag()
+            ->getAllNamesUnique();
 
         $this->metadata = [];
         $this->metadata[ClaimsEnum::Issuer->value] = $this->moduleConfig->getIssuer();
@@ -53,22 +63,19 @@ class OpMetadataService
         $this->metadata[ClaimsEnum::ScopesSupported->value] = array_keys($this->moduleConfig->getScopes());
         $this->metadata[ClaimsEnum::ResponseTypesSupported->value] = ['code', 'token', 'id_token', 'id_token token'];
         $this->metadata[ClaimsEnum::SubjectTypesSupported->value] = ['public'];
-        $this->metadata[ClaimsEnum::IdTokenSigningAlgValuesSupported->value] = [
-            $signer->algorithmId(),
-        ];
+        $this->metadata[ClaimsEnum::IdTokenSigningAlgValuesSupported->value] = $protocolSignatureAlgorithmNames;
         $this->metadata[ClaimsEnum::CodeChallengeMethodsSupported->value] = ['plain', 'S256'];
         $this->metadata[ClaimsEnum::TokenEndpointAuthMethodsSupported->value] = [
             TokenEndpointAuthMethodsEnum::ClientSecretPost->value,
             TokenEndpointAuthMethodsEnum::ClientSecretBasic->value,
             TokenEndpointAuthMethodsEnum::PrivateKeyJwt->value,
         ];
-        $this->metadata[ClaimsEnum::TokenEndpointAuthSigningAlgValuesSupported->value] = [
-            $signer->algorithmId(),
-        ];
+        $this->metadata[ClaimsEnum::TokenEndpointAuthSigningAlgValuesSupported->value] =
+        $supportedSignatureAlgorithmNames;
         $this->metadata[ClaimsEnum::RequestParameterSupported->value] = true;
         $this->metadata[ClaimsEnum::RequestObjectSigningAlgValuesSupported->value] = [
             'none',
-            $signer->algorithmId(),
+            ...$supportedSignatureAlgorithmNames,
         ];
         $this->metadata[ClaimsEnum::RequestUriParameterSupported->value] = false;
 
@@ -76,7 +83,7 @@ class OpMetadataService
             GrantTypesEnum::AuthorizationCode->value,
             GrantTypesEnum::RefreshToken->value,
         ];
-        if ($this->moduleConfig->getVerifiableCredentialEnabled()) {
+        if ($this->moduleConfig->getVciEnabled()) {
             $grantTypesSupported[] = GrantTypesEnum::PreAuthorizedCode->value;
         }
         $this->metadata[ClaimsEnum::GrantTypesSupported->value] = $grantTypesSupported;

@@ -31,7 +31,7 @@ class JwtVcIssuerConfigurationController
         protected readonly Routes $routes,
         protected readonly LoggerService $loggerService,
     ) {
-        if (!$this->moduleConfig->getVerifiableCredentialEnabled()) {
+        if (!$this->moduleConfig->getVciEnabled()) {
             $this->loggerService->warning('Verifiable Credential capabilities not enabled.');
             throw OidcServerException::forbidden('Verifiable Credential capabilities not enabled.');
         }

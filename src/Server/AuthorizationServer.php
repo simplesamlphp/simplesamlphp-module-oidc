@@ -185,7 +185,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
             throw new BadRequest($reason);
         }
 
-        /** @var \Lcobucci\JWT\UnencryptedToken|null $idTokenHint */
+        /** @var \SimpleSAML\OpenID\Core\IdToken|null $idTokenHint */
         $idTokenHint = $resultBag->getOrFail(IdTokenHintRule::class)->getValue();
         /** @var string|null $postLogoutRedirectUri */
         $postLogoutRedirectUri = $resultBag->getOrFail(PostLogoutRedirectUriRule::class)->getValue();

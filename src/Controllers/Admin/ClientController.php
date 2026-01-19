@@ -25,6 +25,7 @@ use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -118,7 +119,7 @@ class ClientController
         $this->clientRepository->update($client, $authedUserId);
 
         $message = Translate::noop('Client secret has been reset.');
-        $this->logger->info($message, $client->getState());
+        $this->logger->info($message, [ParametersEnum::ClientId->value => $client->getIdentifier()]);
         $this->sessionMessagesService->addMessage($message);
 
         return $this->routes->newRedirectResponseToModuleUrl(
@@ -181,14 +182,14 @@ class ClientController
 
             if ($this->clientRepository->findById($client->getIdentifier())) {
                 $message = Translate::noop('Client with generated ID already exists.');
-                $this->logger->warning($message, $client->getState());
+                $this->logger->warning($message, [ParametersEnum::ClientId->value => $client->getIdentifier()]);
                 $this->sessionMessagesService->addMessage($message);
             } elseif (
                 ($entityIdentifier = $client->getEntityIdentifier()) &&
                 $this->clientRepository->findByEntityIdentifier($entityIdentifier)
             ) {
                 $message = Translate::noop('Client with given entity identifier already exists.');
-                $this->logger->warning($message, $client->getState());
+                $this->logger->warning($message, [ParametersEnum::ClientId->value => $client->getIdentifier()]);
                 $this->sessionMessagesService->addMessage($message);
             } else {
                 $this->clientRepository->add($client);
@@ -199,7 +200,7 @@ class ClientController
                 /** @var string[] $allowedOrigins */
                 $this->allowedOriginRepository->set($client->getIdentifier(), $allowedOrigins);
                 $message = Translate::noop('Client has been added.');
-                $this->logger->info($message, $client->getState());
+                $this->logger->info($message, [ParametersEnum::ClientId->value => $client->getIdentifier()]);
                 $this->sessionMessagesService->addMessage($message);
 
                 return $this->routes->newRedirectResponseToModuleUrl(
@@ -238,6 +239,9 @@ class ClientController
 
         $clientData = $originalClient->toArray();
         $clientData['allowed_origin'] = $clientAllowedOrigins;
+
+        // Handle extra metadata
+
         $form->setDefaults($clientData);
 
         if ($form->isSuccess()) {
@@ -252,6 +256,7 @@ class ClientController
                 $originalClient->getCreatedAt(),
                 $originalClient->getExpiresAt(),
                 $originalClient->getOwner(),
+                $originalClient->isGeneric(),
             );
 
             // We have to make sure that the Entity Identifier is unique.
@@ -311,6 +316,7 @@ class ClientController
         ?\DateTimeImmutable $createdAt = null,
         ?\DateTimeImmutable $expiresAt = null,
         ?string $owner = null,
+        bool $isGeneric = false,
     ): ClientEntityInterface {
         /** @var array $data */
         $data = $form->getValues('array');
@@ -344,6 +350,15 @@ class ClientController
         null : (string)$data[ClientEntity::KEY_SIGNED_JWKS_URI];
         $isFederated = (bool)$data[ClientEntity::KEY_IS_FEDERATED];
 
+        $idTokenSignedResponseAlg = isset($data[ClaimsEnum::IdTokenSignedResponseAlg->value]) &&
+        is_string($data[ClaimsEnum::IdTokenSignedResponseAlg->value]) ?
+        $data[ClaimsEnum::IdTokenSignedResponseAlg->value] :
+        null;
+
+        $extraMetadata = [
+            ClaimsEnum::IdTokenSignedResponseAlg->value => $idTokenSignedResponseAlg,
+        ];
+
         return $this->clientEntityFactory->fromData(
             $identifier,
             $secret,
@@ -368,6 +383,8 @@ class ClientController
             $createdAt,
             $expiresAt,
             $isFederated,
+            $isGeneric,
+            $extraMetadata,
         );
     }
 }

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Controllers\VerifiableCredentials;
 
 use Base64Url\Base64Url;
-use League\OAuth2\Server\ResourceServer;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
@@ -14,10 +13,10 @@ use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Server\ResourceServer;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
-use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\AtContextsEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
@@ -27,7 +26,6 @@ use SimpleSAML\OpenID\Codebooks\JwtTypesEnum;
 use SimpleSAML\OpenID\Did;
 use SimpleSAML\OpenID\Exceptions\OpenId4VciProofException;
 use SimpleSAML\OpenID\Exceptions\OpenIdException;
-use SimpleSAML\OpenID\Jwk;
 use SimpleSAML\OpenID\VerifiableCredentials;
 use SimpleSAML\OpenID\VerifiableCredentials\OpenId4VciProof;
 use Symfony\Component\HttpFoundation\Request;
@@ -50,14 +48,13 @@ class CredentialIssuerCredentialController
         protected readonly Routes $routes,
         protected readonly PsrHttpBridge $psrHttpBridge,
         protected readonly VerifiableCredentials $verifiableCredentials,
-        protected readonly Jwk $jwk,
         protected readonly LoggerService $loggerService,
         protected readonly RequestParamsResolver $requestParamsResolver,
         protected readonly UserRepository $userRepository,
         protected readonly Did $did,
         protected readonly IssuerStateRepository $issuerStateRepository,
     ) {
-        if (!$this->moduleConfig->getVerifiableCredentialEnabled()) {
+        if (!$this->moduleConfig->getVciEnabled()) {
             $this->loggerService->warning('Verifiable Credential capabilities not enabled.');
             throw OidcServerException::forbidden('Verifiable Credential capabilities not enabled.');
         }
@@ -326,7 +323,7 @@ class CredentialIssuerCredentialController
                     ['credentialDefinitionType' => $credentialDefinitionType],
                 );
                 $fallbackCredentialConfigurationId =
-                $this->moduleConfig->getCredentialConfigurationIdForCredentialDefinitionType(
+                $this->moduleConfig->getVciCredentialConfigurationIdForCredentialDefinitionType(
                     $credentialDefinitionType,
                 );
             } elseif (
@@ -363,7 +360,7 @@ class CredentialIssuerCredentialController
             );
         }
 
-        $resolvedCredentialConfiguration = $this->moduleConfig->getCredentialConfiguration(
+        $resolvedCredentialConfiguration = $this->moduleConfig->getVciCredentialConfiguration(
             $resolvedCredentialIdentifier,
         );
         if (!is_array($resolvedCredentialConfiguration)) {
@@ -495,12 +492,12 @@ class CredentialIssuerCredentialController
 
         // Get valid claim paths so we can check if the user attribute is allowed to be included in the credential,
         // as per the credential configuration supported configuration.
-        $validClaimPaths = $this->moduleConfig->getValidCredentialClaimPathsFor($resolvedCredentialIdentifier);
+        $validClaimPaths = $this->moduleConfig->getVciValidCredentialClaimPathsFor($resolvedCredentialIdentifier);
 
         // Map user attributes to credential claims
         $credentialSubject = []; // For JwtVcJson
         $disclosureBag = $this->verifiableCredentials->disclosureBagFactory()->build(); // For DcSdJwt
-        $attributeToCredentialClaimPathMap = $this->moduleConfig->getUserAttributeToCredentialClaimPathMapFor(
+        $attributeToCredentialClaimPathMap = $this->moduleConfig->getVciUserAttributeToCredentialClaimPathMapFor(
             $resolvedCredentialIdentifier,
         );
         foreach ($attributeToCredentialClaimPathMap as $mapEntry) {
@@ -592,18 +589,14 @@ class CredentialIssuerCredentialController
             $sub,
         );
 
-        $signingKey = $this->jwk->jwkDecoratorFactory()->fromPkcs1Or8KeyFile(
-            $this->moduleConfig->getProtocolPrivateKeyPath(),
-            null,
-        );
+        // TODO mivanci Add support for multiple signature key pairs. For now, we only support (first) one.
+        $vciSignatureKeyPair = $this->moduleConfig
+            ->getVciSignatureKeyPairBag()
+            ->getFirstOrFail();
 
-        $publicKey = $this->jwk->jwkDecoratorFactory()->fromPkcs1Or8KeyFile(
-            $this->moduleConfig->getProtocolCertPath(),
-            null,
-            [
-                //ClaimsEnum::Use->value => 'sig',
-            ],
-        );
+        $signingKey = $vciSignatureKeyPair->getKeyPair()->getPrivateKey();
+
+        $publicKey = $vciSignatureKeyPair->getKeyPair()->getPublicKey();
 
         $base64PublicKey = json_encode($publicKey->jwk()->all(), JSON_UNESCAPED_SLASHES);
         $base64PublicKey = Base64Url::encode($base64PublicKey);
@@ -613,7 +606,7 @@ class CredentialIssuerCredentialController
         $issuedAt = new \DateTimeImmutable();
 
         $vcId = $this->moduleConfig->getIssuer() . '/vc/' . uniqid();
-        $signatureAlgorithm = SignatureAlgorithmEnum::from($this->moduleConfig->getProtocolSigner()->algorithmId());
+        $signatureAlgorithm = $vciSignatureKeyPair->getSignatureAlgorithm();
 
         $verifiableCredential = null;
 

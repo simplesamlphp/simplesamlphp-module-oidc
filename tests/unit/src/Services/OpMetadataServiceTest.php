@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Services;
 
-use Lcobucci\JWT\Signer\Rsa;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
+use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
+use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\SupportedAlgorithms;
+use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
+use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Services\OpMetadataService
@@ -20,6 +24,10 @@ class OpMetadataServiceTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
     protected MockObject $claimTranslatorExtractorMock;
+    protected MockObject $signatureAlgorithmBag;
+    protected MockObject $supportedAlgorithmsMock;
+    protected MockObject $signatureKeyPairBagMock;
+    protected MockObject $signatureKeyPairMock;
 
     /**
      * @throws \Exception
@@ -46,11 +54,31 @@ class OpMetadataServiceTest extends TestCase
             });
         $this->moduleConfigMock->method('getAcrValuesSupported')->willReturn(['1']);
 
-        $signer = $this->createMock(Rsa::class);
-        $signer->method('algorithmId')->willReturn('RS256');
-        $this->moduleConfigMock->method('getProtocolSigner')->willReturn($signer);
-
         $this->claimTranslatorExtractorMock = $this->createMock(ClaimTranslatorExtractor::class);
+
+        $this->signatureAlgorithmBag = $this->createMock(SignatureAlgorithmBag::class);
+        $this->signatureAlgorithmBag->method('getAllNamesUnique')
+            ->willReturn(['RS256']);
+
+        $this->supportedAlgorithmsMock = $this->createMock(SupportedAlgorithms::class);
+        $this->supportedAlgorithmsMock->method('getSignatureAlgorithmBag')
+            ->willReturn($this->signatureAlgorithmBag);
+
+        $this->moduleConfigMock->method('getSupportedAlgorithms')
+            ->willReturn($this->supportedAlgorithmsMock);
+
+        $this->signatureKeyPairMock = $this->createMock(SignatureKeyPair::class);
+        $this->signatureKeyPairMock->method('getSignatureAlgorithm')
+            ->willReturn(SignatureAlgorithmEnum::RS256);
+
+        $this->signatureKeyPairBagMock = $this->createMock(SignatureKeyPairBag::class);
+        $this->signatureKeyPairBagMock->method('getAll')
+            ->willReturn([$this->signatureKeyPairMock]);
+        $this->signatureKeyPairBagMock->method('getAllAlgorithmNamesUnique')
+            ->willReturn(['RS256']);
+
+        $this->moduleConfigMock->method('getProtocolSignatureKeyPairBag')
+            ->willReturn($this->signatureKeyPairBagMock);
     }
 
     /**
