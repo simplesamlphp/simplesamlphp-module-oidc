@@ -34,10 +34,10 @@
         >{{ moduleConfig.getPolicyUri }}</a>
         <br>
         {{ 'Homepage URI'|trans }}:
-        <a href="{{ moduleConfig.getHomepageUri }}"
+        <a href="{{ moduleConfig.getOrganizationUri }}"
            target="_blank"
            rel="noopener noreferrer"
-        >{{ moduleConfig.getHomepageUri }}</a>
+        >{{ moduleConfig.getOrganizationUri }}</a>
         <br>
         {{ 'Contacts'|trans }}:
         {% if moduleConfig.getContacts is not empty %}
