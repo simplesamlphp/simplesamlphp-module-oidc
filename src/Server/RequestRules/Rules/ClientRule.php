@@ -300,7 +300,6 @@ class ClientRule extends AbstractRule
             $existingClient,
             $clientEntityId,
             $clientFederationEntity->getJwks()->getValue(),
-            $request,
         );
 
         $clientJwks = $this->jwksResolver->forClient($registrationClient);
