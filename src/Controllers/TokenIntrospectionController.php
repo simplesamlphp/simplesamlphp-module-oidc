@@ -6,8 +6,10 @@ namespace SimpleSAML\Module\oidc\Controllers;
 
 use Laminas\Diactoros\ServerRequestFactory;
 use League\OAuth2\Server\ResourceServer;
+use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -19,6 +21,13 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
+use Lcobucci\JWT\Configuration;
+use Lcobucci\JWT\Signer\Key\InMemory;
+use Lcobucci\JWT\Signer\Rsa\Sha256;
+use Lcobucci\JWT\Validation\Constraint\SignedWith;
+use Lcobucci\JWT\Validation\Constraint\LooseValidAt;
+use Lcobucci\Clock\SystemClock;
+
 class TokenIntrospectionController
 {
     private ?string $authenticatedClientId = null;
@@ -29,6 +38,7 @@ class TokenIntrospectionController
         private readonly PsrHttpBridge          $psrHttpBridge,
         private readonly RequestRulesManager    $requestRulesManager,
         private readonly RefreshTokenRepository $refreshTokenRepository,
+        private readonly ModuleConfig           $moduleConfig = new ModuleConfig(),
     )
     {
     }
@@ -125,25 +135,33 @@ class TokenIntrospectionController
                 return new JsonResponse(['active' => false], 200);
             }
 
-            if ($accessToken->getExpiryDateTime() < new \DateTimeImmutable()) {
-                return new JsonResponse(['active' => false], 200);
+            $tokenParts = explode('.', $token);
+            $payload = json_decode(base64_decode(strtr($tokenParts[1], '-_', '+/')), true);
+
+            $receivedTokenIssuer = $payload['iss'];
+            $expectedTokenIssuer = $this->moduleConfig->getIssuer();
+            if ($receivedTokenIssuer !== $expectedTokenIssuer) {
+                return new JsonResponse(['active' => false,
+                    'cause' => 'token issuer mismatch, expected: ' . $expectedTokenIssuer . ' actual: ' . $receivedTokenIssuer], 200);
             }
 
             $introspectionResponse = [
                 'active' => true,
                 'scope' => implode(' ', array_map(static fn($scope) => $scope->getIdentifier(), $accessToken->getScopes())),
                 'client_id' => $accessToken->getClient()->getIdentifier(),
+                'username' => (string) $accessToken->getUserIdentifier(),
                 'token_type' => 'Bearer',
                 'exp' => $accessToken->getExpiryDateTime()->getTimestamp(),
             ];
 
-            $payload = $accessToken->getPayload();
-            if (is_array($payload) && isset($payload['iat'])) {
-                $introspectionResponse['iat'] = $payload['iat'];
+            $introspectionClaims = ['iat', 'nbf', 'sub', 'aud', 'iss', 'jti'];
+            foreach ($introspectionClaims as $claim) {
+                if (isset($payload[$claim])) {
+                    $introspectionResponse[$claim] = $payload[$claim];
+                }
             }
-
             return new JsonResponse($introspectionResponse, 200);
-        } catch (\Throwable $e) {
+        } catch (\Throwable) {
             return new JsonResponse(['active' => false], 200);
         }
     }
