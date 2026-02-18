@@ -348,7 +348,6 @@ class ClientController
         $jwksUri = empty($data[ClientEntity::KEY_JWKS_URI]) ? null : (string)$data[ClientEntity::KEY_JWKS_URI];
         $signedJwksUri = empty($data[ClientEntity::KEY_SIGNED_JWKS_URI]) ?
         null : (string)$data[ClientEntity::KEY_SIGNED_JWKS_URI];
-        $isFederated = (bool)$data[ClientEntity::KEY_IS_FEDERATED];
 
         $idTokenSignedResponseAlg = isset($data[ClaimsEnum::IdTokenSignedResponseAlg->value]) &&
         is_string($data[ClaimsEnum::IdTokenSignedResponseAlg->value]) ?
@@ -382,7 +381,6 @@ class ClientController
             $updatedAt,
             $createdAt,
             $expiresAt,
-            $isFederated,
             $isGeneric,
             $extraMetadata,
         );

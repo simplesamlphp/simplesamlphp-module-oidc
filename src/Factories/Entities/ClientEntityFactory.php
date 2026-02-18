@@ -61,7 +61,6 @@ class ClientEntityFactory
         ?DateTimeImmutable $updatedAt = null,
         ?DateTimeImmutable $createdAt = null,
         ?DateTimeImmutable $expiresAt = null,
-        bool $isFederated = false,
         bool $isGeneric = false,
         ?array $extraMetadata = null,
     ): ClientEntityInterface {
@@ -88,7 +87,6 @@ class ClientEntityFactory
             $updatedAt,
             $createdAt,
             $expiresAt,
-            $isFederated,
             $isGeneric,
             $extraMetadata,
         );
@@ -189,7 +187,6 @@ class ClientEntityFactory
 
 //        $expiresAt = $expiresAt;
 
-        $isFederated = $existingClient?->isFederated() ?? false;
         $isGeneric = $existingClient?->isGeneric() ?? false;
 
         $extraMetadata = $existingClient?->getExtraMetadata() ?? [];
@@ -229,7 +226,6 @@ class ClientEntityFactory
             $updatedAt,
             $createdAt,
             $expiresAt,
-            $isFederated,
             $isGeneric,
             $extraMetadata,
         );
@@ -360,7 +356,6 @@ class ClientEntityFactory
         $expiresAt = empty($state[ClientEntity::KEY_EXPIRES_AT]) ? null :
         $this->helpers->dateTime()->getUtc((string)$state[ClientEntity::KEY_EXPIRES_AT]);
 
-        $isFederated = (bool)$state[ClientEntity::KEY_IS_FEDERATED];
         $isGeneric = (bool)$state[ClientEntity::KEY_IS_GENERIC];
 
         /** @var ?mixed[] $extraMetadata */
@@ -391,7 +386,6 @@ class ClientEntityFactory
             $updatedAt,
             $createdAt,
             $expiresAt,
-            $isFederated,
             $isGeneric,
             $extraMetadata,
         );

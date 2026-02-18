@@ -5,6 +5,9 @@ apply those relevant to your deployment.
 
 ## Version 6 to 7
 
+As the database schema has been updated, you will have to run the DB migrations
+to bring your local database schema up to date.
+
 New features:
 
 - Instance can now be configured to support multiple algorithms and signature
@@ -80,10 +83,20 @@ This would allow multiple values (array of values) for standard claims which
 have a single value by specification. All [standard claims](https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims)
 are now hardcoded to have a single value, even when the
 'are_multiple_claim_values_allowed' option is enabled.
+- OpenID Federation specific endpoints for subordinate listing and fetching
+statements about subordinates are removed, as the final specification 
+explicitly states that leaf entities must not have those endpoints.
+This effectively means that this OP implementation can only be a leaf entity
+in the federation context, and not a federation operator or intermediary entity.
 
 Medium impact changes:
 
 Low-impact changes:
+- Client property `is_federated` has been removed, as the OP implementation
+can now only be a leaf entity in the federation context, and not a federation
+operator or intermediary entity. Previously, this property was used to
+indicate whether the client is a federated client or not, but now it is not
+needed since the OP implementation can only be a leaf entity
 
 ## Version 5 to 6
 

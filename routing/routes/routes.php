@@ -17,7 +17,6 @@ use SimpleSAML\Module\oidc\Controllers\AuthorizationController;
 use SimpleSAML\Module\oidc\Controllers\ConfigurationDiscoveryController;
 use SimpleSAML\Module\oidc\Controllers\EndSessionController;
 use SimpleSAML\Module\oidc\Controllers\Federation\EntityStatementController;
-use SimpleSAML\Module\oidc\Controllers\Federation\SubordinateListingsController;
 use SimpleSAML\Module\oidc\Controllers\JwksController;
 use SimpleSAML\Module\oidc\Controllers\OAuth2\OAuth2ServerConfigurationController;
 use SimpleSAML\Module\oidc\Controllers\UserInfoController;
@@ -112,14 +111,6 @@ return function (RoutingConfigurator $routes): void {
 
     $routes->add(RoutesEnum::FederationConfiguration->name, RoutesEnum::FederationConfiguration->value)
         ->controller([EntityStatementController::class, 'configuration'])
-        ->methods([HttpMethodsEnum::GET->value]);
-
-    $routes->add(RoutesEnum::FederationFetch->name, RoutesEnum::FederationFetch->value)
-        ->controller([EntityStatementController::class, 'fetch'])
-        ->methods([HttpMethodsEnum::GET->value]);
-
-    $routes->add(RoutesEnum::FederationList->name, RoutesEnum::FederationList->value)
-        ->controller([SubordinateListingsController::class, 'list'])
         ->methods([HttpMethodsEnum::GET->value]);
 
     /*****************************************************************************************************************
