@@ -6,7 +6,6 @@ namespace SimpleSAML\Module\oidc\Controllers\Federation;
 
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
@@ -16,11 +15,9 @@ use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ContentTypesEnum;
 use SimpleSAML\OpenID\Codebooks\EntityTypesEnum;
-use SimpleSAML\OpenID\Codebooks\ErrorsEnum;
 use SimpleSAML\OpenID\Codebooks\HttpHeadersEnum;
 use SimpleSAML\OpenID\Federation;
 use SimpleSAML\OpenID\Jwks;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class EntityStatementController
@@ -35,7 +32,6 @@ class EntityStatementController
         protected readonly ModuleConfig $moduleConfig,
         protected readonly Jwks $jwks,
         protected readonly OpMetadataService $opMetadataService,
-        protected readonly ClientRepository $clientRepository,
         protected readonly Helpers $helpers,
         protected readonly Routes $routes,
         protected readonly Federation $federation,
@@ -222,113 +218,6 @@ class EntityStatementController
         );
 
         return $this->prepareEntityStatementResponse($entityConfigurationToken);
-    }
-
-    public function fetch(Request $request): Response
-    {
-        $subject = $request->query->getString(ClaimsEnum::Sub->value);
-
-        if (empty($subject)) {
-            return $this->routes->newJsonErrorResponse(
-                ErrorsEnum::InvalidRequest->value,
-                sprintf('Missing parameter %s', ClaimsEnum::Sub->value),
-                400,
-            );
-        }
-
-        /** @var non-empty-string $subject */
-
-        $cachedSubordinateStatement = $this->federationCache?->get(
-            null,
-            self::KEY_RP_SUBORDINATE_ENTITY_STATEMENT,
-            $subject,
-        );
-
-        if (!is_null($cachedSubordinateStatement)) {
-            return $this->prepareEntityStatementResponse((string)$cachedSubordinateStatement);
-        }
-
-        $client = $this->clientRepository->findFederatedByEntityIdentifier($subject);
-        if (empty($client)) {
-            return $this->routes->newJsonErrorResponse(
-                ErrorsEnum::NotFound->value,
-                sprintf('Subject not found (%s)', $subject),
-                404,
-            );
-        }
-
-        $jwks = $client->getFederationJwks();
-        if (empty($jwks)) {
-            return $this->routes->newJsonErrorResponse(
-                ErrorsEnum::InvalidClient->value,
-                sprintf('Subject does not contain JWKS claim (%s)', $subject),
-                401,
-            );
-        }
-
-        $currentTimestamp = $this->helpers->dateTime()->getUtc()->getTimestamp();
-
-        $payload = [
-            ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
-            ClaimsEnum::Iat->value => $currentTimestamp,
-            ClaimsEnum::Jti->value => $this->helpers->random()->getIdentifier(),
-
-            ClaimsEnum::Sub->value => $subject,
-            ClaimsEnum::Exp->value => $this->helpers->dateTime()->getUtc()->add(
-                $this->moduleConfig->getFederationEntityStatementDuration(),
-            )->getTimestamp(),
-            ClaimsEnum::Jwks->value => $jwks,
-            ClaimsEnum::Metadata->value => [
-                EntityTypesEnum::OpenIdRelyingParty->value => [
-                    ClaimsEnum::ClientName->value => $client->getName(),
-                    ClaimsEnum::ClientId->value => $client->getIdentifier(),
-                    ClaimsEnum::RedirectUris->value => $client->getRedirectUris(),
-                    ClaimsEnum::Scope->value => implode(' ', $client->getScopes()),
-                    ClaimsEnum::ClientRegistrationTypes->value => $client->getClientRegistrationTypes(),
-                    // Optional claims...
-                    ...(array_filter(
-                        [
-                            ClaimsEnum::BackChannelLogoutUri->value => $client->getBackChannelLogoutUri(),
-                            ClaimsEnum::PostLogoutRedirectUris->value => $client->getPostLogoutRedirectUri(),
-                        ],
-                    )),
-                    // TODO v7 mivanci Continue
-                    // https://openid.net/specs/openid-connect-registration-1_0.html#ClientMetadata
-                    // https://www.iana.org/assignments/oauth-parameters/oauth-parameters.xhtml#client-metadata
-                ],
-            ],
-        ];
-
-        // TODO v7 mivanci Continue
-        // Note: claims which can be present in subordinate statements:
-        // * metadata_policy
-        // * constraints
-        // * metadata_policy_crit
-
-        $signingKeyPair = $this->moduleConfig
-            ->getFederationSignatureKeyPairBag()
-            ->getFirstOrFail();
-
-
-        $header = [
-            ClaimsEnum::Kid->value => $signingKeyPair->getKeyPair()->getKeyId(),
-        ];
-
-        $subordinateStatementToken = $this->federation->entityStatementFactory()->fromData(
-            $signingKeyPair->getKeyPair()->getPrivateKey(),
-            $signingKeyPair->getSignatureAlgorithm(),
-            $payload,
-            $header,
-        )->getToken();
-
-        $this->federationCache?->set(
-            $subordinateStatementToken,
-            $this->moduleConfig->getFederationEntityStatementCacheDurationForProduced(),
-            self::KEY_RP_SUBORDINATE_ENTITY_STATEMENT,
-            $subject,
-        );
-
-        return $this->prepareEntityStatementResponse($subordinateStatementToken);
     }
 
     protected function prepareEntityStatementResponse(string $entityStatementToken): Response

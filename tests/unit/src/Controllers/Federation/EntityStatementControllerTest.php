@@ -10,7 +10,6 @@ use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Controllers\Federation\EntityStatementController;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
@@ -25,7 +24,6 @@ class EntityStatementControllerTest extends TestCase
     protected MockObject $moduleConfigMock;
     protected MockObject $jwksMock;
     protected MockObject $opMetadataServiceMock;
-    protected MockObject $clientRepositoryMock;
     protected MockObject $helpersMock;
     protected MockObject $routesMock;
     protected MockObject $federationMock;
@@ -38,7 +36,6 @@ class EntityStatementControllerTest extends TestCase
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->jwksMock = $this->createMock(Jwks::class);
         $this->opMetadataServiceMock = $this->createMock(OpMetadataService::class);
-        $this->clientRepositoryMock = $this->createMock(ClientRepository::class);
         $this->helpersMock = $this->createMock(Helpers::class);
         $this->routesMock = $this->createMock(Routes::class);
         $this->federationMock = $this->createMock(Federation::class);
@@ -50,7 +47,6 @@ class EntityStatementControllerTest extends TestCase
         ?ModuleConfig $moduleConfig = null,
         ?Jwks $jwks = null,
         ?OpMetadataService $opMetadataService = null,
-        ?ClientRepository $clientRepository = null,
         ?Helpers $helpers = null,
         ?Routes $routes = null,
         ?Federation $federation = null,
@@ -60,7 +56,6 @@ class EntityStatementControllerTest extends TestCase
         $moduleConfig ??= $this->moduleConfigMock;
         $jwks ??= $this->jwksMock;
         $opMetadataService ??= $this->opMetadataServiceMock;
-        $clientRepository ??= $this->clientRepositoryMock;
         $helpers ??= $this->helpersMock;
         $routes ??= $this->routesMock;
         $federation ??= $this->federationMock;
@@ -71,7 +66,6 @@ class EntityStatementControllerTest extends TestCase
             $moduleConfig,
             $jwks,
             $opMetadataService,
-            $clientRepository,
             $helpers,
             $routes,
             $federation,
