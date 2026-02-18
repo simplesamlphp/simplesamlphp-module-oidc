@@ -406,7 +406,7 @@ class ClientRepositoryTest extends TestCase
 
     public function testCanFindFederatedByEntityIdentifier(): void
     {
-        $client = self::getClient(id: 'clientId', entityId: 'entityId', isFederated: true, federationJwks: []);
+        $client = self::getClient(id: 'clientId', entityId: 'entityId', federationJwks: []);
         $this->repository->add($client);
 
         $this->clientEntityFactoryMock->expects($this->once())->method('fromState')->willReturn($client);
@@ -436,7 +436,7 @@ class ClientRepositoryTest extends TestCase
 
     public function testCanFindAllFederated(): void
     {
-        $client = self::getClient(id: 'clientId', entityId: 'entityId', isFederated: true, federationJwks: []);
+        $client = self::getClient(id: 'clientId', entityId: 'entityId', federationJwks: []);
         $this->repository->add($client);
 
         $this->clientEntityFactoryMock->expects($this->atLeastOnce())->method('fromState')->willReturn($client);
@@ -469,7 +469,6 @@ class ClientRepositoryTest extends TestCase
         bool $confidential = false,
         ?string $owner = null,
         ?string $entityId = null,
-        bool $isFederated = false,
         ?array $federationJwks = null,
     ): ClientEntityInterface {
         return new ClientEntity(
@@ -485,7 +484,6 @@ class ClientRepositoryTest extends TestCase
             owner: $owner,
             entityIdentifier: $entityId,
             federationJwks: $federationJwks,
-            isFederated: $isFederated,
         );
     }
 }

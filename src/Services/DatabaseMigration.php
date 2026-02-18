@@ -214,6 +214,11 @@ class DatabaseMigration
             $this->version20260109000001();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20260109000001')");
         }
+
+        if (!in_array('20260218163000', $versions, true)) {
+            $this->version20260218163000();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20260218163000')");
+        }
     }
 
     private function versionsTableName(): string
@@ -719,6 +724,17 @@ EOT
         $this->database->write(<<< EOT
         ALTER TABLE {$clientTableName}
             ADD extra_metadata TEXT NULL
+EOT
+            ,);
+    }
+
+
+    private function version20260218163000(): void
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE {$clientTableName}
+            DROP COLUMN is_federated;
 EOT
             ,);
     }

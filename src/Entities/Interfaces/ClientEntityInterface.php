@@ -78,7 +78,6 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
     public function getCreatedAt(): ?DateTimeImmutable;
     public function getExpiresAt(): ?DateTimeImmutable;
     public function isExpired(): bool;
-    public function isFederated(): bool;
     public function isGeneric(): bool;
 
     public function getExtraMetadata(): array;

@@ -199,7 +199,6 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         if (
             is_null($clientEntity->getEntityIdentifier()) ||
             (! $clientEntity->isEnabled()) ||
-            (! $clientEntity->isFederated()) ||
             (!is_array($clientEntity->getFederationJwks())) ||
             $clientEntity->isExpired()
         ) {
@@ -270,12 +269,10 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
             WHERE
                 entity_identifier IS NOT NULL AND
                 federation_jwks IS NOT NULL AND
-                is_enabled = :is_enabled AND
-                is_federated = :is_federated
+                is_enabled = :is_enabled
             EOS,
             [
                 'is_enabled' => [true, PDO::PARAM_BOOL],
-                'is_federated' => [true, PDO::PARAM_BOOL],
             ],
             $owner,
         );
@@ -361,7 +358,6 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
                 updated_at,
                 created_at,
                 expires_at,
-                is_federated,
                 is_generic,
                 extra_metadata
             )
@@ -388,7 +384,6 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
                 :updated_at,
                 :created_at,
                 :expires_at,
-                :is_federated,
                 :is_generic,
                 :extra_metadata
             )
@@ -462,7 +457,6 @@ EOS
                 updated_at = :updated_at,
                 created_at = :created_at,
                 expires_at = :expires_at,
-                is_federated = :is_federated,
                 is_generic = :is_generic,
                 extra_metadata = :extra_metadata
             WHERE id = :id
@@ -557,12 +551,10 @@ EOF
     {
         $isEnabled = (bool)($state[ClientEntity::KEY_IS_ENABLED] ?? false);
         $isConfidential = (bool)($state[ClientEntity::KEY_IS_CONFIDENTIAL] ?? false);
-        $isFederated = (bool)($state[ClientEntity::KEY_IS_FEDERATED] ?? false);
         $isGeneric = (bool)($state[ClientEntity::KEY_IS_GENERIC] ?? false);
 
         $state[ClientEntity::KEY_IS_ENABLED] = [$isEnabled, PDO::PARAM_BOOL];
         $state[ClientEntity::KEY_IS_CONFIDENTIAL] = [$isConfidential, PDO::PARAM_BOOL];
-        $state[ClientEntity::KEY_IS_FEDERATED] = [$isFederated, PDO::PARAM_BOOL];
         $state[ClientEntity::KEY_IS_GENERIC] = [$isGeneric, PDO::PARAM_BOOL];
 
         return $state;

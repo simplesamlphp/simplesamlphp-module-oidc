@@ -417,9 +417,6 @@ class ClientForm extends Form
         $this->addText('signed_jwks_uri', 'Signed JWKS URI')
             ->setHtmlAttribute('class', 'full-width');
 
-        $this->addCheckbox('is_federated', '{oidc:client:is_federated}')
-            ->setHtmlAttribute('class', 'full-width');
-
         // TODO mivanci Properly fetch the list of supported algos
         $this->addSelect('id_token_signed_response_alg', Translate::noop('ID Token Signing Algorithm'))
             ->setHtmlAttribute('class', 'full-width')

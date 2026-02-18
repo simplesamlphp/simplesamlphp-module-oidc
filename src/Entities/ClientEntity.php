@@ -51,7 +51,6 @@ class ClientEntity implements ClientEntityInterface
     public const KEY_UPDATED_AT = 'updated_at';
     public const KEY_CREATED_AT = 'created_at';
     public const KEY_EXPIRES_AT = 'expires_at';
-    public const KEY_IS_FEDERATED = 'is_federated';
     public const KEY_IS_GENERIC = 'is_generic';
     public const KEY_EXTRA_METADATA = 'extra_metadata';
 
@@ -95,7 +94,6 @@ class ClientEntity implements ClientEntityInterface
     private ?DateTimeImmutable $updatedAt;
     private ?DateTimeImmutable $createdAt;
     private ?DateTimeImmutable $expiresAt;
-    private bool $isFederated;
     private bool $isGeneric;
     private ?array $extraMetadata;
 
@@ -130,7 +128,6 @@ class ClientEntity implements ClientEntityInterface
         ?DateTimeImmutable $updatedAt = null,
         ?DateTimeImmutable $createdAt = null,
         ?DateTimeImmutable $expiresAt = null,
-        bool $isFederated = false,
         bool $isGeneric = false,
         ?array $extraMetadata = null,
     ) {
@@ -156,7 +153,6 @@ class ClientEntity implements ClientEntityInterface
         $this->updatedAt = $updatedAt;
         $this->createdAt = $createdAt;
         $this->expiresAt = $expiresAt;
-        $this->isFederated = $isFederated;
         $this->isGeneric = $isGeneric;
         $this->extraMetadata = $extraMetadata;
     }
@@ -196,7 +192,6 @@ class ClientEntity implements ClientEntityInterface
             self::KEY_UPDATED_AT => $this->getUpdatedAt()?->format('Y-m-d H:i:s'),
             self::KEY_CREATED_AT => $this->getCreatedAt()?->format('Y-m-d H:i:s'),
             self::KEY_EXPIRES_AT => $this->getExpiresAt()?->format('Y-m-d H:i:s'),
-            self::KEY_IS_FEDERATED => $this->isFederated(),
             self::KEY_IS_GENERIC => $this->isGeneric(),
             self::KEY_EXTRA_METADATA => is_null($this->extraMetadata) ?
                 null :
@@ -229,7 +224,6 @@ class ClientEntity implements ClientEntityInterface
             self::KEY_UPDATED_AT => $this->updatedAt,
             self::KEY_CREATED_AT => $this->createdAt,
             self::KEY_EXPIRES_AT => $this->expiresAt,
-            self::KEY_IS_FEDERATED => $this->isFederated,
             self::KEY_IS_GENERIC => $this->isGeneric,
 
             // Extra metadata
@@ -366,11 +360,6 @@ class ClientEntity implements ClientEntityInterface
     public function isExpired(): bool
     {
         return $this->expiresAt !== null && $this->expiresAt < new DateTimeImmutable();
-    }
-
-    public function isFederated(): bool
-    {
-        return $this->isFederated;
     }
 
     public function isGeneric(): bool
