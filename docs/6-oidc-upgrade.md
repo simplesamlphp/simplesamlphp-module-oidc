@@ -3,6 +3,14 @@
 This is an upgrade guide from versions 1 → 7. Review the changes and
 apply those relevant to your deployment.
 
+In general, when upgrading any of the SimpleSAMLphp modules or the 
+SimpleSAMLphp instance itself, you should clear the SimpleSAMLphp
+cache after the upgrade:
+
+```shell
+composer clear-symfony-cache
+```
+
 ## Version 6 to 7
 
 As the database schema has been updated, you will have to run the DB migrations
