@@ -5,7 +5,8 @@ apply those relevant to your deployment.
 
 In general, when upgrading any of the SimpleSAMLphp modules or the 
 SimpleSAMLphp instance itself, you should clear the SimpleSAMLphp
-cache after the upgrade:
+cache after the upgrade. In newer versions of SimpleSAMLphp, the 
+following command is available to do that:
 
 ```shell
 composer clear-symfony-cache
