@@ -17,10 +17,8 @@ use SimpleSAML\Module\oidc\Controllers\EndSessionController;
 use SimpleSAML\Module\oidc\Controllers\Federation\EntityStatementController;
 use SimpleSAML\Module\oidc\Controllers\Federation\SubordinateListingsController;
 use SimpleSAML\Module\oidc\Controllers\JwksController;
-use SimpleSAML\Module\oidc\Controllers\UserInfoController;
-
 use SimpleSAML\Module\oidc\Controllers\TokenIntrospectionController;
-
+use SimpleSAML\Module\oidc\Controllers\UserInfoController;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 

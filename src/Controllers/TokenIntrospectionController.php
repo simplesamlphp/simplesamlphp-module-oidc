@@ -6,8 +6,7 @@ namespace SimpleSAML\Module\oidc\Controllers;
 
 use Laminas\Diactoros\ServerRequestFactory;
 use League\OAuth2\Server\ResourceServer;
-use League\OAuth2\Server\Exception\OAuthServerException;
-use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
@@ -16,31 +15,22 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientAuthenticationRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
-use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-
-use Lcobucci\JWT\Configuration;
-use Lcobucci\JWT\Signer\Key\InMemory;
-use Lcobucci\JWT\Signer\Rsa\Sha256;
-use Lcobucci\JWT\Validation\Constraint\SignedWith;
-use Lcobucci\JWT\Validation\Constraint\LooseValidAt;
-use Lcobucci\Clock\SystemClock;
 
 class TokenIntrospectionController
 {
     private ?string $authenticatedClientId = null;
 
     public function __construct(
-        private readonly AccessTokenRepository  $accessTokenRepository,
-        private readonly ResourceServer         $resourceServer,
-        private readonly PsrHttpBridge          $psrHttpBridge,
-        private readonly RequestRulesManager    $requestRulesManager,
+        private readonly AccessTokenRepository $accessTokenRepository,
+        private readonly ResourceServer $resourceServer,
+        private readonly PsrHttpBridge $psrHttpBridge,
+        private readonly RequestRulesManager $requestRulesManager,
         private readonly RefreshTokenRepository $refreshTokenRepository,
-        private readonly ModuleConfig           $moduleConfig = new ModuleConfig(),
-    )
-    {
+        private readonly ModuleConfig $moduleConfig = new ModuleConfig(),
+    ) {
     }
 
     public function __invoke(Request $request): Response
@@ -52,7 +42,7 @@ class TokenIntrospectionController
                     'error' => 'invalid_request',
                     'error_description' => 'Token introspection endpoint only accepts POST requests.',
                 ],
-                405
+                405,
             );
         }
 
@@ -64,7 +54,7 @@ class TokenIntrospectionController
                     'error' => 'invalid_request',
                     'error_description' => 'Content-Type must be application/x-www-form-urlencoded.',
                 ],
-                400
+                400,
             );
         }
 
@@ -86,13 +76,13 @@ class TokenIntrospectionController
             // Get client id to later check if the token is from the authenticated client
             $client = $resultBag->getOrFail(ClientIdRule::class)->getValue();
             $this->authenticatedClientId = $client->getIdentifier();
-        } catch (OidcServerException|\Throwable $e) {
+        } catch (OidcServerException | \Throwable $e) {
             return new JsonResponse(
                 [
                     'error' => 'invalid_client',
                     'error_description' => 'Client authentication failed.',
                 ],
-                401
+                401,
             );
         }
 
@@ -104,7 +94,7 @@ class TokenIntrospectionController
                     'error' => 'invalid_request',
                     'error_description' => 'Missing required parameter token.',
                 ],
-                400
+                400,
             );
         }
 
