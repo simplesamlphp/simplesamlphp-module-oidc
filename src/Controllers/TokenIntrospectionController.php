@@ -131,13 +131,22 @@ class TokenIntrospectionController
             $receivedTokenIssuer = $payload['iss'];
             $expectedTokenIssuer = $this->moduleConfig->getIssuer();
             if ($receivedTokenIssuer !== $expectedTokenIssuer) {
-                return new JsonResponse(['active' => false,
-                    'cause' => 'token issuer mismatch, expected: ' . $expectedTokenIssuer . ' actual: ' . $receivedTokenIssuer], 200);
+                return new JsonResponse(
+                    [
+                        'active' => false,
+                        'cause' => 'token issuer mismatch, expected: ' . $expectedTokenIssuer . ' actual: ' .
+                            $receivedTokenIssuer,
+                    ],
+                    200,
+                );
             }
 
             $introspectionResponse = [
                 'active' => true,
-                'scope' => implode(' ', array_map(static fn($scope) => $scope->getIdentifier(), $accessToken->getScopes())),
+                'scope' => implode(
+                    ' ',
+                    array_map(static fn($scope) => $scope->getIdentifier(), $accessToken->getScopes()),
+                ),
                 'client_id' => $accessToken->getClient()->getIdentifier(),
                 'username' => (string) $accessToken->getUserIdentifier(),
                 'token_type' => 'Bearer',
