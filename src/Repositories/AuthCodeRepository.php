@@ -70,8 +70,39 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
         }
 
         $stmt = sprintf(
-            "INSERT INTO %s (id, scopes, expires_at, user_id, client_id, is_revoked, redirect_uri, nonce) "
-                . "VALUES (:id, :scopes, :expires_at, :user_id, :client_id, :is_revoked, :redirect_uri, :nonce)",
+            <<<EOS
+            INSERT INTO %s (
+                id,
+                scopes,
+                expires_at,
+                user_id,
+                client_id,
+                is_revoked,
+                redirect_uri,
+                nonce,
+                flow_type,
+                tx_code,
+                authorization_details,
+                bound_client_id,
+                bound_redirect_uri,
+                issuer_state
+            ) VALUES (
+                :id,
+                :scopes,
+                :expires_at,
+                :user_id,
+                :client_id,
+                :is_revoked,
+                :redirect_uri,
+                :nonce,
+                :flow_type,
+                :tx_code,
+                :authorization_details,
+                :bound_client_id,
+                :bound_redirect_uri,
+                :issuer_state
+            )
+            EOS,
             $this->getTableName(),
         );
 
@@ -93,7 +124,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
      * Find Auth Code by id.
      * @throws \Exception
      */
-    public function findById(string $codeId): ?AuthCodeEntityInterface
+    public function findById(string $codeId): ?AuthCodeEntity
     {
         /** @var ?array $data */
         $data = $this->protocolCache?->get(null, $this->getCacheKey($codeId));
@@ -190,7 +221,13 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
                 client_id = :client_id,
                 is_revoked = :is_revoked,
                 redirect_uri = :redirect_uri,
-                nonce = :nonce
+                nonce = :nonce,
+                flow_type = :flow_type,
+                tx_code = :tx_code,
+                authorization_details = :authorization_details,
+                bound_client_id = :bound_client_id,
+                bound_redirect_uri = :bound_redirect_uri,
+                issuer_state = :issuer_state
             WHERE id = :id
 EOS
             ,

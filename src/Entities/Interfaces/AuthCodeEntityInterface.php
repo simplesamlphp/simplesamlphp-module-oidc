@@ -6,7 +6,7 @@ namespace SimpleSAML\Module\oidc\Entities\Interfaces;
 
 use League\OAuth2\Server\Entities\AuthCodeEntityInterface as OAuth2AuthCodeEntityInterface;
 
-interface AuthCodeEntityInterface extends OAuth2AuthCodeEntityInterface
+interface AuthCodeEntityInterface extends OAuth2AuthCodeEntityInterface, TokenRevokableInterface
 {
     /**
      * @return string|null

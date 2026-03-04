@@ -13,6 +13,7 @@ use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Bridges\SspBridge\Utils;
 use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Utils\Auth;
 
 #[CoversClass(Authorization::class)]
@@ -22,6 +23,7 @@ class AuthorizationTest extends TestCase
     protected MockObject $sspBridgeUtilsMock;
     protected MockObject $sspBridgeUtilsAuthMock;
     protected MockObject $authContextServiceMock;
+    protected MockObject $loggerServiceMock;
 
     protected function setUp(): void
     {
@@ -32,16 +34,19 @@ class AuthorizationTest extends TestCase
         $this->sspBridgeUtilsMock->method('auth')->willReturn($this->sspBridgeUtilsAuthMock);
 
         $this->authContextServiceMock = $this->createMock(AuthContextService::class);
+        $this->loggerServiceMock = $this->createMock(LoggerService::class);
     }
 
     protected function sut(
         ?SspBridge $sspBridge = null,
         ?AuthContextService $authContextService = null,
+        ?LoggerService $loggerService = null,
     ): Authorization {
         $sspBridge ??= $this->sspBridgeMock;
         $authContextService ??= $this->authContextServiceMock;
+        $loggerService ??= $this->loggerServiceMock;
 
-        return new Authorization($sspBridge, $authContextService);
+        return new Authorization($sspBridge, $authContextService, $loggerService);
     }
 
     public function testCanCreateInstance(): void
@@ -100,7 +105,7 @@ class AuthorizationTest extends TestCase
                 false,
                 true, // After requireAdmin called, isAdmin will return true
             );
-        $this->sspBridgeUtilsAuthMock->expects($this->once())->method('requireAdmin');
+        $this->sspBridgeUtilsAuthMock->expects($this->never())->method('requireAdmin');
         $this->authContextServiceMock->expects($this->once())->method('requirePermission');
 
         $this->sut()->requireAdminOrUserWithPermission('permission');

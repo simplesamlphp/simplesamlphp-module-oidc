@@ -6,6 +6,7 @@ namespace SimpleSAML\Module\oidc\Factories\Entities;
 
 use DateTimeImmutable;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
+use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
@@ -30,7 +31,13 @@ class AuthCodeEntityFactory
         ?string $userIdentifier = null,
         ?string $redirectUri = null,
         ?string $nonce = null,
+        ?string $issuerState = null,
         bool $isRevoked = false,
+        ?FlowTypeEnum $flowTypeEnum = null,
+        ?string $txCode = null,
+        ?array $authorizationDetails = null,
+        ?string $boundClientId = null,
+        ?string $boundRedirectUri = null,
     ): AuthCodeEntity {
         return new AuthCodeEntity(
             $id,
@@ -41,6 +48,12 @@ class AuthCodeEntityFactory
             $redirectUri,
             $nonce,
             $isRevoked,
+            $flowTypeEnum,
+            $txCode,
+            $authorizationDetails,
+            $boundClientId,
+            $boundRedirectUri,
+            $issuerState,
         );
     }
 
@@ -81,6 +94,18 @@ class AuthCodeEntityFactory
         $redirectUri = empty($state['redirect_uri']) ? null : (string)$state['redirect_uri'];
         $nonce = empty($state['nonce']) ? null : (string)$state['nonce'];
         $isRevoked = (bool) $state['is_revoked'];
+        $flowType = empty($state['flow_type']) ? null : FlowTypeEnum::tryFrom((string)$state['flow_type']);
+        $txCode = empty($state['tx_code']) ? null : (string)$state['tx_code'];
+        $issuerState = empty($state['issuer_state']) ? null : (string)$state['issuer_state'];
+
+        /** @psalm-suppress MixedAssignment */
+        $authorizationDetails = isset($state['authorization_details']) && is_string($state['authorization_details']) ?
+        json_decode($state['authorization_details'], true, 512, JSON_THROW_ON_ERROR) :
+        null;
+        $authorizationDetails = is_array($authorizationDetails) ? $authorizationDetails : null;
+
+        $boundClientId = empty($state['bound_client_id']) ? null : (string)$state['bound_client_id'];
+        $boundRedirectUri = empty($state['bound_redirect_uri']) ? null : (string)$state['bound_redirect_uri'];
 
         return $this->fromData(
             $id,
@@ -90,7 +115,13 @@ class AuthCodeEntityFactory
             $userIdentifier,
             $redirectUri,
             $nonce,
+            $issuerState,
             $isRevoked,
+            $flowType,
+            $txCode,
+            $authorizationDetails,
+            $boundClientId,
+            $boundRedirectUri,
         );
     }
 }

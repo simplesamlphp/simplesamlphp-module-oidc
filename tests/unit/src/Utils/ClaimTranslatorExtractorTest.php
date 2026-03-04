@@ -357,33 +357,138 @@ class ClaimTranslatorExtractorTest extends TestCase
 
     public function testWillReleaseSingleValueClaimsForMandatorySingleValueClaims(): void
     {
-
-        // TODO mivanci v7 Test for mandatory single value claims in other scopes, as per
-        // \SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor::MANDATORY_SINGLE_VALUE_CLAIMS
         $claimSet = new ClaimSetEntity(
-            'customScopeWithSubClaim',
-            ['sub'],
+            'customScope',
+            [
+                'sub',
+                'name',
+                'given_name',
+                'family_name',
+                'middle_name',
+                'nickname',
+                'preferred_username',
+                'profile',
+                'picture',
+                'website',
+                'email',
+                'email_verified',
+                'gender',
+                'birthdate',
+                'zoneinfo',
+                'locale',
+                'phone_number',
+                'phone_number_verified',
+                'address',
+                'updated_at',
+            ],
         );
 
         $translate = [
-            'sub' => [
-                'subAttribute',
+            'sub' => ['subAttribute'],
+            'name' => ['nameAttribute'],
+            'given_name' => ['givenNameAttribute'],
+            'family_name' => ['familyNameAttribute'],
+            'middle_name' => ['middleNameAttribute'],
+            'nickname' => ['nicknameAttribute'],
+            'preferred_username' => ['preferredUsernameAttribute'],
+            'profile' => ['profileAttribute'],
+            'picture' => ['pictureAttribute'],
+            'website' => ['websiteAttribute'],
+            'email' => ['emailAttribute'],
+            'email_verified' => ['emailVerifiedAttribute'],
+            'gender' => ['genderAttribute'],
+            'birthdate' => ['birthdateAttribute'],
+            'zoneinfo' => ['zoneinfoAttribute'],
+            'locale' => ['localeAttribute'],
+            'phone_number' => ['phoneNumberAttribute'],
+            'phone_number_verified' => ['phoneNumberVerifiedAttribute'],
+            'address' => [
+                'type' => 'json',
+                'claims' => [
+                    'formatted' => ['addressAttribute'],
+                ],
             ],
+            'updated_at' => ['updatedAtAttribute'],
         ];
 
         $userAttributes = [
-            'subAttribute' => ['1', '2', '3'],
+            'subAttribute' => ['id1', 'id2', 'id3'],
+            'nameAttribute' => ['name1', 'name2', 'name3'],
+            'givenNameAttribute' => ['givenName1', 'givenName2', 'givenName3'],
+            'familyNameAttribute' => ['familyName1', 'familyName2', 'familyName3'],
+            'middleNameAttribute' => ['middleName1', 'middleName2', 'middleName3'],
+            'nicknameAttribute' => ['nickname1', 'nickname2', 'nickname3'],
+            'preferredUsernameAttribute' => ['preferredUsername1', 'preferredUsername2', 'preferredUsername3'],
+            'profileAttribute' => ['profileUrl1', 'profileUrl2', 'profileUrl3'],
+            'pictureAttribute' => ['pictureUrl1', 'pictureUrl2', 'pictureUrl3'],
+            'websiteAttribute' => ['websiteUrl1', 'websiteUrl2', 'websiteUrl3'],
+            'emailAttribute' => ['email1', 'email2', 'email3'],
+            'emailVerifiedAttribute' => [true, false],
+            'genderAttribute' => ['gender1', 'gender2', 'gender3'],
+            'birthdateAttribute' => ['birthdate1', 'birthdate2', 'birthdate3'],
+            'zoneinfoAttribute' => ['zoneinfo1', 'zoneinfo2', 'zoneinfo3'],
+            'localeAttribute' => ['locale1', 'locale2', 'locale3'],
+            'phoneNumberAttribute' => ['phoneNumber1', 'phoneNumber2', 'phoneNumber3'],
+            'phoneNumberVerifiedAttribute' => [true, false],
+            'addressAttribute' => ['address1', 'address2', 'address3'],
+            'updatedAtAttribute' => [123, 456],
         ];
 
-        $claimTranslator = $this->mock([$claimSet], $translate, ['sub']);
+        $claimTranslator = $this->mock(
+            [$claimSet],
+            $translate,
+            [
+                'sub',
+                'name',
+                'given_name',
+                'family_name',
+                'middle_name',
+                'nickname',
+                'preferred_username',
+                'profile',
+                'picture',
+                'website',
+                'email',
+                'email_verified',
+                'gender',
+                'birthdate',
+                'zoneinfo',
+                'locale',
+                'phone_number',
+                'phone_number_verified',
+                'address',
+                'updated_at',
+            ],
+        );
 
         $releasedClaims = $claimTranslator->extract(
-            ['openid'],
+            ['customScope'],
             $userAttributes,
         );
 
-        $expectedClaims = ['sub' => '1'];
+        $expectedClaims = [
+            'sub' => 'id1',
+            'name' => 'name1',
+            'given_name' => 'givenName1',
+            'family_name' => 'familyName1',
+            'middle_name' => 'middleName1',
+            'nickname' => 'nickname1',
+            'preferred_username' => 'preferredUsername1',
+            'profile' => 'profileUrl1',
+            'picture' => 'pictureUrl1',
+            'website' => 'websiteUrl1',
+            'email' => 'email1',
+            'email_verified' => true,
+            'gender' => 'gender1',
+            'birthdate' => 'birthdate1',
+            'zoneinfo' => 'zoneinfo1',
+            'locale' => 'locale1',
+            'phone_number' => 'phoneNumber1',
+            'phone_number_verified' => true,
+            'address' => ['formatted' => 'address1'],
+            'updated_at' => 123,
+        ];
 
-        $this->assertSame($expectedClaims, $releasedClaims);
+        $this->assertEquals($expectedClaims, $releasedClaims);
     }
 }

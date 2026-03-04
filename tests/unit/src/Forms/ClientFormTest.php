@@ -80,7 +80,6 @@ class ClientFormTest extends TestCase
                 ['date' => '2024-12-01 11:54:12.000000', 'timezone_type' => 3, 'timezone' => 'UTC',],
             ),
             'expires_at' => null,
-            'is_federated' => false,
             'allowed_origin' => [],
         ];
     }

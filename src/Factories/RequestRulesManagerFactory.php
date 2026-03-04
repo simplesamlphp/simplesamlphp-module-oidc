@@ -14,16 +14,19 @@ use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AddClaimsToIdTokenRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AuthorizationDetailsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientAuthenticationRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeVerifierRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
-use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredNonceRule;
@@ -41,7 +44,9 @@ use SimpleSAML\Module\oidc\Utils\FederationParticipationValidator;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Federation;
+use SimpleSAML\OpenID\Jwks;
 
 class RequestRulesManagerFactory
 {
@@ -54,7 +59,6 @@ class RequestRulesManagerFactory
         private readonly ScopeRepository $scopeRepository,
         private readonly CodeChallengeVerifiersRepository $codeChallengeVerifiersRepository,
         private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
-        private readonly CryptKeyFactory $cryptKeyFactory,
         private readonly RequestParamsResolver $requestParamsResolver,
         private readonly ClientEntityFactory $clientEntityFactory,
         private readonly Federation $federation,
@@ -62,6 +66,8 @@ class RequestRulesManagerFactory
         private readonly JwksResolver $jwksResolver,
         private readonly FederationParticipationValidator $federationParticipationValidator,
         private readonly SspBridge $sspBridge,
+        private readonly Jwks $jwks,
+        private readonly Core $core,
         private readonly ?FederationCache $federationCache = null,
         private readonly ?ProtocolCache $protocolCache = null,
     ) {
@@ -84,7 +90,8 @@ class RequestRulesManagerFactory
     {
         return [
             new StateRule($this->requestParamsResolver, $this->helpers),
-            new ClientIdRule(
+            new IssuerStateRule($this->requestParamsResolver, $this->helpers),
+            new ClientRule(
                 $this->requestParamsResolver,
                 $this->helpers,
                 $this->clientRepository,
@@ -93,9 +100,10 @@ class RequestRulesManagerFactory
                 $this->federation,
                 $this->jwksResolver,
                 $this->federationParticipationValidator,
+                $this->logger,
                 $this->federationCache,
             ),
-            new RedirectUriRule($this->requestParamsResolver, $this->helpers),
+            new ClientRedirectUriRule($this->requestParamsResolver, $this->helpers, $this->moduleConfig),
             new RequestObjectRule($this->requestParamsResolver, $this->helpers, $this->jwksResolver),
             new PromptRule(
                 $this->requestParamsResolver,
@@ -127,7 +135,8 @@ class RequestRulesManagerFactory
                 $this->requestParamsResolver,
                 $this->helpers,
                 $this->moduleConfig,
-                $this->cryptKeyFactory,
+                $this->jwks,
+                $this->core,
             ),
             new PostLogoutRedirectUriRule($this->requestParamsResolver, $this->helpers, $this->clientRepository),
             new UiLocalesRule($this->requestParamsResolver, $this->helpers),
@@ -141,6 +150,8 @@ class RequestRulesManagerFactory
                 $this->protocolCache,
             ),
             new CodeVerifierRule($this->requestParamsResolver, $this->helpers),
+            new AuthorizationDetailsRule($this->requestParamsResolver, $this->helpers, $this->moduleConfig),
+            new ClientIdRule($this->requestParamsResolver, $this->helpers),
         ];
     }
 }

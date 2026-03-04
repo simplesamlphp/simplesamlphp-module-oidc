@@ -13,8 +13,7 @@ Supported flows:
 
 ## Note on OpenID Federation (OIDFed)
 
-OpenID Federation support is in draft, as is the
-[specification](https://openid.net/specs/openid-federation-1_0). You can
+OpenID Federation support is in draft phase. You can
 expect breaking changes in future releases related to OIDFed
 capabilities. OIDFed can be enabled or disabled in the module
 configuration.
@@ -28,6 +27,26 @@ Currently supported OIDFed features:
 - Subordinate listing endpoint
 
 OIDFed is implemented using the
+[SimpleSAMLphp OpenID library](https://github.com/simplesamlphp/openid).
+
+## Note on OpenID for Verifiable Credential Issuance (OpenID4VCI) support
+
+OpenID4VCI support was done as per draft 15 of the specification and is in the
+experimental stage. You should NOT use it in production environments.
+
+Currently implemented OpenID4VCI features:
+
+- Grant types:
+  - Pre-authorized Code flow (new flow defined by the OpenID4VCI spec)
+  - Authorization Code flow
+- Credential formats:
+  - jwt_vc_json, using VCDM v1.1
+  - dc+sd-jwt (previously vc+sd-jwt) (SD-JWT VC)
+- Proof types:
+  - jwt
+- API for credential offer fetching
+
+OpenID4VCI is also implemented using the
 [SimpleSAMLphp OpenID library](https://github.com/simplesamlphp/openid).
 
 ## Version compatibility

@@ -38,6 +38,8 @@ class RequestObjectRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
+        $loggerService->debug('RequestObjectRule::checkRule');
+
         $requestParam = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
             ParamsEnum::Request->value,
             $request,
@@ -67,9 +69,9 @@ class RequestObjectRule extends AbstractRule
         // It is protected, we must validate it.
 
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
-        $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
+        $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
         /** @var string $redirectUri */
-        $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
+        $redirectUri = $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
         /** @var ?string $stateValue */
         $stateValue = ($currentResultBag->get(StateRule::class))?->getValue();
 

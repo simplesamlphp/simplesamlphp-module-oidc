@@ -27,10 +27,12 @@ class CodeChallengeRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
+        $loggerService->debug('CodeChallengeRule::checkRule');
+
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
-        $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
+        $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
         /** @var string $redirectUri */
-        $redirectUri = $currentResultBag->getOrFail(RedirectUriRule::class)->getValue();
+        $redirectUri = $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
         /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 

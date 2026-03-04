@@ -104,4 +104,15 @@ class ConfigController
             RoutesEnum::AdminConfigFederation->value,
         );
     }
+
+    public function verifiableCredentialSettings(): Response
+    {
+        return $this->templateFactory->build(
+            'oidc:config/verifiable-credential.twig',
+            [
+                'moduleConfig' => $this->moduleConfig,
+            ],
+            RoutesEnum::AdminConfigVerifiableCredential->value,
+        );
+    }
 }

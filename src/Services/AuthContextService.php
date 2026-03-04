@@ -80,10 +80,16 @@ class AuthContextService
     /**
      * @throws \Exception
      */
-    private function authenticate(): Simple
+    public function authenticate(): Simple
     {
         $simple = $this->authSimpleFactory->getDefaultAuthSource();
         $simple->requireAuth();
         return $simple;
+    }
+
+    public function logout(): void
+    {
+        $simple = $this->authSimpleFactory->getDefaultAuthSource();
+        $simple->logout();
     }
 }

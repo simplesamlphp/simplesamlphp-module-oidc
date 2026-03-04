@@ -15,6 +15,7 @@ use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\Session;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -60,10 +61,14 @@ class EndSessionController
         // If id_token_hint was provided, resolve session ID
         $idTokenHint = $logoutRequest->getIdTokenHint();
         if ($idTokenHint !== null) {
-            $sidClaim = empty($idTokenHint->claims()->get('sid')) ?
-            null :
-            (string)$idTokenHint->claims()->get('sid');
+            /** @psalm-suppress MixedAssignment */
+            $sidClaim = $idTokenHint->getPayloadClaim(ClaimsEnum::Sid->value);
+            $sidClaim = is_string($sidClaim) && $sidClaim !== '' ? $sidClaim : null;
         }
+
+        $this->loggerService->debug(
+            'EndSession: ID Token Hint Session ID: ' . var_export($sidClaim, true),
+        );
 
         // Check if RP is requesting logout for session that previously existed (not this current session).
         // Claim 'sid' from 'id_token_hint' logout parameter indicates for which session should log out be
@@ -73,19 +78,31 @@ class EndSessionController
             $sidClaim !== null &&
             $this->sessionService->getCurrentSession()->getSessionId() !== $sidClaim
         ) {
+            $this->loggerService->debug('Not current session: ' . $sidClaim);
             try {
                 if (($sidSession = $this->sessionService->getSessionById($sidClaim)) !== null) {
+                    $this->loggerService->debug('Found session for ID: ' . $sidClaim);
                     $sidSessionValidAuthorities = $sidSession->getAuthorities();
 
                     if (! empty($sidSessionValidAuthorities)) {
+                        $this->loggerService->debug(
+                            'Valid session authorities: ' . implode(', ', $sidSessionValidAuthorities),
+                        );
                         $wasLogoutActionCalled = true;
                         // Create a SessionLogoutTicket so that the sid is available in the static logoutHandler()
                         $this->sessionLogoutTicketStoreBuilder->getInstance()->add($sidClaim);
                         // Initiate logout for every valid auth source for the requested session.
                         foreach ($sidSessionValidAuthorities as $authSourceId) {
+                            $this->loggerService->debug(
+                                'Initiating logout for auth source ID: ' . $authSourceId,
+                            );
                             $sidSession->doLogout($authSourceId);
                         }
+                    } else {
+                        $this->loggerService->debug('Session authorities not found for ID: ' . $sidClaim);
                     }
+                } else {
+                    $this->loggerService->debug('Session not found for ID: ' . $sidClaim);
                 }
             } catch (Throwable $exception) {
                 $this->loggerService->warning(
@@ -96,13 +113,21 @@ class EndSessionController
 
         $currentSessionValidAuthorities = $this->sessionService->getCurrentSession()->getAuthorities();
         if (!empty($currentSessionValidAuthorities)) {
+            $this->loggerService->debug(
+                'Current session authorities: ' . implode(', ', $currentSessionValidAuthorities),
+            );
             $wasLogoutActionCalled = true;
             // Initiate logout for every valid auth source for the current session.
             foreach ($this->sessionService->getCurrentSession()->getAuthorities() as $authSourceId) {
                 $this->sessionService->getCurrentSession()->doLogout($authSourceId);
             }
+        } else {
+            $this->loggerService->debug(
+                'Current session authorities not found for ID: ' . var_export($sidClaim, true),
+            );
         }
 
+        $this->loggerService->debug('Was logout action called: ' . var_export($wasLogoutActionCalled, true));
         // Set indication for OIDC initiated logout back to false, so that the logoutHandler() method does not
         // run for other logout initiated actions, like (currently) re-authentication...
         $this->sessionService->setIsOidcInitiatedLogout(false);
@@ -189,13 +214,31 @@ class EndSessionController
     protected function resolveResponse(LogoutRequest $logoutRequest, bool $wasLogoutActionCalled): Response
     {
         if (($postLogoutRedirectUri = $logoutRequest->getPostLogoutRedirectUri()) !== null) {
-            if ($logoutRequest->getState() !== null) {
+            $this->loggerService->debug(
+                'Logout request includes post-logout redirect URI: ' . $postLogoutRedirectUri,
+            );
+
+            if (($logoutState = $logoutRequest->getState()) !== null) {
+                $this->loggerService->debug(
+                    'Appending logout request state: ' . $logoutState,
+                );
                 $postLogoutRedirectUri .= (!str_contains($postLogoutRedirectUri, '?')) ? '?' : '&';
-                $postLogoutRedirectUri .= http_build_query(['state' => $logoutRequest->getState()]);
+                $postLogoutRedirectUri .= http_build_query(['state' => $logoutState]);
+            } else {
+                $this->loggerService->debug(
+                    'No state provided for post logout',
+                );
             }
 
+            $this->loggerService->debug(
+                'Final post logout redirect URI: ' . $postLogoutRedirectUri,
+            );
             return new RedirectResponse($postLogoutRedirectUri);
         }
+
+        $this->loggerService->debug(
+            'No post logout redirect URI provided for logout. Showing template.',
+        );
 
         return $this->templateFactory->build(
             templateName:  'oidc:/logout.twig',

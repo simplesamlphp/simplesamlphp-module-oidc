@@ -10,37 +10,32 @@ use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Controllers\Federation\EntityStatementController;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\Module\oidc\Services\JsonWebKeySetService;
-use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Federation;
+use SimpleSAML\OpenID\Jwks;
 
 #[CoversClass(EntityStatementController::class)]
 class EntityStatementControllerTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
-    protected MockObject $jsonWebTokenBuilderServiceMock;
-    protected MockObject $jsonWebKeySetServiceMock;
+    protected MockObject $jwksMock;
     protected MockObject $opMetadataServiceMock;
-    protected MockObject $clientRepositoryMock;
     protected MockObject $helpersMock;
     protected MockObject $routesMock;
     protected MockObject $federationMock;
+    protected MockObject $jwkMock;
     protected MockObject $loggerServiceMock;
     protected MockObject $federationCacheMock;
 
     protected function setUp(): void
     {
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
-        $this->jsonWebTokenBuilderServiceMock = $this->createMock(JsonWebTokenBuilderService::class);
-        $this->jsonWebKeySetServiceMock = $this->createMock(JsonWebKeySetService::class);
+        $this->jwksMock = $this->createMock(Jwks::class);
         $this->opMetadataServiceMock = $this->createMock(OpMetadataService::class);
-        $this->clientRepositoryMock = $this->createMock(ClientRepository::class);
         $this->helpersMock = $this->createMock(Helpers::class);
         $this->routesMock = $this->createMock(Routes::class);
         $this->federationMock = $this->createMock(Federation::class);
@@ -50,10 +45,8 @@ class EntityStatementControllerTest extends TestCase
 
     protected function sut(
         ?ModuleConfig $moduleConfig = null,
-        ?JsonWebTokenBuilderService $jsonWebTokenBuilderService = null,
-        ?JsonWebKeySetService $jsonWebKeySetService = null,
+        ?Jwks $jwks = null,
         ?OpMetadataService $opMetadataService = null,
-        ?ClientRepository $clientRepository = null,
         ?Helpers $helpers = null,
         ?Routes $routes = null,
         ?Federation $federation = null,
@@ -61,10 +54,8 @@ class EntityStatementControllerTest extends TestCase
         ?FederationCache $federationCache = null,
     ): EntityStatementController {
         $moduleConfig ??= $this->moduleConfigMock;
-        $jsonWebTokenBuilderService ??= $this->jsonWebTokenBuilderServiceMock;
-        $jsonWebKeySetService ??= $this->jsonWebKeySetServiceMock;
+        $jwks ??= $this->jwksMock;
         $opMetadataService ??= $this->opMetadataServiceMock;
-        $clientRepository ??= $this->clientRepositoryMock;
         $helpers ??= $this->helpersMock;
         $routes ??= $this->routesMock;
         $federation ??= $this->federationMock;
@@ -73,10 +64,8 @@ class EntityStatementControllerTest extends TestCase
 
         return new EntityStatementController(
             $moduleConfig,
-            $jsonWebTokenBuilderService,
-            $jsonWebKeySetService,
+            $jwks,
             $opMetadataService,
-            $clientRepository,
             $helpers,
             $routes,
             $federation,

@@ -6,8 +6,6 @@ namespace SimpleSAML\Test\Module\oidc\unit\Controllers;
 
 use Exception;
 use Laminas\Diactoros\ServerRequest;
-use Lcobucci\JWT\Token\DataSet;
-use Lcobucci\JWT\UnencryptedToken;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -22,6 +20,8 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Core\IdToken;
 use SimpleSAML\Session;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -41,7 +41,7 @@ class EndSessionControllerTest extends TestCase
     protected Stub $dataSetStub;
     protected MockObject $currentSessionMock;
     protected MockObject $sessionMock;
-    protected DataSet $dataSet;
+    protected array $dataSet = ['sid' => '123'];
     protected Stub $loggerServiceStub;
     protected Stub $sessionLogoutTicketStoreDbStub;
     protected MockObject $loggerServiceMock;
@@ -61,8 +61,7 @@ class EndSessionControllerTest extends TestCase
         $this->currentSessionMock = $this->createMock(Session::class);
         $this->sessionMock = $this->createMock(Session::class);
         $this->logoutRequestStub = $this->createStub(LogoutRequest::class);
-        $this->idTokenHintStub = $this->createStub(UnencryptedToken::class);
-        $this->dataSet = new DataSet(['sid' => '123'], '');
+        $this->idTokenHintStub = $this->createStub(IdToken::class);
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
         $this->sessionLogoutTicketStoreDbStub = $this->createStub(LogoutTicketStoreDb::class);
         $this->templateFactoryStub = $this->createStub(TemplateFactory::class);
@@ -118,7 +117,10 @@ class EndSessionControllerTest extends TestCase
         $this->sessionServiceStub->method('getCurrentSession')->willReturn($this->currentSessionMock);
         $this->sessionMock->method('getAuthorities')->willReturn(['authId1', 'authId2']);
         $this->sessionServiceStub->method('getSessionById')->willReturn($this->sessionMock);
-        $this->idTokenHintStub->method('claims')->willReturn($this->dataSet);
+        $this->idTokenHintStub->method('getPayload')->willReturn($this->dataSet);
+        $this->idTokenHintStub->method('getPayloadClaim')
+            ->with(ClaimsEnum::Sid->value)
+            ->willReturn('123');
         $this->logoutRequestStub->method('getIdTokenHint')->willReturn($this->idTokenHintStub);
         $this->authorizationServerStub->method('validateLogoutRequest')->willReturn($this->logoutRequestStub);
         $this->sessionLogoutTicketStoreBuilderStub->method('getInstance')
@@ -143,7 +145,10 @@ class EndSessionControllerTest extends TestCase
         $this->sessionServiceStub->method('getCurrentSession')->willReturn($this->currentSessionMock);
         $this->sessionMock->method('getAuthorities')->willReturn(['authId1', 'authId2']);
         $this->sessionServiceStub->method('getSessionById')->willThrowException(new Exception());
-        $this->idTokenHintStub->method('claims')->willReturn($this->dataSet);
+        $this->idTokenHintStub->method('getPayload')->willReturn($this->dataSet);
+        $this->idTokenHintStub->method('getPayloadClaim')
+            ->with(ClaimsEnum::Sid->value)
+            ->willReturn('123');
         $this->logoutRequestStub->method('getIdTokenHint')->willReturn($this->idTokenHintStub);
         $this->authorizationServerStub->method('validateLogoutRequest')->willReturn($this->logoutRequestStub);
         $this->sessionLogoutTicketStoreBuilderStub->method('getInstance')

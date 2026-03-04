@@ -8,6 +8,7 @@ use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
 use League\OAuth2\Server\CryptKey;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -22,6 +23,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\OpenID\Core\IdToken;
 use Throwable;
 
 /**
@@ -47,6 +49,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
     protected Stub $loggerServiceStub;
     protected Stub $requestParamsResolverStub;
     protected Helpers $helpers;
+    protected MockObject $idTokenMock;
 
     public static function setUpBeforeClass(): void
     {
@@ -78,6 +81,8 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
 
         $this->helpers = new Helpers();
+
+        $this->idTokenMock = $this->createMock(IdToken::class);
     }
 
     protected function sut(
@@ -183,13 +188,8 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')
             ->willReturn(self::$postLogoutRedirectUri);
 
-        $jwt = $this->jwtConfig->builder()
-            ->issuedBy(self::$issuer)
-            ->permittedFor('client-id')
-            ->getToken(
-                new Sha256(),
-                InMemory::plainText(self::$privateKey->getKeyContents()),
-            );
+        $this->idTokenMock->method('getIssuer')->willReturn(self::$issuer);
+        $this->idTokenMock->method('getAudience')->willReturn(['client-id']);
 
         $this->clientStub->method('getPostLogoutRedirectUri')->willReturn([
             'https://some-other-uri',
@@ -199,7 +199,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
 
         $this->resultBagStub->method('getOrFail')->willReturnOnConsecutiveCalls(
             new Result(StateRule::class),
-            new Result(IdTokenHintRule::class, $jwt),
+            new Result(IdTokenHintRule::class, $this->idTokenMock),
         );
 
         $this->expectException(Throwable::class);
@@ -217,13 +217,8 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')
             ->willReturn(self::$postLogoutRedirectUri);
 
-        $jwt = $this->jwtConfig->builder()
-            ->issuedBy(self::$issuer)
-            ->permittedFor('client-id')
-            ->getToken(
-                new Sha256(),
-                InMemory::plainText(self::$privateKey->getKeyContents()),
-            );
+        $this->idTokenMock->method('getIssuer')->willReturn(self::$issuer);
+        $this->idTokenMock->method('getAudience')->willReturn(['client-id']);
 
         $this->clientStub->method('getPostLogoutRedirectUri')->willReturn([
             self::$postLogoutRedirectUri,
@@ -233,7 +228,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
 
         $this->resultBagStub->method('getOrFail')->willReturnOnConsecutiveCalls(
             new Result(StateRule::class),
-            new Result(IdTokenHintRule::class, $jwt),
+            new Result(IdTokenHintRule::class, $this->idTokenMock),
         );
 
         $result = $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??

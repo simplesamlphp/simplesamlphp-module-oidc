@@ -86,7 +86,6 @@ class ClientControllerTest extends TestCase
         ],
         'jwks_uri' => 'https://example.com/jwks',
         'signed_jwks_uri' => 'https://example.com/signed-jwks',
-        'is_federated' => true,
     ];
 
     protected function setUp(): void

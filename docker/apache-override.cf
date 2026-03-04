@@ -1,6 +1,9 @@
 RewriteEngine On
 RewriteRule ^/.well-known/openid-configuration(.*) /${SSP_APACHE_ALIAS}module.php/oidc/.well-known/openid-configuration$1 [PT]
 RewriteRule ^/.well-known/openid-federation(.*) /${SSP_APACHE_ALIAS}module.php/oidc/.well-known/openid-federation$1 [PT]
+RewriteRule ^/.well-known/openid-credential-issuer(.*) /${SSP_APACHE_ALIAS}module.php/oidc/.well-known/openid-credential-issuer$1 [PT]
+RewriteRule ^/.well-known/oauth-authorization-server(.*) /${SSP_APACHE_ALIAS}module.php/oidc/.well-known/oauth-authorization-server$1 [PT]
+RewriteRule ^/.well-known/jwt-vc-issuer(.*) /${SSP_APACHE_ALIAS}module.php/oidc/.well-known/jwt-vc-issuer$1 [PT]
 
 # Leave Authorization header with Bearer tokens available in requests.
 # Solution 1:

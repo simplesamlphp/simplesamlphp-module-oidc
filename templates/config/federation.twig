@@ -34,10 +34,10 @@
         >{{ moduleConfig.getPolicyUri }}</a>
         <br>
         {{ 'Homepage URI'|trans }}:
-        <a href="{{ moduleConfig.getHomepageUri }}"
+        <a href="{{ moduleConfig.getOrganizationUri }}"
            target="_blank"
            rel="noopener noreferrer"
-        >{{ moduleConfig.getHomepageUri }}</a>
+        >{{ moduleConfig.getOrganizationUri }}</a>
         <br>
         {{ 'Contacts'|trans }}:
         {% if moduleConfig.getContacts is not empty %}
@@ -54,18 +54,16 @@
         {{ moduleConfig.getFederationEntityStatementDuration|date("%mm %dd %hh %i' %s''") }}
     </p>
 
-    <h4>{{ 'PKI'|trans }}</h4>
-    <p>
-        {{ 'Private Key'|trans }}: {{ moduleConfig.getFederationPrivateKeyPath }}
-        <br>
-        {{ 'Private Key Password Set'|trans }}:
-        {{ moduleConfig.getFederationPrivateKeyPassPhrase ? 'Yes'|trans : 'No'|trans }}
-        <br>
-        {{ 'Public Key'|trans }}: {{ moduleConfig.getFederationCertPath }}
-    </p>
-    <p>
-        {{ 'Signing Algorithm'|trans }}: {{ moduleConfig.getFederationSigner.algorithmId }}
-    </p>
+    <h4>{{ 'Signature algorithms and public keys'|trans }}</h4>
+
+    {% for signatureKeyPair in moduleConfig.getFederationSignatureKeyPairBag.getAll %}
+        <p>
+            - {{ 'Algorithm'|trans }}: {{ signatureKeyPair.getSignatureAlgorithm.value }}
+            <code class="code-box code-box-content">
+                {{- signatureKeyPair.getKeyPair.getPublicKey.jsonSerialize|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_SLASHES')) -}}
+            </code>
+        </p>
+    {% endfor %}
 
     <h4>{{ 'Trust Anchors'|trans }}</h4>
     {% if moduleConfig.getFederationTrustAnchors is not empty %}

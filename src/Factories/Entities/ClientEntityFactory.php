@@ -5,19 +5,17 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Factories\Entities;
 
 use DateTimeImmutable;
-use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
-use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\ApplicationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
-use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Codebooks\ResponseTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ScopesEnum;
 use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
@@ -28,7 +26,7 @@ class ClientEntityFactory
         private readonly SspBridge $sspBridge,
         private readonly Helpers $helpers,
         private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
-        private readonly RequestParamsResolver $requestParamsResolver,
+        private readonly ModuleConfig $moduleConfig,
     ) {
     }
 
@@ -63,7 +61,8 @@ class ClientEntityFactory
         ?DateTimeImmutable $updatedAt = null,
         ?DateTimeImmutable $createdAt = null,
         ?DateTimeImmutable $expiresAt = null,
-        bool $isFederated = false,
+        bool $isGeneric = false,
+        ?array $extraMetadata = null,
     ): ClientEntityInterface {
         return new ClientEntity(
             $id,
@@ -88,7 +87,8 @@ class ClientEntityFactory
             $updatedAt,
             $createdAt,
             $expiresAt,
-            $isFederated,
+            $isGeneric,
+            $extraMetadata,
         );
     }
 
@@ -106,7 +106,6 @@ class ClientEntityFactory
         ?ClientEntityInterface $existingClient = null,
         ?string $clientIdentifier = null,
         ?array $federationJwks = null,
-        ?ServerRequestInterface $authorizationRequest = null,
     ): ClientEntityInterface {
 
         $id = $clientIdentifier ?? $existingClient?->getIdentifier() ??
@@ -139,7 +138,6 @@ class ClientEntityFactory
 
         $isConfidential = $existingClient?->isConfidential() ?? $this->determineIsConfidential(
             $metadata,
-            $authorizationRequest,
         );
 
         $owner = $existingClient?->getOwner();
@@ -189,7 +187,21 @@ class ClientEntityFactory
 
 //        $expiresAt = $expiresAt;
 
-        $isFederated = $existingClient?->isFederated() ?? false;
+        $isGeneric = $existingClient?->isGeneric() ?? false;
+
+        $extraMetadata = $existingClient?->getExtraMetadata() ?? [];
+
+        // Handle any other supported client metadata as extra metadata.
+        // id_token_signed_response_alg
+        $idTokenSignedResponseAlg = isset($metadata[ClaimsEnum::IdTokenSignedResponseAlg->value]) &&
+        is_string($metadata[ClaimsEnum::IdTokenSignedResponseAlg->value]) ?
+        $metadata[ClaimsEnum::IdTokenSignedResponseAlg->value] :
+        $existingClient?->getIdTokenSignedResponseAlg();
+
+        // TODO mivanci Check if id_token_signed_response_alg is supported.
+
+        $extraMetadata[ClaimsEnum::IdTokenSignedResponseAlg->value] = $idTokenSignedResponseAlg;
+
 
         return $this->fromData(
             $id,
@@ -214,13 +226,13 @@ class ClientEntityFactory
             $updatedAt,
             $createdAt,
             $expiresAt,
-            $isFederated,
+            $isGeneric,
+            $extraMetadata,
         );
     }
 
     protected function determineIsConfidential(
         array $metadata,
-        ?ServerRequestInterface $authorizationRequest,
     ): bool {
         if (
             array_key_exists(ClaimsEnum::ApplicationType->value, $metadata) &&
@@ -254,14 +266,6 @@ class ClientEntityFactory
                 in_array(ResponseTypesEnum::IdTokenToken->value, $metadata[ClaimsEnum::ResponseTypes->value], true))
         ) {
             // Response type 'id_token' or 'id_token token' is indication of public client.
-            return false;
-        }
-
-        if (
-            $authorizationRequest &&
-            $this->requestParamsResolver->get(ParamsEnum::CodeChallenge->value, $authorizationRequest)
-        ) {
-            // Usage of code_challenge parameter indicates public client.
             return false;
         }
 
@@ -352,7 +356,12 @@ class ClientEntityFactory
         $expiresAt = empty($state[ClientEntity::KEY_EXPIRES_AT]) ? null :
         $this->helpers->dateTime()->getUtc((string)$state[ClientEntity::KEY_EXPIRES_AT]);
 
-        $isFederated = (bool)$state[ClientEntity::KEY_IS_FEDERATED];
+        $isGeneric = (bool)$state[ClientEntity::KEY_IS_GENERIC];
+
+        /** @var ?mixed[] $extraMetadata */
+        $extraMetadata = empty($state[ClientEntity::KEY_EXTRA_METADATA]) ?
+        null :
+        json_decode((string)$state[ClientEntity::KEY_EXTRA_METADATA], true, 512, JSON_THROW_ON_ERROR);
 
         return $this->fromData(
             $id,
@@ -377,7 +386,33 @@ class ClientEntityFactory
             $updatedAt,
             $createdAt,
             $expiresAt,
-            $isFederated,
+            $isGeneric,
+            $extraMetadata,
+        );
+    }
+
+    public function getGenericForVci(): ClientEntityInterface
+    {
+        $clientId = 'vci_' .
+        hash('sha256', 'vci_'  . $this->moduleConfig->sspConfig()->getString('secretsalt'));
+
+        $clientSecret = $this->helpers->random()->getIdentifier();
+
+        $credentialConfigurationIdsSupported = $this->moduleConfig->getVciCredentialConfigurationIdsSupported();
+
+        $createdAt = $this->helpers->dateTime()->getUtc();
+
+        return $this->fromData(
+            id: $clientId,
+            secret: $clientSecret,
+            name: 'VCI Generic Client',
+            description: 'Generic client for Verifiable Credential Issuance flows.',
+            redirectUri: ['openid-credential-offer://'],
+            scopes: ['openid', ...$credentialConfigurationIdsSupported],
+            isEnabled: true,
+            updatedAt: $createdAt,
+            createdAt: $createdAt,
+            isGeneric: true,
         );
     }
 }

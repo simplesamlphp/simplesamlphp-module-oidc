@@ -5,21 +5,22 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Factories\Entities;
 
 use DateTimeImmutable;
-use League\OAuth2\Server\CryptKey;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
+use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\Module\oidc\Services\JsonWebTokenBuilderService;
+use SimpleSAML\OpenID\Jws;
 
 class AccessTokenEntityFactory
 {
     public function __construct(
         protected readonly Helpers $helpers,
-        protected readonly CryptKey $privateKey,
-        protected readonly JsonWebTokenBuilderService $jsonWebTokenBuilderService,
         protected readonly ScopeEntityFactory $scopeEntityFactory,
+        protected readonly Jws $jws,
+        protected readonly ModuleConfig $moduleConfig,
     ) {
     }
 
@@ -35,18 +36,28 @@ class AccessTokenEntityFactory
         ?string $authCodeId = null,
         ?array $requestedClaims = null,
         ?bool $isRevoked = false,
+        ?FlowTypeEnum $flowTypeEnum = null,
+        ?array $authorizationDetails = null,
+        ?string $boundClientId = null,
+        ?string $boundRedirectUri = null,
+        ?string $issuerState = null,
     ): AccessTokenEntity {
         return new AccessTokenEntity(
             $id,
             $clientEntity,
             $scopes,
             $expiryDateTime,
-            $this->privateKey,
-            $this->jsonWebTokenBuilderService,
+            $this->jws,
+            $this->moduleConfig,
             $userIdentifier,
             $authCodeId,
             $requestedClaims,
             $isRevoked,
+            flowTypeEnum: $flowTypeEnum,
+            authorizationDetails: $authorizationDetails,
+            boundClientId: $boundClientId,
+            boundRedirectUri: $boundRedirectUri,
+            issuerState: $issuerState,
         );
     }
 
@@ -90,6 +101,17 @@ class AccessTokenEntityFactory
             throw OidcServerException::serverError('Invalid Access Token Entity state: requested claims');
         }
 
+        $flowType = empty($state['flow_type']) ? null : FlowTypeEnum::tryFrom((string)$state['flow_type']);
+        /** @psalm-suppress MixedAssignment */
+        $authorizationDetails = isset($state['authorization_details']) && is_string($state['authorization_details']) ?
+        json_decode($state['authorization_details'], true, 512, JSON_THROW_ON_ERROR) :
+        null;
+        $authorizationDetails = is_array($authorizationDetails) ? $authorizationDetails : null;
+
+        $boundClientId = empty($state['bound_client_id']) ? null : (string)$state['bound_client_id'];
+        $boundRedirectUri = empty($state['bound_redirect_uri']) ? null : (string)$state['bound_redirect_uri'];
+        $issuerState = empty($state['issuer_state']) ? null : (string)$state['issuer_state'];
+
         return $this->fromData(
             $id,
             $client,
@@ -99,6 +121,11 @@ class AccessTokenEntityFactory
             $authCodeId,
             $stateRequestedClaims,
             $isRevoked,
+            $flowType,
+            $authorizationDetails,
+            $boundClientId,
+            $boundRedirectUri,
+            $issuerState,
         );
     }
 }

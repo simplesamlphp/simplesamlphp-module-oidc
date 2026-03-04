@@ -47,7 +47,7 @@ class ClientAuthenticationRule extends AbstractRule
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
-        $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
+        $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
 
         // We will only perform client authentication if the client type is confidential.
         if (!$client->isConfidential()) {

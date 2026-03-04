@@ -141,29 +141,17 @@
             <span class="pure-form-message red-text">{{ form.jwks.getError }}</span>
         {% endif %}
 
+        <label for="frm-id_token_signed_response_alg">{{ 'ID Token Signing Algorithm'|trans }}</label>
+        {{ form.id_token_signed_response_alg.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}JWS alg algorithm for signing the ID Token issued to this Client. If not set, the default one from configuration file will be used.{% endtrans %}
+        </span>
+        {% if form.id_token_signed_response_alg.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.id_token_signed_response_alg.getError }}</span>
+        {% endif %}
+
         <br>
         <h4>{{ 'OpenID Federation Related Properties'|trans }}</h4>
-            <span class="pure-form-message">
-                {% trans %}In order for an entity to participate in federation contexts (for example, to be listed as subordinate to this OP), it must have an Entity Identifier and Federation JWKS set. {% endtrans %}
-            </span>
-        <label for="">{{ 'Is Federated'|trans }}</label>
-        <label for="radio-option-federated-yes" class="pure-radio">
-            <input type="radio"
-                   name="is_federated"
-                   id="radio-option-federated-yes"
-                   {% if form.is_federated.value %}checked=""{% endif %}
-                   value="1" /> {{ 'Yes'|trans }}
-        </label>
-        <label for="radio-option-federated-no" class="pure-radio">
-            <input type="radio"
-                   name="is_federated"
-                   id="radio-option-federated-no"
-                   {% if not form.is_federated.value %}checked=""{% endif %}
-                   value="0" /> {{ 'No'|trans }}
-        </label>
-        <span class="pure-form-message">
-            {% trans %}Choose if the client is allowed to participate in federation context or not.{% endtrans %}
-        </span>
 
         <label for="frm-entity_identifier">{{ 'Entity Identifier'|trans }}</label>
         {{ form.entity_identifier.control | raw }}

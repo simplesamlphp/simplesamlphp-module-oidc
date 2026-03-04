@@ -59,8 +59,10 @@ class AuthorizationController
     {
         $queryParameters = $request->getQueryParams();
         $state = null;
+        $this->loggerService->debug('AuthorizationController::invoke: Request parameters: ', $queryParameters);
 
         if (!isset($queryParameters[ProcessingChain::AUTHPARAM])) {
+            $this->loggerService->debug('AuthorizationController::invoke: No AuthProcId query param.');
             $authorizationRequest = $this->authorizationServer->validateAuthorizationRequest($request);
             $state = $this->authenticationService->processRequest($request, $authorizationRequest);
             // processState will trigger a redirect

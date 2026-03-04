@@ -13,7 +13,7 @@ use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
-use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
@@ -44,7 +44,7 @@ class RequestedClaimsRuleTest extends TestCase
         $this->clientStub = $this->createStub(ClientEntityInterface::class);
         $this->requestStub = $this->createStub(ServerRequestInterface::class);
         $this->clientStub->method('getScopes')->willReturn(['openid', 'profile', 'email']);
-        $this->resultBag->add(new Result(ClientIdRule::class, $this->clientStub));
+        $this->resultBag->add(new Result(ClientRule::class, $this->clientStub));
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
         $this->claimSetEntityFactoryStub = $this->createStub(ClaimSetEntityFactory::class);

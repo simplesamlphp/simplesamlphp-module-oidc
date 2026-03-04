@@ -27,7 +27,7 @@ class CodeVerifierRule extends AbstractRule
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
-        $client = $currentResultBag->getOrFail(ClientIdRule::class)->getValue();
+        $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
 
         $codeVerifier = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
             ParamsEnum::CodeVerifier->value,
