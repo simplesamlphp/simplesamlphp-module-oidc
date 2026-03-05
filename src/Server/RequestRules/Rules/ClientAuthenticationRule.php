@@ -6,6 +6,7 @@ namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -13,6 +14,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
@@ -29,6 +31,7 @@ class ClientAuthenticationRule extends AbstractRule
         Helpers $helpers,
         protected ModuleConfig $moduleConfig,
         protected JwksResolver $jwksResolver,
+        protected AuthenticatedOAuth2ClientResolver $authenticatedOAuth2ClientResolver,
         protected ?ProtocolCache $protocolCache,
     ) {
         parent::__construct($requestParamsResolver, $helpers);
@@ -46,8 +49,28 @@ class ClientAuthenticationRule extends AbstractRule
         bool $useFragmentInHttpErrorResponses = false,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
-        /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
-        $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
+
+        $loggerService->debug('ClientAuthenticationRule::checkRule');
+
+        // TODO mivanci Instead of ClientRule which mandates client, this should
+        // be refactored to use optional client_id parameter and then
+        // fetch client if present.
+        /** @var ?ClientEntityInterface $preFetchedClient */
+        $preFetchedClient = $currentResultBag->get(ClientRule::class)?->getValue();
+
+        $client = $this->authenticatedOAuth2ClientResolver->forAnySupportedMethod(
+            request: $request,
+            preFetchedClient: $preFetchedClient,
+        );
+
+        if (is_null($client)) {
+            throw OidcServerException::accessDenied('Not a single client authentication method presented.');
+        }
+
+        // TODO mivanci continue
+        ////////////////////////
+
+
 
         // We will only perform client authentication if the client type is confidential.
         if (!$client->isConfidential()) {
