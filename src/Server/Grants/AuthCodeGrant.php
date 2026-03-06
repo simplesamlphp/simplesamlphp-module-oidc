@@ -70,6 +70,7 @@ use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\SessionIdResponseType
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
@@ -511,8 +512,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $authorizationClientEntity :
         $resultBag->getOrFail(ClientRule::class)->getValue();
 
-        /** @var ?string $clientAuthenticationParam */
-        $clientAuthenticationParam = $authorizationClientEntity->isGeneric() ?
+        /** @var ?ResolvedClientAuthenticationMethod $resolvedClientAuthenticationMethod */
+        $resolvedClientAuthenticationMethod = $authorizationClientEntity->isGeneric() ?
         null :
         $resultBag->getOrFail(ClientAuthenticationRule::class)->getValue();
 
@@ -521,8 +522,13 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         $utilizedClientAuthenticationParams = [];
 
-        if (!is_null($clientAuthenticationParam)) {
-            $utilizedClientAuthenticationParams[] = $clientAuthenticationParam;
+        if (
+            $resolvedClientAuthenticationMethod instanceof ResolvedClientAuthenticationMethod &&
+            $resolvedClientAuthenticationMethod->getClientAuthenticationMethod()->isNotNone()
+        ) {
+            $utilizedClientAuthenticationParams[] = $resolvedClientAuthenticationMethod
+                ->getClientAuthenticationMethod()
+                ->value;
         }
         if (!is_null($codeVerifier)) {
             $utilizedClientAuthenticationParams[] = ParamsEnum::CodeVerifier->value;

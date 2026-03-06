@@ -40,9 +40,15 @@ class VciCredentialOfferApiController
     }
 
     /**
+     * @throws OidcServerException
      */
     public function credentialOffer(Request $request): Response
     {
+        if (!$this->moduleConfig->getApiVciCredentialOfferEndpointEnabled()) {
+            $this->loggerService->warning('Credential Offer API endpoint not enabled.');
+            throw OidcServerException::forbidden('Credential Offer API endpoint not enabled.');
+        }
+
         $this->loggerService->debug('VciCredentialOfferApiController::credentialOffer');
 
         $this->loggerService->debug(

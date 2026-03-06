@@ -338,28 +338,20 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $this->sut()->forClientSecretPost($this->serverRequestMock);
     }
 
-    public function testForClientSecretPostThrowsWhenSecretIsAbsent(): void
+    public function testForClientSecretPostReturnsNullWhenSecretIsNull(): void
     {
         $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
             ->willReturnOnConsecutiveCalls(self::CLIENT_ID, null);
-        $this->clientEntityMock->method('isConfidential')->willReturn(true);
-        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
 
-        $this->expectException(AuthorizationException::class);
-
-        $this->sut()->forClientSecretPost($this->serverRequestMock);
+        $this->assertNull($this->sut()->forClientSecretPost($this->serverRequestMock));
     }
 
-    public function testForClientSecretPostThrowsWhenSecretIsEmpty(): void
+    public function testForClientSecretPostReturnsNullWhenSecretIsEmpty(): void
     {
         $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
             ->willReturnOnConsecutiveCalls(self::CLIENT_ID, '');
-        $this->clientEntityMock->method('isConfidential')->willReturn(true);
-        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
 
-        $this->expectException(AuthorizationException::class);
-
-        $this->sut()->forClientSecretPost($this->serverRequestMock);
+        $this->assertNull($this->sut()->forClientSecretPost($this->serverRequestMock));
     }
 
     public function testForClientSecretPostThrowsWhenSecretIsInvalid(): void

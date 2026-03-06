@@ -19,7 +19,7 @@ use SimpleSAML\Module\oidc\Controllers\EndSessionController;
 use SimpleSAML\Module\oidc\Controllers\Federation\EntityStatementController;
 use SimpleSAML\Module\oidc\Controllers\JwksController;
 use SimpleSAML\Module\oidc\Controllers\OAuth2\OAuth2ServerConfigurationController;
-use SimpleSAML\Module\oidc\Controllers\TokenIntrospectionController;
+use SimpleSAML\Module\oidc\Controllers\OAuth2\TokenIntrospectionController;
 use SimpleSAML\Module\oidc\Controllers\UserInfoController;
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\CredentialIssuerConfigurationController;
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\CredentialIssuerCredentialController;
@@ -105,8 +105,6 @@ return function (RoutingConfigurator $routes): void {
 
     $routes->add(RoutesEnum::OAuth2Configuration->name, RoutesEnum::OAuth2Configuration->value)
         ->controller(OAuth2ServerConfigurationController::class);
-    $routes->add(RoutesEnum::TokenIntrospection->name, RoutesEnum::TokenIntrospection->value)
-        ->controller(TokenIntrospectionController::class);
 
     /*****************************************************************************************************************
      * OpenID Federation
@@ -144,5 +142,11 @@ return function (RoutingConfigurator $routes): void {
         RoutesEnum::ApiVciCredentialOffer->name,
         RoutesEnum::ApiVciCredentialOffer->value,
     )->controller([VciCredentialOfferApiController::class, 'credentialOffer'])
+        ->methods([HttpMethodsEnum::POST->value]);
+
+    $routes->add(
+        RoutesEnum::ApiOAuth2TokenIntrospection->name,
+        RoutesEnum::ApiOAuth2TokenIntrospection->value,
+    )->controller(TokenIntrospectionController::class)
         ->methods([HttpMethodsEnum::POST->value]);
 };

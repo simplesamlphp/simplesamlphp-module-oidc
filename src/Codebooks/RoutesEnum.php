@@ -42,8 +42,6 @@ enum RoutesEnum: string
     case Jwks = 'jwks';
     case EndSession = 'end-session';
 
-    case TokenIntrospection = 'introspect';
-
     /*****************************************************************************************************************
      * OAuth 2.0 Authorization Server
      ****************************************************************************************************************/
@@ -77,4 +75,5 @@ enum RoutesEnum: string
      ****************************************************************************************************************/
 
     case ApiVciCredentialOffer = 'api/vci/credential-offer';
+    case ApiOAuth2TokenIntrospection = 'api/oauth2/token-introspection';
 }

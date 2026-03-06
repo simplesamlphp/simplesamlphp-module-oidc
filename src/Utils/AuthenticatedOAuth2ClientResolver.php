@@ -64,6 +64,10 @@ class AuthenticatedOAuth2ClientResolver
     ): ?ResolvedClientAuthenticationMethod {
         $this->loggerService->debug('Trying to resolve public client for request client ID.');
 
+        if ($request instanceof Request) {
+            $request = $this->psrHttpBridge->getPsrHttpFactory()->createRequest($request);
+        }
+
         $clientId = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
             ParamsEnum::ClientId->value,
             $request,
@@ -208,7 +212,14 @@ class AuthenticatedOAuth2ClientResolver
 
         if (!is_string($clientId) || $clientId === '') {
             $this->loggerService->debug(
-                'No client ID available in HTTP POST body, skipping.',
+                'No client ID available in HTTP POST body, skipping client_secret_post.',
+            );
+            return null;
+        }
+
+        if (!is_string($clientSecret) || $clientSecret === '') {
+            $this->loggerService->debug(
+                'No client secret available in HTTP POST body, skipping client_secret_post.',
             );
             return null;
         }
@@ -221,16 +232,9 @@ class AuthenticatedOAuth2ClientResolver
         // should not have a secret provided.
         if (!$client->isConfidential()) {
             $this->loggerService->debug(
-                'Client with ID ' . $clientId . ' is not confidential, aborting client_secret_post validation.',
+                'Client with ID ' . $clientId . ' is not confidential, aborting client_secret_post.',
             );
             throw new AuthorizationException('Client is not confidential.');
-        }
-
-        if (!is_string($clientSecret) || $clientSecret === '') {
-            $this->loggerService->debug(
-                'No client secret available in HTTP POST body, aborting client_secret_post validation.',
-            );
-            throw new AuthorizationException('No client secret available in HTTP POST body');
         }
 
         $this->loggerService->debug('Client secret provided for HTTP POST body, validating credentials.');
@@ -246,10 +250,10 @@ class AuthenticatedOAuth2ClientResolver
     }
 
     /**
-     * @throws JwsException
-     * @throws ClientAssertionException
-     * @throws InvalidArgumentException
-     * @throws AuthorizationException
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     * @throws \SimpleSAML\OpenID\Exceptions\ClientAssertionException
+     * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
+     * @throws \Psr\SimpleCache\InvalidArgumentException
      */
     public function forPrivateKeyJwt(
         Request|ServerRequestInterface $request,

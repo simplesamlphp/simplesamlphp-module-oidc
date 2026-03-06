@@ -103,6 +103,7 @@ use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
+use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\ClassInstanceBuilder;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
@@ -227,7 +228,31 @@ class Container implements ContainerInterface
         $federation = $federationFactory->build();
         $this->services[Federation::class] = $federation;
 
-        $requestParamsResolver = new RequestParamsResolver($helpers, $core, $federation);
+        $httpFoundationFactory = new HttpFoundationFactory();
+        $this->services[HttpFoundationFactory::class] = $httpFoundationFactory;
+
+        $serverRequestFactory = new ServerRequestFactory();
+        $this->services[ServerRequestFactoryInterface::class] = $serverRequestFactory;
+
+        $responseFactory = new ResponseFactory();
+        $this->services[ResponseFactoryInterface::class] = $responseFactory;
+
+        $streamFactory = new StreamFactory();
+        $this->services[StreamFactoryInterface::class] = $streamFactory;
+
+        $uploadedFileFactory = new UploadedFileFactory();
+        $this->services[UploadedFileFactoryInterface::class] = $uploadedFileFactory;
+
+        $psrHttpBridge = new PsrHttpBridge(
+            $httpFoundationFactory,
+            $serverRequestFactory,
+            $responseFactory,
+            $streamFactory,
+            $uploadedFileFactory,
+        );
+        $this->services[PsrHttpBridge::class] = $psrHttpBridge;
+
+        $requestParamsResolver = new RequestParamsResolver($helpers, $core, $federation, $psrHttpBridge);
         $this->services[RequestParamsResolver::class] = $requestParamsResolver;
 
         $clientEntityFactory = new ClientEntityFactory(
@@ -383,6 +408,18 @@ class Container implements ContainerInterface
         );
         $this->services[FederationParticipationValidator::class] = $federationParticipationValidator;
 
+        $authenticatedOAuth2ClientResolver = new AuthenticatedOAuth2ClientResolver(
+            clientRepository: $clientRepository,
+            requestParamsResolver: $requestParamsResolver,
+            loggerService: $loggerService,
+            psrHttpBridge: $psrHttpBridge,
+            jwksResolver: $jwksResolver,
+            moduleConfig: $moduleConfig,
+            helpers: $helpers,
+            protocolCache: $protocolCache,
+        );
+        $this->services[AuthenticatedOAuth2ClientResolver::class] = $authenticatedOAuth2ClientResolver;
+
         $requestRules = [
             new StateRule($requestParamsResolver, $helpers),
             new ClientRule(
@@ -423,9 +460,7 @@ class Container implements ContainerInterface
             new ClientAuthenticationRule(
                 $requestParamsResolver,
                 $helpers,
-                $moduleConfig,
-                $jwksResolver,
-                $protocolCache,
+                $authenticatedOAuth2ClientResolver,
             ),
             new CodeVerifierRule($requestParamsResolver, $helpers),
         ];
@@ -545,29 +580,6 @@ class Container implements ContainerInterface
         );
         $this->services[ResourceServer::class] = $resourceServer;
 
-        $httpFoundationFactory = new HttpFoundationFactory();
-        $this->services[HttpFoundationFactory::class] = $httpFoundationFactory;
-
-        $serverRequestFactory = new ServerRequestFactory();
-        $this->services[ServerRequestFactoryInterface::class] = $serverRequestFactory;
-
-        $responseFactory = new ResponseFactory();
-        $this->services[ResponseFactoryInterface::class] = $responseFactory;
-
-        $streamFactory = new StreamFactory();
-        $this->services[StreamFactoryInterface::class] = $streamFactory;
-
-        $uploadedFileFactory = new UploadedFileFactory();
-        $this->services[UploadedFileFactoryInterface::class] = $uploadedFileFactory;
-
-        $psrHttpBridge = new PsrHttpBridge(
-            $httpFoundationFactory,
-            $serverRequestFactory,
-            $responseFactory,
-            $streamFactory,
-            $uploadedFileFactory,
-        );
-        $this->services[PsrHttpBridge::class] = $psrHttpBridge;
 
         $errorResponder = new ErrorResponder($psrHttpBridge);
         $this->services[ErrorResponder::class] = $errorResponder;
