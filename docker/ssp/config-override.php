@@ -14,4 +14,5 @@ $config = [
         'language.i18n.backend' => 'gettext/gettext',
         'logging.level' => 7,
         'usenewui' => false,
+
     ] + $config;

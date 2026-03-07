@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers\OAuth2;
 
+use SimpleSAML\Module\oidc\Bridges\OAuth2Bridge;
 use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
 use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Services\Api\Authorization;
@@ -34,6 +36,8 @@ class TokenIntrospectionController
         protected readonly Authorization $apiAuthorization,
         protected readonly RequestParamsResolver $requestParamsResolver,
         protected readonly BearerTokenValidator $bearerTokenValidator,
+        protected readonly OAuth2Bridge $oAuth2Bridge,
+        protected readonly RefreshTokenRepository $refreshTokenRepository,
     ) {
         if (!$this->moduleConfig->getApiEnabled()) {
             $this->loggerService->warning('API capabilities not enabled.');
@@ -48,7 +52,6 @@ class TokenIntrospectionController
 
     public function __invoke(Request $request): Response
     {
-        // TODO mivanci Add support for Refresh Tokens.
         // TODO mivanci Add endpoint to OAuth2 discovery document.
 
         try {
@@ -80,46 +83,140 @@ class TokenIntrospectionController
             );
         }
 
-        // For now, we will only support Access Tokens.
-//        $tokenTypeHintParam = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
-//            ParamsEnum::TokenTypeHint->value,
-//            $request,
-//            $allowedMethods,
-//        );
+        $tokenTypeHintParam = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
+            ParamsEnum::TokenTypeHint->value,
+            $request,
+            $allowedMethods,
+        );
 
+        $payload = null;
+        if (is_null($tokenTypeHintParam)) {
+            $payload = $this->resolveAccessTokenPayload($tokenParam) ??
+            $this->resolveRefreshTokenPayload($tokenParam);
+        } elseif ($tokenTypeHintParam === 'access_token') {
+            $payload = $this->resolveAccessTokenPayload($tokenParam);
+        } elseif ($tokenTypeHintParam === 'refresh_token') {
+            $payload = $this->resolveRefreshTokenPayload($tokenParam);
+        }
+
+        $payload = $payload ?? ['active' => false];
+
+        return $this->routes->newJsonResponse($payload);
+    }
+
+    protected function resolveAccessTokenPayload(string $tokenParam): ?array
+    {
         try {
             $accessToken = $this->bearerTokenValidator->ensureValidAccessToken($tokenParam);
         } catch (\Throwable $e) {
-            $this->loggerService->error('Token validation failed: ' . $e->getMessage());
-            return $this->routes->newJsonResponse(['active' => false]);
+            $this->loggerService->error('Access token validation failed: ' . $e->getMessage());
+            return null;
         }
+
+        // See \SimpleSAML\Module\oidc\Entities\AccessTokenEntity::convertToJWT
+        // for claims set on the access token.
+
         $scopeClaim = null;
         /** @psalm-suppress MixedAssignment */
         $accessTokenScopes = $accessToken->getPayloadClaim('scopes');
         if (is_array($accessTokenScopes)) {
-            $accessTokenScopes = array_filter(
-                $accessTokenScopes,
-                static fn($scope) => is_string($scope) && !empty($scope),
-            );
-            $scopeClaim = implode(' ', $accessTokenScopes);
+            $scopeClaim = $this->prepareScopeString($accessTokenScopes);
         }
 
-        $audience = is_array($audience = $accessToken->getAudience()) ? $audience[0] ?? null : null;
+        $clientId = is_array($audience = $accessToken->getAudience()) ? $audience[0] ?? null : null;
 
-        $payload = array_filter([
+        return array_filter([
             'active' => true,
             'scope' => $scopeClaim,
+            'client_id' => $clientId,
             'token_type' => 'Bearer',
             ClaimsEnum::Exp->value => $accessToken->getExpirationTime(),
             ClaimsEnum::Iat->value => $accessToken->getIssuedAt(),
             ClaimsEnum::Nbf->value => $accessToken->getNotBefore(),
             ClaimsEnum::Sub->value => $accessToken->getSubject(),
-            ClaimsEnum::Aud->value => $audience,
+            ClaimsEnum::Aud->value => $accessToken->getAudience(),
             ClaimsEnum::Iss->value => $accessToken->getIssuer(),
             ClaimsEnum::Jti->value => $accessToken->getJwtId(),
         ]);
+    }
 
-        return $this->routes->newJsonResponse($payload);
+    /**
+     * @psalm-suppress MixedAssignment
+     */
+    public function resolveRefreshTokenPayload(string $tokenParam): ?array
+    {
+        try {
+            $decryptedToken = $this->oAuth2Bridge->decrypt($tokenParam);
+            $tokenData = json_decode($decryptedToken, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\Exception $e) {
+            $this->loggerService->error('Refresh token decrypting failed: ' . $e->getMessage());
+            return null;
+        }
+
+        if (!is_array($tokenData)) {
+            $this->loggerService->error('Refresh token has unexpected type.');
+            return null;
+        }
+
+        // See \League\OAuth2\Server\ResponseTypes\BearerTokenResponse::generateHttpResponse for claims set on
+        // the refresh token.
+
+        $expireTime = is_int($expireTime = $tokenData['expire_time'] ?? null) ? $expireTime : null;
+
+        if (is_null($expireTime)) {
+            $this->loggerService->error('Refresh token has no expiration time.');
+            return null;
+        }
+
+        if ($expireTime < time()) {
+            $this->loggerService->error('Refresh token has expired.');
+            return null;
+        }
+
+        $refreshTokenId = is_string($refreshTokenId = $tokenData['refresh_token_id'] ?? null) ? $refreshTokenId : null;
+
+        if (is_null($refreshTokenId)) {
+            $this->loggerService->error('Refresh token has no ID.');
+            return null;
+        }
+
+        try {
+            if ($this->refreshTokenRepository->isRefreshTokenRevoked($refreshTokenId)) {
+                $this->loggerService->error('Refresh token has been revoked.');
+                return null;
+            }
+        } catch (OidcServerException $e) {
+            $this->loggerService->error('Refresh token revocation check failed: ' . $e->getMessage());
+            return null;
+        }
+
+        $scopeClaim = null;
+        $refreshTokenScopes = $tokenData['scopes'] ?? null;
+        if (is_array($refreshTokenScopes)) {
+            $scopeClaim = $this->prepareScopeString($refreshTokenScopes);
+        }
+
+        $clientId = is_string($clientId = $tokenData['client_id'] ?? null) ? $clientId : null;
+
+        return array_filter([
+            'active' => true,
+            'scope' => $scopeClaim,
+            'client_id' => $clientId,
+            ClaimsEnum::Exp->value => $expireTime,
+            ClaimsEnum::Sub->value => is_string($tokenData['user_id'] ?? null) ? $tokenData['user_id'] : null,
+            ClaimsEnum::Aud->value => $clientId,
+            ClaimsEnum::Jti->value => $refreshTokenId,
+        ]);
+    }
+
+    protected function prepareScopeString(array $scopes): string
+    {
+        $scopes = array_filter(
+            $scopes,
+            static fn($scope) => is_string($scope) && !empty($scope),
+        );
+
+        return implode(' ', $scopes);
     }
 
     /**
@@ -138,19 +235,24 @@ class TokenIntrospectionController
             $resolvedClientAuthenticationMethod->getClientAuthenticationMethod()->isNotNone()
         ) {
             $this->loggerService->debug(
-                'Client authenticated using supported OAuth2 client authentication method: ' .
-                $resolvedClientAuthenticationMethod->getClientAuthenticationMethod()->value,
+                sprintf(
+                    'Client %s authenticated using supported OAuth2 client authentication method %s.',
+                    $resolvedClientAuthenticationMethod->getClient()->getIdentifier(),
+                    $resolvedClientAuthenticationMethod->getClientAuthenticationMethod()->value,
+                ),
             );
+
             return;
         }
 
         $this->loggerService->debug('No regular OAuth2 client authentication method found.');
         $this->loggerService->debug('Trying API client authentication method.');
 
-
         $this->apiAuthorization->requireTokenForAnyOfScope(
             $request,
             [ApiScopesEnum::OAuth2TokenIntrospection, ApiScopesEnum::OAuth2All, ApiScopesEnum::All],
         );
+
+        $this->loggerService->debug('API client authenticated.');
     }
 }
