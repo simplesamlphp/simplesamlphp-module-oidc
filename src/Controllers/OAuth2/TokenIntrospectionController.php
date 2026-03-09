@@ -52,8 +52,6 @@ class TokenIntrospectionController
 
     public function __invoke(Request $request): Response
     {
-        // TODO mivanci Add endpoint to OAuth2 discovery document.
-
         try {
             $this->ensureAuthenticatedClient($request);
         } catch (AuthorizationException $e) {

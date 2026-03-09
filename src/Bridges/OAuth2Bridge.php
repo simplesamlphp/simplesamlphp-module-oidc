@@ -36,7 +36,7 @@ class OAuth2Bridge
             Crypto::encrypt($unencryptedData, $encryptionKey) :
             Crypto::encryptWithPassword($unencryptedData, $encryptionKey);
         } catch (\Exception $e) {
-            throw new OidcException('Error enrypting data: ' . $e->getMessage(), (int)$e->getCode(), $e);
+            throw new OidcException('Error encrypting data: ' . $e->getMessage(), (int)$e->getCode(), $e);
         }
     }
 
