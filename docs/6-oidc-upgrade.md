@@ -24,6 +24,8 @@ keys for protocol (Connect), Federation, and VCI purposes. This was introduced
 to support signature algorithm negotiation with the clients. 
 - Clients can now be configured with new properties:
   - ID Token Signing Algorithm (`id_token_signed_response_alg`)
+- Optional OAuth2 Token Introspection endpoint, as per RFC7662. Check the API
+documentation for more details.
 - Initial support for OpenID for Verifiable Credential Issuance
 (OpenID4VCI). Note that the implementation is experimental. You should not use
 it in production.
@@ -43,6 +45,8 @@ key roll-ower scenarios, etc.
 - `ModuleConfig::OPTION_TIMESTAMP_VALIDATION_LEEWAY` - optional, used for
 setting allowed time tolerance for timestamp validation in artifacts like JWSs.
 multiple Federation-related signing algorithms and key pairs.
+- `ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED` -
+optional, enables the OAuth2 token introspection endpoint as per RFC7662.
 - Several new options regarding experimental support for OpenID4VCI.
 
 Major impact changes:
