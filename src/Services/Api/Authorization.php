@@ -60,28 +60,26 @@ class Authorization
         }
 
         if (empty($token = $this->findToken($request))) {
-            throw new AuthorizationException(Translate::noop('Token not provided.'));
+            throw new AuthorizationException(Translate::noop('Authorization token not provided.'));
         }
 
         if (empty($tokenScopes = $this->moduleConfig->getApiTokenScopes($token))) {
-            throw new AuthorizationException(Translate::noop('Token does not have defined scopes.'));
+            throw new AuthorizationException(Translate::noop('Authorization token does not have defined scopes.'));
         }
 
         $hasAny = !empty(array_filter($tokenScopes, fn($tokenScope) => in_array($tokenScope, $requiredScopes, true)));
 
         if (!$hasAny) {
-            throw new AuthorizationException(Translate::noop('Token is not authorized.'));
+            throw new AuthorizationException(Translate::noop('Authorization token is not authorized for this action.'));
         }
     }
 
     protected function findToken(Request $request): ?string
     {
-        /** @psalm-suppress InternalMethod */
-        if ($token = trim((string) $request->get(self::KEY_TOKEN))) {
-            return $token;
-        }
-
-        if ($request->headers->has(self::KEY_AUTHORIZATION)) {
+        if (
+            is_string($authorizationHeader = $request->headers->get(self::KEY_AUTHORIZATION))
+            && str_starts_with($authorizationHeader, 'Bearer ')
+        ) {
             return trim(
                 (string) preg_replace(
                     '/^\s*Bearer\s/',
@@ -89,6 +87,12 @@ class Authorization
                     (string)$request->headers->get(self::KEY_AUTHORIZATION),
                 ),
             );
+        }
+
+        // Fallback to token parameter.
+        /** @psalm-suppress InternalMethod */
+        if ($token = trim((string) $request->get(self::KEY_TOKEN))) {
+            return $token;
         }
 
         return null;

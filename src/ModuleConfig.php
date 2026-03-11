@@ -100,6 +100,9 @@ class ModuleConfig
     final public const OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP =
     'vci_user_attribute_to_credential_claim_path_map';
     final public const OPTION_API_ENABLED = 'api_enabled';
+    final public const OPTION_API_VCI_CREDENTIAL_OFFER_ENDPOINT_ENABLED = 'api_vci_credential_offer_endpoint_enabled';
+    final public const OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED =
+    'api_oauth2_token_introspection_endpoint_enabled';
     final public const OPTION_API_TOKENS = 'api_tokens';
     final public const OPTION_DEFAULT_USERS_EMAIL_ATTRIBUTE_NAME = 'users_email_attribute_name';
     final public const OPTION_AUTH_SOURCES_TO_USERS_EMAIL_ATTRIBUTE_NAME_MAP =
@@ -1036,6 +1039,16 @@ class ModuleConfig
     public function getApiEnabled(): bool
     {
         return $this->config()->getOptionalBoolean(self::OPTION_API_ENABLED, false);
+    }
+
+    public function getApiVciCredentialOfferEndpointEnabled(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_API_VCI_CREDENTIAL_OFFER_ENDPOINT_ENABLED, false);
+    }
+
+    public function getApiOAuth2TokenIntrospectionEndpointEnabled(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED, false);
     }
 
     /**

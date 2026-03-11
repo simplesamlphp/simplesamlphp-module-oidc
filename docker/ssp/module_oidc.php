@@ -128,4 +128,16 @@ $config = [
     ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS => [
         // Use defaults
     ],
+
+    ModuleConfig::OPTION_API_ENABLED => true,
+
+    ModuleConfig::OPTION_API_VCI_CREDENTIAL_OFFER_ENDPOINT_ENABLED => true,
+
+    ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED => true,
+
+    ModuleConfig::OPTION_API_TOKENS => [
+        'strong-random-token-string' => [
+            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::All, // Gives access to the whole API.
+        ],
+    ],
 ];

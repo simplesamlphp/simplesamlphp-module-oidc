@@ -5,47 +5,57 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Utils;
 
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Federation;
+use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Resolve authorization params from HTTP request (based or not based on used method), and from Request Object param if
- * present.
+ * Resolve authorization params from an HTTP request (based or not based on
+ * a used method), and from Request Object param if present.
  */
 class RequestParamsResolver
 {
     public function __construct(
-        protected Helpers $helpers,
-        protected Core $core,
-        protected Federation $federation,
+        protected readonly Helpers $helpers,
+        protected readonly Core $core,
+        protected readonly Federation $federation,
+        protected readonly PsrHttpBridge $psrHttpBridge,
     ) {
     }
 
     /**
      * Get all HTTP request params (not from Request Object).
      *
-     * @param \Psr\Http\Message\ServerRequestInterface $request
-     * @return array
+     * @return mixed[]
      */
-    public function getAllFromRequest(ServerRequestInterface $request): array
+    public function getAllFromRequest(Request|ServerRequestInterface $request): array
     {
+        if ($request instanceof Request) {
+            $request = $this->psrHttpBridge->getPsrHttpFactory()->createRequest($request);
+        }
+
         return $this->helpers->http()->getAllRequestParams($request);
     }
 
     /**
-     * Get all HTTP request params based on allowed methods (not from Request Object).
+     * Get all HTTP request params based on allowed methods (not from
+     * Request Object).
      *
-     * @param \Psr\Http\Message\ServerRequestInterface $request
      * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods
-     * @return array
+     * @return mixed[]
      */
     public function getAllFromRequestBasedOnAllowedMethods(
-        ServerRequestInterface $request,
+        Request|ServerRequestInterface $request,
         array $allowedMethods,
     ): array {
+        if ($request instanceof Request) {
+            $request = $this->psrHttpBridge->getPsrHttpFactory()->createRequest($request);
+        }
+
         return $this->helpers->http()->getAllRequestParamsBasedOnAllowedMethods(
             $request,
             $allowedMethods,
@@ -57,7 +67,7 @@ class RequestParamsResolver
      *
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      */
-    public function getAll(ServerRequestInterface $request): array
+    public function getAll(Request|ServerRequestInterface $request): array
     {
         $requestParams = $this->getAllFromRequest($request);
 
@@ -69,13 +79,14 @@ class RequestParamsResolver
 
 
     /**
-     * Get all request params based on allowed methods, including those from Request Object if present.
+     * Get all request params based on allowed methods, including those from
+     * Request Object if present.
      *
      * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      */
     public function getAllBasedOnAllowedMethods(
-        ServerRequestInterface $request,
+        Request|ServerRequestInterface $request,
         array $allowedMethods,
     ): array {
         $requestParams = $this->getAllFromRequestBasedOnAllowedMethods($request, $allowedMethods);
@@ -87,24 +98,25 @@ class RequestParamsResolver
     }
 
     /**
-     * Get param value from HTTP request or Request Object if present.
+     * Get param value from an HTTP request or Request Object if present.
      *
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      */
-    public function get(string $paramKey, ServerRequestInterface $request): mixed
+    public function get(string $paramKey, Request|ServerRequestInterface $request): mixed
     {
         return $this->getAll($request)[$paramKey] ?? null;
     }
 
     /**
-     * Get param value from HTTP request or Request Object if present, based on allowed methods.
+     * Get param value from an HTTP request or Request Object if present,
+     * based on allowed methods.
      *
      * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      */
     public function getBasedOnAllowedMethods(
         string $paramKey,
-        ServerRequestInterface $request,
+        Request|ServerRequestInterface $request,
         array $allowedMethods = [HttpMethodsEnum::GET],
     ): mixed {
         $allParams = $this->getAllBasedOnAllowedMethods($request, $allowedMethods);
@@ -112,18 +124,18 @@ class RequestParamsResolver
     }
 
     /**
-     * Get param value as null or string from HTTP request or Request Object if present, based on allowed methods.
-     * This is convenience method, since in most cases params will be strings (or absent).
+     * Get param value as null or string from an HTTP request or Request Object
+     * if present, based on allowed methods. This is a convenience method,
+     * since in most cases params will be strings (or absent).
      *
      * @param string $paramKey
-     * @param \Psr\Http\Message\ServerRequestInterface $request
      * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods
      * @return string|null
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      */
     public function getAsStringBasedOnAllowedMethods(
         string $paramKey,
-        ServerRequestInterface $request,
+        Request|ServerRequestInterface $request,
         array $allowedMethods = [HttpMethodsEnum::GET],
     ): ?string {
         /** @psalm-suppress MixedAssignment */
@@ -133,13 +145,14 @@ class RequestParamsResolver
     }
 
     /**
-     * Get param value from HTTP request (not from Request Object), based on allowed methods.
+     * Get param value from an HTTP request (not from Request Object), based
+     * on allowed methods.
      *
      * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods
      */
     public function getFromRequestBasedOnAllowedMethods(
         string $paramKey,
-        ServerRequestInterface $request,
+        Request|ServerRequestInterface $request,
         array $allowedMethods = [HttpMethodsEnum::GET],
     ): ?string {
         $allParams = $this->getAllFromRequestBasedOnAllowedMethods($request, $allowedMethods);
@@ -148,7 +161,8 @@ class RequestParamsResolver
     }
 
     /**
-     * Check if Request Object is present as request param and parse it to use its claims as params.
+     * Check if Request Object is present as a request param and parse it to
+     * use its claims as params.
      *
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      */
@@ -176,8 +190,8 @@ class RequestParamsResolver
     }
 
     /**
-     * Parse the Request Object token according to OpenID Federation specification.
-     * Note that this won't do signature validation of it.
+     * Parse the Request Object token according to OpenID Federation
+     * specification. Note that this won't do signature validation of it.
      *
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      * @throws \SimpleSAML\OpenID\Exceptions\RequestObjectException
@@ -199,13 +213,11 @@ class RequestParamsResolver
     }
 
     /**
-     * @param ServerRequestInterface $request
      * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods
-     * @return bool
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      */
     public function isVciAuthorizationCodeRequest(
-        ServerRequestInterface $request,
+        Request|ServerRequestInterface $request,
         array $allowedMethods,
     ): bool {
         return
