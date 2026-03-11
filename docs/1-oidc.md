@@ -77,3 +77,4 @@ Upgrading? See the [upgrade guide](6-oidc-upgrade.md).
 - Conformance tests: [OpenID Conformance](5-oidc-conformance.md)
 - Upgrading between versions: [Upgrade guide](6-oidc-upgrade.md)
 - Common questions: [FAQ](7-oidc-faq.md)
+- API documentation: [API](8-api.md)

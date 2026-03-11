@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
@@ -26,6 +27,7 @@ class RequestParamsResolverTest extends TestCase
     protected MockObject $requestObjectMock;
     protected MockObject $requestObjectFactoryMock;
     protected MockObject $federationMock;
+    protected MockObject $psrHttpBridgeMock;
 
     protected array $queryParams = [
         'a' => 'b',
@@ -54,18 +56,21 @@ class RequestParamsResolverTest extends TestCase
         $this->coreMock = $this->createMock(Core::class);
         $this->coreMock->method('requestObjectFactory')->willReturn($this->requestObjectFactoryMock);
         $this->federationMock = $this->createMock(Federation::class);
+        $this->psrHttpBridgeMock = $this->createMock(PsrHttpBridge::class);
     }
 
     protected function mock(
         ?MockObject $helpersMock = null,
         ?MockObject $coreMock = null,
         ?MockObject $federationMock = null,
+        ?MockObject $psrHttpBridgeMock = null,
     ): RequestParamsResolver {
         $helpersMock ??= $this->helpersMock;
         $coreMock ??= $this->coreMock;
         $federationMock ??= $this->federationMock;
+        $psrHttpBridgeMock ??= $this->psrHttpBridgeMock;
 
-        return new RequestParamsResolver($helpersMock, $coreMock, $federationMock);
+        return new RequestParamsResolver($helpersMock, $coreMock, $federationMock, $psrHttpBridgeMock);
     }
 
     public function testCanCreateInstance(): void

@@ -30,8 +30,10 @@ ModuleConfig::OPTION_API_TOKENS => [
 Scopes determine which endpoints are accessible by the API access token. The following scopes are available:
 
 * `\SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::All`: Access to all endpoints.
-* `\SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::VciAll`: Access to all VCI-related endpoints
+* `\SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::VciAll`: Access to all VCI-related endpoints.
 * `\SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::VciCredentialOffer`: Access to credential offer endpoint.
+* `\SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::OAuth2All`: Access to all OAuth2-related endpoints.
+* `\SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::OAuth2TokenIntrospection`: Access to the OAuth2 token introspection endpoint.
 
 ## API Endpoints
 
@@ -141,5 +143,118 @@ Response:
 ```json
 {
     "credential_offer_uri": "openid-credential-offer://?credential_offer={\"credential_issuer\":\"https:\\/\\/idp.mivanci.incubator.hexaa.eu\",\"credential_configuration_ids\":[\"ResearchAndScholarshipCredentialDcSdJwt\"],\"grants\":{\"urn:ietf:params:oauth:grant-type:pre-authorized_code\":{\"pre-authorized_code\":\"_ffcdf6d86cd564c300346351dce0b4ccb2fde304e2\",\"tx_code\":{\"input_mode\":\"numeric\",\"length\":4,\"description\":\"Please provide the one-time code that was sent to e-mail testuser@example.com\"}}}}"
+}
+```
+
+### Token Introspection
+
+Enables token introspection for OAuth2 access tokens and refresh tokens as per
+[RFC 7662](https://datatracker.ietf.org/doc/html/rfc7662).
+
+#### Path
+
+`/api/oauth2/token-introspection`
+
+#### Method
+
+`POST`
+
+#### Authorization
+
+Access is granted if:
+* The client is authenticated using one of the supported OAuth2 client
+authentication methods (Basic, Post, Private Key JWT, Bearer).
+* Or, if the request is authorized using an API Bearer Token with
+the appropriate scope.
+
+#### Request
+
+The request is sent with `application/x-www-form-urlencoded` encoding with the
+following parameters:
+
+* __token__ (string, mandatory): The string value of the token.
+* __token_type_hint__ (string, optional): A hint about the type of the
+token submitted for introspection. Allowed values:
+  * `access_token`
+  * `refresh_token`
+
+#### Response
+
+The response is a JSON object with the following fields:
+
+* __active__ (boolean, mandatory): Indicator of whether or not the presented
+token is currently active.
+* __scope__ (string, optional): A JSON string containing a space-separated
+list of scopes associated with this token.
+* __client_id__ (string, optional): Client identifier for the OAuth 2.0 client
+that requested this token.
+* __token_type__ (string, optional): Type of the token as defined in OAuth 2.0.
+* __exp__ (integer, optional): Expiration time.
+* __iat__ (integer, optional): Issued at time.
+* __nbf__ (integer, optional): Not before time.
+* __sub__ (string, optional): Subject identifier for the user who
+authorized the token.
+* __aud__ (string/array, optional): Audience for the token.
+* __iss__ (string, optional): Issuer of the token.
+* __jti__ (string, optional): Identifier for the token.
+
+If the token is not active, only the `active` field with a value of
+`false` is returned.
+
+#### Sample 1
+
+Introspect an active access token using an API Bearer Token.
+
+Request:
+
+```shell
+curl --location 'https://idp.mivanci.incubator.hexaa.eu/ssp/module.php/oidc/api/oauth2/token-introspection' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--header 'Authorization: Bearer ***' \
+--data-urlencode 'token=access-token-string'
+```
+
+Response:
+
+```json
+{
+    "active": true,
+    "scope": "openid profile email",
+    "client_id": "test-client",
+    "token_type": "Bearer",
+    "exp": 1712662800,
+    "iat": 1712659200,
+    "sub": "user-id",
+    "aud": "test-client",
+    "iss": "https://idp.mivanci.incubator.hexaa.eu",
+    "jti": "token-id"
+}
+```
+
+#### Sample 2
+
+Introspect a refresh token using an API Bearer Token.
+
+Request:
+
+```shell
+curl --location 'https://idp.mivanci.incubator.hexaa.eu/ssp/module.php/oidc/api/oauth2/token-introspection' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--header 'Authorization: Bearer ***' \
+--data-urlencode 'token=refresh-token-string' \
+--data-urlencode 'token_type_hint=refresh_token'
+```
+
+Response:
+
+```json
+{
+    "active": true,
+    "scope": "openid profile",
+    "client_id": "test-client",
+    "exp": 1715251200,
+    "sub": "user-id",
+    "aud": "test-client",
+    "jti": "refresh-token-id"
 }
 ```

@@ -1037,9 +1037,26 @@ $config = [
 
     /**
      * (optional) Enable or disable API capabilities. Default is disabled
-     * (false).
+     * (false). If API capabilities are enabled, you can enable or disable
+     * specific API endpoints as needed and set up API tokens to allow
+     * access to those endpoints. If API capabilities are disabled, all API
+     * endpoints will be inaccessible regardless of the settings for
+     * specific endpoints and API tokens.
+     *
      */
     ModuleConfig::OPTION_API_ENABLED => false,
+
+    /**
+     * (optional) API Enable VCI Credential Offer API endpoint. Default is
+     * disabled (false). Only relevant if API capabilities are enabled.
+     */
+    ModuleConfig::OPTION_API_VCI_CREDENTIAL_OFFER_ENDPOINT_ENABLED => false,
+
+    /**
+     * (optional) API Enable OAuth2 Token Introspection API endpoint. Default
+     * is disabled (false). Only relevant if API capabilities are enabled.
+     */
+    ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED => false,
 
     /**
      * List of API tokens which can be used to access API endpoints based on
@@ -1050,6 +1067,11 @@ $config = [
 //            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::All, // Gives access to the whole API.
 //            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::VciAll, // Gives access to all VCI-related endpoints.
 //            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::VciCredentialOffer, // Gives access to the credential offer endpoint.
+//        ],
+//        'strong-random-token-string-2' => [
+//            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::All, // Gives access to the whole API.
+//            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::OAuth2All, // Gives access to all OAuth2-related endpoints.
+//            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::OAuth2TokenIntrospection, // Gives access to the token introspection endpoint.
 //        ],
     ],
 ];

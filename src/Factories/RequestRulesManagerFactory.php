@@ -38,6 +38,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\Module\oidc\Utils\FederationParticipationValidator;
@@ -68,6 +69,7 @@ class RequestRulesManagerFactory
         private readonly SspBridge $sspBridge,
         private readonly Jwks $jwks,
         private readonly Core $core,
+        private readonly AuthenticatedOAuth2ClientResolver $authenticatedOAuth2ClientResolver,
         private readonly ?FederationCache $federationCache = null,
         private readonly ?ProtocolCache $protocolCache = null,
     ) {
@@ -145,9 +147,7 @@ class RequestRulesManagerFactory
             new ClientAuthenticationRule(
                 $this->requestParamsResolver,
                 $this->helpers,
-                $this->moduleConfig,
-                $this->jwksResolver,
-                $this->protocolCache,
+                $this->authenticatedOAuth2ClientResolver,
             ),
             new CodeVerifierRule($this->requestParamsResolver, $this->helpers),
             new AuthorizationDetailsRule($this->requestParamsResolver, $this->helpers, $this->moduleConfig),

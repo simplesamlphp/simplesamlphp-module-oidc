@@ -75,29 +75,13 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
         }
 
         try {
-            // Attempt to parse the JWT
-            $token = $this->jws->parsedJwsFactory()->fromToken($jwt);
-        } catch (JwsException $exception) {
+            $token = $this->ensureValidAccessToken($jwt);
+        } catch (\Throwable $exception) {
             throw OidcServerException::accessDenied($exception->getMessage(), null, $exception);
-        }
-
-        try {
-            // Attempt to validate the JWT
-            $jwks = $this->jwks->jwksDecoratorFactory()->fromJwkDecorators(
-                ...$this->moduleConfig->getProtocolSignatureKeyPairBag()->getAllPublicKeys(),
-            )->jsonSerialize();
-            $token->verifyWithKeySet($jwks);
-        } catch (JwsException) {
-            throw OidcServerException::accessDenied('Access token could not be verified');
         }
 
         if (is_null($jti = $token->getJwtId()) || empty($jti)) {
             throw OidcServerException::accessDenied('Access token malformed (jti missing or unexpected type)');
-        }
-
-        // Check if token has been revoked
-        if ($this->accessTokenRepository->isAccessTokenRevoked($jti)) {
-            throw OidcServerException::accessDenied('Access token has been revoked');
         }
 
         // Return the request with additional attributes
@@ -106,6 +90,44 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
             ->withAttribute('oauth_client_id', $this->convertSingleRecordAudToString($token->getAudience()))
             ->withAttribute('oauth_user_id', $token->getSubject())
             ->withAttribute('oauth_scopes', $token->getPayloadClaim('scopes'));
+    }
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     */
+    public function ensureValidAccessToken(string $accessTokenJwt): Jws\ParsedJws
+    {
+        // Attempt to parse the JWT
+        $token = $this->jws->parsedJwsFactory()->fromToken($accessTokenJwt);
+
+        // Attempt to validate the JWT
+        $jwks = $this->jwks->jwksDecoratorFactory()->fromJwkDecorators(
+            ...$this->moduleConfig->getProtocolSignatureKeyPairBag()->getAllPublicKeys(),
+        )->jsonSerialize();
+        $token->verifyWithKeySet($jwks);
+
+        $token->getExpirationTime();
+
+        if (is_null($iss = $token->getIssuer()) || empty($iss)) {
+            throw new JwsException('Access token malformed (iss missing or unexpected type)');
+        }
+
+        if ($iss !== $this->moduleConfig->getIssuer()) {
+            throw new JwsException('Access token malformed (iss does not match)');
+        }
+
+        if (is_null($jti = $token->getJwtId()) || empty($jti)) {
+            throw new JwsException('Access token malformed (jti missing or unexpected type)');
+        }
+
+        // Check if the token has been revoked
+        if ($this->accessTokenRepository->isAccessTokenRevoked($jti)) {
+            throw new JwsException('Access token has been revoked');
+        }
+
+        return $token;
     }
 
     protected function getTokenFromAuthorizationBearer(string $authorizationHeader): string
@@ -121,7 +143,7 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
      * @return array|string
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
-    protected function convertSingleRecordAudToString(mixed $aud): array|string
+    public function convertSingleRecordAudToString(mixed $aud): array|string
     {
         if (is_string($aud)) {
             return $aud;

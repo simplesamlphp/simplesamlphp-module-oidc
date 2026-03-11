@@ -51,6 +51,7 @@ class BearerTokenValidatorTest extends TestCase
         $this->accessTokenRepositoryMock = $this->createMock(AccessTokenRepository::class);
         $this->serverRequest = new ServerRequest();
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->moduleConfigMock->method('getIssuer')->willReturn('issuer123');
 
         $this->jwsMock = $this->createMock(Jws::class);
         $this->jwksMock = $this->createMock(Jwks::class);
@@ -62,6 +63,7 @@ class BearerTokenValidatorTest extends TestCase
 
         $this->accessTokenState = [
             'id' => 'accessToken123',
+            'iss' => 'issuer123',
             'scopes' => '{"openid":"openid","profile":"profile"}',
             'expires_at' => date('Y-m-d H:i:s', time() + 60),
             'user_id' => 'user123',
@@ -80,6 +82,7 @@ class BearerTokenValidatorTest extends TestCase
         $this->parsedJwsMock = $this->createMock(ParsedJws::class);
         $this->parsedJwsMock->method('getJwtId')->willReturn('accessToken123');
         $this->parsedJwsMock->method('getAudience')->willReturn([$this->clientId]);
+        $this->parsedJwsMock->method('getIssuer')->willReturn('issuer123');
     }
 
     protected function sut(
