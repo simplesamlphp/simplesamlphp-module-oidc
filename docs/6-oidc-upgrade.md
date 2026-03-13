@@ -110,6 +110,8 @@ can now only be a leaf entity in the federation context, and not a federation
 operator or intermediary entity. Previously, this property was used to
 indicate whether the client is a federated client or not, but now it is not
 needed since the OP implementation can only be a leaf entity
+- Admin menu item "OIDC" has been renamed to "OIDC OP" to better reflect
+the main purpose of the module.
 
 ## Version 5 to 6
 
