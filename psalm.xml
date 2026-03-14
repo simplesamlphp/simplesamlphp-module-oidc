@@ -42,6 +42,9 @@
 
     <!-- Ignore RiskyTruthyFalsyComparison -->
     <RiskyTruthyFalsyComparison errorLevel="suppress" />
+
+    <!-- Ignore ClassMustBeFinal -->
+    <ClassMustBeFinal errorLevel="suppress" />
   </issueHandlers>
 </psalm>
 
