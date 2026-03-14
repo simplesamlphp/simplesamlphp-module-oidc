@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php-versions: ["8.2", "8.3"]
+        php-versions: ["8.3", "8.4", "8.5"]
 
     steps:
       - name: Setup PHP, with composer and extensions
@@ -55,7 +55,7 @@ jobs:
         run: composer install --no-progress --prefer-dist --optimize-autoloader
 
       - name: Decide whether to run code coverage or not
-        if: ${{ matrix.php-versions != '8.2' }}
+        if: ${{ matrix.php-versions != '8.5' }}
         run: |
           echo "NO_COVERAGE=--no-coverage" >> $GITHUB_ENV
 
@@ -70,13 +70,13 @@ jobs:
           ./vendor/bin/phpunit $NO_COVERAGE --no-configuration -c phpunit.integration.xml
 
       - name: Merge coverage data
-        if: ${{ matrix.php-versions == '8.2' }}
+        if: ${{ matrix.php-versions == '8.5' }}
         run: |
           ./vendor/bin/phpunit-merger log build/logs/partial_junit/ build/logs/junit.xml
           ./vendor/bin/phpunit-merger coverage build/logs/partial_clover/ build/logs/clover.xml
 
       - name: Save coverage data
-        if: ${{ matrix.php-versions == '8.2' }}
+        if: ${{ matrix.php-versions == '8.5' }}
         uses: actions/upload-artifact@v4
         with:
           name: build-data
@@ -89,7 +89,7 @@ jobs:
       - name: Setup PHP, with composer and extensions
         uses: shivammathur/setup-php@v2 #https://github.com/shivammathur/setup-php
         with:
-          php-version: "8.2"
+          php-version: "8.3"
           extensions: mbstring, xml
           tools: composer:v2
           coverage: none
@@ -130,7 +130,7 @@ jobs:
       - name: Setup PHP, with composer and extensions
         uses: shivammathur/setup-php@v2 #https://github.com/shivammathur/setup-php
         with:
-          php-version: "8.2"
+          php-version: "8.3"
           extensions: mbstring, xml
           tools: composer:v2
           coverage: none
@@ -163,7 +163,7 @@ jobs:
       - name: Setup PHP, with composer and extensions
         uses: shivammathur/setup-php@v2 #https://github.com/shivammathur/setup-php
         with:
-          php-version: "8.2"
+          php-version: "8.5"
           tools: composer:v2
           extensions: mbstring, xml
 
@@ -211,7 +211,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ssp-version: ["v2.3.7", "v2.4.4"]
+        ssp-version: ["v2.4.5", "v2.5.0"]
     env:
       SUITE_BASE_URL: https://localhost.emobix.co.uk:8443
       VERSION: release-v5.1.35
