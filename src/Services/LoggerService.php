@@ -14,42 +14,42 @@ class LoggerService implements LoggerInterface
 {
     public function emergency(string|Stringable $message, array $context = []): void
     {
-        Logger::emergency($message . ($context ? " " . var_export($context, true) : ""));
+        Logger::emergency((string)$message . ($context ? " " . var_export($context, true) : ""));
     }
 
     public function alert(string|Stringable $message, array $context = []): void
     {
-        Logger::alert($message . ($context ? " " . var_export($context, true) : ""));
+        Logger::alert((string)$message . ($context ? " " . var_export($context, true) : ""));
     }
 
     public function critical(string|Stringable $message, array $context = []): void
     {
-        Logger::critical($message . ($context ? " " . var_export($context, true) : ""));
+        Logger::critical((string)$message . ($context ? " " . var_export($context, true) : ""));
     }
 
     public function error(string|Stringable $message, array $context = []): void
     {
-        Logger::error($message . ($context ? " " . var_export($context, true) : ""));
+        Logger::error((string)$message . ($context ? " " . var_export($context, true) : ""));
     }
 
     public function warning(string|Stringable $message, array $context = []): void
     {
-        Logger::warning($message . ($context ? " " . var_export($context, true) : ""));
+        Logger::warning((string)$message . ($context ? " " . var_export($context, true) : ""));
     }
 
     public function notice(string|Stringable $message, array $context = []): void
     {
-        Logger::notice($message . ($context ? " " . var_export($context, true) : ""));
+        Logger::notice((string)$message . ($context ? " " . var_export($context, true) : ""));
     }
 
     public function info(string|Stringable $message, array $context = []): void
     {
-        Logger::info($message . ($context ? " " . var_export($context, true) : ""));
+        Logger::info((string)$message . ($context ? " " . var_export($context, true) : ""));
     }
 
     public function debug(string|Stringable $message, array $context = []): void
     {
-        Logger::debug($message . ($context ? " " . var_export($context, true) : ""));
+        Logger::debug((string)$message . ($context ? " " . var_export($context, true) : ""));
     }
 
     public function log(mixed $level, string|Stringable $message, array $context = []): void

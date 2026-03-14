@@ -21,7 +21,7 @@ class FingerprintGenerator
     {
         $fingerprint = hash_file($algo, $path);
 
-        if (false === (bool) $fingerprint) {
+        if (false === $fingerprint) {
             throw new InvalidArgumentException(
                 'Could not create a fingerprint for provided file using provided algorithm.',
             );
@@ -41,14 +41,6 @@ class FingerprintGenerator
      */
     public static function forString(string $content, string $algo = 'md5'): string
     {
-        $fingerprint = hash($algo, $content);
-
-        if (false === (bool) $fingerprint) {
-            throw new InvalidArgumentException(
-                'Could not create a fingerprint for provided content using provided algorithm.',
-            );
-        }
-
-        return $fingerprint;
+        return hash($algo, $content);
     }
 }
