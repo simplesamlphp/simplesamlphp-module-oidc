@@ -53,7 +53,7 @@ class ModuleConfig
     final public const string OPTION_AUTH_ACR_VALUES_SUPPORTED = 'acrValuesSupported';
     final public const string OPTION_AUTH_SOURCES_TO_ACR_VALUES_MAP = 'authSourcesToAcrValuesMap';
     final public const string OPTION_AUTH_FORCED_ACR_VALUE_FOR_COOKIE_AUTHENTICATION =
-      'forcedAcrValueForCookieAuthentication';
+    'forcedAcrValueForCookieAuthentication';
     final public const string OPTION_AUTH_PROCESSING_FILTERS = 'authproc.oidc';
     final public const string OPTION_CRON_TAG = 'cron_tag';
     final public const string OPTION_ADMIN_UI_PERMISSIONS = 'permissions';
@@ -81,28 +81,28 @@ class ModuleConfig
     final public const string OPTION_FEDERATION_CACHE_ADAPTER = 'federation_cache_adapter';
     final public const string OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS = 'federation_cache_adapter_arguments';
     final public const string OPTION_FEDERATION_CACHE_MAX_DURATION_FOR_FETCHED =
-      'federation_cache_max_duration_for_fetched';
+    'federation_cache_max_duration_for_fetched';
     final public const string OPTION_FEDERATION_TRUST_ANCHORS = 'federation_trust_anchors';
     final public const string OPTION_FEDERATION_TRUST_MARK_TOKENS = 'federation_trust_mark_tokens';
     final public const string OPTION_FEDERATION_DYNAMIC_TRUST_MARKS = 'federation_dynamic_trust_mark_tokens';
     final public const string OPTION_FEDERATION_PARTICIPATION_LIMIT_BY_TRUST_MARKS =
-      'federation_participation_limit_by_trust_marks';
+    'federation_participation_limit_by_trust_marks';
     final public const string OPTION_FEDERATION_TRUST_MARK_STATUS_ENDPOINT_USAGE_POLICY =
-      'federation_trust_mark_status_endpoint_usage_policy';
+    'federation_trust_mark_status_endpoint_usage_policy';
     final public const string OPTION_FEDERATION_CACHE_DURATION_FOR_PRODUCED = 'federation_cache_duration_for_produced';
     final public const string OPTION_PROTOCOL_CACHE_ADAPTER = 'protocol_cache_adapter';
     final public const string OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS = 'protocol_cache_adapter_arguments';
     final public const string OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION = 'protocol_user_entity_cache_duration';
     final public const string OPTION_PROTOCOL_CLIENT_ENTITY_CACHE_DURATION = 'protocol_client_entity_cache_duration';
     final public const string OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED =
-      'protocol_discover_show_claims_supported';
+    'protocol_discover_show_claims_supported';
 
     final public const string OPTION_PKI_NEW_PRIVATE_KEY_PASSPHRASE = 'new_private_key_passphrase';
     final public const string OPTION_PKI_NEW_PRIVATE_KEY_FILENAME = 'new_privatekey';
     final public const string OPTION_PKI_NEW_CERTIFICATE_FILENAME = 'new_certificate';
 
     final public const string OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_PASSPHRASE =
-      'federation_new_private_key_passphrase';
+    'federation_new_private_key_passphrase';
     final public const string OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_FILENAME = 'federation_new_private_key_filename';
     final public const string OPTION_PKI_FEDERATION_NEW_CERTIFICATE_FILENAME = 'federation_new_certificate_filename';
 
