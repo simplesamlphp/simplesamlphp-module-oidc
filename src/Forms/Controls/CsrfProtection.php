@@ -24,7 +24,11 @@ use Stringable;
 
 class CsrfProtection extends BaseCsrfProtection
 {
-    final public const PROTECTION = [\SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection::class, 'validateCsrf'];
+    final public const array PROTECTION = [
+        \SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection::class,
+        'validateCsrf',
+    ];
+
 
     /** @noinspection PhpMissingParentConstructorInspection */
     /**

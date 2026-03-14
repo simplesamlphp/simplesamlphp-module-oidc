@@ -27,8 +27,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 class EntityStatementController
 {
-    protected const KEY_OP_ENTITY_CONFIGURATION_STATEMENT = 'op_entity_configuration_statement';
-    protected const KEY_RP_SUBORDINATE_ENTITY_STATEMENT = 'rp_subordinate_entity_statement';
+    protected const string KEY_OP_ENTITY_CONFIGURATION_STATEMENT = 'op_entity_configuration_statement';
+    protected const string KEY_RP_SUBORDINATE_ENTITY_STATEMENT = 'rp_subordinate_entity_statement';
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException

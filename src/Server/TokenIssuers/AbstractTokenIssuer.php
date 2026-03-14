@@ -8,7 +8,8 @@ use SimpleSAML\Module\oidc\Helpers;
 
 abstract class AbstractTokenIssuer
 {
-    public const MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS = 5;
+    public const int MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS = 5;
+
 
     public function __construct(
         protected readonly Helpers $helpers,

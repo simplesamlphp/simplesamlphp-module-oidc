@@ -19,7 +19,8 @@ class AuthContextService
     /**
      * Users with this permission can register,edit,etc. their own clients
      */
-    final public const PERM_CLIENT = 'client';
+    final public const string PERM_CLIENT = 'client';
+
 
     /**
      * AuthContextService constructor.

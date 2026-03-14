@@ -9,16 +9,18 @@ use SimpleSAML\Session;
 
 class SessionService
 {
-    final public const SESSION_DATA_TYPE = 'oidc';
+    final public const string SESSION_DATA_TYPE = 'oidc';
 
-    final public const SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN = 'is-cookie-based-authn';
+    final public const string SESSION_DATA_ID_IS_COOKIE_BASED_AUTHN = 'is-cookie-based-authn';
 
-    final public const SESSION_DATA_ID_RP_ASSOCIATIONS = 'rp-associations';
+    final public const string SESSION_DATA_ID_RP_ASSOCIATIONS = 'rp-associations';
 
-    final public const SESSION_DATA_ID_IS_AUTHN_PERFORMED_IN_PREVIOUS_REQUEST =
-    'is-authn-performed-in-previous-request';
+    final public const string SESSION_DATA_ID_IS_AUTHN_PERFORMED_IN_PREVIOUS_REQUEST =
+        'is-authn-performed-in-previous-request';
 
-    final public const SESSION_DATA_ID_IS_OIDC_INITIATED_LOGOUT = 'is-logout-handler-disabled';
+    final public const string SESSION_DATA_ID_IS_OIDC_INITIATED_LOGOUT =
+        'is-logout-handler-disabled';
+
 
     public function __construct(protected Session $session)
     {

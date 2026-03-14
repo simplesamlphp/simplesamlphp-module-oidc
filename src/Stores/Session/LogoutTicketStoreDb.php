@@ -12,7 +12,8 @@ use SimpleSAML\Module\oidc\Helpers;
 
 class LogoutTicketStoreDb implements LogoutTicketStoreInterface
 {
-    final public const TABLE_NAME = 'oidc_session_logout_ticket';
+    final public const string TABLE_NAME = 'oidc_session_logout_ticket';
+
 
     protected Database $database;
 

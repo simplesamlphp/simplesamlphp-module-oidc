@@ -29,78 +29,83 @@ use SimpleSAML\OpenID\Codebooks\TrustMarkStatusEndpointUsagePolicyEnum;
 
 class ModuleConfig
 {
-    final public const MODULE_NAME = 'oidc';
-    protected const KEY_DESCRIPTION = 'description';
+    final public const string MODULE_NAME = 'oidc';
+    protected const string KEY_DESCRIPTION = 'description';
 
     /**
      * Default file name for module configuration. Can be overridden in constructor, for example, for testing purposes.
      */
-    final public const DEFAULT_FILE_NAME = 'module_oidc.php';
+    final public const string DEFAULT_FILE_NAME = 'module_oidc.php';
 
-    final public const OPTION_PKI_PRIVATE_KEY_PASSPHRASE = 'pass_phrase';
-    final public const OPTION_PKI_PRIVATE_KEY_FILENAME = 'privatekey';
-    final public const DEFAULT_PKI_PRIVATE_KEY_FILENAME = 'oidc_module.key';
-    final public const OPTION_PKI_CERTIFICATE_FILENAME = 'certificate';
-    final public const DEFAULT_PKI_CERTIFICATE_FILENAME = 'oidc_module.crt';
-    final public const OPTION_TOKEN_AUTHORIZATION_CODE_TTL = 'authCodeDuration';
-    final public const OPTION_TOKEN_REFRESH_TOKEN_TTL = 'refreshTokenDuration';
-    final public const OPTION_TOKEN_ACCESS_TOKEN_TTL = 'accessTokenDuration';
-    final public const OPTION_TOKEN_SIGNER = 'signer';
-    final public const OPTION_AUTH_SOURCE = 'auth';
-    final public const OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE = 'useridattr';
-    final public const OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE = 'translate';
-    final public const OPTION_AUTH_CUSTOM_SCOPES = 'scopes';
-    final public const OPTION_AUTH_ACR_VALUES_SUPPORTED = 'acrValuesSupported';
-    final public const OPTION_AUTH_SOURCES_TO_ACR_VALUES_MAP = 'authSourcesToAcrValuesMap';
-    final public const OPTION_AUTH_FORCED_ACR_VALUE_FOR_COOKIE_AUTHENTICATION = 'forcedAcrValueForCookieAuthentication';
-    final public const OPTION_AUTH_PROCESSING_FILTERS = 'authproc.oidc';
-    final public const OPTION_CRON_TAG = 'cron_tag';
-    final public const OPTION_ADMIN_UI_PERMISSIONS = 'permissions';
-    final public const OPTION_ADMIN_UI_PAGINATION_ITEMS_PER_PAGE = 'items_per_page';
-    final public const OPTION_FEDERATION_TOKEN_SIGNER = 'federation_token_signer';
-    final public const OPTION_PKI_FEDERATION_PRIVATE_KEY_PASSPHRASE = 'federation_private_key_passphrase';
-    final public const OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME = 'federation_private_key_filename';
-    final public const DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME = 'oidc_module_federation.key';
-    final public const OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME = 'federation_certificate_filename';
-    final public const DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME = 'oidc_module_federation.crt';
-    final public const OPTION_ISSUER = 'issuer';
-    final public const OPTION_FEDERATION_ENTITY_STATEMENT_DURATION = 'federation_entity_statement_duration';
-    final public const OPTION_FEDERATION_AUTHORITY_HINTS = 'federation_authority_hints';
-    final public const OPTION_ORGANIZATION_NAME = 'organization_name';
-    final public const OPTION_DISPLAY_NAME = 'display_name';
-    final public const OPTION_DESCRIPTION = 'description';
-    final public const OPTION_KEYWORDS = 'keywords';
-    final public const OPTION_CONTACTS = 'contacts';
-    final public const OPTION_LOGO_URI = 'logo_uri';
-    final public const OPTION_POLICY_URI = 'policy_uri';
-    final public const OPTION_INFORMATION_URI = 'information_uri';
-    final public const OPTION_HOMEPAGE_URI = 'homepage_uri';
-    final public const OPTION_ORGANIZATION_URI = 'organization_uri';
-    final public const OPTION_FEDERATION_ENABLED = 'federation_enabled';
-    final public const OPTION_FEDERATION_CACHE_ADAPTER = 'federation_cache_adapter';
-    final public const OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS = 'federation_cache_adapter_arguments';
-    final public const OPTION_FEDERATION_CACHE_MAX_DURATION_FOR_FETCHED = 'federation_cache_max_duration_for_fetched';
-    final public const OPTION_FEDERATION_TRUST_ANCHORS = 'federation_trust_anchors';
-    final public const OPTION_FEDERATION_TRUST_MARK_TOKENS = 'federation_trust_mark_tokens';
-    final public const OPTION_FEDERATION_DYNAMIC_TRUST_MARKS = 'federation_dynamic_trust_mark_tokens';
-    final public const OPTION_FEDERATION_PARTICIPATION_LIMIT_BY_TRUST_MARKS =
-    'federation_participation_limit_by_trust_marks';
-    final public const OPTION_FEDERATION_TRUST_MARK_STATUS_ENDPOINT_USAGE_POLICY =
-    'federation_trust_mark_status_endpoint_usage_policy';
-    final public const OPTION_FEDERATION_CACHE_DURATION_FOR_PRODUCED = 'federation_cache_duration_for_produced';
-    final public const OPTION_PROTOCOL_CACHE_ADAPTER = 'protocol_cache_adapter';
-    final public const OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS = 'protocol_cache_adapter_arguments';
-    final public const OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION = 'protocol_user_entity_cache_duration';
-    final public const OPTION_PROTOCOL_CLIENT_ENTITY_CACHE_DURATION = 'protocol_client_entity_cache_duration';
-    final public const OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED = 'protocol_discover_show_claims_supported';
+    final public const string OPTION_PKI_PRIVATE_KEY_PASSPHRASE = 'pass_phrase';
+    final public const string OPTION_PKI_PRIVATE_KEY_FILENAME = 'privatekey';
+    final public const string DEFAULT_PKI_PRIVATE_KEY_FILENAME = 'oidc_module.key';
+    final public const string OPTION_PKI_CERTIFICATE_FILENAME = 'certificate';
+    final public const string DEFAULT_PKI_CERTIFICATE_FILENAME = 'oidc_module.crt';
+    final public const string OPTION_TOKEN_AUTHORIZATION_CODE_TTL = 'authCodeDuration';
+    final public const string OPTION_TOKEN_REFRESH_TOKEN_TTL = 'refreshTokenDuration';
+    final public const string OPTION_TOKEN_ACCESS_TOKEN_TTL = 'accessTokenDuration';
+    final public const string OPTION_TOKEN_SIGNER = 'signer';
+    final public const string OPTION_AUTH_SOURCE = 'auth';
+    final public const string OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE = 'useridattr';
+    final public const string OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE = 'translate';
+    final public const string OPTION_AUTH_CUSTOM_SCOPES = 'scopes';
+    final public const string OPTION_AUTH_ACR_VALUES_SUPPORTED = 'acrValuesSupported';
+    final public const string OPTION_AUTH_SOURCES_TO_ACR_VALUES_MAP = 'authSourcesToAcrValuesMap';
+    final public const string OPTION_AUTH_FORCED_ACR_VALUE_FOR_COOKIE_AUTHENTICATION =
+      'forcedAcrValueForCookieAuthentication';
+    final public const string OPTION_AUTH_PROCESSING_FILTERS = 'authproc.oidc';
+    final public const string OPTION_CRON_TAG = 'cron_tag';
+    final public const string OPTION_ADMIN_UI_PERMISSIONS = 'permissions';
+    final public const string OPTION_ADMIN_UI_PAGINATION_ITEMS_PER_PAGE = 'items_per_page';
+    final public const string OPTION_FEDERATION_TOKEN_SIGNER = 'federation_token_signer';
+    final public const string OPTION_PKI_FEDERATION_PRIVATE_KEY_PASSPHRASE = 'federation_private_key_passphrase';
+    final public const string OPTION_PKI_FEDERATION_PRIVATE_KEY_FILENAME = 'federation_private_key_filename';
+    final public const string DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME = 'oidc_module_federation.key';
+    final public const string OPTION_PKI_FEDERATION_CERTIFICATE_FILENAME = 'federation_certificate_filename';
+    final public const string DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME = 'oidc_module_federation.crt';
+    final public const string OPTION_ISSUER = 'issuer';
+    final public const string OPTION_FEDERATION_ENTITY_STATEMENT_DURATION = 'federation_entity_statement_duration';
+    final public const string OPTION_FEDERATION_AUTHORITY_HINTS = 'federation_authority_hints';
+    final public const string OPTION_ORGANIZATION_NAME = 'organization_name';
+    final public const string OPTION_DISPLAY_NAME = 'display_name';
+    final public const string OPTION_DESCRIPTION = 'description';
+    final public const string OPTION_KEYWORDS = 'keywords';
+    final public const string OPTION_CONTACTS = 'contacts';
+    final public const string OPTION_LOGO_URI = 'logo_uri';
+    final public const string OPTION_POLICY_URI = 'policy_uri';
+    final public const string OPTION_INFORMATION_URI = 'information_uri';
+    final public const string OPTION_HOMEPAGE_URI = 'homepage_uri';
+    final public const string OPTION_ORGANIZATION_URI = 'organization_uri';
+    final public const string OPTION_FEDERATION_ENABLED = 'federation_enabled';
+    final public const string OPTION_FEDERATION_CACHE_ADAPTER = 'federation_cache_adapter';
+    final public const string OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS = 'federation_cache_adapter_arguments';
+    final public const string OPTION_FEDERATION_CACHE_MAX_DURATION_FOR_FETCHED =
+      'federation_cache_max_duration_for_fetched';
+    final public const string OPTION_FEDERATION_TRUST_ANCHORS = 'federation_trust_anchors';
+    final public const string OPTION_FEDERATION_TRUST_MARK_TOKENS = 'federation_trust_mark_tokens';
+    final public const string OPTION_FEDERATION_DYNAMIC_TRUST_MARKS = 'federation_dynamic_trust_mark_tokens';
+    final public const string OPTION_FEDERATION_PARTICIPATION_LIMIT_BY_TRUST_MARKS =
+      'federation_participation_limit_by_trust_marks';
+    final public const string OPTION_FEDERATION_TRUST_MARK_STATUS_ENDPOINT_USAGE_POLICY =
+      'federation_trust_mark_status_endpoint_usage_policy';
+    final public const string OPTION_FEDERATION_CACHE_DURATION_FOR_PRODUCED = 'federation_cache_duration_for_produced';
+    final public const string OPTION_PROTOCOL_CACHE_ADAPTER = 'protocol_cache_adapter';
+    final public const string OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS = 'protocol_cache_adapter_arguments';
+    final public const string OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION = 'protocol_user_entity_cache_duration';
+    final public const string OPTION_PROTOCOL_CLIENT_ENTITY_CACHE_DURATION = 'protocol_client_entity_cache_duration';
+    final public const string OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED =
+      'protocol_discover_show_claims_supported';
 
-    final public const OPTION_PKI_NEW_PRIVATE_KEY_PASSPHRASE = 'new_private_key_passphrase';
-    final public const OPTION_PKI_NEW_PRIVATE_KEY_FILENAME = 'new_privatekey';
-    final public const OPTION_PKI_NEW_CERTIFICATE_FILENAME = 'new_certificate';
+    final public const string OPTION_PKI_NEW_PRIVATE_KEY_PASSPHRASE = 'new_private_key_passphrase';
+    final public const string OPTION_PKI_NEW_PRIVATE_KEY_FILENAME = 'new_privatekey';
+    final public const string OPTION_PKI_NEW_CERTIFICATE_FILENAME = 'new_certificate';
 
-    final public const OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_PASSPHRASE = 'federation_new_private_key_passphrase';
-    final public const OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_FILENAME = 'federation_new_private_key_filename';
-    final public const OPTION_PKI_FEDERATION_NEW_CERTIFICATE_FILENAME = 'federation_new_certificate_filename';
+    final public const string OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_PASSPHRASE =
+      'federation_new_private_key_passphrase';
+    final public const string OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_FILENAME = 'federation_new_private_key_filename';
+    final public const string OPTION_PKI_FEDERATION_NEW_CERTIFICATE_FILENAME = 'federation_new_certificate_filename';
+
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
