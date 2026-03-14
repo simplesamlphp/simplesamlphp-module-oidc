@@ -45,6 +45,9 @@
 
     <!-- Ignore ClassMustBeFinal -->
     <ClassMustBeFinal errorLevel="suppress" />
+
+    <!-- Ignore MissingOverrideAttribute -->
+    <MissingOverrideAttribute errorLevel="suppress" />
   </issueHandlers>
 </psalm>
 
