@@ -35,14 +35,14 @@ jobs:
           git config --global core.autocrlf false
           git config --global core.eol lf
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Get composer cache directory
         id: composer-cache
         run: echo COMPOSER_CACHE="$(composer config cache-files-dir)" >> "$GITHUB_ENV"
 
       - name: Cache composer dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: $COMPOSER_CACHE
           key: "${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}"
@@ -97,14 +97,14 @@ jobs:
       - name: Setup problem matchers for PHP
         run: echo "::add-matcher::${{ runner.tool_cache }}/php.json"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Get composer cache directory
         id: composer-cache
         run: echo COMPOSER_CACHE="$(composer config cache-files-dir)" >> "$GITHUB_ENV"
 
       - name: Cache composer dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: $COMPOSER_CACHE
           key: "${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}"
@@ -138,14 +138,14 @@ jobs:
       - name: Setup problem matchers for PHP
         run: echo "::add-matcher::${{ runner.tool_cache }}/php.json"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Get composer cache directory
         id: composer-cache
         run: echo COMPOSER_CACHE="$(composer config cache-files-dir)" >> "$GITHUB_ENV"
 
       - name: Cache composer dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: $COMPOSER_CACHE
           key: "${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}"
@@ -170,14 +170,14 @@ jobs:
       - name: Setup problem matchers for PHP
         run: echo "::add-matcher::${{ runner.tool_cache }}/php.json"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Get composer cache directory
         id: composer-cache
         run: echo COMPOSER_CACHE="$(composer config cache-files-dir)" >> "$GITHUB_ENV"
 
       - name: Cache composer dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: $COMPOSER_CACHE
           key: "${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}"
@@ -216,7 +216,7 @@ jobs:
       SUITE_BASE_URL: https://localhost.emobix.co.uk:8443
       VERSION: release-v5.1.35
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           path: main
       - name: Setup Python Dependencies
