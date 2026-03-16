@@ -35,7 +35,8 @@ use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 class AccessTokenRepository extends AbstractDatabaseRepository implements AccessTokenRepositoryInterface
 {
-    final public const TABLE_NAME = 'oidc_access_token';
+    final public const string TABLE_NAME = 'oidc_access_token';
+
 
     public function __construct(
         ModuleConfig $moduleConfig,

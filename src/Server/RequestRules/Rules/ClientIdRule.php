@@ -30,7 +30,8 @@ use Throwable;
 
 class ClientIdRule extends AbstractRule
 {
-    protected const KEY_REQUEST_OBJECT_JTI = 'request_object_jti';
+    protected const string KEY_REQUEST_OBJECT_JTI = 'request_object_jti';
+
 
     public function __construct(
         RequestParamsResolver $requestParamsResolver,

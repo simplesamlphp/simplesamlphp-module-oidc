@@ -22,7 +22,8 @@ use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 class ClientAuthenticationRule extends AbstractRule
 {
-    protected const KEY_CLIENT_ASSERTION_JTI = 'client_assertion_jti';
+    protected const string KEY_CLIENT_ASSERTION_JTI = 'client_assertion_jti';
+
 
     public function __construct(
         RequestParamsResolver $requestParamsResolver,

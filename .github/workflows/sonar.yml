@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v2
         env:

@@ -14,8 +14,6 @@ use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Codebooks\ErrorsEnum;
-use SimpleSAML\OpenID\Codebooks\ParamsEnum;
-use Symfony\Component\HttpFoundation\ParameterBag;
 use Symfony\Component\HttpFoundation\Request;
 
 #[CoversClass(SubordinateListingsController::class)]
@@ -26,8 +24,6 @@ final class SubordinateListingsControllerTest extends TestCase
     private MockObject $routesMock;
 
     private bool $isFederationEnabled;
-    private MockObject $requestMock;
-    private MockObject $requestQueryMock;
 
 
     protected function setUp(): void
@@ -37,10 +33,6 @@ final class SubordinateListingsControllerTest extends TestCase
         $this->routesMock = $this->createMock(Routes::class);
 
         $this->isFederationEnabled = true;
-
-        $this->requestMock = $this->createMock(Request::class);
-        $this->requestQueryMock = $this->createMock(ParameterBag::class);
-        $this->requestMock->query = $this->requestQueryMock;
     }
 
     public function sut(
@@ -78,6 +70,12 @@ final class SubordinateListingsControllerTest extends TestCase
 
     public function testCanListFederatedEntities(): void
     {
+        $request = Request::create(
+            '/list',
+            'GET',
+            [],
+        );
+
         $client = $this->createMock(ClientEntityInterface::class);
         $client->method('getEntityIdentifier')->willReturn('entity-id');
 
@@ -93,18 +91,20 @@ final class SubordinateListingsControllerTest extends TestCase
                 $client->getEntityIdentifier(),
             ]);
 
-        $this->sut()->list($this->requestMock);
+        $this->sut()->list($request);
     }
 
     public function testListReturnsErrorOnUnsuportedQueryParameter(): void
     {
-        $this->requestQueryMock->method('all')->willReturn([
-            ParamsEnum::EntityType->value => 'something',
-        ]);
+        $request = Request::create(
+            '/list',
+            'GET',
+            ['entity_type' => 'something'],
+        );
 
         $this->routesMock->expects($this->once())->method('newJsonErrorResponse')
             ->with(ErrorsEnum::UnsupportedParameter->value);
 
-        $this->sut()->list($this->requestMock);
+        $this->sut()->list($request);
     }
 }

@@ -21,6 +21,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 
+use function apache_request_headers;
 use function count;
 use function date_default_timezone_get;
 use function is_array;

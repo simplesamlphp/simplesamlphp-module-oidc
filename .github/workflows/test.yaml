@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php-versions: ["8.2", "8.3"]
+        php-versions: ["8.3", "8.4", "8.5"]
 
     steps:
       - name: Setup PHP, with composer and extensions
@@ -35,14 +35,14 @@ jobs:
           git config --global core.autocrlf false
           git config --global core.eol lf
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Get composer cache directory
         id: composer-cache
         run: echo COMPOSER_CACHE="$(composer config cache-files-dir)" >> "$GITHUB_ENV"
 
       - name: Cache composer dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: $COMPOSER_CACHE
           key: "${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}"
@@ -55,7 +55,7 @@ jobs:
         run: composer install --no-progress --prefer-dist --optimize-autoloader
 
       - name: Decide whether to run code coverage or not
-        if: ${{ matrix.php-versions != '8.2' }}
+        if: ${{ matrix.php-versions != '8.5' }}
         run: |
           echo "NO_COVERAGE=--no-coverage" >> $GITHUB_ENV
 
@@ -70,13 +70,13 @@ jobs:
           ./vendor/bin/phpunit $NO_COVERAGE --no-configuration -c phpunit.integration.xml
 
       - name: Merge coverage data
-        if: ${{ matrix.php-versions == '8.2' }}
+        if: ${{ matrix.php-versions == '8.5' }}
         run: |
           ./vendor/bin/phpunit-merger log build/logs/partial_junit/ build/logs/junit.xml
           ./vendor/bin/phpunit-merger coverage build/logs/partial_clover/ build/logs/clover.xml
 
       - name: Save coverage data
-        if: ${{ matrix.php-versions == '8.2' }}
+        if: ${{ matrix.php-versions == '8.5' }}
         uses: actions/upload-artifact@v4
         with:
           name: build-data
@@ -89,7 +89,7 @@ jobs:
       - name: Setup PHP, with composer and extensions
         uses: shivammathur/setup-php@v2 #https://github.com/shivammathur/setup-php
         with:
-          php-version: "8.2"
+          php-version: "8.3"
           extensions: mbstring, xml
           tools: composer:v2
           coverage: none
@@ -97,14 +97,14 @@ jobs:
       - name: Setup problem matchers for PHP
         run: echo "::add-matcher::${{ runner.tool_cache }}/php.json"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Get composer cache directory
         id: composer-cache
         run: echo COMPOSER_CACHE="$(composer config cache-files-dir)" >> "$GITHUB_ENV"
 
       - name: Cache composer dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: $COMPOSER_CACHE
           key: "${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}"
@@ -130,7 +130,7 @@ jobs:
       - name: Setup PHP, with composer and extensions
         uses: shivammathur/setup-php@v2 #https://github.com/shivammathur/setup-php
         with:
-          php-version: "8.2"
+          php-version: "8.3"
           extensions: mbstring, xml
           tools: composer:v2
           coverage: none
@@ -138,14 +138,14 @@ jobs:
       - name: Setup problem matchers for PHP
         run: echo "::add-matcher::${{ runner.tool_cache }}/php.json"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Get composer cache directory
         id: composer-cache
         run: echo COMPOSER_CACHE="$(composer config cache-files-dir)" >> "$GITHUB_ENV"
 
       - name: Cache composer dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: $COMPOSER_CACHE
           key: "${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}"
@@ -163,21 +163,21 @@ jobs:
       - name: Setup PHP, with composer and extensions
         uses: shivammathur/setup-php@v2 #https://github.com/shivammathur/setup-php
         with:
-          php-version: "8.2"
+          php-version: "8.5"
           tools: composer:v2
           extensions: mbstring, xml
 
       - name: Setup problem matchers for PHP
         run: echo "::add-matcher::${{ runner.tool_cache }}/php.json"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Get composer cache directory
         id: composer-cache
         run: echo COMPOSER_CACHE="$(composer config cache-files-dir)" >> "$GITHUB_ENV"
 
       - name: Cache composer dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: $COMPOSER_CACHE
           key: "${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}"
@@ -211,12 +211,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ssp-version: ["v2.3.7", "v2.4.4"]
+        ssp-version: ["v2.5.0"]
     env:
       SUITE_BASE_URL: https://localhost.emobix.co.uk:8443
       VERSION: release-v5.1.35
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           path: main
       - name: Setup Python Dependencies

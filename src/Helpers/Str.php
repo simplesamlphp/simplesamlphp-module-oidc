@@ -23,8 +23,10 @@ class Str
      */
     public function convertTextToArray(string $text, string $pattern = "/[\t\r\n]+/"): array
     {
+        $split = is_array($split = preg_split($pattern, $text)) ? $split : [$text];
+
         return array_filter(
-            preg_split($pattern, $text),
+            $split,
             fn(string $line): bool => !empty(trim($line)),
         );
     }

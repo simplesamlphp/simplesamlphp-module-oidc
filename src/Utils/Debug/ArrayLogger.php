@@ -12,19 +12,21 @@ use SimpleSAML\Module\oidc\Helpers;
 
 class ArrayLogger implements LoggerInterface
 {
-    public const WEIGHT_EMERGENCY = 8;
-    public const WEIGH_ALERT = 7;
-    public const WEIGHT_CRITICAL = 6;
-    public const WEIGHT_ERROR = 5;
-    public const WEIGHT_WARNING = 4;
-    public const WEIGHT_NOTICE = 3;
-    public const WEIGHT_INFO = 2;
-    public const WEIGHT_DEBUG = 1;
+    public const int WEIGHT_EMERGENCY = 8;
+    public const int WEIGH_ALERT = 7;
+    public const int WEIGHT_CRITICAL = 6;
+    public const int WEIGHT_ERROR = 5;
+    public const int WEIGHT_WARNING = 4;
+    public const int WEIGHT_NOTICE = 3;
+    public const int WEIGHT_INFO = 2;
+    public const int WEIGHT_DEBUG = 1;
+
 
     protected int $weight;
 
     /** @var string[] */
     protected array $entries = [];
+
 
     public function __construct(
         protected readonly Helpers $helpers,

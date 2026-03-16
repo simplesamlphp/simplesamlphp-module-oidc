@@ -31,7 +31,8 @@ use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 class UserRepository extends AbstractDatabaseRepository implements UserRepositoryInterface, IdentityProviderInterface
 {
-    final public const TABLE_NAME = 'oidc_user';
+    final public const string TABLE_NAME = 'oidc_user';
+
 
     public function __construct(
         ModuleConfig $moduleConfig,
