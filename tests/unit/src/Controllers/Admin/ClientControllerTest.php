@@ -102,9 +102,6 @@ class ClientControllerTest extends TestCase
 
         $this->clientEntityMock = $this->createMock(ClientEntityInterface::class);
 
-        $this->queryInputBagMock = $this->createMock(ParameterBag::class);
-        $this->requestInputBagMock = $this->createMock(ParameterBag::class);
-
         $this->clientFormMock = $this->createMock(ClientForm::class);
         $this->formFactoryMock->method('build')->willReturn($this->clientFormMock);
     }
