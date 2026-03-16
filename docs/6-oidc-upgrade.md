@@ -7,7 +7,7 @@ apply those relevant to your deployment.
 
 This is a minor release in order to enable installation of the module with
 SimpleSAMLphp v2.5.*, which now requires at least PHP v8.3 and bumps a bunch
-of dependant Symfony packages to v7.4.
+of dependent Symfony packages to v7.4.
 
 ## Version 5 to 6
 
