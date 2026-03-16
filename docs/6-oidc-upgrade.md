@@ -3,6 +3,12 @@
 This is an upgrade guide from versions 1 → 6. Review the changes and
 apply those relevant to your deployment.
 
+## Version 6.3 to 6.4
+
+This is a minor release in order to enable installation of the module with
+SimpleSAMLphp v2.5.*, which now requires at least PHP v8.3 and bumps a bunch
+of dependant Symfony packages to v7.4.
+
 ## Version 5 to 6
 
 New features:

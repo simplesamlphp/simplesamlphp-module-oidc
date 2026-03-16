@@ -34,16 +34,16 @@ OIDFed is implemented using the
 
 Minor versions listed show which SimpleSAMLphp versions were used during
 module development. SimpleSAMLphp follows semantic versioning for its
-API since v2.0. For example, v5.\* of the OIDC module should work with
-any v2.\* of SimpleSAMLphp. PHP version requirements may differ.
+API since v2.0. PHP version requirements may differ.
 
-| OIDC module | Tested SimpleSAMLphp |  PHP   | Note        |
-|:------------|:---------------------|:------:|-------------|
-| v6.\*       | v2.3.\*, v2.4.\*     | \>=8.2 | Recommended |
-| v5.\*       | v2.1.\*              | \>=8.1 |             |
-| v4.\*       | v2.0.\*              | \>=8.0 |             |
-| v3.\*       | v2.0.\*              | \>=7.4 |             |
-| v2.\*       | v1.19.\*             | \>=7.4 |             |
+| OIDC module | Tested SimpleSAMLphp |  PHP   |
+|:------------|:---------------------|:------:|
+| v6.4.\*     | v2.5.\*              | \>=8.3 |
+| v6.3.\*     | v2.3.\*, v2.4.\*     | \>=8.2 |
+| v5.\*       | v2.1.\*              | \>=8.1 |
+| v4.\*       | v2.0.\*              | \>=8.0 |
+| v3.\*       | v2.0.\*              | \>=7.4 |
+| v2.\*       | v1.19.\*             | \>=7.4 |
 
 Upgrading? See the [upgrade guide](6-oidc-upgrade.md).
 
