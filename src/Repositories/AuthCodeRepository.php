@@ -32,7 +32,8 @@ use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeRepositoryInterface
 {
-    final public const TABLE_NAME = 'oidc_auth_code';
+    final public const string TABLE_NAME = 'oidc_auth_code';
+
 
     public function __construct(
         ModuleConfig $moduleConfig,

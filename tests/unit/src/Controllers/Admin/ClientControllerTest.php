@@ -23,7 +23,6 @@ use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\Module\oidc\Utils\Routes;
-use Symfony\Component\HttpFoundation\ParameterBag;
 use Symfony\Component\HttpFoundation\Request;
 
 #[CoversClass(ClientController::class)]
@@ -41,9 +40,6 @@ class ClientControllerTest extends TestCase
     protected MockObject $helpersMock;
     protected MockObject $loggerMock;
     protected MockObject $clientEntityMock;
-    protected MockObject $requestMock;
-    protected MockObject $queryInputBagMock;
-    protected MockObject $requestInputBagMock;
     protected MockObject $clientFormMock;
 
     protected array $sampleFormData = [
@@ -104,12 +100,6 @@ class ClientControllerTest extends TestCase
 
         $this->clientEntityMock = $this->createMock(ClientEntityInterface::class);
 
-        $this->requestMock = $this->createMock(Request::class);
-        $this->queryInputBagMock = $this->createMock(ParameterBag::class);
-        $this->requestMock->query = $this->queryInputBagMock;
-        $this->requestInputBagMock = $this->createMock(ParameterBag::class);
-        $this->requestMock->request = $this->requestInputBagMock;
-
         $this->clientFormMock = $this->createMock(ClientForm::class);
         $this->formFactoryMock->method('build')->willReturn($this->clientFormMock);
     }
@@ -162,10 +152,12 @@ class ClientControllerTest extends TestCase
 
     public function testIndex(): void
     {
-        $this->queryInputBagMock->expects($this->once())->method('getInt')->with('page')
-            ->willReturn(1);
-        $this->queryInputBagMock->expects($this->once())->method('getString')->with('q')
-            ->willReturn('abc');
+        $request = Request::create(
+            '/',
+            'GET',
+            ['page' => '1', 'q' => 'abc'],
+        );
+
         $this->clientRepositoryMock->expects($this->once())->method('findPaginated')
             ->with(1, 'abc', null)->willReturn([
                 'items' => [$this->clientEntityMock],
@@ -176,90 +168,113 @@ class ClientControllerTest extends TestCase
         $this->templateFactoryMock->expects($this->once())->method('build')
             ->with('oidc:clients.twig');
 
-        $this->sut()->index($this->requestMock);
+        $this->sut()->index($request);
     }
 
     public function testShow(): void
     {
-        $this->queryInputBagMock->expects($this->once())->method('getString')->willReturn('clientId');
+        $request = Request::create(
+            '/',
+            'GET',
+            ['client_id' => 'clientId'],
+        );
+
         $this->clientEntityMock->expects($this->once())->method('getIdentifier')->willReturn('clientId');
         $this->clientRepositoryMock->expects($this->once())->method('findById')->with('clientId')
             ->willReturn($this->clientEntityMock);
         $this->templateFactoryMock->expects($this->once())->method('build')
             ->with('oidc:clients/show.twig');
 
-        $this->sut()->show($this->requestMock);
+        $this->sut()->show($request);
     }
 
     public function testShowThrowsIfClientIdNotProvided(): void
     {
+        $request = Request::create(
+            '/',
+            'GET',
+            [],
+        );
+
         $this->expectException(OidcException::class);
         $this->expectExceptionMessage('Client ID');
 
-        $this->sut()->show($this->requestMock);
+        $this->sut()->show($request);
     }
 
     public function testCanResetSecret(): void
     {
-        $this->queryInputBagMock->expects($this->once())->method('getString')->willReturn('clientId');
+        $request = Request::create(
+            '/resetSecret?client_id=clientId',
+            'POST',
+            ['client_id' => 'clientId', 'secret' => '123'],
+        );
+
         $this->clientEntityMock->expects($this->once())->method('getSecret')->willReturn('123');
         $this->clientRepositoryMock->expects($this->once())->method('findById')->with('clientId')
             ->willReturn($this->clientEntityMock);
-        $this->requestInputBagMock->expects($this->once())->method('getString')
-            ->with('secret')->willReturn('123');
         $this->clientEntityMock->expects($this->once())->method('restoreSecret');
         $this->clientRepositoryMock->expects($this->once())->method('update')
             ->with($this->clientEntityMock);
         $this->sessionMessagesServiceMock->expects($this->once())->method('addMessage')
             ->with($this->stringContains('secret'));
 
-        $this->sut()->resetSecret($this->requestMock);
+        $this->sut()->resetSecret($request);
     }
 
     public function testResetSecretThrowsIfCurrentSecretNotValid(): void
     {
-        $this->queryInputBagMock->expects($this->once())->method('getString')->willReturn('clientId');
+        $request = Request::create(
+            '/resetSecret?client_id=clientId',
+            'POST',
+            ['client_id' => 'clientId', 'secret' => '321'],
+        );
+
         $this->clientEntityMock->expects($this->once())->method('getSecret')->willReturn('123');
         $this->clientRepositoryMock->expects($this->once())->method('findById')->with('clientId')
             ->willReturn($this->clientEntityMock);
-        $this->requestInputBagMock->expects($this->once())->method('getString')
-            ->with('secret')->willReturn('321');
 
         $this->expectException(OidcException::class);
         $this->expectExceptionMessage('Client secret');
 
-        $this->sut()->resetSecret($this->requestMock);
+        $this->sut()->resetSecret($request);
     }
 
     public function testCanDelete(): void
     {
-        $this->queryInputBagMock->expects($this->once())->method('getString')->willReturn('clientId');
+        $request = Request::create(
+            '/delete?client_id=clientId',
+            'POST',
+            ['client_id' => 'clientId', 'secret' => '123'],
+        );
+
         $this->clientEntityMock->expects($this->once())->method('getSecret')->willReturn('123');
         $this->clientRepositoryMock->expects($this->once())->method('findById')->with('clientId')
             ->willReturn($this->clientEntityMock);
-        $this->requestInputBagMock->expects($this->once())->method('getString')
-            ->with('secret')->willReturn('123');
         $this->sessionMessagesServiceMock->expects($this->once())->method('addMessage')
             ->with($this->stringContains('deleted'));
         $this->clientRepositoryMock->expects($this->once())->method('delete')
             ->with($this->clientEntityMock);
 
-        $this->sut()->delete($this->requestMock);
+        $this->sut()->delete($request);
     }
 
     public function testDeleteThrowsIfCurrentSecretNotValid(): void
     {
-        $this->queryInputBagMock->expects($this->once())->method('getString')->willReturn('clientId');
+        $request = Request::create(
+            '/resetSecret?client_id=clientId',
+            'POST',
+            ['client_id' => 'clientId', 'secret' => '321'],
+        );
+
         $this->clientEntityMock->expects($this->once())->method('getSecret')->willReturn('123');
         $this->clientRepositoryMock->expects($this->once())->method('findById')->with('clientId')
             ->willReturn($this->clientEntityMock);
-        $this->requestInputBagMock->expects($this->once())->method('getString')
-            ->with('secret')->willReturn('321');
 
         $this->expectException(OidcException::class);
         $this->expectExceptionMessage('Client secret');
 
-        $this->sut()->delete($this->requestMock);
+        $this->sut()->delete($request);
     }
 
     public function testCanAdd(): void
@@ -347,10 +362,15 @@ class ClientControllerTest extends TestCase
 
     public function testCanEdit(): void
     {
+        $request = Request::create(
+            '/edit?client_id=clientId',
+            'GET',
+            ['client_id' => 'clientId', 'secret' => '123'],
+        );
+
         // Original client.
         // Enum can't be doubled :/.
         $this->clientEntityMock->method('getRegistrationType')->willReturn(RegistrationTypeEnum::Manual);
-        $this->queryInputBagMock->expects($this->once())->method('getString')->willReturn('clientId');
         $this->clientEntityMock->method('getIdentifier')->willReturn('clientId');
         $this->clientRepositoryMock->expects($this->once())->method('findById')->with('clientId')
             ->willReturn($this->clientEntityMock);
@@ -372,15 +392,20 @@ class ClientControllerTest extends TestCase
         $this->allowedOriginRepositoryMock->expects($this->once())->method('set')
             ->with('clientId');
 
-        $this->sut()->edit($this->requestMock);
+        $this->sut()->edit($request);
     }
 
     public function testWontEditIfClientEntityIdentifierExists(): void
     {
+        $request = Request::create(
+            '/edit?client_id=clientId',
+            'GET',
+            ['client_id' => 'clientId', 'secret' => '123'],
+        );
+
         // Original client.
         // Enum can't be doubled :/.
         $this->clientEntityMock->method('getRegistrationType')->willReturn(RegistrationTypeEnum::Manual);
-        $this->queryInputBagMock->expects($this->once())->method('getString')->willReturn('clientId');
         $this->clientEntityMock->method('getIdentifier')->willReturn('clientId');
         $this->clientRepositoryMock->expects($this->once())->method('findById')->with('clientId')
             ->willReturn($this->clientEntityMock);
@@ -407,12 +432,17 @@ class ClientControllerTest extends TestCase
         $this->sessionMessagesServiceMock->expects($this->once())->method('addMessage')
         ->with($this->stringContains('exists'));
 
-        $this->sut()->edit($this->requestMock);
+        $this->sut()->edit($request);
     }
 
     public function testCanShowEditForm(): void
     {
-        $this->queryInputBagMock->expects($this->once())->method('getString')->willReturn('clientId');
+        $request = Request::create(
+            '/edit?client_id=clientId',
+            'GET',
+            ['client_id' => 'clientId', 'secret' => '123'],
+        );
+
         $this->clientEntityMock->method('getIdentifier')->willReturn('clientId');
         $this->clientRepositoryMock->expects($this->once())->method('findById')->with('clientId')
             ->willReturn($this->clientEntityMock);
@@ -422,6 +452,6 @@ class ClientControllerTest extends TestCase
         $this->templateFactoryMock->expects($this->once())->method('build')
             ->with('oidc:clients/edit.twig');
 
-        $this->sut()->edit($this->requestMock);
+        $this->sut()->edit($request);
     }
 }

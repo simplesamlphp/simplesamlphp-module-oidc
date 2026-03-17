@@ -3,9 +3,9 @@
 This is an upgrade guide from versions 1 → 7. Review the changes and
 apply those relevant to your deployment.
 
-In general, when upgrading any of the SimpleSAMLphp modules or the 
+In general, when upgrading any of the SimpleSAMLphp modules or the
 SimpleSAMLphp instance itself, you should clear the SimpleSAMLphp
-cache after the upgrade. In newer versions of SimpleSAMLphp, the 
+cache after the upgrade. In newer versions of SimpleSAMLphp, the
 following command is available to do that:
 
 ```shell
@@ -21,7 +21,7 @@ New features:
 
 - Instance can now be configured to support multiple algorithms and signature
 keys for protocol (Connect), Federation, and VCI purposes. This was introduced
-to support signature algorithm negotiation with the clients. 
+to support signature algorithm negotiation with the clients.
 - Clients can now be configured with new properties:
   - ID Token Signing Algorithm (`id_token_signed_response_alg`)
 - Optional OAuth2 Token Introspection endpoint, as per RFC7662. Check the API
@@ -33,9 +33,9 @@ it in production.
 New configuration options:
 
 - `ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS` - (required) enables
-defining multiple protocol (Connect) related signing algorithms and key pairs. 
+defining multiple protocol (Connect) related signing algorithms and key pairs.
 - `ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS` - (required if
-federation capabilities are enabled) enables defining multiple key pairs for 
+federation capabilities are enabled) enables defining multiple key pairs for
 Federation purposes like signing Entity Statements, publishing new key for
 key roll-ower scenarios, etc.
 - `ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS` - (required if VCI
@@ -51,7 +51,7 @@ optional, enables the OAuth2 token introspection endpoint as per RFC7662.
 
 Major impact changes:
 
-- The following configuration options related to the protocol (Connect) 
+- The following configuration options related to the protocol (Connect)
 signature algorithm and key pair are removed:
   - `ModuleConfig::OPTION_PKI_PRIVATE_KEY_PASSPHRASE`
   - `ModuleConfig::OPTION_PKI_PRIVATE_KEY_FILENAME`
@@ -73,11 +73,11 @@ and key pair are removed:
   - `ModuleConfig::OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_PASSPHRASE`
   - `ModuleConfig::OPTION_PKI_FEDERATION_NEW_PRIVATE_KEY_FILENAME`
   - `ModuleConfig::OPTION_PKI_FEDERATION_NEW_CERTIFICATE_FILENAME`
-  
+
   Instead of those options, now you must use option
   `ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS` in which you can define
   all the supported signature keys for Federation purposes.
-- Config option `ModuleConfig::OPTION_HOMEPAGE_URI` is removed. Use 
+- Config option `ModuleConfig::OPTION_HOMEPAGE_URI` is removed. Use
 `ModuleConfig::OPTION_ORGANIZATION_URI` instead.
 - New algorithm for generating Key ID claim value (`kid`) for signature keys
 is used. Previously, key ID was based on public key file hash. In v7, key ID
@@ -87,7 +87,7 @@ current signature keys, you will probably want to keep the old `kid` values,
 so that the clients know the keys did not change. You can set the old
 `kid` value manually for signature keys in
 `ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS` and
-`ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS`. Once you do a key 
+`ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS`. Once you do a key
 roll-over, you can omit setting the `kid` manually, so you start using the
 automatically generated thumbprint.
 - In v6 of the module, when defining custom scopes, there was a possibility to
@@ -97,7 +97,7 @@ have a single value by specification. All [standard claims](https://openid.net/s
 are now hardcoded to have a single value, even when the
 'are_multiple_claim_values_allowed' option is enabled.
 - OpenID Federation specific endpoints for subordinate listing and fetching
-statements about subordinates are removed, as the final specification 
+statements about subordinates are removed, as the final specification
 explicitly states that leaf entities must not have those endpoints.
 This effectively means that this OP implementation can only be a leaf entity
 in the federation context, and not a federation operator or intermediary entity.
@@ -112,6 +112,12 @@ indicate whether the client is a federated client or not, but now it is not
 needed since the OP implementation can only be a leaf entity
 - Admin menu item "OIDC" has been renamed to "OIDC OP" to better reflect
 the main purpose of the module.
+
+## Version 6.3 to 6.4
+
+This is a minor release in order to enable installation of the module with
+SimpleSAMLphp v2.5.*, which now requires at least PHP v8.3 and bumps a bunch
+of dependent Symfony packages to v7.4.
 
 ## Version 5 to 6
 

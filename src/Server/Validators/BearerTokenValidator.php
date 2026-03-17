@@ -14,6 +14,7 @@ use SimpleSAML\OpenID\Exceptions\JwsException;
 use SimpleSAML\OpenID\Jwks;
 use SimpleSAML\OpenID\Jws;
 
+use function apache_request_headers;
 use function count;
 use function is_array;
 use function preg_replace;

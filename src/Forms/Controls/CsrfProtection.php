@@ -24,7 +24,11 @@ use Stringable;
 
 class CsrfProtection extends BaseCsrfProtection
 {
-    final public const PROTECTION = [\SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection::class, 'validateCsrf'];
+    final public const array PROTECTION = [
+        \SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection::class,
+        'validateCsrf',
+    ];
+
 
     /** @noinspection PhpMissingParentConstructorInspection */
     /**
@@ -35,6 +39,7 @@ class CsrfProtection extends BaseCsrfProtection
     {
         // Instead of calling CsrfProtection parent class constructor, go to it's parent (HiddenField), and call
         // its constructor. This is to avoid setting a Nette session in CsrfProtection parent, and use the SSP one.
+        /** @psalm-suppress PossiblyFalseArgument */
         $hiddentFieldParent = get_parent_class(get_parent_class($this));
 
         if (!is_string($hiddentFieldParent)) {

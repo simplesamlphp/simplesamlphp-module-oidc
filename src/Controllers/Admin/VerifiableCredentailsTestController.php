@@ -14,8 +14,10 @@ use SimpleSAML\Module\oidc\Factories\CredentialOfferUriFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\SessionService;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -30,6 +32,7 @@ class VerifiableCredentailsTestController
         protected readonly SspBridge $sspBridge,
         protected readonly Routes $routes,
         protected readonly CredentialOfferUriFactory $credentialOfferUriFactory,
+        protected readonly RequestParamsResolver $requestParamsResolver,
     ) {
         $this->authorization->requireAdmin(true);
     }
@@ -55,6 +58,11 @@ class VerifiableCredentailsTestController
             $authSource = $this->authSimpleFactory->forAuthSourceId($selectedAuthSourceId);
         }
 
+        $allowedMethods = [
+            HttpMethodsEnum::GET,
+            HttpMethodsEnum::POST,
+        ];
+
         // Check if the logout was called.
         if (
             $request->request->has('logout') &&
@@ -64,7 +72,13 @@ class VerifiableCredentailsTestController
             $this->sessionService->getCurrentSession()->deleteData('vci', 'auth_source_id');
             $selectedAuthSourceId = null;
             $authSource->logout();
-        } elseif (is_string($newAuthSourceId = $request->get('authSourceId'))) {
+        } elseif (
+            is_string($newAuthSourceId = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
+                'authSourceId',
+                $request,
+                $allowedMethods,
+            ))
+        ) {
             $authSource = $this->authSimpleFactory->forAuthSourceId($newAuthSourceId);
             $this->sessionService->getCurrentSession()->setData('vci', 'auth_source_id', $newAuthSourceId);
             $selectedAuthSourceId = $newAuthSourceId;
@@ -91,7 +105,13 @@ class VerifiableCredentailsTestController
         );
 
         /** @psalm-suppress MixedAssignment, InternalMethod */
-        if (is_string($newCredentialConfigurationId = $request->get('credentialConfigurationId'))) {
+        if (
+            is_string($newCredentialConfigurationId = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
+                'credentialConfigurationId',
+                $request,
+                $allowedMethods,
+            ))
+        ) {
             $this->sessionService->getCurrentSession()->setData(
                 'vci',
                 'credential_configuration_id',
@@ -115,12 +135,21 @@ class VerifiableCredentailsTestController
 
         $credentialOfferQrUri = null;
         $credentialOfferUri = null;
-        /** @psalm-suppress MixedAssignment, InternalMethod */
-        $grantType = $request->get('grantType');
-        /** @psalm-suppress InternalMethod */
-        $useTxCode = (bool) $request->get('useTxCode');
-        /** @psalm-suppress MixedAssignment, InternalMethod */
-        $usersEmailAttributeName = $request->get('usersEmailAttributeName');
+        $grantType = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
+            'grantType',
+            $request,
+            $allowedMethods,
+        );
+        $useTxCode = (bool) $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
+            'useTxCode',
+            $request,
+            $allowedMethods,
+        );
+        $usersEmailAttributeName = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
+            'usersEmailAttributeName',
+            $request,
+            $allowedMethods,
+        );
         $usersEmailAttributeName = is_string($usersEmailAttributeName) && (trim($usersEmailAttributeName) !== '') ?
         trim($usersEmailAttributeName) :
         null;
@@ -134,14 +163,17 @@ class VerifiableCredentailsTestController
                 $authSource->getAuthSource()->getAuthId(),
             );
 
-            if ($grantType === GrantTypesEnum::PreAuthorizedCode->value) {
+            if (
+                $grantType === GrantTypesEnum::PreAuthorizedCode->value &&
+                is_string($selectedCredentialConfigurationId)
+            ) {
                 $credentialOfferUri = $this->credentialOfferUriFactory->buildPreAuthorized(
                     [$selectedCredentialConfigurationId],
                     $userAttributes,
                     $useTxCode,
                     $usersEmailAttributeName,
                 );
-            } else {
+            } elseif (is_string($selectedCredentialConfigurationId)) {
                 $credentialOfferUri = $this->credentialOfferUriFactory->buildForAuthorization(
                     [$selectedCredentialConfigurationId],
                 );
@@ -149,7 +181,10 @@ class VerifiableCredentailsTestController
 
             // TODO mivanci Local QR code generator
             // https://quickchart.io/documentation/qr-codes/
-            $credentialOfferQrUri = 'https://quickchart.io/qr?size=200&margin=1&text=' . urlencode($credentialOfferUri);
+            if (is_string($credentialOfferUri)) {
+                $credentialOfferQrUri = 'https://quickchart.io/qr?size=200&margin=1&text=' .
+                urlencode($credentialOfferUri);
+            }
         }
 
         $authSourceActionRoute = $this->routes->urlAdminTestVerifiableCredentialIssuance();

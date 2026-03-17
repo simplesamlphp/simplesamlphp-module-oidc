@@ -8,18 +8,21 @@ use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use Symfony\Component\HttpFoundation\Request;
 use Throwable;
 
 class Authorization
 {
-    public const KEY_TOKEN = 'token';
+    public const string KEY_TOKEN = 'token';
 
-    public const KEY_AUTHORIZATION = 'Authorization';
+    public const string KEY_AUTHORIZATION = 'Authorization';
 
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
         protected readonly SspBridge $sspBridge,
+        protected readonly RequestParamsResolver $requestParamsResolver,
     ) {
     }
 
@@ -90,8 +93,15 @@ class Authorization
         }
 
         // Fallback to token parameter.
-        /** @psalm-suppress InternalMethod */
-        if ($token = trim((string) $request->get(self::KEY_TOKEN))) {
+        $token = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
+            self::KEY_TOKEN,
+            $request,
+            [
+                HttpMethodsEnum::GET,
+                HttpMethodsEnum::POST,
+            ],
+        );
+        if ($token = trim((string) $token)) {
             return $token;
         }
 

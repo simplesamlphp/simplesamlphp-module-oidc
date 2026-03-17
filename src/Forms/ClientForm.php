@@ -31,33 +31,34 @@ use Traversable;
  */
 class ClientForm extends Form
 {
-    protected const TYPE_ARRAY = 'array';
+    protected const string TYPE_ARRAY = 'array';
 
     /**
      * RFC3986. AppendixB. Parsing a URI Reference with a Regular Expression.
      * From v6.*, the regex was modified to allow URI without host, to support adding entries like
      * `openid-credential-offer://`
      */
-    final public const REGEX_URI = '/^[^:]+:\/\/?([^\s\/$.?#].[^\s]*)?$/';
+    final public const string REGEX_URI = '/^[^:]+:\/\/?([^\s\/$.?#].[^\s]*)?$/';
 
     /**
      * Must have http:// or https:// scheme, and at least one 'domain.top-level-domain' pair, or more subdomains.
      * Top-level-domain may end with '.'.
      * No reserved chars allowed, meaning no userinfo, path, query or fragment components. May end with port number.
      */
-    final public const REGEX_ALLOWED_ORIGIN_URL =
+    final public const string REGEX_ALLOWED_ORIGIN_URL =
     "/^http(s?):\/\/([^\s\/!$&'()+,;=.?#@*:]+\.)"
     . "?[^\s\/!$&'()+,;=.?#@*:]+(\.[^\s\/!$&'()+,;=.?#@*:]+)*\.?(:\d{1,5})?$/i";
 
     /**
      * URI which must contain https or http scheme, can contain path and query, and can't contain fragment.
      */
-    final public const REGEX_HTTP_URI = '/^http(s?):\/\/[^\s\/$.?#][^\s#]*$/i';
+    final public const string REGEX_HTTP_URI = '/^http(s?):\/\/[^\s\/$.?#][^\s#]*$/i';
 
     /**
      * URI with https or http scheme and host / domain. It can contain path, but no query, or fragment component.
      */
-    final public const REGEX_HTTP_URI_PATH = '/^http(s?):\/\/[^\s\/$.?#][^\s?#]*$/i';
+    final public const string REGEX_HTTP_URI_PATH = '/^http(s?):\/\/[^\s\/$.?#][^\s?#]*$/i';
+
 
     /**
      * @throws \Exception

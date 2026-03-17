@@ -32,7 +32,8 @@ use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 class RefreshTokenRepository extends AbstractDatabaseRepository implements RefreshTokenRepositoryInterface
 {
-    final public const TABLE_NAME = 'oidc_refresh_token';
+    final public const string TABLE_NAME = 'oidc_refresh_token';
+
 
     public function __construct(
         ModuleConfig $moduleConfig,

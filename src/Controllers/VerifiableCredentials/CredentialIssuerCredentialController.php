@@ -33,7 +33,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CredentialIssuerCredentialController
 {
-    public const SD_JWT_FORMAT_IDS = [
+    public const array SD_JWT_FORMAT_IDS = [
         CredentialFormatIdentifiersEnum::DcSdJwt->value,
         CredentialFormatIdentifiersEnum::VcSdJwt->value,
     ];
@@ -512,6 +512,16 @@ class CredentialIssuerCredentialController
             }
 
             $userAttributeName = key($mapEntry);
+            if (!is_string($userAttributeName)) {
+                $this->loggerService->warning(
+                    sprintf(
+                        'User attribute name from map entry is not a string. Map entry was: %s',
+                        var_export($mapEntry, true),
+                    ),
+                );
+                continue;
+            }
+
             /** @psalm-suppress MixedAssignment */
             $credentialClaimPath = current($mapEntry);
             if (!is_array($credentialClaimPath)) {
@@ -599,6 +609,9 @@ class CredentialIssuerCredentialController
         $publicKey = $vciSignatureKeyPair->getKeyPair()->getPublicKey();
 
         $base64PublicKey = json_encode($publicKey->jwk()->all(), JSON_UNESCAPED_SLASHES);
+        if ($base64PublicKey === false) {
+            throw new \RuntimeException('Could not encode public key to JSON.');
+        }
         $base64PublicKey = Base64Url::encode($base64PublicKey);
 
         $issuerDid = 'did:jwk:' . $base64PublicKey;

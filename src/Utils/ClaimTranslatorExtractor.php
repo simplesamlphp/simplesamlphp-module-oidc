@@ -31,6 +31,48 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 class ClaimTranslatorExtractor
 {
+    /**
+     * From JSON Web Token Claims registry: https://www.iana.org/assignments/jwt/jwt.xhtml
+     */
+    final public const array REGISTERED_CLAIMS = [
+        ...RegisteredClaims::ALL,
+        'azp',
+        'nonce',
+        'auth_time',
+        'at_hash',
+        'c_hash',
+        'acr',
+        'amr',
+        'sub_jwk',
+    ];
+
+    /**
+     * As per https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims
+     */
+    final public const array MANDATORY_SINGLE_VALUE_CLAIMS = [
+        'sub',
+        'name',
+        'given_name',
+        'family_name',
+        'middle_name',
+        'nickname',
+        'preferred_username',
+        'profile',
+        'picture',
+        'website',
+        'email',
+        'email_verified',
+        'gender',
+        'birthdate',
+        'zoneinfo',
+        'locale',
+        'phone_number',
+        'phone_number_verified',
+        'address',
+        'updated_at',
+    ];
+
+
     /** @var array<string, ClaimSetEntityInterface> */
     protected array $claimSets = [];
 
@@ -110,46 +152,6 @@ class ClaimTranslatorExtractor
         ],
     ];
 
-    /**
-     * From JSON Web Token Claims registry: https://www.iana.org/assignments/jwt/jwt.xhtml
-     */
-    final public const REGISTERED_CLAIMS = [
-        ...RegisteredClaims::ALL,
-        'azp',
-        'nonce',
-        'auth_time',
-        'at_hash',
-        'c_hash',
-        'acr',
-        'amr',
-        'sub_jwk',
-    ];
-
-    /**
-     * As per https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims
-     */
-    final public const MANDATORY_SINGLE_VALUE_CLAIMS = [
-        'sub',
-        'name',
-        'given_name',
-        'family_name',
-        'middle_name',
-        'nickname',
-        'preferred_username',
-        'profile',
-        'picture',
-        'website',
-        'email',
-        'email_verified',
-        'gender',
-        'birthdate',
-        'zoneinfo',
-        'locale',
-        'phone_number',
-        'phone_number_verified',
-        'address',
-        'updated_at',
-    ];
 
     /**
      * ClaimTranslatorExtractor constructor.

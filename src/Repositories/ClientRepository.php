@@ -26,6 +26,9 @@ use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 class ClientRepository extends AbstractDatabaseRepository implements ClientRepositoryInterface
 {
+    final public const string TABLE_NAME = 'oidc_client';
+
+
     public function __construct(
         ModuleConfig $moduleConfig,
         Database $database,
@@ -34,8 +37,6 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
     ) {
         parent::__construct($moduleConfig, $database, $protocolCache);
     }
-
-    final public const TABLE_NAME = 'oidc_client';
 
     public function getTableName(): string
     {

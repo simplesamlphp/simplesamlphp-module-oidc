@@ -22,9 +22,10 @@ use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
 class ClaimTranslatorExtractorFactory
 {
-    protected const CONFIG_KEY_CLAIM_NAME_PREFIX = 'claim_name_prefix';
+    protected const string CONFIG_KEY_CLAIM_NAME_PREFIX = 'claim_name_prefix';
 
-    protected const CONFIG_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED = 'are_multiple_claim_values_allowed';
+    protected const string CONFIG_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED = 'are_multiple_claim_values_allowed';
+
 
     public function __construct(
         private readonly ModuleConfig $moduleConfig,

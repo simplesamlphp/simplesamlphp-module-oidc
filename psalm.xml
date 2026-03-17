@@ -23,17 +23,19 @@
   </projectFiles>
 
   <issueHandlers>
-    <!-- Ignore UnresolvableInclude on CLI-scripts -->
-    <UnresolvableInclude>
-        <errorLevel type="suppress">
-          <file name="tests/bootstrap.php" />
-        </errorLevel>
-    </UnresolvableInclude>
+    <!-- Ignore InvalidClassConstantType -->
     <InvalidClassConstantType>
       <errorLevel type="suppress">
         <file name="src/Forms/Controls/CsrfProtection.php" />
       </errorLevel>
     </InvalidClassConstantType>
+
+    <!-- Ignore PossiblyFalseArgument -->
+    <PossiblyFalseArgument>
+      <errorLevel type="suppress">
+        <file name="src/Server/Validators/BearerTokenValidator.php" />
+      </errorLevel>
+    </PossiblyFalseArgument>
 
     <!-- Ignore errors related to unused classes, methods... -->
     <UnusedClass errorLevel="suppress" />
@@ -42,6 +44,12 @@
 
     <!-- Ignore RiskyTruthyFalsyComparison -->
     <RiskyTruthyFalsyComparison errorLevel="suppress" />
+
+    <!-- Ignore ClassMustBeFinal -->
+    <ClassMustBeFinal errorLevel="suppress" />
+
+    <!-- Ignore MissingOverrideAttribute -->
+    <MissingOverrideAttribute errorLevel="suppress" />
   </issueHandlers>
 </psalm>
 
