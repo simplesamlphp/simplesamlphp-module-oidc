@@ -1,6 +1,6 @@
 ARG SSP_VERSION="v2.5.0"
-#FROM cirrusid/simplesamlphp:${SSP_VERSION}
-FROM cicnavi/simplesamlphp:${SSP_VERSION}
+FROM cirrusid/simplesamlphp:${SSP_VERSION}
+#FROM cicnavi/simplesamlphp:${SSP_VERSION}
 
 RUN apt-get update && apt-get --no-install-recommends install -y sqlite3
 # Prepopulate the DB with items needed for testing
