@@ -63,13 +63,14 @@ class NonceService
                 return false;
             }
 
-            // Verify expiration
+            // Verify expiration. This is also done in the JWS factory class.
             $currentTimestamp = $this->jws->helpers()->dateTime()->getUtc()->getTimestamp();
             if ($parsedJws->getExpirationTime() < $currentTimestamp) {
                 $this->loggerService->warning('Nonce validation failed: expired.');
                 return false;
             }
 
+            $this->loggerService->debug('Nonce validation succeeded.');
             return true;
         } catch (\Exception $e) {
             $this->loggerService->warning('Nonce validation failed: ' . $e->getMessage());

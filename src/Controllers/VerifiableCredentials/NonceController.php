@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers\VerifiableCredentials;
 
+use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\NonceService;
 use SimpleSAML\Module\oidc\Utils\Routes;
@@ -15,7 +17,12 @@ class NonceController
         protected readonly NonceService $nonceService,
         protected readonly Routes $routes,
         protected readonly LoggerService $loggerService,
+        protected readonly ModuleConfig $moduleConfig,
     ) {
+        if (!$this->moduleConfig->getVciEnabled()) {
+            $this->loggerService->warning('Verifiable Credential capabilities not enabled.');
+            throw OidcServerException::forbidden('Verifiable Credential capabilities not enabled.');
+        }
     }
 
     /**
@@ -30,7 +37,10 @@ class NonceController
         return $this->routes->newJsonResponse(
             ['c_nonce' => $nonce],
             200,
-            ['Cache-Control' => 'no-store'],
+            [
+                'Cache-Control' => 'no-store',
+                'Access-Control-Allow-Origin' => '*',
+            ],
         );
     }
 }

@@ -40,7 +40,6 @@ class CredentialIssuerConfigurationController
     {
         // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-issuer-metadata-p
 
-        // TODO mivanci Add support for multiple signature key pairs. For now, we only support (first) one.
         $signatureKeyPair = $this->moduleConfig->getVciSignatureKeyPairBag()->getFirstOrFail();
 
         $credentialConfigurationsSupported = $this->moduleConfig->getVciCredentialConfigurationsSupported();
@@ -53,10 +52,16 @@ class CredentialIssuerConfigurationController
                 $credentialConfiguration[ClaimsEnum::CredentialSigningAlgValuesSupported->value] = [
                     $signatureKeyPair->getSignatureAlgorithm()->value,
                 ];
-                // Earlier drafts
-                // TODO mivanci Delete CryptographicSuitesSupported once we are on the final draft.
-                $credentialConfiguration[ClaimsEnum::CryptographicSuitesSupported->value] = [
-                    $signatureKeyPair->getSignatureAlgorithm()->value,
+                $credentialConfiguration[ClaimsEnum::CryptographicBindingMethodsSupported->value] = [
+                    'jwk',
+                ];
+                $credentialConfiguration[ClaimsEnum::ProofTypesSupported->value] = [
+                    'jwt' => [
+                        ClaimsEnum::ProofSigningAlgValuesSupported->value => $this->moduleConfig
+                            ->getSupportedAlgorithms()
+                            ->getSignatureAlgorithmBag()
+                            ->getAllNamesUnique(),
+                    ],
                 ];
                 $credentialConfigurationsSupported[$credentialConfigurationId] = $credentialConfiguration;
             }
@@ -94,8 +99,11 @@ class CredentialIssuerConfigurationController
                 [
                     ClaimsEnum::Name->value => $this->moduleConfig->getOrganizationName(),
                     ClaimsEnum::Locale->value => 'en-US',
-                    // OPTIONAL
-                    // logo
+                    ClaimsEnum::Description->value => $this->moduleConfig->getDescription() ?? 'SimpleSAMLphp Demo VCI',
+                    ClaimsEnum::LogoUri->value => [
+                        ClaimsEnum::Uri->value => $this->moduleConfig->getLogoUri(),
+                        ClaimsEnum::AltText->value => ($this->moduleConfig->getOrganizationName() ?? 'VCI') . ' logo',
+                    ],
                 ],
 
             ],

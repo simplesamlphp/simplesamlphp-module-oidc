@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\NonceController;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\NonceService;
 use SimpleSAML\Module\oidc\Utils\Routes;
@@ -19,12 +20,14 @@ class NonceControllerTest extends TestCase
     protected MockObject $nonceServiceMock;
     protected MockObject $routesMock;
     protected MockObject $loggerServiceMock;
+    protected MockObject $moduleConfigMock;
 
     public function setUp(): void
     {
         $this->nonceServiceMock = $this->createMock(NonceService::class);
         $this->routesMock = $this->createMock(Routes::class);
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
     }
 
     /**
@@ -39,10 +42,23 @@ class NonceControllerTest extends TestCase
         $responseMock = $this->createMock(JsonResponse::class);
         $this->routesMock->expects($this->once())
             ->method('newJsonResponse')
-            ->with(['c_nonce' => 'mocked_nonce'], 200, ['Cache-Control' => 'no-store'])
+            ->with(
+                ['c_nonce' => 'mocked_nonce'],
+                200,
+                ['Cache-Control' => 'no-store', 'Access-Control-Allow-Origin' => '*'],
+            )
             ->willReturn($responseMock);
 
-        $sut = new NonceController($this->nonceServiceMock, $this->routesMock, $this->loggerServiceMock);
+        $this->moduleConfigMock->expects($this->once())
+            ->method('getVciEnabled')
+            ->willReturn(true);
+
+        $sut = new NonceController(
+            $this->nonceServiceMock,
+            $this->routesMock,
+            $this->loggerServiceMock,
+            $this->moduleConfigMock,
+        );
         $response = $sut->nonce();
 
         $this->assertSame($responseMock, $response);

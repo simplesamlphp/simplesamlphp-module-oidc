@@ -39,6 +39,8 @@ class JwksController
         return new JsonResponse(
             $this->jwks->jwksDecoratorFactory()->fromJwkDecorators(
                 ...$this->moduleConfig->getProtocolSignatureKeyPairBag()->getAllPublicKeys(),
+                ...$this->moduleConfig->getFederationSignatureKeyPairBag()->getAllPublicKeys(),
+                ...$this->moduleConfig->getVciSignatureKeyPairBag()->getAllPublicKeys(),
             )->jsonSerialize(),
         );
     }

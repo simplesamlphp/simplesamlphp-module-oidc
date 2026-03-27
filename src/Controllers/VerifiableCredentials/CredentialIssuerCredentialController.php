@@ -133,7 +133,7 @@ class CredentialIssuerCredentialController
                 ['accessTokenState' => $accessToken->getState()],
             );
             return $this->routes->newJsonErrorResponse(
-                'invalid_token',
+                'invalid_credential_request',
                 'Issuer state missing in access token.',
                 401,
             );
@@ -145,8 +145,9 @@ class CredentialIssuerCredentialController
                 ['issuerState' => $issuerState],
             );
             return $this->routes->newJsonErrorResponse(
-                'invalid_token',
+                'invalid_credential_request',
                 'Issuer state not valid.',
+                401,
             );
         }
 
@@ -163,6 +164,7 @@ class CredentialIssuerCredentialController
             return $this->routes->newJsonErrorResponse(
                 'invalid_credential_request',
                 'Credential configuration ID must not be used together with credential identifier.',
+                400,
             );
         }
 
@@ -182,6 +184,7 @@ class CredentialIssuerCredentialController
                 return $this->routes->newJsonErrorResponse(
                     'invalid_credential_request',
                     'Can not resolve credential identifier.',
+                    400,
                 );
             }
 
@@ -224,6 +227,7 @@ class CredentialIssuerCredentialController
                 return $this->routes->newJsonErrorResponse(
                     'invalid_credential_request',
                     'Credential identifier not used in flow.',
+                    400,
                 );
             }
 
@@ -282,6 +286,7 @@ class CredentialIssuerCredentialController
                 return $this->routes->newJsonErrorResponse(
                     'invalid_credential_request',
                     'Can not resolve credential format.',
+                    400,
                 );
             }
 
@@ -299,6 +304,7 @@ class CredentialIssuerCredentialController
                 return $this->routes->newJsonErrorResponse(
                     'unsupported_credential_type',
                     sprintf('Credential format ID "%s" is not supported.', $requestedCredentialFormatId),
+                    400,
                 );
             }
 
@@ -359,6 +365,7 @@ class CredentialIssuerCredentialController
             return $this->routes->newJsonErrorResponse(
                 'invalid_credential_request',
                 'Can not resolve credential configuration ID.',
+                400,
             );
         }
 
@@ -369,6 +376,7 @@ class CredentialIssuerCredentialController
             return $this->routes->newJsonErrorResponse(
                 'unsupported_credential_type',
                 sprintf('Credential ID "%s" is not supported.', $resolvedCredentialIdentifier),
+                400,
             );
         }
 
@@ -450,27 +458,26 @@ class CredentialIssuerCredentialController
 
                     $this->loggerService->debug('Proof verified successfully using did:key ' . $didKey);
 
-                // Verify nonce
+                    // Verify nonce
                     $nonce = $proof->getNonce();
-                    if ($nonce === null) {
-                        return $this->routes->newJsonErrorResponse(
-                            'invalid_proof',
-                            'Proof MUST contain a c_nonce.',
-                        );
+                    if (is_string($nonce) && $nonce !== '') {
+                        $this->loggerService->debug('Proof nonce: ' . $nonce);
+
+                        if (!$this->nonceService->validateNonce($nonce)) {
+                            $this->loggerService->warning('Proof nonce is invalid or expired. Nonce was: ' . $nonce);
+                            return $this->routes->newJsonErrorResponse(
+                                error: 'invalid_nonce',
+                                description: 'c_nonce is invalid or expired.',
+                                httpCode: 400,
+                            );
+                        }
+
+                        $this->loggerService->debug('Proof nonce validated successfully.');
+                    } else {
+                        $this->loggerService->warning('Nonce not present in proof, skipping nonce validation.');
                     }
 
-                    if (!$this->nonceService->validateNonce($nonce)) {
-                        return $this->routes->newJsonResponse(
-                            [
-                            'error' => 'invalid_nonce',
-                            'error_description' => 'c_nonce is invalid or expired.',
-                            'c_nonce' => $this->nonceService->generateNonce(),
-                            ],
-                            400,
-                        );
-                    }
-
-                // Set it as a subject identifier (bind it).
+                    // Set it as a subject identifier (bind it).
                     $sub = $didKey;
                 } else {
                     $this->loggerService->warning(
@@ -507,6 +514,7 @@ class CredentialIssuerCredentialController
                 return $this->routes->newJsonErrorResponse(
                     'invalid_proof',
                     $message,
+                    400,
                 );
             }
         }
