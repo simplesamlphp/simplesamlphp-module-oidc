@@ -227,6 +227,11 @@ class Routes
         return $this->getModuleUrl(RoutesEnum::CredentialIssuerCredential->value, $parameters);
     }
 
+    public function urlCredentialIssuerNonce(array $parameters = []): string
+    {
+        return $this->getModuleUrl(RoutesEnum::CredentialIssuerNonce->value, $parameters);
+    }
+
     /*****************************************************************************************************************
      * SD-JWT-based Verifiable Credentials (SD-JWT VC)
      ****************************************************************************************************************/

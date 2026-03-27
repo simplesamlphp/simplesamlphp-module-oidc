@@ -24,6 +24,7 @@ use SimpleSAML\Module\oidc\Controllers\UserInfoController;
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\CredentialIssuerConfigurationController;
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\CredentialIssuerCredentialController;
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\JwtVcIssuerConfigurationController;
+use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\NonceController;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 
@@ -125,6 +126,10 @@ return function (RoutingConfigurator $routes): void {
     $routes->add(RoutesEnum::CredentialIssuerCredential->name, RoutesEnum::CredentialIssuerCredential->value)
         ->controller([CredentialIssuerCredentialController::class, 'credential'])
         ->methods([HttpMethodsEnum::GET->value, HttpMethodsEnum::POST->value]);
+
+    $routes->add(RoutesEnum::CredentialIssuerNonce->name, RoutesEnum::CredentialIssuerNonce->value)
+        ->controller([NonceController::class, 'nonce'])
+        ->methods([HttpMethodsEnum::POST->value]);
 
     /*****************************************************************************************************************
      * SD-JWT-based Verifiable Credentials (SD-JWT VC)

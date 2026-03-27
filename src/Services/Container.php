@@ -101,6 +101,7 @@ use SimpleSAML\Module\oidc\Server\ResourceServer;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\TokenResponse;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
+use SimpleSAML\Module\oidc\Services\NonceService;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
 use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
@@ -583,6 +584,9 @@ class Container implements ContainerInterface
 
         $errorResponder = new ErrorResponder($psrHttpBridge);
         $this->services[ErrorResponder::class] = $errorResponder;
+
+        $nonceService = new NonceService($jws, $moduleConfig, $loggerService);
+        $this->services[NonceService::class] = $nonceService;
     }
 
     /**

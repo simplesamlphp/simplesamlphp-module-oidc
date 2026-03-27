@@ -15,6 +15,7 @@ use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\ResourceServer;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Services\NonceService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Codebooks\AtContextsEnum;
@@ -53,6 +54,7 @@ class CredentialIssuerCredentialController
         protected readonly UserRepository $userRepository,
         protected readonly Did $did,
         protected readonly IssuerStateRepository $issuerStateRepository,
+        protected readonly NonceService $nonceService,
     ) {
         if (!$this->moduleConfig->getVciEnabled()) {
             $this->loggerService->warning('Verifiable Credential capabilities not enabled.');
@@ -447,7 +449,28 @@ class CredentialIssuerCredentialController
                     $proof->verifyWithKey($jwk);
 
                     $this->loggerService->debug('Proof verified successfully using did:key ' . $didKey);
-                    // Set it as a subject identifier (bind it).
+
+                // Verify nonce
+                    $nonce = $proof->getNonce();
+                    if ($nonce === null) {
+                        return $this->routes->newJsonErrorResponse(
+                            'invalid_proof',
+                            'Proof MUST contain a c_nonce.',
+                        );
+                    }
+
+                    if (!$this->nonceService->validateNonce($nonce)) {
+                        return $this->routes->newJsonResponse(
+                            [
+                            'error' => 'invalid_nonce',
+                            'error_description' => 'c_nonce is invalid or expired.',
+                            'c_nonce' => $this->nonceService->generateNonce(),
+                            ],
+                            400,
+                        );
+                    }
+
+                // Set it as a subject identifier (bind it).
                     $sub = $didKey;
                 } else {
                     $this->loggerService->warning(

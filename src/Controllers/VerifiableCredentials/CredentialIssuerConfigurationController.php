@@ -72,7 +72,7 @@ class CredentialIssuerConfigurationController
             ClaimsEnum::CredentialEndpoint->value => $this->routes->urlCredentialIssuerCredential(),
 
             // OPTIONAL
-            // nonce_endpoint
+            ClaimsEnum::NonceEndpoint->value => $this->routes->urlCredentialIssuerNonce(),
 
             // OPTIONAL
             // deferred_credential_endpoint
