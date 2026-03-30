@@ -412,7 +412,8 @@ class CredentialIssuerCredentialController
             isset($requestData['proof']['proof_type']) &&
             isset($requestData['proof']['jwt']) &&
             $requestData['proof']['proof_type'] === 'jwt' &&
-            is_string($proofJwt = $requestData['proof']['jwt'])
+            is_string($proofJwt = $requestData['proof']['jwt']) &&
+            $proofJwt !== ''
         ) {
             $this->loggerService->debug('Verifying proof JWT: ' . $proofJwt);
 
@@ -731,12 +732,11 @@ class CredentialIssuerCredentialController
         ],);
 
         return $this->routes->newJsonResponse(
-            ['credential' => $verifiableCredential->getToken()],
-            //            [
-            //                'credentials' => [
-            //                    ['credential' => $verifiableCredential->getToken()],
-            //                ]
-            //            ],
+            [
+                'credentials' => [
+                    ['credential' => $verifiableCredential->getToken()],
+                ]
+            ],
         );
     }
 
