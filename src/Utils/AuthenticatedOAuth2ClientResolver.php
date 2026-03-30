@@ -22,7 +22,7 @@ use Symfony\Component\HttpFoundation\Request;
 
 class AuthenticatedOAuth2ClientResolver
 {
-    protected const KEY_CLIENT_ASSERTION_JTI = 'client_assertion_jti';
+    protected const string KEY_CLIENT_ASSERTION_JTI = 'client_assertion_jti';
 
     public function __construct(
         protected readonly ClientRepository $clientRepository,

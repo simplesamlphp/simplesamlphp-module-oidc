@@ -15,7 +15,7 @@ use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 class IssuerStateRepository extends AbstractDatabaseRepository
 {
-    final public const TABLE_NAME = 'oidc_vci_issuer_state';
+    final public const string TABLE_NAME = 'oidc_vci_issuer_state';
 
     public function __construct(
         ModuleConfig $moduleConfig,
