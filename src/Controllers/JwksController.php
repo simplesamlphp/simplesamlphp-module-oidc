@@ -36,11 +36,19 @@ class JwksController
      */
     public function __invoke(): JsonResponse
     {
+        $federationPublicKeys = $this->moduleConfig->getFederationEnabled()
+        ? $this->moduleConfig->getFederationSignatureKeyPairBag()->getAllPublicKeys()
+        : [];
+
+        $vciPublicKeys = $this->moduleConfig->getVciEnabled()
+        ? $this->moduleConfig->getVciSignatureKeyPairBag()->getAllPublicKeys()
+        : [];
+
         return new JsonResponse(
             $this->jwks->jwksDecoratorFactory()->fromJwkDecorators(
                 ...$this->moduleConfig->getProtocolSignatureKeyPairBag()->getAllPublicKeys(),
-                ...$this->moduleConfig->getFederationSignatureKeyPairBag()->getAllPublicKeys(),
-                ...$this->moduleConfig->getVciSignatureKeyPairBag()->getAllPublicKeys(),
+                ...$federationPublicKeys,
+                ...$vciPublicKeys,
             )->jsonSerialize(),
         );
     }
