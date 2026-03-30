@@ -45,172 +45,132 @@ class VerifiableCredentailsTestController
      */
     public function verifiableCredentialIssuance(Request $request): Response
     {
-        $setupErrors = [];
-
         if (!$this->moduleConfig->getVciEnabled()) {
-            $setupErrors[] = 'Verifiable Credential functionalities are not enabled.';
-        }
-
-        $selectedAuthSourceId = $this->sessionService->getCurrentSession()->getData('vci', 'auth_source_id');
-
-        $authSource = null;
-        if (is_string($selectedAuthSourceId)) {
-            $authSource = $this->authSimpleFactory->forAuthSourceId($selectedAuthSourceId);
-        }
-
-        $allowedMethods = [
-            HttpMethodsEnum::GET,
-            HttpMethodsEnum::POST,
-        ];
-
-        // Check if the logout was called.
-        if (
-            $request->request->has('logout') &&
-            $authSource instanceof Simple &&
-            $authSource->isAuthenticated()
-        ) {
-            $this->sessionService->getCurrentSession()->deleteData('vci', 'auth_source_id');
-            $selectedAuthSourceId = null;
-            $authSource->logout();
-        } elseif (
-            is_string($newAuthSourceId = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
-                'authSourceId',
-                $request,
-                $allowedMethods,
-            ))
-        ) {
-            $authSource = $this->authSimpleFactory->forAuthSourceId($newAuthSourceId);
-            $this->sessionService->getCurrentSession()->setData('vci', 'auth_source_id', $newAuthSourceId);
-            $selectedAuthSourceId = $newAuthSourceId;
-        }
-
-        $authSourceIds = array_filter(
-            $this->sspBridge->auth()->source()->getSources(),
-            fn (string $authSourceId): bool => $authSourceId !== 'admin',
-        );
-
-        if (
-            $authSource instanceof Simple &&
-            ($authSource->isAuthenticated() === false) &&
-            is_string($selectedAuthSourceId) &&
-            in_array($selectedAuthSourceId, $authSourceIds, true)
-        ) {
-            $authSource->login(['ReturnTo' => $this->routes->urlAdminTestVerifiableCredentialIssuance()]);
-        }
-
-        /** @psalm-suppress MixedAssignment */
-        $selectedCredentialConfigurationId = $this->sessionService->getCurrentSession()->getData(
-            'vci',
-            'credential_configuration_id',
-        );
-
-        /** @psalm-suppress MixedAssignment, InternalMethod */
-        if (
-            is_string($newCredentialConfigurationId = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
-                'credentialConfigurationId',
-                $request,
-                $allowedMethods,
-            ))
-        ) {
-            $this->sessionService->getCurrentSession()->setData(
-                'vci',
-                'credential_configuration_id',
-                $newCredentialConfigurationId,
+            return $this->templateFactory->build(
+                'oidc:tests/verifiable-credential-issuance.twig',
+                ['setupErrors' => ['Verifiable Credential functionalities are not enabled.']],
+                RoutesEnum::AdminTestVerifiableCredentialIssuance->value,
             );
-            $selectedCredentialConfigurationId = $newCredentialConfigurationId;
         }
 
         $credentialConfigurationIdsSupported = $this->moduleConfig->getVciCredentialConfigurationIdsSupported();
-
         if (empty($credentialConfigurationIdsSupported)) {
-            $setupErrors[] = 'No credential configuration IDs configured.';
+            return $this->templateFactory->build(
+                'oidc:tests/verifiable-credential-issuance.twig',
+                ['setupErrors' => ['No credential configuration IDs configured.']],
+                RoutesEnum::AdminTestVerifiableCredentialIssuance->value,
+            );
         }
 
-        if (
-            is_null($selectedCredentialConfigurationId) ||
-            !in_array($selectedCredentialConfigurationId, $credentialConfigurationIdsSupported, true)
-        ) {
-            $selectedCredentialConfigurationId = current($credentialConfigurationIdsSupported);
+        $session = $this->sessionService->getCurrentSession();
+        $allowedMethods = [HttpMethodsEnum::GET, HttpMethodsEnum::POST];
+
+        if ($request->request->has('clear')) {
+            $selectedAuthSourceId = $session->getData('vci', 'auth_source_id');
+            if (is_string($selectedAuthSourceId)) {
+                $authSource = $this->authSimpleFactory->forAuthSourceId($selectedAuthSourceId);
+                if ($authSource->isAuthenticated()) {
+                    $authSource->logout();
+                }
+            }
+            $session->deleteData('vci', 'auth_source_id');
+            $session->deleteData('vci', 'credential_configuration_id');
+
+            return $this->routes->newRedirectResponseToModuleUrl(
+                RoutesEnum::AdminTestVerifiableCredentialIssuance->value,
+            );
         }
 
-        $credentialOfferQrUri = null;
-        $credentialOfferUri = null;
+        $authSourceId = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
+            'authSourceId',
+            $request,
+            $allowedMethods,
+        ) ?? $session->getData('vci', 'auth_source_id');
+
+        $credentialConfigurationId = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
+            'credentialConfigurationId',
+            $request,
+            $allowedMethods,
+        ) ?? $session->getData('vci', 'credential_configuration_id');
+
         $grantType = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
             'grantType',
             $request,
             $allowedMethods,
         );
+
         $useTxCode = (bool) $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
             'useTxCode',
             $request,
             $allowedMethods,
         );
+
         $usersEmailAttributeName = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
             'usersEmailAttributeName',
             $request,
             $allowedMethods,
         );
-        $usersEmailAttributeName = is_string($usersEmailAttributeName) && (trim($usersEmailAttributeName) !== '') ?
-        trim($usersEmailAttributeName) :
-        null;
 
-        if (
-            $authSource instanceof Simple &&
-            $authSource->isAuthenticated()
-        ) {
-            $userAttributes = $authSource->getAttributes();
-            $usersEmailAttributeName ??= $this->moduleConfig->getUsersEmailAttributeNameForAuthSourceId(
-                $authSource->getAuthSource()->getAuthId(),
-            );
+        $authSourceIds = array_filter(
+            $this->sspBridge->auth()->source()->getSources(),
+            fn (string $id): bool => $id !== 'admin',
+        );
 
-            if (
-                $grantType === GrantTypesEnum::PreAuthorizedCode->value &&
-                is_string($selectedCredentialConfigurationId)
-            ) {
-                $credentialOfferUri = $this->credentialOfferUriFactory->buildPreAuthorized(
-                    [$selectedCredentialConfigurationId],
-                    $userAttributes,
-                    $useTxCode,
-                    $usersEmailAttributeName,
-                );
-            } elseif (is_string($selectedCredentialConfigurationId)) {
-                $credentialOfferUri = $this->credentialOfferUriFactory->buildForAuthorization(
-                    [$selectedCredentialConfigurationId],
-                );
-            }
+        $authSource = is_string($authSourceId) ? $this->authSimpleFactory->forAuthSourceId($authSourceId) : null;
 
-            // TODO mivanci Local QR code generator
-            // https://quickchart.io/documentation/qr-codes/
-            if (is_string($credentialOfferUri)) {
-                $credentialOfferQrUri = 'https://quickchart.io/qr?size=200&margin=1&text=' .
-                urlencode($credentialOfferUri);
+        if ($authSource instanceof Simple && $grantType === GrantTypesEnum::PreAuthorizedCode->value) {
+            if (!$authSource->isAuthenticated()) {
+                $session->setData('vci', 'auth_source_id', $authSourceId);
+                $session->setData('vci', 'credential_configuration_id', $credentialConfigurationId);
+                $authSource->login(['ReturnTo' => $this->routes->urlAdminTestVerifiableCredentialIssuance()]);
             }
         }
 
-        $authSourceActionRoute = $this->routes->urlAdminTestVerifiableCredentialIssuance();
+        $credentialOfferUri = null;
+        if (is_string($credentialConfigurationId)) {
+            if ($grantType === GrantTypesEnum::PreAuthorizedCode->value && $authSource?->isAuthenticated()) {
+                $usersEmailAttributeName = is_string($usersEmailAttributeName) &&
+                trim($usersEmailAttributeName) !== '' ?
+                trim($usersEmailAttributeName) :
+                $this->moduleConfig->getUsersEmailAttributeNameForAuthSourceId(
+                    is_string($authSourceId) ? $authSourceId : '',
+                );
 
-        $defaultUsersEmailAttributeName = $this->moduleConfig->getDefaultUsersEmailAttributeName();
+                $credentialOfferUri = $this->credentialOfferUriFactory->buildPreAuthorized(
+                    [$credentialConfigurationId],
+                    $authSource->getAttributes(),
+                    $useTxCode,
+                    $usersEmailAttributeName,
+                );
+            } elseif ($grantType === GrantTypesEnum::AuthorizationCode->value) {
+                $credentialOfferUri = $this->credentialOfferUriFactory->buildForAuthorization(
+                    [$credentialConfigurationId],
+                );
+            }
+        }
 
-        $grantTypesSupported = [
-            GrantTypesEnum::PreAuthorizedCode->value => Translate::noop('Pre-authorized Code'),
-            GrantTypesEnum::AuthorizationCode->value => Translate::noop('Authorization Code'),
-        ];
+        $credentialOfferQrUri = is_string($credentialOfferUri)
+        ? 'https://quickchart.io/qr?size=200&margin=1&text=' . urlencode($credentialOfferUri)
+        : null;
 
         return $this->templateFactory->build(
             'oidc:tests/verifiable-credential-issuance.twig',
-            compact(
-                'setupErrors',
-                'credentialOfferQrUri',
-                'credentialOfferUri',
-                'authSourceIds',
-                'authSourceActionRoute',
-                'authSource',
-                'credentialConfigurationIdsSupported',
-                'selectedCredentialConfigurationId',
-                'defaultUsersEmailAttributeName',
-                'usersEmailAttributeName',
-                'grantTypesSupported',
-            ),
+            [
+                'setupErrors' => [],
+                'credentialOfferQrUri' => $credentialOfferQrUri,
+                'credentialOfferUri' => $credentialOfferUri,
+                'authSourceIds' => $authSourceIds,
+                'authSourceActionRoute' => $this->routes->urlAdminTestVerifiableCredentialIssuance(),
+                'authSource' => $authSource,
+                'credentialConfigurationIdsSupported' => $credentialConfigurationIdsSupported,
+                'selectedCredentialConfigurationId' => $credentialConfigurationId,
+                'defaultUsersEmailAttributeName' => $this->moduleConfig->getDefaultUsersEmailAttributeName(),
+                'usersEmailAttributeName' => $usersEmailAttributeName,
+                'grantTypesSupported' => [
+                    GrantTypesEnum::PreAuthorizedCode->value => Translate::noop('Pre-authorized Code'),
+                    GrantTypesEnum::AuthorizationCode->value => Translate::noop('Authorization Code'),
+                ],
+            ],
             RoutesEnum::AdminTestVerifiableCredentialIssuance->value,
         );
     }
