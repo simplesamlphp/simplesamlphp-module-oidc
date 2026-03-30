@@ -84,14 +84,20 @@ class ConfigController
              * @var non-empty-string $trustMarkIssuerId
              */
             foreach ($dynamicTrustMarks as $trustMarkType => $trustMarkIssuerId) {
-                $trustMarkIssuerConfigurationStatement = $this->federation->entityStatementFetcher()
-                    ->fromCacheOrWellKnownEndpoint($trustMarkIssuerId);
+                try {
+                    $trustMarkIssuerConfigurationStatement = $this->federation->entityStatementFetcher()
+                        ->fromCacheOrWellKnownEndpoint($trustMarkIssuerId);
 
-                $trustMarks[] = $this->federation->trustMarkFetcher()->fromCacheOrFederationTrustMarkEndpoint(
-                    $trustMarkType,
-                    $this->moduleConfig->getIssuer(),
-                    $trustMarkIssuerConfigurationStatement,
-                );
+                    $trustMarks[] = $this->federation->trustMarkFetcher()->fromCacheOrFederationTrustMarkEndpoint(
+                        $trustMarkType,
+                        $this->moduleConfig->getIssuer(),
+                        $trustMarkIssuerConfigurationStatement,
+                    );
+                } catch (\Exception $e) {
+                    $message = Translate::noop('Error fetching dynamic trust mark: ') .
+                    "trust_mark_type => $trustMarkType, issuer_id => $trustMarkIssuerId. " . $e->getMessage();
+                    $this->sessionMessagesService->addMessage($message);
+                }
             }
         }
 
