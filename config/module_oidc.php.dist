@@ -966,6 +966,101 @@ $config = [
             // REQUIRED
             ClaimsEnum::Vct->value => 'ResearchAndScholarshipCredentialDcSdJwt',
         ],
+
+        'ResearchAndScholarshipCredentialVcSdJwt' => [
+            ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::VcSdJwt->value,
+            ClaimsEnum::Scope->value => 'ResearchAndScholarshipCredentialVcSdJwt',
+            ClaimsEnum::Display->value => [
+                [
+                    ClaimsEnum::Name->value => 'ResearchAndScholarshipCredentialVcSdJwt',
+                    ClaimsEnum::Locale->value => 'en-US',
+                    ClaimsEnum::Description->value => 'Research and Scholarship Credential',
+                ],
+            ],
+            ClaimsEnum::Claims->value => [
+                [
+                    ClaimsEnum::Path->value => [ClaimsEnum::Credential_Subject->value, 'eduPersonPrincipalName'],
+                    ClaimsEnum::Mandatory->value => true,
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Principal Name',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+                [
+                    ClaimsEnum::Path->value => [ClaimsEnum::Credential_Subject->value, 'eduPersonTargetedID'],
+                    ClaimsEnum::Mandatory->value => false,
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Targeted ID',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+                [
+                    ClaimsEnum::Path->value => [ClaimsEnum::Credential_Subject->value, 'displayName'],
+                    ClaimsEnum::Mandatory->value => false,
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Display Name',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+                [
+                    ClaimsEnum::Path->value => [ClaimsEnum::Credential_Subject->value, 'givenName'],
+                    ClaimsEnum::Mandatory->value => false,
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Given Name',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+                [
+                    ClaimsEnum::Path->value => [ClaimsEnum::Credential_Subject->value, 'sn'],
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Last Name',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+                [
+                    ClaimsEnum::Path->value => [ClaimsEnum::Credential_Subject->value, 'mail'],
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Email Address',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+                [
+                    ClaimsEnum::Path->value => [ClaimsEnum::Credential_Subject->value, 'eduPersonScopedAffiliation'],
+                    ClaimsEnum::Display->value => [
+                        [
+                            ClaimsEnum::Name->value => 'Scoped Affiliation',
+                            ClaimsEnum::Locale->value => LanguageTagsEnum::EnUs->value,
+                        ],
+                    ],
+                ],
+            ],
+
+            /**
+             * VCDM 2.0 context is REQUIRED for 'vc+sd-jwt' format.
+             */
+            ClaimsEnum::AtContext->value => [
+                AtContextsEnum::W3OrgNsCredentialsV2->value,
+            ],
+
+            // REQUIRED
+            /** @see https://www.w3.org/TR/vc-data-model-2.0/#types */
+            ClaimsEnum::Type->value => [
+                CredentialTypesEnum::VerifiableCredential->value,
+                'ResearchAndScholarshipCredentialVcSdJwt',
+            ],
+        ],
     ],
 
     /**
@@ -998,6 +1093,15 @@ $config = [
             ['sn' => ['sn']],
             ['mail' => ['mail']],
             ['eduPersonScopedAffiliation' => ['eduPersonScopedAffiliation']],
+        ],
+        'ResearchAndScholarshipCredentialVcSdJwt' => [
+            ['eduPersonPrincipalName' => [ClaimsEnum::Credential_Subject->value, 'eduPersonPrincipalName']],
+            ['eduPersonTargetedID' => [ClaimsEnum::Credential_Subject->value, 'eduPersonTargetedID']],
+            ['displayName' => [ClaimsEnum::Credential_Subject->value, 'displayName']],
+            ['givenName' => [ClaimsEnum::Credential_Subject->value, 'givenName']],
+            ['sn' => [ClaimsEnum::Credential_Subject->value, 'sn']],
+            ['mail' => [ClaimsEnum::Credential_Subject->value, 'mail']],
+            ['eduPersonScopedAffiliation' => [ClaimsEnum::Credential_Subject->value, 'eduPersonScopedAffiliation']],
         ],
     ],
 
