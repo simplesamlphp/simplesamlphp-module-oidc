@@ -735,7 +735,7 @@ class CredentialIssuerCredentialController
             [
                 'credentials' => [
                     ['credential' => $verifiableCredential->getToken()],
-                ]
+                ],
             ],
         );
     }

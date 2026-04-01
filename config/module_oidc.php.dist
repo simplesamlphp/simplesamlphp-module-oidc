@@ -885,8 +885,6 @@ $config = [
         // optional fields.
         'ResearchAndScholarshipCredentialDcSdJwt' => [
             ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::DcSdJwt->value,
-            // In earlier drafts it was vc+sd-jwt.
-            //ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::VcSdJwt->value,
             ClaimsEnum::Scope->value => 'ResearchAndScholarshipCredentialDcSdJwt',
             ClaimsEnum::Display->value => [
                 [
