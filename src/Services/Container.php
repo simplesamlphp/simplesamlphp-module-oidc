@@ -231,7 +231,7 @@ class Container implements ContainerInterface
         $clientEntityFactory = new ClientEntityFactory(
             $sspBridge,
             $helpers,
-            $claimTranslatorExtractor,
+            $moduleConfig,
             $requestParamsResolver,
         );
         $this->services[ClientEntityFactory::class] = $clientEntityFactory;

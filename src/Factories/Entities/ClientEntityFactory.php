@@ -11,8 +11,8 @@ use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\ApplicationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
@@ -27,7 +27,7 @@ class ClientEntityFactory
     public function __construct(
         private readonly SspBridge $sspBridge,
         private readonly Helpers $helpers,
-        private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
+        private readonly ModuleConfig $moduleConfig,
         private readonly RequestParamsResolver $requestParamsResolver,
     ) {
     }
@@ -130,7 +130,7 @@ class ClientEntityFactory
         // Filter to only allowed scopes
         $scopes = array_filter(
             $scopes,
-            fn(string $scope): bool => $this->claimTranslatorExtractor->hasClaimSet($scope),
+            fn(string $scope): bool => array_key_exists($scope, $this->moduleConfig->getScopes()),
         );
         // Let's ensure there is at least 'openid' scope present.
         $scopes = empty($scopes) ? [ScopesEnum::OpenId->value] : $scopes;
