@@ -702,9 +702,9 @@ class CredentialIssuerCredentialController
                 ClaimsEnum::Vct->value => $resolvedCredentialIdentifier,
             ];
 
-            if ($proof instanceof OpenId4VciProof) {
+            if ($proof instanceof OpenId4VciProof && is_string($proofKeyId = $proof->getKeyId())) {
                 $sdJwtPayload[ClaimsEnum::Cnf->value] = [
-                    ClaimsEnum::Kid->value => $proof->getKeyId(),
+                    ClaimsEnum::Kid->value => $proofKeyId,
                 ];
             }
 
@@ -716,7 +716,6 @@ class CredentialIssuerCredentialController
                     ClaimsEnum::Kid->value => $issuerDid . '#0',
                 ],
                 disclosureBag: $disclosureBag,
-                jwtTypesEnum: JwtTypesEnum::DcSdJwt,
             );
         }
 
@@ -741,9 +740,9 @@ class CredentialIssuerCredentialController
                 ClaimsEnum::Jti->value => $vcId,
             ];
 
-            if ($proof instanceof OpenId4VciProof) {
+            if ($proof instanceof OpenId4VciProof && is_string($proofKeyId = $proof->getKeyId())) {
                 $sdJwtPayload[ClaimsEnum::Cnf->value] = [
-                    ClaimsEnum::Kid->value => $proof->getKeyId(),
+                    ClaimsEnum::Kid->value => $proofKeyId,
                 ];
             }
 
