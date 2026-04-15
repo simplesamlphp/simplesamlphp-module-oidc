@@ -23,7 +23,6 @@ use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialTypesEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
-use SimpleSAML\OpenID\Codebooks\JwtTypesEnum;
 use SimpleSAML\OpenID\Did;
 use SimpleSAML\OpenID\Exceptions\OpenId4VciProofException;
 use SimpleSAML\OpenID\Exceptions\OpenIdException;
@@ -612,6 +611,10 @@ class CredentialIssuerCredentialController
                     continue;
                 }
 
+                if ($credentialFormatId === CredentialFormatIdentifiersEnum::VcSdJwt->value) {
+                    array_unshift($credentialClaimPath, ClaimsEnum::Credential_Subject->value);
+                }
+
                 /** @psalm-suppress ArgumentTypeCoercion */
                 $disclosure = $this->verifiableCredentials->disclosureFactory()->build(
                     value: $attributeValue,
@@ -688,7 +691,7 @@ class CredentialIssuerCredentialController
             );
         }
 
-        if (in_array($credentialFormatId, self::SD_JWT_FORMAT_IDS, true)) {
+        if ($credentialFormatId === CredentialFormatIdentifiersEnum::DcSdJwt->value) {
             $sdJwtPayload = [
                 ClaimsEnum::Iss->value => $issuerDid,
                 ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
@@ -698,9 +701,9 @@ class CredentialIssuerCredentialController
                 ClaimsEnum::Vct->value => $resolvedCredentialIdentifier,
             ];
 
-            if ($proof instanceof OpenId4VciProof) {
+            if ($proof instanceof OpenId4VciProof && is_string($proofKeyId = $proof->getKeyId())) {
                 $sdJwtPayload[ClaimsEnum::Cnf->value] = [
-                    ClaimsEnum::Kid->value => $proof->getKeyId(),
+                    ClaimsEnum::Kid->value => $proofKeyId,
                 ];
             }
 
@@ -712,7 +715,43 @@ class CredentialIssuerCredentialController
                     ClaimsEnum::Kid->value => $issuerDid . '#0',
                 ],
                 disclosureBag: $disclosureBag,
-                jwtTypesEnum: JwtTypesEnum::VcSdJwt,
+            );
+        }
+
+        if ($credentialFormatId === CredentialFormatIdentifiersEnum::VcSdJwt->value) {
+            $sdJwtPayload = [
+                ClaimsEnum::AtContext->value => [
+                    AtContextsEnum::W3OrgNsCredentialsV2->value,
+                ],
+                ClaimsEnum::Id->value => $vcId,
+                ClaimsEnum::Type->value => [
+                    CredentialTypesEnum::VerifiableCredential->value,
+                    $resolvedCredentialIdentifier,
+                ],
+                ClaimsEnum::Issuer->value => $issuerDid,
+                ClaimsEnum::ValidFrom->value => $issuedAt->format(\DateTimeInterface::RFC3339),
+                ClaimsEnum::Credential_Subject->value =>
+                    $credentialSubject[ClaimsEnum::Credential_Subject->value] ?? [],
+                ClaimsEnum::Iss->value => $issuerDid,
+                ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
+                ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
+                ClaimsEnum::Sub->value => $sub,
+                ClaimsEnum::Jti->value => $vcId,
+            ];
+
+            if ($proof instanceof OpenId4VciProof && is_string($proofKeyId = $proof->getKeyId())) {
+                $sdJwtPayload[ClaimsEnum::Cnf->value] = [
+                    ClaimsEnum::Kid->value => $proofKeyId,
+                ];
+            }
+
+            $verifiableCredential = $this->verifiableCredentials->vcSdJwtFactory()->fromData(
+                $signingKey,
+                $signatureAlgorithm,
+                $sdJwtPayload,
+                [
+                    ClaimsEnum::Kid->value => $issuerDid . '#0',
+                ],
             );
         }
 
