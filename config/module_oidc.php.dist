@@ -22,6 +22,7 @@ declare(strict_types=1);
  */
 
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\OpenID\Codebooks\AtContextsEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialTypesEnum;
@@ -29,7 +30,7 @@ use SimpleSAML\OpenID\Codebooks\LanguageTagsEnum;
 
 $config = [
     /**
-     * (optional) Issuer (OP) identifier which will be used as an issuer (iss)
+     * (optional) Issuer (OP) identifier that will be used as an issuer (iss)
      * claim in tokens. If not set, it will fall back to the current HTTP
      * scheme, host and port number if no standard port is used.
      * Description of the issuer from OIDC Core specification: "Verifiable
@@ -55,16 +56,16 @@ $config = [
      * example, for key-rollover scenarios. Just add those entries later in
      * the list, so they can be published on the OP JWKS discovery endpoint.
      *
-     * The format is array of associative arrays, where each array value
+     * The format is an array of associative arrays, where each array value
      * consists of the following properties (keys):
      * - ModuleConfig::KEY_ALGORITHM - \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum case
      * representing the algorithm.
      * - ModuleConfig::KEY_PRIVATE_KEY_FILENAME - the name of the file
-     * containing private key inPEM format, which is available in SSP `cert`
+     * containing a private key in PEM format, which is available in SSP `cert`
      * folder.
      * - ModuleConfig::KEY_PUBLIC_KEY_FILENAME - the name of the file containing
-     * corresponding public key in PEM format, which is available in SSP `cert`
-     * folder.
+     *  the corresponding public key in PEM format, which is available in
+     *  the SSP `cert` folder.
      * - ModuleConfig::KEY_PRIVATE_KEY_PASSWORD - private key password, if
      * needed.
      * - ModuleConfig::KEY_KEY_ID - Optional string representing key identifier.
@@ -286,7 +287,7 @@ $config = [
     /**
      * If this OP supports ACRs, indicate which usable auth source supports
      * which ACRs. Order of ACRs is important, more important ones being first.
-     * Syntax: array<string,string[]> (array with an auth source as a key and
+     * Syntax: array<string, string[]> (array with an auth source as a key and
      * value being array of ACR values as strings)
      */
 
@@ -339,7 +340,7 @@ $config = [
      * Source and destination will have entity IDs corresponding to the OP
      * issuer ID and Client ID respectively.
      * - ['Source']['entityid'] - contains OpenId Provider issuer ID
-     * - ['Destination']['entityid'] - contains Relying Party (OIDC Client) ID
+     * - ['Destination']['entityid'] - contains Relying Party (OIDC Client) ID.
      * In addition to that, the following OIDC related data will be available
      * in the state array:
      * - ['Oidc']['OpenIdProviderMetadata'] - contains information otherwise
