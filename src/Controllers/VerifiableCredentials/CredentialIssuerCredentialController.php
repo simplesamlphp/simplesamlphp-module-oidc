@@ -23,7 +23,6 @@ use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialTypesEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
-use SimpleSAML\OpenID\Codebooks\JwtTypesEnum;
 use SimpleSAML\OpenID\Did;
 use SimpleSAML\OpenID\Exceptions\OpenId4VciProofException;
 use SimpleSAML\OpenID\Exceptions\OpenIdException;
