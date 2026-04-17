@@ -232,6 +232,17 @@ class Routes
         return $this->getModuleUrl(RoutesEnum::CredentialIssuerNonce->value, $parameters);
     }
 
+    public function urlCredentialJsonLdContext(string $credentialConfigurationId, array $parameters = []): string
+    {
+        $path = str_replace(
+            '{credentialConfigurationId}',
+            rawurlencode($credentialConfigurationId),
+            RoutesEnum::CredentialJsonLdContext->value,
+        );
+
+        return $this->getModuleUrl($path, $parameters);
+    }
+
     /*****************************************************************************************************************
      * SD-JWT-based Verifiable Credentials (SD-JWT VC)
      ****************************************************************************************************************/

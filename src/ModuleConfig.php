@@ -120,6 +120,7 @@ class ModuleConfig
     final public const string OPTION_FEDERATION_SIGNATURE_KEY_PAIRS = 'federation_signature_key_pairs';
     final public const string OPTION_TIMESTAMP_VALIDATION_LEEWAY = 'timestamp_validation_leeway';
     final public const string OPTION_VCI_SIGNATURE_KEY_PAIRS = 'vci_signature_key_pairs';
+    final public const string OPTION_VCI_CREDENTIAL_JSON_LD_CONTEXT = 'vci_credential_json_ld_context';
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
@@ -1034,6 +1035,37 @@ class ModuleConfig
             self::OPTION_VCI_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS,
             ['openid-credential-offer://',],
         );
+    }
+
+
+    /**
+     * Get the full map of a credential configuration ID => JSON-LD context
+     * document (as a PHP array).
+     *
+     * @return mixed[]
+     */
+    public function getVciCredentialJsonLdContext(): array
+    {
+        return $this->config()->getOptionalArray(self::OPTION_VCI_CREDENTIAL_JSON_LD_CONTEXT, []);
+    }
+
+    /**
+     * Get the JSON-LD context document (as a PHP array) configured for a
+     * specific credential configuration ID.
+     * Returns null if no context document is configured for the given ID.
+     *
+     * @return array<mixed>|null
+     */
+    public function getVciCredentialJsonLdContextFor(string $credentialConfigurationId): ?array
+    {
+        /** @psalm-suppress MixedAssignment */
+        $context = $this->getVciCredentialJsonLdContext()[$credentialConfigurationId] ?? null;
+
+        if (!is_array($context)) {
+            return null;
+        }
+
+        return $context;
     }
 
 

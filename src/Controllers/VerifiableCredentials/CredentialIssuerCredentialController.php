@@ -719,10 +719,34 @@ class CredentialIssuerCredentialController
         }
 
         if ($credentialFormatId === CredentialFormatIdentifiersEnum::VcSdJwt->value) {
+            // Always start with the VCDM 2.0 base context URL (mandatory).
+            $atContext = [AtContextsEnum::W3OrgNsCredentialsV2->value];
+
+            // If a JSON-LD context document is configured for this credential, append the module-hosted
+            // context URL so that verifiers can resolve the custom credential subject terms.
+            if ($this->moduleConfig->getVciCredentialJsonLdContextFor($resolvedCredentialIdentifier) !== null) {
+                $atContext[] = $this->routes->urlCredentialJsonLdContext($resolvedCredentialIdentifier);
+            }
+
+            // Append any additional context URLs declared in the credential configuration's @context field
+            // (skipping the base W3C URL, which is already first in the list).
+            /** @psalm-suppress MixedAssignment */
+            $configuredContexts = $resolvedCredentialConfiguration[ClaimsEnum::AtContext->value] ?? [];
+            if (is_array($configuredContexts)) {
+                /** @psalm-suppress MixedAssignment */
+                foreach ($configuredContexts as $configuredContext) {
+                    if (
+                        is_string($configuredContext) &&
+                        $configuredContext !== AtContextsEnum::W3OrgNsCredentialsV2->value &&
+                        !in_array($configuredContext, $atContext, true)
+                    ) {
+                        $atContext[] = $configuredContext;
+                    }
+                }
+            }
+
             $sdJwtPayload = [
-                ClaimsEnum::AtContext->value => [
-                    AtContextsEnum::W3OrgNsCredentialsV2->value,
-                ],
+                ClaimsEnum::AtContext->value => $atContext,
                 ClaimsEnum::Id->value => $vcId,
                 ClaimsEnum::Type->value => [
                     CredentialTypesEnum::VerifiableCredential->value,

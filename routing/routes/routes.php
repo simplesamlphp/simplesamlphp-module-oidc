@@ -23,6 +23,7 @@ use SimpleSAML\Module\oidc\Controllers\OAuth2\TokenIntrospectionController;
 use SimpleSAML\Module\oidc\Controllers\UserInfoController;
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\CredentialIssuerConfigurationController;
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\CredentialIssuerCredentialController;
+use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\CredentialJsonLdContextController;
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\JwtVcIssuerConfigurationController;
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\NonceController;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
@@ -130,6 +131,10 @@ return function (RoutingConfigurator $routes): void {
     $routes->add(RoutesEnum::CredentialIssuerNonce->name, RoutesEnum::CredentialIssuerNonce->value)
         ->controller([NonceController::class, 'nonce'])
         ->methods([HttpMethodsEnum::POST->value]);
+
+    $routes->add(RoutesEnum::CredentialJsonLdContext->name, RoutesEnum::CredentialJsonLdContext->value)
+        ->controller([CredentialJsonLdContextController::class, 'context'])
+        ->methods([HttpMethodsEnum::GET->value]);
 
     /*****************************************************************************************************************
      * SD-JWT-based Verifiable Credentials (SD-JWT VC)

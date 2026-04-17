@@ -1107,6 +1107,62 @@ $config = [
     ],
 
     /**
+     * (optional) JSON-LD context documents for vc+sd-jwt credential
+     * configurations. Providing context documents allows verifiers to resolve
+     * the meaning of custom terms (claims) used in the credentialSubject of
+     * issued vc+sd-jwt credentials, which is required for VCDM 2.0 JSON-LD
+     * compliance.
+     *
+     * When a context document is configured for a credential configuration ID,
+     * the module:
+     * 1. Serves the document at a stable HTTP endpoint on the credential issuer:
+     *    <issuer-base-url>/credential-issuer/context/{credentialConfigurationId}
+     *    with the Content-Type: application/ld+json header.
+     * 2. Automatically appends the URL of that endpoint after the mandatory
+     *    https://www.w3.org/ns/credentials/v2 entry in the @context array of
+     *    every vc+sd-jwt credential issued for the matching configuration ID.
+     *
+     * The format is a map of credential configuration IDs to JSON-LD context
+     * documents. Each context document is a plain PHP array that will be
+     * JSON-encoded and served as-is. You can use any valid JSON-LD context
+     * structure; the example below shows a simple term-mapping context.
+     *
+     * Notes:
+     * - Avoid @base or @vocab in the context document to maintain
+     *   interoperability with lightweight (type-specific) credential
+     *   processors, per the VCDM 2.0 specification.
+     * - If some custom claims are NOT defined in any context, you should add
+     *   'https://www.w3.org/ns/credentials/undefined-terms/v2' as the last
+     *   entry in the @context array of the credential configuration
+     *   (OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED).
+     *
+     * @see https://www.w3.org/TR/vc-data-model-2.0/#contexts
+     * @see https://www.w3.org/TR/json-ld11/#the-context
+     *
+     * Format: array<string, array<mixed>>
+     */
+//    ModuleConfig::OPTION_VCI_CREDENTIAL_JSON_LD_CONTEXT => [
+//        'ResearchAndScholarshipCredentialVcSdJwt' => [
+//            '@context' => [
+//                'eduPersonPrincipalName' =>
+//                    'https://vocabulary.example.org/terms#eduPersonPrincipalName',
+//                'eduPersonTargetedID' =>
+//                    'https://vocabulary.example.org/terms#eduPersonTargetedID',
+//                'displayName' =>
+//                    'https://vocabulary.example.org/terms#displayName',
+//                'givenName' =>
+//                    'https://vocabulary.example.org/terms#givenName',
+//                'sn' =>
+//                    'https://vocabulary.example.org/terms#sn',
+//                'mail' =>
+//                    'https://vocabulary.example.org/terms#mail',
+//                'eduPersonScopedAffiliation' =>
+//                    'https://vocabulary.example.org/terms#eduPersonScopedAffiliation',
+//            ],
+//        ],
+//    ],
+
+    /**
      * (optional) Issuer State TTL (validity duration), with the given example.
      * If not set, falls back to Authorization Code TTL. For duration format
      * info, check https://www.php.net/manual/en/dateinterval.construct.php
