@@ -524,12 +524,19 @@ class CredentialIssuerCredentialController
         // Get valid claim paths so we can check if the user attribute is allowed to be included in the credential,
         // as per the credential configuration supported configuration.
         $validClaimPaths = $this->moduleConfig->getVciValidCredentialClaimPathsFor($resolvedCredentialIdentifier);
-
+        $this->loggerService->debug(
+            'CredentialIssuerCredentialController::credential: Valid claim paths for credential configuration ',
+            ['validClaimPaths' => $validClaimPaths],
+        );
         // Map user attributes to credential claims
         $credentialSubject = []; // For JwtVcJson
         $disclosureBag = $this->verifiableCredentials->disclosureBagFactory()->build(); // For DcSdJwt
         $attributeToCredentialClaimPathMap = $this->moduleConfig->getVciUserAttributeToCredentialClaimPathMapFor(
             $resolvedCredentialIdentifier,
+        );
+        $this->loggerService->debug(
+            'CredentialIssuerCredentialController::credential: Attribute to credential claim path map',
+            ['attributeToCredentialClaimPathMap' => $attributeToCredentialClaimPathMap],
         );
         foreach ($attributeToCredentialClaimPathMap as $mapEntry) {
             if (!is_array($mapEntry)) {
@@ -542,6 +549,11 @@ class CredentialIssuerCredentialController
                 continue;
             }
 
+            $this->loggerService->debug(
+                'Map entry: ',
+                ['mapEntry' => $mapEntry],
+            );
+
             $userAttributeName = key($mapEntry);
             if (!is_string($userAttributeName)) {
                 $this->loggerService->warning(
@@ -552,6 +564,10 @@ class CredentialIssuerCredentialController
                 );
                 continue;
             }
+
+            $this->loggerService->debug(
+                'User attribute name: ' . $userAttributeName,
+            );
 
             /** @psalm-suppress MixedAssignment */
             $credentialClaimPath = current($mapEntry);
@@ -574,6 +590,11 @@ class CredentialIssuerCredentialController
                 continue;
             }
 
+            $this->loggerService->debug(
+                'Credential claim path',
+                ['credentialClaimPath' => $credentialClaimPath],
+            );
+
             if (!isset($userAttributes[$userAttributeName])) {
                 $this->loggerService->warning(
                     'Attribute "%s" does not exist in user attributes.',
@@ -590,6 +611,7 @@ class CredentialIssuerCredentialController
             $userAttributes[$userAttributeName];
 
             if ($credentialFormatId === CredentialFormatIdentifiersEnum::JwtVcJson->value) {
+                $this->loggerService->debug('JwtVcJson format detected, adding user attribute to credential subject.');
                 $this->verifiableCredentials->helpers()->arr()->setNestedValue(
                     $credentialSubject,
                     $attributeValue,
@@ -598,6 +620,11 @@ class CredentialIssuerCredentialController
             }
 
             if (in_array($credentialFormatId, self::SD_JWT_FORMAT_IDS, true)) {
+                $this->loggerService->debug(
+                    'CredentialIssuerCredentialController::credential: Processing SD JWT credential format ID '
+                    . $credentialFormatId,
+                );
+
                 // For now, we will only support disclosures for object properties.
                 $claimName = array_pop($credentialClaimPath);
                 if (!is_string($claimName)) {
@@ -611,8 +638,17 @@ class CredentialIssuerCredentialController
                     continue;
                 }
 
-                if ($credentialFormatId === CredentialFormatIdentifiersEnum::VcSdJwt->value) {
+                $this->loggerService->debug('Claim name: ' . $claimName);
+
+                if (
+                    $credentialFormatId === CredentialFormatIdentifiersEnum::VcSdJwt->value &&
+                    !in_array(ClaimsEnum::Credential_Subject->value, $credentialClaimPath, true)
+                ) {
+                    $this->loggerService->debug('VC SD JWT - adding credential subject to claim path for claim "%s".');
                     array_unshift($credentialClaimPath, ClaimsEnum::Credential_Subject->value);
+                    $this->loggerService->debug(
+                        'Credential claim path for credential subject: ' . print_r($credentialClaimPath, true),
+                    );
                 }
 
                 /** @psalm-suppress ArgumentTypeCoercion */
@@ -722,14 +758,16 @@ class CredentialIssuerCredentialController
             // Always start with the VCDM 2.0 base context URL (mandatory).
             $atContext = [AtContextsEnum::W3OrgNsCredentialsV2->value];
 
-            // If a JSON-LD context document is configured for this credential, append the module-hosted
-            // context URL so that verifiers can resolve the custom credential subject terms.
+            // If a JSON-LD context document is configured for this credential,
+            // append the module-hosted context URL so that verifiers can
+            // resolve the custom credential subject terms.
             if ($this->moduleConfig->getVciCredentialJsonLdContextFor($resolvedCredentialIdentifier) !== null) {
                 $atContext[] = $this->routes->urlCredentialJsonLdContext($resolvedCredentialIdentifier);
             }
 
-            // Append any additional context URLs declared in the credential configuration's @context field
-            // (skipping the base W3C URL, which is already first in the list).
+            // Append any additional context URLs declared in the credential
+            // configuration's @context field (skipping the base W3C URL,
+            // which is already first in the list).
             /** @psalm-suppress MixedAssignment */
             $configuredContexts = $resolvedCredentialConfiguration[ClaimsEnum::AtContext->value] ?? [];
             if (is_array($configuredContexts)) {
@@ -776,6 +814,7 @@ class CredentialIssuerCredentialController
                 [
                     ClaimsEnum::Kid->value => $issuerDid . '#0',
                 ],
+                disclosureBag: $disclosureBag,
             );
         }
 
