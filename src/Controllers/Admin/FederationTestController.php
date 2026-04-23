@@ -169,4 +169,51 @@ class FederationTestController
             RoutesEnum::AdminTestTrustMarkValidation->value,
         );
     }
+
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
+     */
+    public function federationDiscovery(Request $request): Response
+    {
+        $trustAnchorId = null;
+        $isFormSubmitted = false;
+        $entities = [];
+
+        if ($request->isMethod(Request::METHOD_POST)) {
+            $isFormSubmitted = true;
+
+            !empty($trustAnchorId = $request->request->getString('trustAnchorId')) ||
+            throw new OidcException('Empty Trust Anchor ID.');
+
+            try {
+                $entities = $this->federationWithArrayLogger->federationDiscovery()->discoverAndFetch(
+                    trustAnchorId: $trustAnchorId,
+                    forceRefresh: true,
+                );
+
+            } catch (\Throwable $exception) {
+                $this->arrayLogger->error(sprintf(
+                    'Error during entity discovery under Trust Anchor %s. Error was %s',
+                    $trustAnchorId,
+                    $exception->getMessage(),
+                ));
+            }
+        }
+
+        $logMessages = $this->arrayLogger->getEntries();
+
+        return $this->templateFactory->build(
+            'oidc:tests/federation-discovery.twig',
+            compact(
+                'trustAnchorId',
+                'logMessages',
+                'isFormSubmitted',
+                'entities',
+            ),
+            RoutesEnum::AdminTestFederationDiscovery->value,
+        );
+    }
 }

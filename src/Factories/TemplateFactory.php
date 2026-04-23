@@ -144,6 +144,13 @@ class TemplateFactory
 
         $this->oidcMenu->addItem(
             $this->oidcMenu->buildItem(
+                $this->moduleConfig->getModuleUrl(RoutesEnum::AdminTestFederationDiscovery->value),
+                Translate::noop('Test Federation Discovery'),
+            ),
+        );
+
+        $this->oidcMenu->addItem(
+            $this->oidcMenu->buildItem(
                 $this->moduleConfig->getModuleUrl(RoutesEnum::AdminConfigVerifiableCredential->value),
                 Translate::noop('Verifiable Credential Settings'),
             ),

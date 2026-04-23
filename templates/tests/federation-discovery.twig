@@ -1,0 +1,55 @@
+{% set subPageTitle = 'Test Federation Discovery'|trans %}
+
+{% extends "@oidc/base.twig" %}
+
+{% block oidcContent %}
+
+    <p>
+        {{ 'You can use the form below to test Federation Discovery under given Trust Anchor.'|trans }}
+        {{ 'Log messages will show if any warnings or errors were raised during the process.'|trans }}
+    </p>
+
+    <form method="post"
+          action="{{ routes.urlAdminTestFederationDiscovery }}"
+          class="pure-form pure-form-stacked">
+
+        <fieldset>
+            <label for="trustAnchorId">{{ 'Trust Anchor ID'|trans }}</label>
+            <input type="text"
+                   name="trustAnchorId"
+                   id="trustAnchorId"
+                   class="full-width"
+                   required=""
+                   value="{{ trustAnchorId|default }}"
+            >
+            <span class="pure-form-message"></span>
+
+            <br>
+            <button type="submit" class="pure-button ">{{ (actionText|default('Submit'))|trans }}</button>
+        </fieldset>
+    </form>
+
+    {% if isFormSubmitted|default %}
+        <h4>{{ 'Log messages'|trans }}</h4>
+        <p>
+        {% if logMessages|default %}
+            <code class="code-box code-box-content">
+                {{- logMessages|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_SLASHES')) -}}
+            </code>
+        {% else %}
+            {{ 'Federation discovery passed (there were no warnings or errors during the process).'|trans }}
+        {% endif %}
+        </p>
+
+        <h4>{{ 'Entities'|trans }}</h4>
+        {% if entities|default %}
+            <code class="code-box code-box-content">
+                {{- entities|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_SLASHES')) -}}
+            </code>
+        {% else %}
+            {{ 'No entities were found during the process.'|trans }}
+        {% endif %}
+
+    {% endif %}
+
+{% endblock oidcContent -%}
