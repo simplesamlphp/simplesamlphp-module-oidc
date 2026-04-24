@@ -8,6 +8,18 @@
         {{ 'You can use the form below to test Federation Discovery under given Trust Anchor.'|trans }}
         {{ 'Log messages will show if any warnings or errors were raised during the process.'|trans }}
     </p>
+    <p>
+        {% if trustAnchorIds|default %}
+            {{ 'Curently configured Trust Anchors for this entity:'|trans }}
+            <ul>
+                {% for trustAnchor in trustAnchorIds %}
+                    <li>{{ trustAnchor }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            {{ 'No Trust Anchors are currently configured for this entity.'|trans }}
+        {% endif %}
+    </p>
 
     <form method="post"
           action="{{ routes.urlAdminTestFederationDiscovery }}"
@@ -22,7 +34,7 @@
                    required=""
                    value="{{ trustAnchorId|default }}"
             >
-            <span class="pure-form-message"></span>
+            <span class="pure-form-message">Use any Trust Anchor ID for discovery</span>
 
             <br>
             <button type="submit" class="pure-button ">{{ (actionText|default('Submit'))|trans }}</button>
@@ -42,6 +54,7 @@
         </p>
 
         <h4>{{ 'Entities'|trans }}</h4>
+        <p>
         {% if entities|default %}
             <code class="code-box code-box-content">
                 {{- entities|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_SLASHES')) -}}
@@ -49,6 +62,7 @@
         {% else %}
             {{ 'No entities were found during the process.'|trans }}
         {% endif %}
+        </p>
 
     {% endif %}
 

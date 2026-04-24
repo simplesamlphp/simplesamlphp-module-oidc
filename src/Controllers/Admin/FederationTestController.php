@@ -189,11 +189,10 @@ class FederationTestController
             throw new OidcException('Empty Trust Anchor ID.');
 
             try {
-                $entities = $this->federationWithArrayLogger->federationDiscovery()->discoverAndFetch(
+                $entities = $this->federationWithArrayLogger->federationDiscovery()->discoverEntityIds(
                     trustAnchorId: $trustAnchorId,
-                    forceRefresh: true,
+                    //                    forceRefresh: true, // TODO make optional in form
                 );
-
             } catch (\Throwable $exception) {
                 $this->arrayLogger->error(sprintf(
                     'Error during entity discovery under Trust Anchor %s. Error was %s',
@@ -205,6 +204,13 @@ class FederationTestController
 
         $logMessages = $this->arrayLogger->getEntries();
 
+        try {
+            $trustAnchorIds = $this->moduleConfig->getFederationTrustAnchorIds();
+        } catch (\Throwable $exception) {
+            $this->arrayLogger->error('Module config error: ' . $exception->getMessage());
+            $trustAnchorIds = [];
+        }
+
         return $this->templateFactory->build(
             'oidc:tests/federation-discovery.twig',
             compact(
@@ -212,6 +218,7 @@ class FederationTestController
                 'logMessages',
                 'isFormSubmitted',
                 'entities',
+                'trustAnchorIds',
             ),
             RoutesEnum::AdminTestFederationDiscovery->value,
         );
