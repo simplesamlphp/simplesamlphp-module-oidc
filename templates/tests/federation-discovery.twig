@@ -36,6 +36,16 @@
             >
             <span class="pure-form-message">Use any Trust Anchor ID for discovery</span>
 
+            <label for="forceRefresh">{{ 'Force refresh?'|trans }}</label>
+            <input type="checkbox"
+                   name="forceRefresh"
+                   id="forceRefresh" value="1"
+                   {{ forceRefresh ? 'checked' : '' }}
+            >
+            <span class="pure-form-message">
+                {% trans %}Check if you want to force the refresh of entities in federation.{% endtrans %}
+            </span>
+
             <br>
             <button type="submit" class="pure-button ">{{ (actionText|default('Submit'))|trans }}</button>
         </fieldset>

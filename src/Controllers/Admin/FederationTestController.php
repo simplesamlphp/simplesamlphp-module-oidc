@@ -181,6 +181,7 @@ class FederationTestController
         $trustAnchorId = null;
         $isFormSubmitted = false;
         $entities = [];
+        $forceRefresh = false;
 
         if ($request->isMethod(Request::METHOD_POST)) {
             $isFormSubmitted = true;
@@ -188,10 +189,12 @@ class FederationTestController
             !empty($trustAnchorId = $request->request->getString('trustAnchorId')) ||
             throw new OidcException('Empty Trust Anchor ID.');
 
+            $forceRefresh = $request->request->getBoolean('forceRefresh');
+
             try {
                 $entities = $this->federationWithArrayLogger->federationDiscovery()->discoverEntityIds(
                     trustAnchorId: $trustAnchorId,
-                    //                    forceRefresh: true, // TODO make optional in form
+                    forceRefresh: $forceRefresh,
                 );
             } catch (\Throwable $exception) {
                 $this->arrayLogger->error(sprintf(
@@ -219,6 +222,7 @@ class FederationTestController
                 'isFormSubmitted',
                 'entities',
                 'trustAnchorIds',
+                'forceRefresh',
             ),
             RoutesEnum::AdminTestFederationDiscovery->value,
         );
