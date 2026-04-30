@@ -182,6 +182,15 @@ class FederationTestController
         $isFormSubmitted = false;
         $entities = [];
         $forceRefresh = false;
+        $filterEntityTypes = [];
+        $filterTrustMarkTypes = '';
+        $filterQuery = '';
+        $sortBy = 'entity_id';
+        $sortOrder = 'asc';
+        $pageLimit = 50;
+        $pageFrom = null;
+        $nextPageToken = null;
+        $totalCount = 0;
 
         if ($request->isMethod(Request::METHOD_POST)) {
             $isFormSubmitted = true;
@@ -190,12 +199,60 @@ class FederationTestController
             throw new OidcException('Empty Trust Anchor ID.');
 
             $forceRefresh = $request->request->getBoolean('forceRefresh');
+            $filterEntityTypes = $request->request->all('filterEntityTypes');
+            $filterTrustMarkTypes = $request->request->getString('filterTrustMarkTypes');
+            $filterQuery = $request->request->getString('filterQuery');
+            $sortBy = $request->request->getString('sortBy', 'entity_id');
+            $sortOrder = $request->request->getString('sortOrder', 'asc');
+            $pageLimit = $request->request->getInt('pageLimit', 50);
+            $pageFrom = $request->request->get('pageFrom');
 
             try {
-                $entities = $this->federationWithArrayLogger->federationDiscovery()->discoverEntityIds(
+                $entityCollection = $this->federationWithArrayLogger->federationDiscovery()->discover(
                     trustAnchorId: $trustAnchorId,
                     forceRefresh: $forceRefresh,
                 );
+
+                // 1. Filtering
+                $criteria = array_filter([
+                    'entity_type' => $filterEntityTypes,
+                    'trust_mark_type' => $this->helpers->str()->convertTextToArray($filterTrustMarkTypes),
+                    'query' => $filterQuery,
+                ]);
+                if (!empty($criteria)) {
+                    $entityCollection->filter($criteria);
+                }
+
+                $totalCount = count($entityCollection->getEntities());
+
+                // 2. Sorting
+                $claimPaths = match ($sortBy) {
+                    'display_name' => [
+                        ['metadata', EntityTypesEnum::OpenIdProvider->value, 'display_name'],
+                        ['metadata', EntityTypesEnum::FederationEntity->value, 'display_name'],
+                        ['metadata', EntityTypesEnum::OpenIdRelyingParty->value, 'display_name'],
+                    ],
+                    'organization_name' => [
+                        ['metadata', EntityTypesEnum::OpenIdProvider->value, 'organization_name'],
+                        ['metadata', EntityTypesEnum::FederationEntity->value, 'organization_name'],
+                        ['metadata', EntityTypesEnum::OpenIdRelyingParty->value, 'organization_name'],
+                    ],
+                    default => [['sub']],
+                };
+                $entityCollection->sort($claimPaths, $sortOrder);
+
+                // 3. Pagination
+                /** @var positive-int $pageLimit */
+                $entityCollection->paginate($pageLimit, $pageFrom);
+
+                $nextPageToken = $entityCollection->getNextPageToken();
+
+                foreach ($entityCollection->getEntities() as $id => $payload) {
+                    $entities[] = [
+                        'id' => $id,
+                        'payload' => $payload,
+                    ];
+                }
             } catch (\Throwable $exception) {
                 $this->arrayLogger->error(sprintf(
                     'Error during entity discovery under Trust Anchor %s. Error was %s',
@@ -214,6 +271,8 @@ class FederationTestController
             $trustAnchorIds = [];
         }
 
+        $entityTypeOptions = array_map(fn (EntityTypesEnum $enum) => $enum->value, EntityTypesEnum::cases());
+
         return $this->templateFactory->build(
             'oidc:tests/federation-discovery.twig',
             compact(
@@ -223,6 +282,16 @@ class FederationTestController
                 'entities',
                 'trustAnchorIds',
                 'forceRefresh',
+                'filterEntityTypes',
+                'filterTrustMarkTypes',
+                'filterQuery',
+                'sortBy',
+                'sortOrder',
+                'pageLimit',
+                'pageFrom',
+                'nextPageToken',
+                'totalCount',
+                'entityTypeOptions',
             ),
             RoutesEnum::AdminTestFederationDiscovery->value,
         );
