@@ -34,7 +34,11 @@
             <span class="pure-form-message">{{ 'Enter one Trust Anchor ID per line.'|trans }}</span>
 
             <br>
-            <button type="submit" class="pure-button " data-loading-text="{{ 'Resolving...'|trans }}">{{ (actionText|default('Submit'))|trans }}</button>
+            <button type="submit"
+                    class="pure-button "
+                    data-loading-text="{{ 'Resolving...'|trans }}">
+                {{ (actionText|default('Submit'))|trans }}
+            </button>
         </fieldset>
     </form>
 

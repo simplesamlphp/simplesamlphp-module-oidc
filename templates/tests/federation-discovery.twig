@@ -88,7 +88,11 @@
         </details>
 
         <br>
-        <button type="submit" class="pure-button pure-button-primary" data-loading-text="{{ 'Discovering...'|trans }}">{{ (actionText|default('Submit'))|trans }}</button>
+        <button type="submit"
+                class="pure-button "
+                data-loading-text="{{ 'Discovering...'|trans }}">
+            {{ (actionText|default('Submit'))|trans }}
+        </button>
     </form>
 
     {% if isFormSubmitted|default %}
