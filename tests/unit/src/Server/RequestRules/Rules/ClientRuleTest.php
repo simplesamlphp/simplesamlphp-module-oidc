@@ -21,6 +21,7 @@ use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\Module\oidc\Utils\FederationParticipationValidator;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\OpenID\Federation;
 
 /**
@@ -41,6 +42,7 @@ class ClientRuleTest extends TestCase
     protected Stub $helpersStub;
     protected Stub $jwksResolverStub;
     protected Stub $federationParticipationValidatorStub;
+    protected Stub $responseModeStub;
 
     /**
      * @throws \Exception
@@ -60,6 +62,7 @@ class ClientRuleTest extends TestCase
         $this->helpersStub = $this->createStub(Helpers::class);
         $this->jwksResolverStub = $this->createStub(JwksResolver::class);
         $this->federationParticipationValidatorStub = $this->createStub(FederationParticipationValidator::class);
+        $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
 
     protected function sut(): ClientRule
@@ -91,6 +94,8 @@ class ClientRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
         );
     }
 
@@ -103,6 +108,8 @@ class ClientRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
         );
     }
 
@@ -119,6 +126,8 @@ class ClientRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
         );
         $this->assertInstanceOf(ResultInterface::class, $result);
         $this->assertInstanceOf(ClientEntityInterface::class, $result->getValue());

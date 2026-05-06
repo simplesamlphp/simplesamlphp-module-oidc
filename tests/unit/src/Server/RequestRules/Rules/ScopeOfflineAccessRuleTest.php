@@ -19,6 +19,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeOfflineAccessRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeOfflineAccessRule
@@ -39,6 +40,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
     protected Stub $openIdConfigurationStub;
     protected Stub $requestParamsResolverStub;
     protected Helpers $helpers;
+    protected Stub $responseModeStub;
 
     /**
      * @throws \Exception
@@ -69,6 +71,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
 
         $this->helpers = new Helpers();
+        $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
 
     protected function sut(
@@ -115,7 +118,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
         $this->moduleConfigStub->method('config')
             ->willReturn($this->openIdConfigurationStub);
 
-        $result = $this->sut()->checkRule($this->serverRequestStub, $this->resultBagMock, $this->loggerServiceMock);
+        $result = $this->sut()->checkRule($this->serverRequestStub, $this->resultBagMock, $this->loggerServiceMock, [], $this->responseModeStub);
 
         $this->assertNotNull($result);
         $this->assertFalse($result->getValue());
@@ -146,7 +149,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
 
         $this->expectException(OidcServerException::class);
 
-        $this->sut()->checkRule($this->serverRequestStub, $this->resultBagMock, $this->loggerServiceMock);
+        $this->sut()->checkRule($this->serverRequestStub, $this->resultBagMock, $this->loggerServiceMock, [], $this->responseModeStub);
     }
 
     /**
@@ -173,7 +176,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
         $this->moduleConfigStub->method('config')
             ->willReturn($this->openIdConfigurationStub);
 
-        $result = $this->sut()->checkRule($this->serverRequestStub, $this->resultBagMock, $this->loggerServiceMock);
+        $result = $this->sut()->checkRule($this->serverRequestStub, $this->resultBagMock, $this->loggerServiceMock, [], $this->responseModeStub);
 
         $this->assertNotNull($result);
         $this->assertTrue($result->getValue());

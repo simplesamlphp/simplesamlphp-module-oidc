@@ -142,6 +142,7 @@ class OpMetadataServiceTest extends TestCase
                 'acr_values_supported' => ['1'],
                 'backchannel_logout_supported' => true,
                 'backchannel_logout_session_supported' => true,
+                'response_modes_supported' => ['query', 'fragment', 'form_post'],
             ],
             $this->sut()->getMetadata(),
         );

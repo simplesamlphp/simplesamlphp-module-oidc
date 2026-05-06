@@ -20,6 +20,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\OpenID\Core\RequestObject;
 
 #[CoversClass(RequestObjectRule::class)]
@@ -33,6 +34,7 @@ class RequestObjectRuleTest extends TestCase
     protected Stub $loggerServiceStub;
     protected MockObject $jwksResolverMock;
     protected Helpers $helpers;
+    protected Stub $responseModeStub;
 
     protected function setUp(): void
     {
@@ -49,6 +51,7 @@ class RequestObjectRuleTest extends TestCase
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->jwksResolverMock = $this->createMock(JwksResolver::class);
         $this->helpers = new Helpers();
+        $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
 
     protected function sut(
@@ -74,7 +77,7 @@ class RequestObjectRuleTest extends TestCase
 
     public function testRequestParamCanBeAbsent(): void
     {
-        $result = $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
+        $result = $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub, [], $this->responseModeStub);
         $this->assertNull($result);
     }
 
@@ -85,7 +88,7 @@ class RequestObjectRuleTest extends TestCase
         $this->requestParamsResolverMock->expects($this->once())->method('parseRequestObjectToken')
         ->with('token')->willReturn($this->requestObjectMock);
 
-        $result = $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
+        $result = $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub, [], $this->responseModeStub);
         $this->assertInstanceOf(Result::class, $result);
         $this->assertIsArray($result->getValue());
         $this->assertNotEmpty($result->getValue());
@@ -100,7 +103,7 @@ class RequestObjectRuleTest extends TestCase
         $this->clientStub->expects($this->once())->method('getJwks')->willReturn(null);
 
         $this->expectException(OidcServerException::class);
-        $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
+        $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub, [], $this->responseModeStub);
     }
 
     public function testThrowsForInvalidRequestObject(): void
@@ -116,7 +119,7 @@ class RequestObjectRuleTest extends TestCase
             ->willReturn(['jwks']);
 
         $this->expectException(OidcServerException::class);
-        $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
+        $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub, [], $this->responseModeStub);
     }
 
     public function testReturnsValidRequestObject(): void
@@ -132,7 +135,7 @@ class RequestObjectRuleTest extends TestCase
             ->with($this->clientStub)
             ->willReturn(['jwks']);
 
-        $result = $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub);
+        $result = $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub, [], $this->responseModeStub);
 
         $this->assertInstanceOf(Result::class, $result);
         $this->assertIsArray($result->getValue());

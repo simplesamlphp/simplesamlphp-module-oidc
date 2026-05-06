@@ -17,6 +17,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredNonceRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredNonceRule
@@ -37,6 +38,7 @@ class RequiredNonceRuleTest extends TestCase
 
     protected Stub $loggerServiceStub;
     protected Stub $requestParamsResolverStub;
+    protected Stub $responseModeStub;
 
     /**
      * @throws \Exception
@@ -54,6 +56,7 @@ class RequiredNonceRuleTest extends TestCase
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
         $this->helpers = new Helpers();
+        $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
 
     protected function sut(
@@ -77,7 +80,7 @@ class RequiredNonceRuleTest extends TestCase
     {
         $resultBag = new ResultBag();
         $this->expectException(LogicException::class);
-        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
+        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, [], $this->responseModeStub);
     }
 
     /**
@@ -89,7 +92,7 @@ class RequiredNonceRuleTest extends TestCase
         $resultBag = new ResultBag();
         $resultBag->add($this->redirectUriResult);
         $this->expectException(LogicException::class);
-        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
+        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, [], $this->responseModeStub);
     }
 
     /**
@@ -101,7 +104,7 @@ class RequiredNonceRuleTest extends TestCase
         $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')
             ->willReturn($this->requestQueryParams['nonce']);
 
-        $result = $this->sut()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub) ??
+        $result = $this->sut()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub, [], $this->responseModeStub) ??
         new Result(RequiredNonceRule::class, null);
 
         $this->assertEquals($this->requestQueryParams['nonce'], $result->getValue());
@@ -114,6 +117,6 @@ class RequiredNonceRuleTest extends TestCase
     {
         $this->expectException(OidcServerException::class);
 
-        $this->sut()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
+        $this->sut()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub, [], $this->responseModeStub);
     }
 }

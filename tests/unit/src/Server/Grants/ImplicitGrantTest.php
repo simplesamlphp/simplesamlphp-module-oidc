@@ -31,7 +31,6 @@ class ImplicitGrantTest extends TestCase
     protected MockObject $accessTokenRepositoryMock;
     protected MockObject $requestRulesManagerMock;
     protected MockObject $requestParamsResolverMock;
-    protected string $queryDelimiter;
     protected MockObject $accessTokenEntityFactoryMock;
     protected MockObject $scopeRepositoryMock;
     protected MockObject $serverRequestMock;
@@ -48,7 +47,6 @@ class ImplicitGrantTest extends TestCase
         $this->accessTokenRepositoryMock = $this->createMock(AccessTokenRepository::class);
         $this->requestRulesManagerMock = $this->createMock(RequestRulesManager::class);
         $this->requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
-        $this->queryDelimiter = '#';
         $this->accessTokenEntityFactoryMock = $this->createMock(AccessTokenEntityFactory::class);
         $this->scopeRepositoryMock = $this->createMock(ScopeRepositoryInterface::class);
 
@@ -66,7 +64,6 @@ class ImplicitGrantTest extends TestCase
         ?AccessTokenRepositoryInterface $accessTokenRepository = null,
         ?RequestRulesManager $requestRulesManager = null,
         ?RequestParamsResolver $requestParamsResolver = null,
-        ?string $queryDelimiter = null,
         ?AccessTokenEntityFactory $accessTokenEntityFactory = null,
         ?ScopeRepositoryInterface $scopeRepository = null,
     ): ImplicitGrant {
@@ -75,7 +72,6 @@ class ImplicitGrantTest extends TestCase
         $accessTokenRepository ??= $this->accessTokenRepositoryMock;
         $requestRulesManager ??= $this->requestRulesManagerMock;
         $requestParamsResolver ??= $this->requestParamsResolverMock;
-        $queryDelimiter ??= $this->queryDelimiter;
         $accessTokenEntityFactory ??= $this->accessTokenEntityFactoryMock;
         $scopeRepository ??= $this->scopeRepositoryMock;
 
@@ -86,7 +82,6 @@ class ImplicitGrantTest extends TestCase
             $accessTokenRepository,
             $requestRulesManager,
             $requestParamsResolver,
-            $queryDelimiter,
             $accessTokenEntityFactory,
         );
 
