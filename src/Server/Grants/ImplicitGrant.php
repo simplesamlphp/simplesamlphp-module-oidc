@@ -40,6 +40,8 @@ use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
+use SimpleSAML\Module\oidc\Server\ResponseModes\FragmentResponseMode;
+
 /**
  * @psalm-suppress PropertyNotSetInConstructor
  */
@@ -274,14 +276,10 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
 
         $responseParams['id_token'] = $idToken->getToken();
 
-        $response = new RedirectResponse();
-
-        $response->setRedirectUri(
-            $this->makeRedirectUri(
-                $redirectUrl,
-                $responseParams,
-                $this->queryDelimiter,
-            ),
+        $responseMode = new FragmentResponseMode();
+        $response = $responseMode->buildResponse(
+            $redirectUrl,
+            $responseParams,
         );
 
         return $response;

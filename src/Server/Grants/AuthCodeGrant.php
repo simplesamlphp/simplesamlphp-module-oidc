@@ -63,6 +63,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeOfflineAccessRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
+use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AcrResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
@@ -304,15 +305,13 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         $jsonPayload = json_encode($payload, JSON_THROW_ON_ERROR);
 
-        $response = new RedirectResponse();
-        $response->setRedirectUri(
-            $this->makeRedirectUri(
-                $finalRedirectUri,
-                [
-                    'code'  => $this->encrypt($jsonPayload),
-                    'state' => $authorizationRequest->getState(),
-                ],
-            ),
+        $responseMode = new QueryResponseMode();
+        $response = $responseMode->buildResponse(
+            $finalRedirectUri,
+            [
+                'code'  => $this->encrypt($jsonPayload),
+                'state' => $authorizationRequest->getState(),
+            ],
         );
 
         return $response;
