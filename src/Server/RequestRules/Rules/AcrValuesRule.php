@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 
-use GuzzleHttp\Psr7\Query;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
@@ -23,8 +22,8 @@ class AcrValuesRule extends AbstractRule
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
         LoggerService $loggerService,
+        ?ResponseModeInterface $responseMode,
         array $data = [],
-        ResponseModeInterface $responseMode,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         $loggerService->debug('AcrValuesRule::checkRule');

@@ -285,7 +285,10 @@ class ClientForm extends Form
         null : $idTokenSignedResponseAlg;
 
         $responseModesAllowed = is_array($values['response_modes_allowed']) ? $values['response_modes_allowed'] : [];
-        $values['response_modes_allowed'] = array_intersect($responseModesAllowed, array_keys($this->getAllowedResponseModesValues()));
+        $values['response_modes_allowed'] = array_intersect(
+            $responseModesAllowed,
+            array_keys($this->getAllowedResponseModesValues()),
+        );
 
         return $values;
     }
@@ -339,7 +342,8 @@ class ClientForm extends Form
             $data['auth_source'] = null;
         }
 
-        $data['response_modes_allowed'] = is_array($data['response_modes_allowed']) ? $data['response_modes_allowed'] : [];
+        $data['response_modes_allowed'] = is_array($data['response_modes_allowed']) ?
+        $data['response_modes_allowed'] : [];
 
         parent::setDefaults($data, $erase);
 

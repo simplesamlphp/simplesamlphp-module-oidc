@@ -175,7 +175,9 @@ class PreAuthCodeGrant extends AuthCodeGrant
         $resultBag = $this->requestRulesManager->check(
             $request,
             [AuthorizationDetailsRule::class],
-            new QueryResponseMode(), // TODO: Response mode is not relevant for token request, as there is no redirection, but we need to provide something to execute rules.
+            // TODO: Response mode is not relevant for token request, as there is
+            // no redirection, but we need to provide something to execute rules.
+            new QueryResponseMode(),
             $this->allowedTokenHttpMethods,
         );
 

@@ -11,9 +11,9 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
-use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AbstractRule
@@ -68,7 +68,13 @@ class StateRuleTest extends TestCase
 
         $resultBag = new ResultBag();
         $data = [];
-        $result = $this->sut()->checkRule($request, $resultBag, $this->loggerServiceStub, $data, $this->responseModeStub);
+        $result = $this->sut()->checkRule(
+            $request,
+            $resultBag,
+            $this->loggerServiceStub,
+            $this->responseModeStub,
+            $data,
+        );
 
         $this->assertInstanceOf(ResultInterface::class, $result);
         $this->assertSame($value, $result->getValue());
@@ -88,7 +94,6 @@ class StateRuleTest extends TestCase
             $request,
             $resultBag,
             $this->loggerServiceStub,
-            [],
             $this->responseModeStub,
         );
 

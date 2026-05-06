@@ -71,7 +71,7 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
      */
     protected ?string $issuerState = null;
 
-    private ?ResponseModeInterface $responseMode = null; 
+    private ?ResponseModeInterface $responseMode = null;
 
     public static function fromOAuth2AuthorizationRequest(
         OAuth2AuthorizationRequest $oAuth2authorizationRequest,

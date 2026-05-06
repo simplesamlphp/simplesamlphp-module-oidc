@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Server\ResponseModes;
 
 use League\OAuth2\Server\ResponseTypes\AbstractResponseType;
-use SimpleSAML\XHTML\Template;
-use SimpleSAML\Module\oidc\Server\ResponseTypes\HtmlResponse;
 use SimpleSAML\Configuration;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\HtmlResponse;
+use SimpleSAML\XHTML\Template;
 
 class FormPostResponseMode implements ResponseModeInterface
 {

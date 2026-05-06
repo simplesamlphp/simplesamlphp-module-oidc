@@ -23,8 +23,8 @@ class CodeVerifierRule extends AbstractRule
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
         LoggerService $loggerService,
+        ?ResponseModeInterface $responseMode,
         array $data = [],
-        ResponseModeInterface $responseMode,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */

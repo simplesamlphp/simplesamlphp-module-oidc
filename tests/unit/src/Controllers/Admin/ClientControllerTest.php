@@ -82,6 +82,7 @@ class ClientControllerTest extends TestCase
         ],
         'jwks_uri' => 'https://example.com/jwks',
         'signed_jwks_uri' => 'https://example.com/signed-jwks',
+        'response_modes_allowed' => ['query', 'fragment', 'form_post'],
     ];
 
     protected function setUp(): void

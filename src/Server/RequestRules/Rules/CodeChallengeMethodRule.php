@@ -11,7 +11,6 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
-use SimpleSAML\Module\oidc\Server\ResponseModes\FragmentResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
@@ -36,8 +35,8 @@ class CodeChallengeMethodRule extends AbstractRule
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
         LoggerService $loggerService,
+        ?ResponseModeInterface $responseMode,
         array $data = [],
-        ResponseModeInterface $responseMode,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         $loggerService->debug('CodeChallengeMethodRule::checkRule');

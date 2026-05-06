@@ -98,10 +98,10 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeOfflineAccessRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
-use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
-use SimpleSAML\Module\oidc\Server\ResponseModes\FragmentResponseMode;
-use SimpleSAML\Module\oidc\Server\ResponseModes\FormPostResponseMode;
 use SimpleSAML\Module\oidc\Server\ResourceServer;
+use SimpleSAML\Module\oidc\Server\ResponseModes\FormPostResponseMode;
+use SimpleSAML\Module\oidc\Server\ResponseModes\FragmentResponseMode;
+use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\TokenResponse;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
@@ -445,7 +445,13 @@ class Container implements ContainerInterface
             ),
             new ClientRedirectUriRule($requestParamsResolver, $helpers, $moduleConfig),
             new RequestObjectRule($requestParamsResolver, $helpers, $jwksResolver),
-            new ResponseModeRule($requestParamsResolver, $helpers, $queryResponseMode, $fragmentResponseMode, $formPostResponseMode),
+            new ResponseModeRule(
+                $requestParamsResolver,
+                $helpers,
+                $queryResponseMode,
+                $fragmentResponseMode,
+                $formPostResponseMode,
+            ),
             new PromptRule($requestParamsResolver, $helpers, $authSimpleFactory, $authenticationService, $sspBridge),
             new MaxAgeRule($requestParamsResolver, $helpers, $authSimpleFactory, $authenticationService, $sspBridge),
             new ScopeRule($requestParamsResolver, $helpers, $scopeRepository),

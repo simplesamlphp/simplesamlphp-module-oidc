@@ -81,6 +81,7 @@ class ClientFormTest extends TestCase
             ),
             'expires_at' => null,
             'allowed_origin' => [],
+            'response_modes_allowed' => ['query', 'fragment', 'form_post',],
         ];
     }
 

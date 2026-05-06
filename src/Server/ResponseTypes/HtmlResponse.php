@@ -1,11 +1,11 @@
 <?php
 
-declare(strict_types= 1);
+declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Server\ResponseTypes;
 
-use Psr\Http\Message\ResponseInterface;
 use League\OAuth2\Server\ResponseTypes\AbstractResponseType;
+use Psr\Http\Message\ResponseInterface;
 
 class HtmlResponse extends AbstractResponseType
 {

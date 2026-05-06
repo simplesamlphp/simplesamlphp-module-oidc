@@ -7,7 +7,6 @@ namespace SimpleSAML\Module\oidc\Server\Grants;
 use DateInterval;
 use League\OAuth2\Server\Grant\ImplicitGrant as OAuth2ImplicitGrant;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
-use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;

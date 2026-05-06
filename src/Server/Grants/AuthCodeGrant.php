@@ -18,7 +18,6 @@ use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface as OAuth2AuthC
 use League\OAuth2\Server\RequestEvent;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use League\OAuth2\Server\ResponseTypes\AbstractResponseType;
-use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
@@ -505,7 +504,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $resultBag = $this->requestRulesManager->check(
             $request,
             $rulesToExecute,
-            new QueryResponseMode(), // TODO: Response mode is not relevant for token request, as there is no redirection, but we need to provide something to execute rules.
+            // TODO: Response mode is not relevant for token request, as there is
+            // no redirection, but we need to provide something to execute rules.
+            new QueryResponseMode(),
             $this->allowedTokenHttpMethods,
         );
 
@@ -789,7 +790,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $rulesToExecute,
             $responseMode,
             $this->allowedAuthorizationHttpMethods,
-        );        
+        );
 
         $this->loggerService->debug('AuthCodeGrant: executed rules.', ['rulesToExecute' => $rulesToExecute]);
 

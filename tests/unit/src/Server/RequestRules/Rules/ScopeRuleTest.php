@@ -20,9 +20,9 @@ use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
-use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule
@@ -101,7 +101,13 @@ class ScopeRuleTest extends TestCase
     {
         $resultBag = new ResultBag();
         $this->expectException(LogicException::class);
-        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->data, $this->responseModeStub);
+        $this->sut()->checkRule(
+            $this->requestStub,
+            $resultBag,
+            $this->loggerServiceStub,
+            $this->responseModeStub,
+            $this->data,
+        );
     }
 
     /**
@@ -113,7 +119,13 @@ class ScopeRuleTest extends TestCase
         $resultBag = new ResultBag();
         $resultBag->add($this->redirectUriResult);
         $this->expectException(LogicException::class);
-        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->data, $this->responseModeStub);
+        $this->sut()->checkRule(
+            $this->requestStub,
+            $resultBag,
+            $this->loggerServiceStub,
+            $this->responseModeStub,
+            $this->data,
+        );
     }
 
     /**
@@ -137,7 +149,13 @@ class ScopeRuleTest extends TestCase
                 ),
             );
 
-        $result = $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->data, $this->responseModeStub);
+        $result = $this->sut()->checkRule(
+            $this->requestStub,
+            $resultBag,
+            $this->loggerServiceStub,
+            $this->responseModeStub,
+            $this->data,
+        );
         $this->assertInstanceOf(ResultInterface::class, $result);
         $this->assertIsArray($result->getValue());
         $this->assertSame($this->scopeEntities['openid'], $result->getValue()[0]);
@@ -164,7 +182,13 @@ class ScopeRuleTest extends TestCase
             );
 
         $this->expectException(OidcServerException::class);
-        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->data, $this->responseModeStub);
+        $this->sut()->checkRule(
+            $this->requestStub,
+            $resultBag,
+            $this->loggerServiceStub,
+            $this->responseModeStub,
+            $this->data,
+        );
     }
 
     protected function prepareValidResultBag(): ResultBag

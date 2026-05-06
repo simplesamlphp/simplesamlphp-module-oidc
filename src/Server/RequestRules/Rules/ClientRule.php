@@ -71,8 +71,8 @@ class ClientRule extends AbstractRule
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
         LoggerService $loggerService,
+        ?ResponseModeInterface $responseMode,
         array $data = [],
-        ResponseModeInterface $responseMode,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         $loggerService->debug('ClientRule::checkRule.');

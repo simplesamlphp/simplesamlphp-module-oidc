@@ -6,13 +6,12 @@ namespace SimpleSAML\Module\oidc\Server\Exceptions;
 
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ResponseInterface;
-use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\FragmentResponseMode;
+use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\OpenID\Codebooks\ErrorsEnum;
 use Throwable;
 
-use function http_build_query;
 use function json_encode;
 
 class OidcServerException extends OAuthServerException
@@ -135,7 +134,17 @@ class OidcServerException extends OAuthServerException
             );
         }
 
-        $e = new self('The requested scope is invalid, unknown, or malformed', 5, 'invalid_scope', 400, $hint, $redirectUri, null, $state, $responseMode);
+        $e = new self(
+            'The requested scope is invalid, unknown, or malformed',
+            5,
+            'invalid_scope',
+            400,
+            $hint,
+            $redirectUri,
+            null,
+            $state,
+            $responseMode,
+        );
 
         return $e;
     }
@@ -160,7 +169,7 @@ class OidcServerException extends OAuthServerException
         ?ResponseModeInterface $responseMode = null,
     ): OidcServerException {
         $errorMessage = 'The request is missing a required parameter, includes an invalid parameter value, ' .
-            'includes a parameter more than once, or is otherwise malformed.';
+        'includes a parameter more than once, or is otherwise malformed.';
         $hint = ($hint === null) ? \sprintf('Check the `%s` parameter', $parameter) : $hint;
         $e = new self($errorMessage, 9, 'invalid_request', 400, $hint, $redirectUri, $previous, $state, $responseMode);
 
@@ -182,7 +191,8 @@ class OidcServerException extends OAuthServerException
         ?string $state = null,
         ?ResponseModeInterface $responseMode = null,
     ): OidcServerException {
-        $e = new self('The resource owner or authorization server denied the request.',
+        $e = new self(
+            'The resource owner or authorization server denied the request.',
             9,
             'access_denied',
             401,
@@ -241,7 +251,17 @@ class OidcServerException extends OAuthServerException
     ): OidcServerException {
         $errorMessage = "Request object not supported.";
 
-        $e = new self($errorMessage, 7, 'request_not_supported', 400, $hint, $redirectUri, $previous, $state, $responseMode);
+        $e = new self(
+            $errorMessage,
+            7,
+            'request_not_supported',
+            400,
+            $hint,
+            $redirectUri,
+            $previous,
+            $state,
+            $responseMode,
+        );
 
         return $e;
     }
@@ -278,7 +298,7 @@ class OidcServerException extends OAuthServerException
             $redirectUri,
             $previous,
             $state,
-            $responseMode
+            $responseMode,
         );
 
         return $e;

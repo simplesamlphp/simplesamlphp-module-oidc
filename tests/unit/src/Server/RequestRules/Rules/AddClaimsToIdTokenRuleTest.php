@@ -13,9 +13,9 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AddClaimsToIdTokenRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
-use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AddClaimsToIdTokenRule
@@ -86,7 +86,13 @@ class AddClaimsToIdTokenRuleTest extends TestCase
     {
         $this->resultBag->add(new Result(ResponseTypeRule::class, $responseType));
 
-        $result = $this->sut()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub, [], $this->responseModeStub) ??
+        $result = $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBag,
+            $this->loggerServiceStub,
+            $this->responseModeStub,
+            [],
+        ) ??
         new Result(AddClaimsToIdTokenRule::class, null);
         $this->assertTrue($result->getValue());
     }
@@ -106,7 +112,13 @@ class AddClaimsToIdTokenRuleTest extends TestCase
     {
         $this->resultBag->add(new Result(ResponseTypeRule::class, $responseType));
 
-        $result = $this->sut()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub, [], $this->responseModeStub) ??
+        $result = $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBag,
+            $this->loggerServiceStub,
+            $this->responseModeStub,
+            [],
+        ) ??
         new Result(AddClaimsToIdTokenRule::class, null);
 
         $this->assertFalse($result->getValue());
@@ -131,6 +143,12 @@ class AddClaimsToIdTokenRuleTest extends TestCase
     public function testAddClaimsToIdTokenRuleThrowsWithNoResponseTypeParamTest()
     {
         $this->expectException(LogicException::class);
-        $this->sut()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub, [], $this->responseModeStub);
+        $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBag,
+            $this->loggerServiceStub,
+            $this->responseModeStub,
+            [],
+        );
     }
 }

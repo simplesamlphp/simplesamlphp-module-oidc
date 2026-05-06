@@ -4,27 +4,26 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 
-use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
-use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
+use SimpleSAML\Module\oidc\Server\ResponseModes\FormPostResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\FragmentResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
-use SimpleSAML\Module\oidc\Server\ResponseModes\FormPostResponseMode;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
-use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
-use SimpleSAML\Module\oidc\Helpers;
 
 class ResponseModeRule extends AbstractRule
 {
     public function __construct(
         RequestParamsResolver $requestParamsResolver,
-        Helpers $helpers,   
+        Helpers $helpers,
         private readonly QueryResponseMode $queryResponseMode,
         private readonly FragmentResponseMode $fragmentResponseMode,
         private readonly FormPostResponseMode $formPostResponseMode,
@@ -40,8 +39,8 @@ class ResponseModeRule extends AbstractRule
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
         LoggerService $loggerService,
+        ?ResponseModeInterface $responseMode,
         array $data = [],
-        ResponseModeInterface $responseMode,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         $requestParams = $this->requestParamsResolver->getAllBasedOnAllowedMethods(
@@ -52,7 +51,8 @@ class ResponseModeRule extends AbstractRule
         // response_mode requires client_id and response_type to be present
         if (
             !isset($requestParams[ParamsEnum::ClientId->value]) ||
-            !isset($requestParams[ParamsEnum::ResponseType->value])) {
+            !isset($requestParams[ParamsEnum::ResponseType->value])
+        ) {
             throw  OidcServerException::invalidRequest('Missing client_id or response_type');
         }
 
@@ -75,11 +75,13 @@ class ResponseModeRule extends AbstractRule
         }
 
         // Verify if response_mode is one of 'query', 'fragment', 'form_post'
-        if (!in_array(
-            $reponseModeValue,
-            ['query', 'fragment', 'form_post'],
-            true,
-        )) {
+        if (
+            !in_array(
+                $reponseModeValue,
+                ['query', 'fragment', 'form_post'],
+                true,
+            )
+        ) {
             throw OidcServerException::invalidRequest('Invalid response_mode');
         }
 
@@ -92,7 +94,7 @@ class ResponseModeRule extends AbstractRule
         if (!in_array($reponseModeValue, $allowedResponseModes, true)) {
             throw OidcServerException::invalidRequest(
                 'response_mode',
-                'response_mode "' . $reponseModeValue . '" is not allowed for this client'
+                'response_mode "' . $reponseModeValue . '" is not allowed for this client',
             );
         }
 

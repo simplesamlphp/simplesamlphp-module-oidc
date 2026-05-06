@@ -47,7 +47,9 @@ class RequestRulesManager
 
     /**
      * @param class-string[] $ruleKeysToExecute
-     * @param ResponseModeInterface $responseMode Response mode which will be used in rules execution, as some rules might need to adjust their behaviour based on response mode used in request.
+    * @param ResponseModeInterface $responseMode Response mode which will be
+    * used in rules execution, as some rules might need to adjust their
+    * behaviour based on response mode used in request.
      * @param HttpMethodsEnum[] $allowedServerRequestMethods Indicate allowed HTTP methods used for request
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -66,8 +68,8 @@ class RequestRulesManager
                 $request,
                 $this->resultBag,
                 $this->loggerService,
-                $this->data,
                 $responseMode,
+                $this->data,
                 $allowedServerRequestMethods,
             );
 

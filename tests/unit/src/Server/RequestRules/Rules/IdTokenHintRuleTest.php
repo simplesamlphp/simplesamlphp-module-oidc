@@ -14,9 +14,9 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
-use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Core\Factories\IdTokenFactory;
 use SimpleSAML\OpenID\Core\IdToken;
@@ -113,7 +113,6 @@ class IdTokenHintRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
-            [],
             $this->responseModeStub,
         ) ?? new Result(IdTokenHintRule::class);
 
@@ -127,7 +126,12 @@ class IdTokenHintRuleTest extends TestCase
     {
         $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('malformed');
         $this->expectException(Throwable::class);
-        $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub, [], $this->responseModeStub);
+        $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBagStub,
+            $this->loggerServiceStub,
+            $this->responseModeStub,
+        );
     }
 
     /**
@@ -144,7 +148,12 @@ class IdTokenHintRuleTest extends TestCase
             ->with('invalid-it-token')
             ->willReturn($this->idTokenMock);
         $this->expectException(Throwable::class);
-        $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub, [], $this->responseModeStub);
+        $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBagStub,
+            $this->loggerServiceStub,
+            $this->responseModeStub,
+        );
     }
 
     /**
@@ -162,7 +171,12 @@ class IdTokenHintRuleTest extends TestCase
         $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')
             ->willReturn('id-token');
         $this->expectException(Throwable::class);
-        $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub, [], $this->responseModeStub);
+        $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBagStub,
+            $this->loggerServiceStub,
+            $this->responseModeStub,
+        );
     }
 
     /**
@@ -177,7 +191,12 @@ class IdTokenHintRuleTest extends TestCase
         $this->idTokenMock->method('getIssuer')->willReturn(self::$issuer);
         $this->idTokenFactoryMock->method('fromToken')
             ->willReturn($this->idTokenMock);
-        $result = $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub, [], $this->responseModeStub) ??
+        $result = $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBagStub,
+            $this->loggerServiceStub,
+            $this->responseModeStub,
+        ) ??
         new Result(IdTokenHintRule::class);
 
         $this->assertInstanceOf(IdToken::class, $result->getValue());
