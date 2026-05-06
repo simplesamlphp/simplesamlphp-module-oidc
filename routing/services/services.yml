@@ -67,6 +67,12 @@ services:
   SimpleSAML\Module\oidc\Server\ResponseTypes\TokenResponse:
     factory: ['@SimpleSAML\Module\oidc\Factories\TokenResponseFactory', 'build']
 
+  SimpleSAML\Module\oidc\Server\ResponseModes\:
+    resource: '../../src/Server/ResponseModes/*'
+
+  SimpleSAML\Configuration:
+    factory: ['SimpleSAML\Configuration', 'getInstance']
+
   oidc.key.private:
     class: League\OAuth2\Server\CryptKey
     factory: ['@SimpleSAML\Module\oidc\Factories\CryptKeyFactory', 'buildPrivateKey']

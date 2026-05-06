@@ -92,11 +92,15 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredNonceRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseModeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeOfflineAccessRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
+use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
+use SimpleSAML\Module\oidc\Server\ResponseModes\FragmentResponseMode;
+use SimpleSAML\Module\oidc\Server\ResponseModes\FormPostResponseMode;
 use SimpleSAML\Module\oidc\Server\ResourceServer;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\TokenResponse;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
@@ -420,6 +424,11 @@ class Container implements ContainerInterface
         );
         $this->services[AuthenticatedOAuth2ClientResolver::class] = $authenticatedOAuth2ClientResolver;
 
+        $queryResponseMode = new QueryResponseMode();
+        $fragmentResponseMode = new FragmentResponseMode();
+        // FormPostResponseMode renders a template, so it requires the configuration.
+        $formPostResponseMode = new FormPostResponseMode($simpleSAMLConfiguration);
+
         $requestRules = [
             new StateRule($requestParamsResolver, $helpers),
             new ClientRule(
@@ -436,6 +445,7 @@ class Container implements ContainerInterface
             ),
             new ClientRedirectUriRule($requestParamsResolver, $helpers, $moduleConfig),
             new RequestObjectRule($requestParamsResolver, $helpers, $jwksResolver),
+            new ResponseModeRule($requestParamsResolver, $helpers, $queryResponseMode, $fragmentResponseMode, $formPostResponseMode),
             new PromptRule($requestParamsResolver, $helpers, $authSimpleFactory, $authenticationService, $sspBridge),
             new MaxAgeRule($requestParamsResolver, $helpers, $authSimpleFactory, $authenticationService, $sspBridge),
             new ScopeRule($requestParamsResolver, $helpers, $scopeRepository),

@@ -24,6 +24,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseModeRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
@@ -85,6 +86,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
             StateRule::class,
             ClientRule::class,
             ClientRedirectUriRule::class,
+            ResponseModeRule::class,
         ];
 
         try {

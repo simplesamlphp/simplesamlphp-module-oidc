@@ -5,20 +5,15 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Server\ResponseModes;
 
 use League\OAuth2\Server\ResponseTypes\AbstractResponseType;
-use Psr\Http\Message\ResponseInterface;
 use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 
 class QueryResponseMode implements ResponseModeInterface
 {
     public function buildResponse(string $redirectUri, array $params): AbstractResponseType
     {
+        $separator = str_contains($redirectUri, '?') ? '&' : '?';
         $response = new RedirectResponse();
-
-        // TODO: copied from league/oauth2-server/src/Grant/AbstractAuthorizeGrant.php for now, but should be refactored to a common helper method
-        $newRedirectUri = (\strstr($redirectUri, "?") === false) ? "?" : "&";
-        $newRedirectUri .= \http_build_query($params);
-        
-        $response->setRedirectUri($newRedirectUri);
+        $response->setRedirectUri($redirectUri . $separator . http_build_query($params));
 
         return $response;
     }

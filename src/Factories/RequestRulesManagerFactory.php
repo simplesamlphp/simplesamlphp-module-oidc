@@ -31,11 +31,15 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredNonceRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseModeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeOfflineAccessRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
+use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
+use SimpleSAML\Module\oidc\Server\ResponseModes\FragmentResponseMode;
+use SimpleSAML\Module\oidc\Server\ResponseModes\FormPostResponseMode;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
@@ -72,6 +76,9 @@ class RequestRulesManagerFactory
         private readonly AuthenticatedOAuth2ClientResolver $authenticatedOAuth2ClientResolver,
         private readonly ?FederationCache $federationCache = null,
         private readonly ?ProtocolCache $protocolCache = null,
+        private readonly QueryResponseMode $queryResponseMode,
+        private readonly FragmentResponseMode $fragmentResponseMode,
+        private readonly FormPostResponseMode $formPostResponseMode,
     ) {
     }
 
@@ -107,6 +114,13 @@ class RequestRulesManagerFactory
             ),
             new ClientRedirectUriRule($this->requestParamsResolver, $this->helpers, $this->moduleConfig),
             new RequestObjectRule($this->requestParamsResolver, $this->helpers, $this->jwksResolver),
+            new ResponseModeRule(
+                $this->requestParamsResolver,
+                $this->helpers,
+                $this->queryResponseMode,
+                $this->fragmentResponseMode,
+                $this->formPostResponseMode,
+            ),
             new PromptRule(
                 $this->requestParamsResolver,
                 $this->helpers,

@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Submitting...</title>
+</head>
+<body onload="document.forms[0].submit()">
+  <form method="post" action="{{ redirectUri }}">
+    {% for name, value in params %}
+      <input type="hidden" name="{{ name }}" value="{{ value }}">
+    {% endfor %}
+    <noscript>
+      <button type="submit">Continue</button>
+    </noscript>
+  </form>
+</body>
+</html>
