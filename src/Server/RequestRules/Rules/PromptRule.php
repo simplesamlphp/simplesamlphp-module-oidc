@@ -12,6 +12,7 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
@@ -44,7 +45,7 @@ class PromptRule extends AbstractRule
         ResultBagInterface $currentResultBag,
         LoggerService $loggerService,
         array $data = [],
-        bool $useFragmentInHttpErrorResponses = false,
+        ResponseModeInterface $responseMode,
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         $loggerService->debug('PromptRule::checkRule');
@@ -78,7 +79,7 @@ class PromptRule extends AbstractRule
                 $redirectUri,
                 null,
                 $state,
-                $useFragmentInHttpErrorResponses,
+                $responseMode,
             );
         }
 

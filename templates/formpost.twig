@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>Submitting...</title>
 </head>
-<body onload="document.forms[0].submit()">
+<body>
   <form method="post" action="{{ redirectUri }}">
     {% for name, value in params %}
       <input type="hidden" name="{{ name }}" value="{{ value }}">
@@ -14,4 +14,5 @@
     </noscript>
   </form>
 </body>
+<script src="{{ moduleURL('oidc/assets/js/src/formpost.js') }}" defer></script>
 </html>

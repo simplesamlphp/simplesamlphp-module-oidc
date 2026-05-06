@@ -22,6 +22,7 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AuthorizationDetailsRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
+use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
@@ -174,7 +175,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
         $resultBag = $this->requestRulesManager->check(
             $request,
             [AuthorizationDetailsRule::class],
-            false,
+            new QueryResponseMode(), // TODO: Response mode is not relevant for token request, as there is no redirection, but we need to provide something to execute rules.
             $this->allowedTokenHttpMethods,
         );
 

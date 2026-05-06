@@ -43,7 +43,6 @@ class ImplicitGrantFactory
             $this->accessTokenRepository,
             $this->requestRulesManager,
             $this->requestParamsResolver,
-            '#',
             $this->accessTokenEntityFactory,
         );
     }

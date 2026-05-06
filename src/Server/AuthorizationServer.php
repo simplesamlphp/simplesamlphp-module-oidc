@@ -26,6 +26,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseModeRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
+use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
@@ -93,7 +94,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
             $resultBag = $this->requestRulesManager->check(
                 $request,
                 $rulesToExecute,
-                false,
+                new QueryResponseMode(),
                 [HttpMethodsEnum::GET, HttpMethodsEnum::POST],
             );
         } catch (OidcServerException $exception) {
@@ -116,6 +117,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         $state = $resultBag->getOrFail(StateRule::class)->getValue();
         /** @var string $redirectUri */
         $redirectUri = $resultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
+        $responseMode = $resultBag->getOrFail(ResponseModeRule::class)->getValue();
 
         foreach ($this->enabledGrantTypes as $grantType) {
             $this->loggerService?->debug(
@@ -159,7 +161,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
             'request.',
             ['requestQueryParams' => $request->getQueryParams()],
         );
-        throw OidcServerException::unsupportedResponseType($redirectUri, $state);
+        throw OidcServerException::unsupportedResponseType($redirectUri, $state, $responseMode);
     }
 
     /**
@@ -179,7 +181,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
             $resultBag = $this->requestRulesManager->check(
                 $request,
                 $rulesToExecute,
-                false,
+                new QueryResponseMode(),
                 [HttpMethodsEnum::GET, HttpMethodsEnum::POST],
             );
         } catch (OidcServerException $exception) {

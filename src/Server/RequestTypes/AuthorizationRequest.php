@@ -6,6 +6,7 @@ namespace SimpleSAML\Module\oidc\Server\RequestTypes;
 
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 
 class AuthorizationRequest extends OAuth2AuthorizationRequest
 {
@@ -69,6 +70,8 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
      * @var string|null
      */
     protected ?string $issuerState = null;
+
+    private ?ResponseModeInterface $responseMode = null; 
 
     public static function fromOAuth2AuthorizationRequest(
         OAuth2AuthorizationRequest $oAuth2authorizationRequest,
@@ -160,6 +163,16 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     public function getResponseType(): ?string
     {
         return $this->responseType;
+    }
+
+    public function setResponseMode(ResponseModeInterface $responseMode): void
+    {
+        $this->responseMode = $responseMode;
+    }
+
+    public function getResponseMode(): ?ResponseModeInterface
+    {
+        return $this->responseMode;
     }
 
     /**
