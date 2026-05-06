@@ -284,6 +284,9 @@ class ClientForm extends Form
         $values[ClaimsEnum::IdTokenSignedResponseAlg->value] = empty($idTokenSignedResponseAlg) ?
         null : $idTokenSignedResponseAlg;
 
+        $responseModesAllowed = is_array($values['response_modes_allowed']) ? $values['response_modes_allowed'] : [];
+        $values['response_modes_allowed'] = array_intersect($responseModesAllowed, array_keys($this->getAllowedResponseModesValues()));
+
         return $values;
     }
 
@@ -336,6 +339,8 @@ class ClientForm extends Form
             $data['auth_source'] = null;
         }
 
+        $data['response_modes_allowed'] = is_array($data['response_modes_allowed']) ? $data['response_modes_allowed'] : [];
+
         parent::setDefaults($data, $erase);
 
         return $this;
@@ -354,6 +359,7 @@ class ClientForm extends Form
         $this->onValidate[] = $this->validateBackChannelLogoutUri(...);
         $this->onValidate[] = $this->validateEntityIdentifier(...);
         $this->onValidate[] = $this->validateClientRegistrationTypes(...);
+        $this->onValidate[] = $this->validateResponseModes(...);
         $this->onValidate[] = $this->validateFederationJwks(...);
         $this->onValidate[] = $this->validateProtocolJwks(...);
         $this->onValidate[] = $this->validateJwksUri(...);
@@ -423,6 +429,45 @@ class ClientForm extends Form
             ->setHtmlAttribute('class', 'full-width')
             ->setItems(['RS256'], false)
             ->setPrompt(Translate::noop('-'));
+
+        $this->addMultiSelect(
+            'response_modes_allowed',
+            Translate::noop('Allowed Response Modes'),
+            $this->getAllowedResponseModesValues(),
+            3,
+        )->setHtmlAttribute('class', 'full-width')
+         ->setRequired(Translate::noop('At least one response mode is required.'));
+    }
+
+    /**
+     * Validate provided response modes
+     *
+     * @throws \Exception
+     */
+    public function validateResponseModes(Form $form): void
+    {
+        $values = $form->getValues(self::TYPE_ARRAY);
+        $responseModes = $values['response_modes_allowed'] ?? null;
+        if ($responseModes !== null && is_array($responseModes)) {
+            $allowed = array_keys($this->getAllowedResponseModesValues());
+            foreach ($responseModes as $mode) {
+                if (!in_array($mode, $allowed, true)) {
+                    $this->addError("Invalid value: $mode");
+                }
+            }
+        }
+    }
+
+    /**
+     * @return string[] map of value => label
+     */
+    protected function getAllowedResponseModesValues(): array
+    {
+        return [
+            'query' => 'query',
+            'fragment' => 'fragment',
+            'form_post' => 'form_post',
+        ];
     }
 
     /**

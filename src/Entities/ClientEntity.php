@@ -388,4 +388,19 @@ class ClientEntity implements ClientEntityInterface
 
         return $idTokenSignedResponseAlg;
     }
+
+    public function getAllowedResponseModes(): array
+    {
+        if (!is_array($this->extraMetadata)) {
+            return [];
+        }
+
+        $allowedResponseModes = $this->extraMetadata['allowed_response_modes'] ?? null;
+
+        if (!is_array($allowedResponseModes)) {
+            return [];
+        }
+
+        return $allowedResponseModes;
+    }
 }

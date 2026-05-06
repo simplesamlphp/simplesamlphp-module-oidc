@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 
+use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
@@ -56,7 +57,7 @@ class ResponseModeRule extends AbstractRule
         }
 
         $reponseModeValue = $requestParams[ParamsEnum::ResponseMode->value] ?? null;
-        $loggerService->debug('ResponseModeRule: resolved response_mode value: ' . ($reponseModeValue ?? 'null'));
+        $loggerService->debug('ResponseModeRule: response_mode requestParams value: ' . ($reponseModeValue ?? 'null'));
 
 
         // if response_mode is not set, we set the default
@@ -82,7 +83,18 @@ class ResponseModeRule extends AbstractRule
             throw OidcServerException::invalidRequest('Invalid response_mode');
         }
 
-        // TODO: validate whether response_mode is allowed by configuration
+        // Validate whether response_mode is allowed by client configuration
+        $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
+        $redirectUri = $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
+        $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
+
+        $allowedResponseModes = $client->getAllowedResponseModes();
+        if (!in_array($reponseModeValue, $allowedResponseModes, true)) {
+            throw OidcServerException::invalidRequest(
+                'response_mode',
+                'response_mode "' . $reponseModeValue . '" is not allowed for this client'
+            );
+        }
 
         // Resolve ResponseModeStrategy
         switch ($reponseModeValue) {
