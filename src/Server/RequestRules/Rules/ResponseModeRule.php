@@ -48,12 +48,11 @@ class ResponseModeRule extends AbstractRule
             $allowedServerRequestMethods,
         );
 
-        // response_mode requires client_id and response_type to be present
+        // response_mode requires client_id to be present
         if (
-            !isset($requestParams[ParamsEnum::ClientId->value]) ||
-            !isset($requestParams[ParamsEnum::ResponseType->value])
+            !isset($requestParams[ParamsEnum::ClientId->value])
         ) {
-            throw  OidcServerException::invalidRequest('Missing client_id or response_type');
+            throw  OidcServerException::invalidRequest('Missing client_id');
         }
 
         $reponseModeValue = $requestParams[ParamsEnum::ResponseMode->value] ?? null;
@@ -61,7 +60,8 @@ class ResponseModeRule extends AbstractRule
 
 
         // if response_mode is not set, we set the default
-        $responseType = $requestParams[ParamsEnum::ResponseType->value];
+        // default to 'code' if not set. Error will be thrown by ResponseTypeRule.
+        $responseType = $requestParams[ParamsEnum::ResponseType->value] ?? 'code';
         if (!$reponseModeValue) {
             switch ($responseType) {
                 case str_contains($responseType, 'token'):

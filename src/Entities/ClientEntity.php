@@ -392,13 +392,15 @@ class ClientEntity implements ClientEntityInterface
     public function getAllowedResponseModes(): array
     {
         if (!is_array($this->extraMetadata)) {
-            return [];
+            // Default to allowing all response modes
+            return ['query', 'fragment', 'form_post'];
         }
 
         $allowedResponseModes = $this->extraMetadata['allowed_response_modes'] ?? null;
 
         if (!is_array($allowedResponseModes)) {
-            return [];
+            // Default to allowing all response modes
+            return ['query', 'fragment', 'form_post'];
         }
 
         return $allowedResponseModes;
