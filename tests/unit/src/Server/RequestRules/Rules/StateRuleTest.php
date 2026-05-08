@@ -72,8 +72,8 @@ class StateRuleTest extends TestCase
             $request,
             $resultBag,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             $data,
+            $this->responseModeStub,
         );
 
         $this->assertInstanceOf(ResultInterface::class, $result);
@@ -94,6 +94,7 @@ class StateRuleTest extends TestCase
             $request,
             $resultBag,
             $this->loggerServiceStub,
+            [],
             $this->responseModeStub,
         );
 

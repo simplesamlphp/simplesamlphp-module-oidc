@@ -16,14 +16,17 @@ class AddClaimsToIdTokenRule extends AbstractRule
 {
     /**
      * @inheritDoc
+     *
      * @throws \Throwable
+     *
+     * @param ResponseModeInterface $responseMode
      */
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
         LoggerService $loggerService,
-        ?ResponseModeInterface $responseMode,
         array $data = [],
+        ResponseModeInterface $responseMode = new QueryResponseMode(),
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         /** @var string $responseType */

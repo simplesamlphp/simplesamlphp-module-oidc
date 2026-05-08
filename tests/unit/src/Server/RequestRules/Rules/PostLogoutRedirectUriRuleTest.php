@@ -114,8 +114,8 @@ class PostLogoutRedirectUriRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         ) ??
         (new Result(PostLogoutRedirectUriRule::class));
 
@@ -136,8 +136,8 @@ class PostLogoutRedirectUriRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         ) ??
         (new Result(PostLogoutRedirectUriRule::class));
     }
@@ -167,8 +167,8 @@ class PostLogoutRedirectUriRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         ) ??
         (new Result(PostLogoutRedirectUriRule::class));
     }
@@ -201,8 +201,8 @@ class PostLogoutRedirectUriRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         ) ??
         (new Result(PostLogoutRedirectUriRule::class));
     }
@@ -235,8 +235,8 @@ class PostLogoutRedirectUriRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         ) ??
         (new Result(PostLogoutRedirectUriRule::class));
     }
@@ -268,8 +268,8 @@ class PostLogoutRedirectUriRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         ) ??
         (new Result(PostLogoutRedirectUriRule::class));
 

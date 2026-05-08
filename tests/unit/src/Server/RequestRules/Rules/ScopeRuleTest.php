@@ -105,8 +105,8 @@ class ScopeRuleTest extends TestCase
             $this->requestStub,
             $resultBag,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             $this->data,
+            $this->responseModeStub,
         );
     }
 
@@ -123,8 +123,8 @@ class ScopeRuleTest extends TestCase
             $this->requestStub,
             $resultBag,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             $this->data,
+            $this->responseModeStub,
         );
     }
 
@@ -153,8 +153,8 @@ class ScopeRuleTest extends TestCase
             $this->requestStub,
             $resultBag,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             $this->data,
+            $this->responseModeStub,
         );
         $this->assertInstanceOf(ResultInterface::class, $result);
         $this->assertIsArray($result->getValue());
@@ -186,8 +186,8 @@ class ScopeRuleTest extends TestCase
             $this->requestStub,
             $resultBag,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             $this->data,
+            $this->responseModeStub,
         );
     }
 

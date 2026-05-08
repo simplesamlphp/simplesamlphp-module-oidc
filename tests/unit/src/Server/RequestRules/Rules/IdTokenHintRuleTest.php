@@ -113,6 +113,7 @@ class IdTokenHintRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
+            [],
             $this->responseModeStub,
         ) ?? new Result(IdTokenHintRule::class);
 
@@ -130,6 +131,7 @@ class IdTokenHintRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
+            [],
             $this->responseModeStub,
         );
     }
@@ -152,6 +154,7 @@ class IdTokenHintRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
+            [],
             $this->responseModeStub,
         );
     }
@@ -175,6 +178,7 @@ class IdTokenHintRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
+            [],
             $this->responseModeStub,
         );
     }
@@ -195,6 +199,7 @@ class IdTokenHintRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
+            [],
             $this->responseModeStub,
         ) ??
         new Result(IdTokenHintRule::class);

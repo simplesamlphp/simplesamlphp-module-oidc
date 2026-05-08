@@ -91,8 +91,8 @@ class ResponseTypeRuleTest extends TestCase
             $this->requestStub,
             $this->resultBag,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         ) ??
         new Result(ResponseTypeRule::class, null);
         $this->assertSame($responseType, $result->getValue());
@@ -116,8 +116,8 @@ class ResponseTypeRuleTest extends TestCase
             $this->requestStub,
             $this->resultBag,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         );
     }
 }

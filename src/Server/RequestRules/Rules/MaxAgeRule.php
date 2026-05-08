@@ -38,13 +38,15 @@ class MaxAgeRule extends AbstractRule
      * @throws \SimpleSAML\Error\NotFound
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \Throwable
+     *
+     * @param ResponseModeInterface $responseMode
      */
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
         LoggerService $loggerService,
-        ?ResponseModeInterface $responseMode,
         array $data = [],
+        ResponseModeInterface $responseMode = new QueryResponseMode(),
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         $loggerService->debug('MaxAgeRule::checkRule');

@@ -90,8 +90,8 @@ class AddClaimsToIdTokenRuleTest extends TestCase
             $this->requestStub,
             $this->resultBag,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         ) ??
         new Result(AddClaimsToIdTokenRule::class, null);
         $this->assertTrue($result->getValue());
@@ -116,8 +116,8 @@ class AddClaimsToIdTokenRuleTest extends TestCase
             $this->requestStub,
             $this->resultBag,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         ) ??
         new Result(AddClaimsToIdTokenRule::class, null);
 
@@ -147,8 +147,8 @@ class AddClaimsToIdTokenRuleTest extends TestCase
             $this->requestStub,
             $this->resultBag,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         );
     }
 }

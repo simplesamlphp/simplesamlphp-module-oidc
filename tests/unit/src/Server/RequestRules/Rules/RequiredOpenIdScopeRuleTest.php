@@ -79,7 +79,7 @@ class RequiredOpenIdScopeRuleTest extends TestCase
     {
         $resultBag = new ResultBag();
         $this->expectException(LogicException::class);
-        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->responseModeStub, []);
+        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, [], $this->responseModeStub);
     }
 
     /**
@@ -91,7 +91,7 @@ class RequiredOpenIdScopeRuleTest extends TestCase
         $resultBag = new ResultBag();
         $resultBag->add($this->redirectUriResult);
         $this->expectException(LogicException::class);
-        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->responseModeStub, []);
+        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, [], $this->responseModeStub);
     }
 
     /**
@@ -109,8 +109,8 @@ class RequiredOpenIdScopeRuleTest extends TestCase
             $this->requestStub,
             $resultBag,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         ) ??
         new Result(RequiredOpenIdScopeRule::class, null);
 
@@ -132,6 +132,6 @@ class RequiredOpenIdScopeRuleTest extends TestCase
 
         $this->expectException(OidcServerException::class);
 
-        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->responseModeStub, []);
+        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, [], $this->responseModeStub);
     }
 }

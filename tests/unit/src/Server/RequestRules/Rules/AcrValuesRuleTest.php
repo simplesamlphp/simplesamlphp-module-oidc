@@ -65,6 +65,7 @@ class AcrValuesRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
+            [],
             $this->responseModeStub,
         ) ?? new Result(AcrValuesRule::class, null);
         $this->assertNull($result->getValue());
@@ -83,6 +84,7 @@ class AcrValuesRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
+            [],
             $this->responseModeStub,
         ) ?? new Result(AcrValuesRule::class, null);
 
@@ -101,6 +103,7 @@ class AcrValuesRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
+            [],
             $this->responseModeStub,
         ) ?? new Result(AcrValuesRule::class, null);
 

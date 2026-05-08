@@ -94,6 +94,7 @@ class ClientRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
+            [],
             $this->responseModeStub,
         );
     }
@@ -107,6 +108,7 @@ class ClientRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
+            [],
             $this->responseModeStub,
         );
     }
@@ -124,6 +126,7 @@ class ClientRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
+            [],
             $this->responseModeStub,
         );
         $this->assertInstanceOf(ResultInterface::class, $result);

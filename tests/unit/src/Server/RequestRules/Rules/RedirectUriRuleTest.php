@@ -80,8 +80,8 @@ class RedirectUriRuleTest extends TestCase
             $this->requestStub,
             $this->resultBag,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         );
     }
 
@@ -97,8 +97,8 @@ class RedirectUriRuleTest extends TestCase
             $this->requestStub,
             $this->resultBag,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         );
     }
 
@@ -110,7 +110,7 @@ class RedirectUriRuleTest extends TestCase
         $resultBag = $this->prepareValidResultBag();
 
         $this->expectException(OidcServerException::class);
-        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->responseModeStub, []);
+        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, [], $this->responseModeStub);
     }
 
     /**
@@ -122,7 +122,7 @@ class RedirectUriRuleTest extends TestCase
         $resultBag = $this->prepareValidResultBag();
 
         $this->expectException(OidcServerException::class);
-        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->responseModeStub, []);
+        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, [], $this->responseModeStub);
     }
 
     /**
@@ -140,8 +140,8 @@ class RedirectUriRuleTest extends TestCase
             $this->requestStub,
             $this->resultBag,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         );
     }
 
@@ -159,8 +159,8 @@ class RedirectUriRuleTest extends TestCase
             $this->requestStub,
             $resultBag,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         );
 
         $this->assertInstanceOf(ResultInterface::class, $result);

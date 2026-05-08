@@ -18,13 +18,15 @@ class CodeVerifierRule extends AbstractRule
 {
     /**
      * @inheritDoc
+     *
+     * @param ResponseModeInterface $responseMode
      */
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
         LoggerService $loggerService,
-        ?ResponseModeInterface $responseMode,
         array $data = [],
+        ResponseModeInterface $responseMode = new QueryResponseMode(),
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */

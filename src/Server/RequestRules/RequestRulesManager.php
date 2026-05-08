@@ -68,8 +68,8 @@ class RequestRulesManager
                 $request,
                 $this->resultBag,
                 $this->loggerService,
-                $responseMode,
                 $this->data,
+                $responseMode,
                 $allowedServerRequestMethods,
             );
 
@@ -100,7 +100,7 @@ class RequestRulesManager
     /**
      * Set data which will be available in each check, using key value pair
      */
-    public function setData(string $key, mixed $value): void
+    public function setData(string $key, string $value): void
     {
         $this->data[$key] = $value;
     }

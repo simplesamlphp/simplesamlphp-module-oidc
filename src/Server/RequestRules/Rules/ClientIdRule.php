@@ -21,6 +21,7 @@ class ClientIdRule extends AbstractRule
 {
     /**
      * @inheritDoc
+     *
      * @throws \JsonException
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \Psr\SimpleCache\InvalidArgumentException
@@ -33,13 +34,15 @@ class ClientIdRule extends AbstractRule
      * @throws \SimpleSAML\OpenID\Exceptions\RequestObjectException
      * @throws \SimpleSAML\OpenID\Exceptions\TrustChainException
      * @throws \SimpleSAML\OpenID\Exceptions\TrustMarkException
+     *
+     * @param ResponseModeInterface $responseMode
      */
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
         LoggerService $loggerService,
-        ?ResponseModeInterface $responseMode,
         array $data = [],
+        ResponseModeInterface $responseMode = new QueryResponseMode(),
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         $loggerService->debug('ClientIdRule::checkRule');

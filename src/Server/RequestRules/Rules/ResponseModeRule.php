@@ -34,13 +34,15 @@ class ResponseModeRule extends AbstractRule
 
     /**
      * @inheritDoc
+     *
+     * @param ResponseModeInterface $responseMode
      */
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
         LoggerService $loggerService,
-        ?ResponseModeInterface $responseMode,
         array $data = [],
+        ResponseModeInterface $responseMode = new QueryResponseMode(),
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         $requestParams = $this->requestParamsResolver->getAllBasedOnAllowedMethods(
@@ -87,8 +89,8 @@ class ResponseModeRule extends AbstractRule
 
         // Validate whether response_mode is allowed by client configuration
         $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
-        $redirectUri = $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
-        $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
+        $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
+        $currentResultBag->getOrFail(StateRule::class)->getValue();
 
         $allowedResponseModes = $client->getAllowedResponseModes();
         if (!in_array($reponseModeValue, $allowedResponseModes, true)) {

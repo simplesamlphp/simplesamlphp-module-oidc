@@ -66,8 +66,8 @@ class UiLocalesRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         ) ??
         new Result(UiLocalesRule::class);
 
@@ -85,8 +85,8 @@ class UiLocalesRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         ) ??
         new Result(UiLocalesRule::class);
 

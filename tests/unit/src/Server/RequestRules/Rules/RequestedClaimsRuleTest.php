@@ -87,8 +87,8 @@ class RequestedClaimsRuleTest extends TestCase
             $this->requestStub,
             $this->resultBag,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         );
         $this->assertNull($result);
     }
@@ -126,8 +126,8 @@ class RequestedClaimsRuleTest extends TestCase
             $this->requestStub,
             $this->resultBag,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         );
         $this->assertNotNull($result);
         $this->assertEquals($expectedClaims, $result->getValue());
@@ -151,8 +151,8 @@ class RequestedClaimsRuleTest extends TestCase
             $this->requestStub,
             $this->resultBag,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         );
         $this->assertNotNull($result);
         $this->assertEquals($expectedClaims, $result->getValue());

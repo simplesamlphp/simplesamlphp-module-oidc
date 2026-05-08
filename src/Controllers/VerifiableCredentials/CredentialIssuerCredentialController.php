@@ -808,7 +808,7 @@ class CredentialIssuerCredentialController
      * @psalm-suppress UnusedVariable, MixedAssignment
      * @param array-key[] $path
      */
-    protected function setCredentialClaimValue(array &$claims, array $path, mixed $value): void
+    protected function setCredentialClaimValue(array &$claims, array $path, string $value): void
     {
         $temp = &$claims;
 

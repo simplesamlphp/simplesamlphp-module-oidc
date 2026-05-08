@@ -80,7 +80,7 @@ class RequiredNonceRuleTest extends TestCase
     {
         $resultBag = new ResultBag();
         $this->expectException(LogicException::class);
-        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->responseModeStub, []);
+        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, [], $this->responseModeStub);
     }
 
     /**
@@ -92,7 +92,7 @@ class RequiredNonceRuleTest extends TestCase
         $resultBag = new ResultBag();
         $resultBag->add($this->redirectUriResult);
         $this->expectException(LogicException::class);
-        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->responseModeStub, []);
+        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, [], $this->responseModeStub);
     }
 
     /**
@@ -108,8 +108,8 @@ class RequiredNonceRuleTest extends TestCase
             $this->requestStub,
             $this->resultBag,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         ) ??
         new Result(RequiredNonceRule::class, null);
 
@@ -127,8 +127,8 @@ class RequiredNonceRuleTest extends TestCase
             $this->requestStub,
             $this->resultBag,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         );
     }
 }

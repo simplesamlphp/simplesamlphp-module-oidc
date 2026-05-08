@@ -78,7 +78,7 @@ class CodeChallengeMethodRuleTest extends TestCase
     {
         $resultBag = new ResultBag();
         $this->expectException(LogicException::class);
-        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->responseModeStub, []);
+        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, [], $this->responseModeStub);
     }
 
     /**
@@ -90,7 +90,7 @@ class CodeChallengeMethodRuleTest extends TestCase
         $resultBag = new ResultBag();
         $resultBag->add($this->redirectUriResult);
         $this->expectException(LogicException::class);
-        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->responseModeStub, []);
+        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, [], $this->responseModeStub);
     }
 
     /**
@@ -103,7 +103,7 @@ class CodeChallengeMethodRuleTest extends TestCase
         $this->codeChallengeVerifiersRepositoryMock->expects($this->once())->method('has')
             ->with('invalid')->willReturn(false);
         $this->expectException(OidcServerException::class);
-        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, $this->responseModeStub, []);
+        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, [], $this->responseModeStub);
     }
 
     /**
@@ -120,8 +120,8 @@ class CodeChallengeMethodRuleTest extends TestCase
             $this->requestStub,
             $resultBag,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         );
 
         $this->assertInstanceOf(ResultInterface::class, $result);

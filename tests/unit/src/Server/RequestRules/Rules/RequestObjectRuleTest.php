@@ -81,8 +81,8 @@ class RequestObjectRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         );
         $this->assertNull($result);
     }
@@ -98,8 +98,8 @@ class RequestObjectRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         );
         $this->assertInstanceOf(Result::class, $result);
         $this->assertIsArray($result->getValue());
@@ -119,8 +119,8 @@ class RequestObjectRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         );
     }
 
@@ -141,8 +141,8 @@ class RequestObjectRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         );
     }
 
@@ -163,8 +163,8 @@ class RequestObjectRuleTest extends TestCase
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         );
 
         $this->assertInstanceOf(Result::class, $result);

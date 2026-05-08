@@ -17,13 +17,15 @@ class UiLocalesRule extends AbstractRule
 {
     /**
      * @inheritDoc
+     *
+     * @param ResponseModeInterface $responseMode
      */
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
         LoggerService $loggerService,
-        ?ResponseModeInterface $responseMode,
         array $data = [],
+        ResponseModeInterface $responseMode = new QueryResponseMode(),
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         return new Result($this->getKey(), $this->requestParamsResolver->getBasedOnAllowedMethods(

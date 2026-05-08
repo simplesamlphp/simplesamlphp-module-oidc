@@ -122,8 +122,8 @@ class ScopeOfflineAccessRuleTest extends TestCase
             $this->serverRequestStub,
             $this->resultBagMock,
             $this->loggerServiceMock,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         );
 
         $this->assertNotNull($result);
@@ -159,8 +159,8 @@ class ScopeOfflineAccessRuleTest extends TestCase
             $this->serverRequestStub,
             $this->resultBagMock,
             $this->loggerServiceMock,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         );
     }
 
@@ -192,8 +192,8 @@ class ScopeOfflineAccessRuleTest extends TestCase
             $this->serverRequestStub,
             $this->resultBagMock,
             $this->loggerServiceMock,
-            $this->responseModeStub,
             [],
+            $this->responseModeStub,
         );
 
         $this->assertNotNull($result);
