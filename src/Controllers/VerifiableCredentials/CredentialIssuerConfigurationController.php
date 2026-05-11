@@ -48,7 +48,6 @@ class CredentialIssuerConfigurationController
         /** @psalm-suppress MixedAssignment */
         foreach ($credentialConfigurationsSupported as $credentialConfigurationId => $credentialConfiguration) {
             if (is_array($credentialConfiguration)) {
-                // Draft 17
                 $credentialConfiguration[ClaimsEnum::CredentialSigningAlgValuesSupported->value] = [
                     $signatureKeyPair->getSignatureAlgorithm()->value,
                 ];

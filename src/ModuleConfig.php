@@ -968,8 +968,16 @@ class ModuleConfig
      */
     public function getVciValidCredentialClaimPathsFor(string $credentialConfigurationId): array
     {
-        $claimsConfig = $this->getVciCredentialConfigurationsSupported()[$credentialConfigurationId]
-        [ClaimsEnum::Claims->value] ?? [];
+        /** @psalm-suppress MixedAssignment */
+        $credentialConfiguration = $this->getVciCredentialConfigurationsSupported()[$credentialConfigurationId] ?? [];
+
+        if (!is_array($credentialConfiguration)) {
+            return [];
+        }
+
+        /** @psalm-suppress MixedArrayAccess */
+        $claimsConfig = $credentialConfiguration[ClaimsEnum::CredentialMetadata->value][ClaimsEnum::Claims->value] ??
+        $credentialConfiguration[ClaimsEnum::Claims->value] ?? [];
 
         $validPaths = [];
 

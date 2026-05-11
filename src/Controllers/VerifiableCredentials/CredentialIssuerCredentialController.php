@@ -703,15 +703,18 @@ class CredentialIssuerCredentialController
                         ClaimsEnum::AtContext->value => [
                             AtContextsEnum::W3Org2018CredentialsV1->value,
                         ],
-                        ClaimsEnum::Type->value => [
-                            CredentialTypesEnum::VerifiableCredential->value,
-                            $resolvedCredentialIdentifier,
-                        ],
+                        /** @psalm-suppress MixedArrayAccess */
+                        ClaimsEnum::Type->value =>
+                            $resolvedCredentialConfiguration[ClaimsEnum::CredentialDefinition->value]
+                            [ClaimsEnum::Type->value] ?? [
+                                CredentialTypesEnum::VerifiableCredential->value,
+                                $resolvedCredentialIdentifier,
+                            ],
                         //ClaimsEnum::Issuer->value => $this->moduleConfig->getIssuer(),
-                        ClaimsEnum::Issuer->value => $issuerDid,
-                        ClaimsEnum::Issuance_Date->value => $issuedAt->format(\DateTimeInterface::RFC3339),
-                        ClaimsEnum::Id->value => $vcId,
-                        ClaimsEnum::Credential_Subject->value =>
+                            ClaimsEnum::Issuer->value => $issuerDid,
+                            ClaimsEnum::Issuance_Date->value => $issuedAt->format(\DateTimeInterface::RFC3339),
+                            ClaimsEnum::Id->value => $vcId,
+                            ClaimsEnum::Credential_Subject->value =>
                             $credentialSubject[ClaimsEnum::Credential_Subject->value] ?? [],
                     ],
                     //ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
@@ -768,8 +771,12 @@ class CredentialIssuerCredentialController
             // Append any additional context URLs declared in the credential
             // configuration's @context field (skipping the base W3C URL,
             // which is already first in the list).
-            /** @psalm-suppress MixedAssignment */
-            $configuredContexts = $resolvedCredentialConfiguration[ClaimsEnum::AtContext->value] ?? [];
+            /**
+             * @psalm-suppress MixedArrayAccess
+             * @psalm-suppress MixedAssignment
+             */
+            $configuredContexts = $resolvedCredentialConfiguration[ClaimsEnum::CredentialDefinition->value]
+            [ClaimsEnum::AtContext->value] ?? $resolvedCredentialConfiguration[ClaimsEnum::AtContext->value] ?? [];
             if (is_array($configuredContexts)) {
                 /** @psalm-suppress MixedAssignment */
                 foreach ($configuredContexts as $configuredContext) {
@@ -786,19 +793,21 @@ class CredentialIssuerCredentialController
             $sdJwtPayload = [
                 ClaimsEnum::AtContext->value => $atContext,
                 ClaimsEnum::Id->value => $vcId,
-                ClaimsEnum::Type->value => [
-                    CredentialTypesEnum::VerifiableCredential->value,
-                    $resolvedCredentialIdentifier,
-                ],
-                ClaimsEnum::Issuer->value => $issuerDid,
-                ClaimsEnum::ValidFrom->value => $issuedAt->format(\DateTimeInterface::RFC3339),
-                ClaimsEnum::Credential_Subject->value =>
+                /** @psalm-suppress MixedArrayAccess */
+                ClaimsEnum::Type->value => $resolvedCredentialConfiguration[ClaimsEnum::CredentialDefinition->value]
+                    [ClaimsEnum::Type->value] ?? [
+                        CredentialTypesEnum::VerifiableCredential->value,
+                        $resolvedCredentialIdentifier,
+                    ],
+                    ClaimsEnum::Issuer->value => $issuerDid,
+                    ClaimsEnum::ValidFrom->value => $issuedAt->format(\DateTimeInterface::RFC3339),
+                    ClaimsEnum::Credential_Subject->value =>
                     $credentialSubject[ClaimsEnum::Credential_Subject->value] ?? [],
-                ClaimsEnum::Iss->value => $issuerDid,
-                ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
-                ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
-                ClaimsEnum::Sub->value => $sub,
-                ClaimsEnum::Jti->value => $vcId,
+                    ClaimsEnum::Iss->value => $issuerDid,
+                    ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
+                    ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
+                    ClaimsEnum::Sub->value => $sub,
+                    ClaimsEnum::Jti->value => $vcId,
             ];
 
             if ($proof instanceof OpenId4VciProof && is_string($proofKeyId = $proof->getKeyId())) {
