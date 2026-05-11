@@ -199,13 +199,17 @@ class FederationTestController
             throw new OidcException('Empty Trust Anchor ID.');
 
             $forceRefresh = $request->request->getBoolean('forceRefresh');
+            /** @var string[] $filterEntityTypes */
             $filterEntityTypes = $request->request->all('filterEntityTypes');
             $filterTrustMarkTypes = $request->request->getString('filterTrustMarkTypes');
             $filterQuery = $request->request->getString('filterQuery');
             $sortBy = $request->request->getString('sortBy', 'entity_id');
             $sortOrder = $request->request->getString('sortOrder', 'asc');
+            /** @var 'asc'|'desc' $sortOrder */
+            $sortOrder = in_array($sortOrder, ['asc', 'desc']) ? $sortOrder : 'asc';
             $pageLimit = $request->request->getInt('pageLimit', 50);
             $pageFrom = $request->request->get('pageFrom');
+            $pageFrom = is_string($pageFrom) ? $pageFrom : null;
 
             try {
                 $entityCollection = $this->federationWithArrayLogger->federationDiscovery()->discover(
