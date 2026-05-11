@@ -104,8 +104,31 @@ table.client-table {
     font-weight: bolder;
 }
 
-.confirm-action {}
+
 
 form.pure-form-stacked .full-width {
     width: 100%;
+}
+
+/* Form loading state */
+.form-loading-spinner {
+    display: inline-block;
+    width: 0.85em;
+    height: 0.85em;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: form-spinner-rotate 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 0.4em;
+    opacity: 0.8;
+}
+
+@keyframes form-spinner-rotate {
+    to { transform: rotate(360deg); }
+}
+
+button[disabled].loading {
+    opacity: 0.7;
+    cursor: not-allowed;
 }

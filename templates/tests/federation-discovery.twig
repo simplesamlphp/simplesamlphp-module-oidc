@@ -1,0 +1,181 @@
+{% set subPageTitle = 'Test Federation Discovery'|trans %}
+
+{% extends "@oidc/base.twig" %}
+
+{% block oidcContent %}
+
+    <p>
+        {{ 'You can use the form below to test Federation Discovery under given Trust Anchor.'|trans }}
+        {{ 'Log messages will show if any warnings or errors were raised during the process.'|trans }}
+    </p>
+    <p>
+        {% if trustAnchorIds|default %}
+            {{ 'Curently configured Trust Anchors for this entity:'|trans }}
+            <ul>
+                {% for trustAnchor in trustAnchorIds %}
+                    <li>{{ trustAnchor }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            {{ 'No Trust Anchors are currently configured for this entity.'|trans }}
+        {% endif %}
+    </p>
+
+
+    <form method="post"
+          action="{{ routes.urlAdminTestFederationDiscovery }}"
+          class="pure-form pure-form-stacked form-with-loading-state">
+
+        <fieldset>
+            <legend>{{ 'Basic options'|trans }}</legend>
+            <label for="trustAnchorId">{{ 'Trust Anchor ID'|trans }}</label>
+            <input type="text"
+                   name="trustAnchorId"
+                   id="trustAnchorId"
+                   class="full-width"
+                   required=""
+                   value="{{ trustAnchorId|default }}"
+            >
+            <span class="pure-form-message">Use any Trust Anchor ID for discovery</span>
+        </fieldset>
+
+        <details>
+            <summary><strong>{{ 'Filtering'|trans }}</strong></summary>
+            <fieldset>
+                <label for="filterEntityTypes">{{ 'Entity Types'|trans }}</label>
+                <select name="filterEntityTypes[]" id="filterEntityTypes" multiple class="full-width" style="height: 100px;">
+                    {% for option in entityTypeOptions %}
+                        <option value="{{ option }}" {{ option in filterEntityTypes ? 'selected' : '' }}>{{ option }}</option>
+                    {% endfor %}
+                </select>
+
+                <label for="filterTrustMarkTypes">{{ 'Trust Mark Types (one per line)'|trans }}</label>
+                <textarea name="filterTrustMarkTypes" id="filterTrustMarkTypes" class="full-width">{{ filterTrustMarkTypes }}</textarea>
+
+                <label for="filterQuery">{{ 'Search Query'|trans }}</label>
+                <input type="text" name="filterQuery" id="filterQuery" value="{{ filterQuery }}" class="full-width">
+            </fieldset>
+        </details>
+
+        <details>
+            <summary><strong>{{ 'Sorting'|trans }}</strong></summary>
+            <fieldset>
+                <label for="sortBy">{{ 'Sort by'|trans }}</label>
+                <select name="sortBy" id="sortBy" class="full-width">
+                    <option value="entity_id" {{ sortBy == 'entity_id' ? 'selected' : '' }}>{{ 'Entity ID'|trans }}</option>
+                    <option value="display_name" {{ sortBy == 'display_name' ? 'selected' : '' }}>{{ 'Display Name'|trans }}</option>
+                    <option value="organization_name" {{ sortBy == 'organization_name' ? 'selected' : '' }}>{{ 'Organization Name'|trans }}</option>
+                </select>
+
+                <label for="sortOrder_asc" class="pure-radio">
+                    <input type="radio" name="sortOrder" id="sortOrder_asc" value="asc" {{ sortOrder == 'asc' ? 'checked' : '' }}>
+                    {{ 'Ascending'|trans }}
+                </label>
+                <label for="sortOrder_desc" class="pure-radio">
+                    <input type="radio" name="sortOrder" id="sortOrder_desc" value="desc" {{ sortOrder == 'desc' ? 'checked' : '' }}>
+                    {{ 'Descending'|trans }}
+                </label>
+            </fieldset>
+        </details>
+
+        <details>
+            <summary><strong>{{ 'Pagination'|trans }}</strong></summary>
+            <fieldset>
+                <label for="pageLimit">{{ 'Page limit'|trans }}</label>
+                <input type="number" name="pageLimit" id="pageLimit" value="{{ pageLimit }}" min="1" max="500">
+                <input type="hidden" name="pageFrom" value="">
+            </fieldset>
+        </details>
+
+        <br>
+        <button type="submit"
+                class="pure-button "
+                data-loading-text="{{ 'Discovering...'|trans }}">
+            {{ (actionText|default('Submit'))|trans }}
+        </button>
+    </form>
+
+    {% if isFormSubmitted|default %}
+        <br>
+
+        <hr>
+        <h4>{{ 'Log messages'|trans }}</h4>
+        <p>
+        {% if logMessages|default %}
+            <code class="code-box code-box-content">
+                {{- logMessages|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_SLASHES')) -}}
+            </code>
+        {% else %}
+            {{ 'Federation discovery passed (there were no warnings or errors during the process).'|trans }}
+        {% endif %}
+        </p>
+
+        <div class="pure-g">
+            <div class="pure-u-1-2">
+                <h4>{{ 'Entities'|trans }}</h4>
+            </div>
+            <div class="pure-u-1-2" style="text-align: right;">
+                <p><strong>{{ 'Total matching entities:'|trans }} {{ totalCount }}</strong></p>
+            </div>
+        </div>
+
+        {% if entities|default %}
+            <table class="pure-table pure-table-horizontal full-width">
+                <thead>
+                <tr>
+                    <th>{{ 'Entity ID'|trans }}</th>
+                    <th>{{ 'Display Name'|trans }}</th>
+                    <th>{{ 'Types'|trans }}</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for entity in entities %}
+                    <tr>
+                        <td style="word-break: break-all;">{{ entity.id }}</td>
+                        <td>
+                            {% set displayName = '' %}
+                            {% for type in entityTypeOptions %}
+                                {% if entity.payload.metadata[type].display_name is defined and displayName == '' %}
+                                    {% set displayName = entity.payload.metadata[type].display_name %}
+                                {% endif %}
+                            {% endfor %}
+                            {{ displayName }}
+                        </td>
+                        <td>
+                            {% set types = [] %}
+                            {% for type in entityTypeOptions %}
+                                {% if entity.payload.metadata[type] is defined %}
+                                    {% set types = types|merge([type]) %}
+                                {% endif %}
+                            {% endfor %}
+                            {{ types|join(', ') }}
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+
+            {% if nextPageToken %}
+                <br>
+                <form method="post" action="{{ routes.urlAdminTestFederationDiscovery }}" class="form-with-loading-state">
+                    <input type="hidden" name="trustAnchorId" value="{{ trustAnchorId }}">
+                    <input type="hidden" name="forceRefresh" value="{{ forceRefresh ? '1' : '0' }}">
+                    {% for type in filterEntityTypes %}
+                        <input type="hidden" name="filterEntityTypes[]" value="{{ type }}">
+                    {% endfor %}
+                    <input type="hidden" name="filterTrustMarkTypes" value="{{ filterTrustMarkTypes }}">
+                    <input type="hidden" name="filterQuery" value="{{ filterQuery }}">
+                    <input type="hidden" name="sortBy" value="{{ sortBy }}">
+                    <input type="hidden" name="sortOrder" value="{{ sortOrder }}">
+                    <input type="hidden" name="pageLimit" value="{{ pageLimit }}">
+                    <input type="hidden" name="pageFrom" value="{{ nextPageToken }}">
+                    <button type="submit" class="pure-button pure-button-primary" data-loading-text="{{ 'Loading...'|trans }}">{{ 'Next page'|trans }}</button>
+                </form>
+            {% endif %}
+        {% else %}
+            <p>{{ 'No entities were found matching the criteria.'|trans }}</p>
+        {% endif %}
+
+    {% endif %}
+
+{% endblock oidcContent -%}

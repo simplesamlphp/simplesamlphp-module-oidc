@@ -1,4 +1,3 @@
-
 (function() {
 
     // Attach `confirm-action` click event to all elements with the `confirm-action` class.
@@ -16,6 +15,19 @@
                 // Optional: Handle confirmed action
                 console.log(
                     `Confirmed action "${confirmText}" for item with ID "${itemId}"`);
+            }
+        });
+    });
+
+    // Handle forms with loading state
+    document.querySelectorAll('form.form-with-loading-state').forEach(form => {
+        form.addEventListener('submit', function (event) {
+            const submitter = event.submitter || this.querySelector('button[type="submit"]');
+            if (submitter) {
+                const loadingText = submitter.getAttribute('data-loading-text') || 'Processing...';
+                submitter.disabled = true;
+                submitter.classList.add('loading');
+                submitter.innerHTML = `<span class="form-loading-spinner"></span> ${loadingText}`;
             }
         });
     });

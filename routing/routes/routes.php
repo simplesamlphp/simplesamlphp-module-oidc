@@ -77,6 +77,9 @@ return function (RoutingConfigurator $routes): void {
     $routes->add(RoutesEnum::AdminTestTrustMarkValidation->name, RoutesEnum::AdminTestTrustMarkValidation->value)
         ->controller([FederationTestController::class, 'trustMarkValidation'])
         ->methods([HttpMethodsEnum::GET->value, HttpMethodsEnum::POST->value]);
+    $routes->add(RoutesEnum::AdminTestFederationDiscovery->name, RoutesEnum::AdminTestFederationDiscovery->value)
+        ->controller([FederationTestController::class, 'federationDiscovery'])
+        ->methods([HttpMethodsEnum::GET->value, HttpMethodsEnum::POST->value]);
     $routes->add(
         RoutesEnum::AdminTestVerifiableCredentialIssuance->name,
         RoutesEnum::AdminTestVerifiableCredentialIssuance->value,
