@@ -113,6 +113,7 @@ use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\Module\oidc\Utils\VciContextResolver;
 use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Federation;
 use SimpleSAML\OpenID\Jwks;
@@ -182,6 +183,9 @@ class Container implements ContainerInterface
             $sspBridge,
         );
         $this->services[Routes::class] = $routes;
+
+        $vciContextResolver = new VciContextResolver($moduleConfig, $routes);
+        $this->services[VciContextResolver::class] = $vciContextResolver;
 
         $templateFactory = new TemplateFactory(
             $simpleSAMLConfiguration,

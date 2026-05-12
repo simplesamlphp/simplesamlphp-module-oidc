@@ -22,6 +22,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\NonceService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\Module\oidc\Utils\VciContextResolver;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Did;
 use SimpleSAML\OpenID\Did\DidJwkResolver;
@@ -54,6 +55,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     protected MockObject $didMock;
     protected MockObject $issuerStateRepositoryMock;
     protected MockObject $nonceServiceMock;
+    protected MockObject $vciContextResolverMock;
 
     public function setUp(): void
     {
@@ -69,6 +71,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->didMock = $this->createMock(Did::class);
         $this->issuerStateRepositoryMock = $this->createMock(IssuerStateRepository::class);
         $this->nonceServiceMock = $this->createMock(NonceService::class);
+        $this->vciContextResolverMock = $this->createMock(VciContextResolver::class);
 
         // VCI must be enabled in constructor
         $this->moduleConfigMock->method('getVciEnabled')->willReturn(true);
@@ -186,6 +189,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             $this->didMock,
             $this->issuerStateRepositoryMock,
             $this->nonceServiceMock,
+            $this->vciContextResolverMock,
         );
 
         $sut->credential($request);

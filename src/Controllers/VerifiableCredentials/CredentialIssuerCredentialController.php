@@ -17,6 +17,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\NonceService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\Module\oidc\Utils\VciContextResolver;
 use SimpleSAML\OpenID\Codebooks\AtContextsEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
@@ -53,6 +54,7 @@ class CredentialIssuerCredentialController
         protected readonly Did $did,
         protected readonly IssuerStateRepository $issuerStateRepository,
         protected readonly NonceService $nonceService,
+        protected readonly VciContextResolver $vciContextResolver,
     ) {
         if (!$this->moduleConfig->getVciEnabled()) {
             $this->loggerService->warning('Verifiable Credential capabilities not enabled.');
@@ -762,37 +764,10 @@ class CredentialIssuerCredentialController
             }
 
             if ($credentialFormatId === CredentialFormatIdentifiersEnum::VcSdJwt->value) {
-            // Always start with the VCDM 2.0 base context URL (mandatory).
-                $atContext = [AtContextsEnum::W3OrgNsCredentialsV2->value];
-
-            // If a JSON-LD context document is configured for this credential,
-            // append the module-hosted context URL so that verifiers can
-            // resolve the custom credential subject terms.
-                if ($this->moduleConfig->getVciCredentialJsonLdContextFor($resolvedCredentialIdentifier) !== null) {
-                    $atContext[] = $this->routes->urlCredentialJsonLdContext($resolvedCredentialIdentifier);
-                }
-
-            // Append any additional context URLs declared in the credential
-            // configuration's @context field (skipping the base W3C URL,
-            // which is already first in the list).
-            /**
-             * @psalm-suppress MixedArrayAccess
-             * @psalm-suppress MixedAssignment
-             */
-                $configuredContexts = $resolvedCredentialConfiguration[ClaimsEnum::CredentialDefinition->value]
-                [ClaimsEnum::AtContext->value] ?? $resolvedCredentialConfiguration[ClaimsEnum::AtContext->value] ?? [];
-                if (is_array($configuredContexts)) {
-                /** @psalm-suppress MixedAssignment */
-                    foreach ($configuredContexts as $configuredContext) {
-                        if (
-                            is_string($configuredContext) &&
-                            $configuredContext !== AtContextsEnum::W3OrgNsCredentialsV2->value &&
-                            !in_array($configuredContext, $atContext, true)
-                        ) {
-                            $atContext[] = $configuredContext;
-                        }
-                    }
-                }
+                $atContext = $this->vciContextResolver->resolve(
+                    $resolvedCredentialIdentifier,
+                    $resolvedCredentialConfiguration,
+                );
 
                 $sdJwtPayload = [
                 ClaimsEnum::AtContext->value => $atContext,
@@ -839,6 +814,7 @@ class CredentialIssuerCredentialController
             $this->loggerService->debug(
                 'Verifiable credential issued successfully.',
                 ['token' => substr($token, 0, 20) . '...'],
+                //['token' => $token],
             );
         }
 

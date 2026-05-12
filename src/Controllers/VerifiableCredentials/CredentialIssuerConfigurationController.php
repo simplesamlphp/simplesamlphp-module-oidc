@@ -17,7 +17,9 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\Module\oidc\Utils\VciContextResolver;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
 use Symfony\Component\HttpFoundation\Response;
 
 class CredentialIssuerConfigurationController
@@ -29,6 +31,7 @@ class CredentialIssuerConfigurationController
         protected readonly ModuleConfig $moduleConfig,
         protected readonly Routes $routes,
         protected readonly LoggerService $loggerService,
+        protected readonly VciContextResolver $vciContextResolver,
     ) {
         if (!$this->moduleConfig->getVciEnabled()) {
             $this->loggerService->warning('Verifiable Credential capabilities not enabled.');
@@ -47,6 +50,7 @@ class CredentialIssuerConfigurationController
         // For now, we only support one credential signing algorithm.
         /** @psalm-suppress MixedAssignment */
         foreach ($credentialConfigurationsSupported as $credentialConfigurationId => $credentialConfiguration) {
+            $credentialConfigurationId = (string) $credentialConfigurationId;
             if (is_array($credentialConfiguration)) {
                 $credentialConfiguration[ClaimsEnum::CredentialSigningAlgValuesSupported->value] = [
                     $signatureKeyPair->getSignatureAlgorithm()->value,
@@ -63,6 +67,25 @@ class CredentialIssuerConfigurationController
                             ->getAllNamesUnique(),
                     ],
                 ];
+
+                $credentialFormatId = $credentialConfiguration[ClaimsEnum::Format->value] ?? null;
+
+                if ($credentialFormatId === CredentialFormatIdentifiersEnum::VcSdJwt->value) {
+                    $atContext = $this->vciContextResolver->resolve(
+                        $credentialConfigurationId,
+                        $credentialConfiguration,
+                    );
+
+                    /** @psalm-suppress MixedArrayAccess */
+                    if (isset($credentialConfiguration[ClaimsEnum::CredentialDefinition->value])) {
+                        /** @psalm-suppress MixedArrayAssignment */
+                        $credentialConfiguration[ClaimsEnum::CredentialDefinition->value][ClaimsEnum::AtContext->value]
+                        = $atContext;
+                    } else {
+                        $credentialConfiguration[ClaimsEnum::AtContext->value] = $atContext;
+                    }
+                }
+
                 $credentialConfigurationsSupported[$credentialConfigurationId] = $credentialConfiguration;
             }
         }
