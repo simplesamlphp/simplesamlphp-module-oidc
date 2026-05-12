@@ -399,23 +399,53 @@ class CredentialIssuerCredentialController
             throw OidcServerException::invalidRequest('User not found.');
         }
 
-        // Placeholder sub identifier. Will do if proof is not provided.
-        $sub = $this->moduleConfig->getIssuer() . '/sub/' . $userId;
-
-        $proof = null;
-        // Validate proof, if provided.
-        // TODO mivanci consider making proof mandatory (in issuer metadata).
+        // Extract all proofs from the request.
+        $proofsToProcess = [];
         /** @psalm-suppress MixedAssignment */
-        if (
-            isset($requestData['proof']['proof_type']) &&
-            isset($requestData['proof']['jwt']) &&
-            $requestData['proof']['proof_type'] === 'jwt' &&
-            is_string($proofJwt = $requestData['proof']['jwt']) &&
-            $proofJwt !== ''
-        ) {
-            $this->loggerService->debug('Verifying proof JWT: ' . $proofJwt);
+        if (isset($requestData['proof']) && is_array($requestData['proof'])) {
+            $proofsToProcess[] = $requestData['proof'];
+        }
+        /** @psalm-suppress MixedAssignment */
+        if (isset($requestData['proofs']) && is_array($requestData['proofs'])) {
+            /** @var mixed $proofValues */
+            foreach ($requestData['proofs'] as $proofType => $proofValues) {
+                if (is_array($proofValues)) {
+                    foreach ($proofValues as $proofValue) {
+                        $proofsToProcess[] = [
+                            'proof_type' => $proofType,
+                            $proofType => $proofValue,
+                        ];
+                    }
+                }
+            }
+        }
 
-            try {
+        // If no proofs are provided, we still proceed with a single null proof to maintain
+        // existing behavior where proofs are optional.
+        if (empty($proofsToProcess)) {
+            $proofsToProcess[] = null;
+        }
+
+        $issuedCredentialsData = [];
+
+        foreach ($proofsToProcess as $proofData) {
+            // Placeholder sub identifier. Will do if proof is not provided.
+            $sub = $this->moduleConfig->getIssuer() . '/sub/' . $userId;
+
+            $proof = null;
+            // Validate proof, if provided.
+            /** @psalm-suppress MixedAssignment */
+            if (
+                is_array($proofData) &&
+                isset($proofData['proof_type']) &&
+                isset($proofData['jwt']) &&
+                $proofData['proof_type'] === 'jwt' &&
+                is_string($proofJwt = $proofData['jwt']) &&
+                $proofJwt !== ''
+            ) {
+                $this->loggerService->debug('Verifying proof JWT: ' . $proofJwt);
+
+                try {
                 /**
                  * Sample proof structure:
                  * 'proof' =>
@@ -438,66 +468,68 @@ class CredentialIssuerCredentialController
                  * "jti": "b2ced46b-39cb-4dd0-bd1e-a769ece9e112"
                  * }
                  */
-                $proof = $this->verifiableCredentials->openId4VciProofFactory()->fromToken($proofJwt);
-                (in_array($this->moduleConfig->getIssuer(), $proof->getAudience())) ||
-                throw new OpenId4VciProofException('Invalid Proof audience.');
+                    $proof = $this->verifiableCredentials->openId4VciProofFactory()->fromToken($proofJwt);
+                    (in_array($this->moduleConfig->getIssuer(), $proof->getAudience())) ||
+                    throw new OpenId4VciProofException('Invalid Proof audience.');
 
-                $jwk = $proof->getJsonWebKey();
-                $resolvedDid = null;
+                    $jwk = $proof->getJsonWebKey();
+                    $resolvedDid = null;
 
-                if (is_array($jwk)) {
-                    $resolvedDid = $this->did->didJwkResolver()->generateDidJwkFromJwk($jwk);
-                } else {
-                    $kid = $proof->getKeyId();
-                    if (is_string($kid) && str_starts_with($kid, 'did:key:z')) {
+                    if (is_array($jwk)) {
+                        $resolvedDid = $this->did->didJwkResolver()->generateDidJwkFromJwk($jwk);
+                    } else {
+                        $kid = $proof->getKeyId();
+                        if (is_string($kid) && str_starts_with($kid, 'did:key:z')) {
                         // The fragment (#z2dmzD...) typically points to a specific verification method within the DID's
                         // context. For did:key, since the DID is the key, this fragment often just refers to the key
                         // itself.
-                        ($resolvedDid = strtok($kid, '#')) || throw new OpenId4VciProofException(
-                            'Error getting did:key without fragment. Value was: ' . $kid,
-                        );
+                            ($resolvedDid = strtok($kid, '#')) || throw new OpenId4VciProofException(
+                                'Error getting did:key without fragment. Value was: ' . $kid,
+                            );
 
-                        $jwk = $this->did->didKeyResolver()->extractJwkFromDidKey($resolvedDid);
-                    } elseif (is_string($kid) && str_starts_with($kid, 'did:jwk:')) {
-                        ($resolvedDid = strtok($kid, '#')) || throw new OpenId4VciProofException(
-                            'Error getting did:jwk without fragment. Value was: ' . $kid,
-                        );
+                            $jwk = $this->did->didKeyResolver()->extractJwkFromDidKey($resolvedDid);
+                        } elseif (is_string($kid) && str_starts_with($kid, 'did:jwk:')) {
+                            ($resolvedDid = strtok($kid, '#')) || throw new OpenId4VciProofException(
+                                'Error getting did:jwk without fragment. Value was: ' . $kid,
+                            );
 
-                        $jwk = $this->did->didJwkResolver()->extractJwkFromDidJwk($resolvedDid);
+                            $jwk = $this->did->didJwkResolver()->extractJwkFromDidJwk($resolvedDid);
+                        }
                     }
-                }
 
-                if ($jwk !== null && $resolvedDid !== null) {
-                    $proof->verifyWithKey($jwk);
+                    if ($jwk !== null && $resolvedDid !== null) {
+                        $proof->verifyWithKey($jwk);
 
-                    $this->loggerService->debug('Proof verified successfully using ' . $resolvedDid);
+                        $this->loggerService->debug('Proof verified successfully using ' . $resolvedDid);
 
                     // Verify nonce
-                    $nonce = $proof->getNonce();
-                    if (is_string($nonce) && $nonce !== '') {
-                        $this->loggerService->debug('Proof nonce: ' . $nonce);
+                        $nonce = $proof->getNonce();
+                        if (is_string($nonce) && $nonce !== '') {
+                            $this->loggerService->debug('Proof nonce: ' . $nonce);
 
-                        if (!$this->nonceService->validateNonce($nonce)) {
-                            $this->loggerService->warning('Proof nonce is invalid or expired. Nonce was: ' . $nonce);
-                            return $this->routes->newJsonErrorResponse(
-                                error: 'invalid_nonce',
-                                description: 'c_nonce is invalid or expired.',
-                                httpCode: 400,
-                            );
+                            if (!$this->nonceService->validateNonce($nonce)) {
+                                $this->loggerService->warning(
+                                    'Proof nonce is invalid or expired. Nonce was: ' . $nonce,
+                                );
+                                return $this->routes->newJsonErrorResponse(
+                                    error: 'invalid_nonce',
+                                    description: 'c_nonce is invalid or expired.',
+                                    httpCode: 400,
+                                );
+                            }
+
+                            $this->loggerService->debug('Proof nonce validated successfully.');
+                        } else {
+                            $this->loggerService->warning('Nonce not present in proof, skipping nonce validation.');
                         }
 
-                        $this->loggerService->debug('Proof nonce validated successfully.');
-                    } else {
-                        $this->loggerService->warning('Nonce not present in proof, skipping nonce validation.');
-                    }
-
                     // Set it as a subject identifier (bind it).
-                    $sub = $resolvedDid;
-                } else {
-                    $this->loggerService->warning(
-                        'Proof currently not supported (no did:key:z or did:jwk). ',
-                        ['header' => $proof->getHeader(), 'payload' => $proof->getPayload()],
-                    );
+                        $sub = $resolvedDid;
+                    } else {
+                        $this->loggerService->warning(
+                            'Proof currently not supported (no did:key:z or did:jwk). ',
+                            ['header' => $proof->getHeader(), 'payload' => $proof->getPayload()],
+                        );
                     // TODO mivanci Consider adding support for other proof keys, like in sample for Lissi ('jwk')
                     /**
                      * 'header' =>
@@ -521,192 +553,197 @@ class CredentialIssuerCredentialController
                      * ),
                      * )
                      */
+                    }
+                } catch (\Exception $e) {
+                    $message = 'Error processing proof JWT: ' . $e->getMessage();
+                    $this->loggerService->error($message);
+                    return $this->routes->newJsonErrorResponse(
+                        'invalid_proof',
+                        $message,
+                        400,
+                    );
                 }
-            } catch (\Exception $e) {
-                $message = 'Error processing proof JWT: ' . $e->getMessage();
-                $this->loggerService->error($message);
-                return $this->routes->newJsonErrorResponse(
-                    'invalid_proof',
-                    $message,
-                    400,
-                );
             }
-        }
 
-        $userAttributes = $userEntity->getClaims();
+            $userAttributes = $userEntity->getClaims();
 
         // Get valid claim paths so we can check if the user attribute is allowed to be included in the credential,
         // as per the credential configuration supported configuration.
-        $validClaimPaths = $this->moduleConfig->getVciValidCredentialClaimPathsFor($resolvedCredentialIdentifier);
-        $this->loggerService->debug(
-            'CredentialIssuerCredentialController::credential: Valid claim paths for credential configuration ',
-            ['validClaimPaths' => $validClaimPaths],
-        );
+            $validClaimPaths = $this->moduleConfig->getVciValidCredentialClaimPathsFor($resolvedCredentialIdentifier);
+            $this->loggerService->debug(
+                'CredentialIssuerCredentialController::credential: Valid claim paths for credential configuration ',
+                ['validClaimPaths' => $validClaimPaths],
+            );
         // Map user attributes to credential claims
-        $credentialSubject = []; // For JwtVcJson
-        $disclosureBag = $this->verifiableCredentials->disclosureBagFactory()->build(); // For DcSdJwt
-        $attributeToCredentialClaimPathMap = $this->moduleConfig->getVciUserAttributeToCredentialClaimPathMapFor(
-            $resolvedCredentialIdentifier,
-        );
-        $this->loggerService->debug(
-            'CredentialIssuerCredentialController::credential: Attribute to credential claim path map',
-            ['attributeToCredentialClaimPathMap' => $attributeToCredentialClaimPathMap],
-        );
-        foreach ($attributeToCredentialClaimPathMap as $mapEntry) {
-            if (!is_array($mapEntry)) {
-                $this->loggerService->warning(
-                    sprintf(
-                        'Attribute to credential claim path map entry is not an array. Value was: %s',
-                        var_export($mapEntry, true),
-                    ),
-                );
-                continue;
-            }
-
-            $this->loggerService->debug(
-                'Map entry: ',
-                ['mapEntry' => $mapEntry],
+            $credentialSubject = []; // For JwtVcJson
+            $disclosureBag = $this->verifiableCredentials->disclosureBagFactory()->build(); // For DcSdJwt
+            $attributeToCredentialClaimPathMap = $this->moduleConfig->getVciUserAttributeToCredentialClaimPathMapFor(
+                $resolvedCredentialIdentifier,
             );
-
-            $userAttributeName = key($mapEntry);
-            if (!is_string($userAttributeName)) {
-                $this->loggerService->warning(
-                    sprintf(
-                        'User attribute name from map entry is not a string. Map entry was: %s',
-                        var_export($mapEntry, true),
-                    ),
-                );
-                continue;
-            }
-
             $this->loggerService->debug(
-                'User attribute name: ' . $userAttributeName,
+                'CredentialIssuerCredentialController::credential: Attribute to credential claim path map',
+                ['attributeToCredentialClaimPathMap' => $attributeToCredentialClaimPathMap],
             );
-
             /** @psalm-suppress MixedAssignment */
-            $credentialClaimPath = current($mapEntry);
-            if (!is_array($credentialClaimPath)) {
-                $this->loggerService->warning(
-                    sprintf(
-                        'Credential claim path for user attribute name %s is not an array. Value was: %s',
-                        $userAttributeName,
-                        var_export($credentialClaimPath, true),
-                    ),
-                );
-                continue;
-            }
-            $credentialClaimPath = array_filter($credentialClaimPath, 'is_string');
-            if (!in_array($credentialClaimPath, $validClaimPaths)) {
-                $this->loggerService->warning(
-                    'Attribute "%s" does not use one of valid credential claim paths.',
-                    $mapEntry,
-                );
-                continue;
-            }
-
-            $this->loggerService->debug(
-                'Credential claim path',
-                ['credentialClaimPath' => $credentialClaimPath],
-            );
-
-            if (!isset($userAttributes[$userAttributeName])) {
-                $this->loggerService->warning(
-                    'Attribute "%s" does not exist in user attributes.',
-                    $mapEntry,
-                );
-                continue;
-            }
-
-            // Normalize to string for single array values.
-            /** @psalm-suppress MixedAssignment */
-            $attributeValue = is_array($userAttributes[$userAttributeName]) &&
-            count($userAttributes[$userAttributeName]) === 1 ?
-            reset($userAttributes[$userAttributeName]) :
-            $userAttributes[$userAttributeName];
-
-            if ($credentialFormatId === CredentialFormatIdentifiersEnum::JwtVcJson->value) {
-                $this->loggerService->debug('JwtVcJson format detected, adding user attribute to credential subject.');
-                $this->verifiableCredentials->helpers()->arr()->setNestedValue(
-                    $credentialSubject,
-                    $attributeValue,
-                    ...$credentialClaimPath,
-                );
-            }
-
-            if (in_array($credentialFormatId, self::SD_JWT_FORMAT_IDS, true)) {
-                $this->loggerService->debug(
-                    'CredentialIssuerCredentialController::credential: Processing SD JWT credential format ID '
-                    . $credentialFormatId,
-                );
-
-                // For now, we will only support disclosures for object properties.
-                $claimName = array_pop($credentialClaimPath);
-                if (!is_string($claimName)) {
-                    $message = sprintf(
-                        'Invalid credential claim path for user attribute name %s. Can not extract claim name.' .
-                        ' Path was: %s',
-                        $userAttributeName,
-                        print_r($credentialClaimPath, true),
+            foreach ($attributeToCredentialClaimPathMap as $mapEntry) {
+                if (!is_array($mapEntry)) {
+                    $this->loggerService->warning(
+                        sprintf(
+                            'Attribute to credential claim path map entry is not an array. Value was: %s',
+                            var_export($mapEntry, true),
+                        ),
                     );
-                    $this->loggerService->error($message);
                     continue;
                 }
 
-                $this->loggerService->debug('Claim name: ' . $claimName);
+                $this->loggerService->debug(
+                    'Map entry: ',
+                    ['mapEntry' => $mapEntry],
+                );
 
-                if (
-                    $credentialFormatId === CredentialFormatIdentifiersEnum::VcSdJwt->value &&
-                    !in_array(ClaimsEnum::Credential_Subject->value, $credentialClaimPath, true)
-                ) {
-                    $this->loggerService->debug('VC SD JWT - adding credential subject to claim path for claim "%s".');
-                    array_unshift($credentialClaimPath, ClaimsEnum::Credential_Subject->value);
+                $userAttributeName = key($mapEntry);
+                if (!is_string($userAttributeName)) {
+                    $this->loggerService->warning(
+                        sprintf(
+                            'User attribute name from map entry is not a string. Map entry was: %s',
+                            var_export($mapEntry, true),
+                        ),
+                    );
+                    continue;
+                }
+
+                $this->loggerService->debug(
+                    'User attribute name: ' . $userAttributeName,
+                );
+
+            /** @psalm-suppress MixedAssignment */
+                $credentialClaimPath = current($mapEntry);
+                if (!is_array($credentialClaimPath)) {
+                    $this->loggerService->warning(
+                        sprintf(
+                            'Credential claim path for user attribute name %s is not an array. Value was: %s',
+                            $userAttributeName,
+                            var_export($credentialClaimPath, true),
+                        ),
+                    );
+                    continue;
+                }
+                $credentialClaimPath = array_filter($credentialClaimPath, 'is_string');
+                if (!in_array($credentialClaimPath, $validClaimPaths)) {
+                    $this->loggerService->warning(
+                        'Attribute "%s" does not use one of valid credential claim paths.',
+                        $mapEntry,
+                    );
+                    continue;
+                }
+
+                $this->loggerService->debug(
+                    'Credential claim path',
+                    ['credentialClaimPath' => $credentialClaimPath],
+                );
+
+                if (!isset($userAttributes[$userAttributeName])) {
+                    $this->loggerService->warning(
+                        'Attribute "%s" does not exist in user attributes.',
+                        $mapEntry,
+                    );
+                    continue;
+                }
+
+            // Normalize to string for single array values.
+            /** @psalm-suppress MixedAssignment */
+                $attributeValue = is_array($userAttributes[$userAttributeName]) &&
+                count($userAttributes[$userAttributeName]) === 1 ?
+                reset($userAttributes[$userAttributeName]) :
+                $userAttributes[$userAttributeName];
+
+                if ($credentialFormatId === CredentialFormatIdentifiersEnum::JwtVcJson->value) {
                     $this->loggerService->debug(
-                        'Credential claim path for credential subject: ' . print_r($credentialClaimPath, true),
+                        'JwtVcJson format detected, adding user attribute to credential subject.',
+                    );
+                    $this->verifiableCredentials->helpers()->arr()->setNestedValue(
+                        $credentialSubject,
+                        $attributeValue,
+                        ...$credentialClaimPath,
                     );
                 }
 
-                /** @psalm-suppress ArgumentTypeCoercion */
-                $disclosure = $this->verifiableCredentials->disclosureFactory()->build(
-                    value: $attributeValue,
-                    name: $claimName,
-                    path: $credentialClaimPath,
-                    saltBlacklist: $disclosureBag->salts(),
-                );
+                if (in_array($credentialFormatId, self::SD_JWT_FORMAT_IDS, true)) {
+                    $this->loggerService->debug(
+                        'CredentialIssuerCredentialController::credential: Processing SD JWT credential format ID '
+                        . $credentialFormatId,
+                    );
 
-                $disclosureBag->add($disclosure);
+                // For now, we will only support disclosures for object properties.
+                    $claimName = array_pop($credentialClaimPath);
+                    if (!is_string($claimName)) {
+                        $message = sprintf(
+                            'Invalid credential claim path for user attribute name %s. Can not extract claim name.' .
+                            ' Path was: %s',
+                            $userAttributeName,
+                            print_r($credentialClaimPath, true),
+                        );
+                        $this->loggerService->error($message);
+                        continue;
+                    }
+
+                    $this->loggerService->debug('Claim name: ' . $claimName);
+
+                    if (
+                        $credentialFormatId === CredentialFormatIdentifiersEnum::VcSdJwt->value &&
+                        !in_array(ClaimsEnum::Credential_Subject->value, $credentialClaimPath, true)
+                    ) {
+                        $this->loggerService->debug(
+                            'VC SD JWT - adding credential subject to claim path for claim "%s".',
+                        );
+                        array_unshift($credentialClaimPath, ClaimsEnum::Credential_Subject->value);
+                        $this->loggerService->debug(
+                            'Credential claim path for credential subject: ' . print_r($credentialClaimPath, true),
+                        );
+                    }
+
+                /** @psalm-suppress ArgumentTypeCoercion */
+                    $disclosure = $this->verifiableCredentials->disclosureFactory()->build(
+                        value: $attributeValue,
+                        name: $claimName,
+                        path: $credentialClaimPath,
+                        saltBlacklist: $disclosureBag->salts(),
+                    );
+
+                    $disclosureBag->add($disclosure);
+                }
             }
-        }
 
         // Make sure that the subject identifier is in credentialSubject claim.
-        $this->setCredentialClaimValue(
-            $credentialSubject,
-            [ClaimsEnum::Credential_Subject->value, ClaimsEnum::Id->value],
-            $sub,
-        );
+            $this->setCredentialClaimValue(
+                $credentialSubject,
+                [ClaimsEnum::Credential_Subject->value, ClaimsEnum::Id->value],
+                $sub,
+            );
 
         // TODO mivanci Add support for multiple signature key pairs. For now, we only support (first) one.
-        $vciSignatureKeyPair = $this->moduleConfig
+            $vciSignatureKeyPair = $this->moduleConfig
             ->getVciSignatureKeyPairBag()
             ->getFirstOrFail();
 
-        $signingKey = $vciSignatureKeyPair->getKeyPair()->getPrivateKey();
+            $signingKey = $vciSignatureKeyPair->getKeyPair()->getPrivateKey();
 
-        $publicKey = $vciSignatureKeyPair->getKeyPair()->getPublicKey();
+            $publicKey = $vciSignatureKeyPair->getKeyPair()->getPublicKey();
 
-        $issuerDid = $this->did->didJwkResolver()->generateDidJwkFromJwk($publicKey->jwk()->all());
+            $issuerDid = $this->did->didJwkResolver()->generateDidJwkFromJwk($publicKey->jwk()->all());
 
-        $issuedAt = new \DateTimeImmutable();
+            $issuedAt = new \DateTimeImmutable();
 
-        $vcId = $this->moduleConfig->getIssuer() . '/vc/' . uniqid();
-        $signatureAlgorithm = $vciSignatureKeyPair->getSignatureAlgorithm();
+            $vcId = $this->moduleConfig->getIssuer() . '/vc/' . uniqid();
+            $signatureAlgorithm = $vciSignatureKeyPair->getSignatureAlgorithm();
 
-        $verifiableCredential = null;
+            $verifiableCredential = null;
 
-        if ($credentialFormatId === CredentialFormatIdentifiersEnum::JwtVcJson->value) {
-            $verifiableCredential = $this->verifiableCredentials->jwtVcJsonFactory()->fromData(
-                $signingKey,
-                $signatureAlgorithm,
-                [
+            if ($credentialFormatId === CredentialFormatIdentifiersEnum::JwtVcJson->value) {
+                $verifiableCredential = $this->verifiableCredentials->jwtVcJsonFactory()->fromData(
+                    $signingKey,
+                    $signatureAlgorithm,
+                    [
                     ClaimsEnum::Vc->value => [
                         ClaimsEnum::AtContext->value => [
                             AtContextsEnum::W3Org2018CredentialsV1->value,
@@ -718,7 +755,7 @@ class CredentialIssuerCredentialController
                                 CredentialTypesEnum::VerifiableCredential->value,
                                 $resolvedCredentialIdentifier,
                             ],
-                        //ClaimsEnum::Issuer->value => $this->moduleConfig->getIssuer(),
+                            //ClaimsEnum::Issuer->value => $this->moduleConfig->getIssuer(),
                             ClaimsEnum::Issuer->value => $issuerDid,
                             ClaimsEnum::Issuance_Date->value => $issuedAt->format(\DateTimeInterface::RFC3339),
                             ClaimsEnum::Id->value => $vcId,
@@ -731,50 +768,50 @@ class CredentialIssuerCredentialController
                     ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
                     ClaimsEnum::Sub->value => $sub,
                     ClaimsEnum::Jti->value => $vcId,
-                ],
-                [
+                    ],
+                    [
                     ClaimsEnum::Kid->value => $issuerDid . '#0',
-                ],
-            );
-        }
+                    ],
+                );
+            }
 
-        if ($credentialFormatId === CredentialFormatIdentifiersEnum::DcSdJwt->value) {
-            $sdJwtPayload = [
+            if ($credentialFormatId === CredentialFormatIdentifiersEnum::DcSdJwt->value) {
+                $sdJwtPayload = [
                 ClaimsEnum::Iss->value => $issuerDid,
                 ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
                 ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
                 ClaimsEnum::Sub->value => $sub,
                 ClaimsEnum::Jti->value => $vcId,
                 ClaimsEnum::Vct->value => $resolvedCredentialIdentifier,
-            ];
-
-            if ($proof instanceof OpenId4VciProof && is_string($proofKeyId = $proof->getKeyId())) {
-                $sdJwtPayload[ClaimsEnum::Cnf->value] = [
-                    ClaimsEnum::Kid->value => $proofKeyId,
                 ];
+
+                if ($proof instanceof OpenId4VciProof && is_string($proofKeyId = $proof->getKeyId())) {
+                    $sdJwtPayload[ClaimsEnum::Cnf->value] = [
+                    ClaimsEnum::Kid->value => $proofKeyId,
+                    ];
+                }
+
+                $verifiableCredential = $this->verifiableCredentials->sdJwtVcFactory()->fromData(
+                    $signingKey,
+                    $signatureAlgorithm,
+                    $sdJwtPayload,
+                    [
+                    ClaimsEnum::Kid->value => $issuerDid . '#0',
+                    ],
+                    disclosureBag: $disclosureBag,
+                );
             }
 
-            $verifiableCredential = $this->verifiableCredentials->sdJwtVcFactory()->fromData(
-                $signingKey,
-                $signatureAlgorithm,
-                $sdJwtPayload,
-                [
-                    ClaimsEnum::Kid->value => $issuerDid . '#0',
-                ],
-                disclosureBag: $disclosureBag,
-            );
-        }
-
-        if ($credentialFormatId === CredentialFormatIdentifiersEnum::VcSdJwt->value) {
+            if ($credentialFormatId === CredentialFormatIdentifiersEnum::VcSdJwt->value) {
             // Always start with the VCDM 2.0 base context URL (mandatory).
-            $atContext = [AtContextsEnum::W3OrgNsCredentialsV2->value];
+                $atContext = [AtContextsEnum::W3OrgNsCredentialsV2->value];
 
             // If a JSON-LD context document is configured for this credential,
             // append the module-hosted context URL so that verifiers can
             // resolve the custom credential subject terms.
-            if ($this->moduleConfig->getVciCredentialJsonLdContextFor($resolvedCredentialIdentifier) !== null) {
-                $atContext[] = $this->routes->urlCredentialJsonLdContext($resolvedCredentialIdentifier);
-            }
+                if ($this->moduleConfig->getVciCredentialJsonLdContextFor($resolvedCredentialIdentifier) !== null) {
+                    $atContext[] = $this->routes->urlCredentialJsonLdContext($resolvedCredentialIdentifier);
+                }
 
             // Append any additional context URLs declared in the credential
             // configuration's @context field (skipping the base W3C URL,
@@ -783,22 +820,22 @@ class CredentialIssuerCredentialController
              * @psalm-suppress MixedArrayAccess
              * @psalm-suppress MixedAssignment
              */
-            $configuredContexts = $resolvedCredentialConfiguration[ClaimsEnum::CredentialDefinition->value]
-            [ClaimsEnum::AtContext->value] ?? $resolvedCredentialConfiguration[ClaimsEnum::AtContext->value] ?? [];
-            if (is_array($configuredContexts)) {
+                $configuredContexts = $resolvedCredentialConfiguration[ClaimsEnum::CredentialDefinition->value]
+                [ClaimsEnum::AtContext->value] ?? $resolvedCredentialConfiguration[ClaimsEnum::AtContext->value] ?? [];
+                if (is_array($configuredContexts)) {
                 /** @psalm-suppress MixedAssignment */
-                foreach ($configuredContexts as $configuredContext) {
-                    if (
-                        is_string($configuredContext) &&
-                        $configuredContext !== AtContextsEnum::W3OrgNsCredentialsV2->value &&
-                        !in_array($configuredContext, $atContext, true)
-                    ) {
-                        $atContext[] = $configuredContext;
+                    foreach ($configuredContexts as $configuredContext) {
+                        if (
+                            is_string($configuredContext) &&
+                            $configuredContext !== AtContextsEnum::W3OrgNsCredentialsV2->value &&
+                            !in_array($configuredContext, $atContext, true)
+                        ) {
+                            $atContext[] = $configuredContext;
+                        }
                     }
                 }
-            }
 
-            $sdJwtPayload = [
+                $sdJwtPayload = [
                 ClaimsEnum::AtContext->value => $atContext,
                 ClaimsEnum::Id->value => $vcId,
                 /** @psalm-suppress MixedArrayAccess */
@@ -816,27 +853,29 @@ class CredentialIssuerCredentialController
                     ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
                     ClaimsEnum::Sub->value => $sub,
                     ClaimsEnum::Jti->value => $vcId,
-            ];
-
-            if ($proof instanceof OpenId4VciProof && is_string($proofKeyId = $proof->getKeyId())) {
-                $sdJwtPayload[ClaimsEnum::Cnf->value] = [
-                    ClaimsEnum::Kid->value => $proofKeyId,
                 ];
+
+                if ($proof instanceof OpenId4VciProof && is_string($proofKeyId = $proof->getKeyId())) {
+                    $sdJwtPayload[ClaimsEnum::Cnf->value] = [
+                    ClaimsEnum::Kid->value => $proofKeyId,
+                    ];
+                }
+
+                $verifiableCredential = $this->verifiableCredentials->vcSdJwtFactory()->fromData(
+                    $signingKey,
+                    $signatureAlgorithm,
+                    $sdJwtPayload,
+                    [
+                    ClaimsEnum::Kid->value => $issuerDid . '#0',
+                    ],
+                    disclosureBag: $disclosureBag,
+                );
+            }
+            if ($verifiableCredential === null) {
+                throw new OpenIdException('Invalid credential format ID.');
             }
 
-            $verifiableCredential = $this->verifiableCredentials->vcSdJwtFactory()->fromData(
-                $signingKey,
-                $signatureAlgorithm,
-                $sdJwtPayload,
-                [
-                    ClaimsEnum::Kid->value => $issuerDid . '#0',
-                ],
-                disclosureBag: $disclosureBag,
-            );
-        }
-
-        if ($verifiableCredential === null) {
-            throw new OpenIdException('Invalid credential format ID.');
+            $issuedCredentialsData[] = ['credential' => $verifiableCredential->getToken()];
         }
 
         if (is_string($issuerState)) {
@@ -845,16 +884,12 @@ class CredentialIssuerCredentialController
         }
 
         $this->loggerService->debug('Returning credential response.', [
-            'credentials' => [
-                ['credential' => $verifiableCredential->getToken()],
-            ],
-        ],);
+            'credentials' => $issuedCredentialsData,
+        ]);
 
         return $this->routes->newJsonResponse(
             [
-                'credentials' => [
-                    ['credential' => $verifiableCredential->getToken()],
-                ],
+                'credentials' => $issuedCredentialsData,
             ],
         );
     }

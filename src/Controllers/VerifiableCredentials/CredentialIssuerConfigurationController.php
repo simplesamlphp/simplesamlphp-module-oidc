@@ -52,6 +52,7 @@ class CredentialIssuerConfigurationController
                     $signatureKeyPair->getSignatureAlgorithm()->value,
                 ];
                 $credentialConfiguration[ClaimsEnum::CryptographicBindingMethodsSupported->value] = [
+                    'did:key',
                     'did:jwk',
                 ];
                 $credentialConfiguration[ClaimsEnum::ProofTypesSupported->value] = [
