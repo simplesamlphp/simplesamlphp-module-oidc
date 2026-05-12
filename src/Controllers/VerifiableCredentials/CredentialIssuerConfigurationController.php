@@ -52,7 +52,7 @@ class CredentialIssuerConfigurationController
                     $signatureKeyPair->getSignatureAlgorithm()->value,
                 ];
                 $credentialConfiguration[ClaimsEnum::CryptographicBindingMethodsSupported->value] = [
-                    'jwk',
+                    'did:jwk',
                 ];
                 $credentialConfiguration[ClaimsEnum::ProofTypesSupported->value] = [
                     'jwt' => [

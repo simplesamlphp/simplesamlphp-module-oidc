@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers\VerifiableCredentials;
 
-use Base64Url\Base64Url;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
@@ -293,7 +292,7 @@ class CredentialIssuerCredentialController
                 !in_array($requestedCredentialFormatId, [
                     CredentialFormatIdentifiersEnum::JwtVcJson->value,
                     CredentialFormatIdentifiersEnum::DcSdJwt->value,
-                    CredentialFormatIdentifiersEnum::VcSdJwt->value, // Deprecated value, but let's support it for now.
+                    CredentialFormatIdentifiersEnum::VcSdJwt->value,
                 ])
             ) {
                 $this->loggerService->error(
@@ -443,20 +442,35 @@ class CredentialIssuerCredentialController
                 (in_array($this->moduleConfig->getIssuer(), $proof->getAudience())) ||
                 throw new OpenId4VciProofException('Invalid Proof audience.');
 
-                $kid = $proof->getKeyId();
-                if (is_string($kid) && str_starts_with($kid, 'did:key:z')) {
-                    // The fragment (#z2dmzD...) typically points to a specific verification method within the DID's
-                    // context. For did:key, since the DID is the key, this fragment often just refers to the key
-                    // itself.
-                    ($didKey = strtok($kid, '#')) || throw new OpenId4VciProofException(
-                        'Error getting did:key without fragment. Value was: ' . $kid,
-                    );
+                $jwk = $proof->getJsonWebKey();
+                $resolvedDid = null;
 
-                    $jwk = $this->did->didKeyResolver()->extractJwkFromDidKey($didKey);
+                if (is_array($jwk)) {
+                    $resolvedDid = $this->did->didJwkResolver()->generateDidJwkFromJwk($jwk);
+                } else {
+                    $kid = $proof->getKeyId();
+                    if (is_string($kid) && str_starts_with($kid, 'did:key:z')) {
+                        // The fragment (#z2dmzD...) typically points to a specific verification method within the DID's
+                        // context. For did:key, since the DID is the key, this fragment often just refers to the key
+                        // itself.
+                        ($resolvedDid = strtok($kid, '#')) || throw new OpenId4VciProofException(
+                            'Error getting did:key without fragment. Value was: ' . $kid,
+                        );
 
+                        $jwk = $this->did->didKeyResolver()->extractJwkFromDidKey($resolvedDid);
+                    } elseif (is_string($kid) && str_starts_with($kid, 'did:jwk:')) {
+                        ($resolvedDid = strtok($kid, '#')) || throw new OpenId4VciProofException(
+                            'Error getting did:jwk without fragment. Value was: ' . $kid,
+                        );
+
+                        $jwk = $this->did->didJwkResolver()->extractJwkFromDidJwk($resolvedDid);
+                    }
+                }
+
+                if ($jwk !== null && $resolvedDid !== null) {
                     $proof->verifyWithKey($jwk);
 
-                    $this->loggerService->debug('Proof verified successfully using did:key ' . $didKey);
+                    $this->loggerService->debug('Proof verified successfully using ' . $resolvedDid);
 
                     // Verify nonce
                     $nonce = $proof->getNonce();
@@ -478,10 +492,10 @@ class CredentialIssuerCredentialController
                     }
 
                     // Set it as a subject identifier (bind it).
-                    $sub = $didKey;
+                    $sub = $resolvedDid;
                 } else {
                     $this->loggerService->warning(
-                        'Proof currently not supported (no did:key:z). ',
+                        'Proof currently not supported (no did:key:z or did:jwk). ',
                         ['header' => $proof->getHeader(), 'payload' => $proof->getPayload()],
                     );
                     // TODO mivanci Consider adding support for other proof keys, like in sample for Lissi ('jwk')
@@ -679,13 +693,7 @@ class CredentialIssuerCredentialController
 
         $publicKey = $vciSignatureKeyPair->getKeyPair()->getPublicKey();
 
-        $base64PublicKey = json_encode($publicKey->jwk()->all(), JSON_UNESCAPED_SLASHES);
-        if ($base64PublicKey === false) {
-            throw new \RuntimeException('Could not encode public key to JSON.');
-        }
-        $base64PublicKey = Base64Url::encode($base64PublicKey);
-
-        $issuerDid = 'did:jwk:' . $base64PublicKey;
+        $issuerDid = $this->did->didJwkResolver()->generateDidJwkFromJwk($publicKey->jwk()->all());
 
         $issuedAt = new \DateTimeImmutable();
 
