@@ -69,10 +69,11 @@ class CredentialIssuerCredentialController
      */
     public function credential(Request $request): Response
     {
-        $this->loggerService->debug('CredentialIssuerCredentialController::credential');
+        $this->loggerService->info('Verifiable Credential issuance request received.');
+        $psrRequest = $this->psrHttpBridge->getPsrHttpFactory()->createRequest($request);
 
         $requestData = $this->requestParamsResolver->getAllFromRequestBasedOnAllowedMethods(
-            $this->psrHttpBridge->getPsrHttpFactory()->createRequest($request),
+            $psrRequest,
             [HttpMethodsEnum::POST],
         );
 
@@ -81,15 +82,15 @@ class CredentialIssuerCredentialController
             $requestData,
         );
 
-        $authorization = $this->resourceServer->validateAuthenticatedRequest(
-            $this->psrHttpBridge->getPsrHttpFactory()->createRequest($request),
-        );
+        $this->loggerService->debug('Verifying access token and authorizing request.');
+        $authorization = $this->resourceServer->validateAuthenticatedRequest($psrRequest);
 
         $accessToken = $this->accessTokenRepository->findById(
             (string)$authorization->getAttribute('oauth_access_token_id'),
         );
 
         if (! $accessToken instanceof AccessTokenEntity) {
+            $this->loggerService->error('Access token not found in repository.');
             return $this->routes->newJsonErrorResponse(
                 'invalid_token',
                 'Access token not found.',
@@ -98,6 +99,7 @@ class CredentialIssuerCredentialController
         }
 
         if ($accessToken->isRevoked()) {
+            $this->loggerService->error('Access token is revoked.', ['accessTokenId' => $accessToken->getIdentifier()]);
             return $this->routes->newJsonErrorResponse(
                 'invalid_token',
                 'Access token is revoked.',
@@ -110,9 +112,8 @@ class CredentialIssuerCredentialController
             $flowType->isVciFlow() === false
         ) {
             $this->loggerService->warning(
-                'CredentialIssuerCredentialController::credential: Access token is not intended for Verifiable' .
-                ' Credential Issuance.',
-                ['accessTokenState' => $accessToken->getState()],
+                'Access token is not intended for Verifiable Credential Issuance.',
+                ['flowType' => $flowType?->value, 'accessTokenId' => $accessToken->getIdentifier()],
             );
             return $this->routes->newJsonErrorResponse(
                 'invalid_token',
@@ -139,8 +140,8 @@ class CredentialIssuerCredentialController
 
         if (is_string($issuerState) && $this->issuerStateRepository->findValid($issuerState) === null) {
             $this->loggerService->warning(
-                'CredentialIssuerCredentialController::credential: Issuer state not valid.',
-                ['issuerState' => $issuerState],
+                'Issuer state not valid or expired.',
+                ['issuerState' => $issuerState, 'accessTokenId' => $accessToken->getIdentifier()],
             );
             return $this->routes->newJsonErrorResponse(
                 'invalid_credential_request',
@@ -209,7 +210,7 @@ class CredentialIssuerCredentialController
 
                 if ($credentialIdentifier === $authorizationDetailCredentialConfigurationId) {
                     $this->loggerService->debug(
-                        'CredentialIssuerCredentialController::credential: Credential identifier used in flow.',
+                        'Credential identifier matched with authorization detail.',
                         ['credentialIdentifier' => $credentialIdentifier],
                     );
                     $isCredentialIdentifierUsedInFlow = true;
@@ -232,22 +233,17 @@ class CredentialIssuerCredentialController
             $resolvedCredentialIdentifier = $credentialIdentifier;
 
             $this->loggerService->debug(
-                'CredentialIssuerCredentialController::credential: Resolved credential identifier from ' .
-                'credential_identifier parameter.',
+                'Resolved credential identifier from "credential_identifier" parameter.',
                 ['resolvedCredentialIdentifier' => $resolvedCredentialIdentifier],
             );
         } else {
             $this->loggerService->debug(
-                'CredentialIssuerCredentialController::credential: No authorization details found in access' .
-                ' token. Skipping credential identifier resolution from credential_identifier parameter.',
+                'No authorization details found in access token. Skipping resolution from "credential_identifier".',
             );
         }
 
         if (!is_string($resolvedCredentialIdentifier)) {
-            $this->loggerService->debug(
-                'CredentialIssuerCredentialController::credential: Resolving credential identifier from ' .
-                'credential_configuration_id parameter.',
-            );
+            $this->loggerService->debug('Resolving credential identifier from "credential_configuration_id".');
 
             /** @psalm-suppress MixedAssignment */
             $credentialConfigurationId = $requestData[ClaimsEnum::CredentialConfigurationId->value] ?? null;
@@ -257,15 +253,11 @@ class CredentialIssuerCredentialController
                 $resolvedCredentialIdentifier = $credentialConfigurationId;
 
                 $this->loggerService->debug(
-                    'CredentialIssuerCredentialController::credential: Resolved credential identifier from ' .
-                    'credential_configuration_id parameter.',
+                    'Resolved credential identifier from "credential_configuration_id" parameter.',
                     ['resolvedCredentialIdentifier' => $resolvedCredentialIdentifier],
                 );
             } else {
-                $this->loggerService->error(
-                    'CredentialIssuerCredentialController::credential: Credential configuration ID missing in ' .
-                    'request.',
-                );
+                $this->loggerService->warning('Credential identifier not provided in request parameters.');
             }
         }
 
@@ -278,9 +270,7 @@ class CredentialIssuerCredentialController
             $requestedCredentialFormatId = $requestData[ClaimsEnum::Format->value] ?? null;
 
             if (!is_string($requestedCredentialFormatId)) {
-                $this->loggerService->error(
-                    'CredentialIssuerCredentialController::credential: Credential format missing in request.',
-                );
+                $this->loggerService->error('Credential format missing in request (fallback resolution failed).');
                 return $this->routes->newJsonErrorResponse(
                     'invalid_credential_request',
                     'Can not resolve credential format.',
@@ -307,8 +297,8 @@ class CredentialIssuerCredentialController
             }
 
             $this->loggerService->debug(
-                'CredentialIssuerCredentialController::credential: Resolved credential format.',
-                ['requestedCredentialFormatId' => $requestedCredentialFormatId],
+                'Resolved requested credential format.',
+                ['format' => $requestedCredentialFormatId],
             );
 
             $fallbackCredentialConfigurationId = null;
@@ -324,9 +314,8 @@ class CredentialIssuerCredentialController
                 )
             ) {
                 $this->loggerService->debug(
-                    'CredentialIssuerCredentialController::credential: Resolving credential configuration ID ' .
-                    'from credential definition type.',
-                    ['credentialDefinitionType' => $credentialDefinitionType],
+                    'Resolving configuration from credential definition types.',
+                    ['types' => $credentialDefinitionType],
                 );
                 $fallbackCredentialConfigurationId =
                 $this->moduleConfig->getVciCredentialConfigurationIdForCredentialDefinitionType(
@@ -337,23 +326,18 @@ class CredentialIssuerCredentialController
                 is_string($vct = $requestData[ClaimsEnum::Vct->value] ?? null)
             ) {
                 $this->loggerService->debug(
-                    'CredentialIssuerCredentialController::credential: Resolving credential configuration ID ' .
-                    'from VCT.',
+                    'Resolving configuration from VCT parameter.',
                     ['vct' => $vct],
                 );
                 $fallbackCredentialConfigurationId = $vct;
             }
 
             if (!is_string($fallbackCredentialConfigurationId)) {
-                $this->loggerService->error(
-                    'CredentialIssuerCredentialController::credential: Could not resolve credential from ' .
-                    'format and credential type.',
-                );
+                $this->loggerService->error('Fallback resolution failed to find a valid credential configuration.');
             } else {
                 $this->loggerService->debug(
-                    'CredentialIssuerCredentialController::credential: Resolved credential configuration ID ' .
-                    'from format and credential type.',
-                    ['fallbackCredentialConfigurationId' => $fallbackCredentialConfigurationId],
+                    'Resolved credential identifier via fallback mechanism.',
+                    ['resolvedCredentialIdentifier' => $fallbackCredentialConfigurationId],
                 );
 
                 $resolvedCredentialIdentifier = $fallbackCredentialConfigurationId;
@@ -370,6 +354,10 @@ class CredentialIssuerCredentialController
         $resolvedCredentialConfiguration = $this->moduleConfig->getVciCredentialConfiguration(
             $resolvedCredentialIdentifier,
         );
+        $this->loggerService->debug('Resolved credential configuration.', [
+            'identifier' => $resolvedCredentialIdentifier,
+            'configuration' => $resolvedCredentialConfiguration,
+        ]);
         if (!is_array($resolvedCredentialConfiguration)) {
             return $this->routes->newJsonErrorResponse(
                 'unsupported_credential_type',
@@ -396,8 +384,10 @@ class CredentialIssuerCredentialController
         }
         $userEntity = $this->userRepository->getUserEntityByIdentifier($userId);
         if ($userEntity === null) {
+            $this->loggerService->error('User entity not found.', ['userId' => $userId]);
             throw OidcServerException::invalidRequest('User not found.');
         }
+        $this->loggerService->info('Issuing credential for user.', ['userId' => $userId]);
 
         // Extract all proofs from the request.
         $proofsToProcess = [];
@@ -423,12 +413,22 @@ class CredentialIssuerCredentialController
         // If no proofs are provided, we still proceed with a single null proof to maintain
         // existing behavior where proofs are optional.
         if (empty($proofsToProcess)) {
+            $this->loggerService->debug('No proofs provided in request (optional).');
             $proofsToProcess[] = null;
+        } else {
+            $this->loggerService->debug('Proofs extracted from request.', ['count' => count($proofsToProcess)]);
         }
 
         $issuedCredentialsData = [];
+        $proofIndex = 0;
 
         foreach ($proofsToProcess as $proofData) {
+            $proofIndex++;
+            if (count($proofsToProcess) > 1) {
+                $this->loggerService->debug(
+                    sprintf('Processing proof %d of %d.', $proofIndex, count($proofsToProcess)),
+                );
+            }
             // Placeholder sub identifier. Will do if proof is not provided.
             $sub = $this->moduleConfig->getIssuer() . '/sub/' . $userId;
 
@@ -443,31 +443,9 @@ class CredentialIssuerCredentialController
                 is_string($proofJwt = $proofData['jwt']) &&
                 $proofJwt !== ''
             ) {
-                $this->loggerService->debug('Verifying proof JWT: ' . $proofJwt);
+                $this->loggerService->debug('Verifying proof JWT.');
 
                 try {
-                /**
-                 * Sample proof structure:
-                 * 'proof' =>
-                 * array (
-                 * 'proof_type' => 'jwt',
-                 * 'jwt' => 'eyJ0eXAiOiJvcGVuaWQ0dmNpLXByb29mK2p3dCIsImFsZyI6IkVTMjU2Iiwia2lkIjoiZGlkOmtleTp6MmRtekQ4MWNnUHg4VmtpN0pidXVNbUZZcldQZ1lveXR5a1VaM2V5cWh0MWo5S2JyU2ZYMkJVeHNVaW5QbVA3QUVzZEN4OWpQYlV0ZkIzWXN2MTd4TGpyZkMxeDNVZmlMTWtyeWdTZDJMeWltQ3RGejhHWlBqOFFrMUJFU0F6M21LWGRCTEpuUHNNQ0R4Nm9QNjNuZVpmR1NKelF5SjRLVlN6Nmt4UTJQOTE4NGdXS1FnI3oyZG16RDgxY2dQeDhWa2k3SmJ1dU1tRllyV1BnWW95dHlrVVozZXlxaHQxajlLYnJTZlgyQlV4c1VpblBtUDdBRXNkQ3g5alBiVXRmQjNZc3YxN3hManJmQzF4M1VmaUxNa3J5Z1NkMkx5aW1DdEZ6OEdaUGo4UWsxQkVTQXozbUtYZEJMSm5Qc01DRHg2b1A2M25lWmZHU0p6UXlKNEtWU3o2a3hRMlA5MTg0Z1dLUWcifQ.eyJhdWQiOiJodHRwczovL2lkcC5taXZhbmNpLmluY3ViYXRvci5oZXhhYS5ldSIsImlhdCI6MTc0ODUxNDE0NywiZXhwIjoxNzQ4NTE0ODA3LCJpc3MiOiJkaWQ6a2V5OnoyZG16RDgxY2dQeDhWa2k3SmJ1dU1tRllyV1BnWW95dHlrVVozZXlxaHQxajlLYnJTZlgyQlV4c1VpblBtUDdBRXNkQ3g5alBiVXRmQjNZc3YxN3hManJmQzF4M1VmaUxNa3J5Z1NkMkx5aW1DdEZ6OEdaUGo4UWsxQkVTQXozbUtYZEJMSm5Qc01DRHg2b1A2M25lWmZHU0p6UXlKNEtWU3o2a3hRMlA5MTg0Z1dLUWciLCJqdGkiOiJiMmNlZDQ2Yi0zOWNiLTRkZDAtYmQxZS1hNzY5ZWNlOWUxMTIifQ.SPdMSnrfF8ybhfYluzz5OrfWJQDOpCu7-of8zVbp5UR89GaB7j14Egext1h9pYgl6JwIP8zibUjTSc8JLVYuvA',
-                 * ),
-                 *
-                 * Sphereon proof in credential request
-                 * {
-                 * "typ": "openid4vci-proof+jwt",
-                 * "alg": "ES256",
-                 * "kid": "did:key:z2dmzD81cgPx8Vki7JbuuMmFYrWPgYoytykUZ3eyqht1j9KbrSfX2BUxsUinPmP7AEsdCx9jPbUtfB3Ysv17xLjrfC1x3UfiLMkrygSd2LyimCtFz8GZPj8Qk1BESAz3mKXdBLJnPsMCDx6oP63neZfGSJzQyJ4KVSz6kxQ2P9184gWKQg#z2dmzD81cgPx8Vki7JbuuMmFYrWPgYoytykUZ3eyqht1j9KbrSfX2BUxsUinPmP7AEsdCx9jPbUtfB3Ysv17xLjrfC1x3UfiLMkrygSd2LyimCtFz8GZPj8Qk1BESAz3mKXdBLJnPsMCDx6oP63neZfGSJzQyJ4KVSz6kxQ2P9184gWKQg"
-                 * }
-                 * {
-                 * "aud": "https://idp.mivanci.incubator.hexaa.eu",
-                 * "iat": 1748514147,
-                 * "exp": 1748514807,
-                 * "iss": "did:key:z2dmzD81cgPx8Vki7JbuuMmFYrWPgYoytykUZ3eyqht1j9KbrSfX2BUxsUinPmP7AEsdCx9jPbUtfB3Ysv17xLjrfC1x3UfiLMkrygSd2LyimCtFz8GZPj8Qk1BESAz3mKXdBLJnPsMCDx6oP63neZfGSJzQyJ4KVSz6kxQ2P9184gWKQg",
-                 * "jti": "b2ced46b-39cb-4dd0-bd1e-a769ece9e112"
-                 * }
-                 */
                     $proof = $this->verifiableCredentials->openId4VciProofFactory()->fromToken($proofJwt);
                     (in_array($this->moduleConfig->getIssuer(), $proof->getAudience())) ||
                     throw new OpenId4VciProofException('Invalid Proof audience.');
@@ -500,12 +478,12 @@ class CredentialIssuerCredentialController
                     if ($jwk !== null && $resolvedDid !== null) {
                         $proof->verifyWithKey($jwk);
 
-                        $this->loggerService->debug('Proof verified successfully using ' . $resolvedDid);
+                        $this->loggerService->debug('Proof verified successfully.', ['did' => $resolvedDid]);
 
                     // Verify nonce
                         $nonce = $proof->getNonce();
                         if (is_string($nonce) && $nonce !== '') {
-                            $this->loggerService->debug('Proof nonce: ' . $nonce);
+                            $this->loggerService->debug('Validating proof nonce.', ['nonce' => $nonce]);
 
                             if (!$this->nonceService->validateNonce($nonce)) {
                                 $this->loggerService->warning(
@@ -520,39 +498,16 @@ class CredentialIssuerCredentialController
 
                             $this->loggerService->debug('Proof nonce validated successfully.');
                         } else {
-                            $this->loggerService->warning('Nonce not present in proof, skipping nonce validation.');
+                            $this->loggerService->debug('No nonce present in proof, skipping validation.');
                         }
 
                     // Set it as a subject identifier (bind it).
                         $sub = $resolvedDid;
                     } else {
                         $this->loggerService->warning(
-                            'Proof currently not supported (no did:key:z or did:jwk). ',
-                            ['header' => $proof->getHeader(), 'payload' => $proof->getPayload()],
+                            'Proof binding currently not supported for this key/DID type.',
+                            ['kid' => $proof->getKeyId(), 'jwk' => $proof->getJsonWebKey()],
                         );
-                    // TODO mivanci Consider adding support for other proof keys, like in sample for Lissi ('jwk')
-                    /**
-                     * 'header' =>
-                     * array (
-                     * 'alg' => 'ES256',
-                     * 'typ' => 'openid4vci-proof+jwt',
-                     * 'jwk' =>
-                     * array (
-                     * 'kty' => 'EC',
-                     * 'crv' => 'P-256',
-                     * 'x' => '7d1peDK5BTcnw45yGrRHcJJOxYrEj2sOvBnIXRyhxEM',
-                     * 'y' => 'Z5x8pVp85PouIYkvQT2eJWZP3YgfUXPc6BIhJ2pETbM',
-                     * ),
-                     * ),
-                     * 'payload' =>
-                     * array (
-                     * 'aud' => 'https://idp.mivanci.incubator.hexaa.eu',
-                     * 'nonce' => NULL,
-                     * 'iat' => 1758102462,
-                     * 'iss' => '9c481dc3-2ad0-4fe0-881d-c32ad02fe0fc',
-                     * ),
-                     * )
-                     */
                     }
                 } catch (\Exception $e) {
                     $message = 'Error processing proof JWT: ' . $e->getMessage();
@@ -570,20 +525,19 @@ class CredentialIssuerCredentialController
         // Get valid claim paths so we can check if the user attribute is allowed to be included in the credential,
         // as per the credential configuration supported configuration.
             $validClaimPaths = $this->moduleConfig->getVciValidCredentialClaimPathsFor($resolvedCredentialIdentifier);
-            $this->loggerService->debug(
-                'CredentialIssuerCredentialController::credential: Valid claim paths for credential configuration ',
-                ['validClaimPaths' => $validClaimPaths],
-            );
+            $this->loggerService->debug('Mapping user attributes to credential claims.', [
+                'resolvedCredentialIdentifier' => $resolvedCredentialIdentifier,
+                'validClaimPaths' => $validClaimPaths,
+            ]);
         // Map user attributes to credential claims
             $credentialSubject = []; // For JwtVcJson
             $disclosureBag = $this->verifiableCredentials->disclosureBagFactory()->build(); // For DcSdJwt
             $attributeToCredentialClaimPathMap = $this->moduleConfig->getVciUserAttributeToCredentialClaimPathMapFor(
                 $resolvedCredentialIdentifier,
             );
-            $this->loggerService->debug(
-                'CredentialIssuerCredentialController::credential: Attribute to credential claim path map',
-                ['attributeToCredentialClaimPathMap' => $attributeToCredentialClaimPathMap],
-            );
+            $this->loggerService->debug('Using attribute to claim path map.', [
+                'map' => $attributeToCredentialClaimPathMap,
+            ]);
             /** @psalm-suppress MixedAssignment */
             foreach ($attributeToCredentialClaimPathMap as $mapEntry) {
                 if (!is_array($mapEntry)) {
@@ -596,10 +550,7 @@ class CredentialIssuerCredentialController
                     continue;
                 }
 
-                $this->loggerService->debug(
-                    'Map entry: ',
-                    ['mapEntry' => $mapEntry],
-                );
+                $this->loggerService->debug('Processing attribute mapping entry.', ['entry' => $mapEntry]);
 
                 $userAttributeName = key($mapEntry);
                 if (!is_string($userAttributeName)) {
@@ -637,10 +588,10 @@ class CredentialIssuerCredentialController
                     continue;
                 }
 
-                $this->loggerService->debug(
-                    'Credential claim path',
-                    ['credentialClaimPath' => $credentialClaimPath],
-                );
+                $this->loggerService->debug('Mapping attribute to claim path.', [
+                    'attribute' => $userAttributeName,
+                    'path' => $credentialClaimPath,
+                ]);
 
                 if (!isset($userAttributes[$userAttributeName])) {
                     $this->loggerService->warning(
@@ -669,10 +620,10 @@ class CredentialIssuerCredentialController
                 }
 
                 if (in_array($credentialFormatId, self::SD_JWT_FORMAT_IDS, true)) {
-                    $this->loggerService->debug(
-                        'CredentialIssuerCredentialController::credential: Processing SD JWT credential format ID '
-                        . $credentialFormatId,
-                    );
+                    $this->loggerService->debug('Adding attribute to SD-JWT disclosure bag.', [
+                        'attribute' => $userAttributeName,
+                        'format' => $credentialFormatId,
+                    ]);
 
                 // For now, we will only support disclosures for object properties.
                     $claimName = array_pop($credentialClaimPath);
@@ -736,6 +687,14 @@ class CredentialIssuerCredentialController
 
             $vcId = $this->moduleConfig->getIssuer() . '/vc/' . uniqid();
             $signatureAlgorithm = $vciSignatureKeyPair->getSignatureAlgorithm();
+
+            $this->loggerService->info('Signing and issuing verifiable credential.', [
+                'vcId' => $vcId,
+                'format' => $credentialFormatId,
+                'issuerDid' => $issuerDid,
+                'sub' => $sub,
+                'algorithm' => $signatureAlgorithm->value,
+            ]);
 
             $verifiableCredential = null;
 
@@ -875,7 +834,12 @@ class CredentialIssuerCredentialController
                 throw new OpenIdException('Invalid credential format ID.');
             }
 
-            $issuedCredentialsData[] = ['credential' => $verifiableCredential->getToken()];
+            $token = $verifiableCredential->getToken();
+            $issuedCredentialsData[] = ['credential' => $token];
+            $this->loggerService->debug(
+                'Verifiable credential issued successfully.',
+                ['token' => substr($token, 0, 20) . '...'],
+            );
         }
 
         if (is_string($issuerState)) {
@@ -883,8 +847,8 @@ class CredentialIssuerCredentialController
             $this->issuerStateRepository->revoke($issuerState);
         }
 
-        $this->loggerService->debug('Returning credential response.', [
-            'credentials' => $issuedCredentialsData,
+        $this->loggerService->info('Credential issuance request completed successfully.', [
+            'issuedCount' => count($issuedCredentialsData),
         ]);
 
         return $this->routes->newJsonResponse(
