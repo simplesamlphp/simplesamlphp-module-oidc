@@ -100,7 +100,7 @@ class CredentialIssuerConfigurationController
                     ClaimsEnum::Name->value => $this->moduleConfig->getOrganizationName(),
                     ClaimsEnum::Locale->value => 'en-US',
                     ClaimsEnum::Description->value => $this->moduleConfig->getDescription() ?? 'SimpleSAMLphp Demo VCI',
-                    ClaimsEnum::LogoUri->value => [
+                    ClaimsEnum::Logo->value => [
                         ClaimsEnum::Uri->value => $this->moduleConfig->getLogoUri(),
                         ClaimsEnum::AltText->value => ($this->moduleConfig->getOrganizationName() ?? 'VCI') . ' logo',
                     ],
