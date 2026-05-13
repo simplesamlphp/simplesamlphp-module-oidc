@@ -36,6 +36,7 @@ class ResponseModeRule extends AbstractRule
      * @inheritDoc
      *
      * @param ResponseModeInterface $responseMode
+     * @param HttpMethodsEnum[] $allowedServerRequestMethods
      */
     public function checkRule(
         ServerRequestInterface $request,
@@ -57,23 +58,17 @@ class ResponseModeRule extends AbstractRule
             throw  OidcServerException::invalidRequest('Missing client_id');
         }
 
-        $reponseModeValue = $requestParams[ParamsEnum::ResponseMode->value] ?? null;
+        $reponseModeValue = isset($requestParams[ParamsEnum::ResponseMode->value]) ?
+        (string)$requestParams[ParamsEnum::ResponseMode->value] : null;
         $loggerService->debug('ResponseModeRule: response_mode requestParams value: ' . ($reponseModeValue ?? 'null'));
 
 
         // if response_mode is not set, we set the default
         // default to 'code' if not set. Error will be thrown by ResponseTypeRule.
-        $responseType = $requestParams[ParamsEnum::ResponseType->value] ?? 'code';
+        $responseType = isset($requestParams[ParamsEnum::ResponseType->value]) ?
+        (string)$requestParams[ParamsEnum::ResponseType->value] : 'code';
         if (!$reponseModeValue) {
-            switch ($responseType) {
-                case str_contains($responseType, 'token'):
-                case str_contains($responseType, 'id_token'):
-                    $reponseModeValue = 'fragment';
-                    break;
-                default:
-                    // for other response types, the default is query
-                    $reponseModeValue = 'query';
-            }
+            $reponseModeValue = str_contains($responseType, 'token') ? 'fragment' : 'query';
         }
 
         // Verify if response_mode is one of 'query', 'fragment', 'form_post'
@@ -88,6 +83,7 @@ class ResponseModeRule extends AbstractRule
         }
 
         // Validate whether response_mode is allowed by client configuration
+        /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
         $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
         $currentResultBag->getOrFail(StateRule::class)->getValue();

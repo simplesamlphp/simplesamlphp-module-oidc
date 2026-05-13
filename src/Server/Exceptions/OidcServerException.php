@@ -95,7 +95,7 @@ class OidcServerException extends OAuthServerException
      * @param string|null $redirectUri
      * @param string|null $state
      * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface|null $responseMode
-     * @return self
+     * @return OidcServerException
      */
     public static function unsupportedResponseType(
         ?string $redirectUri = null,
@@ -117,7 +117,8 @@ class OidcServerException extends OAuthServerException
      * @param string|null $redirectUri An HTTP URI to redirect the user back to
      * @param string|null $state
      * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface|null $responseMode
-     * @return static
+     * @return OidcServerException
+     * @psalm-suppress LessSpecificImplementedReturnType
      */
     public static function invalidScope(
         $scope,
@@ -130,7 +131,7 @@ class OidcServerException extends OAuthServerException
         } else {
             $hint = sprintf(
                 'Check the `%s` scope',
-                htmlspecialchars((string) $scope, ENT_QUOTES, 'UTF-8', false),
+                htmlspecialchars($scope, ENT_QUOTES, 'UTF-8', false),
             );
         }
 
@@ -158,7 +159,8 @@ class OidcServerException extends OAuthServerException
      * @param string|null $redirectUri
      * @param string|null $state
      * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface|null $responseMode
-     * @return static
+     * @return OidcServerException
+     * @psalm-suppress LessSpecificImplementedReturnType
      */
     public static function invalidRequest(
         $parameter,
@@ -182,7 +184,8 @@ class OidcServerException extends OAuthServerException
      * @param \Throwable|null $previous
      * @param string|null $state
      * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface|null $responseMode
-     * @return static
+     * @return OidcServerException
+     * @psalm-suppress LessSpecificImplementedReturnType
      */
     public static function accessDenied(
         $hint = null,
@@ -215,7 +218,7 @@ class OidcServerException extends OAuthServerException
      * @param string|null $state
      * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface|null $responseMode
      *
-     * @return self
+     * @return OidcServerException
      */
     public static function loginRequired(
         ?string $hint = null,
@@ -240,7 +243,7 @@ class OidcServerException extends OAuthServerException
      * @param string|null $state
      * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface|null $responseMode
      *
-     * @return self
+     * @return OidcServerException
      */
     public static function requestNotSupported(
         ?string $hint = null,
@@ -272,7 +275,7 @@ class OidcServerException extends OAuthServerException
      * @param string|null $hint
      * @param \Throwable|null $previous
      *
-     * @return self
+     * @return OidcServerException
      * @psalm-suppress LessSpecificImplementedReturnType
      */
     public static function invalidRefreshToken($hint = null, ?Throwable $previous = null): OidcServerException
@@ -396,6 +399,7 @@ class OidcServerException extends OAuthServerException
      * Generate an HTTP response.
      *
      * @param \Psr\Http\Message\ResponseInterface $response
+     * @param bool $useFragment
      * @param int $jsonOptions options passed to json_encode
      *
      * @return \Psr\Http\Message\ResponseInterface

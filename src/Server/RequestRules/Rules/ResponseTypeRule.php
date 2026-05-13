@@ -21,6 +21,7 @@ class ResponseTypeRule extends AbstractRule
      * @inheritDoc
      *
      * @param ResponseModeInterface $responseMode
+     * @param HttpMethodsEnum[] $allowedServerRequestMethods
      */
     public function checkRule(
         ServerRequestInterface $request,

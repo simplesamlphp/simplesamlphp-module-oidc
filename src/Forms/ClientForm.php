@@ -451,8 +451,9 @@ class ClientForm extends Form
     public function validateResponseModes(Form $form): void
     {
         $values = $form->getValues(self::TYPE_ARRAY);
+        /** @var string[]|null $responseModes */
         $responseModes = $values['response_modes_allowed'] ?? null;
-        if ($responseModes !== null && is_array($responseModes)) {
+        if (is_array($responseModes)) {
             $allowed = array_keys($this->getAllowedResponseModesValues());
             foreach ($responseModes as $mode) {
                 if (!in_array($mode, $allowed, true)) {

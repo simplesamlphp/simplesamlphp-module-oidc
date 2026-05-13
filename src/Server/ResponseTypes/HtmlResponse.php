@@ -9,10 +9,7 @@ use Psr\Http\Message\ResponseInterface;
 
 class HtmlResponse extends AbstractResponseType
 {
-    /**
-     * @var string
-     */
-    private string $html;
+    private string $html = '';
 
     /**
      * @param string $html
