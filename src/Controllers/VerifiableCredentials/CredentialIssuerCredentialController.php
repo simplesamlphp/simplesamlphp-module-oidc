@@ -449,8 +449,13 @@ class CredentialIssuerCredentialController
 
                 try {
                     $proof = $this->verifiableCredentials->openId4VciProofFactory()->fromToken($proofJwt);
-                    (in_array($this->moduleConfig->getIssuer(), $proof->getAudience())) ||
-                    throw new OpenId4VciProofException('Invalid Proof audience.');
+                    if (! in_array($this->moduleConfig->getIssuer(), $proof->getAudience())) {
+                        $this->loggerService->error(
+                            'Invalid Proof audience.',
+                            ['audience' => $proof->getAudience(), 'issuer' => $this->moduleConfig->getIssuer()],
+                        );
+                        throw new OpenId4VciProofException('Invalid Proof audience.');
+                    }
 
                     $jwk = $proof->getJsonWebKey();
                     $resolvedDid = null;
@@ -813,8 +818,8 @@ class CredentialIssuerCredentialController
             $issuedCredentialsData[] = ['credential' => $token];
             $this->loggerService->debug(
                 'Verifiable credential issued successfully.',
-                ['token' => substr($token, 0, 20) . '...'],
-                //['token' => $token],
+                //['token' => substr($token, 0, 20) . '...'],
+                ['token' => $token],
             );
         }
 

@@ -685,6 +685,8 @@ $config = [
             ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'oidc_module_vci_ec_p256_01.pub',
 //            ModuleConfig::KEY_PRIVATE_KEY_PASSWORD => 'private-key-password', // Optional
 //            ModuleConfig::KEY_KEY_ID => 'ec-vci-signing-key-01', // Optional
+            // Sample when using `did:jwk:...` format.
+//            ModuleConfig::KEY_KEY_ID => 'did:jwk:eyJrdHkiOiJFQyIsImNydiI6IlAtMjU2IiwieCI6IlREaW5WM3R5b2VUNEVmVU1Bd25QZnlkbkdzay1qVnczQlFXNldGdnZjRk0iLCJ5IjoiMGplbkx3UG9IbzRfM21Ma2gyMXV5Y0hWTzM3d2hCUTZqd3pDLV9VUXBsdyIsInVzZSI6InNpZyIsImFsZyI6IkVTMjU2In0#0', // Optional
         ],
     ],
 
