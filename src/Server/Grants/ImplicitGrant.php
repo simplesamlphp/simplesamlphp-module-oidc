@@ -143,7 +143,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         $state = $resultBag->getOrFail(StateRule::class)->getValue();
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $resultBag->getOrFail(ClientRule::class)->getValue();
-        /** @var ResponseModeInterface $responseMode */
+        /** @var \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode */
         $responseMode = $resultBag->getOrFail(ResponseModeRule::class)->getValue();
 
         // Some rules need certain things available in order to work properly...
@@ -197,7 +197,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         $acrValues = $resultBag->getOrFail(AcrValuesRule::class)->getValue();
         $authorizationRequest->setRequestedAcrValues($acrValues);
 
-        /** @var ResponseModeInterface $responseMode */
+        /** @var \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode */
         $responseMode = $resultBag->getOrFail(ResponseModeRule::class)->getValue();
         $authorizationRequest->setResponseMode($responseMode);
 

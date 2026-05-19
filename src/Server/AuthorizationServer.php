@@ -117,7 +117,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         $state = $resultBag->getOrFail(StateRule::class)->getValue();
         /** @var string $redirectUri */
         $redirectUri = $resultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
-        /** @var ResponseModeInterface $responseMode */
+        /** @var \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode */
         $responseMode = $resultBag->getOrFail(ResponseModeRule::class)->getValue();
 
         foreach ($this->enabledGrantTypes as $grantType) {

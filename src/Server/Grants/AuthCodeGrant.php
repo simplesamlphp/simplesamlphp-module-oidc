@@ -773,7 +773,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $state = $resultBag->getOrFail(StateRule::class)->getValue();
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $resultBag->getOrFail(ClientRule::class)->getValue();
-        /** @var ResponseModeInterface $responseMode */
+        /** @var \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode */
         $responseMode = $resultBag->getOrFail(ResponseModeRule::class)->getValue();
 
         $this->loggerService->debug('AuthCodeGrant: Resolved data:', [
@@ -907,7 +907,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         );
         $authorizationRequest->setAuthorizationDetails($authorizationDetails);
 
-        /** @var ResponseModeInterface $responseMode */
+        /** @var \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode */
         $responseMode = $resultBag->getOrFail(ResponseModeRule::class)->getValue();
         $this->loggerService->debug(
             'AuthCodeGrant: Response mode: ',
