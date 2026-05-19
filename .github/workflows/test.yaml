@@ -259,6 +259,12 @@ jobs:
       - name: Run RP backchannel
         run: |
           ./conformance-suite/scripts/run-test-plan.py     "oidcc-backchannel-rp-initiated-logout-certification-test-plan[response_type=code][client_registration=static_client]" ./main/conformance-tests/conformance-back-channel-logout-ci.json
+      - name: Run form_post basic tests
+        run: |
+          ./conformance-suite/scripts/run-test-plan.py  "oidcc-formpost-basic-certification-test-plan[server_metadata=discovery][client_registration=static_client]" ./main/conformance-tests/conformance-basic-ci.json
+      - name: Run form_post implicit tests
+        run: |
+          ./conformance-suite/scripts/run-test-plan.py  "oidcc-formpost-implicit-certification-test-plan[server_metadata=discovery][client_registration=static_client]" ./main/conformance-tests/conformance-implicit-ci.json
       - name: Stop SSP
         working-directory: ./main
         run: |
