@@ -12,7 +12,7 @@
 
     <form method="post"
           action="{{ routes.urlAdminTestTrustMarkValidation }}"
-          class="pure-form pure-form-stacked">
+          class="pure-form pure-form-stacked form-with-loading-state">
 
         <fieldset>
             <label for="trustMarkType">{{ 'Trust Mark Type'|trans }}</label>
@@ -46,7 +46,7 @@
             <span class="pure-form-message"></span>
 
             <br>
-            <button type="submit" class="pure-button ">{{ (actionText|default('Submit'))|trans }}</button>
+            <button type="submit" class="pure-button " data-loading-text="{{ 'Validating...'|trans }}">{{ (actionText|default('Submit'))|trans }}</button>
         </fieldset>
     </form>
 

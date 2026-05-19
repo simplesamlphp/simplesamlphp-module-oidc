@@ -27,7 +27,6 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Routes;
-use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -81,7 +80,7 @@ class CredentialJsonLdContextController
             return $this->routes->newResponse(null, Response::HTTP_NOT_FOUND);
         }
 
-        return new JsonResponse(
+        return $this->routes->newJsonResponse(
             $contextDocument,
             Response::HTTP_OK,
             ['Content-Type' => 'application/ld+json'],

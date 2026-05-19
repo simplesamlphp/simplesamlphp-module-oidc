@@ -95,8 +95,6 @@ class EntityStatementController
                             ClaimsEnum::OrganizationUri->value => $this->moduleConfig->getOrganizationUri(),
                         ],
                     )),
-                    ClaimsEnum::FederationFetchEndpoint->value => $this->routes->urlFederationFetch(),
-                    ClaimsEnum::FederationListEndpoint->value => $this->routes->urlFederationList(),
                     // TODO v7 mivanci Add when ready. Use ClaimsEnum for keys.
                     // https://openid.net/specs/openid-federation-1_0.html#name-federation-entity
                     //'federation_resolve_endpoint',
