@@ -818,8 +818,8 @@ class CredentialIssuerCredentialController
             $issuedCredentialsData[] = ['credential' => $token];
             $this->loggerService->debug(
                 'Verifiable credential issued successfully.',
-                //['token' => substr($token, 0, 20) . '...'],
-                ['token' => $token],
+                ['token' => substr($token, 0, 20) . '...'],
+                //['token' => $token],
             );
         }
 
