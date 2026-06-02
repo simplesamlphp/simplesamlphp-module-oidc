@@ -319,7 +319,6 @@ class ClientController
         ?string $owner = null,
         bool $isGeneric = false,
     ): ClientEntityInterface {
-        /** @var array $data */
         $data = $form->getValues('array');
 
         if (
