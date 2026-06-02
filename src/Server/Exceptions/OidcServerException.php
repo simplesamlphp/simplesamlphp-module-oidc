@@ -64,7 +64,7 @@ class OidcServerException extends OAuthServerException
         ?string $redirectUri = null,
         ?Throwable $previous = null,
         ?string $state = null,
-        ?ResponseModeInterface $responseMode = new QueryResponseMode(),
+        ?ResponseModeInterface $responseMode = null,
     ) {
         parent::__construct($message, $code, $errorType, $httpStatusCode, $hint, $redirectUri, $previous);
 
@@ -105,9 +105,17 @@ class OidcServerException extends OAuthServerException
         $errorMessage = 'The response type is not supported by the authorization server.';
         $hint = 'Check that all required parameters have been provided';
 
-        $e = new self($errorMessage, 2, 'unsupported_response_type', 400, $hint, $redirectUri, null, $state);
-        $e->responseMode = $responseMode;
-        return $e;
+        return new self(
+            $errorMessage,
+            2,
+            'unsupported_response_type',
+            400,
+            $hint,
+            $redirectUri,
+            null,
+            $state,
+            $responseMode,
+        );
     }
 
     /**
