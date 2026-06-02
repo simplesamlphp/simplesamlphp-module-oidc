@@ -18,6 +18,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
+use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 
 class ResponseModeRule extends AbstractRule
 {
@@ -55,7 +56,10 @@ class ResponseModeRule extends AbstractRule
         if (
             !isset($requestParams[ParamsEnum::ClientId->value])
         ) {
-            throw  OidcServerException::invalidRequest('Missing client_id');
+            throw OidcServerException::invalidRequest(
+                ParamsEnum::ClientId->value,
+                'Missing client_id',
+            );
         }
 
         $reponseModeValue = isset($requestParams[ParamsEnum::ResponseMode->value]) ?
@@ -68,18 +72,26 @@ class ResponseModeRule extends AbstractRule
         $responseType = isset($requestParams[ParamsEnum::ResponseType->value]) ?
         (string)$requestParams[ParamsEnum::ResponseType->value] : 'code';
         if (!$reponseModeValue) {
-            $reponseModeValue = str_contains($responseType, 'token') ? 'fragment' : 'query';
+            $reponseModeValue = str_contains($responseType, 'token') ?
+            ResponseModesEnum::Fragment->value : ResponseModesEnum::Query->value;
         }
 
         // Verify if response_mode is one of 'query', 'fragment', 'form_post'
         if (
             !in_array(
                 $reponseModeValue,
-                ['query', 'fragment', 'form_post'],
+                [
+                    ResponseModesEnum::Query->value,
+                    ResponseModesEnum::Fragment->value,
+                    ResponseModesEnum::FormPost->value,
+                ],
                 true,
             )
         ) {
-            throw OidcServerException::invalidRequest('Invalid response_mode');
+            throw OidcServerException::invalidRequest(
+                ParamsEnum::ResponseMode->value,
+                'Invalid response_mode',
+            );
         }
 
         // Validate whether response_mode is allowed by client configuration
@@ -98,17 +110,20 @@ class ResponseModeRule extends AbstractRule
 
         // Resolve ResponseModeStrategy
         switch ($reponseModeValue) {
-            case 'query':
+            case ResponseModesEnum::Query->value:
                 $responseMode = $this->queryResponseMode;
                 break;
-            case 'fragment':
+            case ResponseModesEnum::Fragment->value:
                 $responseMode = $this->fragmentResponseMode;
                 break;
-            case 'form_post':
+            case ResponseModesEnum::FormPost->value:
                 $responseMode = $this->formPostResponseMode;
                 break;
             default:
-                throw OidcServerException::invalidRequest('Unsupported response_mode. How did we get here?');
+                throw OidcServerException::invalidRequest(
+                    ParamsEnum::ResponseMode->value,
+                    'Unsupported response_mode. How did we get here?',
+                );
         }
 
         return new Result($this->getKey(), $responseMode);

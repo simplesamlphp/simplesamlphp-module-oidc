@@ -9,6 +9,7 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
+use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
 
 /**
@@ -100,7 +101,11 @@ class OpMetadataService
             $this->metadata[ClaimsEnum::ClaimsSupported->value] = $claimsSupported;
         }
 
-        $this->metadata[ClaimsEnum::ResponseModesSupported->value] = ['query', 'fragment', 'form_post'];
+        $this->metadata[ClaimsEnum::ResponseModesSupported->value] = [
+            ResponseModesEnum::Query->value,
+            ResponseModesEnum::Fragment->value,
+            ResponseModesEnum::FormPost->value,
+        ];
 
         // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-oauth-20-authorization-serv
         // OPTIONAL

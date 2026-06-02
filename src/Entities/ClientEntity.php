@@ -23,6 +23,7 @@ use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
+use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 
 class ClientEntity implements ClientEntityInterface
 {
@@ -393,14 +394,22 @@ class ClientEntity implements ClientEntityInterface
     {
         if (!is_array($this->extraMetadata)) {
             // Default to allowing all response modes
-            return ['query', 'fragment', 'form_post'];
+            return [
+                ResponseModesEnum::Query->value,
+                ResponseModesEnum::Fragment->value,
+                ResponseModesEnum::FormPost->value,
+            ];
         }
 
         $allowedResponseModes = $this->extraMetadata['allowed_response_modes'] ?? null;
 
         if (!is_array($allowedResponseModes)) {
             // Default to allowing all response modes
-            return ['query', 'fragment', 'form_post'];
+            return [
+                ResponseModesEnum::Query->value,
+                ResponseModesEnum::Fragment->value,
+                ResponseModesEnum::FormPost->value,
+            ];
         }
 
         return $allowedResponseModes;
