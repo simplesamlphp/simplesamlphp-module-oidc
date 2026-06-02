@@ -1,1 +1,1 @@
-document.forms[0].submit();
+document.getElementById('formpost').submit();

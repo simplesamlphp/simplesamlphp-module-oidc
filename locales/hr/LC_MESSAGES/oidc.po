@@ -612,3 +612,15 @@ msgstr "onemogućeno"
 
 msgid "enabled"
 msgstr "omogućeno"
+
+msgid "Submitting..."
+msgstr "Slanje u tijeku..."
+
+msgid "Please wait while we redirect you..."
+msgstr "Molimo pričekajte dok vas preusmjerimo..."
+
+msgid "If you are not redirected automatically, click the button below to continue."
+msgstr "Ako niste automatski preusmjereni, kliknite na gumb ispod za nastavak."
+
+msgid "Continue"
+msgstr "Nastavi"
