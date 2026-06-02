@@ -40,7 +40,10 @@ class ResponseTypeRule extends AbstractRule
             !isset($requestParams[ParamsEnum::ResponseType->value]) ||
             !isset($requestParams[ParamsEnum::ClientId->value])
         ) {
-            throw  OidcServerException::invalidRequest('Missing response_type or client_id');
+            throw OidcServerException::invalidRequest(
+                ParamsEnum::ResponseType->value,
+                'Missing response_type or client_id',
+            );
         }
 
         // TODO v7 consider checking for supported response types, for example, from configuration...
