@@ -150,13 +150,13 @@
             <span class="pure-form-message red-text">{{ form.id_token_signed_response_alg.getError }}</span>
         {% endif %}
 
-        <label for="frm-response_modes_allowed">{{ 'Allowed Response Modes'|trans }}</label>
-        {{ form.response_modes_allowed.control | raw }}
+        <label for="frm-allowed_response_modes">{{ 'Allowed Response Modes'|trans }}</label>
+        {{ form.allowed_response_modes.control | raw }}
         <span class="pure-form-message">
             {% trans %}Allowed response modes for this Client, a selection of 'query', 'fragment' and 'form_post'. Set to 'form_post' only to protect against browser-swapping attacks.{% endtrans %}
         </span>
-        {% if form.response_modes_allowed.hasErrors %}
-            <span class="pure-form-message red-text">{{ form.response_modes_allowed.getError }}</span>
+        {% if form.allowed_response_modes.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.allowed_response_modes.getError }}</span>
         {% endif %}
 
         <br>

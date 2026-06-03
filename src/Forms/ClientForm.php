@@ -19,6 +19,7 @@ namespace SimpleSAML\Module\oidc\Forms;
 use Nette\Forms\Form;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
+use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -281,8 +282,9 @@ class ClientForm extends Form
         $values[ClaimsEnum::IdTokenSignedResponseAlg->value] = empty($idTokenSignedResponseAlg) ?
         null : $idTokenSignedResponseAlg;
 
-        $responseModesAllowed = is_array($values['response_modes_allowed']) ? $values['response_modes_allowed'] : [];
-        $values['response_modes_allowed'] = array_intersect(
+        $responseModesAllowed = is_array($values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES]) ?
+        $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] : [];
+        $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] = array_intersect(
             $responseModesAllowed,
             array_keys($this->getAllowedResponseModesValues()),
         );
@@ -341,8 +343,9 @@ class ClientForm extends Form
             $values['auth_source'] = null;
         }
 
-        $values['response_modes_allowed'] = is_array($values['response_modes_allowed']) ?
-        $values['response_modes_allowed'] : [];
+        $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] = is_array(
+            $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES],
+        ) ? $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] : [];
 
         parent::setDefaults($values, $erase);
 
@@ -434,7 +437,7 @@ class ClientForm extends Form
             ->setPrompt(Translate::noop('-'));
 
         $this->addMultiSelect(
-            'response_modes_allowed',
+            ClientEntity::KEY_ALLOWED_RESPONSE_MODES,
             Translate::noop('Allowed Response Modes'),
             $this->getAllowedResponseModesValues(),
             3,
@@ -451,7 +454,7 @@ class ClientForm extends Form
     {
         $values = $form->getValues(self::TYPE_ARRAY);
         /** @var string[]|null $responseModes */
-        $responseModes = $values['response_modes_allowed'] ?? null;
+        $responseModes = $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] ?? null;
         if (is_array($responseModes)) {
             $allowed = array_keys($this->getAllowedResponseModesValues());
             foreach ($responseModes as $mode) {

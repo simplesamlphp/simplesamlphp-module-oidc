@@ -55,6 +55,7 @@ class ClientEntity implements ClientEntityInterface
     public const string KEY_EXPIRES_AT = 'expires_at';
     public const string KEY_IS_GENERIC = 'is_generic';
     public const string KEY_EXTRA_METADATA = 'extra_metadata';
+    public const string KEY_ALLOWED_RESPONSE_MODES = 'allowed_response_modes';
 
 
     private string $secret;
@@ -401,7 +402,7 @@ class ClientEntity implements ClientEntityInterface
             ];
         }
 
-        $allowedResponseModes = $this->extraMetadata['allowed_response_modes'] ?? null;
+        $allowedResponseModes = $this->extraMetadata[self::KEY_ALLOWED_RESPONSE_MODES] ?? null;
 
         if (!is_array($allowedResponseModes)) {
             // Default to allowing all response modes

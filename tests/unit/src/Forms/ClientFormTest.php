@@ -14,6 +14,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
+use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Forms\ClientForm;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\Helpers;
@@ -81,7 +82,7 @@ class ClientFormTest extends TestCase
             ),
             'expires_at' => null,
             'allowed_origin' => [],
-            'response_modes_allowed' => ['query', 'fragment', 'form_post',],
+            ClientEntity::KEY_ALLOWED_RESPONSE_MODES => ['query', 'fragment', 'form_post',],
         ];
     }
 
