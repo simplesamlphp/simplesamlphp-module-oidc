@@ -153,7 +153,7 @@
         <label for="frm-allowed_response_modes">{{ 'Allowed Response Modes'|trans }}</label>
         {{ form.allowed_response_modes.control | raw }}
         <span class="pure-form-message">
-            {% trans %}Allowed response modes for this Client, a selection of 'query', 'fragment' and 'form_post'. Set to 'form_post' only to protect against browser-swapping attacks.{% endtrans %}
+            {% trans %}Allowed response modes for this Client. Set to 'form_post' only to protect against browser-swapping attacks (if supported by the client).{% endtrans %}
         </span>
         {% if form.allowed_response_modes.hasErrors %}
             <span class="pure-form-message red-text">{{ form.allowed_response_modes.getError }}</span>
