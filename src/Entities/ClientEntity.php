@@ -393,26 +393,17 @@ class ClientEntity implements ClientEntityInterface
 
     public function getAllowedResponseModes(): array
     {
-        if (!is_array($this->extraMetadata)) {
-            // Default to allowing all response modes
-            return [
-                ResponseModesEnum::Query->value,
-                ResponseModesEnum::Fragment->value,
-                ResponseModesEnum::FormPost->value,
-            ];
-        }
-
+        /** @psalm-suppress MixedAssignment */
         $allowedResponseModes = $this->extraMetadata[self::KEY_ALLOWED_RESPONSE_MODES] ?? null;
 
-        if (!is_array($allowedResponseModes)) {
-            // Default to allowing all response modes
-            return [
-                ResponseModesEnum::Query->value,
-                ResponseModesEnum::Fragment->value,
-                ResponseModesEnum::FormPost->value,
-            ];
+        if (is_array($allowedResponseModes)) {
+            return $allowedResponseModes;
         }
 
-        return $allowedResponseModes;
+        return [
+            ResponseModesEnum::Query->value,
+            ResponseModesEnum::Fragment->value,
+            ResponseModesEnum::FormPost->value,
+        ];
     }
 }
