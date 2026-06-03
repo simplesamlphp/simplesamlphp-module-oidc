@@ -109,22 +109,15 @@ class ResponseModeRule extends AbstractRule
         }
 
         // Resolve ResponseModeStrategy
-        switch ($responseModeValue) {
-            case ResponseModesEnum::Query->value:
-                $responseMode = $this->queryResponseMode;
-                break;
-            case ResponseModesEnum::Fragment->value:
-                $responseMode = $this->fragmentResponseMode;
-                break;
-            case ResponseModesEnum::FormPost->value:
-                $responseMode = $this->formPostResponseMode;
-                break;
-            default:
-                throw OidcServerException::invalidRequest(
-                    ParamsEnum::ResponseMode->value,
-                    'Unsupported response_mode. How did we get here?',
-                );
-        }
+        $responseMode = match ($responseModeValue) {
+            ResponseModesEnum::Query->value => $this->queryResponseMode,
+            ResponseModesEnum::Fragment->value => $this->fragmentResponseMode,
+            ResponseModesEnum::FormPost->value => $this->formPostResponseMode,
+            default => throw OidcServerException::invalidRequest(
+                ParamsEnum::ResponseMode->value,
+                'Unsupported response_mode. How did we get here?',
+            ),
+        };
 
         return new Result($this->getKey(), $responseMode);
     }
