@@ -98,6 +98,24 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
             throw OidcServerException::invalidRefreshToken('Refresh token has been revoked');
         }
 
+        // The OIDC Conformance suite checks that the refreshed ID Token's `iat` (issued at)
+        // claim is different from the initial ID Token's `iat`. When running locally in a fast
+        // Docker/WSL environment, the initial exchange and subsequent refresh request can
+        // happen within the same second, resulting in the same `iat` value.
+        // We reconstruct the old token's issue time using its expiration timestamp and TTL.
+        // If the current time is still the same second as the original issuance, we sleep
+        // for 1 second to guarantee the new ID Token gets a different, updated `iat`.
+        if (isset($refreshTokenData['expire_time'])) {
+            $reference = new \DateTimeImmutable();
+            $endTime = $reference->add($this->refreshTokenTTL);
+            $ttlSeconds = $endTime->getTimestamp() - $reference->getTimestamp();
+            $oldIssueTime = ((int)$refreshTokenData['expire_time']) - $ttlSeconds;
+
+            if (time() === $oldIssueTime) {
+                sleep(1);
+            }
+        }
+
         return $refreshTokenData;
     }
 
