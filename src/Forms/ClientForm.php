@@ -25,7 +25,6 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
-use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 use Traversable;
 
 /**
@@ -470,11 +469,8 @@ class ClientForm extends Form
      */
     protected function getAllowedResponseModesValues(): array
     {
-        return [
-            ResponseModesEnum::Query->value => ResponseModesEnum::Query->value,
-            ResponseModesEnum::Fragment->value => ResponseModesEnum::Fragment->value,
-            ResponseModesEnum::FormPost->value => ResponseModesEnum::FormPost->value,
-        ];
+        $supported = $this->moduleConfig->getSupportedResponseModes();
+        return array_combine($supported, $supported);
     }
 
     /**

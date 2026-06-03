@@ -451,6 +451,7 @@ class Container implements ContainerInterface
             new ResponseModeRule(
                 $requestParamsResolver,
                 $helpers,
+                $moduleConfig,
                 $queryResponseMode,
                 $fragmentResponseMode,
                 $formPostResponseMode,

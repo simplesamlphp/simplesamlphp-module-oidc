@@ -10,6 +10,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
@@ -39,6 +40,7 @@ class ResponseModeRuleTest extends TestCase
     protected Stub $queryResponseModeStub;
     protected Stub $fragmentResponseModeStub;
     protected Stub $formPostResponseModeStub;
+    protected Stub $moduleConfigStub;
 
     protected array $requestParams = [
         'client_id' => 'client123',
@@ -61,6 +63,9 @@ class ResponseModeRuleTest extends TestCase
         $this->fragmentResponseModeStub = $this->createStub(FragmentResponseMode::class);
         $this->formPostResponseModeStub = $this->createStub(FormPostResponseMode::class);
 
+        $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
+        $this->moduleConfigStub->method('getSupportedResponseModes')->willReturn(['query', 'fragment', 'form_post']);
+
         $this->resultBag = new ResultBag();
         $this->resultBag->add(new Result(ClientRule::class, $this->clientStub));
         $this->resultBag->add(new Result(ClientRedirectUriRule::class, 'https://example.org/callback'));
@@ -70,6 +75,7 @@ class ResponseModeRuleTest extends TestCase
     protected function sut(
         ?RequestParamsResolver $requestParamsResolver = null,
         ?Helpers $helpers = null,
+        ?ModuleConfig $moduleConfig = null,
         ?QueryResponseMode $queryResponseMode = null,
         ?FragmentResponseMode $fragmentResponseMode = null,
         ?FormPostResponseMode $formPostResponseMode = null,
@@ -77,6 +83,7 @@ class ResponseModeRuleTest extends TestCase
         return new ResponseModeRule(
             $requestParamsResolver ?? $this->requestParamsResolverStub,
             $helpers ?? $this->helpers,
+            $moduleConfig ?? $this->moduleConfigStub,
             $queryResponseMode ?? $this->queryResponseModeStub,
             $fragmentResponseMode ?? $this->fragmentResponseModeStub,
             $formPostResponseMode ?? $this->formPostResponseModeStub,

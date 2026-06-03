@@ -6,6 +6,7 @@ namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
@@ -25,6 +26,7 @@ class ResponseModeRule extends AbstractRule
     public function __construct(
         RequestParamsResolver $requestParamsResolver,
         Helpers $helpers,
+        private readonly ModuleConfig $moduleConfig,
         private readonly QueryResponseMode $queryResponseMode,
         private readonly FragmentResponseMode $fragmentResponseMode,
         private readonly FormPostResponseMode $formPostResponseMode,
@@ -76,15 +78,11 @@ class ResponseModeRule extends AbstractRule
             ResponseModesEnum::Fragment->value : ResponseModesEnum::Query->value;
         }
 
-        // Verify if response_mode is one of 'query', 'fragment', 'form_post'
+        // Verify if response_mode is one of supported response modes
         if (
             !in_array(
                 $responseModeValue,
-                [
-                    ResponseModesEnum::Query->value,
-                    ResponseModesEnum::Fragment->value,
-                    ResponseModesEnum::FormPost->value,
-                ],
+                $this->moduleConfig->getSupportedResponseModes(),
                 true,
             )
         ) {

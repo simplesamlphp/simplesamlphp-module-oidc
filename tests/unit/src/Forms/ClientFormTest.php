@@ -44,6 +44,7 @@ class ClientFormTest extends TestCase
         parent::setUp();
         $this->csrfProtectionMock =  $this->createMock(CsrfProtection::class);
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->moduleConfigMock->method('getSupportedResponseModes')->willReturn(['query', 'fragment', 'form_post']);
         $this->serverRequestMock = $this->createMock(ServerRequest::class);
         $this->sspBridgeMock = $this->createMock(SspBridge::class);
         $this->helpers = new Helpers();

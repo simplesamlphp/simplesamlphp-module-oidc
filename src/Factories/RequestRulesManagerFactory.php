@@ -117,6 +117,7 @@ class RequestRulesManagerFactory
             new ResponseModeRule(
                 $this->requestParamsResolver,
                 $this->helpers,
+                $this->moduleConfig,
                 $this->queryResponseMode,
                 $this->fragmentResponseMode,
                 $this->formPostResponseMode,
