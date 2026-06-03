@@ -7,8 +7,10 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\ResponseModes;
 use Laminas\Diactoros\Response;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
+use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Server\ResponseModes\FormPostResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\HtmlResponse;
+use SimpleSAML\XHTML\Template;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\ResponseModes\FormPostResponseMode
@@ -24,7 +26,29 @@ class FormPostResponseModeTest extends TestCase
             'module.enable' => ['oidc' => true],
         ], '', 'simplesaml');
 
-        $this->sut = new FormPostResponseMode($config);
+        $template = new Template($config, 'oidc:formpost.twig');
+
+        $templateFactory = $this->createMock(TemplateFactory::class);
+        $templateFactory->method('build')->willReturnCallback(
+            function (
+                string $templateName,
+                array $data = [],
+                ?string $activeHrefPath = null,
+                ?bool $includeDefaultMenuItems = null,
+                ?bool $showMenu = null,
+                ?bool $showModuleName = null,
+                ?bool $showSubPageTitle = null,
+            ) use ($template) {
+                $template->data = array_merge([
+                    'showMenu' => $showMenu ?? false,
+                    'showModuleName' => $showModuleName ?? false,
+                    'showSubpageTitle' => $showSubPageTitle ?? false,
+                ], $data);
+                return $template;
+            },
+        );
+
+        $this->sut = new FormPostResponseMode($templateFactory);
     }
 
     public function testBuildResponseReturnsHtmlWithFormPost(): void

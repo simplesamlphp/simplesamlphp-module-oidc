@@ -430,8 +430,7 @@ class Container implements ContainerInterface
 
         $queryResponseMode = new QueryResponseMode();
         $fragmentResponseMode = new FragmentResponseMode();
-        // FormPostResponseMode renders a template, so it requires the configuration.
-        $formPostResponseMode = new FormPostResponseMode($simpleSAMLConfiguration);
+        $formPostResponseMode = new FormPostResponseMode($templateFactory);
 
         $requestRules = [
             new StateRule($requestParamsResolver, $helpers),
