@@ -62,24 +62,24 @@ class ResponseModeRule extends AbstractRule
             );
         }
 
-        $reponseModeValue = isset($requestParams[ParamsEnum::ResponseMode->value]) ?
+        $responseModeValue = isset($requestParams[ParamsEnum::ResponseMode->value]) ?
         (string)$requestParams[ParamsEnum::ResponseMode->value] : null;
-        $loggerService->debug('ResponseModeRule: response_mode requestParams value: ' . ($reponseModeValue ?? 'null'));
+        $loggerService->debug('ResponseModeRule: response_mode requestParams value: ' . ($responseModeValue ?? 'null'));
 
 
         // if response_mode is not set, we set the default
-        // default to 'code' if not set. Error will be thrown by ResponseTypeRule.
+        //  to 'code' if not set. Error will be thrown by ResponseTypeRule.
         $responseType = isset($requestParams[ParamsEnum::ResponseType->value]) ?
         (string)$requestParams[ParamsEnum::ResponseType->value] : 'code';
-        if (!$reponseModeValue) {
-            $reponseModeValue = str_contains($responseType, 'token') ?
+        if (!$responseModeValue) {
+            $responseModeValue = str_contains($responseType, 'token') ?
             ResponseModesEnum::Fragment->value : ResponseModesEnum::Query->value;
         }
 
         // Verify if response_mode is one of 'query', 'fragment', 'form_post'
         if (
             !in_array(
-                $reponseModeValue,
+                $responseModeValue,
                 [
                     ResponseModesEnum::Query->value,
                     ResponseModesEnum::Fragment->value,
@@ -101,15 +101,15 @@ class ResponseModeRule extends AbstractRule
         $currentResultBag->getOrFail(StateRule::class)->getValue();
 
         $allowedResponseModes = $client->getAllowedResponseModes();
-        if (!in_array($reponseModeValue, $allowedResponseModes, true)) {
+        if (!in_array($responseModeValue, $allowedResponseModes, true)) {
             throw OidcServerException::invalidRequest(
                 'response_mode',
-                'response_mode "' . $reponseModeValue . '" is not allowed for this client',
+                'response_mode "' . $responseModeValue . '" is not allowed for this client',
             );
         }
 
         // Resolve ResponseModeStrategy
-        switch ($reponseModeValue) {
+        switch ($responseModeValue) {
             case ResponseModesEnum::Query->value:
                 $responseMode = $this->queryResponseMode;
                 break;

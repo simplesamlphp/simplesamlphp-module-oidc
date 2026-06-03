@@ -504,7 +504,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $resultBag = $this->requestRulesManager->check(
             $request,
             $rulesToExecute,
-            // TODO: Response mode is not relevant for token request, as there is
+            // Response mode is not relevant for token request, as there is
             // no redirection, but we need to provide something to execute rules.
             new QueryResponseMode(),
             $this->allowedTokenHttpMethods,
