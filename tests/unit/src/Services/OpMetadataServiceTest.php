@@ -53,6 +53,7 @@ class OpMetadataServiceTest extends TestCase
                 return $paths[$path] ?? null;
             });
         $this->moduleConfigMock->method('getAcrValuesSupported')->willReturn(['1']);
+        $this->moduleConfigMock->method('getSupportedResponseModes')->willReturn(['query', 'fragment', 'form_post']);
 
         $this->claimTranslatorExtractorMock = $this->createMock(ClaimTranslatorExtractor::class);
 
