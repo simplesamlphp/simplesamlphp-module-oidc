@@ -11,6 +11,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
@@ -26,7 +27,7 @@ use SimpleSAML\OpenID\Core\RequestObject;
 #[CoversClass(RequestObjectRule::class)]
 class RequestObjectRuleTest extends TestCase
 {
-    protected Stub $clientStub;
+    protected MockObject $clientStub;
     protected Stub $resultBagStub;
     protected MockObject $requestParamsResolverMock;
     protected MockObject $requestObjectMock;
@@ -35,10 +36,11 @@ class RequestObjectRuleTest extends TestCase
     protected MockObject $jwksResolverMock;
     protected Helpers $helpers;
     protected Stub $responseModeStub;
+    protected Stub $moduleConfigStub;
 
     protected function setUp(): void
     {
-        $this->clientStub = $this->createStub(ClientEntityInterface::class);
+        $this->clientStub = $this->createMock(ClientEntityInterface::class);
         $this->resultBagStub = $this->createStub(ResultBag::class);
         $this->resultBagStub->method('getOrFail')->willReturnMap([
             [ClientRule::class, new Result(ClientRule::class, $this->clientStub)],
@@ -52,21 +54,25 @@ class RequestObjectRuleTest extends TestCase
         $this->jwksResolverMock = $this->createMock(JwksResolver::class);
         $this->helpers = new Helpers();
         $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
+        $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
     }
 
     protected function sut(
         ?RequestParamsResolver $requestParamsResolver = null,
         ?Helpers $helpers = null,
         ?JwksResolver $jwksResolver = null,
+        ?ModuleConfig $moduleConfig = null,
     ): RequestObjectRule {
         $requestParamsResolver ??= $this->requestParamsResolverMock;
         $helpers ??= $this->helpers;
         $jwksResolver ??= $this->jwksResolverMock;
+        $moduleConfig ??= $this->moduleConfigStub;
 
         return new RequestObjectRule(
             $requestParamsResolver,
             $helpers,
             $jwksResolver,
+            $moduleConfig,
         );
     }
 
@@ -112,7 +118,8 @@ class RequestObjectRuleTest extends TestCase
         $this->requestObjectMock->method('isProtected')->willReturn(true);
         $this->requestParamsResolverMock->expects($this->once())->method('parseRequestObjectToken')
             ->with('token')->willReturn($this->requestObjectMock);
-        $this->clientStub->expects($this->once())->method('getJwks')->willReturn(null);
+        $this->jwksResolverMock->expects($this->once())->method('forClient')
+            ->with($this->clientStub)->willReturn(null);
 
         $this->expectException(OidcServerException::class);
         $this->sut()->checkRule(
@@ -170,5 +177,46 @@ class RequestObjectRuleTest extends TestCase
         $this->assertInstanceOf(Result::class, $result);
         $this->assertIsArray($result->getValue());
         $this->assertNotEmpty($result->getValue());
+    }
+
+    public function testThrowsWhenGlobalRequireSignedRequestObjectIsEnabled(): void
+    {
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn('token');
+        $this->requestObjectMock->method('isProtected')->willReturn(false);
+        $this->requestParamsResolverMock->expects($this->once())->method('parseRequestObjectToken')
+            ->with('token')->willReturn($this->requestObjectMock);
+
+        $this->moduleConfigStub->method('getRequireSignedRequestObject')->willReturn(true);
+
+        $this->expectException(OidcServerException::class);
+
+        $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBagStub,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        );
+    }
+
+    public function testThrowsWhenClientRequireSignedRequestObjectIsEnabled(): void
+    {
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn('token');
+        $this->requestObjectMock->method('isProtected')->willReturn(false);
+        $this->requestParamsResolverMock->expects($this->once())->method('parseRequestObjectToken')
+            ->with('token')->willReturn($this->requestObjectMock);
+
+        $this->moduleConfigStub->method('getRequireSignedRequestObject')->willReturn(false);
+        $this->clientStub->method('getRequireSignedRequestObject')->willReturn(true);
+
+        $this->expectException(OidcServerException::class);
+
+        $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBagStub,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        );
     }
 }

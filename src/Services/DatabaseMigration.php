@@ -219,6 +219,11 @@ class DatabaseMigration
             $this->version20260218163000();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20260218163000')");
         }
+
+        if (!in_array('20260608130000', $versions, true)) {
+            $this->version20260608130000();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20260608130000')");
+        }
     }
 
     private function versionsTableName(): string
@@ -738,6 +743,30 @@ EOT
 EOT
             ,);
     }
+
+
+    private function version20260608130000(): void
+    {
+        $parTableName = $this->database->applyPrefix('oidc_par');
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $fkParClient = $this->generateIdentifierName([$parTableName, 'client_id'], 'fk');
+
+        $this->database->write(<<< EOT
+        CREATE TABLE $parTableName (
+            request_uri VARCHAR(191) PRIMARY KEY NOT NULL,
+            client_id VARCHAR(191) NOT NULL,
+            parameters TEXT NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            is_consumed BOOLEAN NOT NULL DEFAULT false,
+            CONSTRAINT $fkParClient FOREIGN KEY (client_id)
+                REFERENCES $clientTableName (id) ON DELETE CASCADE
+        )
+EOT
+        ,);
+
+        $this->database->write("CREATE INDEX oidc_par_expires_at_idx ON $parTableName (expires_at)");
+    }
+
 
     /**
      * @param string[] $columnNames

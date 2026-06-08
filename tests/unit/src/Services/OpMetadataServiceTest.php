@@ -48,6 +48,7 @@ class OpMetadataServiceTest extends TestCase
                     RoutesEnum::UserInfo->value => 'http://localhost/userinfo',
                     RoutesEnum::Jwks->value => 'http://localhost/jwks',
                     RoutesEnum::EndSession->value => 'http://localhost/end-session',
+                    RoutesEnum::PushedAuthorizationRequest->value => 'http://localhost/par',
                 ];
 
                 return $paths[$path] ?? null;
@@ -137,7 +138,9 @@ class OpMetadataServiceTest extends TestCase
                 ],
                 'request_parameter_supported' => true,
                 'request_object_signing_alg_values_supported' => ['none', 'RS256'],
-                'request_uri_parameter_supported' => false,
+                'request_uri_parameter_supported' => true,
+                'pushed_authorization_request_endpoint' => 'http://localhost/par',
+                'require_pushed_authorization_requests' => false,
                 'grant_types_supported' => ['authorization_code', 'refresh_token'],
                 'claims_parameter_supported' => true,
                 'acr_values_supported' => ['1'],

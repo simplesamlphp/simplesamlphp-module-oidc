@@ -67,6 +67,7 @@ use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\CodeChallengeVerifiersRepository;
 use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
+use SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
@@ -122,6 +123,7 @@ use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Federation;
 use SimpleSAML\OpenID\Jwks;
 use SimpleSAML\OpenID\Jws;
+use SimpleSAML\OpenID\Utils\RequestUriFetcher;
 use SimpleSAML\Session;
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
 
@@ -281,6 +283,16 @@ class Container implements ContainerInterface
             $clientEntityFactory,
         );
         $this->services[ClientRepository::class] = $clientRepository;
+
+        $pushedAuthorizationRequestRepository = new PushedAuthorizationRequestRepository(
+            $moduleConfig,
+            $database,
+            $protocolCache,
+        );
+        $this->services[PushedAuthorizationRequestRepository::class] = $pushedAuthorizationRequestRepository;
+
+        $requestUriFetcher = $core->requestUriFetcher();
+        $this->services[RequestUriFetcher::class] = $requestUriFetcher;
 
         $userEntityFactory = new UserEntityFactory($helpers);
         $this->services[UserEntityFactory::class] = $userEntityFactory;
@@ -447,7 +459,7 @@ class Container implements ContainerInterface
                 $federationCache,
             ),
             new ClientRedirectUriRule($requestParamsResolver, $helpers, $moduleConfig),
-            new RequestObjectRule($requestParamsResolver, $helpers, $jwksResolver),
+            new RequestObjectRule($requestParamsResolver, $helpers, $jwksResolver, $moduleConfig),
             new ResponseModeRule(
                 $requestParamsResolver,
                 $helpers,
@@ -534,6 +546,7 @@ class Container implements ContainerInterface
             $refreshTokenIssuer,
             $helpers,
             $loggerService,
+            $pushedAuthorizationRequestRepository,
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 
@@ -567,6 +580,7 @@ class Container implements ContainerInterface
             $refreshTokenIssuer,
             $helpers,
             $loggerService,
+            $pushedAuthorizationRequestRepository,
         );
         $this->services[PreAuthCodeGrant::class] = $preAuthCodeGrantFactory->build();
 
@@ -583,6 +597,11 @@ class Container implements ContainerInterface
             $privateKey,
             $this->services[PreAuthCodeGrant::class],
             $loggerService,
+            $pushedAuthorizationRequestRepository,
+            $requestParamsResolver,
+            $jwksResolver,
+            $requestUriFetcher,
+            $core,
         );
         $this->services[AuthorizationServer::class] = $authorizationServerFactory->build();
 

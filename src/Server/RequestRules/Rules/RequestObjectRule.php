@@ -6,6 +6,7 @@ namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
@@ -24,6 +25,7 @@ class RequestObjectRule extends AbstractRule
         RequestParamsResolver $requestParamsResolver,
         Helpers $helpers,
         protected JwksResolver $jwksResolver,
+        protected ModuleConfig $moduleConfig,
     ) {
         parent::__construct($requestParamsResolver, $helpers);
     }
@@ -66,19 +68,31 @@ class RequestObjectRule extends AbstractRule
         // There is no request object already resolved. We will do it now.
         $requestObject = $this->requestParamsResolver->parseRequestObjectToken($requestParam);
 
-        // If request object is not protected (signed), we are allowed to use it as is.
-        if (!$requestObject->isProtected()) {
-            return new Result($this->getKey(), $requestObject->getPayload());
-        }
-
-        // It is protected, we must validate it.
-
+        // If request object is not protected (signed), check if signature is required.
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
         /** @var ?string $stateValue */
         $stateValue = ($currentResultBag->get(StateRule::class))?->getValue();
+
+        if (!$requestObject->isProtected()) {
+            $requireSigned = $this->moduleConfig->getRequireSignedRequestObject() ||
+            $client->getRequireSignedRequestObject();
+            if ($requireSigned) {
+                throw OidcServerException::invalidRequest(
+                    'request',
+                    'Request object must be signed (alg: none is not allowed).',
+                    null,
+                    $redirectUri,
+                    $stateValue,
+                    $responseMode,
+                );
+            }
+            return new Result($this->getKey(), $requestObject->getPayload());
+        }
+
+        // It is protected, we must validate it.
 
         ($jwks = $this->jwksResolver->forClient($client)) || throw OidcServerException::accessDenied(
             'can not validate request object, client JWKS not available',

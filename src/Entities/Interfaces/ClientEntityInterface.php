@@ -83,4 +83,10 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
     public function getExtraMetadata(): array;
     public function getIdTokenSignedResponseAlg(): ?string;
     public function getAllowedResponseModes(): array;
+    public function getRequirePushedAuthorizationRequests(): bool;
+    public function getRequireSignedRequestObject(): bool;
+    /**
+     * @return string[]
+     */
+    public function getRequestUris(): array;
 }

@@ -73,6 +73,8 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
 
     private ?ResponseModeInterface $responseMode = null;
 
+    protected ?string $parRequestUri = null;
+
     public static function fromOAuth2AuthorizationRequest(
         OAuth2AuthorizationRequest $oAuth2authorizationRequest,
     ): AuthorizationRequest {
@@ -302,5 +304,15 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     public function setBoundRedirectUri(?string $boundRedirectUri): void
     {
         $this->boundRedirectUri = $boundRedirectUri;
+    }
+
+    public function getParRequestUri(): ?string
+    {
+        return $this->parRequestUri;
+    }
+
+    public function setParRequestUri(?string $parRequestUri): void
+    {
+        $this->parRequestUri = $parRequestUri;
     }
 }

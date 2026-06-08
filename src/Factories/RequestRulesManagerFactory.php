@@ -113,7 +113,12 @@ class RequestRulesManagerFactory
                 $this->federationCache,
             ),
             new ClientRedirectUriRule($this->requestParamsResolver, $this->helpers, $this->moduleConfig),
-            new RequestObjectRule($this->requestParamsResolver, $this->helpers, $this->jwksResolver),
+            new RequestObjectRule(
+                $this->requestParamsResolver,
+                $this->helpers,
+                $this->jwksResolver,
+                $this->moduleConfig,
+            ),
             new ResponseModeRule(
                 $this->requestParamsResolver,
                 $this->helpers,

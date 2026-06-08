@@ -15,6 +15,8 @@ use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Error\BadRequest;
+use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithRequestRules;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
@@ -25,10 +27,15 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseModeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
+use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\JwksResolver;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use SimpleSAML\OpenID\Core;
+use SimpleSAML\OpenID\Utils\RequestUriFetcher;
 
 class AuthorizationServer extends OAuth2AuthorizationServer
 {
@@ -36,6 +43,13 @@ class AuthorizationServer extends OAuth2AuthorizationServer
     protected ClientRepositoryInterface $clientRepository;
 
     protected RequestRulesManager $requestRulesManager;
+
+    protected ?PushedAuthorizationRequestRepository $pushedAuthorizationRequestRepository = null;
+    protected ?RequestParamsResolver $requestParamsResolver = null;
+    protected ?JwksResolver $jwksResolver = null;
+    protected ?RequestUriFetcher $requestUriFetcher = null;
+    protected ?Core $core = null;
+    protected ?ModuleConfig $moduleConfig = null;
 
     /**
      * @var \League\OAuth2\Server\CryptKey
@@ -55,6 +69,12 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         ?ResponseTypeInterface $responseType = null,
         ?RequestRulesManager $requestRulesManager = null,
         protected readonly ?LoggerService $loggerService = null,
+        ?PushedAuthorizationRequestRepository $pushedAuthorizationRequestRepository = null,
+        ?RequestParamsResolver $requestParamsResolver = null,
+        ?JwksResolver $jwksResolver = null,
+        ?RequestUriFetcher $requestUriFetcher = null,
+        ?Core $core = null,
+        ?ModuleConfig $moduleConfig = null,
     ) {
         parent::__construct(
             $clientRepository,
@@ -71,6 +91,13 @@ class AuthorizationServer extends OAuth2AuthorizationServer
             throw new LogicException('Can not validate request (no RequestRulesManager defined)');
         }
         $this->requestRulesManager = $requestRulesManager;
+
+        $this->pushedAuthorizationRequestRepository = $pushedAuthorizationRequestRepository;
+        $this->requestParamsResolver = $requestParamsResolver;
+        $this->jwksResolver = $jwksResolver;
+        $this->requestUriFetcher = $requestUriFetcher;
+        $this->core = $core;
+        $this->moduleConfig = $moduleConfig;
     }
 
     /**
@@ -83,14 +110,173 @@ class AuthorizationServer extends OAuth2AuthorizationServer
     {
         $this->loggerService?->debug('AuthorizationServer::validateAuthorizationRequest');
 
-        $rulesToExecute = [
-            StateRule::class,
-            ClientRule::class,
-            ClientRedirectUriRule::class,
-            ResponseModeRule::class,
-        ];
-
         try {
+            $queryParams = $request->getQueryParams();
+            $bodyParams = $request->getParsedBody();
+            $params = array_merge($queryParams, is_array($bodyParams) ? $bodyParams : []);
+
+            $requestUri = isset($params['request_uri']) && is_string($params['request_uri']) ?
+            $params['request_uri'] :
+            null;
+            $parRequestUri = null;
+
+            if (is_string($requestUri) && $requestUri !== '') {
+                if (str_starts_with($requestUri, 'urn:ietf:params:oauth:request_uri:')) {
+                    if ($this->pushedAuthorizationRequestRepository === null) {
+                        throw new LogicException('PushedAuthorizationRequestRepository is not configured.');
+                    }
+                    $parEntity = $this->pushedAuthorizationRequestRepository->findByRequestUri($requestUri);
+                    if ($parEntity === null) {
+                        throw OidcServerException::invalidRequest(
+                            'request_uri',
+                            'Pushed authorization request not found or expired.',
+                        );
+                    }
+                    if ($parEntity->isConsumed()) {
+                        throw OidcServerException::invalidRequest(
+                            'request_uri',
+                            'Pushed authorization request has already been consumed.',
+                        );
+                    }
+
+                    $clientId = isset($params['client_id']) && is_string($params['client_id']) ?
+                    $params['client_id'] :
+                    null;
+                    if ($clientId !== null && $clientId !== $parEntity->getClientId()) {
+                        throw OidcServerException::invalidRequest(
+                            'client_id',
+                            'Client ID does not match the pushed authorization request client ID.',
+                        );
+                    }
+
+                    $request = $request->withQueryParams($parEntity->getParameters())->withParsedBody([]);
+                    $parRequestUri = $requestUri;
+                } elseif (str_starts_with(strtolower($requestUri), 'https://')) {
+                    if (
+                        $this->requestParamsResolver === null ||
+                        $this->jwksResolver === null ||
+                        $this->requestUriFetcher === null ||
+                        $this->core === null ||
+                        $this->moduleConfig === null
+                    ) {
+                        throw new LogicException(
+                            'Required dependencies for JAR request_uri fetching are not configured.',
+                        );
+                    }
+
+                    $clientId = isset($params['client_id']) && is_string($params['client_id']) ?
+                    $params['client_id'] :
+                    null;
+                    if (empty($clientId)) {
+                        throw OidcServerException::invalidRequest(
+                            'client_id',
+                            'Client ID is required when using request_uri.',
+                        );
+                    }
+
+
+
+                    $client = $this->clientRepository->getClientEntity($clientId);
+                    if ($client === null) {
+                        throw OidcServerException::invalidRequest('client_id', 'Client not found.');
+                    }
+
+                    if (!$client instanceof \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface) {
+                        throw OidcServerException::invalidRequest(
+                            'request_uri',
+                            'Client is not supported.',
+                        );
+                    }
+
+                    $allowedRequestUris = $client->getRequestUris();
+                    if (!in_array($requestUri, $allowedRequestUris, true)) {
+                        throw OidcServerException::invalidRequest(
+                            'request_uri',
+                            'The request_uri is not registered for this client.',
+                        );
+                    }
+
+                    try {
+                        $jwtString = $this->requestUriFetcher->fetch(
+                            $requestUri,
+                            $this->moduleConfig->getRequestUriTimeout(),
+                            $this->moduleConfig->getRequestUriMaxSizeBytes(),
+                        );
+                    } catch (\Throwable $t) {
+                        throw OidcServerException::invalidRequest(
+                            'request_uri',
+                            'Failed to fetch request_uri: ' . $t->getMessage(),
+                        );
+                    }
+
+                    try {
+                        $requestObject = $this->core->jarRequestObjectFactory()->fromToken($jwtString);
+                        $jwks = $this->jwksResolver->forClient($client);
+                        if ($jwks === null) {
+                            throw new \Exception('Client JWKS not available.');
+                        }
+                        $requestObject->verifyWithKeySet($jwks);
+
+                        if ($requestObject->getClientId() !== $client->getIdentifier()) {
+                            throw new \Exception('client_id claim in request object does not match.');
+                        }
+
+                        $jwtPayload = $requestObject->getPayload();
+                        $mergedParams = array_merge($params, $jwtPayload);
+                        unset($mergedParams['request_uri']);
+                        unset($mergedParams['request']);
+
+                        $request = $request->withQueryParams($mergedParams)->withParsedBody([]);
+                    } catch (\Throwable $t) {
+                        throw OidcServerException::invalidRequest(
+                            'request_uri',
+                            'Invalid Request Object at request_uri: ' . $t->getMessage(),
+                        );
+                    }
+                } else {
+                    throw OidcServerException::invalidRequest(
+                        'request_uri',
+                        'Invalid request_uri scheme/format.',
+                    );
+                }
+            }
+
+            // Check if PAR is required
+            $currentQueryParams = $request->getQueryParams();
+            $currentBodyParams = $request->getParsedBody();
+            $currentParams = array_merge(
+                $currentQueryParams,
+                is_array($currentBodyParams) ? $currentBodyParams : [],
+            );
+            $resolvedClientId = isset($currentParams['client_id']) && is_string($currentParams['client_id']) ?
+            $currentParams['client_id'] :
+            null;
+
+            $parRequired = $this->moduleConfig?->getRequirePushedAuthorizationRequests() ?? false;
+
+            if (is_string($resolvedClientId) && $resolvedClientId !== '') {
+                $resolvedClient = $this->clientRepository->getClientEntity($resolvedClientId);
+                if ($resolvedClient instanceof \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface) {
+                    if ($resolvedClient->getRequirePushedAuthorizationRequests()) {
+                        $parRequired = true;
+                    }
+                }
+            }
+
+            if ($parRequired && $parRequestUri === null) {
+                throw OidcServerException::invalidRequest(
+                    'request_uri',
+                    'Pushed Authorization Request (PAR) is required.',
+                );
+            }
+
+            $rulesToExecute = [
+                StateRule::class,
+                ClientRule::class,
+                ClientRedirectUriRule::class,
+                ResponseModeRule::class,
+            ];
+
             $resultBag = $this->requestRulesManager->check(
                 $request,
                 $rulesToExecute,
@@ -148,7 +334,11 @@ class AuthorizationServer extends OAuth2AuthorizationServer
                     ),
                 );
 
-                return $grantType->validateAuthorizationRequestWithRequestRules($request, $resultBag);
+                $authorizationRequest = $grantType->validateAuthorizationRequestWithRequestRules($request, $resultBag);
+                if ($authorizationRequest instanceof AuthorizationRequest && isset($parRequestUri)) {
+                    $authorizationRequest->setParRequestUri($parRequestUri);
+                }
+                return $authorizationRequest;
             } else {
                 $this->loggerService?->debug(
                     'AuthorizationServer: Grant type can NOT respond to ' .

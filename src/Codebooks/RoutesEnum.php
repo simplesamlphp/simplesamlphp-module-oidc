@@ -49,6 +49,7 @@ enum RoutesEnum: string
 
     // OAuth 2.0 Authorization Server Metadata https://www.rfc-editor.org/rfc/rfc8414.html
     case OAuth2Configuration = '.well-known/oauth-authorization-server';
+    case PushedAuthorizationRequest = 'par';
 
     /*****************************************************************************************************************
      * OpenID Federation

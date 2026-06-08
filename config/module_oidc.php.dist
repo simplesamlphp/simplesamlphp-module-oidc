@@ -121,6 +121,15 @@ $config = [
     ModuleConfig::OPTION_TIMESTAMP_VALIDATION_LEEWAY => 'PT1M',
 
     /**
+     * Pushed Authorization Request (PAR) and Request Object URL (JAR) configurations.
+     */
+    ModuleConfig::OPTION_PAR_REQUEST_URI_TTL => 'PT10M', // PAR request URI expiration TTL (default: 10 minutes)
+    ModuleConfig::OPTION_REQUIRE_PUSHED_AUTHORIZATION_REQUESTS => false, // Require PAR globally (default: false)
+    ModuleConfig::OPTION_REQUIRE_SIGNED_REQUEST_OBJECT => false, // Reject unsigned request objects globally (default: false)
+    ModuleConfig::OPTION_REQUEST_URI_TIMEOUT => 5, // Timeout for fetching request_uri (default: 5 seconds)
+    ModuleConfig::OPTION_REQUEST_URI_MAX_SIZE_BYTES => 102400, // Maximum allowed response size for request_uri in bytes (default: 100KB)
+
+    /**
      * The default authentication source to be used for authentication if the
      * authentication source is not specified on a particular client.
      */

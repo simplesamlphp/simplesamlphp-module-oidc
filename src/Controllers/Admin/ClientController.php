@@ -354,8 +354,17 @@ class ClientController
         $data[ClaimsEnum::IdTokenSignedResponseAlg->value] :
         null;
 
+        $requirePushedAuth = (bool)($data['require_pushed_authorization_requests'] ?? false);
+        $requireSignedReqObj = (bool)($data['require_signed_request_object'] ?? false);
+        /** @var mixed $rawRequestUris */
+        $rawRequestUris = $data['request_uris'] ?? null;
+        $requestUris = is_array($rawRequestUris) ? $rawRequestUris : [];
+
         $extraMetadata = [
             ClaimsEnum::IdTokenSignedResponseAlg->value => $idTokenSignedResponseAlg,
+            'require_pushed_authorization_requests' => $requirePushedAuth,
+            'require_signed_request_object' => $requireSignedReqObj,
+            'request_uris' => $requestUris,
         ];
 
         $allowedResponseModes = is_array($data[ClientEntity::KEY_ALLOWED_RESPONSE_MODES]) ?

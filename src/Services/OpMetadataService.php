@@ -77,7 +77,11 @@ class OpMetadataService
             'none',
             ...$supportedSignatureAlgorithmNames,
         ];
-        $this->metadata[ClaimsEnum::RequestUriParameterSupported->value] = false;
+        $this->metadata[ClaimsEnum::RequestUriParameterSupported->value] = true;
+        $this->metadata[ClaimsEnum::PushedAuthorizationRequestEndpoint->value] =
+        $this->moduleConfig->getModuleUrl(RoutesEnum::PushedAuthorizationRequest->value);
+        $this->metadata[ClaimsEnum::RequirePushedAuthorizationRequests->value] =
+        $this->moduleConfig->getRequirePushedAuthorizationRequests();
 
         $grantTypesSupported = [
             GrantTypesEnum::AuthorizationCode->value,

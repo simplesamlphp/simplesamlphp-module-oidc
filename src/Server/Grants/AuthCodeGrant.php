@@ -36,6 +36,7 @@ use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
+use SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithRequestRules;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\OidcCapableGrantTypeInterface;
@@ -179,6 +180,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         protected RefreshTokenIssuer $refreshTokenIssuer,
         protected Helpers $helpers,
         protected LoggerService $loggerService,
+        protected PushedAuthorizationRequestRepository $pushedAuthorizationRequestRepository,
     ) {
         parent::__construct($authCodeRepository, $refreshTokenRepository, $authCodeTTL);
 
@@ -304,6 +306,11 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             // Do not add anything else to the payload, as it will make it dangerously long to send it as a query
             // parameter. Use storage instead.
         ];
+
+        $parRequestUri = $authorizationRequest->getParRequestUri();
+        if ($parRequestUri !== null) {
+            $this->pushedAuthorizationRequestRepository->consume($parRequestUri);
+        }
 
         $jsonPayload = json_encode($payload, JSON_THROW_ON_ERROR);
 

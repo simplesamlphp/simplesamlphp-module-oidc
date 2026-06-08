@@ -123,6 +123,12 @@ class ModuleConfig
     final public const string OPTION_VCI_SIGNATURE_KEY_PAIRS = 'vci_signature_key_pairs';
     final public const string OPTION_VCI_CREDENTIAL_JSON_LD_CONTEXT = 'vci_credential_json_ld_context';
 
+    final public const string OPTION_PAR_REQUEST_URI_TTL = 'parRequestUriDuration';
+    final public const string OPTION_REQUIRE_PUSHED_AUTHORIZATION_REQUESTS = 'requirePushedAuthorizationRequests';
+    final public const string OPTION_REQUIRE_SIGNED_REQUEST_OBJECT = 'requireSignedRequestObject';
+    final public const string OPTION_REQUEST_URI_TIMEOUT = 'requestUriTimeout';
+    final public const string OPTION_REQUEST_URI_MAX_SIZE_BYTES = 'requestUriMaxSizeBytes';
+
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
             self::KEY_DESCRIPTION => 'openid',
@@ -321,6 +327,33 @@ class ModuleConfig
         return new DateInterval(
             $this->config()->getString(self::OPTION_TOKEN_REFRESH_TOKEN_TTL),
         );
+    }
+
+    public function getParRequestUriTtl(): DateInterval
+    {
+        return new DateInterval(
+            $this->config()->getOptionalString(self::OPTION_PAR_REQUEST_URI_TTL, 'PT10M'),
+        );
+    }
+
+    public function getRequirePushedAuthorizationRequests(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_REQUIRE_PUSHED_AUTHORIZATION_REQUESTS, false);
+    }
+
+    public function getRequireSignedRequestObject(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_REQUIRE_SIGNED_REQUEST_OBJECT, false);
+    }
+
+    public function getRequestUriTimeout(): int
+    {
+        return $this->config()->getOptionalInteger(self::OPTION_REQUEST_URI_TIMEOUT, 5);
+    }
+
+    public function getRequestUriMaxSizeBytes(): int
+    {
+        return $this->config()->getOptionalInteger(self::OPTION_REQUEST_URI_MAX_SIZE_BYTES, 102400);
     }
 
     /**
