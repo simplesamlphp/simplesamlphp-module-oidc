@@ -1,7 +1,9 @@
 {% set showMenu = showMenu ?? false %}
+{% set showModuleName = showModuleName ?? false %}
+{% set showSubpageTitle = showSubpageTitle ?? false %}
 {% set moduleName = 'OIDC'|trans %}
 {% set subPageTitle = subPageTitle ?? '' %}
-{% set pagetitle = 'OIDC' ~ (subPageTitle ? ' | ' ~ subPageTitle : '')  %}
+{% set pagetitle = pagetitle ?? ('OIDC' ~ (subPageTitle ? ' | ' ~ subPageTitle : ''))  %}
 
 {% extends "base.twig" %}
 

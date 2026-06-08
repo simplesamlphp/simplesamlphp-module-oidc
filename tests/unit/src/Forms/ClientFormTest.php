@@ -14,6 +14,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
+use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Forms\ClientForm;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\Helpers;
@@ -43,6 +44,7 @@ class ClientFormTest extends TestCase
         parent::setUp();
         $this->csrfProtectionMock =  $this->createMock(CsrfProtection::class);
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->moduleConfigMock->method('getSupportedResponseModes')->willReturn(['query', 'fragment', 'form_post']);
         $this->serverRequestMock = $this->createMock(ServerRequest::class);
         $this->sspBridgeMock = $this->createMock(SspBridge::class);
         $this->helpers = new Helpers();
@@ -81,6 +83,7 @@ class ClientFormTest extends TestCase
             ),
             'expires_at' => null,
             'allowed_origin' => [],
+            ClientEntity::KEY_ALLOWED_RESPONSE_MODES => ['query', 'fragment', 'form_post',],
         ];
     }
 

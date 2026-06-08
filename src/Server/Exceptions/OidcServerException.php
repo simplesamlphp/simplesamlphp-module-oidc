@@ -6,10 +6,12 @@ namespace SimpleSAML\Module\oidc\Server\Exceptions;
 
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ResponseInterface;
+use SimpleSAML\Module\oidc\Server\ResponseModes\FragmentResponseMode;
+use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\OpenID\Codebooks\ErrorsEnum;
 use Throwable;
 
-use function http_build_query;
 use function json_encode;
 
 class OidcServerException extends OAuthServerException
@@ -37,9 +39,9 @@ class OidcServerException extends OAuthServerException
     protected ?string $redirectUri;
 
     /**
-     * @var bool
+     * @var null|ResponseModeInterface
      */
-    protected bool $useFragmentInHttpResponses = false;
+    protected ?ResponseModeInterface $responseMode = null;
 
     /**
      * Throw a new exception.
@@ -62,12 +64,14 @@ class OidcServerException extends OAuthServerException
         ?string $redirectUri = null,
         ?Throwable $previous = null,
         ?string $state = null,
+        ?ResponseModeInterface $responseMode = null,
     ) {
         parent::__construct($message, $code, $errorType, $httpStatusCode, $hint, $redirectUri, $previous);
 
         $this->httpStatusCode = $httpStatusCode;
         $this->errorType = $errorType;
         $this->redirectUri = $redirectUri;
+        $this->responseMode = $responseMode;
 
         if ($hint !== null) {
             $message .= ' (' . $hint . ')';
@@ -90,20 +94,28 @@ class OidcServerException extends OAuthServerException
      *
      * @param string|null $redirectUri
      * @param string|null $state
-     * @param bool $useFragment Use URI fragment to return error parameters
-     * @return self
+     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface|null $responseMode
+     * @return OidcServerException
      */
     public static function unsupportedResponseType(
         ?string $redirectUri = null,
         ?string $state = null,
-        bool $useFragment = false,
+        ?ResponseModeInterface $responseMode = null,
     ): OidcServerException {
         $errorMessage = 'The response type is not supported by the authorization server.';
         $hint = 'Check that all required parameters have been provided';
 
-        $e = new self($errorMessage, 2, 'unsupported_response_type', 400, $hint, $redirectUri, null, $state);
-        $e->useFragmentInHttpResponses($useFragment);
-        return $e;
+        return new self(
+            $errorMessage,
+            2,
+            'unsupported_response_type',
+            400,
+            $hint,
+            $redirectUri,
+            null,
+            $state,
+            $responseMode,
+        );
     }
 
     /**
@@ -112,19 +124,36 @@ class OidcServerException extends OAuthServerException
      * @param string $scope The bad scope
      * @param string|null $redirectUri An HTTP URI to redirect the user back to
      * @param string|null $state
-     * @param bool $useFragment Use URI fragment to return error parameters
-     * @return static
+     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface|null $responseMode
+     * @return OidcServerException
+     * @psalm-suppress LessSpecificImplementedReturnType
      */
     public static function invalidScope(
         $scope,
         $redirectUri = null,
         ?string $state = null,
-        bool $useFragment = false,
+        ?ResponseModeInterface $responseMode = null,
     ): OidcServerException {
-        // OAuthServerException correctly implements this error, however, it misses state parameter.
-        $e = parent::invalidScope($scope, $redirectUri);
-        $e->setState($state);
-        $e->useFragmentInHttpResponses($useFragment);
+        if (empty($scope)) {
+            $hint = 'Specify a scope in the request or set a default scope';
+        } else {
+            $hint = sprintf(
+                'Check the `%s` scope',
+                htmlspecialchars($scope, ENT_QUOTES, 'UTF-8', false),
+            );
+        }
+
+        $e = new self(
+            'The requested scope is invalid, unknown, or malformed',
+            5,
+            'invalid_scope',
+            400,
+            $hint,
+            $redirectUri,
+            null,
+            $state,
+            $responseMode,
+        );
 
         return $e;
     }
@@ -137,8 +166,9 @@ class OidcServerException extends OAuthServerException
      * @param \Throwable|null $previous
      * @param string|null $redirectUri
      * @param string|null $state
-     * @param bool $useFragment Use URI fragment to return error parameters
-     * @return static
+     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface|null $responseMode
+     * @return OidcServerException
+     * @psalm-suppress LessSpecificImplementedReturnType
      */
     public static function invalidRequest(
         $parameter,
@@ -146,13 +176,12 @@ class OidcServerException extends OAuthServerException
         ?Throwable $previous = null,
         ?string $redirectUri = null,
         ?string $state = null,
-        bool $useFragment = false,
+        ?ResponseModeInterface $responseMode = null,
     ): OidcServerException {
-        $e = parent::invalidRequest($parameter, $hint, $previous);
-        // OAuthServerException misses the ability to set redirectUri for invalid requests, as well as state.
-        $e->setRedirectUri($redirectUri);
-        $e->setState($state);
-        $e->useFragmentInHttpResponses($useFragment);
+        $errorMessage = 'The request is missing a required parameter, includes an invalid parameter value, ' .
+        'includes a parameter more than once, or is otherwise malformed.';
+        $hint = ($hint === null) ? \sprintf('Check the `%s` parameter', $parameter) : $hint;
+        $e = new self($errorMessage, 9, 'invalid_request', 400, $hint, $redirectUri, $previous, $state, $responseMode);
 
         return $e;
     }
@@ -162,19 +191,28 @@ class OidcServerException extends OAuthServerException
      * @param string|null $redirectUri
      * @param \Throwable|null $previous
      * @param string|null $state
-     * @param bool $useFragment Use URI fragment to return error parameters
-     * @return static
+     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface|null $responseMode
+     * @return OidcServerException
+     * @psalm-suppress LessSpecificImplementedReturnType
      */
     public static function accessDenied(
         $hint = null,
         $redirectUri = null,
         ?Throwable $previous = null,
         ?string $state = null,
-        bool $useFragment = false,
+        ?ResponseModeInterface $responseMode = null,
     ): OidcServerException {
-        $e = parent::accessDenied($hint, $redirectUri, $previous);
-        $e->setState($state);
-        $e->useFragmentInHttpResponses($useFragment);
+        $e = new self(
+            'The resource owner or authorization server denied the request.',
+            9,
+            'access_denied',
+            401,
+            $hint,
+            $redirectUri,
+            $previous,
+            $state,
+            $responseMode,
+        );
 
         return $e;
     }
@@ -186,21 +224,20 @@ class OidcServerException extends OAuthServerException
      * @param string|null $redirectUri
      * @param \Throwable|null $previous
      * @param string|null $state
-     * @param bool $useFragment Use URI fragment to return error parameters
+     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface|null $responseMode
      *
-     * @return self
+     * @return OidcServerException
      */
     public static function loginRequired(
         ?string $hint = null,
         ?string $redirectUri = null,
         ?Throwable $previous = null,
         ?string $state = null,
-        bool $useFragment = false,
+        ?ResponseModeInterface $responseMode = null,
     ): OidcServerException {
         $errorMessage = "End-User is not already authenticated.";
 
-        $e = new self($errorMessage, 6, 'login_required', 400, $hint, $redirectUri, $previous, $state);
-        $e->useFragmentInHttpResponses($useFragment);
+        $e = new self($errorMessage, 6, 'login_required', 400, $hint, $redirectUri, $previous, $state, $responseMode);
 
         return $e;
     }
@@ -212,21 +249,30 @@ class OidcServerException extends OAuthServerException
      * @param string|null $redirectUri
      * @param \Throwable|null $previous
      * @param string|null $state
-     * @param bool $useFragment Use URI fragment to return error parameters
+     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface|null $responseMode
      *
-     * @return self
+     * @return OidcServerException
      */
     public static function requestNotSupported(
         ?string $hint = null,
         ?string $redirectUri = null,
         ?Throwable $previous = null,
         ?string $state = null,
-        bool $useFragment = false,
+        ?ResponseModeInterface $responseMode = null,
     ): OidcServerException {
         $errorMessage = "Request object not supported.";
 
-        $e = new self($errorMessage, 7, 'request_not_supported', 400, $hint, $redirectUri, $previous, $state);
-        $e->useFragmentInHttpResponses($useFragment);
+        $e = new self(
+            $errorMessage,
+            7,
+            'request_not_supported',
+            400,
+            $hint,
+            $redirectUri,
+            $previous,
+            $state,
+            $responseMode,
+        );
 
         return $e;
     }
@@ -237,7 +283,7 @@ class OidcServerException extends OAuthServerException
      * @param string|null $hint
      * @param \Throwable|null $previous
      *
-     * @return self
+     * @return OidcServerException
      * @psalm-suppress LessSpecificImplementedReturnType
      */
     public static function invalidRefreshToken($hint = null, ?Throwable $previous = null): OidcServerException
@@ -250,7 +296,7 @@ class OidcServerException extends OAuthServerException
         ?string $redirectUri = null,
         ?Throwable $previous = null,
         ?string $state = null,
-        bool $useFragment = false,
+        ?ResponseModeInterface $responseMode = null,
     ): OidcServerException {
         $errorMessage = 'Trust chain validation failed.';
 
@@ -263,8 +309,8 @@ class OidcServerException extends OAuthServerException
             $redirectUri,
             $previous,
             $state,
+            $responseMode,
         );
-        $e->useFragmentInHttpResponses($useFragment);
 
         return $e;
     }
@@ -361,8 +407,7 @@ class OidcServerException extends OAuthServerException
      * Generate an HTTP response.
      *
      * @param \Psr\Http\Message\ResponseInterface $response
-     * @param bool $useFragment True if errors should be in the URI fragment instead of query string. Note
-     *   that this can also be set using useFragmentInHttpResponses().
+     * @param bool $useFragment
      * @param int $jsonOptions options passed to json_encode
      *
      * @return \Psr\Http\Message\ResponseInterface
@@ -377,16 +422,13 @@ class OidcServerException extends OAuthServerException
 
         $payload = $this->getPayload();
 
+        if ($this->responseMode === null) {
+            // Fallback to useFragment if responseMode is not set
+            $this->responseMode = $useFragment ? new FragmentResponseMode() : new QueryResponseMode();
+        }
+
         if ($this->redirectUri !== null) {
-            $paramSeparator = '?';
-
-            if ($this->useFragmentInHttpResponses || $useFragment) {
-                $paramSeparator = '#';
-            }
-
-            $this->redirectUri .= (!str_contains($this->redirectUri, $paramSeparator)) ? $paramSeparator : '&';
-
-            return $response->withStatus(302)->withHeader('Location', $this->redirectUri . http_build_query($payload));
+            return $this->responseMode->buildResponse($this->redirectUri, $payload)->generateHttpResponse($response);
         }
 
         foreach ($headers as $header => $content) {
@@ -398,15 +440,5 @@ class OidcServerException extends OAuthServerException
         $response->getBody()->write($responseBody);
 
         return $response->withStatus($this->getHttpStatusCode());
-    }
-
-    /**
-     * Use URI fragment to return parameters in HTTP redirection error responses
-     *
-     * @param bool $useFragment True if fragment should be used, false otherwise
-     */
-    public function useFragmentInHttpResponses(bool $useFragment): void
-    {
-        $this->useFragmentInHttpResponses = $useFragment;
     }
 }

@@ -100,6 +100,8 @@ class OpMetadataService
             $this->metadata[ClaimsEnum::ClaimsSupported->value] = $claimsSupported;
         }
 
+        $this->metadata[ClaimsEnum::ResponseModesSupported->value] = $this->moduleConfig->getSupportedResponseModes();
+
         // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-oauth-20-authorization-serv
         // OPTIONAL
         // pre-authorized_grant_anonymous_access_supported // TODO mivanci Make configurable

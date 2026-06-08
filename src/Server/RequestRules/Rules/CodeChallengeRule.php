@@ -9,6 +9,8 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
+use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
@@ -17,14 +19,18 @@ class CodeChallengeRule extends AbstractRule
 {
     /**
      * @inheritDoc
+     *
      * @throws \Throwable
+     *
+     * @param ResponseModeInterface $responseMode
+     * @param HttpMethodsEnum[] $allowedServerRequestMethods
      */
     public function checkRule(
         ServerRequestInterface $request,
         ResultBagInterface $currentResultBag,
         LoggerService $loggerService,
         array $data = [],
-        bool $useFragmentInHttpErrorResponses = false,
+        ResponseModeInterface $responseMode = new QueryResponseMode(),
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?ResultInterface {
         $loggerService->debug('CodeChallengeRule::checkRule');
@@ -50,7 +56,7 @@ class CodeChallengeRule extends AbstractRule
                     null,
                     $redirectUri,
                     $state,
-                    $useFragmentInHttpErrorResponses,
+                    $responseMode,
                 );
             }
 
@@ -66,7 +72,7 @@ class CodeChallengeRule extends AbstractRule
                 null,
                 $redirectUri,
                 $state,
-                $useFragmentInHttpErrorResponses,
+                $responseMode,
             );
         }
 

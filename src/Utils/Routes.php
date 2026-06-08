@@ -53,7 +53,7 @@ class Routes
     }
 
     public function newJsonResponse(
-        mixed $data = null,
+        array|null $data = null,
         int $status = 200,
         array $headers = [],
         bool $json = false,

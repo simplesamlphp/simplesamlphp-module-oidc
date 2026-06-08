@@ -564,3 +564,15 @@ msgstr ""
 
 msgid "enabled"
 msgstr ""
+
+msgid "Submitting..."
+msgstr ""
+
+msgid "Please wait while we redirect you..."
+msgstr ""
+
+msgid "If you are not redirected automatically, click the button below to continue."
+msgstr ""
+
+msgid "Continue"
+msgstr ""

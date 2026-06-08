@@ -17,6 +17,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
@@ -36,6 +37,7 @@ class RequiredOpenIdScopeRuleTest extends TestCase
     protected Stub $loggerServiceStub;
     protected Stub $requestParamsResolverStub;
     protected Helpers $helpers;
+    protected Stub $responseModeStub;
 
     /**
      * @throws \Exception
@@ -53,6 +55,7 @@ class RequiredOpenIdScopeRuleTest extends TestCase
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
         $this->helpers = new Helpers();
+        $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
 
     protected function sut(
@@ -76,7 +79,7 @@ class RequiredOpenIdScopeRuleTest extends TestCase
     {
         $resultBag = new ResultBag();
         $this->expectException(LogicException::class);
-        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
+        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, [], $this->responseModeStub);
     }
 
     /**
@@ -88,7 +91,7 @@ class RequiredOpenIdScopeRuleTest extends TestCase
         $resultBag = new ResultBag();
         $resultBag->add($this->redirectUriResult);
         $this->expectException(LogicException::class);
-        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
+        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, [], $this->responseModeStub);
     }
 
     /**
@@ -102,7 +105,13 @@ class RequiredOpenIdScopeRuleTest extends TestCase
         $resultBag->add($this->stateResult);
         $resultBag->add($this->scopeResult);
 
-        $result = $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub) ??
+        $result = $this->sut()->checkRule(
+            $this->requestStub,
+            $resultBag,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        ) ??
         new Result(RequiredOpenIdScopeRule::class, null);
 
         $this->assertTrue($result->getValue());
@@ -123,6 +132,6 @@ class RequiredOpenIdScopeRuleTest extends TestCase
 
         $this->expectException(OidcServerException::class);
 
-        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub);
+        $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, [], $this->responseModeStub);
     }
 }

@@ -239,6 +239,7 @@ class ClientController
 
         $clientData = $originalClient->toArray();
         $clientData['allowed_origin'] = $clientAllowedOrigins;
+        $clientData[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] = $originalClient->getAllowedResponseModes();
 
         // Handle extra metadata
 
@@ -318,7 +319,6 @@ class ClientController
         ?string $owner = null,
         bool $isGeneric = false,
     ): ClientEntityInterface {
-        /** @var array $data */
         $data = $form->getValues('array');
 
         if (
@@ -357,6 +357,10 @@ class ClientController
         $extraMetadata = [
             ClaimsEnum::IdTokenSignedResponseAlg->value => $idTokenSignedResponseAlg,
         ];
+
+        $allowedResponseModes = is_array($data[ClientEntity::KEY_ALLOWED_RESPONSE_MODES]) ?
+        $data[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] : [];
+        $extraMetadata[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] = $allowedResponseModes;
 
         return $this->clientEntityFactory->fromData(
             $identifier,

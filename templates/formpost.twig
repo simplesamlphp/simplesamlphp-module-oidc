@@ -1,0 +1,21 @@
+{% extends "@oidc/base.twig" %}
+
+{% set pagetitle = 'Submitting...'|trans %}
+
+{% block oidcContent %}
+    <p>{{ 'Please wait while we redirect you...'|trans }}</p>
+    <form id="formpost" method="post" action="{{ redirectUri }}">
+        {% for name, value in params %}
+            <input type="hidden" name="{{ name }}" value="{{ value }}">
+        {% endfor %}
+        <noscript>
+            <p>{{ 'If you are not redirected automatically, click the button below to continue.'|trans }}</p>
+            <button type="submit" class="pure-button pure-button-primary">{{ 'Continue'|trans }}</button>
+        </noscript>
+    </form>
+{% endblock %}
+
+{% block postload %}
+    {{ parent() }}
+    <script src="{{ asset('js/src/formpost.js', 'oidc') }}"></script>
+{% endblock %}

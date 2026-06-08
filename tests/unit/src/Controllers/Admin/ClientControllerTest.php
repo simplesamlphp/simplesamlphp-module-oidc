@@ -11,6 +11,7 @@ use SimpleSAML\Module\oidc\Admin\Authorization;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Controllers\Admin\ClientController;
+use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Exceptions\OidcException;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
@@ -82,6 +83,7 @@ class ClientControllerTest extends TestCase
         ],
         'jwks_uri' => 'https://example.com/jwks',
         'signed_jwks_uri' => 'https://example.com/signed-jwks',
+        ClientEntity::KEY_ALLOWED_RESPONSE_MODES => ['query', 'fragment', 'form_post'],
     ];
 
     protected function setUp(): void

@@ -23,6 +23,7 @@ use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
+use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 
 class ClientEntity implements ClientEntityInterface
 {
@@ -54,6 +55,7 @@ class ClientEntity implements ClientEntityInterface
     public const string KEY_EXPIRES_AT = 'expires_at';
     public const string KEY_IS_GENERIC = 'is_generic';
     public const string KEY_EXTRA_METADATA = 'extra_metadata';
+    public const string KEY_ALLOWED_RESPONSE_MODES = 'allowed_response_modes';
 
 
     private string $secret;
@@ -387,5 +389,21 @@ class ClientEntity implements ClientEntityInterface
         }
 
         return $idTokenSignedResponseAlg;
+    }
+
+    public function getAllowedResponseModes(): array
+    {
+        /** @psalm-suppress MixedAssignment */
+        $allowedResponseModes = $this->extraMetadata[self::KEY_ALLOWED_RESPONSE_MODES] ?? null;
+
+        if (is_array($allowedResponseModes)) {
+            return $allowedResponseModes;
+        }
+
+        return [
+            ResponseModesEnum::Query->value,
+            ResponseModesEnum::Fragment->value,
+            ResponseModesEnum::FormPost->value,
+        ];
     }
 }
