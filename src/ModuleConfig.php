@@ -24,6 +24,7 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 use SimpleSAML\OpenID\Codebooks\ScopesEnum;
 use SimpleSAML\OpenID\Codebooks\TrustMarkStatusEndpointUsagePolicyEnum;
 use SimpleSAML\OpenID\Serializers\JwsSerializerBag;
@@ -363,6 +364,18 @@ class ModuleConfig
                 JwsSerializerEnum::Compact,
             ),
         );
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getSupportedResponseModes(): array
+    {
+        return [
+            ResponseModesEnum::Query->value,
+            ResponseModesEnum::Fragment->value,
+            ResponseModesEnum::FormPost->value,
+        ];
     }
 
     /**

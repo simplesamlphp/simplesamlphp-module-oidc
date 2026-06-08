@@ -12,6 +12,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\RequestRuleInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 
 /**
@@ -122,6 +123,7 @@ class RequestRulesManagerTest extends TestCase
                 $this->isInstanceOf(ResultBagInterface::class),
                 $this->isInstanceOf(LoggerService::class),
                 $this->arrayHasKey($this->key),
+                $this->isInstanceOf(ResponseModeInterface::class),
             );
 
         $requestRulesManager->add($ruleMock);

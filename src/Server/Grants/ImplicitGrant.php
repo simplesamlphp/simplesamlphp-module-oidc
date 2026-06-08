@@ -7,7 +7,6 @@ namespace SimpleSAML\Module\oidc\Server\Grants;
 use DateInterval;
 use League\OAuth2\Server\Grant\ImplicitGrant as OAuth2ImplicitGrant;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
-use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
@@ -32,10 +31,12 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredNonceRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseModeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
+use SimpleSAML\Module\oidc\Server\ResponseModes\FragmentResponseMode;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
@@ -62,10 +63,9 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         AccessTokenRepositoryInterface $accessTokenRepository,
         protected RequestRulesManager $requestRulesManager,
         protected RequestParamsResolver $requestParamsResolver,
-        protected string $queryDelimiter,
         AccessTokenEntityFactory $accessTokenEntityFactory,
     ) {
-        parent::__construct($accessTokenTTL, $queryDelimiter);
+        parent::__construct($accessTokenTTL);
 
         $this->accessTokenRepository = $accessTokenRepository;
         $this->accessTokenEntityFactory = $accessTokenEntityFactory;
@@ -143,6 +143,8 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         $state = $resultBag->getOrFail(StateRule::class)->getValue();
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $resultBag->getOrFail(ClientRule::class)->getValue();
+        /** @var \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode */
+        $responseMode = $resultBag->getOrFail(ResponseModeRule::class)->getValue();
 
         // Some rules need certain things available in order to work properly...
         $this->requestRulesManager->setData('default_scope', $this->defaultScope);
@@ -151,7 +153,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         $resultBag = $this->requestRulesManager->check(
             $request,
             $rulesToExecute,
-            $this->shouldUseFragment(),
+            $responseMode,
             $this->allowedAuthorizationHttpMethods,
         );
 
@@ -195,6 +197,10 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         $acrValues = $resultBag->getOrFail(AcrValuesRule::class)->getValue();
         $authorizationRequest->setRequestedAcrValues($acrValues);
 
+        /** @var \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode */
+        $responseMode = $resultBag->getOrFail(ResponseModeRule::class)->getValue();
+        $authorizationRequest->setResponseMode($responseMode);
+
         return $authorizationRequest;
     }
 
@@ -220,7 +226,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
                 $redirectUrl,
                 null,
                 $authorizationRequest->getState(),
-                $this->shouldUseFragment(),
+                $authorizationRequest->getResponseMode(),
             );
         }
 
@@ -274,14 +280,10 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
 
         $responseParams['id_token'] = $idToken->getToken();
 
-        $response = new RedirectResponse();
-
-        $response->setRedirectUri(
-            $this->makeRedirectUri(
-                $redirectUrl,
-                $responseParams,
-                $this->queryDelimiter,
-            ),
+        $responseMode = $authorizationRequest->getResponseMode() ?? new FragmentResponseMode();
+        $response = $responseMode->buildResponse(
+            $redirectUrl,
+            $responseParams,
         );
 
         return $response;
@@ -300,15 +302,5 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         }
 
         return $redirectUris;
-    }
-
-    /**
-     * Check if fragment should be used for params transportation in HTTP responses
-     *
-     * @return bool
-     */
-    protected function shouldUseFragment(): bool
-    {
-        return $this->queryDelimiter === '#';
     }
 }

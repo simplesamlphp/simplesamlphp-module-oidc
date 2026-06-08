@@ -12,6 +12,7 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
@@ -49,6 +50,7 @@ class ResponseTypeRuleTest extends TestCase
     private ResultBag $resultBag;
 
     protected Stub $loggerServiceStub;
+    protected Stub $responseModeStub;
 
     /**
      * @throws \Exception
@@ -61,6 +63,7 @@ class ResponseTypeRuleTest extends TestCase
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
         $this->helpers = new Helpers();
+        $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
 
     protected function sut(
@@ -84,7 +87,13 @@ class ResponseTypeRuleTest extends TestCase
     {
         $this->requestParams['response_type'] = $responseType;
         $this->requestParamsResolverStub->method('getAllBasedOnAllowedMethods')->willReturn($this->requestParams);
-        $result = $this->sut()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub) ??
+        $result = $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBag,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        ) ??
         new Result(ResponseTypeRule::class, null);
         $this->assertSame($responseType, $result->getValue());
     }
@@ -103,6 +112,12 @@ class ResponseTypeRuleTest extends TestCase
         unset($params['response_type']);
         $this->requestParamsResolverStub->method('getAllBasedOnAllowedMethods')->willReturn($params);
         $this->expectException(OidcServerException::class);
-        $this->sut()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
+        $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBag,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        );
     }
 }

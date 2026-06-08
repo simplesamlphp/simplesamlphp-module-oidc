@@ -11,6 +11,7 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
@@ -24,6 +25,7 @@ class UiLocalesRuleTest extends TestCase
     protected Stub $loggerServiceStub;
     protected Stub $requestParamsResolverStub;
     protected Helpers $helpers;
+    protected Stub $responseModeStub;
 
     /**
      * @throws \Exception
@@ -37,6 +39,7 @@ class UiLocalesRuleTest extends TestCase
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
         $this->helpers = new Helpers();
+        $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
 
     protected function sut(
@@ -59,7 +62,13 @@ class UiLocalesRuleTest extends TestCase
     {
         $this->requestParamsResolverStub->method('getBasedOnAllowedMethods')->willReturn('en');
 
-        $result = $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
+        $result = $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBagStub,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        ) ??
         new Result(UiLocalesRule::class);
 
         $this->assertEquals('en', $result->getValue());
@@ -72,7 +81,13 @@ class UiLocalesRuleTest extends TestCase
     {
         $this->requestStub->method('getQueryParams')->willReturn([]);
 
-        $result = $this->sut()->checkRule($this->requestStub, $this->resultBagStub, $this->loggerServiceStub) ??
+        $result = $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBagStub,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        ) ??
         new Result(UiLocalesRule::class);
 
         $this->assertNull($result->getValue());

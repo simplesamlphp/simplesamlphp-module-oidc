@@ -15,6 +15,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
@@ -33,6 +34,7 @@ class RequestedClaimsRuleTest extends TestCase
     protected Stub $requestParamsResolverStub;
     protected Stub $claimSetEntityFactoryStub;
     protected Helpers $helpers;
+    protected Stub $responseModeStub;
 
 
     /**
@@ -57,6 +59,7 @@ class RequestedClaimsRuleTest extends TestCase
             });
 
         $this->helpers = new Helpers();
+        $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
 
     protected function sut(
@@ -80,7 +83,13 @@ class RequestedClaimsRuleTest extends TestCase
      */
     public function testNoRequestedClaims(): void
     {
-        $result = $this->sut()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
+        $result = $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBag,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        );
         $this->assertNull($result);
     }
 
@@ -113,7 +122,13 @@ class RequestedClaimsRuleTest extends TestCase
 
         $this->requestParamsResolverStub->method('getBasedOnAllowedMethods')->willReturn(json_encode($requestedClaims));
 
-        $result = $this->sut()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
+        $result = $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBag,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        );
         $this->assertNotNull($result);
         $this->assertEquals($expectedClaims, $result->getValue());
     }
@@ -132,7 +147,13 @@ class RequestedClaimsRuleTest extends TestCase
         $requestedClaims = $expectedClaims;
         $this->requestParamsResolverStub->method('getBasedOnAllowedMethods')->willReturn(json_encode($requestedClaims));
 
-        $result = $this->sut()->checkRule($this->requestStub, $this->resultBag, $this->loggerServiceStub);
+        $result = $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBag,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        );
         $this->assertNotNull($result);
         $this->assertEquals($expectedClaims, $result->getValue());
     }

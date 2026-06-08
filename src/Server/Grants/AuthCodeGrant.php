@@ -17,7 +17,7 @@ use League\OAuth2\Server\Grant\AuthCodeGrant as OAuth2AuthCodeGrant;
 use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface as OAuth2AuthCodeRepositoryInterface;
 use League\OAuth2\Server\RequestEvent;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
-use League\OAuth2\Server\ResponseTypes\RedirectResponse;
+use League\OAuth2\Server\ResponseTypes\AbstractResponseType;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
@@ -59,10 +59,12 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseModeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeOfflineAccessRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
+use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AcrResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
@@ -255,7 +257,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      */
     public function completeOidcAuthorizationRequest(
         AuthorizationRequest $authorizationRequest,
-    ): RedirectResponse {
+    ): AbstractResponseType {
         $user = $authorizationRequest->getUser();
         if ($user instanceof UserEntity === false) {
             throw new LogicException('An instance of UserEntity should be set on the ' .
@@ -272,6 +274,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                 $finalRedirectUri,
                 null,
                 $authorizationRequest->getState(),
+                $authorizationRequest->getResponseMode(),
             );
         }
 
@@ -304,15 +307,13 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         $jsonPayload = json_encode($payload, JSON_THROW_ON_ERROR);
 
-        $response = new RedirectResponse();
-        $response->setRedirectUri(
-            $this->makeRedirectUri(
-                $finalRedirectUri,
-                [
-                    'code'  => $this->encrypt($jsonPayload),
-                    'state' => $authorizationRequest->getState(),
-                ],
-            ),
+        $responseMode = $authorizationRequest->getResponseMode() ?? new QueryResponseMode();
+        $response = $responseMode->buildResponse(
+            $finalRedirectUri,
+            [
+                'code'  => $this->encrypt($jsonPayload),
+                'state' => $authorizationRequest->getState(),
+            ],
         );
 
         return $response;
@@ -503,7 +504,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $resultBag = $this->requestRulesManager->check(
             $request,
             $rulesToExecute,
-            false,
+            // Response mode is not relevant for token request, as there is
+            // no redirection, but we need to provide something to execute rules.
+            new QueryResponseMode(),
             $this->allowedTokenHttpMethods,
         );
 
@@ -770,6 +773,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $state = $resultBag->getOrFail(StateRule::class)->getValue();
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $resultBag->getOrFail(ClientRule::class)->getValue();
+        /** @var \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode */
+        $responseMode = $resultBag->getOrFail(ResponseModeRule::class)->getValue();
 
         $this->loggerService->debug('AuthCodeGrant: Resolved data:', [
             'redirectUri' => $redirectUri,
@@ -784,7 +789,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $resultBag = $this->requestRulesManager->check(
             $request,
             $rulesToExecute,
-            false,
+            $responseMode,
             $this->allowedAuthorizationHttpMethods,
         );
 
@@ -901,6 +906,14 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             ['authorizationDetails' => $authorizationDetails],
         );
         $authorizationRequest->setAuthorizationDetails($authorizationDetails);
+
+        /** @var \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode */
+        $responseMode = $resultBag->getOrFail(ResponseModeRule::class)->getValue();
+        $this->loggerService->debug(
+            'AuthCodeGrant: Response mode: ',
+            ['responseMode' => $responseMode],
+        );
+        $authorizationRequest->setResponseMode($responseMode);
 
         // TODO This is a band-aid fix for having credential claims in the userinfo endpoint when
         // only VCI authorizationDetails are supplied. This requires configuring a matching OIDC scope

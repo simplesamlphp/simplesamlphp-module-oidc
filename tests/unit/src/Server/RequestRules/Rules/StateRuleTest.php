@@ -11,6 +11,7 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
@@ -23,6 +24,7 @@ class StateRuleTest extends TestCase
     protected Stub $loggerServiceStub;
     protected Stub $requestParamsResolverStub;
     protected Helpers $helpers;
+    protected Stub $responseModeStub;
 
     /**
      * @throws \Exception
@@ -32,6 +34,7 @@ class StateRuleTest extends TestCase
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
         $this->helpers = new Helpers();
+        $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
 
     protected function sut(
@@ -65,7 +68,13 @@ class StateRuleTest extends TestCase
 
         $resultBag = new ResultBag();
         $data = [];
-        $result = $this->sut()->checkRule($request, $resultBag, $this->loggerServiceStub, $data);
+        $result = $this->sut()->checkRule(
+            $request,
+            $resultBag,
+            $this->loggerServiceStub,
+            $data,
+            $this->responseModeStub,
+        );
 
         $this->assertInstanceOf(ResultInterface::class, $result);
         $this->assertSame($value, $result->getValue());
@@ -85,6 +94,8 @@ class StateRuleTest extends TestCase
             $request,
             $resultBag,
             $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
         );
 
         $this->assertInstanceOf(ResultInterface::class, $result);

@@ -518,3 +518,15 @@ msgstr "uitgeschakeld"
 
 msgid "enabled"
 msgstr "ingeschakeld"
+
+msgid "Submitting..."
+msgstr "Verzenden..."
+
+msgid "Please wait while we redirect you..."
+msgstr "Wacht alstublieft terwijl u wordt doorgestuurd..."
+
+msgid "If you are not redirected automatically, click the button below to continue."
+msgstr "Als u niet automatisch wordt doorgestuurd, klik dan op de onderstaande knop om door te gaan."
+
+msgid "Continue"
+msgstr "Doorgaan"

@@ -19,6 +19,7 @@ namespace SimpleSAML\Module\oidc\Forms;
 use Nette\Forms\Form;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
+use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -76,7 +77,6 @@ class ClientForm extends Form
 
     public function validateRedirectUri(Form $form): void
     {
-        /** @var array $values */
         $values = $form->getValues(self::TYPE_ARRAY);
         /** @var string[] $redirectUris */
         $redirectUris = $values['redirect_uri'] ?? [];
@@ -89,7 +89,6 @@ class ClientForm extends Form
 
     public function validateAllowedOrigin(Form $form): void
     {
-        /** @var array $values */
         $values = $form->getValues(self::TYPE_ARRAY);
         /** @var string[] $allowedOrigins */
         $allowedOrigins = $values['allowed_origin'] ?? [];
@@ -102,7 +101,6 @@ class ClientForm extends Form
 
     public function validatePostLogoutRedirectUri(Form $form): void
     {
-        /** @var array $values */
         $values = $form->getValues(self::TYPE_ARRAY);
         /** @var string[] $postLogoutRedirectUris */
         $postLogoutRedirectUris = $values['post_logout_redirect_uri'] ?? [];
@@ -219,7 +217,6 @@ class ClientForm extends Form
 
     public function getValues(string|object|bool|null $returnType = null, ?array $controls = null): array
     {
-        /** @var array $values */
         $values = parent::getValues(self::TYPE_ARRAY);
 
         // Sanitize redirect_uri and allowed_origin
@@ -284,59 +281,72 @@ class ClientForm extends Form
         $values[ClaimsEnum::IdTokenSignedResponseAlg->value] = empty($idTokenSignedResponseAlg) ?
         null : $idTokenSignedResponseAlg;
 
+        $responseModesAllowed = is_array($values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES]) ?
+        $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] : [];
+        $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] = array_intersect(
+            $responseModesAllowed,
+            array_keys($this->getAllowedResponseModesValues()),
+        );
+
         return $values;
     }
 
     /**
      * @throws \Exception
      */
-    public function setDefaults(object|array $data, bool $erase = false): static
+    public function setDefaults(object|array $values, bool $erase = false): static
     {
-        if (!is_array($data)) {
-            if ($data instanceof Traversable) {
-                $data = iterator_to_array($data);
+        if (!is_array($values)) {
+            if ($values instanceof Traversable) {
+                $values = iterator_to_array($values);
             } else {
-                $data = (array) $data;
+                $values = (array) $values;
             }
         }
 
         /** @var string[] $redirectUris */
-        $redirectUris = is_array($data['redirect_uri']) ? $data['redirect_uri'] : [];
-        $data['redirect_uri'] = implode("\n", $redirectUris);
+        $redirectUris = is_array($values['redirect_uri']) ? $values['redirect_uri'] : [];
+        $values['redirect_uri'] = implode("\n", $redirectUris);
 
         // Allowed origins are only available for public clients (not for confidential clients).
-        if (!$data['is_confidential'] && isset($data['allowed_origin'])) {
+        if (!$values['is_confidential'] && isset($values['allowed_origin'])) {
             /** @var string[] $allowedOrigins */
-            $allowedOrigins = is_array($data['allowed_origin']) ? $data['allowed_origin'] : [];
-            $data['allowed_origin'] = implode("\n", $allowedOrigins);
+            $allowedOrigins = is_array($values['allowed_origin']) ? $values['allowed_origin'] : [];
+            $values['allowed_origin'] = implode("\n", $allowedOrigins);
         } else {
-            $data['allowed_origin'] = '';
+            $values['allowed_origin'] = '';
         }
 
         /** @var string[] $postLogoutRedirectUris */
-        $postLogoutRedirectUris = is_array($data['post_logout_redirect_uri']) ? $data['post_logout_redirect_uri'] : [];
-        $data['post_logout_redirect_uri'] = implode("\n", $postLogoutRedirectUris);
+        $postLogoutRedirectUris = is_array($values['post_logout_redirect_uri']) ?
+        $values['post_logout_redirect_uri'] : [];
+        $values['post_logout_redirect_uri'] = implode("\n", $postLogoutRedirectUris);
 
-        $scopes = is_array($data['scopes']) ? $data['scopes'] : [];
-        $data['scopes'] = array_intersect($scopes, array_keys($this->getScopes()));
+        $scopes = is_array($values['scopes']) ? $values['scopes'] : [];
+        $values['scopes'] = array_intersect($scopes, array_keys($this->getScopes()));
 
-        $data['client_registration_types'] = is_array($data['client_registration_types']) ?
-        array_intersect($data['client_registration_types'], $this->getClientRegistrationTypes()) :
+        $values['client_registration_types'] = is_array($values['client_registration_types']) ?
+        array_intersect($values['client_registration_types'], $this->getClientRegistrationTypes()) :
         [ClientRegistrationTypesEnum::Automatic->value];
 
-        $data['federation_jwks'] = is_array($data['federation_jwks']) ? json_encode($data['federation_jwks']) : null;
+        $values['federation_jwks'] = is_array($values['federation_jwks']) ?
+        json_encode($values['federation_jwks']) : null;
 
-        $data['jwks'] = is_array($data['jwks']) ? json_encode($data['jwks']) : null;
+        $values['jwks'] = is_array($values['jwks']) ? json_encode($values['jwks']) : null;
 
         if (
-            $data['auth_source'] !== null &&
-            (!in_array($data['auth_source'], $this->sspBridge->auth()->source()->getSources()))
+            $values['auth_source'] !== null &&
+            (!in_array($values['auth_source'], $this->sspBridge->auth()->source()->getSources()))
         ) {
             // Possible auth source name change without prior update in clients, resetting.
-            $data['auth_source'] = null;
+            $values['auth_source'] = null;
         }
 
-        parent::setDefaults($data, $erase);
+        $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] = is_array(
+            $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES],
+        ) ? $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] : [];
+
+        parent::setDefaults($values, $erase);
 
         return $this;
     }
@@ -354,6 +364,7 @@ class ClientForm extends Form
         $this->onValidate[] = $this->validateBackChannelLogoutUri(...);
         $this->onValidate[] = $this->validateEntityIdentifier(...);
         $this->onValidate[] = $this->validateClientRegistrationTypes(...);
+        $this->onValidate[] = $this->validateResponseModes(...);
         $this->onValidate[] = $this->validateFederationJwks(...);
         $this->onValidate[] = $this->validateProtocolJwks(...);
         $this->onValidate[] = $this->validateJwksUri(...);
@@ -423,6 +434,43 @@ class ClientForm extends Form
             ->setHtmlAttribute('class', 'full-width')
             ->setItems(['RS256'], false)
             ->setPrompt(Translate::noop('-'));
+
+        $this->addMultiSelect(
+            ClientEntity::KEY_ALLOWED_RESPONSE_MODES,
+            Translate::noop('Allowed Response Modes'),
+            $this->getAllowedResponseModesValues(),
+            3,
+        )->setHtmlAttribute('class', 'full-width')
+         ->setRequired(Translate::noop('At least one response mode is required.'));
+    }
+
+    /**
+     * Validate provided response modes
+     *
+     * @throws \Exception
+     */
+    public function validateResponseModes(Form $form): void
+    {
+        $values = $form->getValues(self::TYPE_ARRAY);
+        /** @var string[]|null $responseModes */
+        $responseModes = $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] ?? null;
+        if (is_array($responseModes)) {
+            $allowed = array_keys($this->getAllowedResponseModesValues());
+            foreach ($responseModes as $mode) {
+                if (!in_array($mode, $allowed, true)) {
+                    $this->addError("Invalid value: $mode");
+                }
+            }
+        }
+    }
+
+    /**
+     * @return string[] map of value => label
+     */
+    protected function getAllowedResponseModesValues(): array
+    {
+        $supported = $this->moduleConfig->getSupportedResponseModes();
+        return array_combine($supported, $supported);
     }
 
     /**

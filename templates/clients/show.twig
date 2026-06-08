@@ -215,6 +215,18 @@
             </tr>
             <tr>
                 <td class="client-col col-property">
+                    {{ 'Allowed response modes'|trans }}
+                </td>
+                <td>
+                    <ul class="disc">
+                        {% for key, response_mode in client.allowedresponsemodes %}
+                            <li>{{ response_mode }}</li>
+                        {% endfor %}
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
                     {{ 'Owner'|trans }}
                 </td>
                 <td>

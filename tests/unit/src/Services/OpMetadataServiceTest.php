@@ -53,6 +53,7 @@ class OpMetadataServiceTest extends TestCase
                 return $paths[$path] ?? null;
             });
         $this->moduleConfigMock->method('getAcrValuesSupported')->willReturn(['1']);
+        $this->moduleConfigMock->method('getSupportedResponseModes')->willReturn(['query', 'fragment', 'form_post']);
 
         $this->claimTranslatorExtractorMock = $this->createMock(ClaimTranslatorExtractor::class);
 
@@ -142,6 +143,7 @@ class OpMetadataServiceTest extends TestCase
                 'acr_values_supported' => ['1'],
                 'backchannel_logout_supported' => true,
                 'backchannel_logout_session_supported' => true,
+                'response_modes_supported' => ['query', 'fragment', 'form_post'],
             ],
             $this->sut()->getMetadata(),
         );

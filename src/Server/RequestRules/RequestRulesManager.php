@@ -9,6 +9,8 @@ use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\RequestRuleInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
+use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
@@ -45,15 +47,16 @@ class RequestRulesManager
 
     /**
      * @param class-string[] $ruleKeysToExecute
-     * @param bool $useFragmentInHttpErrorResponses Indicate that in case of HTTP error responses, params should be
-     * returned in URI fragment instead of query.
+    * @param ResponseModeInterface $responseMode Response mode which will be
+    * used in rules execution, as some rules might need to adjust their
+    * behaviour based on response mode used in request.
      * @param HttpMethodsEnum[] $allowedServerRequestMethods Indicate allowed HTTP methods used for request
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function check(
         ServerRequestInterface $request,
         array $ruleKeysToExecute,
-        bool $useFragmentInHttpErrorResponses = false,
+        ResponseModeInterface $responseMode = new QueryResponseMode(),
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ResultBagInterface {
         foreach ($ruleKeysToExecute as $ruleKey) {
@@ -66,7 +69,7 @@ class RequestRulesManager
                 $this->resultBag,
                 $this->loggerService,
                 $this->data,
-                $useFragmentInHttpErrorResponses,
+                $responseMode,
                 $allowedServerRequestMethods,
             );
 
@@ -97,7 +100,7 @@ class RequestRulesManager
     /**
      * Set data which will be available in each check, using key value pair
      */
-    public function setData(string $key, mixed $value): void
+    public function setData(string $key, string $value): void
     {
         $this->data[$key] = $value;
     }
