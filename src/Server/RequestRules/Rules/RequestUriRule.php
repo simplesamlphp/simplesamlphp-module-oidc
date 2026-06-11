@@ -76,8 +76,9 @@ class RequestUriRule extends AbstractRule
     ): ?ResultInterface {
         $loggerService->debug('RequestUriRule::checkRule');
 
-        // Note: we are intentionally working with raw request params here (not the merged view which includes
-        // params resolved from the request_uri itself).
+        // Note: we are intentionally working with raw request params here
+        // (not the merged view which includes params resolved from the
+        // request_uri itself).
         $requestUri = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
             ParamsEnum::RequestUri->value,
             $request,
@@ -243,8 +244,9 @@ class RequestUriRule extends AbstractRule
             );
         }
 
-        // Make sure the request_uri resolution ran (it is memoized in RequestParamsResolver, so this is
-        // cheap if other rules already triggered it), then grab the resolved Request Object Bag.
+        // Make sure the request_uri resolution ran (it is memoized in
+        // RequestParamsResolver, so this is inexpensive if other rules already
+        // triggered it), then grab the resolved Request Object Bag.
         $this->requestParamsResolver->getAllBasedOnAllowedMethods($request, $allowedServerRequestMethods);
 
         $requestObjectBag = $this->requestParamsResolver->getResolvedRequestUriBag($requestUri);
@@ -256,8 +258,9 @@ class RequestUriRule extends AbstractRule
         }
 
         if (!$this->isOidcAuthorizationRequest($request, $allowedServerRequestMethods)) {
-            // This is a plain OAuth 2.0 authorization request, so JAR (RFC 9101) rules apply: the Request
-            // Object must be a signed JWT containing the Client ID claim.
+            // This is a plain OAuth 2.0 authorization request, so JAR
+            // (RFC 9101) rules apply: the Request Object must be a signed
+            // JWT containing the Client ID claim.
             $requestObject = $requestObjectBag->get(JarRequestObject::class);
             if (!$requestObject instanceof JarRequestObject) {
                 throw OidcServerException::invalidRequest(

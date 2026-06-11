@@ -121,7 +121,8 @@ $config = [
     ModuleConfig::OPTION_TIMESTAMP_VALIDATION_LEEWAY => 'PT1M',
 
     /**
-     * Pushed Authorization Request (PAR) and Request Object URL (JAR) configurations.
+     * Pushed Authorization Request (PAR) and Request Object URL (JAR)
+     * configurations.
      */
     ModuleConfig::OPTION_PAR_REQUEST_URI_TTL => 'PT10M', // PAR request URI expiration TTL (default: 10 minutes)
     ModuleConfig::OPTION_REQUIRE_PUSHED_AUTHORIZATION_REQUESTS => false, // Require PAR globally (default: false)

@@ -29,11 +29,13 @@ abstract class AbstractRule implements RequestRuleInterface
     }
 
     /**
-     * Check if the authorization request is an OpenID Connect request (designated by the openid scope), as
-     * opposed to a plain OAuth 2.0 request. Scope is resolved from all request params, including the ones
+     * Check if the authorization request is an OpenID Connect request
+     * (designated by the openid scope), as opposed to a plain OAuth 2.0
+     * request. Scope is resolved from all request params, including the ones
      * from Request Object / Request URI, if present.
      *
      * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedServerRequestMethods
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      */
     protected function isOidcAuthorizationRequest(
         ServerRequestInterface $request,

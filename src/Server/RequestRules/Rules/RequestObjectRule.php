@@ -60,17 +60,20 @@ class RequestObjectRule extends AbstractRule
             return null;
         }
 
-        // Request param exists. Check if the result bag already has request object resolved. This can happen if the
-        // request object was used as a way to do automatic client registration in OpenID Federation.
+        // Request param exists. Check if the result bag already has a request
+        // object resolved. This can happen if the request object was used as
+        // a way to do automatic client registration in OpenID Federation.
         // @see ClientIdRule
         if ($currentResultBag->has($this->getKey())) {
             $loggerService->debug('Request object has already been resolved, skipping rule ' . $this->getKey());
             return null;
         }
 
-        // There is no request object already resolved. We will do it now. Parse it using all available Request
-        // Object flavors, so we can differentiate between OpenID Connect Core Request Objects (which can be
-        // unsigned) and JAR Request Objects (which must be signed).
+        // There is no request object already resolved. We will do it now.
+        // Parse it using all available Request Object flavors, so we can
+        // differentiate between OpenID Connect Core Request Objects
+        // (which can be unsigned) and JAR Request Objects (which must be
+        // signed).
         $requestObjectBag = $this->requestParamsResolver->parseRequestObjectBag($requestParam);
 
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
@@ -81,8 +84,9 @@ class RequestObjectRule extends AbstractRule
         $stateValue = ($currentResultBag->get(StateRule::class))?->getValue();
 
         if (!$this->isOidcAuthorizationRequest($request, $allowedServerRequestMethods)) {
-            // This is a plain OAuth 2.0 authorization request, so JAR (RFC 9101) rules apply: the Request
-            // Object must be a signed JWT containing the Client ID claim.
+            // This is a plain OAuth 2.0 authorization request, so JAR
+            // (RFC 9101) rules apply: the Request Object must be a signed JWT
+            // containing the Client ID claim.
             $jarRequestObject = $requestObjectBag->get(JarRequestObject::class);
             if (!$jarRequestObject instanceof JarRequestObject) {
                 throw OidcServerException::invalidRequest(
@@ -111,8 +115,9 @@ class RequestObjectRule extends AbstractRule
             return new Result($this->getKey(), $jarRequestObject->getPayload());
         }
 
-        // This is an OpenID Connect authorization request, so OpenID Connect Core rules apply: the Request
-        // Object can be unsigned (unless signature is required by policy).
+        // This is an OpenID Connect authorization request, so OpenID Connect
+        // Core rules apply: the Request Object can be unsigned
+        // (unless policy requires signature).
         $requestObject = $requestObjectBag->get(ConnectRequestObject::class);
         if (!$requestObject instanceof ConnectRequestObject) {
             throw OidcServerException::invalidRequest(

@@ -228,8 +228,8 @@ class RequestParamsResolver
             return [];
         }
 
-        // Using both request and request_uri params is not allowed. Don't resolve anything and let the
-        // RequestUriRule produce the proper error.
+        // Using both request and request_uri params is not allowed. Don't
+        // resolve anything and let the RequestUriRule produce the proper error.
         if (array_key_exists(ParamsEnum::Request->value, $requestParams)) {
             return [];
         }
@@ -337,11 +337,13 @@ class RequestParamsResolver
     }
 
     /**
-     * Parse the Request Object token using all available Request Object flavors (OpenID Connect Core, JAR,
-     * OpenID Federation). The returned bag contains an entry for every flavor for which the token parsed and
-     * passed flavor-specific validation, so it can be used to differentiate between, for example, OpenID
-     * Connect Core Request Objects (which can be unsigned) and JAR Request Objects (which must be signed).
-     * Note that this won't do signature validation.
+     * Parse the Request Object token using all available Request Object flavors
+     * (OpenID Connect Core, JAR, OpenID Federation). The returned bag contains
+     * an entry for every flavor for which the token parsed and passed
+     * flavor-specific validation, so it can be used to differentiate between,
+     * for example, OpenID Connect Core Request Objects (which can be unsigned)
+     * and JAR Request Objects (which must be signed). Note that this won't
+     * do signature validation.
      */
     public function parseRequestObjectBag(string $token): RequestObjectBag
     {
