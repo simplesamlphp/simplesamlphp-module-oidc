@@ -6,24 +6,54 @@ namespace SimpleSAML\Module\oidc\Utils;
 
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Factories\Entities\PushedAuthorizationRequestEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Federation;
+use SimpleSAML\OpenID\RequestObject;
+use SimpleSAML\OpenID\RequestObject\RequestObjectBag;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Resolve authorization params from an HTTP request (based or not based on
- * a used method), and from Request Object param if present.
+ * a used method), from Request Object param if present, and from Request URI
+ * param (Pushed Authorization Request or Request Object by reference) if
+ * present.
  */
 class RequestParamsResolver
 {
+    /**
+     * Resolved request_uri params, keyed by request_uri value.
+     *
+     * @var array<string, mixed[]>
+     */
+    protected array $resolvedRequestUriParams = [];
+
+    /**
+     * Request Object Bags resolved from (fetched) https request_uri values,
+     * keyed by request_uri value.
+     *
+     * @var array<string, ?\SimpleSAML\OpenID\RequestObject\RequestObjectBag>
+     */
+    protected array $resolvedRequestUriBags = [];
+
     public function __construct(
         protected readonly Helpers $helpers,
         protected readonly Core $core,
         protected readonly Federation $federation,
         protected readonly PsrHttpBridge $psrHttpBridge,
+        protected readonly RequestObject $requestObject,
+        protected readonly ModuleConfig $moduleConfig,
+        protected readonly ClientRepository $clientRepository,
+        protected readonly PushedAuthorizationRequestRepository $pushedAuthorizationRequestRepository,
+        protected readonly LoggerService $loggerService,
     ) {
     }
 
@@ -74,6 +104,7 @@ class RequestParamsResolver
         return array_merge(
             $requestParams,
             $this->resolveRequestObjectParams($requestParams),
+            $this->resolveRequestUriParams($requestParams),
         );
     }
 
@@ -94,6 +125,7 @@ class RequestParamsResolver
         return array_merge(
             $requestParams,
             $this->resolveRequestObjectParams($requestParams),
+            $this->resolveRequestUriParams($requestParams),
         );
     }
 
@@ -176,6 +208,121 @@ class RequestParamsResolver
     }
 
     /**
+     * Check if Request URI is present as a request param and resolve its
+     * claims to use them as params. For Pushed Authorization Request URIs
+     * (urn form), params are resolved from the previously pushed (validated)
+     * authorization request. For https Request URIs, the Request Object is
+     * fetched and parsed, but note that this won't do signature validation
+     * of it, nor any policy checks like one-time use or expiration.
+     *
+     * @see \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestUriRule
+     * @return mixed[]
+     */
+    protected function resolveRequestUriParams(array $requestParams): array
+    {
+        if (
+            (!array_key_exists(ParamsEnum::RequestUri->value, $requestParams)) ||
+            (!is_string($requestUri = $requestParams[ParamsEnum::RequestUri->value])) ||
+            ($requestUri === '')
+        ) {
+            return [];
+        }
+
+        // Using both request and request_uri params is not allowed. Don't resolve anything and let the
+        // RequestUriRule produce the proper error.
+        if (array_key_exists(ParamsEnum::Request->value, $requestParams)) {
+            return [];
+        }
+
+        if (array_key_exists($requestUri, $this->resolvedRequestUriParams)) {
+            return $this->resolvedRequestUriParams[$requestUri];
+        }
+
+        if (str_starts_with($requestUri, PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX)) {
+            return $this->resolvedRequestUriParams[$requestUri] =
+            $this->resolvePushedAuthorizationRequestParams($requestUri);
+        }
+
+        if (str_starts_with(strtolower($requestUri), 'https://')) {
+            return $this->resolvedRequestUriParams[$requestUri] =
+            $this->resolveHttpsRequestUriParams($requestUri, $requestParams);
+        }
+
+        return $this->resolvedRequestUriParams[$requestUri] = [];
+    }
+
+    /**
+     * @return mixed[]
+     */
+    protected function resolvePushedAuthorizationRequestParams(string $requestUri): array
+    {
+        try {
+            return $this->pushedAuthorizationRequestRepository->findValid($requestUri)?->getParameters() ?? [];
+        } catch (\Throwable $throwable) {
+            $this->loggerService->warning(
+                'RequestParamsResolver: error resolving pushed authorization request: ' . $throwable->getMessage(),
+                compact('requestUri'),
+            );
+            return [];
+        }
+    }
+
+    /**
+     * Fetch the Request Object from the https Request URI and use its claims as params. The Request URI must be
+     * registered for the client resolved from the client_id request param (it is fetched only in that case).
+     *
+     * @return mixed[]
+     */
+    protected function resolveHttpsRequestUriParams(string $requestUri, array $requestParams): array
+    {
+        $this->resolvedRequestUriBags[$requestUri] = null;
+
+        if (
+            (!array_key_exists(ParamsEnum::ClientId->value, $requestParams)) ||
+            (!is_string($clientId = $requestParams[ParamsEnum::ClientId->value])) ||
+            ($clientId === '')
+        ) {
+            return [];
+        }
+
+        $client = $this->clientRepository->getClientEntity($clientId);
+        if (
+            (!$client instanceof ClientEntityInterface) ||
+            (!in_array($requestUri, $client->getRequestUris(), true))
+        ) {
+            return [];
+        }
+
+        try {
+            $requestObjectBag = $this->requestObject->requestObjectParser()->fromRequestUri(
+                $requestUri,
+                $this->moduleConfig->getRequestUriTimeout(),
+                $this->moduleConfig->getRequestUriMaxSizeBytes(),
+            );
+        } catch (\Throwable $throwable) {
+            $this->loggerService->warning(
+                'RequestParamsResolver: error fetching request object from request_uri: ' . $throwable->getMessage(),
+                compact('requestUri'),
+            );
+            return [];
+        }
+
+        $this->resolvedRequestUriBags[$requestUri] = $requestObjectBag;
+
+        // Use the OpenID Connect Core flavor for (unverified) param resolution, since it is the most lenient
+        // one (signature validation and policy checks are handled in RequestUriRule).
+        return $requestObjectBag->get(Core\RequestObject::class)?->getPayload() ?? [];
+    }
+
+    /**
+     * Get the Request Object Bag resolved from the given (fetched) https request_uri value, if any.
+     */
+    public function getResolvedRequestUriBag(string $requestUri): ?RequestObjectBag
+    {
+        return $this->resolvedRequestUriBags[$requestUri] ?? null;
+    }
+
+    /**
      * Parse the Request Object token according to OpenID Core specification.
      * Note that this won't do signature validation of it.
      *
@@ -187,6 +334,18 @@ class RequestParamsResolver
     public function parseRequestObjectToken(string $token): Core\RequestObject
     {
         return $this->core->requestObjectFactory()->fromToken($token);
+    }
+
+    /**
+     * Parse the Request Object token using all available Request Object flavors (OpenID Connect Core, JAR,
+     * OpenID Federation). The returned bag contains an entry for every flavor for which the token parsed and
+     * passed flavor-specific validation, so it can be used to differentiate between, for example, OpenID
+     * Connect Core Request Objects (which can be unsigned) and JAR Request Objects (which must be signed).
+     * Note that this won't do signature validation.
+     */
+    public function parseRequestObjectBag(string $token): RequestObjectBag
+    {
+        return $this->requestObject->requestObjectParser()->fromToken($token);
     }
 
     /**

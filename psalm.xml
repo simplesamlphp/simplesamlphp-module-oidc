@@ -50,7 +50,6 @@
 
     <!-- Ignore MissingOverrideAttribute -->
     <MissingOverrideAttribute errorLevel="suppress" />
-    <MixedAssignment errorLevel="suppress" />
   </issueHandlers>
 </psalm>
 

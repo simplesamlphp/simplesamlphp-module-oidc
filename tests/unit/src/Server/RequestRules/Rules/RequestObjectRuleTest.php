@@ -23,6 +23,8 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Core\RequestObject;
+use SimpleSAML\OpenID\Jar\RequestObject as JarRequestObject;
+use SimpleSAML\OpenID\RequestObject\RequestObjectBag;
 
 #[CoversClass(RequestObjectRule::class)]
 class RequestObjectRuleTest extends TestCase
@@ -31,6 +33,8 @@ class RequestObjectRuleTest extends TestCase
     protected Stub $resultBagStub;
     protected MockObject $requestParamsResolverMock;
     protected MockObject $requestObjectMock;
+    protected MockObject $jarRequestObjectMock;
+    protected MockObject $requestObjectBagMock;
     protected Stub $requestStub;
     protected Stub $loggerServiceStub;
     protected MockObject $jwksResolverMock;
@@ -41,6 +45,7 @@ class RequestObjectRuleTest extends TestCase
     protected function setUp(): void
     {
         $this->clientStub = $this->createMock(ClientEntityInterface::class);
+        $this->clientStub->method('getIdentifier')->willReturn('client123');
         $this->resultBagStub = $this->createStub(ResultBag::class);
         $this->resultBagStub->method('getOrFail')->willReturnMap([
             [ClientRule::class, new Result(ClientRule::class, $this->clientStub)],
@@ -49,6 +54,9 @@ class RequestObjectRuleTest extends TestCase
         $this->requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
         $this->requestObjectMock = $this->createMock(RequestObject::class);
         $this->requestObjectMock->method('getPayload')->willReturn(['payload']);
+        $this->jarRequestObjectMock = $this->createMock(JarRequestObject::class);
+        $this->jarRequestObjectMock->method('getPayload')->willReturn(['payload']);
+        $this->requestObjectBagMock = $this->createMock(RequestObjectBag::class);
         $this->requestStub = $this->createStub(ServerRequestInterface::class);
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->jwksResolverMock = $this->createMock(JwksResolver::class);
@@ -76,6 +84,33 @@ class RequestObjectRuleTest extends TestCase
         );
     }
 
+    protected function prepareOidcRequest(): void
+    {
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn('token');
+        // OpenID Connect request is designated by the openid scope.
+        $this->requestParamsResolverMock->method('getAsStringBasedOnAllowedMethods')->willReturn('openid');
+        $this->requestObjectBagMock->method('get')
+            ->willReturnMap([
+                [RequestObject::class, $this->requestObjectMock],
+            ]);
+        $this->requestParamsResolverMock->method('parseRequestObjectBag')
+            ->with('token')->willReturn($this->requestObjectBagMock);
+    }
+
+    protected function prepareOAuth2Request(?JarRequestObject $jarRequestObject = null): void
+    {
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn('token');
+        // No openid scope, so this is a plain OAuth 2.0 request (JAR rules apply).
+        $this->requestParamsResolverMock->method('getAsStringBasedOnAllowedMethods')->willReturn('profile');
+        $this->requestObjectBagMock->method('get')
+            ->willReturnMap([
+                [RequestObject::class, $this->requestObjectMock],
+                [JarRequestObject::class, $jarRequestObject],
+            ]);
+        $this->requestParamsResolverMock->method('parseRequestObjectBag')
+            ->with('token')->willReturn($this->requestObjectBagMock);
+    }
+
     public function testCanCreateInstance(): void
     {
         $this->assertInstanceOf(RequestObjectRule::class, $this->sut());
@@ -93,12 +128,10 @@ class RequestObjectRuleTest extends TestCase
         $this->assertNull($result);
     }
 
-    public function testUnprotectedRequestParamCanBeUsed(): void
+    public function testUnprotectedRequestParamCanBeUsedForOidcRequest(): void
     {
-        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn('token');
+        $this->prepareOidcRequest();
         $this->requestObjectMock->method('isProtected')->willReturn(false);
-        $this->requestParamsResolverMock->expects($this->once())->method('parseRequestObjectToken')
-        ->with('token')->willReturn($this->requestObjectMock);
 
         $result = $this->sut()->checkRule(
             $this->requestStub,
@@ -114,10 +147,8 @@ class RequestObjectRuleTest extends TestCase
 
     public function testMissingClientJwksThrows(): void
     {
-        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn('token');
+        $this->prepareOidcRequest();
         $this->requestObjectMock->method('isProtected')->willReturn(true);
-        $this->requestParamsResolverMock->expects($this->once())->method('parseRequestObjectToken')
-            ->with('token')->willReturn($this->requestObjectMock);
         $this->jwksResolverMock->expects($this->once())->method('forClient')
             ->with($this->clientStub)->willReturn(null);
 
@@ -133,12 +164,10 @@ class RequestObjectRuleTest extends TestCase
 
     public function testThrowsForInvalidRequestObject(): void
     {
-        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn('token');
+        $this->prepareOidcRequest();
         $this->requestObjectMock->method('isProtected')->willReturn(true);
         $this->requestObjectMock->expects($this->once())->method('verifyWithKeySet')->with(['jwks'])
         ->willThrowException(OidcServerException::accessDenied());
-        $this->requestParamsResolverMock->expects($this->once())->method('parseRequestObjectToken')
-            ->with('token')->willReturn($this->requestObjectMock);
         $this->jwksResolverMock->expects($this->once())->method('forClient')
             ->with($this->clientStub)
             ->willReturn(['jwks']);
@@ -155,11 +184,9 @@ class RequestObjectRuleTest extends TestCase
 
     public function testReturnsValidRequestObject(): void
     {
-        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn('token');
+        $this->prepareOidcRequest();
         $this->requestObjectMock->method('isProtected')->willReturn(true);
         $this->requestObjectMock->expects($this->once())->method('verifyWithKeySet')->with(['jwks']);
-        $this->requestParamsResolverMock->expects($this->once())->method('parseRequestObjectToken')
-            ->with('token')->willReturn($this->requestObjectMock);
 
         $this->jwksResolverMock->expects($this->once())
             ->method('forClient')
@@ -181,10 +208,8 @@ class RequestObjectRuleTest extends TestCase
 
     public function testThrowsWhenGlobalRequireSignedRequestObjectIsEnabled(): void
     {
-        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn('token');
+        $this->prepareOidcRequest();
         $this->requestObjectMock->method('isProtected')->willReturn(false);
-        $this->requestParamsResolverMock->expects($this->once())->method('parseRequestObjectToken')
-            ->with('token')->willReturn($this->requestObjectMock);
 
         $this->moduleConfigStub->method('getRequireSignedRequestObject')->willReturn(true);
 
@@ -201,10 +226,8 @@ class RequestObjectRuleTest extends TestCase
 
     public function testThrowsWhenClientRequireSignedRequestObjectIsEnabled(): void
     {
-        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn('token');
+        $this->prepareOidcRequest();
         $this->requestObjectMock->method('isProtected')->willReturn(false);
-        $this->requestParamsResolverMock->expects($this->once())->method('parseRequestObjectToken')
-            ->with('token')->willReturn($this->requestObjectMock);
 
         $this->moduleConfigStub->method('getRequireSignedRequestObject')->willReturn(false);
         $this->clientStub->method('getRequireSignedRequestObject')->willReturn(true);
@@ -218,5 +241,61 @@ class RequestObjectRuleTest extends TestCase
             [],
             $this->responseModeStub,
         );
+    }
+
+    public function testThrowsForOAuth2RequestWithNonJarRequestObject(): void
+    {
+        // For example, an unsigned Request Object is not a valid JAR Request Object.
+        $this->prepareOAuth2Request(null);
+
+        $this->expectException(OidcServerException::class);
+
+        $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBagStub,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        );
+    }
+
+    public function testThrowsForOAuth2RequestWithMismatchedClientIdClaim(): void
+    {
+        $this->jarRequestObjectMock->method('getClientId')->willReturn('otherClient');
+        $this->prepareOAuth2Request($this->jarRequestObjectMock);
+
+        $this->expectException(OidcServerException::class);
+
+        $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBagStub,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        );
+    }
+
+    public function testReturnsValidJarRequestObjectForOAuth2Request(): void
+    {
+        $this->jarRequestObjectMock->method('getClientId')->willReturn('client123');
+        $this->jarRequestObjectMock->expects($this->once())->method('verifyWithKeySet')->with(['jwks']);
+        $this->prepareOAuth2Request($this->jarRequestObjectMock);
+
+        $this->jwksResolverMock->expects($this->once())
+            ->method('forClient')
+            ->with($this->clientStub)
+            ->willReturn(['jwks']);
+
+        $result = $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBagStub,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        );
+
+        $this->assertInstanceOf(Result::class, $result);
+        $this->assertIsArray($result->getValue());
+        $this->assertNotEmpty($result->getValue());
     }
 }

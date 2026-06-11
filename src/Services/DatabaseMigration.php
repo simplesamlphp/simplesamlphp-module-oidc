@@ -23,6 +23,7 @@ use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
+use SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
@@ -747,9 +748,10 @@ EOT
 
     private function version20260608130000(): void
     {
-        $parTableName = $this->database->applyPrefix('oidc_par');
+        $parTableName = $this->database->applyPrefix(PushedAuthorizationRequestRepository::TABLE_NAME);
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
         $fkParClient = $this->generateIdentifierName([$parTableName, 'client_id'], 'fk');
+        $idxParExpiresAt = $this->generateIdentifierName([$parTableName, 'expires_at'], 'idx');
 
         $this->database->write(<<< EOT
         CREATE TABLE $parTableName (
@@ -764,7 +766,7 @@ EOT
 EOT
         ,);
 
-        $this->database->write("CREATE INDEX oidc_par_expires_at_idx ON $parTableName (expires_at)");
+        $this->database->write("CREATE INDEX $idxParExpiresAt ON $parTableName (expires_at)");
     }
 
 

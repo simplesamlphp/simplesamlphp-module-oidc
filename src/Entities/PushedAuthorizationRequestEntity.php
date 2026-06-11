@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Entities;
 
 use DateTimeImmutable;
+use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\MementoInterface;
 
 class PushedAuthorizationRequestEntity implements MementoInterface
@@ -57,9 +58,9 @@ class PushedAuthorizationRequestEntity implements MementoInterface
         $this->isConsumed = true;
     }
 
-    public function isExpired(): bool
+    public function isExpired(DateTimeImmutable $now): bool
     {
-        return $this->expiresAt < new DateTimeImmutable();
+        return $this->expiresAt < $now;
     }
 
     /**
@@ -71,7 +72,7 @@ class PushedAuthorizationRequestEntity implements MementoInterface
             'request_uri' => $this->requestUri,
             'client_id' => $this->clientId,
             'parameters' => json_encode($this->parameters, JSON_THROW_ON_ERROR),
-            'expires_at' => $this->expiresAt->format('Y-m-d H:i:s'),
+            'expires_at' => $this->expiresAt->format(DateFormatsEnum::DB_DATETIME->value),
             'is_consumed' => $this->isConsumed,
         ];
     }

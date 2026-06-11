@@ -139,6 +139,7 @@ class OpMetadataServiceTest extends TestCase
                 'request_parameter_supported' => true,
                 'request_object_signing_alg_values_supported' => ['none', 'RS256'],
                 'request_uri_parameter_supported' => true,
+                'require_request_uri_registration' => true,
                 'pushed_authorization_request_endpoint' => 'http://localhost/par',
                 'require_pushed_authorization_requests' => false,
                 'grant_types_supported' => ['authorization_code', 'refresh_token'],

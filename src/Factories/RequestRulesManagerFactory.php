@@ -10,6 +10,7 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\CodeChallengeVerifiersRepository;
+use SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository;
 use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule;
@@ -29,6 +30,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredNonceRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseModeRule;
@@ -74,6 +76,7 @@ class RequestRulesManagerFactory
         private readonly Jwks $jwks,
         private readonly Core $core,
         private readonly AuthenticatedOAuth2ClientResolver $authenticatedOAuth2ClientResolver,
+        private readonly PushedAuthorizationRequestRepository $pushedAuthorizationRequestRepository,
         private readonly ?FederationCache $federationCache = null,
         private readonly ?ProtocolCache $protocolCache = null,
         private readonly QueryResponseMode $queryResponseMode,
@@ -116,6 +119,13 @@ class RequestRulesManagerFactory
             new RequestObjectRule(
                 $this->requestParamsResolver,
                 $this->helpers,
+                $this->jwksResolver,
+                $this->moduleConfig,
+            ),
+            new RequestUriRule(
+                $this->requestParamsResolver,
+                $this->helpers,
+                $this->pushedAuthorizationRequestRepository,
                 $this->jwksResolver,
                 $this->moduleConfig,
             ),

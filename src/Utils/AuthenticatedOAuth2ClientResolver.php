@@ -330,9 +330,12 @@ class AuthenticatedOAuth2ClientResolver
         // OpenID Core spec: The Audience SHOULD be the URL of the Authorization Server's Token Endpoint.
         // OpenID Federation spec: ...the audience of the signed JWT MUST be either the URL of the Authorization
         //     Server's Authorization Endpoint or the Authorization Server's Entity Identifier.
+        // RFC 9126 (PAR): ...the authorization server MUST accept its issuer identifier, token endpoint URL,
+        //     or pushed authorization request endpoint URL as values that identify it as an intended audience.
         $expectedAudience = [
             $this->moduleConfig->getModuleUrl(RoutesEnum::Token->value),
             $this->moduleConfig->getModuleUrl(RoutesEnum::Authorization->value),
+            $this->moduleConfig->getModuleUrl(RoutesEnum::PushedAuthorizationRequest->value),
             $this->moduleConfig->getIssuer(),
         ];
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -18,6 +19,8 @@ use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
+use SimpleSAML\OpenID\Core\RequestObject as ConnectRequestObject;
+use SimpleSAML\OpenID\Jar\RequestObject as JarRequestObject;
 
 class RequestObjectRule extends AbstractRule
 {
@@ -65,10 +68,11 @@ class RequestObjectRule extends AbstractRule
             return null;
         }
 
-        // There is no request object already resolved. We will do it now.
-        $requestObject = $this->requestParamsResolver->parseRequestObjectToken($requestParam);
+        // There is no request object already resolved. We will do it now. Parse it using all available Request
+        // Object flavors, so we can differentiate between OpenID Connect Core Request Objects (which can be
+        // unsigned) and JAR Request Objects (which must be signed).
+        $requestObjectBag = $this->requestParamsResolver->parseRequestObjectBag($requestParam);
 
-        // If request object is not protected (signed), check if signature is required.
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
         /** @var string $redirectUri */
@@ -76,6 +80,52 @@ class RequestObjectRule extends AbstractRule
         /** @var ?string $stateValue */
         $stateValue = ($currentResultBag->get(StateRule::class))?->getValue();
 
+        if (!$this->isOidcAuthorizationRequest($request, $allowedServerRequestMethods)) {
+            // This is a plain OAuth 2.0 authorization request, so JAR (RFC 9101) rules apply: the Request
+            // Object must be a signed JWT containing the Client ID claim.
+            $jarRequestObject = $requestObjectBag->get(JarRequestObject::class);
+            if (!$jarRequestObject instanceof JarRequestObject) {
+                throw OidcServerException::invalidRequest(
+                    'request',
+                    'Request object is not a valid JAR Request Object (note that it must be signed).',
+                    null,
+                    $redirectUri,
+                    $stateValue,
+                    $responseMode,
+                );
+            }
+
+            if ($jarRequestObject->getClientId() !== $client->getIdentifier()) {
+                throw OidcServerException::invalidRequest(
+                    'request',
+                    'Client ID claim in request object does not match the client_id parameter.',
+                    null,
+                    $redirectUri,
+                    $stateValue,
+                    $responseMode,
+                );
+            }
+
+            $this->verifySignature($jarRequestObject, $client, $redirectUri, $stateValue, $responseMode);
+
+            return new Result($this->getKey(), $jarRequestObject->getPayload());
+        }
+
+        // This is an OpenID Connect authorization request, so OpenID Connect Core rules apply: the Request
+        // Object can be unsigned (unless signature is required by policy).
+        $requestObject = $requestObjectBag->get(ConnectRequestObject::class);
+        if (!$requestObject instanceof ConnectRequestObject) {
+            throw OidcServerException::invalidRequest(
+                'request',
+                'Request object is not a valid Request Object.',
+                null,
+                $redirectUri,
+                $stateValue,
+                $responseMode,
+            );
+        }
+
+        // If request object is not protected (signed), check if signature is required.
         if (!$requestObject->isProtected()) {
             $requireSigned = $this->moduleConfig->getRequireSignedRequestObject() ||
             $client->getRequireSignedRequestObject();
@@ -93,7 +143,21 @@ class RequestObjectRule extends AbstractRule
         }
 
         // It is protected, we must validate it.
+        $this->verifySignature($requestObject, $client, $redirectUri, $stateValue, $responseMode);
 
+        return new Result($this->getKey(), $requestObject->getPayload());
+    }
+
+    /**
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    protected function verifySignature(
+        ConnectRequestObject|JarRequestObject $requestObject,
+        ClientEntityInterface $client,
+        string $redirectUri,
+        ?string $stateValue,
+        ResponseModeInterface $responseMode,
+    ): void {
         ($jwks = $this->jwksResolver->forClient($client)) || throw OidcServerException::accessDenied(
             'can not validate request object, client JWKS not available',
             $redirectUri,
@@ -113,7 +177,5 @@ class RequestObjectRule extends AbstractRule
                 $responseMode,
             );
         }
-
-        return new Result($this->getKey(), $requestObject->getPayload());
     }
 }

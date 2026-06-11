@@ -232,9 +232,9 @@ class ClientEntity implements ClientEntityInterface
 
             // Extra metadata
             ClaimsEnum::IdTokenSignedResponseAlg->value => $this->getIdTokenSignedResponseAlg(),
-            'require_pushed_authorization_requests' => $this->getRequirePushedAuthorizationRequests(),
-            'require_signed_request_object' => $this->getRequireSignedRequestObject(),
-            'request_uris' => $this->getRequestUris(),
+            ClaimsEnum::RequirePushedAuthorizationRequests->value => $this->getRequirePushedAuthorizationRequests(),
+            ClaimsEnum::RequireSignedRequestObject->value => $this->getRequireSignedRequestObject(),
+            ClaimsEnum::RequestUris->value => $this->getRequestUris(),
         ];
     }
 
@@ -416,7 +416,7 @@ class ClientEntity implements ClientEntityInterface
             return false;
         }
 
-        return (bool)($this->extraMetadata['require_pushed_authorization_requests'] ?? false);
+        return (bool)($this->extraMetadata[ClaimsEnum::RequirePushedAuthorizationRequests->value] ?? false);
     }
 
     public function getRequireSignedRequestObject(): bool
@@ -425,7 +425,7 @@ class ClientEntity implements ClientEntityInterface
             return false;
         }
 
-        return (bool)($this->extraMetadata['require_signed_request_object'] ?? false);
+        return (bool)($this->extraMetadata[ClaimsEnum::RequireSignedRequestObject->value] ?? false);
     }
 
     /**
@@ -438,7 +438,7 @@ class ClientEntity implements ClientEntityInterface
         }
 
         /** @var mixed $uris */
-        $uris = $this->extraMetadata['request_uris'] ?? null;
+        $uris = $this->extraMetadata[ClaimsEnum::RequestUris->value] ?? null;
         if (!is_array($uris)) {
             return [];
         }

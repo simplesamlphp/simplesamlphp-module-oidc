@@ -78,6 +78,8 @@ class OpMetadataService
             ...$supportedSignatureAlgorithmNames,
         ];
         $this->metadata[ClaimsEnum::RequestUriParameterSupported->value] = true;
+        // The https request_uri values must be pre-registered for the client (request_uris client metadata).
+        $this->metadata[ClaimsEnum::RequireRequestUriRegistration->value] = true;
         $this->metadata[ClaimsEnum::PushedAuthorizationRequestEndpoint->value] =
         $this->moduleConfig->getModuleUrl(RoutesEnum::PushedAuthorizationRequest->value);
         $this->metadata[ClaimsEnum::RequirePushedAuthorizationRequests->value] =

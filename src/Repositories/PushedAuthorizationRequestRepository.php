@@ -13,13 +13,28 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Repositories;
 
-use DateTimeImmutable;
 use PDO;
+use SimpleSAML\Database;
+use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
 use SimpleSAML\Module\oidc\Entities\PushedAuthorizationRequestEntity;
+use SimpleSAML\Module\oidc\Factories\Entities\PushedAuthorizationRequestEntityFactory;
+use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 class PushedAuthorizationRequestRepository extends AbstractDatabaseRepository
 {
     final public const string TABLE_NAME = 'oidc_par';
+
+    public function __construct(
+        ModuleConfig $moduleConfig,
+        Database $database,
+        ?ProtocolCache $protocolCache,
+        protected readonly PushedAuthorizationRequestEntityFactory $pushedAuthorizationRequestEntityFactory,
+        protected readonly Helpers $helpers,
+    ) {
+        parent::__construct($moduleConfig, $database, $protocolCache);
+    }
 
     public function getTableName(): string
     {
@@ -27,74 +42,91 @@ class PushedAuthorizationRequestRepository extends AbstractDatabaseRepository
     }
 
     /**
-     * Persist the PAR entity in the database.
+     * Persist the Pushed Authorization Request entity in the database.
      *
      * @throws \JsonException
      */
     public function persist(PushedAuthorizationRequestEntity $entity): void
     {
-        $state = $entity->getState();
-
         $stmt = "INSERT INTO {$this->getTableName()} (request_uri, client_id, parameters, expires_at, is_consumed) " .
         "VALUES (:request_uri, :client_id, :parameters, :expires_at, :is_consumed)";
 
-        $this->database->write($stmt, [
-            'request_uri' => $state['request_uri'],
-            'client_id' => $state['client_id'],
-            'parameters' => $state['parameters'],
-            'expires_at' => $state['expires_at'],
-            'is_consumed' => $state['is_consumed'] ? 1 : 0,
-        ]);
+        $state = $entity->getState();
+        $state['is_consumed'] = (int)$state['is_consumed'];
+
+        $this->database->write($stmt, $state);
     }
 
     /**
-     * Find PAR entity by request_uri.
+     * Find Pushed Authorization Request entity by request_uri.
      *
+     * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException
+     * @throws \JsonException
      * @throws \Exception
      */
-    public function findByRequestUri(string $requestUri): ?PushedAuthorizationRequestEntity
+    public function find(string $requestUri): ?PushedAuthorizationRequestEntity
     {
         $stmt = $this->database->read(
-            "SELECT client_id, parameters, expires_at, is_consumed " .
-            "FROM {$this->getTableName()} WHERE request_uri = :request_uri LIMIT 1",
+            "SELECT request_uri, client_id, parameters, expires_at, is_consumed " .
+            "FROM {$this->getTableName()} WHERE request_uri = :request_uri",
             ['request_uri' => $requestUri],
         );
 
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$row) {
+        if (!is_array($row = $stmt->fetch(PDO::FETCH_ASSOC))) {
             return null;
         }
 
-        /** @psalm-suppress MixedAssignment */
-        $decoded = json_decode((string)$row['parameters'], true, 512, JSON_THROW_ON_ERROR);
-        $parameters = is_array($decoded) ? $decoded : [];
+        return $this->pushedAuthorizationRequestEntityFactory->fromState($row);
+    }
 
-        return new PushedAuthorizationRequestEntity(
-            requestUri: $requestUri,
-            clientId: (string)$row['client_id'],
-            parameters: $parameters,
-            expiresAt: new DateTimeImmutable((string)$row['expires_at']),
-            isConsumed: (bool)$row['is_consumed'],
+    /**
+     * Find Pushed Authorization Request entity which is not consumed nor expired.
+     *
+     * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException
+     * @throws \JsonException
+     * @throws \Exception
+     */
+    public function findValid(string $requestUri): ?PushedAuthorizationRequestEntity
+    {
+        $entity = $this->find($requestUri);
+
+        if ($entity === null) {
+            return null;
+        }
+
+        if ($entity->isConsumed()) {
+            return null;
+        }
+
+        if ($entity->isExpired($this->helpers->dateTime()->getUtc())) {
+            return null;
+        }
+
+        return $entity;
+    }
+
+    /**
+     * Mark the Pushed Authorization Request as consumed (one-time use). Atomic, so it can be used as a replay
+     * guard: returns true only if this call was the one that consumed it.
+     */
+    public function consume(string $requestUri): bool
+    {
+        $stmt = "UPDATE {$this->getTableName()} SET is_consumed = 1 " .
+        "WHERE request_uri = :request_uri AND is_consumed = 0";
+
+        $affected = $this->database->write($stmt, ['request_uri' => $requestUri]);
+
+        return is_int($affected) && $affected > 0;
+    }
+
+    /**
+     * Delete expired Pushed Authorization Request records.
+     */
+    public function removeExpired(): void
+    {
+        $this->database->write(
+            "DELETE FROM {$this->getTableName()} WHERE expires_at < :now",
+            ['now' => $this->helpers->dateTime()->getUtc()->format(DateFormatsEnum::DB_DATETIME->value)],
         );
-    }
-
-    /**
-     * Mark a PAR record as consumed.
-     */
-    public function consume(string $requestUri): void
-    {
-        $stmt = "UPDATE {$this->getTableName()} SET is_consumed = 1 WHERE request_uri = :request_uri";
-        $this->database->write($stmt, ['request_uri' => $requestUri]);
-    }
-
-    /**
-     * Delete expired PAR records.
-     */
-    public function deleteExpired(DateTimeImmutable $now): int
-    {
-        $stmt = "DELETE FROM {$this->getTableName()} WHERE expires_at < :now";
-        $result = $this->database->write($stmt, ['now' => $now->format('Y-m-d H:i:s')]);
-        return is_int($result) ? $result : 0;
     }
 }

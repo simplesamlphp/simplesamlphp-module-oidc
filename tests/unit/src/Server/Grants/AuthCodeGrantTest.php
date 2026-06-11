@@ -10,10 +10,10 @@ use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
-use SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository;
 use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
@@ -30,7 +30,7 @@ class AuthCodeGrantTest extends TestCase
     protected Stub $refreshTokenRepositoryStub;
     protected DateInterval $authCodeTtl;
     protected Stub $requestRulesManagerStub;
-    protected Stub $pushedAuthorizationRequestRepositoryStub;
+    protected Stub $moduleConfigStub;
     protected Stub $requestParamsResolverStub;
     protected Stub $accessTokenEntityFactoryStub;
     protected Stub $authCodeEntityFactoryStub;
@@ -48,9 +48,7 @@ class AuthCodeGrantTest extends TestCase
         $this->refreshTokenRepositoryStub = $this->createStub(RefreshTokenRepositoryInterface::class);
         $this->authCodeTtl = new DateInterval('PT1M');
         $this->requestRulesManagerStub = $this->createStub(RequestRulesManager::class);
-        $this->pushedAuthorizationRequestRepositoryStub = $this->createStub(
-            PushedAuthorizationRequestRepository::class,
-        );
+        $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
         $this->accessTokenEntityFactoryStub = $this->createStub(AccessTokenEntityFactory::class);
         $this->authCodeEntityFactoryStub = $this->createStub(AuthcodeEntityFactory::class);
@@ -78,7 +76,7 @@ class AuthCodeGrantTest extends TestCase
                 $this->refreshTokenIssuerStub,
                 $this->helpersStub,
                 $this->loggerMock,
-                $this->pushedAuthorizationRequestRepositoryStub,
+                $this->moduleConfigStub,
             ),
         );
     }

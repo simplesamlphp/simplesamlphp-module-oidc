@@ -20,7 +20,6 @@ use League\OAuth2\Server\CryptKey;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
-use SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository;
 use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
@@ -30,9 +29,6 @@ use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\TokenResponse;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\JwksResolver;
-use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
-use SimpleSAML\OpenID\RequestObject;
 
 class AuthorizationServerFactory
 {
@@ -49,10 +45,6 @@ class AuthorizationServerFactory
         private readonly CryptKey $privateKey,
         private readonly PreAuthCodeGrant $preAuthCodeGrant,
         private readonly LoggerService $loggerService,
-        private readonly PushedAuthorizationRequestRepository $pushedAuthorizationRequestRepository,
-        private readonly RequestParamsResolver $requestParamsResolver,
-        private readonly JwksResolver $jwksResolver,
-        private readonly RequestObject $requestObject,
     ) {
     }
 
@@ -67,11 +59,6 @@ class AuthorizationServerFactory
             $this->tokenResponse,
             $this->requestRulesManager,
             $this->loggerService,
-            $this->pushedAuthorizationRequestRepository,
-            $this->requestParamsResolver,
-            $this->jwksResolver,
-            $this->requestObject,
-            $this->moduleConfig,
         );
 
         $authorizationServer->enableGrantType(

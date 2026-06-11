@@ -70,9 +70,9 @@ function oidc_hook_cron(array &$croninfo): void
         $issuerStateRepository = $container->get(IssuerStateRepository::class);
         $issuerStateRepository->removeInvalid();
 
-        /** @var \SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository $pushedAuthRepo */
-        $pushedAuthRepo = $container->get(PushedAuthorizationRequestRepository::class);
-        $pushedAuthRepo->deleteExpired(new DateTimeImmutable());
+        /** @var \SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository $parRepository */
+        $parRepository = $container->get(PushedAuthorizationRequestRepository::class);
+        $parRepository->removeExpired();
 
         $croninfo['summary'][] = 'Module `oidc` clean up. Removed expired entries from storage.';
     } catch (Exception $e) {

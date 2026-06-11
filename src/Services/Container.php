@@ -44,6 +44,7 @@ use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\IssuerStateEntityFactory;
+use SimpleSAML\Module\oidc\Factories\Entities\PushedAuthorizationRequestEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\RefreshTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ScopeEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
@@ -56,6 +57,7 @@ use SimpleSAML\Module\oidc\Factories\Grant\RefreshTokenGrantFactory;
 use SimpleSAML\Module\oidc\Factories\JwksFactory;
 use SimpleSAML\Module\oidc\Factories\JwsFactory;
 use SimpleSAML\Module\oidc\Factories\ProcessingChainFactory;
+use SimpleSAML\Module\oidc\Factories\RequestObjectFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Factories\TokenResponseFactory;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
@@ -91,6 +93,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredNonceRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseModeRule;
@@ -263,9 +266,6 @@ class Container implements ContainerInterface
         );
         $this->services[PsrHttpBridge::class] = $psrHttpBridge;
 
-        $requestParamsResolver = new RequestParamsResolver($helpers, $core, $federation, $psrHttpBridge);
-        $this->services[RequestParamsResolver::class] = $requestParamsResolver;
-
         $clientEntityFactory = new ClientEntityFactory(
             $sspBridge,
             $helpers,
@@ -284,12 +284,36 @@ class Container implements ContainerInterface
         );
         $this->services[ClientRepository::class] = $clientRepository;
 
+        $pushedAuthorizationRequestEntityFactory = new PushedAuthorizationRequestEntityFactory(
+            $moduleConfig,
+            $helpers,
+        );
+        $this->services[PushedAuthorizationRequestEntityFactory::class] = $pushedAuthorizationRequestEntityFactory;
+
         $pushedAuthorizationRequestRepository = new PushedAuthorizationRequestRepository(
             $moduleConfig,
             $database,
             $protocolCache,
+            $pushedAuthorizationRequestEntityFactory,
+            $helpers,
         );
         $this->services[PushedAuthorizationRequestRepository::class] = $pushedAuthorizationRequestRepository;
+
+        $requestObject = (new RequestObjectFactory($moduleConfig, $loggerService))->build();
+        $this->services[RequestObject::class] = $requestObject;
+
+        $requestParamsResolver = new RequestParamsResolver(
+            $helpers,
+            $core,
+            $federation,
+            $psrHttpBridge,
+            $requestObject,
+            $moduleConfig,
+            $clientRepository,
+            $pushedAuthorizationRequestRepository,
+            $loggerService,
+        );
+        $this->services[RequestParamsResolver::class] = $requestParamsResolver;
 
         $userEntityFactory = new UserEntityFactory($helpers);
         $this->services[UserEntityFactory::class] = $userEntityFactory;
@@ -457,6 +481,13 @@ class Container implements ContainerInterface
             ),
             new ClientRedirectUriRule($requestParamsResolver, $helpers, $moduleConfig),
             new RequestObjectRule($requestParamsResolver, $helpers, $jwksResolver, $moduleConfig),
+            new RequestUriRule(
+                $requestParamsResolver,
+                $helpers,
+                $pushedAuthorizationRequestRepository,
+                $jwksResolver,
+                $moduleConfig,
+            ),
             new ResponseModeRule(
                 $requestParamsResolver,
                 $helpers,
@@ -543,7 +574,6 @@ class Container implements ContainerInterface
             $refreshTokenIssuer,
             $helpers,
             $loggerService,
-            $pushedAuthorizationRequestRepository,
         );
         $this->services[AuthCodeGrant::class] = $authCodeGrantFactory->build();
 
@@ -577,12 +607,8 @@ class Container implements ContainerInterface
             $refreshTokenIssuer,
             $helpers,
             $loggerService,
-            $pushedAuthorizationRequestRepository,
         );
         $this->services[PreAuthCodeGrant::class] = $preAuthCodeGrantFactory->build();
-
-        $requestObject = new RequestObject();
-        $this->services[RequestObject::class] = $requestObject;
 
         $authorizationServerFactory = new AuthorizationServerFactory(
             $moduleConfig,
@@ -597,10 +623,6 @@ class Container implements ContainerInterface
             $privateKey,
             $this->services[PreAuthCodeGrant::class],
             $loggerService,
-            $pushedAuthorizationRequestRepository,
-            $requestParamsResolver,
-            $jwksResolver,
-            $requestObject,
         );
         $this->services[AuthorizationServer::class] = $authorizationServerFactory->build();
 

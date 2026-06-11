@@ -67,6 +67,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
             ->willReturnMap([
                 [RoutesEnum::Token->value, self::TOKEN_ENDPOINT],
                 [RoutesEnum::Authorization->value, 'https://example.org/oidc/authorization.php'],
+                [RoutesEnum::PushedAuthorizationRequest->value, 'https://example.org/oidc/par'],
             ]);
         $this->moduleConfigMock->method('getIssuer')->willReturn(self::ISSUER);
         $this->dateTimeHelperMock = $this->createMock(Helpers\DateTime::class);
