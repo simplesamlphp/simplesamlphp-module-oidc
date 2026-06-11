@@ -34,8 +34,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
-use SimpleSAML\OpenID\Core;
-use SimpleSAML\OpenID\Utils\RequestUriFetcher;
+use SimpleSAML\OpenID\RequestObject;
 
 class AuthorizationServer extends OAuth2AuthorizationServer
 {
@@ -47,8 +46,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
     protected ?PushedAuthorizationRequestRepository $pushedAuthorizationRequestRepository = null;
     protected ?RequestParamsResolver $requestParamsResolver = null;
     protected ?JwksResolver $jwksResolver = null;
-    protected ?RequestUriFetcher $requestUriFetcher = null;
-    protected ?Core $core = null;
+    protected ?RequestObject $requestObject = null;
     protected ?ModuleConfig $moduleConfig = null;
 
     /**
@@ -72,8 +70,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         ?PushedAuthorizationRequestRepository $pushedAuthorizationRequestRepository = null,
         ?RequestParamsResolver $requestParamsResolver = null,
         ?JwksResolver $jwksResolver = null,
-        ?RequestUriFetcher $requestUriFetcher = null,
-        ?Core $core = null,
+        ?RequestObject $requestObject = null,
         ?ModuleConfig $moduleConfig = null,
     ) {
         parent::__construct(
@@ -95,8 +92,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         $this->pushedAuthorizationRequestRepository = $pushedAuthorizationRequestRepository;
         $this->requestParamsResolver = $requestParamsResolver;
         $this->jwksResolver = $jwksResolver;
-        $this->requestUriFetcher = $requestUriFetcher;
-        $this->core = $core;
+        $this->requestObject = $requestObject;
         $this->moduleConfig = $moduleConfig;
     }
 
@@ -155,8 +151,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
                     if (
                         $this->requestParamsResolver === null ||
                         $this->jwksResolver === null ||
-                        $this->requestUriFetcher === null ||
-                        $this->core === null ||
+                        $this->requestObject === null ||
                         $this->moduleConfig === null
                     ) {
                         throw new LogicException(
@@ -197,7 +192,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
                     }
 
                     try {
-                        $jwtString = $this->requestUriFetcher->fetch(
+                        $jwtString = $this->requestObject->requestUriFetcher()->fetch(
                             $requestUri,
                             $this->moduleConfig->getRequestUriTimeout(),
                             $this->moduleConfig->getRequestUriMaxSizeBytes(),
@@ -210,7 +205,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
                     }
 
                     try {
-                        $requestObject = $this->core->jarRequestObjectFactory()->fromToken($jwtString);
+                        $requestObject = $this->requestObject->jarRequestObjectFactory()->fromToken($jwtString);
                         $jwks = $this->jwksResolver->forClient($client);
                         if ($jwks === null) {
                             throw new \Exception('Client JWKS not available.');

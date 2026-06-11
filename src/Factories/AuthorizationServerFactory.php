@@ -32,8 +32,7 @@ use SimpleSAML\Module\oidc\Server\ResponseTypes\TokenResponse;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
-use SimpleSAML\OpenID\Core;
-use SimpleSAML\OpenID\Utils\RequestUriFetcher;
+use SimpleSAML\OpenID\RequestObject;
 
 class AuthorizationServerFactory
 {
@@ -53,8 +52,7 @@ class AuthorizationServerFactory
         private readonly PushedAuthorizationRequestRepository $pushedAuthorizationRequestRepository,
         private readonly RequestParamsResolver $requestParamsResolver,
         private readonly JwksResolver $jwksResolver,
-        private readonly RequestUriFetcher $requestUriFetcher,
-        private readonly Core $core,
+        private readonly RequestObject $requestObject,
     ) {
     }
 
@@ -72,8 +70,7 @@ class AuthorizationServerFactory
             $this->pushedAuthorizationRequestRepository,
             $this->requestParamsResolver,
             $this->jwksResolver,
-            $this->requestUriFetcher,
-            $this->core,
+            $this->requestObject,
             $this->moduleConfig,
         );
 

@@ -39,7 +39,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
-use SimpleSAML\OpenID\Core;
+use SimpleSAML\OpenID\RequestObject;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -50,7 +50,7 @@ class PushedAuthorizationController
         private readonly PushedAuthorizationRequestRepository $pushedAuthorizationRequestRepository,
         private readonly RequestRulesManager $requestRulesManager,
         private readonly JwksResolver $jwksResolver,
-        private readonly Core $core,
+        private readonly RequestObject $requestObject,
         private readonly ModuleConfig $moduleConfig,
         private readonly PsrHttpBridge $psrHttpBridge,
         private readonly ErrorResponder $errorResponder,
@@ -96,7 +96,7 @@ class PushedAuthorizationController
         // 4. Handle JAR in PAR (request parameter)
         if (isset($params['request'])) {
             try {
-                $requestObject = $this->core->jarRequestObjectFactory()->fromToken((string)$params['request']);
+                $requestObject = $this->requestObject->jarRequestObjectFactory()->fromToken((string)$params['request']);
                 $jwks = $this->jwksResolver->forClient($client);
                 if (is_null($jwks)) {
                     throw OidcServerException::invalidRequest(

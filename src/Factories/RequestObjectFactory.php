@@ -6,9 +6,9 @@ namespace SimpleSAML\Module\oidc\Factories;
 
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\OpenID\Core;
+use SimpleSAML\OpenID\RequestObject;
 
-class CoreFactory
+class RequestObjectFactory
 {
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
@@ -17,13 +17,13 @@ class CoreFactory
     }
 
     /**
-     * Builds a new Core instance.
+     * Builds a new RequestObject instance.
      *
-     * @return Core
+     * @return RequestObject
      */
-    public function build(): Core
+    public function build(): RequestObject
     {
-        return new Core(
+        return new RequestObject(
             supportedAlgorithms: $this->moduleConfig->getSupportedAlgorithms(),
             timestampValidationLeeway: $this->moduleConfig->getTimestampValidationLeeway(),
             logger: $this->loggerService,

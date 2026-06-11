@@ -123,7 +123,7 @@ use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Federation;
 use SimpleSAML\OpenID\Jwks;
 use SimpleSAML\OpenID\Jws;
-use SimpleSAML\OpenID\Utils\RequestUriFetcher;
+use SimpleSAML\OpenID\RequestObject;
 use SimpleSAML\Session;
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
 
@@ -290,9 +290,6 @@ class Container implements ContainerInterface
             $protocolCache,
         );
         $this->services[PushedAuthorizationRequestRepository::class] = $pushedAuthorizationRequestRepository;
-
-        $requestUriFetcher = $core->requestUriFetcher();
-        $this->services[RequestUriFetcher::class] = $requestUriFetcher;
 
         $userEntityFactory = new UserEntityFactory($helpers);
         $this->services[UserEntityFactory::class] = $userEntityFactory;
@@ -584,6 +581,9 @@ class Container implements ContainerInterface
         );
         $this->services[PreAuthCodeGrant::class] = $preAuthCodeGrantFactory->build();
 
+        $requestObject = new RequestObject();
+        $this->services[RequestObject::class] = $requestObject;
+
         $authorizationServerFactory = new AuthorizationServerFactory(
             $moduleConfig,
             $clientRepository,
@@ -600,8 +600,7 @@ class Container implements ContainerInterface
             $pushedAuthorizationRequestRepository,
             $requestParamsResolver,
             $jwksResolver,
-            $requestUriFetcher,
-            $core,
+            $requestObject,
         );
         $this->services[AuthorizationServer::class] = $authorizationServerFactory->build();
 

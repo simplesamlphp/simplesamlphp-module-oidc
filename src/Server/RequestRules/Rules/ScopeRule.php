@@ -56,8 +56,7 @@ class ScopeRule extends AbstractRule
         /** @var non-empty-string $scopeDelimiterString */
         $scopeDelimiterString = $data['scope_delimiter_string'] ?? ' ';
 
-        $loggerService->debug('ScopeRule: defaultScope: ' . ($defaultScope ? $defaultScope : 'N/A'));
-        ;
+        $loggerService->debug('ScopeRule: defaultScope: ' . ($defaultScope ?: 'N/A'));
 
         $scopeParam = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
             ParamsEnum::Scope->value,

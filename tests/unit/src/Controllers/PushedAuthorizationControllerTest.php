@@ -24,7 +24,7 @@ use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
 use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
-use SimpleSAML\OpenID\Core;
+use SimpleSAML\OpenID\RequestObject;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Controllers\PushedAuthorizationController
@@ -35,7 +35,7 @@ class PushedAuthorizationControllerTest extends TestCase
     protected MockObject $pushedAuthorizationRequestRepositoryMock;
     protected MockObject $requestRulesManagerMock;
     protected MockObject $jwksResolverMock;
-    protected MockObject $coreMock;
+    protected MockObject $requestObjectMock;
     protected MockObject $moduleConfigMock;
     protected MockObject $psrHttpBridgeMock;
     protected MockObject $errorResponderMock;
@@ -55,7 +55,7 @@ class PushedAuthorizationControllerTest extends TestCase
         );
         $this->requestRulesManagerMock = $this->createMock(RequestRulesManager::class);
         $this->jwksResolverMock = $this->createMock(JwksResolver::class);
-        $this->coreMock = $this->createMock(Core::class);
+        $this->requestObjectMock = $this->createMock(RequestObject::class);
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->psrHttpBridgeMock = $this->createMock(PsrHttpBridge::class);
         $this->errorResponderMock = $this->createMock(ErrorResponder::class);
@@ -81,7 +81,7 @@ class PushedAuthorizationControllerTest extends TestCase
             $this->pushedAuthorizationRequestRepositoryMock,
             $this->requestRulesManagerMock,
             $this->jwksResolverMock,
-            $this->coreMock,
+            $this->requestObjectMock,
             $this->moduleConfigMock,
             $this->psrHttpBridgeMock,
             $this->errorResponderMock,

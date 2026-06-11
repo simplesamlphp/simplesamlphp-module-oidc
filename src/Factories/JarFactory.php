@@ -6,9 +6,9 @@ namespace SimpleSAML\Module\oidc\Factories;
 
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\OpenID\Core;
+use SimpleSAML\OpenID\Jar;
 
-class CoreFactory
+class JarFactory
 {
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
@@ -17,16 +17,15 @@ class CoreFactory
     }
 
     /**
-     * Builds a new Core instance.
+     * Builds a new Jar instance.
      *
-     * @return Core
+     * @return Jar
      */
-    public function build(): Core
+    public function build(): Jar
     {
-        return new Core(
+        return new Jar(
             supportedAlgorithms: $this->moduleConfig->getSupportedAlgorithms(),
             timestampValidationLeeway: $this->moduleConfig->getTimestampValidationLeeway(),
-            logger: $this->loggerService,
         );
     }
 }
