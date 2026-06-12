@@ -73,7 +73,7 @@ class PushedAuthorizationRequestRepositoryTest extends TestCase
     public function testCanPersistAndFind(): void
     {
         $parameters = ['client_id' => 'client123', 'response_type' => 'code'];
-        $entity = $this->entityFactory->buildNew('client123', $parameters);
+        $entity = $this->entityFactory->fromData('client123', $parameters);
 
         $this->repository->persist($entity);
 
@@ -99,7 +99,7 @@ class PushedAuthorizationRequestRepositoryTest extends TestCase
 
     public function testFindValidReturnsEntityForValidRequestUri(): void
     {
-        $entity = $this->entityFactory->buildNew('client123', []);
+        $entity = $this->entityFactory->fromData('client123', []);
         $this->repository->persist($entity);
 
         $this->assertInstanceOf(
@@ -110,7 +110,7 @@ class PushedAuthorizationRequestRepositoryTest extends TestCase
 
     public function testFindValidReturnsNullForExpiredRequestUri(): void
     {
-        $entity = $this->entityFactory->buildNew(
+        $entity = $this->entityFactory->fromData(
             'client123',
             [],
             $this->helpers->dateTime()->getUtc()->sub(new DateInterval('PT1M')),
@@ -122,7 +122,7 @@ class PushedAuthorizationRequestRepositoryTest extends TestCase
 
     public function testFindValidReturnsNullForConsumedRequestUri(): void
     {
-        $entity = $this->entityFactory->buildNew('client123', []);
+        $entity = $this->entityFactory->fromData('client123', []);
         $this->repository->persist($entity);
 
         $this->assertTrue($this->repository->consume($entity->getRequestUri()));
@@ -132,7 +132,7 @@ class PushedAuthorizationRequestRepositoryTest extends TestCase
 
     public function testConsumeReturnsTrueOnlyOnce(): void
     {
-        $entity = $this->entityFactory->buildNew('client123', []);
+        $entity = $this->entityFactory->fromData('client123', []);
         $this->repository->persist($entity);
 
         $this->assertTrue($this->repository->consume($entity->getRequestUri()));
@@ -149,13 +149,13 @@ class PushedAuthorizationRequestRepositoryTest extends TestCase
 
     public function testCanRemoveExpired(): void
     {
-        $expiredEntity = $this->entityFactory->buildNew(
+        $expiredEntity = $this->entityFactory->fromData(
             'client123',
             [],
             $this->helpers->dateTime()->getUtc()->sub(new DateInterval('PT1M')),
         );
         $this->repository->persist($expiredEntity);
-        $validEntity = $this->entityFactory->buildNew('client123', []);
+        $validEntity = $this->entityFactory->fromData('client123', []);
         $this->repository->persist($validEntity);
 
         $this->repository->removeExpired();

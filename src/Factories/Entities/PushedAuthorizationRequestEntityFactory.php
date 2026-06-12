@@ -33,12 +33,13 @@ class PushedAuthorizationRequestEntityFactory
      * @param mixed[] $parameters
      * @throws \Exception
      */
-    public function buildNew(
+    public function fromData(
         string $clientId,
         array $parameters,
         ?DateTimeImmutable $expiresAt = null,
     ): PushedAuthorizationRequestEntity {
-        $requestUri = self::REQUEST_URI_PREFIX . bin2hex(random_bytes(32));
+
+        $requestUri = self::REQUEST_URI_PREFIX . $this->helpers->random()->getIdentifier(32);
 
         $expiresAt ??= $this->helpers->dateTime()->getUtc()
             ->add($this->moduleConfig->getParRequestUriTtl());

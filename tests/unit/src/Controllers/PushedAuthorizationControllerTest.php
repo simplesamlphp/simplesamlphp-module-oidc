@@ -200,7 +200,7 @@ class PushedAuthorizationControllerTest extends TestCase
         // Client authentication params must not be persisted, while client_id is bound to the
         // authenticated client.
         $this->pushedAuthorizationRequestEntityFactoryMock->expects($this->once())
-            ->method('buildNew')
+            ->method('fromData')
             ->with(
                 'client123',
                 [
@@ -246,7 +246,7 @@ class PushedAuthorizationControllerTest extends TestCase
         $this->resultBagMock->method('getOrFail')->with(RequestObjectRule::class)->willReturn($requestObjectResult);
 
         $this->pushedAuthorizationRequestEntityFactoryMock->expects($this->once())
-            ->method('buildNew')
+            ->method('fromData')
             ->with('client123', $requestObjectPayload)
             ->willReturn($this->parEntityMock);
 

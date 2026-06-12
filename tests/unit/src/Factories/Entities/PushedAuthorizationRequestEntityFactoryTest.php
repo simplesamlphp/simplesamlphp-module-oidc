@@ -47,7 +47,7 @@ class PushedAuthorizationRequestEntityFactoryTest extends TestCase
     {
         $parameters = ['client_id' => 'client123', 'response_type' => 'code'];
 
-        $entity = $this->sut()->buildNew('client123', $parameters);
+        $entity = $this->sut()->fromData('client123', $parameters);
 
         $this->assertStringStartsWith(
             PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX,
@@ -75,8 +75,8 @@ class PushedAuthorizationRequestEntityFactoryTest extends TestCase
         $sut = $this->sut();
 
         $this->assertNotSame(
-            $sut->buildNew('client123', [])->getRequestUri(),
-            $sut->buildNew('client123', [])->getRequestUri(),
+            $sut->fromData('client123', [])->getRequestUri(),
+            $sut->fromData('client123', [])->getRequestUri(),
         );
     }
 

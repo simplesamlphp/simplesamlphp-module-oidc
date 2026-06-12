@@ -115,7 +115,7 @@ class PushedAuthorizationController
 
         $parameters = $this->resolveParametersToPersist($resultBag, $bodyParams, $client->getIdentifier());
 
-        $parEntity = $this->pushedAuthorizationRequestEntityFactory->buildNew(
+        $parEntity = $this->pushedAuthorizationRequestEntityFactory->fromData(
             $client->getIdentifier(),
             $parameters,
         );
