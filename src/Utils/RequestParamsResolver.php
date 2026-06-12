@@ -355,7 +355,7 @@ class RequestParamsResolver
             return $this->requestObjectBagsByUri[$requestUri] = $this->requestObject->requestObjectParser()
                 ->fromRequestUri(
                     $requestUri,
-                    $this->moduleConfig->getRequestUriTimeout(),
+                    $this->moduleConfig->getRequestUriFetchTimeout(),
                     $this->moduleConfig->getRequestUriMaxSizeBytes(),
                 );
         } catch (\Throwable $throwable) {
