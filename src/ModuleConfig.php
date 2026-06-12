@@ -127,7 +127,8 @@ class ModuleConfig
     final public const string OPTION_REQUIRE_PUSHED_AUTHORIZATION_REQUESTS = 'require_pushed_authorization_requests';
     final public const string OPTION_REQUIRE_SIGNED_REQUEST_OBJECT = 'require_signed_request_object';
     final public const string OPTION_REQUEST_URI_PARAMETER_SUPPORTED = 'request_uri_parameter_supported';
-    final public const string OPTION_FEDERATION_REQUEST_URI_ALLOWED_PREFIXES = 'federation_request_uri_allowed_prefixes';
+    final public const string OPTION_FEDERATION_REQUEST_URI_ALLOWED_PREFIXES =
+    'federation_request_uri_allowed_prefixes';
     final public const string OPTION_REQUEST_URI_FETCH_TIMEOUT = 'request_uri_fetch_timeout';
     final public const string OPTION_REQUEST_URI_MAX_SIZE_BYTES = 'request_uri_max_size_bytes';
 

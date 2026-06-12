@@ -315,11 +315,14 @@ class RequestParamsResolver
     }
 
     /**
-     * Parse (memoized) the Request Object token using all available Request Object flavors (OpenID Connect
-     * Core, JAR, OpenID Federation). The returned bag contains an entry for every flavor for which the token
-     * parsed and passed flavor-specific validation, so it can be used to differentiate between, for example,
-     * OpenID Connect Core Request Objects (which can be unsigned) and JAR Request Objects (which must be
-     * signed). Note that this won't do signature validation.
+     * Parse (memoized) the Request Object token using all available Request
+     * Object flavors (OpenID Connect Core, JAR, OpenID Federation). The
+     * returned bag contains an entry for every flavor for which the
+     * token parsed and passed flavor-specific validation, so it can
+     * be used to differentiate between, for example, OpenID Connect
+     * Core Request Objects (which can be unsigned) and JAR Request
+     * Objects (which must be signed). Note that this won't do
+     * signature validation.
      */
     protected function parseRequestObjectBagByToken(string $token): ?RequestObjectBag
     {
@@ -339,7 +342,8 @@ class RequestParamsResolver
     }
 
     /**
-     * Fetch and parse (memoized) the Request Object from the given https Request URI, if allowed by policy.
+     * Fetch and parse (memoized) the Request Object from the given https
+     * Request URI, if allowed by policy.
      */
     protected function fetchRequestObjectBagByUri(string $requestUri, array $requestParams): ?RequestObjectBag
     {
@@ -368,8 +372,9 @@ class RequestParamsResolver
     }
 
     /**
-     * Decide whether an https Request URI (Request Object by reference) is allowed to be fetched. This is the
-     * single authorization point for outbound Request Object fetches (SSRF / DoS surface):
+     * Decide whether a https Request URI (Request Object by reference) is
+     * allowed to be fetched. This is the single authorization point for
+     * outbound Request Object fetches (SSRF / DoS surface):
      *  - the OP must support the request_uri parameter (request_uri_parameter_supported),
      *  - for registered (non-federation) clients, the request_uri must be pre-registered in the client's
      *    request_uris (RFC 9126 exact-matching),

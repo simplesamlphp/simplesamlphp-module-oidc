@@ -66,16 +66,16 @@ class RequestObjectRule extends AbstractRule
             return null;
         }
 
-        // Parse it using all available Request Object flavors, so we can differentiate between OpenID Connect
-        // Core Request Objects (which can be unsigned) and JAR Request Objects (which must be signed).
-        $requestObjectBag = $this->requestParamsResolver->getRequestObjectBag($request, $allowedServerRequestMethods);
-
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
         /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
         /** @var ?string $stateValue */
         $stateValue = ($currentResultBag->get(StateRule::class))?->getValue();
+
+        // Parse it using all available Request Object flavors, so we can differentiate between OpenID Connect
+        // Core Request Objects (which can be unsigned) and JAR Request Objects (which must be signed).
+        $requestObjectBag = $this->requestParamsResolver->getRequestObjectBag($request, $allowedServerRequestMethods);
 
         // The Request Object source is present, but it could not be parsed (by value) or fetched/parsed (by
         // reference). Note that for the by-reference case, RequestUriRule would normally reject this earlier.

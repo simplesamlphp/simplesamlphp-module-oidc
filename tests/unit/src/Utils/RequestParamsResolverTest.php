@@ -80,7 +80,7 @@ class RequestParamsResolverTest extends TestCase
             ->willReturn($this->requestObjectParserMock);
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock->method('getRequestUriParameterSupported')->willReturn(true);
-        $this->moduleConfigMock->method('getRequestUriTimeout')->willReturn(5);
+        $this->moduleConfigMock->method('getRequestUriFetchTimeout')->willReturn(5);
         $this->moduleConfigMock->method('getRequestUriMaxSizeBytes')->willReturn(102400);
         $this->clientRepositoryMock = $this->createMock(ClientRepository::class);
         $this->pushedAuthorizationRequestRepositoryMock = $this->createMock(

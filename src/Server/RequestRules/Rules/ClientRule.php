@@ -162,8 +162,9 @@ class ClientRule extends AbstractRule
     ): ?ClientEntityInterface {
         $this->loggerService->debug('ClientRule: Resolving client from federation.');
         // Federation is enabled.
-        // Check if we have a Request Object available, either passed by value (request param) or by reference
-        // (https request_uri param). The RequestParamsResolver does the heavy lifting (parsing / fetching).
+        // Check if we have a Request Object available, either passed by value
+        // (request param) or by reference (https request_uri param). The
+        // RequestParamsResolver does the heavy lifting (parsing / fetching).
         // If not available, we don't have anything else to do.
         $requestObjectBag = $this->requestParamsResolver->getRequestObjectBag($request, $allowedMethods);
 
@@ -173,7 +174,7 @@ class ClientRule extends AbstractRule
         }
 
         // We must verify that the Request Object is the one compatible with OpenID Federation specification
-        // (not only Core specification).
+        // (not only Connect Core or OAuth2 JAR specification).
         $requestObject = $requestObjectBag->get(FederationRequestObject::class);
 
         if (!$requestObject instanceof FederationRequestObject) {
