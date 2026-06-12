@@ -119,6 +119,9 @@ class RequestObjectRule extends AbstractRule
 
             $this->verifySignature($jarRequestObject, $client, $redirectUri, $stateValue, $responseMode);
 
+            $this->verifyAudience($jarRequestObject, $redirectUri, $stateValue, $responseMode);
+            $this->verifyIssuer($jarRequestObject, $client, $redirectUri, $stateValue, $responseMode);
+
             return new Result($this->getKey(), $jarRequestObject->getPayload());
         }
 
@@ -151,11 +154,13 @@ class RequestObjectRule extends AbstractRule
                     $responseMode,
                 );
             }
-            return new Result($this->getKey(), $requestObject->getPayload());
+        } else {
+            // It is protected, we must validate the signature.
+            $this->verifySignature($requestObject, $client, $redirectUri, $stateValue, $responseMode);
         }
 
-        // It is protected, we must validate it.
-        $this->verifySignature($requestObject, $client, $redirectUri, $stateValue, $responseMode);
+        $this->verifyAudience($requestObject, $redirectUri, $stateValue, $responseMode);
+        $this->verifyIssuer($requestObject, $client, $redirectUri, $stateValue, $responseMode);
 
         return new Result($this->getKey(), $requestObject->getPayload());
     }
@@ -188,6 +193,79 @@ class RequestObjectRule extends AbstractRule
         );
 
         return is_string($requestUri) && str_starts_with(strtolower($requestUri), 'https://');
+    }
+
+    /**
+     * Validate the Request Object audience (aud) claim.
+     *
+     * Unlike the OpenID Federation flavor (handled in ClientRule, where aud is mandatory), the aud claim is
+     * optional for OpenID Connect Core and JAR (RFC 9101) Request Objects. We therefore only validate it when
+     * a client actually includes it: in that case it MUST identify this OP (its Issuer Identifier). Rejecting
+     * a mismatch prevents a Request Object minted for a different Authorization Server from being replayed
+     * here (OAuth 2.0 Security BCP). An absent aud is tolerated to preserve interoperability.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    protected function verifyAudience(
+        ConnectRequestObject|JarRequestObject $requestObject,
+        string $redirectUri,
+        ?string $stateValue,
+        ResponseModeInterface $responseMode,
+    ): void {
+        $audience = $requestObject->getAudience();
+
+        // The claim is optional for these flavors; only validate it when present.
+        if ($audience === null) {
+            return;
+        }
+
+        if (!in_array($this->moduleConfig->getIssuer(), $audience, true)) {
+            throw OidcServerException::invalidRequest(
+                'request',
+                'Request object audience (aud) does not include this OP issuer.',
+                null,
+                $redirectUri,
+                $stateValue,
+                $responseMode,
+            );
+        }
+    }
+
+    /**
+     * Validate the Request Object issuer (iss) claim.
+     *
+     * Like aud, the iss claim is optional for OpenID Connect Core and JAR (RFC 9101) Request Objects (RFC 9101
+     * says a signed object SHOULD contain it). In JWT (RFC 7519) semantics iss identifies the party that
+     * issued the token, which for a Request Object is the client (the RP). So when a client includes it, iss
+     * MUST equal the client identifier; a mismatch means the object was not minted by this client. An absent
+     * iss is tolerated.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    protected function verifyIssuer(
+        ConnectRequestObject|JarRequestObject $requestObject,
+        ClientEntityInterface $client,
+        string $redirectUri,
+        ?string $stateValue,
+        ResponseModeInterface $responseMode,
+    ): void {
+        $issuer = $requestObject->getIssuer();
+
+        // The claim is optional for these flavors; only validate it when present.
+        if ($issuer === null) {
+            return;
+        }
+
+        if ($issuer !== $client->getIdentifier()) {
+            throw OidcServerException::invalidRequest(
+                'request',
+                'Request object issuer (iss) does not match the client.',
+                null,
+                $redirectUri,
+                $stateValue,
+                $responseMode,
+            );
+        }
     }
 
     /**

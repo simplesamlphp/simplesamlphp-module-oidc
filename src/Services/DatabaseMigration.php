@@ -753,9 +753,11 @@ EOT
         $fkParClient = $this->generateIdentifierName([$parTableName, 'client_id'], 'fk');
         $idxParExpiresAt = $this->generateIdentifierName([$parTableName, 'expires_at'], 'idx');
 
+        // request_uri is always a fixed-length value: REQUEST_URI_PREFIX (34 chars) +
+        // bin2hex(random_bytes(32)) (64 chars) = 98 chars. See PushedAuthorizationRequestEntityFactory::fromData().
         $this->database->write(<<< EOT
         CREATE TABLE $parTableName (
-            request_uri VARCHAR(191) PRIMARY KEY NOT NULL,
+            request_uri CHAR(98) PRIMARY KEY NOT NULL,
             client_id VARCHAR(191) NOT NULL,
             parameters TEXT NOT NULL,
             expires_at TIMESTAMP NOT NULL,

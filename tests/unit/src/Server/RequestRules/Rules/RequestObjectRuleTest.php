@@ -260,6 +260,117 @@ class RequestObjectRuleTest extends TestCase
         );
     }
 
+    public function testAcceptsOidcRequestWhenAudienceIncludesIssuer(): void
+    {
+        $this->prepareOidcRequest();
+        $this->requestObjectMock->method('isProtected')->willReturn(false);
+        $this->requestObjectMock->method('getAudience')->willReturn(['https://op.example.org/']);
+        $this->moduleConfigStub->method('getIssuer')->willReturn('https://op.example.org/');
+
+        $result = $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBagStub,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        );
+
+        $this->assertInstanceOf(Result::class, $result);
+    }
+
+    public function testThrowsForOidcRequestWhenAudienceDoesNotIncludeIssuer(): void
+    {
+        $this->prepareOidcRequest();
+        $this->requestObjectMock->method('isProtected')->willReturn(false);
+        $this->requestObjectMock->method('getAudience')->willReturn(['https://other-op.example.org/']);
+        $this->moduleConfigStub->method('getIssuer')->willReturn('https://op.example.org/');
+
+        $this->expectException(OidcServerException::class);
+
+        $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBagStub,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        );
+    }
+
+    public function testThrowsForOAuth2RequestWhenAudienceDoesNotIncludeIssuer(): void
+    {
+        $this->jarRequestObjectMock->method('getClientId')->willReturn('client123');
+        $this->jarRequestObjectMock->method('verifyWithKeySet')->with(['jwks']);
+        $this->jarRequestObjectMock->method('getAudience')->willReturn(['https://other-op.example.org/']);
+        $this->prepareOAuth2Request($this->jarRequestObjectMock);
+
+        $this->jwksResolverMock->method('forClient')->with($this->clientStub)->willReturn(['jwks']);
+        $this->moduleConfigStub->method('getIssuer')->willReturn('https://op.example.org/');
+
+        $this->expectException(OidcServerException::class);
+
+        $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBagStub,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        );
+    }
+
+    public function testAcceptsOidcRequestWhenIssuerMatchesClient(): void
+    {
+        $this->prepareOidcRequest();
+        $this->requestObjectMock->method('isProtected')->willReturn(false);
+        $this->requestObjectMock->method('getIssuer')->willReturn('client123');
+
+        $result = $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBagStub,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        );
+
+        $this->assertInstanceOf(Result::class, $result);
+    }
+
+    public function testThrowsForOidcRequestWhenIssuerDoesNotMatchClient(): void
+    {
+        $this->prepareOidcRequest();
+        $this->requestObjectMock->method('isProtected')->willReturn(false);
+        $this->requestObjectMock->method('getIssuer')->willReturn('otherClient');
+
+        $this->expectException(OidcServerException::class);
+
+        $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBagStub,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        );
+    }
+
+    public function testThrowsForOAuth2RequestWhenIssuerDoesNotMatchClient(): void
+    {
+        $this->jarRequestObjectMock->method('getClientId')->willReturn('client123');
+        $this->jarRequestObjectMock->method('verifyWithKeySet')->with(['jwks']);
+        $this->jarRequestObjectMock->method('getIssuer')->willReturn('otherClient');
+        $this->prepareOAuth2Request($this->jarRequestObjectMock);
+
+        $this->jwksResolverMock->method('forClient')->with($this->clientStub)->willReturn(['jwks']);
+
+        $this->expectException(OidcServerException::class);
+
+        $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBagStub,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        );
+    }
+
     public function testThrowsForOAuth2RequestWithNonJarRequestObject(): void
     {
         // For example, an unsigned Request Object is not a valid JAR Request Object.
