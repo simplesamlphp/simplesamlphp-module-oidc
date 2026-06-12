@@ -11,6 +11,13 @@ Supported flows:
 - Implicit (response_type: `id_token token` or `id_token`)
 - Refresh Token
 
+Authorization request parameters can be sent as plain parameters, by value as a
+Request Object (`request`, OpenID Connect Core / JAR), or by reference
+(`request_uri`) — either via Pushed Authorization Requests (PAR, RFC 9126) or a
+remote `https://` Request Object. See
+[Configuration](3-oidc-configuration.md#pushed-authorization-requests-par-and-request-objects)
+for details.
+
 ## Note on OpenID Federation (OIDFed)
 
 OpenID Federation support is in draft phase. You can
