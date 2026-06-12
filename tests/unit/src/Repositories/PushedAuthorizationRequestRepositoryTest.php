@@ -17,6 +17,7 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
+use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 #[CoversClass(PushedAuthorizationRequestRepository::class)]
 #[UsesClass(PushedAuthorizationRequestEntity::class)]
@@ -165,5 +166,79 @@ class PushedAuthorizationRequestRepositoryTest extends TestCase
             PushedAuthorizationRequestEntity::class,
             $this->repository->find($validEntity->getRequestUri()),
         );
+    }
+
+    protected function repositoryWithCache(MockObject $protocolCacheMock): PushedAuthorizationRequestRepository
+    {
+        return new PushedAuthorizationRequestRepository(
+            $this->moduleConfigMock,
+            Database::getInstance(),
+            $protocolCacheMock,
+            $this->entityFactory,
+            $this->helpers,
+        );
+    }
+
+    public function testPersistStoresEntityInCache(): void
+    {
+        $entity = $this->entityFactory->fromData('client123', []);
+
+        $protocolCacheMock = $this->createMock(ProtocolCache::class);
+        $protocolCacheMock->expects($this->once())->method('set')
+            ->with(
+                $entity->getState(),
+                $this->callback('is_int'),
+                'phpunit_oidc_par_' . $entity->getRequestUri(),
+            );
+
+        $this->repositoryWithCache($protocolCacheMock)->persist($entity);
+    }
+
+    public function testFindCanReturnEntityFromCache(): void
+    {
+        // Note: this entity is intentionally not persisted to database, so a successful find proves the
+        // cache path was used.
+        $entity = $this->entityFactory->fromData('client123', ['response_type' => 'code']);
+
+        $protocolCacheMock = $this->createMock(ProtocolCache::class);
+        $protocolCacheMock->method('get')->willReturn($entity->getState());
+
+        $foundEntity = $this->repositoryWithCache($protocolCacheMock)->find($entity->getRequestUri());
+
+        $this->assertInstanceOf(PushedAuthorizationRequestEntity::class, $foundEntity);
+        $this->assertSame($entity->getRequestUri(), $foundEntity->getRequestUri());
+        $this->assertSame(['response_type' => 'code'], $foundEntity->getParameters());
+    }
+
+    public function testFindCachesEntityResolvedFromDatabase(): void
+    {
+        $entity = $this->entityFactory->fromData('client123', []);
+        $this->repository->persist($entity);
+
+        $protocolCacheMock = $this->createMock(ProtocolCache::class);
+        $protocolCacheMock->method('get')->willReturn(null);
+        $protocolCacheMock->expects($this->once())->method('set')
+            ->with(
+                $entity->getState(),
+                $this->callback('is_int'),
+                'phpunit_oidc_par_' . $entity->getRequestUri(),
+            );
+
+        $this->assertInstanceOf(
+            PushedAuthorizationRequestEntity::class,
+            $this->repositoryWithCache($protocolCacheMock)->find($entity->getRequestUri()),
+        );
+    }
+
+    public function testConsumeInvalidatesCache(): void
+    {
+        $entity = $this->entityFactory->fromData('client123', []);
+        $this->repository->persist($entity);
+
+        $protocolCacheMock = $this->createMock(ProtocolCache::class);
+        $protocolCacheMock->expects($this->once())->method('delete')
+            ->with('phpunit_oidc_par_' . $entity->getRequestUri());
+
+        $this->assertTrue($this->repositoryWithCache($protocolCacheMock)->consume($entity->getRequestUri()));
     }
 }

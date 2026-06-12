@@ -51,10 +51,16 @@ class PushedAuthorizationRequestRepository extends AbstractDatabaseRepository
         $stmt = "INSERT INTO {$this->getTableName()} (request_uri, client_id, parameters, expires_at, is_consumed) " .
         "VALUES (:request_uri, :client_id, :parameters, :expires_at, :is_consumed)";
 
-        $state = $entity->getState();
-        $state['is_consumed'] = (int)$state['is_consumed'];
+        $params = $entity->getState();
+        $params['is_consumed'] = (int)$params['is_consumed'];
 
-        $this->database->write($stmt, $state);
+        $this->database->write($stmt, $params);
+
+        $this->protocolCache?->set(
+            $entity->getState(),
+            $this->helpers->dateTime()->getSecondsToExpirationTime($entity->getExpiresAt()->getTimestamp()),
+            $this->getCacheKey($entity->getRequestUri()),
+        );
     }
 
     /**
@@ -66,17 +72,30 @@ class PushedAuthorizationRequestRepository extends AbstractDatabaseRepository
      */
     public function find(string $requestUri): ?PushedAuthorizationRequestEntity
     {
-        $stmt = $this->database->read(
-            "SELECT request_uri, client_id, parameters, expires_at, is_consumed " .
-            "FROM {$this->getTableName()} WHERE request_uri = :request_uri",
-            ['request_uri' => $requestUri],
-        );
+        /** @var ?array $state */
+        $state = $this->protocolCache?->get(null, $this->getCacheKey($requestUri));
 
-        if (!is_array($row = $stmt->fetch(PDO::FETCH_ASSOC))) {
-            return null;
+        if (!is_array($state)) {
+            $stmt = $this->database->read(
+                "SELECT request_uri, client_id, parameters, expires_at, is_consumed " .
+                "FROM {$this->getTableName()} WHERE request_uri = :request_uri",
+                ['request_uri' => $requestUri],
+            );
+
+            if (!is_array($state = $stmt->fetch(PDO::FETCH_ASSOC))) {
+                return null;
+            }
         }
 
-        return $this->pushedAuthorizationRequestEntityFactory->fromState($row);
+        $entity = $this->pushedAuthorizationRequestEntityFactory->fromState($state);
+
+        $this->protocolCache?->set(
+            $entity->getState(),
+            $this->helpers->dateTime()->getSecondsToExpirationTime($entity->getExpiresAt()->getTimestamp()),
+            $this->getCacheKey($entity->getRequestUri()),
+        );
+
+        return $entity;
     }
 
     /**
@@ -106,8 +125,11 @@ class PushedAuthorizationRequestRepository extends AbstractDatabaseRepository
     }
 
     /**
-     * Mark the Pushed Authorization Request as consumed (one-time use). Atomic, so it can be used as a replay
-     * guard: returns true only if this call was the one that consumed it.
+     * Mark the Pushed Authorization Request as consumed (one-time use). Atomic,
+     * so it can be used as a replay guard: returns true only if this call was
+     * the one that consumed it. Note that the database is the source of truth
+     * for consumption (the protocol cache is only a read accelerator), so a
+     * stale cached entry can never enable a replay.
      */
     public function consume(string $requestUri): bool
     {
@@ -115,6 +137,9 @@ class PushedAuthorizationRequestRepository extends AbstractDatabaseRepository
         "WHERE request_uri = :request_uri AND is_consumed = 0";
 
         $affected = $this->database->write($stmt, ['request_uri' => $requestUri]);
+
+        // Invalidate the cached entry, so subsequent finds reflect the consumed state.
+        $this->protocolCache?->delete($this->getCacheKey($requestUri));
 
         return is_int($affected) && $affected > 0;
     }
