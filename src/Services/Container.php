@@ -485,7 +485,6 @@ class Container implements ContainerInterface
                 $requestParamsResolver,
                 $helpers,
                 $pushedAuthorizationRequestRepository,
-                $jwksResolver,
                 $moduleConfig,
             ),
             new ResponseModeRule(

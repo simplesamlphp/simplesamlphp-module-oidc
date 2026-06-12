@@ -86,6 +86,7 @@ class RequestObjectRuleTest extends TestCase
 
     protected function prepareOidcRequest(): void
     {
+        // A `request` param signals a Request Object is present (by value).
         $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn('token');
         // OpenID Connect request is designated by the openid scope.
         $this->requestParamsResolverMock->method('getAsStringBasedOnAllowedMethods')->willReturn('openid');
@@ -93,8 +94,8 @@ class RequestObjectRuleTest extends TestCase
             ->willReturnMap([
                 [RequestObject::class, $this->requestObjectMock],
             ]);
-        $this->requestParamsResolverMock->method('parseRequestObjectBag')
-            ->with('token')->willReturn($this->requestObjectBagMock);
+        $this->requestParamsResolverMock->method('getRequestObjectBag')
+            ->willReturn($this->requestObjectBagMock);
     }
 
     protected function prepareOAuth2Request(?JarRequestObject $jarRequestObject = null): void
@@ -107,8 +108,8 @@ class RequestObjectRuleTest extends TestCase
                 [RequestObject::class, $this->requestObjectMock],
                 [JarRequestObject::class, $jarRequestObject],
             ]);
-        $this->requestParamsResolverMock->method('parseRequestObjectBag')
-            ->with('token')->willReturn($this->requestObjectBagMock);
+        $this->requestParamsResolverMock->method('getRequestObjectBag')
+            ->willReturn($this->requestObjectBagMock);
     }
 
     public function testCanCreateInstance(): void
@@ -126,6 +127,22 @@ class RequestObjectRuleTest extends TestCase
             $this->responseModeStub,
         );
         $this->assertNull($result);
+    }
+
+    public function testThrowsWhenRequestObjectSourceIsPresentButBagCannotBeResolved(): void
+    {
+        // `request` param present (source present), but the resolver could not parse/fetch it (null bag).
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn('token');
+        $this->requestParamsResolverMock->method('getRequestObjectBag')->willReturn(null);
+
+        $this->expectException(OidcServerException::class);
+        $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBagStub,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        );
     }
 
     public function testUnprotectedRequestParamCanBeUsedForOidcRequest(): void

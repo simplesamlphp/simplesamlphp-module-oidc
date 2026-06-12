@@ -50,31 +50,25 @@ class RequestObjectRule extends AbstractRule
     ): ?ResultInterface {
         $loggerService->debug('RequestObjectRule::checkRule');
 
-        $requestParam = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
-            ParamsEnum::Request->value,
-            $request,
-            $allowedServerRequestMethods,
-        );
-
-        if (is_null($requestParam)) {
+        // A Request Object can be passed by value (request param) or by reference (https request_uri param).
+        // Either way, the parsing/fetching is done by the RequestParamsResolver; here we only need to know
+        // whether such a Request Object is present for this request.
+        if (!$this->hasRequestObjectSource($request, $allowedServerRequestMethods)) {
             return null;
         }
 
-        // Request param exists. Check if the result bag already has a request
-        // object resolved. This can happen if the request object was used as
-        // a way to do automatic client registration in OpenID Federation.
-        // @see ClientIdRule
+        // Request object is present. Check if the result bag already has a request object resolved. This can
+        // happen if the request object was used as a way to do automatic client registration in OpenID
+        // Federation.
+        // @see ClientRule::resolveFromFederation()
         if ($currentResultBag->has($this->getKey())) {
             $loggerService->debug('Request object has already been resolved, skipping rule ' . $this->getKey());
             return null;
         }
 
-        // There is no request object already resolved. We will do it now.
-        // Parse it using all available Request Object flavors, so we can
-        // differentiate between OpenID Connect Core Request Objects
-        // (which can be unsigned) and JAR Request Objects (which must be
-        // signed).
-        $requestObjectBag = $this->requestParamsResolver->parseRequestObjectBag($requestParam);
+        // Parse it using all available Request Object flavors, so we can differentiate between OpenID Connect
+        // Core Request Objects (which can be unsigned) and JAR Request Objects (which must be signed).
+        $requestObjectBag = $this->requestParamsResolver->getRequestObjectBag($request, $allowedServerRequestMethods);
 
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
@@ -82,6 +76,19 @@ class RequestObjectRule extends AbstractRule
         $redirectUri = $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
         /** @var ?string $stateValue */
         $stateValue = ($currentResultBag->get(StateRule::class))?->getValue();
+
+        // The Request Object source is present, but it could not be parsed (by value) or fetched/parsed (by
+        // reference). Note that for the by-reference case, RequestUriRule would normally reject this earlier.
+        if ($requestObjectBag === null) {
+            throw OidcServerException::invalidRequest(
+                'request',
+                'Request object could not be parsed or fetched.',
+                null,
+                $redirectUri,
+                $stateValue,
+                $responseMode,
+            );
+        }
 
         if (!$this->isOidcAuthorizationRequest($request, $allowedServerRequestMethods)) {
             // This is a plain OAuth 2.0 authorization request, so JAR
@@ -151,6 +158,36 @@ class RequestObjectRule extends AbstractRule
         $this->verifySignature($requestObject, $client, $redirectUri, $stateValue, $responseMode);
 
         return new Result($this->getKey(), $requestObject->getPayload());
+    }
+
+    /**
+     * Check whether the request carries a Request Object, either by value (request param) or by reference
+     * (https request_uri param). Note that a Pushed Authorization Request URI (urn form) is not a Request
+     * Object source (it carries previously pushed params, handled by RequestUriRule).
+     *
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedServerRequestMethods
+     */
+    protected function hasRequestObjectSource(
+        ServerRequestInterface $request,
+        array $allowedServerRequestMethods,
+    ): bool {
+        if (
+            !is_null($this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
+                ParamsEnum::Request->value,
+                $request,
+                $allowedServerRequestMethods,
+            ))
+        ) {
+            return true;
+        }
+
+        $requestUri = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
+            ParamsEnum::RequestUri->value,
+            $request,
+            $allowedServerRequestMethods,
+        );
+
+        return is_string($requestUri) && str_starts_with(strtolower($requestUri), 'https://');
     }
 
     /**

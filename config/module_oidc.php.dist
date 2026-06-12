@@ -127,6 +127,10 @@ $config = [
     ModuleConfig::OPTION_PAR_REQUEST_URI_TTL => 'PT10M', // PAR request URI expiration TTL (default: 10 minutes)
     ModuleConfig::OPTION_REQUIRE_PUSHED_AUTHORIZATION_REQUESTS => false, // Require PAR globally (default: false)
     ModuleConfig::OPTION_REQUIRE_SIGNED_REQUEST_OBJECT => false, // Reject unsigned request objects globally (default: false)
+    // Whether to support passing the Request Object by reference using the https request_uri parameter (JAR /
+    // OpenID Federation by reference). Set to false to mitigate DoS / SSRF by disabling outbound fetches. Note
+    // that this does not affect Pushed Authorization Request URIs (urn form), which are always supported.
+    ModuleConfig::OPTION_REQUEST_URI_PARAMETER_SUPPORTED => true, // Support https request_uri (default: true)
     ModuleConfig::OPTION_REQUEST_URI_TIMEOUT => 5, // Timeout for fetching request_uri (default: 5 seconds)
     ModuleConfig::OPTION_REQUEST_URI_MAX_SIZE_BYTES => 102400, // Maximum allowed response size for request_uri in bytes (default: 100KB)
 

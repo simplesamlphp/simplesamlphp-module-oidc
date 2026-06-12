@@ -126,6 +126,7 @@ class ModuleConfig
     final public const string OPTION_PAR_REQUEST_URI_TTL = 'parRequestUriDuration';
     final public const string OPTION_REQUIRE_PUSHED_AUTHORIZATION_REQUESTS = 'requirePushedAuthorizationRequests';
     final public const string OPTION_REQUIRE_SIGNED_REQUEST_OBJECT = 'requireSignedRequestObject';
+    final public const string OPTION_REQUEST_URI_PARAMETER_SUPPORTED = 'requestUriParameterSupported';
     final public const string OPTION_REQUEST_URI_TIMEOUT = 'requestUriTimeout';
     final public const string OPTION_REQUEST_URI_MAX_SIZE_BYTES = 'requestUriMaxSizeBytes';
 
@@ -344,6 +345,16 @@ class ModuleConfig
     public function getRequireSignedRequestObject(): bool
     {
         return $this->config()->getOptionalBoolean(self::OPTION_REQUIRE_SIGNED_REQUEST_OBJECT, false);
+    }
+
+    /**
+     * Whether the OP supports passing the Request Object by reference using the https request_uri parameter
+     * (JWT-Secured Authorization Request by reference / OpenID Federation Authentication Request by reference).
+     * Note that this does not affect Pushed Authorization Request URIs (urn form), which are always supported.
+     */
+    public function getRequestUriParameterSupported(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_REQUEST_URI_PARAMETER_SUPPORTED, true);
     }
 
     public function getRequestUriTimeout(): int

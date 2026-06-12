@@ -126,7 +126,6 @@ class RequestRulesManagerFactory
                 $this->requestParamsResolver,
                 $this->helpers,
                 $this->pushedAuthorizationRequestRepository,
-                $this->jwksResolver,
                 $this->moduleConfig,
             ),
             new ResponseModeRule(

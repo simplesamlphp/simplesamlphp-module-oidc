@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Utils;
 
 use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
+use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\PushedAuthorizationRequestEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\PushedAuthorizationRequestEntityFactory;
@@ -29,7 +29,6 @@ use SimpleSAML\OpenID\RequestObject\RequestObjectBag;
 use SimpleSAML\OpenID\RequestObject\RequestObjectParser;
 
 #[CoversClass(RequestParamsResolver::class)]
-#[UsesClass(RequestObjectBag::class)]
 class RequestParamsResolverTest extends TestCase
 {
     protected MockObject $helpersMock;
@@ -80,6 +79,9 @@ class RequestParamsResolverTest extends TestCase
         $this->requestObjectFacadeMock->method('requestObjectParser')
             ->willReturn($this->requestObjectParserMock);
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->moduleConfigMock->method('getRequestUriParameterSupported')->willReturn(true);
+        $this->moduleConfigMock->method('getRequestUriTimeout')->willReturn(5);
+        $this->moduleConfigMock->method('getRequestUriMaxSizeBytes')->willReturn(102400);
         $this->clientRepositoryMock = $this->createMock(ClientRepository::class);
         $this->pushedAuthorizationRequestRepositoryMock = $this->createMock(
             PushedAuthorizationRequestRepository::class,
@@ -109,6 +111,25 @@ class RequestParamsResolverTest extends TestCase
             $this->pushedAuthorizationRequestRepositoryMock,
             $this->loggerServiceMock,
         );
+    }
+
+    protected function bagWithCore(): MockObject
+    {
+        $bag = $this->createMock(RequestObjectBag::class);
+        $bag->method('get')->willReturnMap([[RequestObject::class, $this->requestObjectMock]]);
+
+        return $bag;
+    }
+
+    protected function helpersWithParams(array $params): MockObject
+    {
+        $httpHelperMock = $this->createMock(Helpers\Http::class);
+        $httpHelperMock->method('getAllRequestParams')->willReturn($params);
+        $httpHelperMock->method('getAllRequestParamsBasedOnAllowedMethods')->willReturn($params);
+        $helpersMock = $this->createMock(Helpers::class);
+        $helpersMock->method('http')->willReturn($httpHelperMock);
+
+        return $helpersMock;
     }
 
     public function testCanCreateInstance(): void
@@ -146,12 +167,9 @@ class RequestParamsResolverTest extends TestCase
     public function testCanGetAllWithRequestObject(): void
     {
         $queryParams = [...$this->queryParams, 'request' => 'token'];
+        $helpersMock = $this->helpersWithParams($queryParams);
 
-        $httpHelperMock = $this->createMock(Helpers\Http::class);
-        $httpHelperMock->method('getAllRequestParams')->willReturn($queryParams);
-        $helpersMock = $this->createMock(Helpers::class);
-        $helpersMock->method('http')->willReturn($httpHelperMock);
-        $this->requestObjectMock->expects($this->once())->method('getPayload');
+        $this->requestObjectParserMock->method('fromToken')->with('token')->willReturn($this->bagWithCore());
 
         $this->assertSame(
             array_merge($queryParams, $this->requestObjectParams),
@@ -203,15 +221,12 @@ class RequestParamsResolverTest extends TestCase
     {
         $requestUri = PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX . 'abc123';
         $queryParams = [...$this->queryParams, 'request_uri' => $requestUri];
-
-        $httpHelperMock = $this->createMock(Helpers\Http::class);
-        $httpHelperMock->method('getAllRequestParams')->willReturn($queryParams);
-        $helpersMock = $this->createMock(Helpers::class);
-        $helpersMock->method('http')->willReturn($httpHelperMock);
+        $helpersMock = $this->helpersWithParams($queryParams);
 
         $parEntityMock = $this->createMock(PushedAuthorizationRequestEntity::class);
         $parEntityMock->method('getParameters')->willReturn($this->requestObjectParams);
 
+        // Resolution is memoized, so the repository is queried only once across repeated getAll() calls.
         $this->pushedAuthorizationRequestRepositoryMock->expects($this->once())
             ->method('findValid')
             ->with($requestUri)
@@ -223,8 +238,6 @@ class RequestParamsResolverTest extends TestCase
             array_merge($queryParams, $this->requestObjectParams),
             $sut->getAll($this->requestMock),
         );
-
-        // Resolution is memoized, so the repository is not queried again.
         $this->assertSame(
             array_merge($queryParams, $this->requestObjectParams),
             $sut->getAll($this->requestMock),
@@ -235,11 +248,7 @@ class RequestParamsResolverTest extends TestCase
     {
         $requestUri = PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX . 'abc123';
         $queryParams = [...$this->queryParams, 'request_uri' => $requestUri];
-
-        $httpHelperMock = $this->createMock(Helpers\Http::class);
-        $httpHelperMock->method('getAllRequestParams')->willReturn($queryParams);
-        $helpersMock = $this->createMock(Helpers::class);
-        $helpersMock->method('http')->willReturn($httpHelperMock);
+        $helpersMock = $this->helpersWithParams($queryParams);
 
         $this->pushedAuthorizationRequestRepositoryMock->method('findValid')->willReturn(null);
 
@@ -253,43 +262,30 @@ class RequestParamsResolverTest extends TestCase
     {
         $requestUri = PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX . 'abc123';
         $queryParams = [...$this->queryParams, 'request_uri' => $requestUri, 'request' => 'token'];
+        $helpersMock = $this->helpersWithParams($queryParams);
 
-        $httpHelperMock = $this->createMock(Helpers\Http::class);
-        $httpHelperMock->method('getAllRequestParams')->willReturn($queryParams);
-        $helpersMock = $this->createMock(Helpers::class);
-        $helpersMock->method('http')->willReturn($httpHelperMock);
-
+        $this->requestObjectParserMock->method('fromToken')->willReturn($this->bagWithCore());
         $this->pushedAuthorizationRequestRepositoryMock->expects($this->never())->method('findValid');
 
         $this->mock($helpersMock)->getAll($this->requestMock);
     }
 
-    public function testCanGetAllWithHttpsRequestUriForRegisteredUri(): void
+    public function testCanGetAllWithHttpsRequestUriForRegisteredClient(): void
     {
         $requestUri = 'https://client.example.org/request-object.jwt';
         $queryParams = [...$this->queryParams, 'request_uri' => $requestUri, 'client_id' => 'client123'];
-
-        $httpHelperMock = $this->createMock(Helpers\Http::class);
-        $httpHelperMock->method('getAllRequestParams')->willReturn($queryParams);
-        $helpersMock = $this->createMock(Helpers::class);
-        $helpersMock->method('http')->willReturn($httpHelperMock);
+        $helpersMock = $this->helpersWithParams($queryParams);
 
         $clientEntityMock = $this->createMock(ClientEntityInterface::class);
+        $clientEntityMock->method('getRegistrationType')->willReturn(RegistrationTypeEnum::Manual);
         $clientEntityMock->method('getRequestUris')->willReturn([$requestUri]);
-        $this->clientRepositoryMock->method('getClientEntity')
-            ->with('client123')
-            ->willReturn($clientEntityMock);
+        $this->clientRepositoryMock->method('getClientEntity')->with('client123')->willReturn($clientEntityMock);
 
-        $requestObjectBag = $this->createMock(RequestObjectBag::class);
-        $requestObjectBag->method('get')
-            ->willReturnMap([
-                [RequestObject::class, $this->requestObjectMock],
-            ]);
-
+        // Fetch is memoized, so the request object is fetched only once across repeated getAll() calls.
         $this->requestObjectParserMock->expects($this->once())
             ->method('fromRequestUri')
             ->with($requestUri)
-            ->willReturn($requestObjectBag);
+            ->willReturn($this->bagWithCore());
 
         $sut = $this->mock($helpersMock);
 
@@ -297,71 +293,106 @@ class RequestParamsResolverTest extends TestCase
             array_merge($queryParams, $this->requestObjectParams),
             $sut->getAll($this->requestMock),
         );
-
-        // Resolution is memoized, so the Request Object is not fetched again.
         $sut->getAll($this->requestMock);
-
-        $this->assertSame(
-            $requestObjectBag,
-            $sut->getResolvedRequestUriBag($requestUri),
-        );
     }
 
     public function testGetAllDoesNotFetchHttpsRequestUriIfNotRegisteredForClient(): void
     {
         $requestUri = 'https://client.example.org/request-object.jwt';
         $queryParams = [...$this->queryParams, 'request_uri' => $requestUri, 'client_id' => 'client123'];
-
-        $httpHelperMock = $this->createMock(Helpers\Http::class);
-        $httpHelperMock->method('getAllRequestParams')->willReturn($queryParams);
-        $helpersMock = $this->createMock(Helpers::class);
-        $helpersMock->method('http')->willReturn($httpHelperMock);
+        $helpersMock = $this->helpersWithParams($queryParams);
 
         $clientEntityMock = $this->createMock(ClientEntityInterface::class);
+        $clientEntityMock->method('getRegistrationType')->willReturn(RegistrationTypeEnum::Manual);
         $clientEntityMock->method('getRequestUris')->willReturn(['https://client.example.org/other.jwt']);
         $this->clientRepositoryMock->method('getClientEntity')->willReturn($clientEntityMock);
 
         $this->requestObjectParserMock->expects($this->never())->method('fromRequestUri');
 
-        $sut = $this->mock($helpersMock);
-
-        $this->assertSame(
-            $queryParams,
-            $sut->getAll($this->requestMock),
-        );
-
-        $this->assertNull($sut->getResolvedRequestUriBag($requestUri));
+        $this->assertSame($queryParams, $this->mock($helpersMock)->getAll($this->requestMock));
     }
 
-    public function testGetAllDoesNotFetchHttpsRequestUriIfClientIdParamIsMissing(): void
+    public function testGetAllDoesNotFetchHttpsRequestUriIfNotSupported(): void
     {
         $requestUri = 'https://client.example.org/request-object.jwt';
-        $queryParams = [...$this->queryParams, 'request_uri' => $requestUri];
+        $queryParams = [...$this->queryParams, 'request_uri' => $requestUri, 'client_id' => 'client123'];
+        $helpersMock = $this->helpersWithParams($queryParams);
 
-        $httpHelperMock = $this->createMock(Helpers\Http::class);
-        $httpHelperMock->method('getAllRequestParams')->willReturn($queryParams);
-        $helpersMock = $this->createMock(Helpers::class);
-        $helpersMock->method('http')->willReturn($httpHelperMock);
+        $moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $moduleConfigMock->method('getRequestUriParameterSupported')->willReturn(false);
+        $this->moduleConfigMock = $moduleConfigMock;
 
         $this->requestObjectParserMock->expects($this->never())->method('fromRequestUri');
 
+        $this->assertSame($queryParams, $this->mock($helpersMock)->getAll($this->requestMock));
+    }
+
+    public function testCanFetchHttpsRequestUriForFederationClient(): void
+    {
+        $requestUri = 'https://rp.example.org/request-object.jwt';
+        $queryParams = [...$this->queryParams, 'request_uri' => $requestUri, 'client_id' => 'https://rp.example.org'];
+        $helpersMock = $this->helpersWithParams($queryParams);
+
+        // Federation candidate: client not in storage, federation enabled -> fetch is allowed (trust is
+        // validated after the fetch, in ClientRule).
+        $this->clientRepositoryMock->method('getClientEntity')->willReturn(null);
+        $this->moduleConfigMock->method('getFederationEnabled')->willReturn(true);
+
+        $this->requestObjectParserMock->expects($this->once())
+            ->method('fromRequestUri')
+            ->with($requestUri)
+            ->willReturn($this->bagWithCore());
+
         $this->assertSame(
-            $queryParams,
+            array_merge($queryParams, $this->requestObjectParams),
             $this->mock($helpersMock)->getAll($this->requestMock),
         );
     }
 
-    public function testCanParseRequestObjectBag(): void
+    public function testDoesNotFetchHttpsRequestUriForUnknownClientWhenFederationDisabled(): void
     {
-        $requestObjectBag = new RequestObjectBag();
-        $this->requestObjectParserMock->expects($this->once())
-            ->method('fromToken')
-            ->with('token')
-            ->willReturn($requestObjectBag);
+        $requestUri = 'https://rp.example.org/request-object.jwt';
+        $queryParams = [...$this->queryParams, 'request_uri' => $requestUri, 'client_id' => 'https://rp.example.org'];
+        $helpersMock = $this->helpersWithParams($queryParams);
+
+        $this->clientRepositoryMock->method('getClientEntity')->willReturn(null);
+        $this->moduleConfigMock->method('getFederationEnabled')->willReturn(false);
+
+        $this->requestObjectParserMock->expects($this->never())->method('fromRequestUri');
+
+        $this->assertSame($queryParams, $this->mock($helpersMock)->getAll($this->requestMock));
+    }
+
+    public function testGetRequestObjectBagForRequestParam(): void
+    {
+        $queryParams = [...$this->queryParams, 'request' => 'token'];
+        $helpersMock = $this->helpersWithParams($queryParams);
+
+        $bag = $this->bagWithCore();
+        $this->requestObjectParserMock->method('fromToken')->with('token')->willReturn($bag);
 
         $this->assertSame(
-            $requestObjectBag,
-            $this->mock()->parseRequestObjectBag('token'),
+            $bag,
+            $this->mock($helpersMock)->getRequestObjectBag($this->requestMock, [HttpMethodsEnum::GET]),
+        );
+    }
+
+    public function testGetRequestObjectBagReturnsNullForParUrn(): void
+    {
+        $requestUri = PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX . 'abc123';
+        $queryParams = [...$this->queryParams, 'request_uri' => $requestUri];
+
+        $this->assertNull(
+            $this->mock($this->helpersWithParams($queryParams))
+                ->getRequestObjectBag($this->requestMock, [HttpMethodsEnum::GET]),
+        );
+    }
+
+    public function testGetRequestObjectBagReturnsNullWhenNoSource(): void
+    {
+        $this->assertNull(
+            $this->mock($this->helpersWithParams($this->queryParams))
+                ->getRequestObjectBag($this->requestMock, [HttpMethodsEnum::GET]),
         );
     }
 }

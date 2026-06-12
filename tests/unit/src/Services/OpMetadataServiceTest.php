@@ -81,6 +81,8 @@ class OpMetadataServiceTest extends TestCase
 
         $this->moduleConfigMock->method('getProtocolSignatureKeyPairBag')
             ->willReturn($this->signatureKeyPairBagMock);
+
+        $this->moduleConfigMock->method('getRequestUriParameterSupported')->willReturn(true);
     }
 
     /**

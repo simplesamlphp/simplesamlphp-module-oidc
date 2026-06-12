@@ -26,26 +26,24 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
-use SimpleSAML\OpenID\Core\RequestObject as ConnectRequestObject;
-use SimpleSAML\OpenID\Jar\RequestObject as JarRequestObject;
 
 /**
- * Handle the request_uri authorization request parameter:
- *  - Pushed Authorization Request URIs (RFC 9126, urn form): validate existence, expiration, one-time use
- *    (consume on validation) and client binding,
- *  - https Request URIs (RFC 9101 / OpenID Connect Core, Request Object by reference): validate that the
- *    Request URI is registered for the client, and validate the fetched Request Object (signature, client
- *    binding), differentiating between OpenID Connect and plain OAuth 2.0 (JAR) requests,
- *  - enforce Pushed Authorization Request usage if required by server or client policy.
- *
- * Note that the actual resolution of params from the request_uri value is done in RequestParamsResolver, so
- * that resolved params are transparently available to all other rules.
+ * Gatekeeper for the request_uri authorization request parameter. It does not parse, fetch or verify the
+ * Request Object itself (that is the job of the RequestParamsResolver and the RequestObjectRule); it only
+ * enforces request_uri usage policy:
+ *  - request and request_uri must not be used together (RFC 9101),
+ *  - client_id is required when using request_uri,
+ *  - Pushed Authorization Request URIs (RFC 9126, urn form): existence, expiration, one-time use (consume on
+ *    validation) and client binding,
+ *  - https Request URIs (Request Object by reference): the OP must support the request_uri parameter, and the
+ *    Request Object must be resolvable (registration / federation policy is enforced in RequestParamsResolver),
+ *  - Pushed Authorization Request usage if required by server or client policy.
  *
  * @see \SimpleSAML\Module\oidc\Utils\RequestParamsResolver
+ * @see \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule
  */
 class RequestUriRule extends AbstractRule
 {
@@ -53,7 +51,6 @@ class RequestUriRule extends AbstractRule
         RequestParamsResolver $requestParamsResolver,
         Helpers $helpers,
         protected PushedAuthorizationRequestRepository $pushedAuthorizationRequestRepository,
-        protected JwksResolver $jwksResolver,
         protected ModuleConfig $moduleConfig,
     ) {
         parent::__construct($requestParamsResolver, $helpers);
@@ -76,9 +73,8 @@ class RequestUriRule extends AbstractRule
     ): ?ResultInterface {
         $loggerService->debug('RequestUriRule::checkRule');
 
-        // Note: we are intentionally working with raw request params here
-        // (not the merged view which includes params resolved from the
-        // request_uri itself).
+        // Note: we are intentionally working with raw request params here (not the merged view which includes
+        // params resolved from the request_uri itself).
         $requestUri = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
             ParamsEnum::RequestUri->value,
             $request,
@@ -140,9 +136,7 @@ class RequestUriRule extends AbstractRule
         if (str_starts_with(strtolower($requestUri), 'https://')) {
             return $this->checkHttpsRequestUri(
                 $requestUri,
-                $client,
                 $request,
-                $currentResultBag,
                 $isParRequired,
                 $allowedServerRequestMethods,
             );
@@ -224,9 +218,7 @@ class RequestUriRule extends AbstractRule
      */
     protected function checkHttpsRequestUri(
         string $requestUri,
-        ClientEntityInterface $client,
         ServerRequestInterface $request,
-        ResultBagInterface $currentResultBag,
         bool $isParRequired,
         array $allowedServerRequestMethods,
     ): ResultInterface {
@@ -237,98 +229,26 @@ class RequestUriRule extends AbstractRule
             );
         }
 
-        if (!in_array($requestUri, $client->getRequestUris(), true)) {
+        if (!$this->moduleConfig->getRequestUriParameterSupported()) {
             throw OidcServerException::invalidRequest(
                 ParamsEnum::RequestUri->value,
-                'The request_uri is not registered for this client.',
+                'Passing the request object by reference (request_uri) is not supported.',
             );
         }
 
-        // Make sure the request_uri resolution ran (it is memoized in
-        // RequestParamsResolver, so this is inexpensive if other rules already
-        // triggered it), then grab the resolved Request Object Bag.
-        $this->requestParamsResolver->getAllBasedOnAllowedMethods($request, $allowedServerRequestMethods);
-
-        $requestObjectBag = $this->requestParamsResolver->getResolvedRequestUriBag($requestUri);
+        // Make sure the Request Object behind the request_uri can actually be resolved (fetched and parsed,
+        // and allowed by registration / federation policy in RequestParamsResolver). The signature and other
+        // request object validations are then done by the RequestObjectRule (or by ClientRule for the
+        // federation case).
+        $requestObjectBag = $this->requestParamsResolver->getRequestObjectBag($request, $allowedServerRequestMethods);
         if ($requestObjectBag === null) {
             throw OidcServerException::invalidRequest(
                 ParamsEnum::RequestUri->value,
-                'Could not fetch or parse the Request Object from request_uri.',
+                'The request_uri could not be resolved (it may not be allowed for this client, or the fetch ' .
+                'failed).',
             );
         }
-
-        if (!$this->isOidcAuthorizationRequest($request, $allowedServerRequestMethods)) {
-            // This is a plain OAuth 2.0 authorization request, so JAR
-            // (RFC 9101) rules apply: the Request Object must be a signed
-            // JWT containing the Client ID claim.
-            $requestObject = $requestObjectBag->get(JarRequestObject::class);
-            if (!$requestObject instanceof JarRequestObject) {
-                throw OidcServerException::invalidRequest(
-                    ParamsEnum::RequestUri->value,
-                    'Request object is not a valid JAR Request Object (note that it must be signed).',
-                );
-            }
-
-            $this->verifySignature($requestObject, $client);
-        } else {
-            // This is an OpenID Connect authorization request, so OpenID Connect Core rules apply: the
-            // Request Object can be unsigned (unless signature is required by policy).
-            $requestObject = $requestObjectBag->get(ConnectRequestObject::class);
-            if (!$requestObject instanceof ConnectRequestObject) {
-                throw OidcServerException::invalidRequest(
-                    ParamsEnum::RequestUri->value,
-                    'Request object is not a valid Request Object.',
-                );
-            }
-
-            if ($requestObject->isProtected()) {
-                $this->verifySignature($requestObject, $client);
-            } elseif (
-                $this->moduleConfig->getRequireSignedRequestObject() ||
-                $client->getRequireSignedRequestObject()
-            ) {
-                throw OidcServerException::invalidRequest(
-                    ParamsEnum::RequestUri->value,
-                    'Request object must be signed (alg: none is not allowed).',
-                );
-            }
-        }
-
-        $payload = $requestObject->getPayload();
-
-        /** @psalm-suppress MixedAssignment */
-        $clientIdClaim = $payload[ParamsEnum::ClientId->value] ?? null;
-        if ($clientIdClaim !== $client->getIdentifier()) {
-            throw OidcServerException::invalidRequest(
-                ParamsEnum::RequestUri->value,
-                'Client ID claim in request object does not match the client_id parameter.',
-            );
-        }
-
-        // Mark the Request Object as resolved (and validated), so that RequestObjectRule does not need to
-        // run again for it.
-        $currentResultBag->add(new Result(RequestObjectRule::class, $payload));
 
         return new Result($this->getKey(), $requestUri);
-    }
-
-    /**
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
-     */
-    protected function verifySignature(
-        ConnectRequestObject|JarRequestObject $requestObject,
-        ClientEntityInterface $client,
-    ): void {
-        ($jwks = $this->jwksResolver->forClient($client)) || throw OidcServerException::accessDenied(
-            'can not validate request object, client JWKS not available',
-        );
-
-        try {
-            $requestObject->verifyWithKeySet($jwks);
-        } catch (\Throwable $exception) {
-            throw OidcServerException::accessDenied(
-                'request object validation failed: ' . $exception->getMessage(),
-            );
-        }
     }
 }

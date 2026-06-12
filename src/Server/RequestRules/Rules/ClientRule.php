@@ -29,6 +29,7 @@ use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Exceptions\JwsException;
 use SimpleSAML\OpenID\Federation;
+use SimpleSAML\OpenID\Federation\RequestObject as FederationRequestObject;
 use Throwable;
 
 /**
@@ -161,30 +162,26 @@ class ClientRule extends AbstractRule
     ): ?ClientEntityInterface {
         $this->loggerService->debug('ClientRule: Resolving client from federation.');
         // Federation is enabled.
-        // Check if we have a request object available. If not, we don't have anything else to do.
-        $requestParam = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
-            ParamsEnum::Request->value,
-            $request,
-            $allowedMethods,
-        );
+        // Check if we have a Request Object available, either passed by value (request param) or by reference
+        // (https request_uri param). The RequestParamsResolver does the heavy lifting (parsing / fetching).
+        // If not available, we don't have anything else to do.
+        $requestObjectBag = $this->requestParamsResolver->getRequestObjectBag($request, $allowedMethods);
 
-        if (is_null($requestParam)) {
-            $this->loggerService->error('ClientRule: No request param available, nothing to do.');
+        if ($requestObjectBag === null) {
+            $this->loggerService->error('ClientRule: No request object available, nothing to do.');
             return null;
         }
 
-        $this->loggerService->debug('ClientRule: Request param available.', ['requestParam' => $requestParam]);
+        // We must verify that the Request Object is the one compatible with OpenID Federation specification
+        // (not only Core specification).
+        $requestObject = $requestObjectBag->get(FederationRequestObject::class);
 
-        // We have a request object available. We must verify that it is the one compatible with OpenID Federation
-        // specification (not only Core specification).
-        try {
-            $requestObject = $this->requestParamsResolver->parseFederationRequestObjectToken($requestParam);
-        } catch (Throwable $exception) {
-            $this->loggerService->error('ClientRule: Request object error: ' . $exception->getMessage());
+        if (!$requestObject instanceof FederationRequestObject) {
+            $this->loggerService->error('ClientRule: Request object is not a Federation Request Object.');
             return null;
         }
 
-        $this->loggerService->debug('ClientRule: Request object parsed successfully.');
+        $this->loggerService->debug('ClientRule: Federation Request object available.');
 
         // We have a Federation-compatible Request Object.
         // The Audience (aud) value MUST be or include the OP's Issuer Identifier URL.

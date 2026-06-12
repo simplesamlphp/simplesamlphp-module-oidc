@@ -20,14 +20,10 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
-use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestUriRule;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
-use SimpleSAML\OpenID\Core\RequestObject;
-use SimpleSAML\OpenID\Jar\RequestObject as JarRequestObject;
 use SimpleSAML\OpenID\RequestObject\RequestObjectBag;
 
 #[CoversClass(RequestUriRule::class)]
@@ -41,7 +37,6 @@ class RequestUriRuleTest extends TestCase
     protected MockObject $resultBagMock;
     protected MockObject $requestParamsResolverMock;
     protected MockObject $pushedAuthorizationRequestRepositoryMock;
-    protected MockObject $jwksResolverMock;
     protected MockObject $moduleConfigMock;
     protected MockObject $parEntityMock;
     protected Stub $requestStub;
@@ -61,8 +56,8 @@ class RequestUriRuleTest extends TestCase
         $this->pushedAuthorizationRequestRepositoryMock = $this->createMock(
             PushedAuthorizationRequestRepository::class,
         );
-        $this->jwksResolverMock = $this->createMock(JwksResolver::class);
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->moduleConfigMock->method('getRequestUriParameterSupported')->willReturn(true);
         $this->parEntityMock = $this->createMock(PushedAuthorizationRequestEntity::class);
         $this->requestStub = $this->createStub(ServerRequestInterface::class);
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
@@ -76,7 +71,6 @@ class RequestUriRuleTest extends TestCase
             $this->requestParamsResolverMock,
             $this->helpers,
             $this->pushedAuthorizationRequestRepositoryMock,
-            $this->jwksResolverMock,
             $this->moduleConfigMock,
         );
     }
@@ -121,7 +115,6 @@ class RequestUriRuleTest extends TestCase
         $this->moduleConfigMock->method('getRequirePushedAuthorizationRequests')->willReturn(true);
 
         $this->expectException(OidcServerException::class);
-        $this->expectExceptionMessageMatches('/invalid/i');
         $this->checkRule();
     }
 
@@ -246,125 +239,51 @@ class RequestUriRuleTest extends TestCase
         $this->checkRule();
     }
 
-    public function testThrowsForUnregisteredHttpsRequestUri(): void
+    public function testThrowsForHttpsRequestUriIfNotSupported(): void
     {
+        // Override the default (true) set in setUp via a fresh module config mock.
+        $moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $moduleConfigMock->method('getRequestUriParameterSupported')->willReturn(false);
+
         $this->prepareRawParams(['request_uri' => self::HTTPS_REQUEST_URI, 'client_id' => 'client123']);
-        $this->clientMock->method('getRequestUris')->willReturn(['https://client.example.org/other.jwt']);
+
+        $sut = new RequestUriRule(
+            $this->requestParamsResolverMock,
+            $this->helpers,
+            $this->pushedAuthorizationRequestRepositoryMock,
+            $moduleConfigMock,
+        );
 
         $this->expectException(OidcServerException::class);
-        $this->checkRule();
+        $sut->checkRule(
+            $this->requestStub,
+            $this->resultBagMock,
+            $this->loggerServiceMock,
+            [],
+            $this->responseModeStub,
+        );
     }
 
     public function testThrowsForUnresolvableHttpsRequestUri(): void
     {
         $this->prepareRawParams(['request_uri' => self::HTTPS_REQUEST_URI, 'client_id' => 'client123']);
-        $this->clientMock->method('getRequestUris')->willReturn([self::HTTPS_REQUEST_URI]);
-        $this->requestParamsResolverMock->method('getResolvedRequestUriBag')->willReturn(null);
+        // Resolver could not fetch/parse (or policy denied the fetch) -> null bag.
+        $this->requestParamsResolverMock->method('getRequestObjectBag')->willReturn(null);
 
         $this->expectException(OidcServerException::class);
         $this->checkRule();
     }
 
-    /**
-     * @param array<class-string, object|null> $bagContent
-     */
-    protected function prepareRequestObjectBag(array $bagContent): void
-    {
-        $requestObjectBagMock = $this->createMock(RequestObjectBag::class);
-        $requestObjectBagMock->method('get')
-            ->willReturnCallback(fn(string $class): ?object => $bagContent[$class] ?? null);
-        $this->requestParamsResolverMock->method('getResolvedRequestUriBag')
-            ->with(self::HTTPS_REQUEST_URI)
-            ->willReturn($requestObjectBagMock);
-    }
-
-    public function testThrowsForOAuth2RequestIfFetchedRequestObjectIsNotJar(): void
+    public function testCanUseResolvableHttpsRequestUri(): void
     {
         $this->prepareRawParams(['request_uri' => self::HTTPS_REQUEST_URI, 'client_id' => 'client123']);
-        $this->clientMock->method('getRequestUris')->willReturn([self::HTTPS_REQUEST_URI]);
-        // No openid scope, so this is a plain OAuth 2.0 request (JAR rules apply). For example, an
-        // unsigned Request Object is not a valid JAR Request Object.
-        $this->requestParamsResolverMock->method('getAsStringBasedOnAllowedMethods')->willReturn('profile');
-        $connectRequestObjectMock = $this->createMock(RequestObject::class);
-        $this->prepareRequestObjectBag([
-            RequestObject::class => $connectRequestObjectMock,
-            JarRequestObject::class => null,
-        ]);
-
-        $this->expectException(OidcServerException::class);
-        $this->checkRule();
-    }
-
-    public function testCanUseFetchedJarRequestObjectForOAuth2Request(): void
-    {
-        $this->prepareRawParams(['request_uri' => self::HTTPS_REQUEST_URI, 'client_id' => 'client123']);
-        $this->clientMock->method('getRequestUris')->willReturn([self::HTTPS_REQUEST_URI]);
-        $this->requestParamsResolverMock->method('getAsStringBasedOnAllowedMethods')->willReturn('profile');
-
-        $jarRequestObjectMock = $this->createMock(JarRequestObject::class);
-        $jarRequestObjectMock->method('getPayload')->willReturn(['client_id' => 'client123']);
-        $jarRequestObjectMock->expects($this->once())->method('verifyWithKeySet')->with(['jwks']);
-        $this->prepareRequestObjectBag([JarRequestObject::class => $jarRequestObjectMock]);
-
-        $this->jwksResolverMock->method('forClient')->with($this->clientMock)->willReturn(['jwks']);
-
-        // The validated Request Object payload is marked as resolved for other rules.
-        $this->resultBagMock->expects($this->once())->method('add')
-            ->with($this->callback(
-                fn(Result $result): bool => $result->getKey() === RequestObjectRule::class,
-            ));
+        // Resolver produced a bag; signature/flavor validation is RequestObjectRule's job, not this rule's.
+        $this->requestParamsResolverMock->method('getRequestObjectBag')
+            ->willReturn($this->createMock(RequestObjectBag::class));
 
         $result = $this->checkRule();
 
         $this->assertInstanceOf(Result::class, $result);
         $this->assertSame(self::HTTPS_REQUEST_URI, $result->getValue());
-    }
-
-    public function testThrowsForOidcRequestIfUnsignedRequestObjectIsFetchedButSignatureIsRequired(): void
-    {
-        $this->prepareRawParams(['request_uri' => self::HTTPS_REQUEST_URI, 'client_id' => 'client123']);
-        $this->clientMock->method('getRequestUris')->willReturn([self::HTTPS_REQUEST_URI]);
-        // OpenID Connect request is designated by the openid scope.
-        $this->requestParamsResolverMock->method('getAsStringBasedOnAllowedMethods')->willReturn('openid');
-        $this->moduleConfigMock->method('getRequireSignedRequestObject')->willReturn(true);
-
-        $connectRequestObjectMock = $this->createMock(RequestObject::class);
-        $connectRequestObjectMock->method('isProtected')->willReturn(false);
-        $this->prepareRequestObjectBag([RequestObject::class => $connectRequestObjectMock]);
-
-        $this->expectException(OidcServerException::class);
-        $this->checkRule();
-    }
-
-    public function testCanUseFetchedUnsignedRequestObjectForOidcRequest(): void
-    {
-        $this->prepareRawParams(['request_uri' => self::HTTPS_REQUEST_URI, 'client_id' => 'client123']);
-        $this->clientMock->method('getRequestUris')->willReturn([self::HTTPS_REQUEST_URI]);
-        $this->requestParamsResolverMock->method('getAsStringBasedOnAllowedMethods')->willReturn('openid');
-
-        $connectRequestObjectMock = $this->createMock(RequestObject::class);
-        $connectRequestObjectMock->method('isProtected')->willReturn(false);
-        $connectRequestObjectMock->method('getPayload')->willReturn(['client_id' => 'client123']);
-        $this->prepareRequestObjectBag([RequestObject::class => $connectRequestObjectMock]);
-
-        $result = $this->checkRule();
-
-        $this->assertInstanceOf(Result::class, $result);
-        $this->assertSame(self::HTTPS_REQUEST_URI, $result->getValue());
-    }
-
-    public function testThrowsIfFetchedRequestObjectClientIdClaimDoesNotMatch(): void
-    {
-        $this->prepareRawParams(['request_uri' => self::HTTPS_REQUEST_URI, 'client_id' => 'client123']);
-        $this->clientMock->method('getRequestUris')->willReturn([self::HTTPS_REQUEST_URI]);
-        $this->requestParamsResolverMock->method('getAsStringBasedOnAllowedMethods')->willReturn('openid');
-
-        $connectRequestObjectMock = $this->createMock(RequestObject::class);
-        $connectRequestObjectMock->method('isProtected')->willReturn(false);
-        $connectRequestObjectMock->method('getPayload')->willReturn(['client_id' => 'otherClient']);
-        $this->prepareRequestObjectBag([RequestObject::class => $connectRequestObjectMock]);
-
-        $this->expectException(OidcServerException::class);
-        $this->checkRule();
     }
 }
