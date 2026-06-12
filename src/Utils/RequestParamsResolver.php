@@ -374,7 +374,8 @@ class RequestParamsResolver
      *  - for registered (non-federation) clients, the request_uri must be pre-registered in the client's
      *    request_uris (RFC 9126 exact-matching),
      *  - for clients not in storage or registered through OpenID Federation, fetching is allowed when
-     *    federation is enabled (trust is validated after the fetch, in ClientRule).
+     *    federation is enabled and the request_uri is allowed by the federation request_uri prefix allowlist
+     *    (trust is validated after the fetch, in ClientRule).
      */
     protected function isHttpsRequestUriFetchAllowed(string $requestUri, array $requestParams): bool
     {
@@ -400,7 +401,30 @@ class RequestParamsResolver
         }
 
         // Client not in storage, or registered through OpenID Federation: federation by-reference path.
-        return $this->moduleConfig->getFederationEnabled();
+        return $this->moduleConfig->getFederationEnabled() &&
+        $this->isFederationRequestUriAllowed($requestUri);
+    }
+
+    /**
+     * Check the federation request_uri against the configured prefix allowlist (SSRF / DoS mitigation for the
+     * outbound fetch of a not-yet-trusted federation candidate's Request Object).
+     */
+    protected function isFederationRequestUriAllowed(string $requestUri): bool
+    {
+        $allowedPrefixes = $this->moduleConfig->getFederationRequestUriAllowedPrefixes();
+
+        // Null means explicitly allow any request_uri.
+        if (is_null($allowedPrefixes)) {
+            return true;
+        }
+
+        foreach ($allowedPrefixes as $allowedPrefix) {
+            if ($allowedPrefix !== '' && str_starts_with($requestUri, $allowedPrefix)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

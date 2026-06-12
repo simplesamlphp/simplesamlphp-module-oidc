@@ -131,6 +131,13 @@ $config = [
     // OpenID Federation by reference). Set to false to mitigate DoS / SSRF by disabling outbound fetches. Note
     // that this does not affect Pushed Authorization Request URIs (urn form), which are always supported.
     ModuleConfig::OPTION_REQUEST_URI_PARAMETER_SUPPORTED => true, // Support https request_uri (default: true)
+    // SSRF / DoS allowlist for fetching the Request Object by reference for OpenID Federation candidates
+    // (clients not registered in storage, or registered through OpenID Federation). Registered (non-federation)
+    // clients are not affected (for them the request_uri must match their registered request_uris exactly).
+    //  - [] (empty array, the default): deny all federation-candidate fetches,
+    //  - ['https://rp.example.org/', ...]: allow only request_uris starting with one of the given prefixes,
+    //  - null: explicitly allow any request_uri for federation candidates (not recommended).
+    ModuleConfig::OPTION_FEDERATION_REQUEST_URI_ALLOWED_PREFIXES => [],
     ModuleConfig::OPTION_REQUEST_URI_TIMEOUT => 5, // Timeout for fetching request_uri (default: 5 seconds)
     ModuleConfig::OPTION_REQUEST_URI_MAX_SIZE_BYTES => 102400, // Maximum allowed response size for request_uri in bytes (default: 100KB)
 

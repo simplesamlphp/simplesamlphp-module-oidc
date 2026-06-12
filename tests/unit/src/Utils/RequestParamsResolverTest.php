@@ -333,10 +333,11 @@ class RequestParamsResolverTest extends TestCase
         $queryParams = [...$this->queryParams, 'request_uri' => $requestUri, 'client_id' => 'https://rp.example.org'];
         $helpersMock = $this->helpersWithParams($queryParams);
 
-        // Federation candidate: client not in storage, federation enabled -> fetch is allowed (trust is
-        // validated after the fetch, in ClientRule).
+        // Federation candidate: client not in storage, federation enabled, request_uri allowed (null = allow
+        // any) -> fetch is allowed (trust is validated after the fetch, in ClientRule).
         $this->clientRepositoryMock->method('getClientEntity')->willReturn(null);
         $this->moduleConfigMock->method('getFederationEnabled')->willReturn(true);
+        $this->moduleConfigMock->method('getFederationRequestUriAllowedPrefixes')->willReturn(null);
 
         $this->requestObjectParserMock->expects($this->once())
             ->method('fromRequestUri')
@@ -347,6 +348,64 @@ class RequestParamsResolverTest extends TestCase
             array_merge($queryParams, $this->requestObjectParams),
             $this->mock($helpersMock)->getAll($this->requestMock),
         );
+    }
+
+    public function testCanFetchHttpsRequestUriForFederationClientWithAllowedPrefix(): void
+    {
+        $requestUri = 'https://rp.example.org/request-object.jwt';
+        $queryParams = [...$this->queryParams, 'request_uri' => $requestUri, 'client_id' => 'https://rp.example.org'];
+        $helpersMock = $this->helpersWithParams($queryParams);
+
+        $this->clientRepositoryMock->method('getClientEntity')->willReturn(null);
+        $this->moduleConfigMock->method('getFederationEnabled')->willReturn(true);
+        $this->moduleConfigMock->method('getFederationRequestUriAllowedPrefixes')
+            ->willReturn(['https://rp.example.org/']);
+
+        $this->requestObjectParserMock->expects($this->once())
+            ->method('fromRequestUri')
+            ->with($requestUri)
+            ->willReturn($this->bagWithCore());
+
+        $this->assertSame(
+            array_merge($queryParams, $this->requestObjectParams),
+            $this->mock($helpersMock)->getAll($this->requestMock),
+        );
+    }
+
+    public function testDoesNotFetchHttpsRequestUriForFederationClientWithDisallowedPrefix(): void
+    {
+        $requestUri = 'https://attacker.example.org/request-object.jwt';
+        $queryParams = [
+            ...$this->queryParams,
+            'request_uri' => $requestUri,
+            'client_id' => 'https://attacker.example.org',
+        ];
+        $helpersMock = $this->helpersWithParams($queryParams);
+
+        $this->clientRepositoryMock->method('getClientEntity')->willReturn(null);
+        $this->moduleConfigMock->method('getFederationEnabled')->willReturn(true);
+        $this->moduleConfigMock->method('getFederationRequestUriAllowedPrefixes')
+            ->willReturn(['https://rp.example.org/']);
+
+        $this->requestObjectParserMock->expects($this->never())->method('fromRequestUri');
+
+        $this->assertSame($queryParams, $this->mock($helpersMock)->getAll($this->requestMock));
+    }
+
+    public function testDoesNotFetchHttpsRequestUriForFederationClientWhenPrefixListIsEmpty(): void
+    {
+        $requestUri = 'https://rp.example.org/request-object.jwt';
+        $queryParams = [...$this->queryParams, 'request_uri' => $requestUri, 'client_id' => 'https://rp.example.org'];
+        $helpersMock = $this->helpersWithParams($queryParams);
+
+        $this->clientRepositoryMock->method('getClientEntity')->willReturn(null);
+        $this->moduleConfigMock->method('getFederationEnabled')->willReturn(true);
+        // Empty allowlist (the default) denies all federation-candidate fetches.
+        $this->moduleConfigMock->method('getFederationRequestUriAllowedPrefixes')->willReturn([]);
+
+        $this->requestObjectParserMock->expects($this->never())->method('fromRequestUri');
+
+        $this->assertSame($queryParams, $this->mock($helpersMock)->getAll($this->requestMock));
     }
 
     public function testDoesNotFetchHttpsRequestUriForUnknownClientWhenFederationDisabled(): void
