@@ -31,22 +31,24 @@ use Symfony\Component\HttpFoundation\Request;
 class RequestParamsResolver
 {
     /**
-     * Request Object Bags parsed from a Request Object JWT passed by value (request param), keyed by token.
+     * Request Object Bags parsed from a Request Object JWT passed by value
+     * (request param), keyed by token.
      *
      * @var array<string, ?\SimpleSAML\OpenID\RequestObject\RequestObjectBag>
      */
     protected array $requestObjectBagsByToken = [];
 
     /**
-     * Request Object Bags fetched and parsed from an https Request URI passed by reference (request_uri param),
-     * keyed by request_uri value.
+     * Request Object Bags fetched and parsed from a https Request URI passed
+     * by reference (request_uri param), keyed by request_uri value.
      *
      * @var array<string, ?\SimpleSAML\OpenID\RequestObject\RequestObjectBag>
      */
     protected array $requestObjectBagsByUri = [];
 
     /**
-     * Params resolved from Pushed Authorization Request URIs (urn form), keyed by request_uri value.
+     * Params resolved from Pushed Authorization Request URIs (urn form),
+     * keyed by request_uri value.
      *
      * @var array<string, mixed[]>
      */
@@ -201,8 +203,8 @@ class RequestParamsResolver
     }
 
     /**
-     * Check if Request Object is present as a request param (passed by value) and parse it to use its claims
-     * as params.
+     * Check if Request Object is present as a request param (passed by value)
+     * and parse it to use its claims as params.
      *
      * @return mixed[]
      */
@@ -216,17 +218,19 @@ class RequestParamsResolver
             return [];
         }
 
-        // Use the OpenID Connect Core flavor for (unverified) param resolution, since it is the most lenient
-        // one (signature validation and policy checks are done in RequestObjectRule).
+        // Use the OpenID Connect Core flavor for (unverified) param resolution,
+        // since it is the most lenient one (signature validation and policy
+        // checks are done in RequestObjectRule).
         return $this->parseRequestObjectBagByToken($token)?->get(Core\RequestObject::class)?->getPayload() ?? [];
     }
 
     /**
-     * Check if Request URI is present as a request param and resolve its claims to use them as params. For
-     * Pushed Authorization Request URIs (urn form), params are resolved from the previously pushed (validated)
-     * authorization request. For https Request URIs, the Request Object is fetched and parsed (if allowed by
-     * policy), but note that this won't do signature validation of it, nor any policy checks like one-time use
-     * or expiration.
+     * Check if Request URI is present as a request param and resolve its claims
+     * to use them as params. For Pushed Authorization Request URIs (urn form),
+     * params are resolved from the previously pushed (validated) authorization
+     * request. For https Request URIs, the Request Object is fetched and parsed
+     * (if allowed by policy), but note that this won't do signature validation
+     * of it, nor any policy checks like one-time use or expiration.
      *
      * @see \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestUriRule
      * @see \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule
@@ -242,18 +246,20 @@ class RequestParamsResolver
             return [];
         }
 
-        // Using both request and request_uri params is not allowed. Don't resolve anything and let the
-        // RequestUriRule produce the proper error.
+        // Using both request and request_uri params is not allowed. Don't
+        // resolve anything and let the caller produce the proper error.
         if (array_key_exists(ParamsEnum::Request->value, $requestParams)) {
             return [];
         }
 
-        // Pushed Authorization Request URI (urn form): resolve from the previously pushed (validated) params.
+        // Pushed Authorization Request URI (urn form): resolve from the
+        // previously pushed (validated) params.
         if (str_starts_with($requestUri, PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX)) {
             return $this->resolvePushedAuthorizationRequestParams($requestUri);
         }
 
-        // https Request URI (by reference): fetch and parse the Request Object (if allowed by policy).
+        // https Request URI (by reference): fetch and parse the Request Object
+        // (if allowed by policy).
         return $this->fetchRequestObjectBagByUri($requestUri, $requestParams)
             ?->get(Core\RequestObject::class)?->getPayload() ?? [];
     }
@@ -280,10 +286,12 @@ class RequestParamsResolver
     }
 
     /**
-     * Resolve the Request Object Bag for the current request, regardless of whether the Request Object was
-     * passed by value (request param) or by reference (https request_uri param). For Pushed Authorization
-     * Request URIs (urn form) this returns null, since PAR carries previously pushed params, not a Request
-     * Object. Note that this won't do signature validation; that is done in RequestObjectRule.
+     * Resolve the Request Object Bag for the current request, regardless of
+     * whether the Request Object was passed by value (request param) or by
+     * reference (https request_uri param). For Pushed Authorization Request
+     * URIs (urn form) this returns null, since PAR carries previously pushed
+     * params, not a Request Object. Note that this won't do signature
+     * validation; that is done in RequestObjectRule.
      *
      * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods
      */
@@ -376,10 +384,11 @@ class RequestParamsResolver
      * allowed to be fetched. This is the single authorization point for
      * outbound Request Object fetches (SSRF / DoS surface):
      *  - the OP must support the request_uri parameter (request_uri_parameter_supported),
-     *  - for registered (non-federation) clients, the request_uri must be pre-registered in the client's
-     *    request_uris (RFC 9126 exact-matching),
-     *  - for clients not in storage or registered through OpenID Federation, fetching is allowed when
-     *    federation is enabled and the request_uri is allowed by the federation request_uri prefix allowlist
+     *  - for registered (non-federation) clients, the request_uri must be
+     *    pre-registered in the client's request_uris (RFC 9126 exact-matching),
+     *  - for clients not in storage or registered through OpenID Federation,
+     *    fetching is allowed when federation is enabled and the request_uri
+     *    is allowed by the federation request_uri prefix allowlist
      *    (trust is validated after the fetch, in ClientRule).
      */
     protected function isHttpsRequestUriFetchAllowed(string $requestUri, array $requestParams): bool
@@ -405,14 +414,16 @@ class RequestParamsResolver
             return in_array($requestUri, $client->getRequestUris(), true);
         }
 
-        // Client not in storage, or registered through OpenID Federation: federation by-reference path.
+        // Client not in storage or registered through OpenID Federation:
+        // federation by-reference path.
         return $this->moduleConfig->getFederationEnabled() &&
         $this->isFederationRequestUriAllowed($requestUri);
     }
 
     /**
-     * Check the federation request_uri against the configured prefix allowlist (SSRF / DoS mitigation for the
-     * outbound fetch of a not-yet-trusted federation candidate's Request Object).
+     * Check the federation request_uri against the configured prefix allowlist
+     * (SSRF / DoS mitigation for the outbound fetch of a not-yet-trusted
+     * federation candidate's Request Object).
      */
     protected function isFederationRequestUriAllowed(string $requestUri): bool
     {

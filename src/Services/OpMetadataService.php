@@ -79,7 +79,8 @@ class OpMetadataService
         ];
         $this->metadata[ClaimsEnum::RequestUriParameterSupported->value] =
         $this->moduleConfig->getRequestUriParameterSupported();
-        // The https request_uri values must be pre-registered for the client (request_uris client metadata).
+        // The https request_uri values must be pre-registered for the client
+        // (request_uris client metadata).
         $this->metadata[ClaimsEnum::RequireRequestUriRegistration->value] = true;
         $this->metadata[ClaimsEnum::PushedAuthorizationRequestEndpoint->value] =
         $this->moduleConfig->getModuleUrl(RoutesEnum::PushedAuthorizationRequest->value);

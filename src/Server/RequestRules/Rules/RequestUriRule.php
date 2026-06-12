@@ -31,15 +31,17 @@ use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 /**
- * Gatekeeper for the request_uri authorization request parameter. It does not parse, fetch or verify the
- * Request Object itself (that is the job of the RequestParamsResolver and the RequestObjectRule); it only
- * enforces request_uri usage policy:
+ * Gatekeeper for the request_uri authorization request parameter. It does not
+ * parse, fetch, or verify the Request Object itself (that is the job of the
+ * RequestParamsResolver and the RequestObjectRule); it only enforces
+ *  the request_uri usage policy:
  *  - request and request_uri must not be used together (RFC 9101),
  *  - client_id is required when using request_uri,
- *  - Pushed Authorization Request URIs (RFC 9126, urn form): existence, expiration, one-time use (consume on
- *    validation) and client binding,
- *  - https Request URIs (Request Object by reference): the OP must support the request_uri parameter, and the
- *    Request Object must be resolvable (registration / federation policy is enforced in RequestParamsResolver),
+ *  - Pushed Authorization Request URIs (RFC 9126, urn form): existence,
+ *    expiration, one-time use (consume on validation) and client binding,
+ *  - https Request URIs (Request Object by reference): the OP must support
+ *    the request_uri parameter, and the Request Object must be resolvable
+ *    (registration / federation policy is enforced in RequestParamsResolver),
  *  - Pushed Authorization Request usage if required by server or client policy.
  *
  * @see \SimpleSAML\Module\oidc\Utils\RequestParamsResolver
@@ -73,8 +75,9 @@ class RequestUriRule extends AbstractRule
     ): ?ResultInterface {
         $loggerService->debug('RequestUriRule::checkRule');
 
-        // Note: we are intentionally working with raw request params here (not the merged view which includes
-        // params resolved from the request_uri itself).
+        // Note: we are intentionally working with raw request params here
+        // (not the merged view which includes params resolved from the
+        // request_uri itself).
         $requestUri = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
             ParamsEnum::RequestUri->value,
             $request,
@@ -185,7 +188,8 @@ class RequestUriRule extends AbstractRule
             );
         }
 
-        // The request_uri value must be bound to the client that posted the authorization request.
+        // The request_uri value must be bound to the client that posted
+        // authorization request.
         if (
             $parEntity->getClientId() !== $clientIdParam ||
             $parEntity->getClientId() !== $client->getIdentifier()
@@ -196,7 +200,8 @@ class RequestUriRule extends AbstractRule
             );
         }
 
-        // Request URIs are one-time use. Consume it now (atomically, to prevent concurrent replays).
+        // Request URIs are one-time use. Consume it now (atomically, to prevent
+        // concurrent replays).
         if (!$this->pushedAuthorizationRequestRepository->consume($requestUri)) {
             $loggerService->warning(
                 'RequestUriRule: pushed authorization request concurrent consumption attempt.',
@@ -236,10 +241,11 @@ class RequestUriRule extends AbstractRule
             );
         }
 
-        // Make sure the Request Object behind the request_uri can actually be resolved (fetched and parsed,
-        // and allowed by registration / federation policy in RequestParamsResolver). The signature and other
-        // request object validations are then done by the RequestObjectRule (or by ClientRule for the
-        // federation case).
+        // Make sure the Request Object behind the request_uri can actually be
+        // resolved (fetched and parsed, and allowed by registration /
+        // federation policy in RequestParamsResolver). The signature and other
+        // request object validations are then done by the RequestObjectRule
+        // (or by ClientRule for the federation case).
         $requestObjectBag = $this->requestParamsResolver->getRequestObjectBag($request, $allowedServerRequestMethods);
         if ($requestObjectBag === null) {
             throw OidcServerException::invalidRequest(
