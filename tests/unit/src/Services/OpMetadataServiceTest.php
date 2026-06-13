@@ -126,7 +126,7 @@ class OpMetadataServiceTest extends TestCase
                 'end_session_endpoint' => 'http://localhost/end-session',
                 'jwks_uri' => 'http://localhost/jwks',
                 'scopes_supported' => ['openid'],
-                'response_types_supported' => ['code', 'token', 'id_token', 'id_token token'],
+                'response_types_supported' => ['code', 'id_token', 'id_token token'],
                 'subject_types_supported' => ['public'],
                 'id_token_signing_alg_values_supported' => ['RS256'],
                 'code_challenge_methods_supported' => ['plain', 'S256'],
