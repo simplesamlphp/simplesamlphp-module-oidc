@@ -45,4 +45,28 @@ class ErrorResponder
             500,
         );
     }
+
+    /**
+     * Create a JSON error response (as specified for the token endpoint),
+     * regardless of any redirect URI contained in the exception. This is
+     * appropriate for endpoints which must not redirect on errors, like
+     * the Pushed Authorization Request endpoint.
+     */
+    public function forExceptionJson(OAuthServerException $exception): JsonResponse
+    {
+        $body = [
+            'error' => $exception->getErrorType(),
+            'error_description' => $exception->getMessage(),
+        ];
+
+        if (($hint = $exception->getHint()) !== null) {
+            $body['hint'] = $hint;
+        }
+
+        return new JsonResponse(
+            $body,
+            $exception->getHttpStatusCode(),
+            ['Cache-Control' => 'no-cache, no-store'],
+        );
+    }
 }

@@ -67,6 +67,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
             ->willReturnMap([
                 [RoutesEnum::Token->value, self::TOKEN_ENDPOINT],
                 [RoutesEnum::Authorization->value, 'https://example.org/oidc/authorization.php'],
+                [RoutesEnum::PushedAuthorizationRequest->value, 'https://example.org/oidc/par'],
             ]);
         $this->moduleConfigMock->method('getIssuer')->willReturn(self::ISSUER);
         $this->dateTimeHelperMock = $this->createMock(Helpers\DateTime::class);
@@ -518,6 +519,54 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $this->expectExceptionMessage('Audience claim');
 
         $this->sut()->forPrivateKeyJwt($this->serverRequestMock);
+    }
+
+    public function testForPrivateKeyJwtAcceptsPushedAuthorizationRequestEndpointAsAudience(): void
+    {
+        // RFC 9126 Section 2: to facilitate interoperability, the AS MUST accept its issuer identifier,
+        // token endpoint URL, or pushed authorization request endpoint URL as the client-assertion audience.
+        $clientAssertionMock = $this->createMock(ClientAssertion::class);
+        $clientAssertionMock->method('getIssuer')->willReturn(self::CLIENT_ID);
+        $clientAssertionMock->method('getSubject')->willReturn(self::CLIENT_ID);
+        $clientAssertionMock->method('getAudience')->willReturn(['https://example.org/oidc/par']);
+        $clientAssertionMock->method('getJwtId')->willReturn('unique-jti-value');
+        $clientAssertionMock->method('getExpirationTime')->willReturn(time() + 60);
+
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
+            ->willReturnOnConsecutiveCalls('some-assertion-token', ClientAssertionTypesEnum::JwtBaerer->value);
+        $this->requestParamsResolverMock->method('parseClientAssertionToken')
+            ->willReturn($clientAssertionMock);
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
+        $this->jwksResolverMock->method('forClient')->willReturn(['keys' => []]);
+        $this->dateTimeHelperMock->method('getSecondsToExpirationTime')->willReturn(60);
+
+        $this->assertInstanceOf(
+            ResolvedClientAuthenticationMethod::class,
+            $this->sut()->forPrivateKeyJwt($this->serverRequestMock),
+        );
+    }
+
+    public function testForPrivateKeyJwtAcceptsIssuerIdentifierAsAudience(): void
+    {
+        $clientAssertionMock = $this->createMock(ClientAssertion::class);
+        $clientAssertionMock->method('getIssuer')->willReturn(self::CLIENT_ID);
+        $clientAssertionMock->method('getSubject')->willReturn(self::CLIENT_ID);
+        $clientAssertionMock->method('getAudience')->willReturn([self::ISSUER]);
+        $clientAssertionMock->method('getJwtId')->willReturn('unique-jti-value');
+        $clientAssertionMock->method('getExpirationTime')->willReturn(time() + 60);
+
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
+            ->willReturnOnConsecutiveCalls('some-assertion-token', ClientAssertionTypesEnum::JwtBaerer->value);
+        $this->requestParamsResolverMock->method('parseClientAssertionToken')
+            ->willReturn($clientAssertionMock);
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
+        $this->jwksResolverMock->method('forClient')->willReturn(['keys' => []]);
+        $this->dateTimeHelperMock->method('getSecondsToExpirationTime')->willReturn(60);
+
+        $this->assertInstanceOf(
+            ResolvedClientAuthenticationMethod::class,
+            $this->sut()->forPrivateKeyJwt($this->serverRequestMock),
+        );
     }
 
     public function testForPrivateKeyJwtReturnsResolvedResultOnSuccess(): void

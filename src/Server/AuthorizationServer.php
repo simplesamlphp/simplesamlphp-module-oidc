@@ -22,6 +22,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseModeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
@@ -86,6 +87,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         $rulesToExecute = [
             StateRule::class,
             ClientRule::class,
+            RequestUriRule::class,
             ClientRedirectUriRule::class,
             ResponseModeRule::class,
         ];

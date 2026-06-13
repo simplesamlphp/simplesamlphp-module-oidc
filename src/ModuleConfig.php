@@ -123,6 +123,15 @@ class ModuleConfig
     final public const string OPTION_VCI_SIGNATURE_KEY_PAIRS = 'vci_signature_key_pairs';
     final public const string OPTION_VCI_CREDENTIAL_JSON_LD_CONTEXT = 'vci_credential_json_ld_context';
 
+    final public const string OPTION_PAR_REQUEST_URI_TTL = 'par_request_uri_ttl';
+    final public const string OPTION_REQUIRE_PUSHED_AUTHORIZATION_REQUESTS = 'require_pushed_authorization_requests';
+    final public const string OPTION_REQUIRE_SIGNED_REQUEST_OBJECT = 'require_signed_request_object';
+    final public const string OPTION_REQUEST_URI_PARAMETER_SUPPORTED = 'request_uri_parameter_supported';
+    final public const string OPTION_FEDERATION_REQUEST_URI_ALLOWED_PREFIXES =
+    'federation_request_uri_allowed_prefixes';
+    final public const string OPTION_REQUEST_URI_FETCH_TIMEOUT = 'request_uri_fetch_timeout';
+    final public const string OPTION_REQUEST_URI_MAX_SIZE_BYTES = 'request_uri_max_size_bytes';
+
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
             self::KEY_DESCRIPTION => 'openid',
@@ -321,6 +330,82 @@ class ModuleConfig
         return new DateInterval(
             $this->config()->getString(self::OPTION_TOKEN_REFRESH_TOKEN_TTL),
         );
+    }
+
+    public function getParRequestUriTtl(): DateInterval
+    {
+        return new DateInterval(
+            $this->config()->getOptionalString(self::OPTION_PAR_REQUEST_URI_TTL, 'PT10M'),
+        );
+    }
+
+    public function getRequirePushedAuthorizationRequests(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_REQUIRE_PUSHED_AUTHORIZATION_REQUESTS, false);
+    }
+
+    public function getRequireSignedRequestObject(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_REQUIRE_SIGNED_REQUEST_OBJECT, false);
+    }
+
+    /**
+     * Whether the OP supports passing the Request Object by reference using the https request_uri parameter
+     * (JWT-Secured Authorization Request by reference / OpenID Federation Authentication Request by reference).
+     * Note that this does not affect Pushed Authorization Request URIs (urn form), which are always supported.
+     */
+    public function getRequestUriParameterSupported(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_REQUEST_URI_PARAMETER_SUPPORTED, true);
+    }
+
+    /**
+     * Allowed https request_uri prefixes for OpenID Federation candidates (clients not registered in storage,
+     * or registered through OpenID Federation). For such clients the OP must fetch the Request Object before
+     * it can establish trust, so this is the SSRF / DoS allowlist for that outbound fetch. Registered
+     * (non-federation) clients are not affected; for them the request_uri must match their registered
+     * request_uris exactly.
+     *
+     * Semantics:
+     *  - null: explicitly allow any request_uri for federation candidates,
+     *  - non-empty array: allow only request_uris starting with one of the given prefixes,
+     *  - empty array (and the default, when the option is not set): deny all federation-candidate fetches.
+     *
+     * @return string[]|null
+     */
+    public function getFederationRequestUriAllowedPrefixes(): ?array
+    {
+        // Note: we read the raw config here (instead of getOptionalValue) so we can distinguish an explicit
+        // null (allow any) from an absent option (deny by default), since SimpleSAML\Configuration treats a
+        // null value the same as an absent one.
+        $config = $this->config()->toArray();
+
+        if (!array_key_exists(self::OPTION_FEDERATION_REQUEST_URI_ALLOWED_PREFIXES, $config)) {
+            return [];
+        }
+
+        /** @var mixed $value */
+        $value = $config[self::OPTION_FEDERATION_REQUEST_URI_ALLOWED_PREFIXES];
+
+        if (is_null($value)) {
+            return null;
+        }
+
+        if (!is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter($value, 'is_string'));
+    }
+
+    public function getRequestUriFetchTimeout(): int
+    {
+        return $this->config()->getOptionalInteger(self::OPTION_REQUEST_URI_FETCH_TIMEOUT, 5);
+    }
+
+    public function getRequestUriMaxSizeBytes(): int
+    {
+        return $this->config()->getOptionalInteger(self::OPTION_REQUEST_URI_MAX_SIZE_BYTES, 102400);
     }
 
     /**

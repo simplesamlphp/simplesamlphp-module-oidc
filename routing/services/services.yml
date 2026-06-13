@@ -134,6 +134,8 @@ services:
   SimpleSAML\OpenID\Did: ~
   SimpleSAML\OpenID\Jws:
     factory: [ '@SimpleSAML\Module\oidc\Factories\JwsFactory', 'build' ]
+  SimpleSAML\OpenID\RequestObject:
+    factory: [ '@SimpleSAML\Module\oidc\Factories\RequestObjectFactory', 'build' ]
 
 
   # SSP

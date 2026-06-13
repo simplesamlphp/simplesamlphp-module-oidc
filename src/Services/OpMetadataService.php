@@ -61,7 +61,7 @@ class OpMetadataService
         $this->moduleConfig->getModuleUrl(RoutesEnum::EndSession->value);
         $this->metadata[ClaimsEnum::JwksUri->value] = $this->moduleConfig->getModuleUrl(RoutesEnum::Jwks->value);
         $this->metadata[ClaimsEnum::ScopesSupported->value] = array_keys($this->moduleConfig->getScopes());
-        $this->metadata[ClaimsEnum::ResponseTypesSupported->value] = ['code', 'token', 'id_token', 'id_token token'];
+        $this->metadata[ClaimsEnum::ResponseTypesSupported->value] = ['code', 'id_token', 'id_token token'];
         $this->metadata[ClaimsEnum::SubjectTypesSupported->value] = ['public'];
         $this->metadata[ClaimsEnum::IdTokenSigningAlgValuesSupported->value] = $protocolSignatureAlgorithmNames;
         $this->metadata[ClaimsEnum::CodeChallengeMethodsSupported->value] = ['plain', 'S256'];
@@ -77,7 +77,15 @@ class OpMetadataService
             'none',
             ...$supportedSignatureAlgorithmNames,
         ];
-        $this->metadata[ClaimsEnum::RequestUriParameterSupported->value] = false;
+        $this->metadata[ClaimsEnum::RequestUriParameterSupported->value] =
+        $this->moduleConfig->getRequestUriParameterSupported();
+        // The https request_uri values must be pre-registered for the client
+        // (request_uris client metadata).
+        $this->metadata[ClaimsEnum::RequireRequestUriRegistration->value] = true;
+        $this->metadata[ClaimsEnum::PushedAuthorizationRequestEndpoint->value] =
+        $this->moduleConfig->getModuleUrl(RoutesEnum::PushedAuthorizationRequest->value);
+        $this->metadata[ClaimsEnum::RequirePushedAuthorizationRequests->value] =
+        $this->moduleConfig->getRequirePushedAuthorizationRequests();
 
         $grantTypesSupported = [
             GrantTypesEnum::AuthorizationCode->value,

@@ -7,6 +7,7 @@ It complements the inline comments in `config/module_oidc.php`.
 - Relying Party (RP) administration UI
 - Cron integration
 - Endpoint locations and well-known URLs
+- Pushed Authorization Requests (PAR) and Request Objects
 - Key rollover
 - Apache Authorization header note
 - Private scopes
@@ -80,6 +81,82 @@ RewriteEngine On
 RewriteRule ^/.well-known/openid-configuration(.*) \
   /simplesaml/module.php/oidc/.well-known/openid-configuration$1 [PT]
 ```
+
+## Pushed Authorization Requests (PAR) and Request Objects
+
+A client can send authorization request parameters in several ways:
+
+- **As plain query / POST parameters** sent directly to the authorization
+  endpoint (the classic flow).
+- **By value**, as a Request Object (a signed or unsigned JWT) in the
+  `request` parameter (OpenID Connect Core / JAR, RFC 9101).
+- **By reference**, using the `request_uri` parameter:
+  - **Pushed Authorization Request (PAR), RFC 9126** — the client first
+    `POST`s the parameters to the PAR endpoint and receives a short-lived,
+    one-time `request_uri` of the form
+    `urn:ietf:params:oauth:request_uri:<id>`, which it then uses at the
+    authorization endpoint.
+  - **Remote `https://` request_uri** — the OP fetches the Request Object
+    from the given URL (JAR by reference, or OpenID Federation by reference).
+
+### The PAR endpoint
+
+The PAR endpoint is published in the discovery document as
+`pushed_authorization_request_endpoint` and is available at:
+
+- [https://yourserver/simplesaml/module.php/oidc/par](https://yourserver/simplesaml/module.php/oidc/par)
+
+It authenticates the client the same way as the token endpoint (including
+`private_key_jwt`), validates the pushed parameters, stores them, and returns a
+JSON response with the generated `request_uri` and an `expires_in` value. Errors
+are returned as JSON (token-endpoint style); the endpoint never redirects.
+
+### Request Object flavors
+
+When a Request Object is provided (by value or by reference), the OP detects
+its flavor and applies the matching rules:
+
+- **OpenID Connect Core**: the Request Object may be unsigned, unless a signed
+  object is required by policy (see below).
+- **JAR (RFC 9101)** for plain OAuth 2.0 requests: the Request Object **must be
+  signed** and must contain the `client_id` claim.
+- **OpenID Federation**: the Request Object is used for automatic client
+  registration (handled during client resolution).
+
+For the OpenID Connect Core and JAR flavors, the `aud` and `iss` claims are
+optional, but when present they are validated: `aud` must include this OP's
+issuer identifier, and `iss` must equal the client. This prevents a Request
+Object minted for a different Authorization Server (or by a different client)
+from being replayed here.
+
+### Per-client properties
+
+The following client metadata properties can be configured per client:
+
+- `require_pushed_authorization_requests` — require this client to use PAR.
+- `require_signed_request_object` — require this client to sign its Request
+  Objects.
+- `request_uris` — the list of `https://` `request_uri` values registered for
+  this client. A registered (non-federation) client may only use a remote
+  `request_uri` that exactly matches one of these values.
+
+### Federation `request_uri` fetch allowlist (SSRF/DoS)
+
+For an **OpenID Federation candidate** — a client that is not (yet) registered
+in storage, or is registered through OpenID Federation — the OP must fetch the
+remote Request Object *before* it can establish trust. This outbound fetch is
+gated by `OPTION_FEDERATION_REQUEST_URI_ALLOWED_PREFIXES`. This allowlist does
+**not** apply to registered non-federation clients — for them the `request_uri`
+must match their registered `request_uris` exactly.
+The `OPTION_REQUEST_URI_PARAMETER_SUPPORTED` switch still applies on top of all
+of this.
+
+### Storage and cleanup
+
+Pushed authorization requests are stored in the `oidc_par` database table
+(created by the DB migrations). Expired entries are removed by the SimpleSAMLphp
+[cron](https://simplesamlphp.org/docs/stable/cron/cron.html) integration, the
+same way expired tokens are purged.
 
 ## Key rollover
 

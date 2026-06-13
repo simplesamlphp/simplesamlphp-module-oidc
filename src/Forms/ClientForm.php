@@ -178,6 +178,20 @@ class ClientForm extends Form
         }
     }
 
+
+    public function validateRequestUris(Form $form): void
+    {
+        $values = $form->getValues(self::TYPE_ARRAY);
+        $requestUris = $this->helpers->str()->convertTextToArray(
+            (string)($values[ClaimsEnum::RequestUris->value] ?? ''),
+        );
+        foreach ($requestUris as $uri) {
+            if (!str_starts_with(strtolower($uri), 'https://')) {
+                $this->addError('Request URI must be an HTTPS URL: ' . $uri);
+            }
+        }
+    }
+
     public function validateJwks(mixed $jwks): void
     {
         if (is_null($jwks)) {
@@ -217,7 +231,8 @@ class ClientForm extends Form
 
     public function getValues(string|object|bool|null $returnType = null, ?array $controls = null): array
     {
-        $values = parent::getValues(self::TYPE_ARRAY);
+        /** @psalm-suppress RedundantCast */
+        $values = (array)parent::getValues(self::TYPE_ARRAY);
 
         // Sanitize redirect_uri and allowed_origin
         $values['redirect_uri'] = $this->helpers->str()->convertTextToArray((string)$values['redirect_uri']);
@@ -276,6 +291,12 @@ class ClientForm extends Form
 
         $signedJwksUri = trim((string)$values['signed_jwks_uri']);
         $values['signed_jwks_uri'] = empty($signedJwksUri) ? null : $signedJwksUri;
+
+        /** @var mixed $requestUrisValue */
+        $requestUrisValue = $values[ClaimsEnum::RequestUris->value] ?? '';
+        $values[ClaimsEnum::RequestUris->value] = $this->helpers->str()->convertTextToArray(
+            is_string($requestUrisValue) ? $requestUrisValue : '',
+        );
 
         $idTokenSignedResponseAlg = trim((string)$values[ClaimsEnum::IdTokenSignedResponseAlg->value]);
         $values[ClaimsEnum::IdTokenSignedResponseAlg->value] = empty($idTokenSignedResponseAlg) ?
@@ -342,6 +363,19 @@ class ClientForm extends Form
             $values['auth_source'] = null;
         }
 
+        $requestUris = isset($values[ClaimsEnum::RequestUris->value]) &&
+        is_array($values[ClaimsEnum::RequestUris->value]) ?
+        $values[ClaimsEnum::RequestUris->value] :
+        [];
+        $stringUris = [];
+        /** @var mixed $uri */
+        foreach ($requestUris as $uri) {
+            if (is_string($uri)) {
+                $stringUris[] = $uri;
+            }
+        }
+        $values[ClaimsEnum::RequestUris->value] = implode("\n", $stringUris);
+
         $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] = is_array(
             $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES],
         ) ? $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] : [];
@@ -368,6 +402,7 @@ class ClientForm extends Form
         $this->onValidate[] = $this->validateFederationJwks(...);
         $this->onValidate[] = $this->validateProtocolJwks(...);
         $this->onValidate[] = $this->validateJwksUri(...);
+        $this->onValidate[] = $this->validateRequestUris(...);
 
         $this->setMethod('POST');
         $this->addComponent($this->csrfProtection, Form::ProtectorId);
@@ -442,6 +477,14 @@ class ClientForm extends Form
             3,
         )->setHtmlAttribute('class', 'full-width')
          ->setRequired(Translate::noop('At least one response mode is required.'));
+
+        $this->addCheckbox(
+            ClaimsEnum::RequirePushedAuthorizationRequests->value,
+            'Require Pushed Authorization Requests (PAR)',
+        );
+        $this->addCheckbox(ClaimsEnum::RequireSignedRequestObject->value, 'Require Signed Request Object');
+        $this->addTextArea(ClaimsEnum::RequestUris->value, 'Request URIs (OIDC Core / JAR, one per line)', null, 5)
+            ->setHtmlAttribute('class', 'full-width');
     }
 
     /**

@@ -218,6 +218,12 @@ class Routes
         return $this->getModuleUrl(RoutesEnum::FederationList->value, $parameters);
     }
 
+
+    public function urlPushedAuthorizationRequest(array $parameters = []): string
+    {
+        return $this->getModuleUrl(RoutesEnum::PushedAuthorizationRequest->value, $parameters);
+    }
+
     /*****************************************************************************************************************
      * OpenID for Verifiable Credential Issuance URLs.
      ****************************************************************************************************************/

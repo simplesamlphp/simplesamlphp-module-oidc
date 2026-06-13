@@ -415,6 +415,48 @@ class ModuleConfigTest extends TestCase
         $this->assertInstanceOf(DateInterval::class, $this->sut()->getProtocolClientEntityCacheDuration());
     }
 
+    public function testCanGetRequestUriParameterSupported(): void
+    {
+        // Default.
+        $this->assertTrue($this->sut()->getRequestUriParameterSupported());
+
+        $this->assertFalse(
+            $this->sut(
+                overrides: [ModuleConfig::OPTION_REQUEST_URI_PARAMETER_SUPPORTED => false],
+            )->getRequestUriParameterSupported(),
+        );
+    }
+
+    public function testGetFederationRequestUriAllowedPrefixesDeniesByDefault(): void
+    {
+        // Option absent -> deny all federation-candidate fetches (empty allowlist).
+        $this->assertSame([], $this->sut()->getFederationRequestUriAllowedPrefixes());
+    }
+
+    public function testGetFederationRequestUriAllowedPrefixesCanAllowAny(): void
+    {
+        // Explicit null -> allow any.
+        $this->assertNull(
+            $this->sut(
+                overrides: [ModuleConfig::OPTION_FEDERATION_REQUEST_URI_ALLOWED_PREFIXES => null],
+            )->getFederationRequestUriAllowedPrefixes(),
+        );
+    }
+
+    public function testGetFederationRequestUriAllowedPrefixesReturnsConfiguredPrefixes(): void
+    {
+        $sut = $this->sut(
+            overrides: [
+                ModuleConfig::OPTION_FEDERATION_REQUEST_URI_ALLOWED_PREFIXES => [
+                    'https://rp.example.org/',
+                    123, // non-string values are filtered out
+                ],
+            ],
+        );
+
+        $this->assertSame(['https://rp.example.org/'], $sut->getFederationRequestUriAllowedPrefixes());
+    }
+
     public function testCanGetProtocolDiscoveryShowClaimsSupported(): void
     {
         $this->assertFalse($this->sut()->getProtocolDiscoveryShowClaimsSupported());

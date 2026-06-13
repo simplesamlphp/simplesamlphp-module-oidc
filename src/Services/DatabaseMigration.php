@@ -23,6 +23,7 @@ use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
+use SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
@@ -218,6 +219,11 @@ class DatabaseMigration
         if (!in_array('20260218163000', $versions, true)) {
             $this->version20260218163000();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20260218163000')");
+        }
+
+        if (!in_array('20260608130000', $versions, true)) {
+            $this->version20260608130000();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20260608130000')");
         }
     }
 
@@ -738,6 +744,33 @@ EOT
 EOT
             ,);
     }
+
+
+    private function version20260608130000(): void
+    {
+        $parTableName = $this->database->applyPrefix(PushedAuthorizationRequestRepository::TABLE_NAME);
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $fkParClient = $this->generateIdentifierName([$parTableName, 'client_id'], 'fk');
+        $idxParExpiresAt = $this->generateIdentifierName([$parTableName, 'expires_at'], 'idx');
+
+        // request_uri is always a fixed-length value: REQUEST_URI_PREFIX (34 chars) +
+        // bin2hex(random_bytes(32)) (64 chars) = 98 chars. See PushedAuthorizationRequestEntityFactory::fromData().
+        $this->database->write(<<< EOT
+        CREATE TABLE $parTableName (
+            request_uri CHAR(98) PRIMARY KEY NOT NULL,
+            client_id VARCHAR(191) NOT NULL,
+            parameters TEXT NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            is_consumed BOOLEAN NOT NULL DEFAULT false,
+            CONSTRAINT $fkParClient FOREIGN KEY (client_id)
+                REFERENCES $clientTableName (id) ON DELETE CASCADE
+        )
+EOT
+        ,);
+
+        $this->database->write("CREATE INDEX $idxParExpiresAt ON $parTableName (expires_at)");
+    }
+
 
     /**
      * @param string[] $columnNames

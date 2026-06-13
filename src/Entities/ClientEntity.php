@@ -232,6 +232,9 @@ class ClientEntity implements ClientEntityInterface
 
             // Extra metadata
             ClaimsEnum::IdTokenSignedResponseAlg->value => $this->getIdTokenSignedResponseAlg(),
+            ClaimsEnum::RequirePushedAuthorizationRequests->value => $this->getRequirePushedAuthorizationRequests(),
+            ClaimsEnum::RequireSignedRequestObject->value => $this->getRequireSignedRequestObject(),
+            ClaimsEnum::RequestUris->value => $this->getRequestUris(),
         ];
     }
 
@@ -405,5 +408,49 @@ class ClientEntity implements ClientEntityInterface
             ResponseModesEnum::Fragment->value,
             ResponseModesEnum::FormPost->value,
         ];
+    }
+
+    public function getRequirePushedAuthorizationRequests(): bool
+    {
+        if (!is_array($this->extraMetadata)) {
+            return false;
+        }
+
+        return (bool)($this->extraMetadata[ClaimsEnum::RequirePushedAuthorizationRequests->value] ?? false);
+    }
+
+    public function getRequireSignedRequestObject(): bool
+    {
+        if (!is_array($this->extraMetadata)) {
+            return false;
+        }
+
+        return (bool)($this->extraMetadata[ClaimsEnum::RequireSignedRequestObject->value] ?? false);
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getRequestUris(): array
+    {
+        if (!is_array($this->extraMetadata)) {
+            return [];
+        }
+
+        /** @var mixed $uris */
+        $uris = $this->extraMetadata[ClaimsEnum::RequestUris->value] ?? null;
+        if (!is_array($uris)) {
+            return [];
+        }
+
+        $stringUris = [];
+        /** @var mixed $uri */
+        foreach ($uris as $uri) {
+            if (is_string($uri)) {
+                $stringUris[] = $uri;
+            }
+        }
+
+        return $stringUris;
     }
 }

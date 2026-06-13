@@ -48,6 +48,7 @@ class OpMetadataServiceTest extends TestCase
                     RoutesEnum::UserInfo->value => 'http://localhost/userinfo',
                     RoutesEnum::Jwks->value => 'http://localhost/jwks',
                     RoutesEnum::EndSession->value => 'http://localhost/end-session',
+                    RoutesEnum::PushedAuthorizationRequest->value => 'http://localhost/par',
                 ];
 
                 return $paths[$path] ?? null;
@@ -80,6 +81,8 @@ class OpMetadataServiceTest extends TestCase
 
         $this->moduleConfigMock->method('getProtocolSignatureKeyPairBag')
             ->willReturn($this->signatureKeyPairBagMock);
+
+        $this->moduleConfigMock->method('getRequestUriParameterSupported')->willReturn(true);
     }
 
     /**
@@ -123,7 +126,7 @@ class OpMetadataServiceTest extends TestCase
                 'end_session_endpoint' => 'http://localhost/end-session',
                 'jwks_uri' => 'http://localhost/jwks',
                 'scopes_supported' => ['openid'],
-                'response_types_supported' => ['code', 'token', 'id_token', 'id_token token'],
+                'response_types_supported' => ['code', 'id_token', 'id_token token'],
                 'subject_types_supported' => ['public'],
                 'id_token_signing_alg_values_supported' => ['RS256'],
                 'code_challenge_methods_supported' => ['plain', 'S256'],
@@ -137,7 +140,10 @@ class OpMetadataServiceTest extends TestCase
                 ],
                 'request_parameter_supported' => true,
                 'request_object_signing_alg_values_supported' => ['none', 'RS256'],
-                'request_uri_parameter_supported' => false,
+                'request_uri_parameter_supported' => true,
+                'require_request_uri_registration' => true,
+                'pushed_authorization_request_endpoint' => 'http://localhost/par',
+                'require_pushed_authorization_requests' => false,
                 'grant_types_supported' => ['authorization_code', 'refresh_token'],
                 'claims_parameter_supported' => true,
                 'acr_values_supported' => ['1'],

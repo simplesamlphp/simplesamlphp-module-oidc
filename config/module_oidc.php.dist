@@ -121,6 +121,72 @@ $config = [
     ModuleConfig::OPTION_TIMESTAMP_VALIDATION_LEEWAY => 'PT1M',
 
     /**
+     * Pushed Authorization Request (PAR) request URI expiration TTL.
+     * This is the time for which a PAR request URI will be valid.
+     *
+     * For duration format info, check
+     * https://www.php.net/manual/en/dateinterval.construct.php
+     *
+     * Default: PT10M (10 minutes)
+     */
+    ModuleConfig::OPTION_PAR_REQUEST_URI_TTL => 'PT10M', // 10 minutes
+
+    /**
+     * Require Pushed Authorization Request (PAR) globally. If set to true,
+     * the OP will reject authorization requests which do not use PAR, i.e.,
+     * requests which do not have a valid request_uri corresponding
+     * to a previously pushed authorization request.
+     *
+     * Default: false
+     */
+    ModuleConfig::OPTION_REQUIRE_PUSHED_AUTHORIZATION_REQUESTS => false,
+
+    /**
+     * Whether to support passing the Request Object by reference using the
+     * https request_uri parameter (JAR / OpenID Federation) by reference.
+     * Note that the client must have its request URIs registered beforehand.
+     * For OpenID Federation Automatic Registration, see the option
+     * OPTION_FEDERATION_REQUEST_URI_ALLOWED_PREFIXES.
+     *
+     * Set to `false` to remove any risk of DoS / SSRF attacks by disabling
+     * outbound fetches to given request URIs. Note that this does not
+     * affect Pushed Authorization Request URIs (urn form), which are
+     * always supported.
+     *
+     * Default: true
+     */
+    ModuleConfig::OPTION_REQUEST_URI_PARAMETER_SUPPORTED => true,
+
+    /**
+     * Timeout for fetching request_uri, in seconds.
+     *
+     * Default: 5 seconds
+     */
+    ModuleConfig::OPTION_REQUEST_URI_FETCH_TIMEOUT => 5,
+
+    /**
+     * Maximum allowed response size for request_uri, in bytes.
+     *
+     * Default: 102400 bytes (100KB)
+     */
+    ModuleConfig::OPTION_REQUEST_URI_MAX_SIZE_BYTES => 102400,
+
+    /**
+     * Enforces signature validation for all Request Objects. OpenID Connect
+     * Core allows Request Objects to be unsigned, but when this option is
+     * set to true, the OP will reject any Request Object that does not
+     * contain a valid signature.
+     *
+     * Note: in order for this to work, all Relying Parties must support
+     * signing Request Objects, and the OP must have their corresponding
+     * signing keys configured. Of course, this is only relevant if they
+     * use Request Object in authorization requests.
+     *
+     * Default: false
+     */
+    ModuleConfig::OPTION_REQUIRE_SIGNED_REQUEST_OBJECT => false,
+
+    /**
      * The default authentication source to be used for authentication if the
      * authentication source is not specified on a particular client.
      */
@@ -648,6 +714,25 @@ $config = [
     ModuleConfig::OPTION_POLICY_URI => null,
     ModuleConfig::OPTION_INFORMATION_URI => null,
     ModuleConfig::OPTION_ORGANIZATION_URI => null,
+
+    /**
+     * Allowlist for fetching the Request Object by reference for OpenID
+     * Federation candidates (clients not yet registered in storage).
+     * Registered (non-federation) clients are not affected with
+     * this option (for them the request_uri must match their
+     * registered request_uris exactly).
+     *
+     * Examples:
+     *  - [] (empty array, the default): deny all federation-candidate fetches,
+     *  - ['https://rp.example.org/', ...]: allow only request_uris starting with one of the given prefixes,
+     *  - null: explicitly allow any request_uri for federation candidates (not recommended).
+     *
+     * Note: prefixes should be specific enough to avoid false positives
+     * (e.g. https://rp.example.org/ with the trailing slash). A loose
+     * prefix like 'https://' would defeat the purpose, at which point
+     * `null` is the clearer way to say "allow any."
+     */
+    ModuleConfig::OPTION_FEDERATION_REQUEST_URI_ALLOWED_PREFIXES => [],
 
 
     /***************************************************************************

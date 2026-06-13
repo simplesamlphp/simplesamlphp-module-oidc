@@ -29,6 +29,27 @@ documentation for more details.
 - Initial support for OpenID for Verifiable Credential Issuance
 (OpenID4VCI). Note that the implementation is experimental. You should not use
 it in production.
+- Support for Pushed Authorization Requests (PAR) as per RFC 9126. A new PAR
+endpoint (`pushed_authorization_request_endpoint`, served at
+`<basepath>/module.php/oidc/par`) lets clients push authorization request
+parameters in a back-channel `POST` and receive a one-time, short-lived
+`request_uri` (`urn:ietf:params:oauth:request_uri:...`) to use at the
+authorization endpoint. It can be required globally or per client.
+- Support for passing a Request Object by reference using the `request_uri`
+parameter (in addition to the existing by-value `request` support), covering
+both JWT-Secured Authorization Request (JAR, RFC 9101) by reference and OpenID
+Federation by reference. Remote `https://` Request Objects are fetched by the
+OP, subject to client registration / federation allowlisting. The OP now
+differentiates the Request Object flavor (OpenID Connect Core, JAR, or OpenID
+Federation) and applies the matching signing rules; when present, the `aud` and
+`iss` claims of OpenID Connect Core and JAR Request Objects are validated.
+- Clients can now be configured with new properties related to the above:
+  - Require Pushed Authorization Requests (`require_pushed_authorization_requests`)
+  - Require Signed Request Object (`require_signed_request_object`)
+  - Registered Request URIs (`request_uris`)
+
+See the [configuration guide](3-oidc-configuration.md#pushed-authorization-requests-par-and-request-objects)
+for details.
 
 New configuration options:
 
@@ -47,6 +68,23 @@ setting allowed time tolerance for timestamp validation in artifacts like JWSs.
 multiple Federation-related signing algorithms and key pairs.
 - `ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED` -
 optional, enables the OAuth2 token introspection endpoint as per RFC7662.
+- `ModuleConfig::OPTION_PAR_REQUEST_URI_TTL` - optional, lifetime of a PAR
+`request_uri` (default `PT10M`).
+- `ModuleConfig::OPTION_REQUIRE_PUSHED_AUTHORIZATION_REQUESTS` - optional,
+require PAR globally (default `false`).
+- `ModuleConfig::OPTION_REQUIRE_SIGNED_REQUEST_OBJECT` - optional, require every
+Request Object to be signed, rejecting `alg: none` (default `false`).
+- `ModuleConfig::OPTION_REQUEST_URI_PARAMETER_SUPPORTED` - optional, support
+passing a Request Object by reference via an `https://` `request_uri`; set to
+`false` to disable all outbound fetches (default `true`).
+- `ModuleConfig::OPTION_REQUEST_URI_FETCH_TIMEOUT` - optional, timeout in seconds
+for fetching a remote `request_uri` (default `5`).
+- `ModuleConfig::OPTION_REQUEST_URI_MAX_SIZE_BYTES` - optional, maximum allowed
+response size in bytes when fetching a remote `request_uri` (default `102400`).
+- `ModuleConfig::OPTION_FEDERATION_REQUEST_URI_ALLOWED_PREFIXES` - optional,
+SSRF/DoS allowlist of `request_uri` prefixes for OpenID Federation candidates;
+`[]` (default) denies all such fetches, a non-empty array allows matching
+prefixes, and `null` allows any (not recommended).
 - Several new options regarding experimental support for OpenID4VCI.
 
 Major impact changes:

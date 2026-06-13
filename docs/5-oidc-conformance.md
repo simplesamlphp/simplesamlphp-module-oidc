@@ -102,3 +102,13 @@ Visit [https://openid.net/certification/instructions/](https://openid.net/certif
 Use the `json` configs under `conformance-tests` to configure your cloud
 instances. Update `discoveryUrl` to the deployed location. Adjust `alias`
 if it conflicts with existing test suites (it is used in redirect URIs).
+
+## Pushed Authorization Requests (PAR) and `request_uri`
+
+The OpenID Foundation certification profiles run above only exercise PAR as
+part of the FAPI 2.0 profile, which imposes many unrelated requirements and is
+not a practical fit for validating PAR on this general-purpose OP. Instead, the
+RFC 9126 (PAR) and related `request` / `request_uri` MUST-level requirements are
+tracked, and mapped to the unit tests that cover them, in
+`conformance-tests/rfc9126-par-compliance.md`. Keep that checklist in sync when
+changing PAR or request-object behaviour.
