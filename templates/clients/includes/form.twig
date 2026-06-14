@@ -159,6 +159,15 @@
             <span class="pure-form-message red-text">{{ form.allowed_response_modes.getError }}</span>
         {% endif %}
 
+        <label for="frm-request_uris">{{ 'Request URIs'|trans }}</label>
+        {{ form.request_uris.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}Allowed request URIs from which the authorization server is allowed to fetch request objects. Must be a valid https URI, one per line. Example: https://example.org/foo?bar=1{% endtrans %}
+        </span>
+        {% if form.request_uris.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.request_uris.getError }}</span>
+        {% endif %}
+
         <br>
         <h4>{{ 'OpenID Federation Related Properties'|trans }}</h4>
 

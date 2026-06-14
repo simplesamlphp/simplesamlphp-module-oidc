@@ -227,6 +227,22 @@
             </tr>
             <tr>
                 <td class="client-col col-property">
+                    {{ 'Request URIs'|trans }}
+                </td>
+                <td>
+                    {% if client.requestUris is not empty %}
+                        <ul class="disc">
+                            {% for uri in client.requestUris %}
+                                <li>{{ uri }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        {{ 'N/A'|trans }}
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
                     {{ 'Owner'|trans }}
                 </td>
                 <td>

@@ -182,11 +182,21 @@ class ClientForm extends Form
     public function validateRequestUris(Form $form): void
     {
         $values = $form->getValues(self::TYPE_ARRAY);
-        $requestUris = $this->helpers->str()->convertTextToArray(
-            (string)($values[ClaimsEnum::RequestUris->value] ?? ''),
-        );
+
+        $requestUris = $values[ClaimsEnum::RequestUris->value] ?? null;
+
+        if (!is_array($requestUris)) {
+            $this->addError(
+                'Unexpected Request URIs format (expected array): ' . var_export($requestUris, true),
+            );
+            return;
+        }
+
+        /** @psalm-suppress MixedAssignment */
         foreach ($requestUris as $uri) {
-            if (!str_starts_with(strtolower($uri), 'https://')) {
+            if (!is_string($uri)) {
+                $this->addError('Request URI must be a string: ' . var_export($uri, true));
+            } elseif (!str_starts_with(strtolower($uri), 'https://')) {
                 $this->addError('Request URI must be an HTTPS URL: ' . $uri);
             }
         }
