@@ -47,6 +47,20 @@ Federation) and applies the matching signing rules; when present, the `aud` and
   - Require Pushed Authorization Requests (`require_pushed_authorization_requests`)
   - Require Signed Request Object (`require_signed_request_object`)
   - Registered Request URIs (`request_uris`)
+- Support for the OAuth 2.0 Form Post Response Mode (`response_mode=form_post`).
+The OP now supports three response modes - `query`, `fragment`, and
+`form_post`. With `form_post`, the authorization response parameters are
+returned to the client via an auto-submitting HTML form (`POST` to the redirect
+URI) instead of in the URL query string or fragment. When `response_mode` is
+not provided, the spec default is used (`fragment` for responses containing a
+token, otherwise `query`). The supported response modes are now also advertised
+in the OP discovery metadata via the `response_modes_supported` claim.
+- Clients can now be configured with a new property related to the above:
+  - Allowed Response Modes (`allowed_response_modes`) - a per-client allowlist
+  of permitted response modes. When not set, all supported response modes
+  (`query`, `fragment`, `form_post`) are allowed, so existing clients are
+  unaffected. It can be narrowed, for example to `form_post` only, to protect
+  against browser-swapping attacks (if supported by the client).
 
 See the [configuration guide](3-oidc-configuration.md#pushed-authorization-requests-par-and-request-objects)
 for details.
