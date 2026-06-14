@@ -221,6 +221,11 @@ class ClientEntityTest extends TestCase
                 'expires_at' => null,
                 'is_generic' => false,
                 'id_token_signed_response_alg' => null,
+                'allowed_response_modes' => [
+                    'query',
+                    'fragment',
+                    'form_post',
+                ],
                 'require_pushed_authorization_requests' => false,
                 'require_signed_request_object' => false,
                 'request_uris' => [],

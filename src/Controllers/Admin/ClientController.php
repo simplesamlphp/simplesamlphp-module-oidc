@@ -239,7 +239,6 @@ class ClientController
 
         $clientData = $originalClient->toArray();
         $clientData['allowed_origin'] = $clientAllowedOrigins;
-        $clientData[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] = $originalClient->getAllowedResponseModes();
 
         // Handle extra metadata
 

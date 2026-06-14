@@ -232,6 +232,7 @@ class ClientEntity implements ClientEntityInterface
 
             // Extra metadata
             ClaimsEnum::IdTokenSignedResponseAlg->value => $this->getIdTokenSignedResponseAlg(),
+            self::KEY_ALLOWED_RESPONSE_MODES => $this->getAllowedResponseModes(),
             ClaimsEnum::RequirePushedAuthorizationRequests->value => $this->getRequirePushedAuthorizationRequests(),
             ClaimsEnum::RequireSignedRequestObject->value => $this->getRequireSignedRequestObject(),
             ClaimsEnum::RequestUris->value => $this->getRequestUris(),
