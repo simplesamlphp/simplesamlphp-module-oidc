@@ -219,7 +219,7 @@
                 </td>
                 <td>
                     <ul class="disc">
-                        {% for key, response_mode in client.allowedresponsemodes %}
+                        {% for key, response_mode in client.allowedResponseModes %}
                             <li>{{ response_mode }}</li>
                         {% endfor %}
                     </ul>
@@ -239,6 +239,22 @@
                     {% else %}
                         {{ 'N/A'|trans }}
                     {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Require Pushed Authorization Requests (PAR)'|trans }}
+                </td>
+                <td>
+                    {{ client.requirePushedAuthorizationRequests ? 'Yes' : 'No' }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Require Signed Request Object'|trans }}
+                </td>
+                <td>
+                    {{ client.requireSignedRequestObject ? 'Yes' : 'No' }}
                 </td>
             </tr>
             <tr>

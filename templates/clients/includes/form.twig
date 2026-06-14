@@ -168,6 +168,44 @@
             <span class="pure-form-message red-text">{{ form.request_uris.getError }}</span>
         {% endif %}
 
+        <label for="">{{ 'Require Pushed Authorization Requests (PAR)'|trans }}</label>
+        <label for="radio-option-require_pushed_authorization_requests-yes" class="pure-radio">
+            <input type="radio"
+                   name="require_pushed_authorization_requests"
+                   id="radio-option-require_pushed_authorization_requests-yes"
+                   {% if form.require_pushed_authorization_requests.value %}checked=""{% endif %}
+                   value="1" /> {{ 'Yes'|trans }}
+        </label>
+        <label for="radio-option-require_pushed_authorization_requests-no" class="pure-radio">
+            <input type="radio"
+                   name="require_pushed_authorization_requests"
+                   id="radio-option-require_pushed_authorization_requests-no"
+                   {% if not form.require_pushed_authorization_requests.value %}checked=""{% endif %}
+                   value="0" /> {{ 'No'|trans }}
+        </label>
+        <span class="pure-form-message">
+            {% trans %}Require this client to always use PAR in authorization requests.{% endtrans %}
+        </span>
+
+        <label for="">{{ 'Require Signed Request Object'|trans }}</label>
+        <label for="radio-option-require_signed_request_object-yes" class="pure-radio">
+            <input type="radio"
+                   name="require_signed_request_object"
+                   id="radio-option-require_signed_request_object-yes"
+                   {% if form.require_signed_request_object.value %}checked=""{% endif %}
+                   value="1" /> {{ 'Yes'|trans }}
+        </label>
+        <label for="radio-option-require_signed_request_object-no" class="pure-radio">
+            <input type="radio"
+                   name="require_signed_request_object"
+                   id="radio-option-require_signed_request_object-no"
+                   {% if not form.require_signed_request_object.value %}checked=""{% endif %}
+                   value="0" /> {{ 'No'|trans }}
+        </label>
+        <span class="pure-form-message">
+            {% trans %}Require this client to always sign a request object (even in case of OpenID Connect flavor which does not require signing). Make sure the client has a JWKS key configured if this option is enabled.{% endtrans %}
+        </span>
+
         <br>
         <h4>{{ 'OpenID Federation Related Properties'|trans }}</h4>
 
