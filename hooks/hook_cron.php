@@ -14,20 +14,14 @@ declare(strict_types=1);
  * file that was distributed with this source code.
  */
 
+use SimpleSAML\Kernel;
 use SimpleSAML\Logger;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
-use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
-use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
-use SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository;
-use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\Module\oidc\Services\Container;
+use SimpleSAML\Module\oidc\Services\ExpiredEntriesCleaner;
 
 /**
  * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
- * @throws \Psr\Container\ContainerExceptionInterface
- * @throws \Psr\Container\NotFoundExceptionInterface
  * @throws \Exception
  */
 function oidc_hook_cron(array &$croninfo): void
@@ -51,31 +45,15 @@ function oidc_hook_cron(array &$croninfo): void
         return;
     }
 
-    $container = new Container();
-
     try {
-        /** @var \SimpleSAML\Module\oidc\Repositories\AccessTokenRepository $accessTokenRepository */
-        $accessTokenRepository = $container->get(AccessTokenRepository::class);
-        $accessTokenRepository->removeExpired();
-
-        /** @var \SimpleSAML\Module\oidc\Repositories\AuthCodeRepository $authTokenRepository */
-        $authTokenRepository = $container->get(AuthCodeRepository::class);
-        $authTokenRepository->removeExpired();
-
-        /** @var \SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository $refreshTokenRepository */
-        $refreshTokenRepository = $container->get(RefreshTokenRepository::class);
-        $refreshTokenRepository->removeExpired();
-
-        /** @var \SimpleSAML\Module\oidc\Repositories\IssuerStateRepository $issuerStateRepository */
-        $issuerStateRepository = $container->get(IssuerStateRepository::class);
-        $issuerStateRepository->removeInvalid();
-
-        /** @var \SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository $parRepository */
-        $parRepository = $container->get(PushedAuthorizationRequestRepository::class);
-        $parRepository->removeExpired();
+        $kernel = new Kernel(ModuleConfig::MODULE_NAME);
+        $kernel->boot();
+        /** @var \SimpleSAML\Module\oidc\Services\ExpiredEntriesCleaner $cleaner */
+        $cleaner = $kernel->getContainer()->get(ExpiredEntriesCleaner::class);
+        $cleaner->clean();
 
         $croninfo['summary'][] = 'Module `oidc` clean up. Removed expired entries from storage.';
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         $message = 'Module `oidc` clean up cron script failed: ' . $e->getMessage();
         Logger::warning($message);
         $croninfo['summary'][] = $message;

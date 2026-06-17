@@ -153,6 +153,30 @@ statements about subordinates are removed, as the final specification
 explicitly states that leaf entities must not have those endpoints.
 This effectively means that this OP implementation can only be a leaf entity
 in the federation context, and not a federation operator or intermediary entity.
+- The legacy OIDC endpoints served directly by PHP files in the module's
+`public` folder are now removed (as announced in the version 5 to 6 upgrade
+notes). These were the old routes still reachable at URLs ending in `.php`:
+  - `<basepath>/module.php/oidc/authorize.php`
+  - `<basepath>/module.php/oidc/token.php`
+  - `<basepath>/module.php/oidc/userinfo.php`
+  - `<basepath>/module.php/oidc/jwks.php`
+  - `<basepath>/module.php/oidc/logout.php`
+  - `<basepath>/module.php/oidc/openid-configuration.php`
+
+  Use the Symfony-based routes instead, which have been the default since
+  version 6 and are the ones advertised in the OP Configuration
+  (`.well-known/openid-configuration`) endpoint:
+  - `<basepath>/module.php/oidc/authorization`
+  - `<basepath>/module.php/oidc/token`
+  - `<basepath>/module.php/oidc/userinfo`
+  - `<basepath>/module.php/oidc/jwks`
+  - `<basepath>/module.php/oidc/end-session`
+  - `<basepath>/module.php/oidc/.well-known/openid-configuration`
+
+  Any relying party still calling the old `.php` URLs must be updated to the
+  new routes. Note that since version 6 the OP has been publishing the new
+  routes in its discovery metadata, so RPs that read the OP Configuration
+  dynamically need no change.
 
 Medium impact changes:
 
