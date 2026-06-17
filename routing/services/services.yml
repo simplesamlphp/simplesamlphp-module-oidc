@@ -24,7 +24,10 @@ services:
 
   SimpleSAML\Module\oidc\Services\:
     resource: '../../src/Services/*'
-    exclude: '../../src/Services/{Container.php}'
+
+  # Fetched from the (otherwise private) container by the cron hook after booting the module Kernel.
+  SimpleSAML\Module\oidc\Services\ExpiredEntriesCleaner:
+    public: true
 
   SimpleSAML\Module\oidc\Repositories\:
     resource: '../../src/Repositories/*'
