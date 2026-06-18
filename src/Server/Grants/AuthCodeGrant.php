@@ -458,8 +458,15 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         if (! $authorizationClientEntity->isGeneric()) {
             $this->loggerService->debug('Executing standard rules for non-generic clients.');
+            // The client is already authoritatively known from the stored authorization code, so predefine it as the
+            // ClientRule result instead of re-resolving it from the request. This avoids mandating the client_id
+            // request parameter at the token endpoint, which is optional for some client authentication methods (e.g.
+            // private_key_jwt and client_secret_basic, where the client identity is conveyed by the assertion or the
+            // Authorization header respectively). ClientAuthenticationRule still authenticates the caller against this
+            // client, and the resolver cross-checks that the authenticated identity matches it, so the binding between
+            // the caller and the client the code was issued to is preserved (and strengthened).
+            $this->requestRulesManager->predefineResult(new Result(ClientRule::class, $authorizationClientEntity));
             $rulesToExecute = [
-                ClientRule::class,
                 ClientRedirectUriRule::class,
                 ClientAuthenticationRule::class,
                 ...$rulesToExecute,
@@ -474,8 +481,12 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                 $this->allowedTokenHttpMethods,
             );
 
-            // For now, we require client_id, however, in the future this will have to be resolved based on used
-            // client authentication...
+            // For generic (e.g. non-registered VCI) clients there is no registered credential to authenticate
+            // against, so the client_id parameter remains REQUIRED here: it is the only thing binding this token
+            // request to the client the authorization code was issued to. Unlike registered clients, the identity
+            // cannot be derived from a secret or a private_key_jwt assertion. It is matched against the bound
+            // client_id below. If an authentication scheme for non-registered clients is introduced later (e.g.
+            // attestation), this can be relaxed the same way it was for registered clients.
             if (! $clientId) {
                 throw OidcServerException::invalidRequest('client_id');
             }
@@ -510,10 +521,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $this->allowedTokenHttpMethods,
         );
 
-        /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
-        $client = $authorizationClientEntity->isGeneric() ?
-        $authorizationClientEntity :
-        $resultBag->getOrFail(ClientRule::class)->getValue();
+        // The client the authorization code was issued to is authoritative in both branches: for non-generic clients
+        // it is predefined as the ClientRule result and authenticated against by ClientAuthenticationRule above.
+        $client = $authorizationClientEntity;
 
         /** @var ?ResolvedClientAuthenticationMethod $resolvedClientAuthenticationMethod */
         $resolvedClientAuthenticationMethod = $authorizationClientEntity->isGeneric() ?

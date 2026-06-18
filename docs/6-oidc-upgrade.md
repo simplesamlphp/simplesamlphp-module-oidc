@@ -181,6 +181,15 @@ notes). These were the old routes still reachable at URLs ending in `.php`:
 Medium impact changes:
 
 Low-impact changes:
+- The token endpoint no longer requires the `client_id` request parameter when
+the client identity is conveyed by the client authentication method itself, in
+line with the specifications. For example, with `private_key_jwt` the client is
+identified by the assertion's `iss`/`sub` claims, and with `client_secret_basic`
+by the `Authorization` header. Requests that still send `client_id` are
+unaffected, and the authenticated client is always validated against the client
+the authorization code was issued to. Note that for non-registered (generic VCI)
+clients the `client_id` parameter is still required, as their identity cannot be
+derived from a credential.
 - Client property `is_federated` has been removed, as the OP implementation
 can now only be a leaf entity in the federation context, and not a federation
 operator or intermediary entity. Previously, this property was used to
