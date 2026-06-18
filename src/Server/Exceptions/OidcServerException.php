@@ -338,6 +338,35 @@ class OidcServerException extends OAuthServerException
     }
 
     /**
+     * Invalid client metadata error, as defined by the OAuth 2.0 Dynamic Client
+     * Registration Protocol (RFC 7591, section 3.2.2) and OpenID Connect
+     * Dynamic Client Registration. The value of one of the client metadata
+     * fields is invalid, and the server has rejected this request.
+     *
+     * @see https://www.rfc-editor.org/rfc/rfc7591#section-3.2.2
+     *
+     * @param string|null $hint
+     * @param \Throwable|null $previous
+     *
+     * @return self
+     * @psalm-suppress LessSpecificImplementedReturnType
+     */
+    public static function invalidClientMetadata(
+        ?string $hint = null,
+        ?Throwable $previous = null,
+    ): OidcServerException {
+        return new self(
+            'The value of one of the client metadata fields is invalid and the server has rejected this request.',
+            13,
+            'invalid_client_metadata',
+            400,
+            $hint,
+            null,
+            $previous,
+        );
+    }
+
+    /**
      * Returns the current payload.
      *
      * @return array

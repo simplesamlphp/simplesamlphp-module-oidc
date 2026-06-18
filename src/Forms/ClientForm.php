@@ -474,10 +474,9 @@ class ClientForm extends Form
         $this->addText('signed_jwks_uri', 'Signed JWKS URI')
             ->setHtmlAttribute('class', 'full-width');
 
-        // TODO mivanci Properly fetch the list of supported algos
         $this->addSelect('id_token_signed_response_alg', Translate::noop('ID Token Signing Algorithm'))
             ->setHtmlAttribute('class', 'full-width')
-            ->setItems(['RS256'], false)
+            ->setItems($this->getSupportedIdTokenSigningAlgs(), false)
             ->setPrompt(Translate::noop('-'));
 
         $this->addMultiSelect(
@@ -515,6 +514,21 @@ class ClientForm extends Form
                 }
             }
         }
+    }
+
+    /**
+     * ID Token signing algorithms the OP can actually sign with, i.e., those
+     * for which a protocol signing key pair is configured (the same set
+     * advertised as id_token_signing_alg_values_supported in OP metadata).
+     * Used to populate the id_token_signed_response_alg select, which
+     * constrains the value to this set.
+     *
+     * @return string[]
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    protected function getSupportedIdTokenSigningAlgs(): array
+    {
+        return $this->moduleConfig->getProtocolSignatureKeyPairBag()->getAllAlgorithmNamesUnique();
     }
 
     /**

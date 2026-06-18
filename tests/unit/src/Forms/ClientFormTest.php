@@ -19,6 +19,8 @@ use SimpleSAML\Module\oidc\Forms\ClientForm;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 
 #[CoversClass(ClientForm::class)]
 #[UsesClass(Helpers::class)]
@@ -45,6 +47,10 @@ class ClientFormTest extends TestCase
         $this->csrfProtectionMock =  $this->createMock(CsrfProtection::class);
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock->method('getSupportedResponseModes')->willReturn(['query', 'fragment', 'form_post']);
+
+        $signatureKeyPairBagMock = $this->createMock(SignatureKeyPairBag::class);
+        $signatureKeyPairBagMock->method('getAllAlgorithmNamesUnique')->willReturn(['RS256', 'ES256']);
+        $this->moduleConfigMock->method('getProtocolSignatureKeyPairBag')->willReturn($signatureKeyPairBagMock);
         $this->serverRequestMock = $this->createMock(ServerRequest::class);
         $this->sspBridgeMock = $this->createMock(SspBridge::class);
         $this->helpers = new Helpers();
@@ -204,5 +210,18 @@ class ClientFormTest extends TestCase
         $sut->validateRedirectUri($sut);
 
         $this->assertEquals(!$isValid, $sut->hasErrors(), $url);
+    }
+
+    public function testIdTokenSignedResponseAlgSelectIsLimitedToSupportedAlgs(): void
+    {
+        $sut = $this->sut();
+
+        // A supported algorithm is accepted by the select.
+        $sut->setValues([ClaimsEnum::IdTokenSignedResponseAlg->value => 'ES256']);
+        $this->assertSame('ES256', $sut->getValues()[ClaimsEnum::IdTokenSignedResponseAlg->value]);
+
+        // An unsupported algorithm is rejected by the select (out of allowed set).
+        $this->expectException(\Nette\InvalidArgumentException::class);
+        $this->sut()->setValues([ClaimsEnum::IdTokenSignedResponseAlg->value => 'HS256']);
     }
 }

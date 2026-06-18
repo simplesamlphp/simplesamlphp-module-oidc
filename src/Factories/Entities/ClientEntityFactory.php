@@ -95,6 +95,7 @@ class ClientEntityFactory
      *
      * @param array[] $federationJwks
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \SimpleSAML\Error\ConfigurationError
      * @psalm-suppress MixedAssignment
      */
     public function fromRegistrationData(
@@ -196,7 +197,23 @@ class ClientEntityFactory
         $metadata[ClaimsEnum::IdTokenSignedResponseAlg->value] :
         $existingClient?->getIdTokenSignedResponseAlg();
 
-        // TODO mivanci Check if id_token_signed_response_alg is supported.
+        // Make sure the requested id_token_signed_response_alg is one of the OP
+        // can actually sign ID Tokens with, i.e. one for which a protocol
+        // signing key pair is configured (the same set advertised as
+        // id_token_signing_alg_values_supported in OP metadata). Otherwise,
+        // ID Token building would fail later during an authentication flow.
+        if (is_string($idTokenSignedResponseAlg)) {
+            $supportedIdTokenSigningAlgs = $this->moduleConfig
+                ->getProtocolSignatureKeyPairBag()
+                ->getAllAlgorithmNamesUnique();
+
+            in_array($idTokenSignedResponseAlg, $supportedIdTokenSigningAlgs, true) ||
+            throw OidcServerException::invalidClientMetadata(sprintf(
+                'Unsupported id_token_signed_response_alg "%s". Supported values: %s.',
+                $idTokenSignedResponseAlg,
+                implode(', ', $supportedIdTokenSigningAlgs),
+            ));
+        }
 
         $extraMetadata[ClaimsEnum::IdTokenSignedResponseAlg->value] = $idTokenSignedResponseAlg;
 
