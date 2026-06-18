@@ -358,7 +358,7 @@ class OidcServerException extends OAuthServerException
         return new self(
             'The value of one of the client metadata fields is invalid and the server has rejected this request.',
             13,
-            'invalid_client_metadata',
+            ErrorsEnum::InvalidClientMetadata->value,
             400,
             $hint,
             null,

@@ -17,6 +17,7 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Codebooks\ErrorsEnum;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 use SimpleSAML\Utils\Random;
 
@@ -98,7 +99,7 @@ class ClientEntityFactoryTest extends TestCase
             $this->fail('Expected ' . OidcServerException::class . ' was not thrown.');
         } catch (OidcServerException $exception) {
             // Error code mandated by the Dynamic Client Registration spec (RFC 7591, section 3.2.2).
-            $this->assertSame('invalid_client_metadata', $exception->getPayload()['error']);
+            $this->assertSame(ErrorsEnum::InvalidClientMetadata->value, $exception->getPayload()['error']);
             $this->assertStringContainsString('HS256', $exception->getPayload()['error_description']);
         }
     }
