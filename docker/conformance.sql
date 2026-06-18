@@ -31,6 +31,7 @@ INSERT INTO oidc_migration_versions VALUES('20251021000001');
 INSERT INTO oidc_migration_versions VALUES('20251021000002');
 INSERT INTO oidc_migration_versions VALUES('20260109000001');
 INSERT INTO oidc_migration_versions VALUES('20260218163000');
+INSERT INTO oidc_migration_versions VALUES('20260608130000');
 CREATE TABLE oidc_user (
             id VARCHAR(191) PRIMARY KEY NOT NULL,
             claims TEXT,
@@ -133,4 +134,14 @@ CREATE TABLE oidc_vci_issuer_state (
     expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     is_revoked BOOLEAN NOT NULL DEFAULT false
 );
+CREATE TABLE oidc_par (
+            request_uri CHAR(98) PRIMARY KEY NOT NULL,
+            client_id VARCHAR(191) NOT NULL,
+            parameters TEXT NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            is_consumed BOOLEAN NOT NULL DEFAULT false,
+            CONSTRAINT FK_3A4219CB19EB6921 FOREIGN KEY (client_id)
+                REFERENCES oidc_client (id) ON DELETE CASCADE
+        );
+CREATE INDEX IDX_3A4219CBF9D83E2 ON oidc_par (expires_at);
 COMMIT;
