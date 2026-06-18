@@ -42,10 +42,12 @@ class EndSessionController
      */
     public function __invoke(ServerRequestInterface $request): Response
     {
-        // TODO v7 Back-Channel Logout: https://openid.net/specs/openid-connect-backchannel-1_0.html
-        //      [] Refresh tokens issued without the offline_access property to a session being logged out SHOULD
-        //           be revoked. Refresh tokens issued with the offline_access property normally SHOULD NOT be revoked.
-        //      - offline_access scope is now handled.
+        // Back-Channel Logout & refresh tokens (https://openid.net/specs/openid-connect-backchannel-1_0.html):
+        // The spec says refresh tokens issued without the offline_access property to a session being logged out
+        // SHOULD be revoked, while those issued with offline_access normally SHOULD NOT be revoked. In this module
+        // refresh tokens are issued exclusively when the offline_access scope is granted (see AuthCodeGrant), so the
+        // only category the spec asks us to revoke is never created here, and the offline_access ones are
+        // intentionally left intact. No token revocation is therefore required during logout.
 
         $logoutRequest = $this->authorizationServer->validateLogoutRequest($request);
 
