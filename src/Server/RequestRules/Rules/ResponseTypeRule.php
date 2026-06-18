@@ -46,7 +46,12 @@ class ResponseTypeRule extends AbstractRule
             );
         }
 
-        // TODO v7 consider checking for supported response types, for example, from configuration...
+        // No need to validate the value against a list of supported response types here: this rule only runs from
+        // within a grant's request validation, which is reached only after AuthorizationServer has matched the
+        // request to a grant via canRespondToAuthorizationRequest(). By grant selection therefore
+        // already rejects unsupported response types (unsupportedResponseType) before this point.
+        // TODO: Also, we currently don't store allowed response types per client, so nothing to validate in that
+        // sense either. This should be fixed in the future, for example in DCR implementation.
 
         return new Result($this->getKey(), $requestParams[ParamsEnum::ResponseType->value]);
     }
