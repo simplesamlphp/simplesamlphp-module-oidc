@@ -1262,6 +1262,14 @@ $config = [
     ModuleConfig::OPTION_VCI_ISSUER_STATE_TTL => 'PT10M', // 10 minutes
 
     /**
+     * (optional) Nonce TTL (validity duration) used for VCI proof-of-possession
+     * nonces, with the given example. If not set, defaults to 5 minutes. For
+     * duration format info, check
+     * https://www.php.net/manual/en/dateinterval.construct.php
+     */
+    ModuleConfig::OPTION_VCI_NONCE_TTL => 'PT5M', // 5 minutes
+
+    /**
      * Map of authentication sources and user's email attribute names. This
      * enables you to define a specific attribute name which contains the
      * user's email address, per authentication source. This is used, for

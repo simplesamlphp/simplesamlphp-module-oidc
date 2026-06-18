@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Services;
 
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Jws;
@@ -14,6 +15,7 @@ class NonceService
         protected readonly Jws $jws,
         protected readonly ModuleConfig $moduleConfig,
         protected readonly LoggerService $loggerService,
+        protected readonly Helpers $helpers,
     ) {
     }
 
@@ -23,17 +25,17 @@ class NonceService
     public function generateNonce(): string
     {
         $signatureKeyPair = $this->moduleConfig->getVciSignatureKeyPairBag()->getFirstOrFail();
-        $currentTimestamp = $this->jws->helpers()->dateTime()->getUtc()->getTimestamp();
+        $currentDateTime = $this->jws->helpers()->dateTime()->getUtc();
+        $currentTimestamp = $currentDateTime->getTimestamp();
 
-        // Nonce is valid for 5 minutes (300 seconds)
-        // TODO mivanci Consider making this configurable.
-        $expiryTimestamp = $currentTimestamp + 300;
+        // Nonce is valid for the configured TTL (defaults to 5 minutes).
+        $expiryTimestamp = $currentDateTime->add($this->moduleConfig->getVciNonceTtl())->getTimestamp();
 
         $payload = [
             ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
             ClaimsEnum::Iat->value => $currentTimestamp,
             ClaimsEnum::Exp->value => $expiryTimestamp,
-            'nonce_val' => bin2hex(random_bytes(16)),
+            ClaimsEnum::NonceVal->value => $this->helpers->random()->getIdentifier(16),
         ];
 
         $header = [

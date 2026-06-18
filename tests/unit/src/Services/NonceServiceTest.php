@@ -8,6 +8,8 @@ use Jose\Component\Core\JWK;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\Helpers as OidcHelpers;
+use SimpleSAML\Module\oidc\Helpers\Random as OidcRandom;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\NonceService;
@@ -34,6 +36,8 @@ class NonceServiceTest extends TestCase
     protected MockObject $signatureKeyPairMock;
     protected MockObject $helpersMock;
     protected MockObject $dateTimeHelperMock;
+    protected MockObject $oidcHelpersMock;
+    protected MockObject $oidcRandomMock;
 
     public function setUp(): void
     {
@@ -44,10 +48,13 @@ class NonceServiceTest extends TestCase
         $this->parsedJwsMock = $this->createMock(ParsedJws::class);
         $this->helpersMock = $this->createMock(Helpers::class);
         $this->dateTimeHelperMock = $this->createMock(DateTime::class);
+        $this->oidcHelpersMock = $this->createMock(OidcHelpers::class);
+        $this->oidcRandomMock = $this->createMock(OidcRandom::class);
 
         $this->jwsMock->method('parsedJwsFactory')->willReturn($this->parsedJwsFactoryMock);
         $this->jwsMock->method('helpers')->willReturn($this->helpersMock);
         $this->helpersMock->method('dateTime')->willReturn($this->dateTimeHelperMock);
+        $this->oidcHelpersMock->method('random')->willReturn($this->oidcRandomMock);
 
         $this->signatureKeyPairMock = $this->createMock(SignatureKeyPair::class);
         $this->signatureKeyPairBagMock = $this->createMock(SignatureKeyPairBag::class);
@@ -57,8 +64,10 @@ class NonceServiceTest extends TestCase
 
     public function testGenerateNonce(): void
     {
-        $this->dateTimeHelperMock->method('getUtc')->willReturn(new \DateTimeImmutable('2024-01-01 00:00:00'));
+        $currentDateTime = new \DateTimeImmutable('2024-01-01 00:00:00');
+        $this->dateTimeHelperMock->method('getUtc')->willReturn($currentDateTime);
         $this->moduleConfigMock->method('getIssuer')->willReturn('https://issuer.example.com');
+        $this->moduleConfigMock->method('getVciNonceTtl')->willReturn(new \DateInterval('PT5M'));
 
         $privateKeyMock = $this->createMock(JwkDecorator::class);
         $keyPairMock = $this->createMock(KeyPair::class);
@@ -67,13 +76,33 @@ class NonceServiceTest extends TestCase
         $this->signatureKeyPairMock->method('getKeyPair')->willReturn($keyPairMock);
         $this->signatureKeyPairMock->method('getSignatureAlgorithm')->willReturn(SignatureAlgorithmEnum::ES256);
 
+        $this->oidcRandomMock->expects($this->once())
+            ->method('getIdentifier')
+            ->with(16)
+            ->willReturn('mocked_random_nonce');
+
         $this->parsedJwsFactoryMock->expects($this->once())
             ->method('fromData')
+            ->with(
+                $this->anything(),
+                $this->anything(),
+                $this->callback(function (array $payload) use ($currentDateTime): bool {
+                    return $payload['iat'] === $currentDateTime->getTimestamp()
+                        && $payload['exp'] === $currentDateTime->getTimestamp() + 300
+                        && $payload['nonce_val'] === 'mocked_random_nonce';
+                }),
+                $this->anything(),
+            )
             ->willReturn($this->parsedJwsMock);
 
         $this->parsedJwsMock->method('getToken')->willReturn('mocked_token');
 
-        $sut = new NonceService($this->jwsMock, $this->moduleConfigMock, $this->loggerServiceMock);
+        $sut = new NonceService(
+            $this->jwsMock,
+            $this->moduleConfigMock,
+            $this->loggerServiceMock,
+            $this->oidcHelpersMock,
+        );
         $nonce = $sut->generateNonce();
 
         $this->assertEquals('mocked_token', $nonce);
@@ -98,7 +127,12 @@ class NonceServiceTest extends TestCase
         $this->parsedJwsMock->method('getExpirationTime')
             ->willReturn((new \DateTimeImmutable('2024-01-01 00:00:00'))->getTimestamp() + 100);
 
-        $sut = new NonceService($this->jwsMock, $this->moduleConfigMock, $this->loggerServiceMock);
+        $sut = new NonceService(
+            $this->jwsMock,
+            $this->moduleConfigMock,
+            $this->loggerServiceMock,
+            $this->oidcHelpersMock,
+        );
         $this->assertTrue($sut->validateNonce('valid_token'));
     }
 
@@ -119,7 +153,12 @@ class NonceServiceTest extends TestCase
         $this->parsedJwsMock->method('getIssuer')->willReturn('https://other.example.com');
         $this->moduleConfigMock->method('getIssuer')->willReturn('https://issuer.example.com');
 
-        $sut = new NonceService($this->jwsMock, $this->moduleConfigMock, $this->loggerServiceMock);
+        $sut = new NonceService(
+            $this->jwsMock,
+            $this->moduleConfigMock,
+            $this->loggerServiceMock,
+            $this->oidcHelpersMock,
+        );
         $this->assertFalse($sut->validateNonce('invalid_issuer_token'));
     }
 
@@ -142,7 +181,12 @@ class NonceServiceTest extends TestCase
         $this->parsedJwsMock->method('getExpirationTime')
             ->willReturn((new \DateTimeImmutable('2024-01-01 00:00:00'))->getTimestamp() - 10);
 
-        $sut = new NonceService($this->jwsMock, $this->moduleConfigMock, $this->loggerServiceMock);
+        $sut = new NonceService(
+            $this->jwsMock,
+            $this->moduleConfigMock,
+            $this->loggerServiceMock,
+            $this->oidcHelpersMock,
+        );
         $this->assertFalse($sut->validateNonce('expired_token'));
     }
 }

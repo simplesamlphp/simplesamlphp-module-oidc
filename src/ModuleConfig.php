@@ -114,6 +114,7 @@ class ModuleConfig
     final public const string OPTION_AUTH_SOURCES_TO_USERS_EMAIL_ATTRIBUTE_NAME_MAP =
     'auth_sources_to_users_email_attribute_name_map';
     final public const string OPTION_VCI_ISSUER_STATE_TTL = 'vci_issuer_state_ttl';
+    final public const string OPTION_VCI_NONCE_TTL = 'vci_nonce_ttl';
     final public const string OPTION_VCI_ALLOW_NON_REGISTERED_CLIENTS = 'vci_allow_non_registered_clients';
     final public const string OPTION_VCI_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS =
     'vci_allowed_redirect_uri_prefixes_for_non_registered_clients';
@@ -1128,6 +1129,24 @@ class ModuleConfig
         return new DateInterval(
             $this->config()->getString(self::OPTION_VCI_ISSUER_STATE_TTL),
         );
+    }
+
+    /**
+     * Get Nonce TTL (validity duration) used for VCI proof-of-possession
+     * nonces. If not set, it defaults to 5 minutes.
+     *
+     * @return DateInterval
+     * @throws \Exception
+     */
+    public function getVciNonceTtl(): DateInterval
+    {
+        $nonceTtl = $this->config()->getOptionalString(self::OPTION_VCI_NONCE_TTL, null);
+
+        if (is_null($nonceTtl)) {
+            return new DateInterval('PT5M');
+        }
+
+        return new DateInterval($nonceTtl);
     }
 
     public function getVciAllowNonRegisteredClients(): bool
