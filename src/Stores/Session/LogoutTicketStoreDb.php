@@ -86,11 +86,13 @@ class LogoutTicketStoreDb implements LogoutTicketStoreInterface
     }
 
     /**
+     * @inheritDoc
      * @throws \Exception
      */
     public function getAll(): array
     {
         $this->deleteExpired();
+        /** @var list<array{sid: string, created_at: string}> */
         return $this->database->read("SELECT * FROM {$this->getTableName()}")->fetchAll(PDO::FETCH_ASSOC);
     }
 

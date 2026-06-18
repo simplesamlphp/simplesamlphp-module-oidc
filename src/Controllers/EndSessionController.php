@@ -174,10 +174,8 @@ class EndSessionController
         $sessionLogoutTickets = $sessionLogoutTicketStore->getAll();
 
         if (!empty($sessionLogoutTickets)) {
-            // TODO v7 low mivanci This could brake since interface does not mandate type. Move to strong typing.
-            /** @var array $sessionLogoutTicket */
             foreach ($sessionLogoutTickets as $sessionLogoutTicket) {
-                $sid = (string)$sessionLogoutTicket['sid'];
+                $sid = $sessionLogoutTicket['sid'];
                 if ($sid === $session->getSessionId()) {
                     continue;
                 }
@@ -203,7 +201,7 @@ class EndSessionController
             }
 
             $sessionLogoutTicketStore->deleteMultiple(
-                array_map(fn(array $slt): string => (string)$slt['sid'], $sessionLogoutTickets),
+                array_map(fn(array $slt): string => $slt['sid'], $sessionLogoutTickets),
             );
         }
 
