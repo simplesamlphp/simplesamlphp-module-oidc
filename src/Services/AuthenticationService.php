@@ -27,6 +27,7 @@ use SimpleSAML\Error\Exception;
 use SimpleSAML\Error\NoState;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Controllers\EndSessionController;
+use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Exceptions\OidcException;
@@ -346,10 +347,17 @@ class AuthenticationService
     }
 
     /**
-     * Run authproc filters with the processing chain
-     * Creating the ProcessingChain require metadata.
-     * - For the idp metadata use the OIDC issuer as the entityId (and the authprocs from the main config file)
-     * - For the sp metadata use the client id as the entityId (and don’t set authprocs).
+     * Run authproc filters with the processing chain.
+     *
+     * This is the single source of truth for the metadata that drives the
+     * ProcessingChain. We build it once here and store it back into the state;
+     * the ProcessingChainFactory then only consumes the prepared state:
+     * - IdP metadata uses the OIDC issuer as the entityId and carries the global
+     *   authproc filters (from the module configuration).
+     * - SP metadata uses the client ID as the entityId and carries the
+     *   per-client authproc filters (from the client's metadata).
+     * The SimpleSAMLphp ProcessingChain then merges both filter lists by
+     * priority, mimicking SAML IdP + SP authproc filters.
      *
      * @param   array  $state
      *
@@ -360,19 +368,36 @@ class AuthenticationService
      */
     protected function runAuthProcs(array &$state): void
     {
-        $idpMetadata = [
+        $state['ReturnURL'] = $this->routes->getModuleUrl(RoutesEnum::Authorization->value);
+
+        // Note: we only augment the existing Source / Destination entries (which
+        // already carry the 'entityid' set in prepareStateArray()) with their
+        // respective authproc filter lists. No state keys are removed.
+        $state['Source'] = [
             'entityid' => $state['Source']['entityid'] ?? '',
-            // ProcessChain needs to know the list of authproc filters we defined in module_oidc configuration
             'authproc' => $this->moduleConfig->getAuthProcFilters(),
         ];
-        $spMetadata = [
+        $state['Destination'] = [
             'entityid' => $state['Destination']['entityid'] ?? '',
+            'authproc' => $this->resolveClientAuthProcFilters($state),
         ];
 
-        $state['ReturnURL'] = $this->routes->getModuleUrl(RoutesEnum::Authorization->value);
-        $state['Destination'] = $spMetadata;
-        $state['Source'] = $idpMetadata;
-
         $this->processingChainFactory->build($state)->processState($state);
+    }
+
+    /**
+     * Resolve per-client authproc filters from the OIDC relying party metadata
+     * present in the authentication state (exposed there by prepareStateArray()).
+     */
+    protected function resolveClientAuthProcFilters(array $state): array
+    {
+        $relyingPartyMetadata = $state['Oidc']['RelyingPartyMetadata'] ?? null;
+        if (!is_array($relyingPartyMetadata)) {
+            return [];
+        }
+
+        $authProcFilters = $relyingPartyMetadata[ClientEntity::KEY_AUTH_PROC_FILTERS] ?? null;
+
+        return is_array($authProcFilters) ? $authProcFilters : [];
     }
 }

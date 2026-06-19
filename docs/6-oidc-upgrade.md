@@ -61,6 +61,19 @@ in the OP discovery metadata via the `response_modes_supported` claim.
   (`query`, `fragment`, `form_post`) are allowed, so existing clients are
   unaffected. It can be narrowed, for example to `form_post` only, to protect
   against browser-swapping attacks (if supported by the client).
+- Authentication Processing Filters can now be configured per client (Relying
+Party), in addition to the global filters defined under `authproc.oidc`. This
+mimics defining authproc filters in SAML Service Provider metadata. During
+authentication the global (IdP-side) and per-client (SP-side) filters are merged
+by priority. The filters are stored together with the client (inside its extra
+metadata) and are managed from the client administration UI as a JSON object,
+using the same structure as the global filters. For security reasons, per-client
+filters can only be set by an administrator (via the admin UI / API) and are
+deliberately never accepted from client-supplied dynamic / OpenID Federation
+registration metadata (a filter names a PHP class executed on the OP, so
+honoring it from registration would be a remote code execution vector).
+  - Clients can now be configured with a new property related to the above:
+    - Authentication Processing Filters (`authproc`)
 - The encryption key (used to encrypt / decrypt artifacts like authorization
 codes and refresh tokens) can now optionally be set to a strong, pre-generated
 `\Defuse\Crypto\Key`, instead of always deriving it from the SimpleSAMLphp

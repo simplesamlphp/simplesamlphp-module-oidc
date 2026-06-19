@@ -370,6 +370,15 @@ class ClientController
         $data[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] : [];
         $extraMetadata[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] = $allowedResponseModes;
 
+        // Per-client authproc filters. These are administrator-only (settable
+        // here, via the admin UI), and are deliberately never accepted from
+        // client-supplied registration metadata. See
+        // ClientEntityFactory::fromRegistrationData() and
+        // ClientEntity::ADMIN_ONLY_METADATA_KEYS.
+        $authProcFilters = is_array($data[ClientEntity::KEY_AUTH_PROC_FILTERS] ?? null) ?
+        $data[ClientEntity::KEY_AUTH_PROC_FILTERS] : [];
+        $extraMetadata[ClientEntity::KEY_AUTH_PROC_FILTERS] = $authProcFilters;
+
         return $this->clientEntityFactory->fromData(
             $identifier,
             $secret,

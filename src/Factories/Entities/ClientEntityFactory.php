@@ -106,6 +106,32 @@ class ClientEntityFactory
         ?string $clientIdentifier = null,
         ?array $federationJwks = null,
     ): ClientEntityInterface {
+        // Security: scrub administrator-only properties from client-supplied
+        // registration metadata.
+        //
+        // This method builds clients from metadata provided by a remote party,
+        // i.e. through OIDC Dynamic Client Registration (RFC 7591) or OpenID
+        // Federation (explicit / automatic) registration. Some client properties
+        // must never be controllable by the registering party, because honoring
+        // them would let an untrusted client influence server-side behavior. The
+        // prime example is `authproc` (per-client Authentication Processing
+        // Filters): a filter entry names a PHP class that is instantiated and
+        // executed on the OP during authentication, so accepting it from
+        // registration metadata would be a remote code execution vector.
+        //
+        // Such properties are settable ONLY by a trusted administrator, via the
+        // admin UI / API (ClientEntityFactory::fromData()). We strip every
+        // deny-listed key from the incoming metadata here, so it can neither be
+        // read below nor leak into a future code path. Any value an administrator
+        // has already set on an existing client is preserved because it is
+        // carried over from $existingClient->getExtraMetadata() further down (it
+        // does not come from $metadata).
+        //
+        // The deny-list itself lives next to the property definitions, in
+        // ClientEntity::ADMIN_ONLY_METADATA_KEYS.
+        foreach (ClientEntity::ADMIN_ONLY_METADATA_KEYS as $adminOnlyMetadataKey) {
+            unset($metadata[$adminOnlyMetadataKey]);
+        }
 
         $id = $clientIdentifier ?? $existingClient?->getIdentifier() ??
         $this->sspBridge->utils()->random()->generateID();

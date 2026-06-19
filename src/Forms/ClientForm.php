@@ -202,6 +202,71 @@ class ClientForm extends Form
         }
     }
 
+    /**
+     * Validate the per-client Authentication Processing Filters. The value is
+     * expected to be a JSON object/array in the same shape as the global
+     * ModuleConfig::OPTION_AUTH_PROCESSING_FILTERS option, i.e. a list keyed by
+     * priority where each filter is either a class string or an array with a
+     * 'class' key. JSON syntax itself is validated in getValues().
+     *
+     * @throws \Exception
+     */
+    public function validateAuthProcFilters(Form $form): void
+    {
+        $values = $form->getValues(self::TYPE_ARRAY);
+
+        $authProcFilters = $values[ClientEntity::KEY_AUTH_PROC_FILTERS] ?? [];
+
+        if (!is_array($authProcFilters)) {
+            $this->addError('Authentication Processing Filters must be a JSON object.');
+            return;
+        }
+
+        /**
+         * @var mixed $filter
+         */
+        foreach ($authProcFilters as $filter) {
+            if (is_string($filter)) {
+                continue;
+            }
+
+            if (!is_array($filter)) {
+                $this->addError(
+                    'Each Authentication Processing Filter must be a class string or an object: ' .
+                    var_export($filter, true),
+                );
+                continue;
+            }
+
+            if (!isset($filter['class']) || !is_string($filter['class'])) {
+                $this->addError(
+                    "Each Authentication Processing Filter object must have a string 'class' property: " .
+                    var_export($filter, true),
+                );
+            }
+        }
+    }
+
+    /**
+     * Cast integer-like string array keys to int, leaving all other keys (and
+     * the values) untouched. Only the top level is processed, which is where
+     * authproc filter priority keys live. Used to normalize priorities coming
+     * from the JSON-encoded authproc filters field.
+     */
+    protected function castNumericKeysToInt(array $array): array
+    {
+        $result = [];
+        /** @var mixed $value */
+        foreach ($array as $key => $value) {
+            if (is_string($key) && preg_match('/^-?\d+$/', $key) === 1) {
+                $key = (int) $key;
+            }
+            $result[$key] = $value;
+        }
+
+        return $result;
+    }
+
     public function validateJwks(mixed $jwks): void
     {
         if (is_null($jwks)) {
@@ -319,6 +384,24 @@ class ClientForm extends Form
             array_keys($this->getAllowedResponseModesValues()),
         );
 
+        $authProcFilters = trim((string)($values[ClientEntity::KEY_AUTH_PROC_FILTERS] ?? ''));
+        try {
+            /** @psalm-suppress MixedAssignment */
+            $decodedAuthProcFilters = $authProcFilters === '' ?
+            [] :
+            json_decode($authProcFilters, true, 512, JSON_THROW_ON_ERROR);
+            // Normalize numeric priority keys to integers. PHP already casts
+            // canonical integer string keys (e.g. "60") to int, but not forms
+            // like "08", so we make the priority type predictable for the
+            // SimpleSAMLphp ProcessingChain.
+            $values[ClientEntity::KEY_AUTH_PROC_FILTERS] = is_array($decodedAuthProcFilters) ?
+            $this->castNumericKeysToInt($decodedAuthProcFilters) :
+            $decodedAuthProcFilters;
+        } catch (\JsonException $e) {
+            $this->addError('Authentication Processing Filters JSON error: ' . $e->getMessage());
+            $values[ClientEntity::KEY_AUTH_PROC_FILTERS] = [];
+        }
+
         return $values;
     }
 
@@ -390,6 +473,11 @@ class ClientForm extends Form
             $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES],
         ) ? $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] : [];
 
+        $authProcFilters = $values[ClientEntity::KEY_AUTH_PROC_FILTERS] ?? null;
+        $values[ClientEntity::KEY_AUTH_PROC_FILTERS] = (is_array($authProcFilters) && $authProcFilters !== []) ?
+        (string)json_encode($authProcFilters, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) :
+        '';
+
         parent::setDefaults($values, $erase);
 
         return $this;
@@ -413,6 +501,7 @@ class ClientForm extends Form
         $this->onValidate[] = $this->validateProtocolJwks(...);
         $this->onValidate[] = $this->validateJwksUri(...);
         $this->onValidate[] = $this->validateRequestUris(...);
+        $this->onValidate[] = $this->validateAuthProcFilters(...);
 
         $this->setMethod('POST');
         $this->addComponent($this->csrfProtection, Form::ProtectorId);
@@ -494,6 +583,13 @@ class ClientForm extends Form
         $this->addCheckbox(ClaimsEnum::RequireSignedRequestObject->value, 'Require Signed Request Object');
         $this->addTextArea(ClaimsEnum::RequestUris->value, 'Request URIs (OIDC Core / JAR, one per line)', null, 5)
             ->setHtmlAttribute('class', 'full-width');
+
+        $this->addTextArea(
+            ClientEntity::KEY_AUTH_PROC_FILTERS,
+            Translate::noop('Authentication Processing Filters'),
+            null,
+            5,
+        )->setHtmlAttribute('class', 'full-width');
     }
 
     /**

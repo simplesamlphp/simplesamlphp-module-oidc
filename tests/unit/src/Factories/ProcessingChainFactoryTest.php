@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Factories;
 
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Auth\ProcessingChain;
 use SimpleSAML\Module\oidc\Factories\ProcessingChainFactory;
-use SimpleSAML\Module\oidc\ModuleConfig;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Factories\ProcessingChainFactory
@@ -27,6 +25,11 @@ class ProcessingChainFactoryTest extends TestCase
     final public const AUTH_DATA = ['Attributes' => self::USER_ENTITY_ATTRIBUTES];
     final public const CLIENT_ENTITY = ['id' => 'clientid', 'redirect_uri' => 'https://rp.example.org'];
     final public const AUTHZ_REQUEST_PARAMS = ['client_id' => 'clientid', 'redirect_uri' => 'https://rp.example.org'];
+
+    /**
+     * The factory consumes the IdP / SP metadata (entityid + authproc) that
+     * AuthenticationService::runAuthProcs() has already prepared in the state.
+     */
     final public const STATE = [
         'Attributes' => self::AUTH_DATA['Attributes'],
         'Oidc'       => [
@@ -34,27 +37,16 @@ class ProcessingChainFactoryTest extends TestCase
             'RelyingPartyMetadata'           => self::CLIENT_ENTITY,
             'AuthorizationRequestParameters' => self::AUTHZ_REQUEST_PARAMS,
         ],
+        'Source'      => ['entityid' => 'https://idp.example.org', 'authproc' => []],
+        'Destination' => ['entityid' => 'clientid', 'authproc' => []],
     ];
-
-    /**
-     * @var MockObject|(object&MockObject)|ModuleConfig|(ModuleConfig&object&MockObject)|(ModuleConfig&MockObject)
-     */
-    protected MockObject $moduleConfigMock;
-
-    /**
-     * @throws \Exception
-     */
-    protected function setUp(): void
-    {
-        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
-    }
 
     /**
      * @return ProcessingChainFactory
      */
     protected function prepareMockedInstance(): ProcessingChainFactory
     {
-        return new ProcessingChainFactory($this->moduleConfigMock);
+        return new ProcessingChainFactory();
     }
 
     /**

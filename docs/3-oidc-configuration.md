@@ -237,7 +237,7 @@ $config = [
 ];
 ```
 
-## Auth Proc filters (OIDC)
+## Authentication Processing filters (OIDC)
 
 Standard SAML Auth Proc Filters do not run during OIDC authN because not
 all SAML entities are present (like a Service Provider). Instead, use the
@@ -275,6 +275,58 @@ $config = [
         ],
     ],
 ];
+```
+
+### Per-client Auth Proc filters
+
+In addition to the global filters above, you can configure Auth Proc filters
+for a **specific client (Relying Party)**. This mimics the way SAML allows
+filters to be defined in Service Provider metadata.
+
+Client filters are stored together with the client in the database (as part of
+the client's extra metadata) and are managed from the client administration UI:
+
+- OIDC > Client Registry > (edit a client) > **Authentication Processing Filters**
+
+The value is entered as a JSON object using the same structure as the global
+`authproc.oidc` option (keyed by priority; each entry is a class string or an
+object with a `class` property), for example:
+
+```json
+{
+    "60": {
+        "class": "core:AttributeAdd",
+        "groups": ["members"]
+    }
+}
+```
+
+During authentication for that client, its filters are merged with the global
+filters by priority (the global filters run as the "IdP-side" list and the
+client filters as the "SP-side" list), exactly as SAML merges IdP and SP
+`authproc` filters.
+
+> **Security note:** Auth Proc filters name a PHP class that is instantiated and
+> executed on the OP during authentication. For this reason, per-client filters
+> can only be set by a trusted administrator through the admin UI / API. They are
+> **deliberately never accepted from client-supplied registration metadata**
+> (OIDC Dynamic Client Registration or OpenID Federation registration); any such
+> value present in registration metadata is ignored. This deny-list of
+> administrator-only client properties is defined in
+> `\SimpleSAML\Module\oidc\Entities\ClientEntity::ADMIN_ONLY_METADATA_KEYS` and
+> enforced in `ClientEntityFactory::fromRegistrationData()`.
+
+Alternatively, if you only need a global filter to run for selected clients, you
+can keep using the global `authproc.oidc` option together with a
+[preconditional filter](https://simplesamlphp.org/docs/stable/simplesamlphp-authproc.html#preconditional-filters),
+inspecting the client ID via `$state['Destination']['entityid']`:
+
+```php
+50 => [
+    'class' => 'core:AttributeAdd',
+    'groups' => ['members'],
+    '%precondition' => 'return $state["Destination"]["entityid"] === "https://rp.example.org/";',
+],
 ```
 
 ## Client registration permissions
