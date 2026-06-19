@@ -234,6 +234,7 @@ jobs:
         run: |
           sed -i -e 's/localhost/localhost.emobix.co.uk/g' src/main/resources/application.properties
           sed -i -e 's/-B clean/-B -DskipTests=true/g' builder-compose.yml
+          python3 -c "import pathlib; p = pathlib.Path('src/main/java/net/openid/conformance/frontchannel/BrowserControl.java'); p.write_text(p.read_text().replace('((JavascriptExecutor) webDriver).executeScript(\"return document.readyState\").equals(\"complete\")', '\"complete\".equals(((JavascriptExecutor) webDriver).executeScript(\"return document.readyState\"))'))"
           docker compose -f builder-compose.yml run builder
       - name: Run Conformance Suite
         working-directory: ./conformance-suite
