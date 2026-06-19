@@ -40,6 +40,7 @@ use SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\Module\oidc\Utils\Routes;
 
 class AuthenticationService
 {
@@ -68,6 +69,7 @@ class AuthenticationService
         private readonly StateService $stateService,
         private readonly RequestParamsResolver $requestParamsResolver,
         private readonly UserEntityFactory $userEntityFactory,
+        private readonly Routes $routes,
     ) {
         $this->userIdAttr = $this->moduleConfig->getUserIdentifierAttribute();
     }
@@ -367,7 +369,7 @@ class AuthenticationService
             'entityid' => $state['Destination']['entityid'] ?? '',
         ];
 
-        $state['ReturnURL'] = $this->moduleConfig->getModuleUrl(RoutesEnum::Authorization->value);
+        $state['ReturnURL'] = $this->routes->getModuleUrl(RoutesEnum::Authorization->value);
         $state['Destination'] = $spMetadata;
         $state['Source'] = $idpMetadata;
 

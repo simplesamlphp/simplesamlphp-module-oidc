@@ -281,18 +281,6 @@ class ModuleConfig
         return $this->moduleConfig;
     }
 
-    // TODO mivanci v7 Move to dedicated \SimpleSAML\Module\oidc\Utils\Routes::getModuleUrl
-    public function getModuleUrl(?string $path = null): string
-    {
-        $base = $this->sspBridge->module()->getModuleURL(self::MODULE_NAME);
-
-        if ($path) {
-            $base .= "/$path";
-        }
-
-        return $base;
-    }
-
     /*****************************************************************************************************************
      * OpenID Connect related config.
      ****************************************************************************************************************/

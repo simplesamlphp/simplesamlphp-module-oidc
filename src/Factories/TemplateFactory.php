@@ -102,63 +102,63 @@ class TemplateFactory
     {
         $this->oidcMenu->addItem(
             $this->oidcMenu->buildItem(
-                $this->moduleConfig->getModuleUrl(RoutesEnum::AdminMigrations->value),
+                $this->routes->getModuleUrl(RoutesEnum::AdminMigrations->value),
                 Translate::noop('Database Migrations'),
             ),
         );
 
         $this->oidcMenu->addItem(
             $this->oidcMenu->buildItem(
-                $this->moduleConfig->getModuleUrl(RoutesEnum::AdminClients->value),
+                $this->routes->getModuleUrl(RoutesEnum::AdminClients->value),
                 Translate::noop('Client Registry'),
             ),
         );
 
         $this->oidcMenu->addItem(
             $this->oidcMenu->buildItem(
-                $this->moduleConfig->getModuleUrl(RoutesEnum::AdminConfigProtocol->value),
+                $this->routes->getModuleUrl(RoutesEnum::AdminConfigProtocol->value),
                 Translate::noop('Protocol Settings'),
             ),
         );
 
         $this->oidcMenu->addItem(
             $this->oidcMenu->buildItem(
-                $this->moduleConfig->getModuleUrl(RoutesEnum::AdminConfigFederation->value),
+                $this->routes->getModuleUrl(RoutesEnum::AdminConfigFederation->value),
                 Translate::noop('Federation Settings'),
             ),
         );
 
         $this->oidcMenu->addItem(
             $this->oidcMenu->buildItem(
-                $this->moduleConfig->getModuleUrl(RoutesEnum::AdminTestTrustChainResolution->value),
+                $this->routes->getModuleUrl(RoutesEnum::AdminTestTrustChainResolution->value),
                 Translate::noop('Test Trust Chain Resolution'),
             ),
         );
 
         $this->oidcMenu->addItem(
             $this->oidcMenu->buildItem(
-                $this->moduleConfig->getModuleUrl(RoutesEnum::AdminTestTrustMarkValidation->value),
+                $this->routes->getModuleUrl(RoutesEnum::AdminTestTrustMarkValidation->value),
                 Translate::noop('Test Trust Mark Validation'),
             ),
         );
 
         $this->oidcMenu->addItem(
             $this->oidcMenu->buildItem(
-                $this->moduleConfig->getModuleUrl(RoutesEnum::AdminTestFederationDiscovery->value),
+                $this->routes->getModuleUrl(RoutesEnum::AdminTestFederationDiscovery->value),
                 Translate::noop('Test Federation Discovery'),
             ),
         );
 
         $this->oidcMenu->addItem(
             $this->oidcMenu->buildItem(
-                $this->moduleConfig->getModuleUrl(RoutesEnum::AdminConfigVerifiableCredential->value),
+                $this->routes->getModuleUrl(RoutesEnum::AdminConfigVerifiableCredential->value),
                 Translate::noop('Verifiable Credential Settings'),
             ),
         );
 
         $this->oidcMenu->addItem(
             $this->oidcMenu->buildItem(
-                $this->moduleConfig->getModuleUrl(RoutesEnum::AdminTestVerifiableCredentialIssuance->value),
+                $this->routes->getModuleUrl(RoutesEnum::AdminTestVerifiableCredentialIssuance->value),
                 Translate::noop('Test Verifiable Credential Issuance'),
             ),
         );
@@ -179,7 +179,7 @@ class TemplateFactory
     public function setActiveHrefPath(?string $activeHrefPath): TemplateFactory
     {
         $this->oidcMenu->setActiveHrefPath(
-            $activeHrefPath ? $this->moduleConfig->getModuleUrl($activeHrefPath) : null,
+            $activeHrefPath ? $this->routes->getModuleUrl($activeHrefPath) : null,
         );
         return $this;
     }

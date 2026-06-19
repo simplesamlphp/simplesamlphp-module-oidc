@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use SimpleSAML\Locale\Translate;
+use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\XHTML\Template;
 
 /** @noinspection PhpParameterByRefIsNotUsedAsReferenceInspection Reference is actually used by SimpleSAMLphp */
@@ -17,10 +19,11 @@ function oidc_hook_adminmenu(Template &$template): void
     }
 
     $moduleConfig = new ModuleConfig();
+    $routes = new Routes($moduleConfig, new SspBridge());
 
     $oidcMenuEntry = [
         ModuleConfig::MODULE_NAME => [
-            'url' => $moduleConfig->getModuleUrl(RoutesEnum::AdminMigrations->value),
+            'url' => $routes->getModuleUrl(RoutesEnum::AdminMigrations->value),
             'name' => Translate::noop('OIDC OP'),
         ],
     ];

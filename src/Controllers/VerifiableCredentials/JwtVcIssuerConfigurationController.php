@@ -41,7 +41,7 @@ class JwtVcIssuerConfigurationController
     {
         $configuration = [
             ClaimsEnum::Issuer->value => $this->moduleConfig->getIssuer(),
-            ClaimsEnum::JwksUri->value => $this->moduleConfig->getModuleUrl(RoutesEnum::Jwks->value),
+            ClaimsEnum::JwksUri->value => $this->routes->getModuleUrl(RoutesEnum::Jwks->value),
         ];
 
         return $this->routes->newJsonResponse($configuration);

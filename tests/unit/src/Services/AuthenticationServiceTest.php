@@ -34,6 +34,7 @@ use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Services\StateService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Session;
 
 /**
@@ -83,6 +84,7 @@ class AuthenticationServiceTest extends TestCase
     protected MockObject $clientHelperMock;
     protected MockObject $requestParamsResolverMock;
     protected MockObject $userEntityFactoryMock;
+    protected MockObject $routesMock;
 
     /**
      * @throws \PHPUnit\Framework\MockObject\Exception
@@ -128,6 +130,7 @@ class AuthenticationServiceTest extends TestCase
             ->willReturn(self::AUTHZ_REQUEST_PARAMS);
 
         $this->userEntityFactoryMock = $this->createMock(UserEntityFactory::class);
+        $this->routesMock = $this->createMock(Routes::class);
     }
 
     /**
@@ -150,6 +153,7 @@ class AuthenticationServiceTest extends TestCase
                      $this->stateServiceMock,
                      $this->requestParamsResolverMock,
                      $this->userEntityFactoryMock,
+                     $this->routesMock,
                 ],
             )->onlyMethods([])
             ->getMock();
@@ -400,6 +404,7 @@ class AuthenticationServiceTest extends TestCase
                                      $this->stateServiceMock,
                                      $this->requestParamsResolverMock,
                                      $this->userEntityFactoryMock,
+                                     $this->routesMock,
                                  ])
             ->onlyMethods(['runAuthProcs', 'prepareStateArray'])
             ->getMock();
@@ -477,7 +482,7 @@ class AuthenticationServiceTest extends TestCase
         ];
         $returnUrl       = 'http://example.com/authorization';
         $this->moduleConfigMock->method('getAuthProcFilters')->willReturn($authProcFilters);
-        $this->moduleConfigMock->method('getModuleUrl')->willReturn($returnUrl);
+        $this->routesMock->method('getModuleUrl')->willReturn($returnUrl);
         $mockedInstance = new class (
             $this->userRepositoryMock,
             $this->authSimpleFactoryMock,
@@ -490,6 +495,7 @@ class AuthenticationServiceTest extends TestCase
             $this->stateServiceMock,
             $this->requestParamsResolverMock,
             $this->userEntityFactoryMock,
+            $this->routesMock,
         ) extends AuthenticationService {
             public function runAuthProcsPublic(array &$state): void
             {

@@ -76,7 +76,6 @@ class ModuleConfigTest extends TestCase
     private MockObject $sspBridgeMock;
     private MockObject $sspBridgeUtilsMock;
     private MockObject $sspBridgeUtilsHttpMock;
-    private MockObject $sspBridgeModuleMock;
     private MockObject $sspBridgeUtilsConfigMock;
     private MockObject $valueAbstractMock;
 
@@ -97,12 +96,7 @@ class ModuleConfigTest extends TestCase
             );
         $this->sspBridgeUtilsHttpMock = $this->createMock(HTTP::class);
 
-        $this->sspBridgeModuleMock = $this->createMock(SspBridge\Module::class);
-        $this->sspBridgeModuleMock->method('getModuleUrl')
-            ->willReturn('http://sample.test/' . ModuleConfig::MODULE_NAME);
-
         $this->sspBridgeMock->method('utils')->willReturn($this->sspBridgeUtilsMock);
-        $this->sspBridgeMock->method('module')->willReturn($this->sspBridgeModuleMock);
 
         $this->sspBridgeUtilsMock->method('http')->willReturn($this->sspBridgeUtilsHttpMock);
         $this->sspBridgeUtilsMock->method('config')->willReturn($this->sspBridgeUtilsConfigMock);
@@ -195,11 +189,6 @@ class ModuleConfigTest extends TestCase
     public function testCanGetSspConfig(): void
     {
         $this->assertInstanceOf(Configuration::class, $this->sut()->sspConfig());
-    }
-
-    public function testCanGetModuleUrl(): void
-    {
-        $this->assertStringContainsString(ModuleConfig::MODULE_NAME, $this->sut()->getModuleUrl('test'));
     }
 
     public function testCanGetOpenIdScopes(): void

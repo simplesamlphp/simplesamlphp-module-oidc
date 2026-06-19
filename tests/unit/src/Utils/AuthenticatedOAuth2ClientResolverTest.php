@@ -21,6 +21,7 @@ use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
 use SimpleSAML\OpenID\Codebooks\ClientAssertionTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
@@ -45,6 +46,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
     protected MockObject $psrHttpFactoryMock;
     protected MockObject $jwksResolverMock;
     protected MockObject $moduleConfigMock;
+    protected MockObject $routesMock;
     protected MockObject $helpersMock;
     protected MockObject $dateTimeHelperMock;
     protected Stub $protocolCacheStub;
@@ -63,13 +65,14 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $this->psrHttpBridgeMock->method('getPsrHttpFactory')->willReturn($this->psrHttpFactoryMock);
         $this->jwksResolverMock = $this->createMock(JwksResolver::class);
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
-        $this->moduleConfigMock->method('getModuleUrl')
+        $this->moduleConfigMock->method('getIssuer')->willReturn(self::ISSUER);
+        $this->routesMock = $this->createMock(Routes::class);
+        $this->routesMock->method('getModuleUrl')
             ->willReturnMap([
                 [RoutesEnum::Token->value, self::TOKEN_ENDPOINT],
                 [RoutesEnum::Authorization->value, 'https://example.org/oidc/authorization.php'],
                 [RoutesEnum::PushedAuthorizationRequest->value, 'https://example.org/oidc/par'],
             ]);
-        $this->moduleConfigMock->method('getIssuer')->willReturn(self::ISSUER);
         $this->dateTimeHelperMock = $this->createMock(Helpers\DateTime::class);
         $this->helpersMock = $this->createMock(Helpers::class);
         $this->helpersMock->method('dateTime')->willReturn($this->dateTimeHelperMock);
@@ -101,6 +104,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
             $this->moduleConfigMock,
             $this->helpersMock,
             $protocolCache,
+            $this->routesMock,
         );
     }
 

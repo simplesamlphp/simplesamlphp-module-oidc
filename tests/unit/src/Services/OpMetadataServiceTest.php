@@ -10,6 +10,7 @@ use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
@@ -23,6 +24,7 @@ use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 class OpMetadataServiceTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
+    protected MockObject $routesMock;
     protected MockObject $claimTranslatorExtractorMock;
     protected MockObject $signatureAlgorithmBag;
     protected MockObject $supportedAlgorithmsMock;
@@ -40,7 +42,8 @@ class OpMetadataServiceTest extends TestCase
             ->willReturn(['openid' => 'openid']);
         $this->moduleConfigMock->expects($this->once())->method('getIssuer')
             ->willReturn('http://localhost');
-        $this->moduleConfigMock->method('getModuleUrl')
+        $this->routesMock = $this->createMock(Routes::class);
+        $this->routesMock->method('getModuleUrl')
             ->willReturnCallback(function ($path) {
                 $paths = [
                     RoutesEnum::Authorization->value => 'http://localhost/authorization',
@@ -91,13 +94,16 @@ class OpMetadataServiceTest extends TestCase
     protected function sut(
         ?ModuleConfig $moduleConfig = null,
         ?ClaimTranslatorExtractor $claimTranslatorExtractor = null,
+        ?Routes $routes = null,
     ): OpMetadataService {
         $moduleConfig = $moduleConfig ?? $this->moduleConfigMock;
         $claimTranslatorExtractor = $claimTranslatorExtractor ?? $this->claimTranslatorExtractorMock;
+        $routes = $routes ?? $this->routesMock;
 
         return new OpMetadataService(
             $moduleConfig,
             $claimTranslatorExtractor,
+            $routes,
         );
     }
 

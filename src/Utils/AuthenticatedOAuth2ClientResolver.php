@@ -33,6 +33,7 @@ class AuthenticatedOAuth2ClientResolver
         protected readonly ModuleConfig $moduleConfig,
         protected readonly Helpers $helpers,
         protected readonly ?ProtocolCache $protocolCache,
+        protected readonly Routes $routes,
     ) {
     }
 
@@ -333,9 +334,9 @@ class AuthenticatedOAuth2ClientResolver
         // RFC 9126 (PAR): ...the authorization server MUST accept its issuer identifier, token endpoint URL,
         //     or pushed authorization request endpoint URL as values that identify it as an intended audience.
         $expectedAudience = [
-            $this->moduleConfig->getModuleUrl(RoutesEnum::Token->value),
-            $this->moduleConfig->getModuleUrl(RoutesEnum::Authorization->value),
-            $this->moduleConfig->getModuleUrl(RoutesEnum::PushedAuthorizationRequest->value),
+            $this->routes->getModuleUrl(RoutesEnum::Token->value),
+            $this->routes->getModuleUrl(RoutesEnum::Authorization->value),
+            $this->routes->getModuleUrl(RoutesEnum::PushedAuthorizationRequest->value),
             $this->moduleConfig->getIssuer(),
         ];
 

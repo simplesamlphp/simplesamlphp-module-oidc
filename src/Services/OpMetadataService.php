@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Services;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
@@ -27,6 +28,7 @@ class OpMetadataService
     public function __construct(
         private readonly ModuleConfig $moduleConfig,
         private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
+        private readonly Routes $routes,
     ) {
         $this->initMetadata();
     }
@@ -52,14 +54,14 @@ class OpMetadataService
         $this->metadata = [];
         $this->metadata[ClaimsEnum::Issuer->value] = $this->moduleConfig->getIssuer();
         $this->metadata[ClaimsEnum::AuthorizationEndpoint->value] =
-        $this->moduleConfig->getModuleUrl(RoutesEnum::Authorization->value);
+        $this->routes->getModuleUrl(RoutesEnum::Authorization->value);
         $this->metadata[ClaimsEnum::TokenEndpoint->value] =
-        $this->moduleConfig->getModuleUrl(RoutesEnum::Token->value);
+        $this->routes->getModuleUrl(RoutesEnum::Token->value);
         $this->metadata[ClaimsEnum::UserinfoEndpoint->value] =
-        $this->moduleConfig->getModuleUrl(RoutesEnum::UserInfo->value);
+        $this->routes->getModuleUrl(RoutesEnum::UserInfo->value);
         $this->metadata[ClaimsEnum::EndSessionEndpoint->value] =
-        $this->moduleConfig->getModuleUrl(RoutesEnum::EndSession->value);
-        $this->metadata[ClaimsEnum::JwksUri->value] = $this->moduleConfig->getModuleUrl(RoutesEnum::Jwks->value);
+        $this->routes->getModuleUrl(RoutesEnum::EndSession->value);
+        $this->metadata[ClaimsEnum::JwksUri->value] = $this->routes->getModuleUrl(RoutesEnum::Jwks->value);
         $this->metadata[ClaimsEnum::ScopesSupported->value] = array_keys($this->moduleConfig->getScopes());
         $this->metadata[ClaimsEnum::ResponseTypesSupported->value] = ['code', 'id_token', 'id_token token'];
         $this->metadata[ClaimsEnum::SubjectTypesSupported->value] = ['public'];
@@ -83,7 +85,7 @@ class OpMetadataService
         // (request_uris client metadata).
         $this->metadata[ClaimsEnum::RequireRequestUriRegistration->value] = true;
         $this->metadata[ClaimsEnum::PushedAuthorizationRequestEndpoint->value] =
-        $this->moduleConfig->getModuleUrl(RoutesEnum::PushedAuthorizationRequest->value);
+        $this->routes->getModuleUrl(RoutesEnum::PushedAuthorizationRequest->value);
         $this->metadata[ClaimsEnum::RequirePushedAuthorizationRequests->value] =
         $this->moduleConfig->getRequirePushedAuthorizationRequests();
 
