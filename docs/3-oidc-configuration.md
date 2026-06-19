@@ -201,7 +201,7 @@ $config = [
             'description' => 'private scope',
             'claim_name_prefix' => '',
             'are_multiple_claim_values_allowed' => false,
-            'attributes' => ['national_document_id'],
+            'claims' => ['national_document_id'],
         ],
     ],
 ];

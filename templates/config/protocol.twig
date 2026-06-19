@@ -92,12 +92,21 @@
 
 
     <h4>{{ 'Scopes'|trans }}</h4>
-    <p>
-        {% for scope, claims in moduleConfig.getScopes %}
-            {{ scope }}{{ loop.last ? '' : ', ' }}
-            {# TODO v7 mivanci Add claims or extract scopes to sepparate page. #}
-        {% endfor %}
-    </p>
+    {% for scope, scopeConfig in moduleConfig.getScopes %}
+        <p>
+            <strong>{{ scope }}</strong>
+            {% if scopeConfig.description is defined %}
+                &mdash; {{ scopeConfig.description }}
+            {% endif %}
+            {% if scopeConfig.claims is defined and scopeConfig.claims is not empty %}
+                <br>
+                {{ 'Claims'|trans }}:
+                {% for claim in scopeConfig.claims %}
+                    {{ claim }}{{ loop.last ? '' : ', ' }}
+                {% endfor %}
+            {% endif %}
+        </p>
+    {% endfor %}
 
     <h4>{{ 'Cache'|trans }}</h4>
     <p>
