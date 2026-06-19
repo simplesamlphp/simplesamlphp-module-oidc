@@ -62,9 +62,18 @@ class PostLogoutRedirectUriRule extends AbstractRule
             return $result;
         }
 
+        // Per RP-Initiated Logout (https://openid.net/specs/openid-connect-rpinitiated-1_0.html), id_token_hint is
+        // RECOMMENDED, not required, when post_logout_redirect_uri is included. If it is not supplied, the OP MUST NOT
+        // perform post-logout redirection unless it has other means of confirming the legitimacy of the redirection
+        // target. We have no such means (the registration check below relies on the id_token_hint aud claim), so
+        // instead of rejecting the request, we simply skip the redirection. The end user will still be logged out and
+        // shown our own "you are logged out" page.
         if ($idTokenHint === null) {
-            $hint = 'id_token_hint is mandatory when post_logout_redirect_uri is included';
-            throw OidcServerException::invalidRequest('id_token_hint', $hint);
+            $loggerService->warning(
+                'post_logout_redirect_uri was provided without id_token_hint; ' .
+                'skipping post-logout redirection and showing logout page instead.',
+            );
+            return new Result($this->getKey(), null);
         }
 
         $auds = $idTokenHint->getAudience();

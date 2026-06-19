@@ -215,6 +215,16 @@ indicate whether the client is a federated client or not, but now it is not
 needed since the OP implementation can only be a leaf entity
 - Admin menu item "OIDC" has been renamed to "OIDC OP" to better reflect
 the main purpose of the module.
+- RP-initiated logout requests that include a `post_logout_redirect_uri` but
+omit `id_token_hint` are no longer rejected. Per the
+[RP-Initiated Logout](https://openid.net/specs/openid-connect-rpinitiated-1_0.html)
+spec, `id_token_hint` is RECOMMENDED (not required), and without it the OP must
+not perform post-logout redirection. Previously the OP threw an error in this
+case (which also aborted the logout). Now the end user is logged out as usual
+and shown the module's own "you are logged out" page instead of being
+redirected. Requests that do include `id_token_hint` are unchanged: the
+`post_logout_redirect_uri` is still validated against the client's registered
+values, and the redirection is performed as before.
 
 ## Version 6.3 to 6.4
 

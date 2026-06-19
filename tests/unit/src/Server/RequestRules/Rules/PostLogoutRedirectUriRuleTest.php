@@ -123,16 +123,23 @@ class PostLogoutRedirectUriRuleTest extends TestCase
     }
 
     /**
+     * @throws \Throwable
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
-    public function testCheckRuleThrowsWhenIdTokenHintNotAvailable(): void
+    public function testCheckRuleSkipsRedirectionWhenIdTokenHintNotAvailable(): void
     {
+        // id_token_hint is RECOMMENDED (not required) when post_logout_redirect_uri is included. When it is missing,
+        // we must not perform post-logout redirection, so the rule returns a null value (no redirect URI) instead of
+        // throwing. The user is still logged out and shown the logout page.
         $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')
             ->willReturn(self::$postLogoutRedirectUri);
 
-        $this->expectException(Throwable::class);
+        $this->resultBagStub->method('getOrFail')->willReturnOnConsecutiveCalls(
+            new Result(StateRule::class),
+            new Result(IdTokenHintRule::class),
+        );
 
-        $this->sut()->checkRule(
+        $result = $this->sut()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
             $this->loggerServiceStub,
@@ -140,6 +147,8 @@ class PostLogoutRedirectUriRuleTest extends TestCase
             $this->responseModeStub,
         ) ??
         (new Result(PostLogoutRedirectUriRule::class));
+
+        $this->assertNull($result->getValue());
     }
 
     /**
