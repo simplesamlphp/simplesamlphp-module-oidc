@@ -170,7 +170,6 @@ class AuthorizationControllerTest extends TestCase
             ->method('getAuthorizationRequestFromState')
             ->willReturn($this->authorizationRequestMock);
 
-        // TODO mivanci Move to mock() method.
         $controller = new AuthorizationController(
             $this->authenticationServiceStub,
             $this->authorizationServerStub,
