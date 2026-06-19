@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit;
 
 use DateInterval;
+use Defuse\Crypto\Key;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -393,6 +394,28 @@ class ModuleConfigTest extends TestCase
         ->willReturn('secretSalt');
 
         $this->assertSame('secretSalt', $this->sut()->getEncryptionKey());
+    }
+
+    public function testCanGetEncryptionKeyAsDefuseKey(): void
+    {
+        $this->sspBridgeUtilsConfigMock->expects($this->never())->method('getSecretSalt');
+
+        $key = Key::createNewRandomKey();
+        $this->overrides[ModuleConfig::OPTION_ENCRYPTION_KEY] = $key->saveToAsciiSafeString();
+
+        $encryptionKey = $this->sut()->getEncryptionKey();
+
+        $this->assertInstanceOf(Key::class, $encryptionKey);
+        $this->assertSame($key->saveToAsciiSafeString(), $encryptionKey->saveToAsciiSafeString());
+    }
+
+    public function testGetEncryptionKeyThrowsForInvalidDefuseKey(): void
+    {
+        $this->overrides[ModuleConfig::OPTION_ENCRYPTION_KEY] = 'not-a-valid-ascii-safe-key';
+
+        $this->expectException(ConfigurationError::class);
+
+        $this->sut()->getEncryptionKey();
     }
 
     public function testCanGetProtocolCacheConfiguration(): void
