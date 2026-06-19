@@ -672,11 +672,11 @@
                     ]
                 },
                 {
-                    "comment": "expect an immediate error page",
+                    "comment": "id_token_hint is RECOMMENDED, not required; without it the OP must not redirect, so it logs the user out and shows the logout success page instead of erroring",
                     "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/end-session*",
                     "tasks": [
                         {
-                            "task": "Expect error page",
+                            "task": "Expect success page",
                             "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/end-session*",
                             "commands": [
                                 [
@@ -684,7 +684,7 @@
                                     "xpath",
                                     "//*",
                                     10,
-                                    "id_token_hint is mandatory when post_logout_redirect_uri is included",
+                                    "Logout Successful",
                                     "update-image-placeholder"
                                 ]
                             ]
