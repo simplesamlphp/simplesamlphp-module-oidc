@@ -17,6 +17,8 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc;
 
 use DateInterval;
+use Defuse\Crypto\Exception\CryptoException;
+use Defuse\Crypto\Key;
 use SimpleSAML\Configuration;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
@@ -53,6 +55,7 @@ class ModuleConfig
     final public const string OPTION_TOKEN_AUTHORIZATION_CODE_TTL = 'authCodeDuration';
     final public const string OPTION_TOKEN_REFRESH_TOKEN_TTL = 'refreshTokenDuration';
     final public const string OPTION_TOKEN_ACCESS_TOKEN_TTL = 'accessTokenDuration';
+    final public const string OPTION_ENCRYPTION_KEY = 'encryption_key';
     final public const string OPTION_AUTH_SOURCE = 'auth';
     final public const string OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE = 'useridattr';
     final public const string OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE = 'translate';
@@ -558,11 +561,42 @@ class ModuleConfig
     }
 
     /**
-     * @return string
+     * Get the encryption key used to encrypt / decrypt artifacts like
+     * authorization codes and refresh tokens.
+     *
+     * By default (option not set), this returns the SimpleSAMLphp secret salt
+     * as a string. The underlying League OAuth2 library then derives an
+     * encryption key from it using a slow, CPU-intensive key derivation
+     * function (key stretching) on every encrypt / decrypt operation.
+     *
+     * If the OPTION_ENCRYPTION_KEY option is set to an ASCII-safe string
+     * representation of a \Defuse\Crypto\Key, that strong key is used directly,
+     * which avoids the slow key derivation and is therefore faster. See the
+     * config template for details on how to generate such a key.
+     *
+     * @return \Defuse\Crypto\Key|string
+     * @throws \SimpleSAML\Error\ConfigurationError
      */
-    public function getEncryptionKey(): string
+    public function getEncryptionKey(): Key|string
     {
-        return $this->sspBridge->utils()->config()->getSecretSalt();
+        $encryptionKey = $this->config()->getOptionalString(self::OPTION_ENCRYPTION_KEY, null);
+
+        if ($encryptionKey === null || $encryptionKey === '') {
+            return $this->sspBridge->utils()->config()->getSecretSalt();
+        }
+
+        try {
+            return Key::loadFromAsciiSafeString($encryptionKey);
+        } catch (CryptoException $exception) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Invalid value for %s. Expected an ASCII-safe string representation of a ' .
+                    '\Defuse\Crypto\Key. Error was: %s',
+                    self::OPTION_ENCRYPTION_KEY,
+                    $exception->getMessage(),
+                ),
+            );
+        }
     }
 
     /**

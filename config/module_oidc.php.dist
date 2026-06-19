@@ -109,6 +109,40 @@ $config = [
     ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_TTL => 'PT1H', // 1 hour,
 
     /**
+     * (optional) An encryption key used to encrypt / decrypt artifacts like
+     * authorization codes and refresh tokens.
+     *
+     * If this option is NOT set (the default), the SimpleSAMLphp secret salt
+     * (config option 'secretsalt' in the main config.php) is used as a string
+     * password. In that case, the underlying League OAuth2 library derives the
+     * actual encryption key from the password using a slow, CPU-intensive key
+     * derivation function (key stretching) on every encrypt / decrypt
+     * operation. This is intentionally slow to reduce vulnerability to brute
+     * force attacks against a (potentially weak) password.
+     *
+     * Alternatively, you can set this option to a strong, randomly generated
+     * \Defuse\Crypto\Key (serialized to its ASCII-safe string form). Such a key
+     * is already a strong encryption key, so the slow key derivation is skipped,
+     * which reduces encryption / decryption time. You can generate the value
+     * using the script shipped with the defuse/php-encryption library and copy
+     * the printed ASCII-safe string:
+     *
+     *   vendor/bin/generate-defuse-key
+     *
+     * (Internally the module loads it back via
+     * \Defuse\Crypto\Key::loadFromAsciiSafeString().)
+     *
+     * IMPORTANT (caveat): the encryption key protects already-issued artifacts.
+     * Changing it (including switching from the secret salt to a Key, or
+     * rotating an existing Key) invalidates all outstanding encrypted artifacts,
+     * meaning previously issued authorization codes and refresh tokens will no
+     * longer be decryptable and will be rejected. Set or change this value only
+     * during a planned maintenance / migration window, and expect affected
+     * clients to re-authenticate / obtain new tokens.
+     */
+//    ModuleConfig::OPTION_ENCRYPTION_KEY => 'def0000040c2...ascii-safe-key-string...',
+
+    /**
      * (optional) Timestamp Validation Leeway - additional time tolerance
      * allowed for timestamp validation. This is used when validating
      * timestamps like Expiration Time (exp), Issued At (iat), Not

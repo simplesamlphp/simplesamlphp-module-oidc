@@ -61,6 +61,19 @@ in the OP discovery metadata via the `response_modes_supported` claim.
   (`query`, `fragment`, `form_post`) are allowed, so existing clients are
   unaffected. It can be narrowed, for example to `form_post` only, to protect
   against browser-swapping attacks (if supported by the client).
+- The encryption key (used to encrypt / decrypt artifacts like authorization
+codes and refresh tokens) can now optionally be set to a strong, pre-generated
+`\Defuse\Crypto\Key`, instead of always deriving it from the SimpleSAMLphp
+secret salt. By default, the behavior is unchanged: the secret
+salt is used as a string password, from which the underlying League OAuth2
+library derives the key using a slow key-stretching function (key derivation) on
+every operation. If you instead provide a `\Defuse\Crypto\Key` (serialized to its
+ASCII-safe string form) via the new option below, that strong key is used
+directly, skipping the slow derivation and improving encryption / decryption
+performance. Note that changing the encryption key (including switching from the
+secret salt to a Key, or rotating a Key) invalidates all outstanding encrypted
+artifacts (existing authorization codes, refresh tokens, and PAR request URIs
+will be rejected), so only set or change it during a planned maintenance window.
 
 See the [configuration guide](3-oidc-configuration.md#pushed-authorization-requests-par-and-request-objects)
 for details.
@@ -99,6 +112,11 @@ response size in bytes when fetching a remote `request_uri` (default `102400`).
 SSRF/DoS allowlist of `request_uri` prefixes for OpenID Federation candidates;
 `[]` (default) denies all such fetches, a non-empty array allows matching
 prefixes, and `null` allows any (not recommended).
+- `ModuleConfig::OPTION_ENCRYPTION_KEY` - optional, ASCII-safe string
+representation of a `\Defuse\Crypto\Key` to use as the encryption key. If not
+set (default), the SimpleSAMLphp secret salt is used as before. See the config
+template for how to generate the key and for the important caveat about
+invalidating already-issued artifacts when the key changes.
 - Several new options regarding experimental support for OpenID4VCI.
 
 Major impact changes:
