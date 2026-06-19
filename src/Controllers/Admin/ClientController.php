@@ -375,9 +375,10 @@ class ClientController
         // client-supplied registration metadata. See
         // ClientEntityFactory::fromRegistrationData() and
         // ClientEntity::ADMIN_ONLY_METADATA_KEYS.
-        $authProcFilters = is_array($data[ClientEntity::KEY_AUTH_PROC_FILTERS] ?? null) ?
-        $data[ClientEntity::KEY_AUTH_PROC_FILTERS] : [];
-        $extraMetadata[ClientEntity::KEY_AUTH_PROC_FILTERS] = $authProcFilters;
+        /** @var mixed $rawAuthProcFilters */
+        $rawAuthProcFilters = $data[ClientEntity::KEY_AUTH_PROC_FILTERS] ?? null;
+        $extraMetadata[ClientEntity::KEY_AUTH_PROC_FILTERS] = is_array($rawAuthProcFilters) ?
+        $rawAuthProcFilters : [];
 
         return $this->clientEntityFactory->fromData(
             $identifier,

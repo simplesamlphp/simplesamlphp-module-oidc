@@ -464,6 +464,7 @@ class ClientEntity implements ClientEntityInterface
             return [];
         }
 
+        /** @var mixed $authProcFilters */
         $authProcFilters = $this->extraMetadata[self::KEY_AUTH_PROC_FILTERS] ?? null;
 
         return is_array($authProcFilters) ? $authProcFilters : [];

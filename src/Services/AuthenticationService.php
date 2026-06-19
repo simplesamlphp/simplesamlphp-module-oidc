@@ -396,6 +396,7 @@ class AuthenticationService
             return [];
         }
 
+        /** @var mixed $authProcFilters */
         $authProcFilters = $relyingPartyMetadata[ClientEntity::KEY_AUTH_PROC_FILTERS] ?? null;
 
         return is_array($authProcFilters) ? $authProcFilters : [];

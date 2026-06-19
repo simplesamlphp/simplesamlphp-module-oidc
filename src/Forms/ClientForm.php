@@ -261,6 +261,7 @@ class ClientForm extends Form
             if (is_string($key) && preg_match('/^-?\d+$/', $key) === 1) {
                 $key = (int) $key;
             }
+            /** @psalm-suppress MixedAssignment */
             $result[$key] = $value;
         }
 
@@ -394,6 +395,7 @@ class ClientForm extends Form
             // canonical integer string keys (e.g. "60") to int, but not forms
             // like "08", so we make the priority type predictable for the
             // SimpleSAMLphp ProcessingChain.
+            /** @psalm-suppress MixedAssignment */
             $values[ClientEntity::KEY_AUTH_PROC_FILTERS] = is_array($decodedAuthProcFilters) ?
             $this->castNumericKeysToInt($decodedAuthProcFilters) :
             $decodedAuthProcFilters;
@@ -473,6 +475,7 @@ class ClientForm extends Form
             $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES],
         ) ? $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] : [];
 
+        /** @var mixed $authProcFilters */
         $authProcFilters = $values[ClientEntity::KEY_AUTH_PROC_FILTERS] ?? null;
         $values[ClientEntity::KEY_AUTH_PROC_FILTERS] = (is_array($authProcFilters) && $authProcFilters !== []) ?
         (string)json_encode($authProcFilters, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) :
