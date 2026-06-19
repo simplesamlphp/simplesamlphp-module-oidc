@@ -21,6 +21,11 @@ $config = [
     ModuleConfig::OPTION_TOKEN_REFRESH_TOKEN_TTL => 'P1M',
     ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_TTL => 'PT1H',
 
+    // Exercise the Defuse\Crypto\Key encryption key path during conformance
+    // testing. Generated with `vendor/bin/generate-defuse-key`.
+    ModuleConfig::OPTION_ENCRYPTION_KEY =>
+        'def000009b5323e0e424b49f9d84ac93ce9cf22228bba26cc6c7bd3d12663df9b12fc69f7041b44f77ec7e14a98c8832cd7e2a6c72923a8babfde0df554e644afff6b94b',
+
     ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS => [
         [
             ModuleConfig::KEY_ALGORITHM => \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum::RS256,
