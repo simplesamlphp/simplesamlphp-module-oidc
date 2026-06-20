@@ -446,9 +446,10 @@ class ClientForm extends Form
         [ClientRegistrationTypesEnum::Automatic->value];
 
         $values['federation_jwks'] = is_array($values['federation_jwks']) ?
-        json_encode($values['federation_jwks']) : null;
+        json_encode($values['federation_jwks'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) : null;
 
-        $values['jwks'] = is_array($values['jwks']) ? json_encode($values['jwks']) : null;
+        $values['jwks'] = is_array($values['jwks']) ?
+        json_encode($values['jwks'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) : null;
 
         if (
             $values['auth_source'] !== null &&
