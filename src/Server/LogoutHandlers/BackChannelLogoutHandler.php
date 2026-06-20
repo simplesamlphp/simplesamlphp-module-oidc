@@ -39,13 +39,13 @@ class BackChannelLogoutHandler
             'concurrency' => 5,
             'fulfilled' => function (Response $response, mixed $index) {
                 // this is delivered each successful response
-                $successMessage = "Backhannel Logout (index $index) - success, status: {$response->getStatusCode()} " .
+                $successMessage = "Backchannel Logout (index $index) - success, status: {$response->getStatusCode()} " .
                     "{$response->getReasonPhrase()}";
                 $this->loggerService->notice($successMessage);
             },
             'rejected' => function (GuzzleException $reason, mixed $index) {
                 // this is delivered each failed request
-                $errorMessage = "Backhannel Logout (index $index) - error, reason: {$reason->getCode()} " .
+                $errorMessage = "Backchannel Logout (index $index) - error, reason: {$reason->getCode()} " .
                     "{$reason->getMessage()}, exception type: " . $reason::class;
                 $this->loggerService->error($errorMessage);
             },
