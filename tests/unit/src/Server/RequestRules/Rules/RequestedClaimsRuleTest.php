@@ -70,7 +70,10 @@ class RequestedClaimsRuleTest extends TestCase
     ): RequestedClaimsRule {
         $requestParamsResolver ??= $this->requestParamsResolverStub;
         $helpers ??= $this->helpers;
-        $claimTranslatorExtractor ??= new ClaimTranslatorExtractor(self::$userIdAttrs, $this->claimSetEntityFactoryStub);
+        $claimTranslatorExtractor ??= new ClaimTranslatorExtractor(
+            self::$userIdAttrs,
+            $this->claimSetEntityFactoryStub,
+        );
 
         return new RequestedClaimsRule(
             $requestParamsResolver,

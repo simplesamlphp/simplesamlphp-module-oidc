@@ -422,10 +422,12 @@ class ModuleConfig
      */
     public function getUserIdentifierAttributes(): array
     {
-        return $this->config()->getOptionalArrayizeString(
+        $value = $this->config()->getOptionalArrayizeString(
             ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE,
             ['uid'],
         );
+
+        return array_values(array_filter($value, 'is_string'));
     }
 
     /**
@@ -436,7 +438,7 @@ class ModuleConfig
     public function getUserIdentifierAttribute(): string
     {
         return $this->getUserIdentifierAttributes()[0]
-            ?? throw new ConfigurationError('No user identifier attribute configured.');
+        ?? throw new ConfigurationError('No user identifier attribute configured.');
     }
 
     public function getSupportedAlgorithms(): SupportedAlgorithms

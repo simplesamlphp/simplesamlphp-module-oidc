@@ -29,7 +29,7 @@ class UserIdentifierResolver
 {
     /**
      * @param string[] $candidates Ordered list of candidate attribute names.
-     * @param array<string,mixed> $attributes Released attributes (each value an array of values).
+     * @param array<array-key, mixed> $attributes Released attributes (each value an array of values).
      * @return string|null The first resolved identifier value, or null if none of the candidates match.
      */
     public function resolve(array $candidates, array $attributes): ?string
