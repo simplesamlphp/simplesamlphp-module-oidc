@@ -259,6 +259,20 @@
             </tr>
             <tr>
                 <td class="client-col col-property">
+                    {{ 'Authentication Processing Filters'|trans }}
+                </td>
+                <td>
+                    {% if client.authProcFilters is not empty %}
+                        <code class="code-box-content">
+                            {{- client.authProcFilters|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_SLASHES')) -}}
+                        </code>
+                    {% else %}
+                        {{ 'N/A'|trans }}
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
                     {{ 'Owner'|trans }}
                 </td>
                 <td>

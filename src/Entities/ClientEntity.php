@@ -56,6 +56,26 @@ class ClientEntity implements ClientEntityInterface
     public const string KEY_IS_GENERIC = 'is_generic';
     public const string KEY_EXTRA_METADATA = 'extra_metadata';
     public const string KEY_ALLOWED_RESPONSE_MODES = 'allowed_response_modes';
+    /**
+     * Per-client Authentication Processing Filters. Stored as an entry inside
+     * the extra metadata JSON blob.
+     */
+    public const string KEY_AUTH_PROC_FILTERS = 'authproc';
+
+    /**
+     * Client properties (metadata keys) which are "administrator-only":
+     * they may only be set by a trusted administrator (via the admin UI / API,
+     * i.e. ClientEntityFactory::fromData()), and MUST NOT be honored when they
+     * arrive in client-supplied registration metadata (OIDC Dynamic Client
+     * Registration or OpenID Federation). See the deny-list handling and the
+     * accompanying explanation in
+     * \SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory::fromRegistrationData().
+     *
+     * @var string[]
+     */
+    public const array ADMIN_ONLY_METADATA_KEYS = [
+        self::KEY_AUTH_PROC_FILTERS,
+    ];
 
 
     private string $secret;
@@ -236,6 +256,7 @@ class ClientEntity implements ClientEntityInterface
             ClaimsEnum::RequirePushedAuthorizationRequests->value => $this->getRequirePushedAuthorizationRequests(),
             ClaimsEnum::RequireSignedRequestObject->value => $this->getRequireSignedRequestObject(),
             ClaimsEnum::RequestUris->value => $this->getRequestUris(),
+            self::KEY_AUTH_PROC_FILTERS => $this->getAuthProcFilters(),
         ];
     }
 
@@ -427,6 +448,26 @@ class ClientEntity implements ClientEntityInterface
         }
 
         return (bool)($this->extraMetadata[ClaimsEnum::RequireSignedRequestObject->value] ?? false);
+    }
+
+    /**
+     * Per-client Authentication Processing Filters, in the same format as the
+     * global ModuleConfig::OPTION_AUTH_PROCESSING_FILTERS option. These run, in
+     * addition to the global filters, during authentication for this client
+     * (the SimpleSAMLphp ProcessingChain merges them as the "SP" side filters).
+     *
+     * @return array
+     */
+    public function getAuthProcFilters(): array
+    {
+        if (!is_array($this->extraMetadata)) {
+            return [];
+        }
+
+        /** @var mixed $authProcFilters */
+        $authProcFilters = $this->extraMetadata[self::KEY_AUTH_PROC_FILTERS] ?? null;
+
+        return is_array($authProcFilters) ? $authProcFilters : [];
     }
 
     /**

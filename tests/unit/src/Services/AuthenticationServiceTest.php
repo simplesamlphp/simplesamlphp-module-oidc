@@ -508,6 +508,55 @@ class AuthenticationServiceTest extends TestCase
 
         $this->assertEquals($state['ReturnURL'], $returnUrl);
         $this->assertEquals($state['Source']['authproc'], $authProcFilters);
+        // The client in STATE has no per-client filters, so the SP side is empty.
+        $this->assertSame([], $state['Destination']['authproc']);
+        // Existing state keys must be preserved (nothing dropped).
+        $this->assertArrayHasKey('Oidc', $state);
+        $this->assertArrayHasKey('Attributes', $state);
+    }
+
+    /**
+     * Per-client authproc filters (from the relying party metadata) must be
+     * applied on the SP (Destination) side, while the global filters remain on
+     * the IdP (Source) side. The two are merged by the ProcessingChain.
+     *
+     * @return void
+     */
+    public function testRunAuthProcsAppliesPerClientAuthProcFilters(): void
+    {
+        $globalFilters = [25 => ['class' => 'core:AttributeMap', 'oid2name']];
+        $clientFilters = [60 => ['class' => 'core:AttributeAdd', 'groups' => ['members']]];
+        $returnUrl     = 'http://example.com/authorization';
+        $this->moduleConfigMock->method('getAuthProcFilters')->willReturn($globalFilters);
+        $this->routesMock->method('getModuleUrl')->willReturn($returnUrl);
+        $mockedInstance = new class (
+            $this->userRepositoryMock,
+            $this->authSimpleFactoryMock,
+            $this->clientRepositoryMock,
+            $this->opMetadataService,
+            $this->sessionServiceMock,
+            $this->claimTranslatorExtractorMock,
+            $this->moduleConfigMock,
+            $this->processingChainFactoryMock,
+            $this->stateServiceMock,
+            $this->requestParamsResolverMock,
+            $this->userEntityFactoryMock,
+            $this->routesMock,
+        ) extends AuthenticationService {
+            public function runAuthProcsPublic(array &$state): void
+            {
+                $this->runAuthProcs($state);
+            }
+        };
+
+        $state = self::STATE;
+        // Per-client authproc filters live in the relying party metadata.
+        $state['Oidc']['RelyingPartyMetadata'][ClientEntity::KEY_AUTH_PROC_FILTERS] = $clientFilters;
+
+        $mockedInstance->runAuthProcsPublic($state);
+
+        $this->assertSame($globalFilters, $state['Source']['authproc']);
+        $this->assertSame($clientFilters, $state['Destination']['authproc']);
     }
 
 

@@ -224,4 +224,72 @@ class ClientFormTest extends TestCase
         $this->expectException(\Nette\InvalidArgumentException::class);
         $this->sut()->setValues([ClaimsEnum::IdTokenSignedResponseAlg->value => 'HS256']);
     }
+
+    public function testAcceptsValidAuthProcFilters(): void
+    {
+        $clientForm = $this->sut();
+        $clientForm->setValues([
+            ClientEntity::KEY_AUTH_PROC_FILTERS =>
+                '{"60": {"class": "core:AttributeAdd", "groups": ["members"]}}',
+        ]);
+        $clientForm->validateAuthProcFilters($clientForm);
+
+        $this->assertFalse($clientForm->hasErrors());
+        $this->assertSame(
+            ['60' => ['class' => 'core:AttributeAdd', 'groups' => ['members']]],
+            $clientForm->getValues()[ClientEntity::KEY_AUTH_PROC_FILTERS],
+        );
+    }
+
+    public function testCastsNumericAuthProcFilterPrioritiesToInt(): void
+    {
+        $clientForm = $this->sut();
+        // "08" is NOT auto-cast to int by PHP (leading zero), so this verifies
+        // the explicit normalization actually does something.
+        $clientForm->setValues([
+            ClientEntity::KEY_AUTH_PROC_FILTERS => '{"08": {"class": "core:AttributeAdd"}}',
+        ]);
+
+        $filters = $clientForm->getValues()[ClientEntity::KEY_AUTH_PROC_FILTERS];
+
+        $this->assertSame([8 => ['class' => 'core:AttributeAdd']], $filters);
+        $this->assertIsInt(array_key_first($filters));
+    }
+
+    public function testRejectsAuthProcFiltersWithInvalidJson(): void
+    {
+        $clientForm = $this->sut();
+        $clientForm->setValues([ClientEntity::KEY_AUTH_PROC_FILTERS => '{not-valid-json']);
+        // getValues() (invoked by the validator) records the JSON decoding error.
+        $clientForm->validateAuthProcFilters($clientForm);
+
+        $this->assertTrue($clientForm->hasErrors());
+    }
+
+    public function testRejectsAuthProcFilterWithoutClass(): void
+    {
+        $clientForm = $this->sut();
+        $clientForm->setValues([ClientEntity::KEY_AUTH_PROC_FILTERS => '{"60": {"groups": ["members"]}}']);
+        $clientForm->validateAuthProcFilters($clientForm);
+
+        $this->assertTrue($clientForm->hasErrors());
+    }
+
+    public function testSetDefaultsAndGetValuesRoundTripAuthProcFilters(): void
+    {
+        $this->sspBridgeAuthSourceMock->method('getSources')->willReturn(['default-sp']);
+
+        $filters = [60 => ['class' => 'core:AttributeAdd', 'groups' => ['members']]];
+        $data = $this->clientDataSample;
+        $data[ClientEntity::KEY_AUTH_PROC_FILTERS] = $filters;
+
+        $sut = $this->sut()->setDefaults($data);
+
+        // setDefaults() encodes the array to a JSON string for the textarea, and
+        // getValues() decodes it back to the original structure.
+        $this->assertSame(
+            ['60' => ['class' => 'core:AttributeAdd', 'groups' => ['members']]],
+            $sut->getValues()[ClientEntity::KEY_AUTH_PROC_FILTERS],
+        );
+    }
 }

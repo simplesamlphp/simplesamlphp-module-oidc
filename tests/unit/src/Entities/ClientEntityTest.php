@@ -229,7 +229,52 @@ class ClientEntityTest extends TestCase
                 'require_pushed_authorization_requests' => false,
                 'require_signed_request_object' => false,
                 'request_uris' => [],
+                'authproc' => [],
             ],
         );
+    }
+
+    /**
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
+     */
+    public function testCanGetAuthProcFilters(): void
+    {
+        // No extra metadata -> empty list.
+        $this->assertSame([], $this->mock()->getAuthProcFilters());
+
+        $authProcFilters = [
+            60 => ['class' => 'core:AttributeAdd', 'groups' => ['members']],
+        ];
+
+        $clientEntity = new ClientEntity(
+            $this->id,
+            $this->secret,
+            $this->name,
+            $this->description,
+            $this->redirectUri,
+            $this->scopes,
+            $this->isEnabled,
+            $this->isConfidential,
+            $this->authSource,
+            $this->owner,
+            $this->postLogoutRedirectUri,
+            $this->backChannelLogoutUri,
+            $this->entityIdentifier,
+            $this->clientRegistrationTypes,
+            $this->federationJwks,
+            $this->jwks,
+            $this->jwksUri,
+            $this->signedJwksUri,
+            $this->registrationType,
+            $this->updatedAt,
+            $this->createdAt,
+            $this->expiresAt,
+            $this->isGeneric,
+            [ClientEntity::KEY_AUTH_PROC_FILTERS => $authProcFilters],
+        );
+
+        $this->assertSame($authProcFilters, $clientEntity->getAuthProcFilters());
+        $this->assertSame($authProcFilters, $clientEntity->toArray()[ClientEntity::KEY_AUTH_PROC_FILTERS]);
     }
 }

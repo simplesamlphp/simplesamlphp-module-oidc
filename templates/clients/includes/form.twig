@@ -206,6 +206,15 @@
             {% trans %}Require this client to always sign a request object (even in case of OpenID Connect flavor which does not require signing). Make sure the client has a JWKS key configured if this option is enabled.{% endtrans %}
         </span>
 
+        <label for="frm-authproc">{{ 'Authentication Processing Filters'|trans }}</label>
+        {{ form.authproc.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}JSON object (string) defining Authentication Processing Filters specific to this client, in the same format as the global authproc filters in the module configuration. These run in addition to the global filters. The object is keyed by priority; each filter is a class string or an object with a 'class' property. For security reasons, these can only be set here (by an administrator) and are never accepted from dynamic / federation client registration. Example: {"60": {"class": "core:AttributeAdd", "groups": ["members"]}}{% endtrans %}
+        </span>
+        {% if form.authproc.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.authproc.getError }}</span>
+        {% endif %}
+
         <br>
         <h4>{{ 'OpenID Federation Related Properties'|trans }}</h4>
 

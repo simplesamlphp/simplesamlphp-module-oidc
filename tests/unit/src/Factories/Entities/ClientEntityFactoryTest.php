@@ -128,4 +128,63 @@ class ClientEntityFactoryTest extends TestCase
 
         $this->sut()->fromRegistrationData([], RegistrationTypeEnum::FederatedAutomatic);
     }
+
+    /**
+     * Admin-only client properties (e.g. authproc filters) must NEVER be honored
+     * when supplied through client registration metadata, since an authproc
+     * filter names a PHP class executed server-side (remote code execution
+     * vector). They can only be set by an administrator via the admin UI / API.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataIgnoresAdminOnlyAuthProcFilters(): void
+    {
+        $client = $this->sut()->fromRegistrationData(
+            [
+                ClaimsEnum::RedirectUris->value => ['https://example.org/cb'],
+                // Malicious client tries to inject an authproc filter.
+                ClientEntity::KEY_AUTH_PROC_FILTERS => [
+                    60 => ['class' => 'core:PHP', 'code' => 'system("id");'],
+                ],
+            ],
+            RegistrationTypeEnum::FederatedAutomatic,
+        );
+
+        $this->assertSame([], $client->getAuthProcFilters());
+    }
+
+    /**
+     * An administrator-set authproc filter on an existing client must be
+     * preserved across re-registration, and must not be overridable by the
+     * (untrusted) registration metadata.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataPreservesAdminSetAuthProcFiltersAndIgnoresSuppliedOnes(): void
+    {
+        $adminSetFilters = [
+            50 => ['class' => 'core:AttributeAdd', 'groups' => ['members']],
+        ];
+
+        $existingClient = $this->createMock(ClientEntity::class);
+        $existingClient->method('getExtraMetadata')->willReturn(
+            [ClientEntity::KEY_AUTH_PROC_FILTERS => $adminSetFilters],
+        );
+
+        $client = $this->sut()->fromRegistrationData(
+            [
+                ClaimsEnum::RedirectUris->value => ['https://example.org/cb'],
+                // Attempt to overwrite the admin-set filters via registration metadata.
+                ClientEntity::KEY_AUTH_PROC_FILTERS => [
+                    99 => ['class' => 'core:PHP', 'code' => 'system("id");'],
+                ],
+            ],
+            RegistrationTypeEnum::FederatedAutomatic,
+            existingClient: $existingClient,
+        );
+
+        $this->assertSame($adminSetFilters, $client->getAuthProcFilters());
+    }
 }

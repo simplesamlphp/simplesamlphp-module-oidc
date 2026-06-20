@@ -12,28 +12,29 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Factories;
 
 use SimpleSAML\Auth\ProcessingChain;
-use SimpleSAML\Module\oidc\ModuleConfig;
 
 class ProcessingChainFactory
 {
-    public function __construct(
-        private readonly ModuleConfig $moduleConfig,
-    ) {
-    }
-
     /**
      * @codeCoverageIgnore
      * @throws \Exception
      */
     public function build(array $state): ProcessingChain
     {
+        // The IdP- and SP-side metadata (entityid + authproc filter lists) is
+        // the single source of truth prepared in
+        // AuthenticationService::runAuthProcs() and stored in the state.
+        // Here we only consume it;
+        // The IdP side carries the global authproc filters, the SP side the
+        // per-client ones, and the SimpleSAMLphp ProcessingChain merges them
+        // by priority.
         $idpMetadata = [
             'entityid' => $state['Source']['entityid'] ?? '',
-            // ProcessChain needs to know the list of authproc filters we defined in module_oidc configuration
-            'authproc' => $this->moduleConfig->getAuthProcFilters(),
+            'authproc' => $state['Source']['authproc'] ?? [],
         ];
         $spMetadata = [
             'entityid' => $state['Destination']['entityid'] ?? '',
+            'authproc' => $state['Destination']['authproc'] ?? [],
         ];
 
         return new ProcessingChain(
