@@ -44,7 +44,7 @@
     <p>
         {{ 'Default Authentication Source'|trans }}: {{ moduleConfig.getDefaultAuthSourceId }}
         <br>
-        {{ 'User Identifier Attribute'|trans }}: {{ moduleConfig.getUserIdentifierAttribute }}
+        {{ 'User Identifier Attribute'|trans }}: {{ moduleConfig.getUserIdentifierAttributes|join(', ') }}
     </p>
     <p>
         {{ 'Authentication Processing Filters'|trans }}:

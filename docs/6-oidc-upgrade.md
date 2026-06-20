@@ -47,6 +47,8 @@ Federation) and applies the matching signing rules; when present, the `aud` and
   - Require Pushed Authorization Requests (`require_pushed_authorization_requests`)
   - Require Signed Request Object (`require_signed_request_object`)
   - Registered Request URIs (`request_uris`)
+See the [configuration guide](3-oidc-configuration.md#pushed-authorization-requests-par-and-request-objects)
+for details.
 - Support for the OAuth 2.0 Form Post Response Mode (`response_mode=form_post`).
 The OP now supports three response modes - `query`, `fragment`, and
 `form_post`. With `form_post`, the authorization response parameters are
@@ -87,9 +89,16 @@ performance. Note that changing the encryption key (including switching from the
 secret salt to a Key, or rotating a Key) invalidates all outstanding encrypted
 artifacts (existing authorization codes, refresh tokens, and PAR request URIs
 will be rejected), so only set or change it during a planned maintenance window.
-
-See the [configuration guide](3-oidc-configuration.md#pushed-authorization-requests-par-and-request-objects)
-for details.
+- The user identifier attribute option
+(`ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE`, `useridattr`) can now be
+configured either as a single attribute name (string, as before) or as an array
+of prioritized attribute names. This is useful in scenarios with multiple
+heterogeneous IdPs (for example, eduGAIN inter-federation), where not every IdP
+is able (or willing) to release the same identifier attribute. When an array is
+given, the attributes are consulted in priority order and the first one actually
+present in the released attributes is used, both as the internal user identifier
+and as the default source for the `sub` claim. The single-string form continues
+to work unchanged, so existing configurations are unaffected.
 
 New configuration options:
 

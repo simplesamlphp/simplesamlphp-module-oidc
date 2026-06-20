@@ -67,10 +67,10 @@ class ClaimTranslatorExtractorFactory
             }
         }
 
-        $userIdAttr = $this->moduleConfig->getUserIdentifierAttribute();
+        $userIdAttrs = $this->moduleConfig->getUserIdentifierAttributes();
 
         return new ClaimTranslatorExtractor(
-            $userIdAttr,
+            $userIdAttrs,
             $this->claimSetEntityFactory,
             $claimSet,
             $translatorTable,

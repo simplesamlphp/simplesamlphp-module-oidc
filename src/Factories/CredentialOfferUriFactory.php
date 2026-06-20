@@ -21,6 +21,7 @@ use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\UserIdentifierResolver;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Exceptions\OpenIdException;
@@ -42,6 +43,7 @@ class CredentialOfferUriFactory
         protected readonly EmailFactory $emailFactory,
         protected readonly IssuerStateEntityFactory $issuerStateEntityFactory,
         protected readonly IssuerStateRepository $issuerStateRepository,
+        protected readonly UserIdentifierResolver $userIdentifierResolver,
     ) {
     }
 
@@ -136,16 +138,14 @@ class CredentialOfferUriFactory
 
         $userId = null;
         try {
-            /** @psalm-suppress MixedAssignment */
-            $userId = $this->sspBridge->utils()->attributes()->getExpectedAttribute(
+            $userId = $this->userIdentifierResolver->resolve(
+                $this->moduleConfig->getUserIdentifierAttributes(),
                 $userAttributes,
-                $this->moduleConfig->getUserIdentifierAttribute(),
             );
 
-            if (!is_scalar($userId)) {
-                throw new RuntimeException('User identifier attribute value is not a string.');
+            if ($userId === null) {
+                throw new RuntimeException('User identifier attribute value is not available.');
             }
-            $userId = strval($userId);
         } catch (\Throwable $e) {
             $this->loggerService->warning(
                 'Could not extract user identifier from user attributes: ' . $e->getMessage(),

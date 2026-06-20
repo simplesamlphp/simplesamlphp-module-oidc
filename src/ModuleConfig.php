@@ -409,11 +409,36 @@ class ModuleConfig
     }
 
     /**
+     * Get the ordered list of candidate user identifier attributes.
+     *
+     * The option may be configured either as a single string (legacy) or as an
+     * array of prioritized attribute names. In heterogeneous IdP scenarios (e.g.
+     * eduGAIN inter-federation) not every IdP releases the same identifier, so
+     * the list is consulted in order and the first attribute that is actually
+     * present in the released attributes is used.
+     *
+     * @return string[]
      * @throws \Exception
+     */
+    public function getUserIdentifierAttributes(): array
+    {
+        $value = $this->config()->getOptionalArrayizeString(
+            ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE,
+            ['uid'],
+        );
+
+        return array_values(array_filter($value, 'is_string'));
+    }
+
+    /**
+     * Returns the primary (first) configured user ID candidate.
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @deprecated Use getUserIdentifierAttributes().
      */
     public function getUserIdentifierAttribute(): string
     {
-        return $this->config()->getString(ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE);
+        return $this->getUserIdentifierAttributes()[0]
+        ?? throw new ConfigurationError('No user identifier attribute configured.');
     }
 
     public function getSupportedAlgorithms(): SupportedAlgorithms

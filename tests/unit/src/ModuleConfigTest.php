@@ -236,6 +236,20 @@ class ModuleConfigTest extends TestCase
         $this->assertEquals('sample', $this->sut()->getUserIdentifierAttribute());
     }
 
+    public function testCanGetUserIdentifierAttributesFromString(): void
+    {
+        $this->overrides[ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE] = 'sample';
+        $this->assertEquals(['sample'], $this->sut()->getUserIdentifierAttributes());
+    }
+
+    public function testCanGetUserIdentifierAttributesFromArray(): void
+    {
+        $this->overrides[ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE] = ['ePPN', 'uid'];
+        $this->assertEquals(['ePPN', 'uid'], $this->sut()->getUserIdentifierAttributes());
+        // The deprecated single accessor returns the primary (first) candidate.
+        $this->assertEquals('ePPN', $this->sut()->getUserIdentifierAttribute());
+    }
+
     public function testCanGetCommonFederationOptions(): void
     {
         $this->assertFalse($this->sut()->getFederationEnabled());
