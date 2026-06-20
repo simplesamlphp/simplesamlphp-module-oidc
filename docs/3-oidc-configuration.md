@@ -13,6 +13,7 @@ It complements the inline comments in `config/module_oidc.php`.
 - Attribute translation
 - Auth Proc filters (OIDC)
 - Client registration permissions
+- Running multiple OPs on one server
 
 ## Caching protocol artifacts
 
@@ -218,3 +219,73 @@ $config = [
 Users can visit the following link for administration:
 
 - [https://example.com/simplesaml/module.php/oidc/clients/](https://example.com/simplesaml/module.php/oidc/clients/)
+
+## Running multiple OPs on one server
+
+A single module instance is designed to serve exactly one OpenID Provider
+(OP): it has one issuer, one set of signing keys, and one configuration
+file (`module_oidc.php`). If you need to run several independent OPs (each
+with its own issuer, keys, clients, and scopes) on the same server, do not
+try to fit them into one config. Instead, run multiple SimpleSAMLphp
+instances side by side and select between them with the
+`SIMPLESAMLPHP_CONFIG_DIR` environment variable.
+
+The idea is to give each OP its own configuration directory (each with its
+own `config.php`, `authsources.php`, `module_oidc.php`, signing keys, and
+metadata) and to front each one with its own virtual host. SimpleSAMLphp
+reads `SIMPLESAMLPHP_CONFIG_DIR` to decide which configuration directory to
+load, so each virtual host points at the configuration for its OP:
+
+```apache
+# Virtual host for the first OP
+<VirtualHost *:443>
+    ServerName op1.example.org
+    SetEnv SIMPLESAMLPHP_CONFIG_DIR /etc/simplesamlphp/op1/config
+    # ... remaining SimpleSAMLphp / web root configuration ...
+</VirtualHost>
+
+# Virtual host for the second OP
+<VirtualHost *:443>
+    ServerName op2.example.org
+    SetEnv SIMPLESAMLPHP_CONFIG_DIR /etc/simplesamlphp/op2/config
+    # ... remaining SimpleSAMLphp / web root configuration ...
+</VirtualHost>
+```
+
+With nginx + PHP-FPM, set the same variable per server block via
+`fastcgi_param SIMPLESAMLPHP_CONFIG_DIR /etc/simplesamlphp/op1/config;`
+(or use a separate PHP-FPM pool per OP with `env[SIMPLESAMLPHP_CONFIG_DIR]`).
+
+In each OP's `module_oidc.php`, set a distinct `issuer` and distinct signing
+key/certificate filenames so the OPs do not share identities or keys.
+
+### Important: isolate the database (or use a table prefix)
+
+The OIDC module keeps its protocol artifacts — clients, access tokens,
+refresh tokens, authorization codes, allowed origins, and user records — in
+the database, and these tables have no notion of which OP they belong to.
+If two instances point at the same database tables, they will share all of
+that state: a client registered on one OP will be visible to the other, and
+the admin UIs will operate on the same data. That is almost certainly not
+what you want.
+
+To keep the OPs properly isolated, give each instance separate storage by
+configuring its `config.php` to use **either** a separate database **or** a
+distinct table prefix:
+
+```php
+// In op1/config/config.php
+'database.dsn' => 'mysql:host=localhost;dbname=ssp_oidc_op1',
+// ...or share a database but separate the tables with a distinct prefix:
+'database.prefix' => 'op1_',
+```
+
+```php
+// In op2/config/config.php
+'database.dsn' => 'mysql:host=localhost;dbname=ssp_oidc_op2',
+// ...or:
+'database.prefix' => 'op2_',
+```
+
+Run the database schema creation (migrations) for each instance separately,
+so each OP gets its own set of tables.
