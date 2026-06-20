@@ -42,6 +42,7 @@ use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\Module\oidc\Utils\UserIdentifierResolver;
 
 class AuthenticationService
 {
@@ -51,9 +52,10 @@ class AuthenticationService
     private ?string $authSourceId = null;
 
     /**
-     * @var string
+     * Ordered list of candidate user identifier attributes.
+     * @var string[]
      */
-    private string $userIdAttr;
+    private array $userIdAttrs;
 
     /**
      * @throws \Exception
@@ -71,8 +73,9 @@ class AuthenticationService
         private readonly RequestParamsResolver $requestParamsResolver,
         private readonly UserEntityFactory $userEntityFactory,
         private readonly Routes $routes,
+        private readonly UserIdentifierResolver $userIdentifierResolver,
     ) {
-        $this->userIdAttr = $this->moduleConfig->getUserIdentifierAttribute();
+        $this->userIdAttrs = $this->moduleConfig->getUserIdentifierAttributes();
     }
 
     /**
@@ -136,19 +139,18 @@ class AuthenticationService
 
         $claims = $state['Attributes'];
 
-        if (!array_key_exists($this->userIdAttr, $claims) || !is_array($claims[$this->userIdAttr])) {
-            $attr = implode(', ', array_keys($claims));
+        $userId = $this->userIdentifierResolver->resolve($this->userIdAttrs, $claims);
+
+        if ($userId === null) {
             throw new Error\Exception(
                 sprintf(
-                    'User identifier attribute `%s` does not exist in the user attribute state.' .
+                    'None of the configured user identifier attributes (%s) exist in the user attribute state.' .
                     ' Available attributes are: %s.',
-                    $this->userIdAttr,
-                    $attr,
+                    implode(', ', $this->userIdAttrs),
+                    implode(', ', array_keys($claims)),
                 ),
             );
         }
-
-        $userId = (string)$claims[$this->userIdAttr][0];
 
         $user = $this->userRepository->getUserEntityByIdentifier($userId);
 

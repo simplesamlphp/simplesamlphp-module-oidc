@@ -30,7 +30,8 @@ class RequestedClaimsRuleTest extends TestCase
     protected Stub $requestStub;
     protected string $redirectUri = 'https://some-redirect-uri.org';
     protected Stub $loggerServiceStub;
-    protected static string $userIdAttr = 'uid';
+    /** @var string[] */
+    protected static array $userIdAttrs = ['uid'];
     protected Stub $requestParamsResolverStub;
     protected Stub $claimSetEntityFactoryStub;
     protected Helpers $helpers;
@@ -69,7 +70,7 @@ class RequestedClaimsRuleTest extends TestCase
     ): RequestedClaimsRule {
         $requestParamsResolver ??= $this->requestParamsResolverStub;
         $helpers ??= $this->helpers;
-        $claimTranslatorExtractor ??= new ClaimTranslatorExtractor(self::$userIdAttr, $this->claimSetEntityFactoryStub);
+        $claimTranslatorExtractor ??= new ClaimTranslatorExtractor(self::$userIdAttrs, $this->claimSetEntityFactoryStub);
 
         return new RequestedClaimsRule(
             $requestParamsResolver,

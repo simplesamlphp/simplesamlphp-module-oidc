@@ -232,6 +232,25 @@ $config = [
      * claim in the attribute-to-claim translation table (you will probably want
      * to use this attribute as the 'sub' claim since it designates a unique
      * identifier for the user).
+     *
+     * This option can be a single attribute name (string), or an array of
+     * prioritized attribute names. The array form is useful in scenarios with
+     * multiple heterogeneous IdPs (e.g., eduGAIN inter-federation), where not
+     * every IdP is able (or willing) to release the same identifier attribute.
+     * When an array is given, the attributes are consulted in order. The
+     * first one that is actually present in the released attributes is used,
+     * both as the internal user identifier and as the default source for the
+     * 'sub' claim.
+     *
+     * Single value example:
+     *     ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE => 'uid',
+     *
+     * Prioritized list example:
+     *     ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE => [
+     *         'eduPersonPrincipalName',
+     *         'eduPersonUniqueId',
+     *         'uid',
+     *     ],
      */
     ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE => 'uid',
 

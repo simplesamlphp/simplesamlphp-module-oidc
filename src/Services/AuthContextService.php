@@ -9,6 +9,7 @@ use SimpleSAML\Auth\Simple;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Utils\UserIdentifierResolver;
 
 /**
  * Provide contextual authentication information for administration interface.
@@ -29,6 +30,7 @@ class AuthContextService
         private readonly ModuleConfig $moduleConfig,
         private readonly AuthSimpleFactory $authSimpleFactory,
         private readonly SspBridge $sspBridge,
+        private readonly UserIdentifierResolver $userIdentifierResolver,
     ) {
     }
 
@@ -39,11 +41,17 @@ class AuthContextService
     public function getAuthUserId(): string
     {
         $simple = $this->authenticate();
-        $userIdAttr = $this->moduleConfig->getUserIdentifierAttribute();
-        return (string)$this->sspBridge->utils()->attributes()->getExpectedAttribute(
-            $simple->getAttributes(),
-            $userIdAttr,
-        );
+        $userIdAttrs = $this->moduleConfig->getUserIdentifierAttributes();
+        $userId = $this->userIdentifierResolver->resolve($userIdAttrs, $simple->getAttributes());
+
+        if ($userId === null) {
+            throw new RuntimeException(sprintf(
+                'None of the configured user identifier attributes (%s) are available.',
+                implode(', ', $userIdAttrs),
+            ));
+        }
+
+        return $userId;
     }
 
     /**

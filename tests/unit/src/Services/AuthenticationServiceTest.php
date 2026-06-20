@@ -35,6 +35,7 @@ use SimpleSAML\Module\oidc\Services\StateService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\Module\oidc\Utils\UserIdentifierResolver;
 use SimpleSAML\Session;
 
 /**
@@ -114,7 +115,7 @@ class AuthenticationServiceTest extends TestCase
         $this->authSimpleMock->method('getAuthDataArray')->willReturn(self::AUTH_DATA);
         $this->clientEntityMock->method('getAuthSourceId')->willReturn(self::AUTH_SOURCE);
         $this->clientEntityMock->method('toArray')->willReturn(self::CLIENT_ENTITY);
-        $this->moduleConfigMock->method('getUserIdentifierAttribute')->willReturn(self::USER_ID_ATTR);
+        $this->moduleConfigMock->method('getUserIdentifierAttributes')->willReturn([self::USER_ID_ATTR]);
         $this->opMetadataService->method('getMetadata')->willReturn(self::OIDC_OP_METADATA);
         $this->processingChainFactoryMock->method('build')->willReturn($this->processingChainMock);
         $this->serverRequestMock->method('getQueryParams')->willReturn(self::AUTHZ_REQUEST_PARAMS);
@@ -154,6 +155,7 @@ class AuthenticationServiceTest extends TestCase
                      $this->requestParamsResolverMock,
                      $this->userEntityFactoryMock,
                      $this->routesMock,
+                     new UserIdentifierResolver(),
                 ],
             )->onlyMethods([])
             ->getMock();
@@ -319,7 +321,7 @@ class AuthenticationServiceTest extends TestCase
         unset($invalidState['Attributes'][self::USER_ID_ATTR]);
 
         $this->expectException(Exception::class);
-        $this->expectExceptionMessageMatches("/User identifier attribute /");
+        $this->expectExceptionMessageMatches("/None of the configured user identifier attributes/");
 
         $this->mock()->getAuthenticateUser($invalidState);
     }
@@ -405,6 +407,7 @@ class AuthenticationServiceTest extends TestCase
                                      $this->requestParamsResolverMock,
                                      $this->userEntityFactoryMock,
                                      $this->routesMock,
+                                     new UserIdentifierResolver(),
                                  ])
             ->onlyMethods(['runAuthProcs', 'prepareStateArray'])
             ->getMock();
@@ -496,6 +499,7 @@ class AuthenticationServiceTest extends TestCase
             $this->requestParamsResolverMock,
             $this->userEntityFactoryMock,
             $this->routesMock,
+            new UserIdentifierResolver(),
         ) extends AuthenticationService {
             public function runAuthProcsPublic(array &$state): void
             {
@@ -542,6 +546,7 @@ class AuthenticationServiceTest extends TestCase
             $this->requestParamsResolverMock,
             $this->userEntityFactoryMock,
             $this->routesMock,
+            new UserIdentifierResolver(),
         ) extends AuthenticationService {
             public function runAuthProcsPublic(array &$state): void
             {

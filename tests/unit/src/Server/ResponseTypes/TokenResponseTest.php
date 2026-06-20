@@ -113,7 +113,7 @@ class TokenResponseTest extends TestCase
         $this->coreMock->method('idTokenFactory')->willReturn($this->idTokenFactoryMock);
 
         $this->idTokenBuilder = new IdTokenBuilder(
-            new ClaimTranslatorExtractor(self::USER_ID_ATTR, $this->claimSetEntityFactoryStub),
+            new ClaimTranslatorExtractor([self::USER_ID_ATTR], $this->claimSetEntityFactoryStub),
             $this->coreMock,
             $this->moduleConfigMock,
         );

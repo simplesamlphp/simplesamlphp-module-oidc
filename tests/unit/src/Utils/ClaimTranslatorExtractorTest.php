@@ -16,7 +16,8 @@ use SimpleSAML\Utils\Attributes;
  */
 class ClaimTranslatorExtractorTest extends TestCase
 {
-    protected static string $userIdAttr = 'uid';
+    /** @var string[] */
+    protected static array $userIdAttrs = ['uid'];
     protected Stub $claimSetEntityFactoryStub;
 
     protected function setUp(): void
@@ -39,7 +40,7 @@ class ClaimTranslatorExtractorTest extends TestCase
         array $allowedMultiValueClaims = [],
     ): ClaimTranslatorExtractor {
         return new ClaimTranslatorExtractor(
-            self::$userIdAttr,
+            self::$userIdAttrs,
             $this->claimSetEntityFactoryStub,
             $claimSets,
             $translationTable,

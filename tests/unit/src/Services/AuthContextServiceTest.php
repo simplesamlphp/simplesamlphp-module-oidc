@@ -9,11 +9,11 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Configuration;
-use SimpleSAML\Error\Exception;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
+use SimpleSAML\Module\oidc\Utils\UserIdentifierResolver;
 use SimpleSAML\Utils\Attributes;
 
 /**
@@ -69,15 +69,18 @@ class AuthContextServiceTest extends TestCase
         ?ModuleConfig $moduleConfig = null,
         ?AuthSimpleFactory $authSimpleFactory = null,
         ?SspBridge $sspBridge = null,
+        ?UserIdentifierResolver $userIdentifierResolver = null,
     ): AuthContextService {
         $moduleConfig ??= $this->moduleConfigMock;
         $authSimpleFactory ??= $this->authSimpleFactory;
         $sspBridge ??= $this->sspBridgeMock;
+        $userIdentifierResolver ??= new UserIdentifierResolver();
 
         return new AuthContextService(
             $moduleConfig,
             $authSimpleFactory,
             $sspBridge,
+            $userIdentifierResolver,
         );
     }
 
@@ -94,14 +97,8 @@ class AuthContextServiceTest extends TestCase
      */
     public function testItReturnsUsername(): void
     {
-        $this->moduleConfigMock->method('getUserIdentifierAttribute')->willReturn('idAttribute');
+        $this->moduleConfigMock->method('getUserIdentifierAttributes')->willReturn(['idAttribute']);
         $this->authSimpleService->method('getAttributes')->willReturn(self::AUTHORIZED_USER);
-        $this->sspBridgeUtilsAttributesMock->expects($this->once())->method('getExpectedAttribute')
-            ->with(
-                self::AUTHORIZED_USER,
-                'idAttribute',
-            )
-            ->willReturn(self::AUTHORIZED_USER['idAttribute'][0]);
 
         $this->assertSame(
             $this->sut()->getAuthUserId(),
@@ -109,21 +106,24 @@ class AuthContextServiceTest extends TestCase
         );
     }
 
-    public function testItThrowsWhenNoUsername(): void
+    public function testItRespectsCandidatePriority(): void
     {
-        $this->oidcConfigurationMock->method('getOptionalConfigItem')
-            ->with(ModuleConfig::OPTION_ADMIN_UI_PERMISSIONS, null)
-            ->willReturn($this->permissions);
-        $this->oidcConfigurationMock->method('getString')
-            ->with(ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE)
-            ->willReturn('attributeNotSet');
+        $this->moduleConfigMock->method('getUserIdentifierAttributes')
+            ->willReturn(['nonExisting', 'idAttribute']);
         $this->authSimpleService->method('getAttributes')->willReturn(self::AUTHORIZED_USER);
 
-        $this->sspBridgeUtilsAttributesMock->expects($this->once())->method('getExpectedAttribute')
-            ->with(self::AUTHORIZED_USER)
-            ->willThrowException(new Exception('error'));
+        $this->assertSame(
+            'myUsername',
+            $this->sut()->getAuthUserId(),
+        );
+    }
 
-        $this->expectException(Exception::class);
+    public function testItThrowsWhenNoUsername(): void
+    {
+        $this->moduleConfigMock->method('getUserIdentifierAttributes')->willReturn(['attributeNotSet']);
+        $this->authSimpleService->method('getAttributes')->willReturn(self::AUTHORIZED_USER);
+
+        $this->expectException(RuntimeException::class);
         $this->sut()->getAuthUserId();
     }
 

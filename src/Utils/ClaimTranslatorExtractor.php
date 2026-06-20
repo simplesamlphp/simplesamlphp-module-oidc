@@ -156,19 +156,25 @@ class ClaimTranslatorExtractor
     /**
      * ClaimTranslatorExtractor constructor.
      *
+     * @param string[] $userIdAttrs Ordered list of candidate user identifier attributes.
      * @param \SimpleSAML\Module\oidc\Entities\Interfaces\ClaimSetEntityInterface[] $claimSets
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function __construct(
-        string $userIdAttr,
+        array $userIdAttrs,
         protected readonly ClaimSetEntityFactory $claimSetEntityFactory,
         array $claimSets = [],
         array $translationTable = [],
         protected array $allowedMultiValueClaims = [],
     ) {
-        // By default, add the userIdAttribute as one of the attribute for 'sub' claim.
-        /** @psalm-suppress MixedArgument */
-        array_unshift($this->translationTable['sub'], $userIdAttr);
+        // By default, add the user identifier attribute(s) as attributes for the
+        // 'sub' claim, preserving the configured priority order (the translation
+        // resolves to the first present attribute). array_reverse keeps the
+        // configured order after successive array_unshift() prepends.
+        foreach (array_reverse($userIdAttrs) as $userIdAttr) {
+            /** @psalm-suppress MixedArgument */
+            array_unshift($this->translationTable['sub'], $userIdAttr);
+        }
 
         $this->translationTable = array_merge($this->translationTable, $translationTable);
 
