@@ -6,7 +6,6 @@ namespace SimpleSAML\Module\oidc\Services;
 
 use RuntimeException;
 use SimpleSAML\Auth\Simple;
-use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\UserIdentifierResolver;
@@ -29,7 +28,6 @@ class AuthContextService
     public function __construct(
         private readonly ModuleConfig $moduleConfig,
         private readonly AuthSimpleFactory $authSimpleFactory,
-        private readonly SspBridge $sspBridge,
         private readonly UserIdentifierResolver $userIdentifierResolver,
     ) {
     }

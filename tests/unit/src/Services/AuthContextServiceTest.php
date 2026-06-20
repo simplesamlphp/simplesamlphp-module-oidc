@@ -9,12 +9,10 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Configuration;
-use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\Module\oidc\Utils\UserIdentifierResolver;
-use SimpleSAML\Utils\Attributes;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Services\AuthContextService
@@ -30,9 +28,6 @@ class AuthContextServiceTest extends TestCase
     protected MockObject $moduleConfigMock;
     protected MockObject $authSimpleService;
     protected MockObject $authSimpleFactory;
-    protected MockObject $sspBridgeMock;
-    protected MockObject $sspBridgeUtilsMock;
-    protected MockObject $sspBridgeUtilsAttributesMock;
 
     /**
      * @throws \PHPUnit\Framework\MockObject\Exception
@@ -57,29 +52,20 @@ class AuthContextServiceTest extends TestCase
 
         $this->authSimpleFactory = $this->createMock(AuthSimpleFactory::class);
         $this->authSimpleFactory->method('getDefaultAuthSource')->willReturn($this->authSimpleService);
-
-        $this->sspBridgeMock = $this->createMock(SspBridge::class);
-        $this->sspBridgeUtilsMock = $this->createMock(SspBridge\Utils::class);
-        $this->sspBridgeMock->method('utils')->willReturn($this->sspBridgeUtilsMock);
-        $this->sspBridgeUtilsAttributesMock = $this->createMock(Attributes::class);
-        $this->sspBridgeUtilsMock->method('attributes')->willReturn($this->sspBridgeUtilsAttributesMock);
     }
 
     protected function sut(
         ?ModuleConfig $moduleConfig = null,
         ?AuthSimpleFactory $authSimpleFactory = null,
-        ?SspBridge $sspBridge = null,
         ?UserIdentifierResolver $userIdentifierResolver = null,
     ): AuthContextService {
         $moduleConfig ??= $this->moduleConfigMock;
         $authSimpleFactory ??= $this->authSimpleFactory;
-        $sspBridge ??= $this->sspBridgeMock;
         $userIdentifierResolver ??= new UserIdentifierResolver();
 
         return new AuthContextService(
             $moduleConfig,
             $authSimpleFactory,
-            $sspBridge,
             $userIdentifierResolver,
         );
     }
