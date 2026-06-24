@@ -12,7 +12,6 @@ use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
-use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
@@ -110,7 +109,7 @@ class CodeChallengeRuleTest extends TestCase
             [],
             $this->responseModeStub,
         );
-        $this->assertInstanceOf(ResultInterface::class, $result);
+        $this->assertInstanceOf(Result::class, $result);
         $this->assertNull($result->getValue());
     }
 
@@ -142,7 +141,7 @@ class CodeChallengeRuleTest extends TestCase
             $this->responseModeStub,
         );
 
-        $this->assertInstanceOf(ResultInterface::class, $result);
+        $this->assertInstanceOf(Result::class, $result);
         $this->assertSame($this->codeChallenge, $result->getValue());
     }
 

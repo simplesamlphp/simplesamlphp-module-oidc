@@ -7,7 +7,6 @@ namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
-use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
@@ -15,6 +14,9 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
+/**
+ * @extends AbstractRule<string|null>
+ */
 class CodeChallengeRule extends AbstractRule
 {
     /**
@@ -32,14 +34,11 @@ class CodeChallengeRule extends AbstractRule
         array $data = [],
         ResponseModeInterface $responseMode = new QueryResponseMode(),
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
-    ): ?ResultInterface {
+    ): ?Result {
         $loggerService->debug('CodeChallengeRule::checkRule');
 
-        /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
-        /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
-        /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
         $codeChallenge = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(

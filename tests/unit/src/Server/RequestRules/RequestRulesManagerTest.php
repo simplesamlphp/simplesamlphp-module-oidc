@@ -10,8 +10,8 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\RequestRuleInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
-use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
+use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 
@@ -32,7 +32,7 @@ class RequestRulesManagerTest extends TestCase
      */
     public function setUp(): void
     {
-        $this->resultStub = $this->createStub(ResultInterface::class);
+        $this->resultStub = $this->createStub(Result::class);
         $this->resultStub->method('getKey')->willReturn($this->key);
         $this->resultStub->method('getValue')->willReturn($this->value);
 

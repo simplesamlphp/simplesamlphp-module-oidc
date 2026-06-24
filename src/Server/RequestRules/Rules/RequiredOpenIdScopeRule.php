@@ -7,13 +7,15 @@ namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
-use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
+/**
+ * @extends AbstractRule<bool>
+ */
 class RequiredOpenIdScopeRule extends AbstractRule
 {
     /**
@@ -31,14 +33,11 @@ class RequiredOpenIdScopeRule extends AbstractRule
         array $data = [],
         ResponseModeInterface $responseMode = new QueryResponseMode(),
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
-    ): ?ResultInterface {
+    ): ?Result {
         $loggerService->debug('RequiredOpenIdScopeRule::checkRule.');
 
-        /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
-        /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
-        /** @var \League\OAuth2\Server\Entities\ScopeEntityInterface[] $validScopes */
         $validScopes = $currentResultBag->getOrFail(ScopeRule::class)->getValue();
 
         $isOpenIdScopePresent = (bool) array_filter(

@@ -9,7 +9,6 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Repositories\CodeChallengeVerifiersRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
-use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
@@ -18,6 +17,9 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
+/**
+ * @extends AbstractRule<string>
+ */
 class CodeChallengeMethodRule extends AbstractRule
 {
     public function __construct(
@@ -42,12 +44,10 @@ class CodeChallengeMethodRule extends AbstractRule
         array $data = [],
         ResponseModeInterface $responseMode = new QueryResponseMode(),
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
-    ): ?ResultInterface {
+    ): ?Result {
         $loggerService->debug('CodeChallengeMethodRule::checkRule');
 
-        /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
-        /** @var string|null $state */
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
         $codeChallengeMethod = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(

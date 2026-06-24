@@ -15,7 +15,6 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
-use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
@@ -34,6 +33,8 @@ use Throwable;
 
 /**
  * Resolve a client instance based on a client_id or request object.
+ *
+ * @extends AbstractRule<\SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface>
  */
 class ClientRule extends AbstractRule
 {
@@ -80,7 +81,7 @@ class ClientRule extends AbstractRule
         array $data = [],
         ResponseModeInterface $responseMode = new QueryResponseMode(),
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
-    ): ?ResultInterface {
+    ): ?Result {
         $loggerService->debug('ClientRule::checkRule.');
 
         /** @var ?string $clientId */

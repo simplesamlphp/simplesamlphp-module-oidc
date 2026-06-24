@@ -15,7 +15,7 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
-use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
+use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeOfflineAccessRule;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
@@ -58,13 +58,13 @@ class ScopeOfflineAccessRuleTest extends TestCase
         $this->scopeEntityOfflineAccess = $this->createStub(ScopeEntityInterface::class);
         $this->scopeEntityOfflineAccess->method('getIdentifier')->willReturn('offline_access');
 
-        $this->redirectUriResultStub = $this->createStub(ResultInterface::class);
+        $this->redirectUriResultStub = $this->createStub(Result::class);
         $this->redirectUriResultStub->method('getValue')->willReturn('sample-uri');
-        $this->stateResultStub = $this->createStub(ResultInterface::class);
+        $this->stateResultStub = $this->createStub(Result::class);
         $this->stateResultStub->method('getValue')->willReturn('sample-state');
 
-        $this->clientResultStub = $this->createStub(ResultInterface::class);
-        $this->validScopesResultStub = $this->createStub(ResultInterface::class);
+        $this->clientResultStub = $this->createStub(Result::class);
+        $this->validScopesResultStub = $this->createStub(Result::class);
 
         $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
         $this->openIdConfigurationStub = $this->createStub(Configuration::class);

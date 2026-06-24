@@ -6,39 +6,38 @@ namespace SimpleSAML\Module\oidc\Server\RequestRules;
 
 use LogicException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
-use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 
 use function sprintf;
 
 class ResultBag implements ResultBagInterface
 {
     /**
-     * @var \SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface[] $results
+     * @var array<string, \SimpleSAML\Module\oidc\Server\RequestRules\Result<mixed>> $results
      */
     protected array $results = [];
 
-    /**
-     * @param \SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface $result
-     */
-    public function add(ResultInterface $result): void
+    public function add(Result $result): void
     {
         $this->results[$result->getKey()] = $result;
     }
 
     /**
-     * @param string $key
-     * @return \SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface|null
+     * @template T
+     * @param class-string<\SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\RequestRuleInterface<T>> $key
+     * @return \SimpleSAML\Module\oidc\Server\RequestRules\Result<T>|null
      */
-    public function get(string $key): ?ResultInterface
+    public function get(string $key): ?Result
     {
+        /** @var \SimpleSAML\Module\oidc\Server\RequestRules\Result<T>|null */
         return $this->results[$key] ?? null;
     }
 
     /**
-     * @param string $key
-     * @return \SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface
+     * @template T
+     * @param class-string<\SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\RequestRuleInterface<T>> $key
+     * @return \SimpleSAML\Module\oidc\Server\RequestRules\Result<T>
      */
-    public function getOrFail(string $key): ResultInterface
+    public function getOrFail(string $key): Result
     {
         $result = $this->get($key);
 
@@ -52,16 +51,23 @@ class ResultBag implements ResultBagInterface
     }
 
     /**
-     * @return \SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface[]
+     * @template T
+     * @param class-string<\SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\RequestRuleInterface<T>> $key
+     * @return T
+     */
+    public function getValueOrFail(string $key): mixed
+    {
+        return $this->getOrFail($key)->getValue();
+    }
+
+    /**
+     * @return array<string, \SimpleSAML\Module\oidc\Server\RequestRules\Result<mixed>>
      */
     public function getAll(): array
     {
         return $this->results;
     }
 
-    /**
-     * @param string $key
-     */
     public function remove(string $key): void
     {
         unset($this->results[$key]);

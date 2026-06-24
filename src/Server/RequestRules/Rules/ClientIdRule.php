@@ -7,7 +7,6 @@ namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
-use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
@@ -17,6 +16,8 @@ use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 /**
  * Resolve a client instance based on a client_id or request object.
+ *
+ * @extends AbstractRule<string>
  */
 class ClientIdRule extends AbstractRule
 {
@@ -46,7 +47,7 @@ class ClientIdRule extends AbstractRule
         array $data = [],
         ResponseModeInterface $responseMode = new QueryResponseMode(),
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
-    ): ?ResultInterface {
+    ): ?Result {
         $loggerService->debug('ClientIdRule::checkRule');
 
         /** @var ?string $clientId */

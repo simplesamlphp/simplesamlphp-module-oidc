@@ -14,7 +14,6 @@ use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
-use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
@@ -156,7 +155,7 @@ class ScopeRuleTest extends TestCase
             $this->data,
             $this->responseModeStub,
         );
-        $this->assertInstanceOf(ResultInterface::class, $result);
+        $this->assertInstanceOf(Result::class, $result);
         $this->assertIsArray($result->getValue());
         $this->assertSame($this->scopeEntities['openid'], $result->getValue()[0]);
         $this->assertSame($this->scopeEntities['profile'], $result->getValue()[1]);

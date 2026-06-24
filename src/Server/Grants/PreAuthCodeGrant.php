@@ -187,7 +187,6 @@ class PreAuthCodeGrant extends AuthCodeGrant
             $this->allowedTokenHttpMethods,
         );
 
-        /** @var ?array $authorizationDetails */
         $authorizationDetails = $resultBag->get(AuthorizationDetailsRule::class)?->getValue();
 
         // Issue and persist new access token

@@ -9,7 +9,6 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
-use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
@@ -20,6 +19,9 @@ use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Jwks;
 
+/**
+ * @extends AbstractRule<\SimpleSAML\OpenID\Core\IdToken|null>
+ */
 class IdTokenHintRule extends AbstractRule
 {
     public function __construct(
@@ -47,8 +49,7 @@ class IdTokenHintRule extends AbstractRule
         array $data = [],
         ResponseModeInterface $responseMode = new QueryResponseMode(),
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
-    ): ?ResultInterface {
-        /** @var string|null $state */
+    ): ?Result {
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
         $idTokenHintParam = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(

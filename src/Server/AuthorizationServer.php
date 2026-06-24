@@ -115,11 +115,8 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         );
 
         // state and redirectUri is used here, so we can return HTTP redirect error in case of invalid response_type.
-        /** @var ?string $state */
         $state = $resultBag->getOrFail(StateRule::class)->getValue();
-        /** @var string $redirectUri */
         $redirectUri = $resultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
-        /** @var \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode */
         $responseMode = $resultBag->getOrFail(ResponseModeRule::class)->getValue();
 
         foreach ($this->enabledGrantTypes as $grantType) {
@@ -192,11 +189,8 @@ class AuthorizationServer extends OAuth2AuthorizationServer
             throw new BadRequest($reason);
         }
 
-        /** @var \SimpleSAML\OpenID\Core\IdToken|null $idTokenHint */
         $idTokenHint = $resultBag->getOrFail(IdTokenHintRule::class)->getValue();
-        /** @var string|null $postLogoutRedirectUri */
         $postLogoutRedirectUri = $resultBag->getOrFail(PostLogoutRedirectUriRule::class)->getValue();
-        /** @var string|null $state */
         $state = $resultBag->getOrFail(StateRule::class)->getValue();
         /** @var string|null $uiLocales */
         $uiLocales = $resultBag->getOrFail(UiLocalesRule::class)->getValue();

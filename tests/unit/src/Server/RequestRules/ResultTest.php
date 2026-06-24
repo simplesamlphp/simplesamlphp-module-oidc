@@ -43,15 +43,4 @@ class ResultTest extends TestCase
     {
         $this->assertSame($this->value, $result->getValue());
     }
-
-    /**
-     * @depends testConstruct
-     */
-    public function testSetValue(Result $result): void
-    {
-        $newValue = 'new-value';
-        $result->setValue($newValue);
-
-        $this->assertSame($newValue, $result->getValue());
-    }
 }

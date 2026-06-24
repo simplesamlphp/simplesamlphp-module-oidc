@@ -10,7 +10,6 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
-use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
@@ -22,6 +21,9 @@ use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Core\RequestObject as ConnectRequestObject;
 use SimpleSAML\OpenID\Jar\RequestObject as JarRequestObject;
 
+/**
+ * @extends AbstractRule<array>
+ */
 class RequestObjectRule extends AbstractRule
 {
     public function __construct(
@@ -47,7 +49,7 @@ class RequestObjectRule extends AbstractRule
         array $data = [],
         ResponseModeInterface $responseMode = new QueryResponseMode(),
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
-    ): ?ResultInterface {
+    ): ?Result {
         $loggerService->debug('RequestObjectRule::checkRule');
 
         // A Request Object can be passed by value (request param) or by reference (https request_uri param).
@@ -66,11 +68,8 @@ class RequestObjectRule extends AbstractRule
             return null;
         }
 
-        /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
-        /** @var string $redirectUri */
         $redirectUri = $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
-        /** @var ?string $stateValue */
         $stateValue = ($currentResultBag->get(StateRule::class))?->getValue();
 
         // Parse it using all available Request Object flavors, so we can differentiate between OpenID Connect
