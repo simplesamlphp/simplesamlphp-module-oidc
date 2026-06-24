@@ -137,13 +137,9 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
 
         $this->requestRulesManager->predefineResultBag($resultBag);
 
-        /** @var string $redirectUri */
         $redirectUri = $resultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
-        /** @var string|null $state */
         $state = $resultBag->getOrFail(StateRule::class)->getValue();
-        /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $resultBag->getOrFail(ClientRule::class)->getValue();
-        /** @var \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode */
         $responseMode = $resultBag->getOrFail(ResponseModeRule::class)->getValue();
 
         // Some rules need certain things available in order to work properly...
@@ -157,7 +153,6 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
             $this->allowedAuthorizationHttpMethods,
         );
 
-        /** @var \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes */
         $scopes = $resultBag->getOrFail(ScopeRule::class)->getValue();
 
         $authorizationRequest = new AuthorizationRequest();
@@ -170,11 +165,11 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         }
 
         // nonce existence is validated using a rule, so we can get it from there.
-        $authorizationRequest->setNonce((string)$resultBag->getOrFail(RequiredNonceRule::class)->getValue());
+        $authorizationRequest->setNonce($resultBag->getOrFail(RequiredNonceRule::class)->getValue());
 
         $maxAge = $resultBag->get(MaxAgeRule::class);
         if (null !== $maxAge) {
-            $authorizationRequest->setAuthTime((int) $maxAge->getValue());
+            $authorizationRequest->setAuthTime($maxAge->getValue());
         }
 
         $requestClaims = $resultBag->get(RequestedClaimsRule::class);
@@ -185,19 +180,15 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
                 $authorizationRequest->setClaims($requestClaimValues);
             }
         }
-        /** @var bool $addClaimsToIdToken */
         $addClaimsToIdToken = ($resultBag->getOrFail(AddClaimsToIdTokenRule::class))->getValue();
         $authorizationRequest->setAddClaimsToIdToken($addClaimsToIdToken);
 
-        /** @var string $responseType */
         $responseType = ($resultBag->getOrFail(ResponseTypeRule::class))->getValue();
         $authorizationRequest->setResponseType($responseType);
 
-        /** @var array|null $acrValues */
         $acrValues = $resultBag->getOrFail(AcrValuesRule::class)->getValue();
         $authorizationRequest->setRequestedAcrValues($acrValues);
 
-        /** @var \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode */
         $responseMode = $resultBag->getOrFail(ResponseModeRule::class)->getValue();
         $authorizationRequest->setResponseMode($responseMode);
 

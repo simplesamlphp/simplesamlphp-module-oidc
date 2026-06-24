@@ -525,12 +525,10 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         // it is predefined as the ClientRule result and authenticated against by ClientAuthenticationRule above.
         $client = $authorizationClientEntity;
 
-        /** @var ?ResolvedClientAuthenticationMethod $resolvedClientAuthenticationMethod */
         $resolvedClientAuthenticationMethod = $authorizationClientEntity->isGeneric() ?
         null :
         $resultBag->getOrFail(ClientAuthenticationRule::class)->getValue();
 
-        /** @var ?string $codeVerifier */
         $codeVerifier = $resultBag->getOrFail(CodeVerifierRule::class)->getValue();
 
         $utilizedClientAuthenticationParams = [];
@@ -777,13 +775,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         // Since we have already validated redirect_uri, and we have state, make it available for other checkers.
         $this->requestRulesManager->predefineResultBag($resultBag);
 
-        /** @var string $redirectUri */
         $redirectUri = $resultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
-        /** @var string|null $state */
         $state = $resultBag->getOrFail(StateRule::class)->getValue();
-        /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $resultBag->getOrFail(ClientRule::class)->getValue();
-        /** @var \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode */
         $responseMode = $resultBag->getOrFail(ResponseModeRule::class)->getValue();
 
         $this->loggerService->debug('AuthCodeGrant: Resolved data:', [
@@ -805,7 +799,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         $this->loggerService->debug('AuthCodeGrant: executed rules.', ['rulesToExecute' => $rulesToExecute]);
 
-        /** @var \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes */
         $scopes = $resultBag->getOrFail(ScopeRule::class)->getValue();
 
         $this->loggerService->debug('AuthCodeGrant: Resolved scopes: ', ['scopes' => $scopes]);
@@ -821,13 +814,11 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $oAuth2AuthorizationRequest->setState($state);
         }
 
-        /** @var ?string $codeChallenge */
         $codeChallenge = $resultBag->getOrFail(CodeChallengeRule::class)->getValue();
         if ($codeChallenge) {
             $this->loggerService->debug('AuthCodeGrant: Code challenge: ', [
                 'codeChallenge' => $codeChallenge,
             ]);
-            /** @var string $codeChallengeMethod */
             $codeChallengeMethod = $resultBag->getOrFail(CodeChallengeMethodRule::class)->getValue();
 
             $oAuth2AuthorizationRequest->setCodeChallenge($codeChallenge);
@@ -879,7 +870,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $maxAge = $resultBag->get(MaxAgeRule::class);
         $this->loggerService->debug('AuthCodeGrant: MaxAge: ', ['maxAge' => $maxAge]);
         if (null !== $maxAge) {
-            $authorizationRequest->setAuthTime((int) $maxAge->getValue());
+            $authorizationRequest->setAuthTime($maxAge->getValue());
         }
 
         $requestClaims = $resultBag->get(RequestedClaimsRule::class);
@@ -892,7 +883,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             }
         }
 
-        /** @var array|null $acrValues */
         $acrValues = $resultBag->getOrFail(AcrValuesRule::class)->getValue();
         $this->loggerService->debug('AuthCodeGrant: ACR values: ', ['acrValues' => $acrValues]);
         $authorizationRequest->setRequestedAcrValues($acrValues);
@@ -904,12 +894,10 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $this->loggerService->debug('AuthCodeGrant: FlowType: ', ['flowType' => $flowType]);
         $authorizationRequest->setFlowType($flowType);
 
-        /** @var ?string $issuerState */
         $issuerState = $resultBag->get(IssuerStateRule::class)?->getValue();
         $this->loggerService->debug('AuthCodeGrant: Issuer state: ', ['issuerState' => $issuerState]);
         $authorizationRequest->setIssuerState($issuerState);
 
-        /** @var ?array $authorizationDetails */
         $authorizationDetails = $resultBag->get(AuthorizationDetailsRule::class)?->getValue();
         $this->loggerService->debug(
             'AuthCodeGrant: Authorization details: ',
@@ -917,7 +905,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         );
         $authorizationRequest->setAuthorizationDetails($authorizationDetails);
 
-        /** @var \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode */
         $responseMode = $resultBag->getOrFail(ResponseModeRule::class)->getValue();
         $this->loggerService->debug(
             'AuthCodeGrant: Response mode: ',
@@ -955,7 +942,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                 ['genericClientId' => $client->getIdentifier()],
             );
             // The generic client was used. Make sure to store actually used client_id and redirect_uri params.
-            /** @var string $clientIdParam */
             $clientIdParam = $resultBag->getOrFail(ClientIdRule::class)->getValue();
             $this->loggerService->debug(
                 'AuthCodeGrant: Binding client_id param to request: ',

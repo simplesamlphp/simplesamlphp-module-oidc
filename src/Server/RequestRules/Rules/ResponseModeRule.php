@@ -9,7 +9,6 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
-use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\ResponseModes\FormPostResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\FragmentResponseMode;
@@ -21,6 +20,9 @@ use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 
+/**
+ * @extends AbstractRule<\SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface>
+ */
 class ResponseModeRule extends AbstractRule
 {
     public function __construct(
@@ -48,7 +50,7 @@ class ResponseModeRule extends AbstractRule
         array $data = [],
         ResponseModeInterface $responseMode = new QueryResponseMode(),
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
-    ): ?ResultInterface {
+    ): ?Result {
         $requestParams = $this->requestParamsResolver->getAllBasedOnAllowedMethods(
             $request,
             $allowedServerRequestMethods,
@@ -93,10 +95,11 @@ class ResponseModeRule extends AbstractRule
         }
 
         // Validate whether response_mode is allowed by client configuration
-        /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
-        $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
-        $currentResultBag->getOrFail(StateRule::class)->getValue();
+        // Ensure these prerequisite rules have run (getOrFail throws if their results are absent); their
+        // values are not needed here, only their presence.
+        $currentResultBag->getOrFail(ClientRedirectUriRule::class);
+        $currentResultBag->getOrFail(StateRule::class);
 
         $allowedResponseModes = $client->getAllowedResponseModes();
         if (!in_array($responseModeValue, $allowedResponseModes, true)) {

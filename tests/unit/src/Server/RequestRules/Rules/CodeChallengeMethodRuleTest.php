@@ -13,7 +13,6 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Repositories\CodeChallengeVerifiersRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
-use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
@@ -124,7 +123,7 @@ class CodeChallengeMethodRuleTest extends TestCase
             $this->responseModeStub,
         );
 
-        $this->assertInstanceOf(ResultInterface::class, $result);
+        $this->assertInstanceOf(Result::class, $result);
         $this->assertSame('plain', $result->getValue());
     }
 

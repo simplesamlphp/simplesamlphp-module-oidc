@@ -171,9 +171,7 @@ class PushedAuthorizationController
         if ($requestObjectResult !== null) {
             // Request Object (JAR) was used. Per RFC 9126, all authorization request parameters must appear
             // as claims of the Request Object, so only use its (validated) payload.
-            /** @psalm-suppress MixedAssignment */
             $parameters = $resultBag->getOrFail(RequestObjectRule::class)->getValue();
-            $parameters = is_array($parameters) ? $parameters : [];
 
             /** @psalm-suppress MixedAssignment */
             $clientIdClaim = $parameters[ParamsEnum::ClientId->value] ?? null;

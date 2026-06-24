@@ -8,7 +8,6 @@ use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\RequestRuleInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
-use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
@@ -84,7 +83,7 @@ class RequestRulesManager
     /**
      * Predefine (add) the existing result, so it can be used by other checkers during check.
      */
-    public function predefineResult(ResultInterface $result): void
+    public function predefineResult(Result $result): void
     {
         $this->resultBag->add($result);
     }

@@ -50,6 +50,14 @@ class ResultBagTest extends TestCase
         $this->resultBag->getOrFail('non-existent');
     }
 
+    public function testGetValueOrFail(): void
+    {
+        $this->resultBag->add($this->result);
+        $this->assertSame($this->value, $this->resultBag->getValueOrFail($this->key));
+        $this->expectException(LogicException::class);
+        $this->resultBag->getValueOrFail('non-existent');
+    }
+
     public function testGet(): void
     {
         $this->assertNull($this->resultBag->get($this->key));

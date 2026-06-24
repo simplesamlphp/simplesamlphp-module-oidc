@@ -12,6 +12,10 @@ use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Codebooks\ScopesEnum;
 
+/**
+ * @template T
+ * @implements RequestRuleInterface<T>
+ */
 abstract class AbstractRule implements RequestRuleInterface
 {
     public function __construct(

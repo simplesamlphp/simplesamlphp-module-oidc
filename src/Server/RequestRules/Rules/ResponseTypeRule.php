@@ -7,7 +7,6 @@ namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
-use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
@@ -15,6 +14,9 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
+/**
+ * @extends AbstractRule<string>
+ */
 class ResponseTypeRule extends AbstractRule
 {
     /**
@@ -30,7 +32,7 @@ class ResponseTypeRule extends AbstractRule
         array $data = [],
         ResponseModeInterface $responseMode = new QueryResponseMode(),
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
-    ): ?ResultInterface {
+    ): ?Result {
         $requestParams = $this->requestParamsResolver->getAllBasedOnAllowedMethods(
             $request,
             $allowedServerRequestMethods,
@@ -53,6 +55,8 @@ class ResponseTypeRule extends AbstractRule
         // TODO: Also, we currently don't store allowed response types per client, so nothing to validate in that
         // sense either. This should be fixed in the future, for example in DCR implementation.
 
-        return new Result($this->getKey(), $requestParams[ParamsEnum::ResponseType->value]);
+        $responseType = (string)$requestParams[ParamsEnum::ResponseType->value];
+
+        return new Result($this->getKey(), $responseType);
     }
 }

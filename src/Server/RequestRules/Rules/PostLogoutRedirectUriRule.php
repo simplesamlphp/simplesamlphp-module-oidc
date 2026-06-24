@@ -9,7 +9,6 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
-use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
@@ -18,6 +17,9 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
+/**
+ * @extends AbstractRule<string|null>
+ */
 class PostLogoutRedirectUriRule extends AbstractRule
 {
     public function __construct(
@@ -43,11 +45,9 @@ class PostLogoutRedirectUriRule extends AbstractRule
         array $data = [],
         ResponseModeInterface $responseMode = new QueryResponseMode(),
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
-    ): ?ResultInterface {
-        /** @var string|null $state */
+    ): ?Result {
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
-        /** @var \SimpleSAML\OpenID\Core\IdToken|null $idTokenHint */
         $idTokenHint = $currentResultBag->getOrFail(IdTokenHintRule::class)->getValue();
 
         $postLogoutRedirectUri = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(

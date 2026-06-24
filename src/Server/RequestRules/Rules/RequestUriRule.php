@@ -21,7 +21,6 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
-use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
@@ -46,6 +45,8 @@ use SimpleSAML\OpenID\Codebooks\ParamsEnum;
  *
  * @see \SimpleSAML\Module\oidc\Utils\RequestParamsResolver
  * @see \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule
+ *
+ * @extends AbstractRule<string>
  */
 class RequestUriRule extends AbstractRule
 {
@@ -72,7 +73,7 @@ class RequestUriRule extends AbstractRule
         array $data = [],
         ResponseModeInterface $responseMode = new QueryResponseMode(),
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
-    ): ?ResultInterface {
+    ): ?Result {
         $loggerService->debug('RequestUriRule::checkRule');
 
         // Note: we are intentionally working with raw request params here
@@ -84,7 +85,6 @@ class RequestUriRule extends AbstractRule
             $allowedServerRequestMethods,
         );
 
-        /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
 
         $isParRequired = $this->moduleConfig->getRequirePushedAuthorizationRequests() ||
@@ -160,7 +160,7 @@ class RequestUriRule extends AbstractRule
         string $clientIdParam,
         ClientEntityInterface $client,
         LoggerService $loggerService,
-    ): ResultInterface {
+    ): Result {
         $parEntity = $this->pushedAuthorizationRequestRepository->find($requestUri);
 
         if ($parEntity === null) {
@@ -226,7 +226,7 @@ class RequestUriRule extends AbstractRule
         ServerRequestInterface $request,
         bool $isParRequired,
         array $allowedServerRequestMethods,
-    ): ResultInterface {
+    ): Result {
         if ($isParRequired) {
             throw OidcServerException::invalidRequest(
                 ParamsEnum::RequestUri->value,

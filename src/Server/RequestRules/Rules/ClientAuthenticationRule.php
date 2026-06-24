@@ -9,7 +9,6 @@ use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
-use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
@@ -19,6 +18,9 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
+/**
+ * @extends AbstractRule<\SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod>
+ */
 class ClientAuthenticationRule extends AbstractRule
 {
     public function __construct(
@@ -43,7 +45,7 @@ class ClientAuthenticationRule extends AbstractRule
         array $data = [],
         ResponseModeInterface $responseMode = new QueryResponseMode(),
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
-    ): ?ResultInterface {
+    ): ?Result {
 
         $loggerService->debug('ClientAuthenticationRule::checkRule');
 
@@ -53,7 +55,6 @@ class ClientAuthenticationRule extends AbstractRule
         // private_key_jwt via the assertion issuer, client_secret_basic via the Authorization header). When no client
         // is pre-fetched, the resolver derives and authenticates the client purely from the presented authentication
         // material, and cross-checks any client_id it does find against that material.
-        /** @var ?\SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $preFetchedClient */
         $preFetchedClient = $currentResultBag->get(ClientRule::class)?->getValue();
 
         if (!$preFetchedClient instanceof ClientEntityInterface) {

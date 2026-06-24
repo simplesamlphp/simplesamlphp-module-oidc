@@ -4,13 +4,19 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Server\RequestRules;
 
-use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultInterface;
-
-class Result implements ResultInterface
+/**
+ * Result of a single request rule check.
+ *
+ * The generic parameter T describes the type of the contained value. Each rule binds it via
+ * its `@extends AbstractRule<...>` annotation, which in turn lets the ResultBag infer the value
+ * type when a result is fetched by its rule class-string.
+ *
+ * @template-covariant T
+ */
+class Result
 {
     /**
-     * Result constructor.
-     * @param mixed|null $value
+     * @param T $value
      */
     public function __construct(protected string $key, protected mixed $value = null)
     {
@@ -21,13 +27,11 @@ class Result implements ResultInterface
         return $this->key;
     }
 
+    /**
+     * @return T
+     */
     public function getValue(): mixed
     {
         return $this->value;
-    }
-
-    public function setValue(mixed $value): void
-    {
-        $this->value = $value;
     }
 }
