@@ -14,6 +14,7 @@ It complements the inline comments in `config/module_oidc.php`.
 - Attribute translation
 - Auth Proc filters (OIDC)
 - Client registration permissions
+- OpenID Connect Dynamic Client Registration
 - Running multiple OPs on one server
 
 ## Caching protocol artifacts
@@ -369,40 +370,26 @@ by [OpenID Connect Dynamic Client Registration 1.0](https://openid.net/specs/ope
   `registration_access_token` as a bearer token.
 
 When enabled, the registration endpoint is advertised as `registration_endpoint`
-in the OP discovery metadata.
+in the OP discovery metadata. Dynamically registered clients are stored like any
+other client and are visible in the admin UI.
 
-The feature is **disabled by default**. Configure it in `module_oidc.php`:
+The feature is **disabled by default**. It is configured through the following
+options in `config/module_oidc.php` (see the inline comments there for the full
+details and defaults):
 
-```php
-<?php
+- `OPTION_OIDC_DCR_ENABLED` — master switch for the feature.
+- `OPTION_OIDC_DCR_REGISTRATION_AUTH` — access-control mode: `open` registration
+  (the default) or `initial_access_token` (require a bearer Initial Access
+  Token).
+- `OPTION_OIDC_DCR_INITIAL_ACCESS_TOKENS` — the accepted Initial Access Tokens,
+  consulted only in `initial_access_token` mode.
+- `OPTION_OIDC_DCR_IMPERSONATION_PROTECTION_ENABLED` — when on (the default),
+  the host of `logo_uri` / `policy_uri` / `tos_uri` must match the host of one of
+  the registered `redirect_uris` (spec Section 9.1).
 
-$config = [
-    // Master switch for Dynamic Client Registration. Default: false.
-    \SimpleSAML\Module\oidc\ModuleConfig::OPTION_OIDC_DCR_ENABLED => true,
-
-    // Access-control mode for the registration endpoint:
-    //  - 'open' (default): anyone may register (rely on deployment rate limiting);
-    //  - 'initial_access_token': callers must present a configured bearer token.
-    \SimpleSAML\Module\oidc\ModuleConfig::OPTION_OIDC_DCR_REGISTRATION_AUTH =>
-        \SimpleSAML\Module\oidc\Codebooks\DcrRegistrationAuthEnum::Open->value,
-
-    // Allow-list of Initial Access Tokens, consulted only in 'initial_access_token' mode.
-    \SimpleSAML\Module\oidc\ModuleConfig::OPTION_OIDC_DCR_INITIAL_ACCESS_TOKENS => [
-        // 'a-long-random-secret-token',
-    ],
-
-    // Impersonation protection (spec Section 9.1). When on (default), the host of
-    // logo_uri / policy_uri / tos_uri must match the host of one of the registered
-    // redirect_uris, otherwise registration is rejected with invalid_client_metadata.
-    // Turn off if your clients legitimately host these on a different (e.g. CDN) domain.
-    \SimpleSAML\Module\oidc\ModuleConfig::OPTION_OIDC_DCR_IMPERSONATION_PROTECTION_ENABLED => true,
-];
-```
-
-Note that dynamically registered clients are stored like any other client and
-are visible in the admin UI. Open registration lets anyone create a client, so
-protect the endpoint with rate limiting at the web-server level, or require an
-Initial Access Token.
+> **Security note:** open registration lets anyone create a client, so protect
+> the endpoint with rate limiting at the web-server level, or require an Initial
+> Access Token.
 
 ## Running multiple OPs on one server
 

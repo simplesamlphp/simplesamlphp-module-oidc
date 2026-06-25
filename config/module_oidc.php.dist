@@ -571,6 +571,85 @@ $config = [
     ModuleConfig::OPTION_ADMIN_UI_PAGINATION_ITEMS_PER_PAGE => 20,
 
     /***************************************************************************
+     * (optional) OpenID Connect Dynamic Client Registration (DCR) related
+     * options. If not enabled (the default), Dynamic Client Registration
+     * capabilities will be disabled.
+     **************************************************************************/
+
+    /**
+     * Enable or disable OpenID Connect Dynamic Client Registration (DCR), as
+     * described in the OpenID Connect Dynamic Client Registration 1.0
+     * specification (which is also compatible with RFC 7591). Default is
+     * disabled (false).
+     *
+     * When enabled, the module serves:
+     * - a Client Registration Endpoint (HTTP POST to .../oidc/register) which
+     *   creates a new client from the supplied client metadata and returns its
+     *   client_id, client_secret (for confidential clients), a
+     *   registration_access_token and a registration_client_uri; and
+     * - a Client Configuration Endpoint (HTTP GET to
+     *   .../oidc/register?client_id=...) which returns the current client
+     *   registration when called with the registration_access_token as an HTTP
+     *   Bearer token.
+     *
+     * When enabled, the registration endpoint is also advertised as the
+     * 'registration_endpoint' claim in the OP discovery metadata.
+     *
+     * Note that dynamically registered clients are stored like any other client
+     * and are visible / manageable in the admin UI.
+     */
+    ModuleConfig::OPTION_OIDC_DCR_ENABLED => false,
+
+    /**
+     * Access-control mode for the registration (create) endpoint. Only relevant
+     * if Dynamic Client Registration is enabled. Possible values:
+     *
+     * - DcrRegistrationAuthEnum::Open (the default): open registration, meaning
+     *   anyone may register a client without authenticating. In this mode you
+     *   should protect the endpoint from abuse using rate limiting at the
+     *   web-server level.
+     * - DcrRegistrationAuthEnum::InitialAccessToken: callers must present a
+     *   valid Initial Access Token (provisioned out-of-band) as an HTTP Bearer
+     *   token to register. The accepted tokens are configured using
+     *   the OPTION_OIDC_DCR_INITIAL_ACCESS_TOKENS option below.
+     */
+    ModuleConfig::OPTION_OIDC_DCR_REGISTRATION_AUTH =>
+        \SimpleSAML\Module\oidc\Codebooks\DcrRegistrationAuthEnum::Open->value,
+
+    /**
+     * Allowlist of Initial Access Tokens (opaque, randomly generated strings)
+     * accepted by the registration endpoint. This option is only consulted when
+     * the access mode (OPTION_OIDC_DCR_REGISTRATION_AUTH) is set to
+     * DcrRegistrationAuthEnum::InitialAccessToken; in 'open' mode it is ignored.
+     *
+     * A registration request must then carry one of these tokens as an HTTP
+     * Bearer token. Use long, high-entropy values and treat them as secrets.
+     *
+     * Format: string[] (array of strings)
+     */
+    ModuleConfig::OPTION_OIDC_DCR_INITIAL_ACCESS_TOKENS => [
+//        'a-long-random-secret-token',
+    ],
+
+    /**
+     * Enable or disable impersonation protection for Dynamic Client
+     * Registration, as recommended by Section 9.1 of the OpenID Connect Dynamic
+     * Client Registration 1.0 specification. Default is enabled (true).
+     *
+     * When enabled, the host component of the logo_uri, policy_uri and tos_uri
+     * client metadata values (if provided) must match the host of one of the
+     * registered redirect_uris. Otherwise, the registration is rejected with an
+     * 'invalid_client_metadata' error. This mitigates a rogue client trying to
+     * impersonate a legitimate one by reusing its branding (logo) or links.
+     *
+     * You may want to disable this (set to false) if your clients legitimately
+     * host these resources on a different domain than their redirect URIs (for
+     * example, on a shared CDN or marketing domain). Note that the client_uri
+     * (the client home page) is intentionally NOT subject to this check.
+     */
+    ModuleConfig::OPTION_OIDC_DCR_IMPERSONATION_PROTECTION_ENABLED => true,
+
+    /***************************************************************************
      * (optional) OpenID Federation-related options. If these are not set,
      * OpenID Federation capabilities will be disabled.
      **************************************************************************/
