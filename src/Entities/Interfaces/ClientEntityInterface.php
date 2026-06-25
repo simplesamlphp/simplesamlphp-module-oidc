@@ -81,6 +81,8 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
     public function isGeneric(): bool;
 
     public function getExtraMetadata(): array;
+    public function getRegistrationAccessTokenHash(): ?string;
+    public function setRegistrationAccessTokenHash(?string $registrationAccessTokenHash): void;
     public function getIdTokenSignedResponseAlg(): ?string;
     public function getAllowedResponseModes(): array;
     public function getRequirePushedAuthorizationRequests(): bool;

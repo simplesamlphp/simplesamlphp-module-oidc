@@ -21,6 +21,7 @@ use SimpleSAML\Module\oidc\Controllers\JwksController;
 use SimpleSAML\Module\oidc\Controllers\OAuth2\OAuth2ServerConfigurationController;
 use SimpleSAML\Module\oidc\Controllers\OAuth2\TokenIntrospectionController;
 use SimpleSAML\Module\oidc\Controllers\PushedAuthorizationController;
+use SimpleSAML\Module\oidc\Controllers\RegistrationController;
 use SimpleSAML\Module\oidc\Controllers\UserInfoController;
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\CredentialIssuerConfigurationController;
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\CredentialIssuerCredentialController;
@@ -104,6 +105,12 @@ return function (RoutingConfigurator $routes): void {
         ->controller([EndSessionController::class, 'endSession']);
     $routes->add(RoutesEnum::Jwks->name, RoutesEnum::Jwks->value)
         ->controller([JwksController::class, 'jwks']);
+
+    // OpenID Connect Dynamic Client Registration. POST registers a new client (create); GET reads an existing
+    // registration (Client Configuration Endpoint), authenticated with the Registration Access Token.
+    $routes->add(RoutesEnum::Registration->name, RoutesEnum::Registration->value)
+        ->controller([RegistrationController::class, 'registration'])
+        ->methods([HttpMethodsEnum::GET->value, HttpMethodsEnum::POST->value]);
 
     /*****************************************************************************************************************
      * OAuth 2.0 Authorization Server

@@ -355,6 +355,55 @@ Users can visit the following link for administration:
 
 - [https://example.com/simplesaml/module.php/oidc/clients/](https://example.com/simplesaml/module.php/oidc/clients/)
 
+## OpenID Connect Dynamic Client Registration
+
+The module can let Relying Parties register themselves dynamically, as described
+by [OpenID Connect Dynamic Client Registration 1.0](https://openid.net/specs/openid-connect-registration-1_0.html)
+(which is also compatible with RFC 7591). It exposes:
+
+- a **Client Registration Endpoint** (`POST .../oidc/register`) that creates a
+  client and returns its `client_id`, `client_secret` (for confidential
+  clients), a `registration_access_token` and a `registration_client_uri`; and
+- a **Client Configuration Endpoint** (`GET .../oidc/register?client_id=...`)
+  that returns the current registration when called with the
+  `registration_access_token` as a bearer token.
+
+When enabled, the registration endpoint is advertised as `registration_endpoint`
+in the OP discovery metadata.
+
+The feature is **disabled by default**. Configure it in `module_oidc.php`:
+
+```php
+<?php
+
+$config = [
+    // Master switch for Dynamic Client Registration. Default: false.
+    \SimpleSAML\Module\oidc\ModuleConfig::OPTION_OIDC_DCR_ENABLED => true,
+
+    // Access-control mode for the registration endpoint:
+    //  - 'open' (default): anyone may register (rely on deployment rate limiting);
+    //  - 'initial_access_token': callers must present a configured bearer token.
+    \SimpleSAML\Module\oidc\ModuleConfig::OPTION_OIDC_DCR_REGISTRATION_AUTH =>
+        \SimpleSAML\Module\oidc\Codebooks\DcrRegistrationAuthEnum::Open->value,
+
+    // Allow-list of Initial Access Tokens, consulted only in 'initial_access_token' mode.
+    \SimpleSAML\Module\oidc\ModuleConfig::OPTION_OIDC_DCR_INITIAL_ACCESS_TOKENS => [
+        // 'a-long-random-secret-token',
+    ],
+
+    // Impersonation protection (spec Section 9.1). When on (default), the host of
+    // logo_uri / policy_uri / tos_uri must match the host of one of the registered
+    // redirect_uris, otherwise registration is rejected with invalid_client_metadata.
+    // Turn off if your clients legitimately host these on a different (e.g. CDN) domain.
+    \SimpleSAML\Module\oidc\ModuleConfig::OPTION_OIDC_DCR_IMPERSONATION_PROTECTION_ENABLED => true,
+];
+```
+
+Note that dynamically registered clients are stored like any other client and
+are visible in the admin UI. Open registration lets anyone create a client, so
+protect the endpoint with rate limiting at the web-server level, or require an
+Initial Access Token.
+
 ## Running multiple OPs on one server
 
 A single module instance is designed to serve exactly one OpenID Provider

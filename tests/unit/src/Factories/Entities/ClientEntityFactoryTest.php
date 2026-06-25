@@ -130,6 +130,44 @@ class ClientEntityFactoryTest extends TestCase
     }
 
     /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataSetsDynamicRegistrationType(): void
+    {
+        $client = $this->sut()->fromRegistrationData(
+            [ClaimsEnum::RedirectUris->value => ['https://example.org/cb']],
+            RegistrationTypeEnum::Dynamic,
+        );
+
+        $this->assertSame(RegistrationTypeEnum::Dynamic, $client->getRegistrationType());
+        // Newly registered clients carry no Registration Access Token hash until the controller assigns one.
+        $this->assertNull($client->getRegistrationAccessTokenHash());
+    }
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataStoresAndEchoesInformationalMetadata(): void
+    {
+        $client = $this->sut()->fromRegistrationData(
+            [
+                ClaimsEnum::RedirectUris->value => ['https://example.org/cb'],
+                ClaimsEnum::LogoUri->value => 'https://example.org/logo.png',
+                ClaimsEnum::Contacts->value => ['admin@example.org'],
+                ClaimsEnum::ApplicationType->value => 'web',
+            ],
+            RegistrationTypeEnum::Dynamic,
+        );
+
+        $extraMetadata = $client->getExtraMetadata();
+        $this->assertSame('https://example.org/logo.png', $extraMetadata[ClaimsEnum::LogoUri->value]);
+        $this->assertSame(['admin@example.org'], $extraMetadata[ClaimsEnum::Contacts->value]);
+        $this->assertSame('web', $extraMetadata[ClaimsEnum::ApplicationType->value]);
+    }
+
+    /**
      * Admin-only client properties (e.g. authproc filters) must NEVER be honored
      * when supplied through client registration metadata, since an authproc
      * filter names a PHP class executed server-side (remote code execution

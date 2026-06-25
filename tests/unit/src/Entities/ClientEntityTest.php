@@ -184,6 +184,7 @@ class ClientEntityTest extends TestCase
                 'expires_at' => null,
                 'is_generic' => $this->state['is_generic'],
                 'extra_metadata' => null,
+                'registration_access_token' => null,
             ],
         );
     }

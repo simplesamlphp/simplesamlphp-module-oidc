@@ -367,6 +367,35 @@ class OidcServerException extends OAuthServerException
     }
 
     /**
+     * Invalid redirect URI error, as defined by the OAuth 2.0 Dynamic Client
+     * Registration Protocol (RFC 7591, section 3.2.2) and OpenID Connect
+     * Dynamic Client Registration 1.0 (section 3.3). The value of one or more
+     * redirect_uris is invalid.
+     *
+     * @see https://www.rfc-editor.org/rfc/rfc7591#section-3.2.2
+     *
+     * @param string|null $hint
+     * @param \Throwable|null $previous
+     *
+     * @return self
+     * @psalm-suppress LessSpecificImplementedReturnType
+     */
+    public static function invalidRedirectUri(
+        ?string $hint = null,
+        ?Throwable $previous = null,
+    ): OidcServerException {
+        return new self(
+            'The value of one or more redirect_uris is invalid.',
+            14,
+            ErrorsEnum::InvalidRedirectUri->value,
+            400,
+            $hint,
+            null,
+            $previous,
+        );
+    }
+
+    /**
      * Returns the current payload.
      *
      * @return array

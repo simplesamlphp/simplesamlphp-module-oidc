@@ -21,6 +21,23 @@ use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
 
 class ClientEntityFactory
 {
+    /**
+     * Informational ("store & echo") client metadata that is persisted as-is into the extra metadata blob when
+     * present in registration data, so it can be echoed back in registration/read responses. These carry no
+     * behavioral enforcement on the OP. Format/security validation (and impersonation protection) happens at the
+     * registration boundary; see \SimpleSAML\Module\oidc\Server\Registration\ClientMetadataValidator.
+     *
+     * @var string[]
+     */
+    public const array STORE_AND_ECHO_METADATA_KEYS = [
+        ClaimsEnum::LogoUri->value,
+        ClaimsEnum::ClientUri->value,
+        ClaimsEnum::PolicyUri->value,
+        ClaimsEnum::TosUri->value,
+        ClaimsEnum::Contacts->value,
+        ClaimsEnum::ApplicationType->value,
+    ];
+
     public function __construct(
         private readonly SspBridge $sspBridge,
         private readonly Helpers $helpers,
@@ -61,6 +78,7 @@ class ClientEntityFactory
         ?DateTimeImmutable $expiresAt = null,
         bool $isGeneric = false,
         ?array $extraMetadata = null,
+        ?string $registrationAccessToken = null,
     ): ClientEntityInterface {
         return new ClientEntity(
             $id,
@@ -87,6 +105,7 @@ class ClientEntityFactory
             $expiresAt,
             $isGeneric,
             $extraMetadata,
+            $registrationAccessToken,
         );
     }
 
@@ -214,6 +233,10 @@ class ClientEntityFactory
 
         $isGeneric = $existingClient?->isGeneric() ?? false;
 
+        // Carry over any Registration Access Token hash from an existing client. For a newly registered client this
+        // is null here; the registration controller generates and assigns the token after building the entity.
+        $registrationAccessToken = $existingClient?->getRegistrationAccessTokenHash();
+
         $extraMetadata = $existingClient?->getExtraMetadata() ?? [];
 
         // Handle any other supported client metadata as extra metadata.
@@ -243,6 +266,13 @@ class ClientEntityFactory
 
         $extraMetadata[ClaimsEnum::IdTokenSignedResponseAlg->value] = $idTokenSignedResponseAlg;
 
+        // Persist informational ("store & echo") metadata so it can be returned in registration/read responses.
+        foreach (self::STORE_AND_ECHO_METADATA_KEYS as $storeAndEchoKey) {
+            if (array_key_exists($storeAndEchoKey, $metadata)) {
+                /** @psalm-suppress MixedAssignment */
+                $extraMetadata[$storeAndEchoKey] = $metadata[$storeAndEchoKey];
+            }
+        }
 
         return $this->fromData(
             $id,
@@ -269,6 +299,7 @@ class ClientEntityFactory
             $expiresAt,
             $isGeneric,
             $extraMetadata,
+            $registrationAccessToken,
         );
     }
 
@@ -404,6 +435,10 @@ class ClientEntityFactory
         null :
         json_decode((string)$state[ClientEntity::KEY_EXTRA_METADATA], true, 512, JSON_THROW_ON_ERROR);
 
+        $registrationAccessToken = empty($state[ClientEntity::KEY_REGISTRATION_ACCESS_TOKEN]) ?
+        null :
+        (string)$state[ClientEntity::KEY_REGISTRATION_ACCESS_TOKEN];
+
         return $this->fromData(
             $id,
             $secret,
@@ -429,6 +464,7 @@ class ClientEntityFactory
             $expiresAt,
             $isGeneric,
             $extraMetadata,
+            $registrationAccessToken,
         );
     }
 

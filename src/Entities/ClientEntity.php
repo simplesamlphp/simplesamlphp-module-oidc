@@ -55,6 +55,11 @@ class ClientEntity implements ClientEntityInterface
     public const string KEY_EXPIRES_AT = 'expires_at';
     public const string KEY_IS_GENERIC = 'is_generic';
     public const string KEY_EXTRA_METADATA = 'extra_metadata';
+    /**
+     * Hash of the OpenID Connect Dynamic Client Registration Access Token, used to authenticate read requests at
+     * the Client Configuration Endpoint. The plaintext token is shown to the client only once (at registration).
+     */
+    public const string KEY_REGISTRATION_ACCESS_TOKEN = 'registration_access_token';
     public const string KEY_ALLOWED_RESPONSE_MODES = 'allowed_response_modes';
     /**
      * Per-client Authentication Processing Filters. Stored as an entry inside
@@ -120,6 +125,7 @@ class ClientEntity implements ClientEntityInterface
     private ?DateTimeImmutable $expiresAt;
     private bool $isGeneric;
     private ?array $extraMetadata;
+    private ?string $registrationAccessToken;
 
     /**
      * @param string[] $redirectUri
@@ -154,6 +160,7 @@ class ClientEntity implements ClientEntityInterface
         ?DateTimeImmutable $expiresAt = null,
         bool $isGeneric = false,
         ?array $extraMetadata = null,
+        ?string $registrationAccessToken = null,
     ) {
         $this->identifier = $identifier;
         $this->secret = $secret;
@@ -179,6 +186,7 @@ class ClientEntity implements ClientEntityInterface
         $this->expiresAt = $expiresAt;
         $this->isGeneric = $isGeneric;
         $this->extraMetadata = $extraMetadata;
+        $this->registrationAccessToken = $registrationAccessToken;
     }
 
     /**
@@ -220,6 +228,7 @@ class ClientEntity implements ClientEntityInterface
             self::KEY_EXTRA_METADATA => is_null($this->extraMetadata) ?
                 null :
                 json_encode($this->extraMetadata, JSON_THROW_ON_ERROR),
+            self::KEY_REGISTRATION_ACCESS_TOKEN => $this->registrationAccessToken,
         ];
     }
 
@@ -399,6 +408,20 @@ class ClientEntity implements ClientEntityInterface
     public function getExtraMetadata(): array
     {
         return $this->extraMetadata ?? [];
+    }
+
+    /**
+     * Hash of the Registration Access Token associated with this client, or null if none was issued (e.g. clients
+     * not created via OIDC Dynamic Client Registration).
+     */
+    public function getRegistrationAccessTokenHash(): ?string
+    {
+        return $this->registrationAccessToken;
+    }
+
+    public function setRegistrationAccessTokenHash(?string $registrationAccessTokenHash): void
+    {
+        $this->registrationAccessToken = $registrationAccessTokenHash;
     }
 
     public function getIdTokenSignedResponseAlg(): ?string

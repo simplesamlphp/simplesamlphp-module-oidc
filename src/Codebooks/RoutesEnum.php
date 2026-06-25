@@ -42,6 +42,8 @@ enum RoutesEnum: string
     case UserInfo = 'userinfo';
     case Jwks = 'jwks';
     case EndSession = 'end-session';
+    // OpenID Connect Dynamic Client Registration endpoint (create + read).
+    case Registration = 'register';
 
     /*****************************************************************************************************************
      * OAuth 2.0 Authorization Server

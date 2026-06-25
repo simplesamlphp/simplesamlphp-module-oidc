@@ -52,6 +52,7 @@ class OpMetadataServiceTest extends TestCase
                     RoutesEnum::Jwks->value => 'http://localhost/jwks',
                     RoutesEnum::EndSession->value => 'http://localhost/end-session',
                     RoutesEnum::PushedAuthorizationRequest->value => 'http://localhost/par',
+                    RoutesEnum::Registration->value => 'http://localhost/register',
                 ];
 
                 return $paths[$path] ?? null;
@@ -157,6 +158,28 @@ class OpMetadataServiceTest extends TestCase
                 'backchannel_logout_session_supported' => true,
                 'response_modes_supported' => ['query', 'fragment', 'form_post'],
             ],
+            $this->sut()->getMetadata(),
+        );
+    }
+
+    public function testAdvertisesRegistrationEndpointWhenDcrEnabled(): void
+    {
+        $this->moduleConfigMock->method('getOidcDcrEnabled')->willReturn(true);
+
+        $metadata = $this->sut()->getMetadata();
+
+        $this->assertSame(
+            'http://localhost/register',
+            $metadata[ClaimsEnum::RegistrationEndpoint->value] ?? null,
+        );
+    }
+
+    public function testDoesNotAdvertiseRegistrationEndpointWhenDcrDisabled(): void
+    {
+        $this->moduleConfigMock->method('getOidcDcrEnabled')->willReturn(false);
+
+        $this->assertArrayNotHasKey(
+            ClaimsEnum::RegistrationEndpoint->value,
             $this->sut()->getMetadata(),
         );
     }
