@@ -22,10 +22,12 @@ use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
 class ClientEntityFactory
 {
     /**
-     * Informational ("store & echo") client metadata that is persisted as-is into the extra metadata blob when
-     * present in registration data, so it can be echoed back in registration/read responses. These carry no
-     * behavioral enforcement on the OP. Format/security validation (and impersonation protection) happens at the
-     * registration boundary; see \SimpleSAML\Module\oidc\Server\Registration\ClientMetadataValidator.
+     * Informational ("store & echo") client metadata that is persisted as-is
+     * into the extra metadata blob when present in registration data, so it
+     * can be echoed back in registration/read responses. These carry no
+     * behavioral enforcement on the OP. Format/security validation
+     * (and impersonation protection) happens at the registration boundary;
+     * see \SimpleSAML\Module\oidc\Server\Registration\ClientMetadataValidator.
      *
      * @var string[]
      */

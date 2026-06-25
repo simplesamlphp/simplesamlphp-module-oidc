@@ -38,4 +38,30 @@ class Http
             default => null,
         };
     }
+
+    /**
+     * Extract a Bearer token from an Authorization header value (RFC 6750,
+     * Section 2.1), or null if no (non-empty) Bearer token is present. The
+     * "Bearer" scheme is matched case-insensitively.
+     *
+     * This operates on the raw header string (rather than a request object) so
+     * it can be used uniformly regardless of the HTTP request abstraction in
+     * use (PSR-7 ServerRequestInterface, Symfony HttpFoundation Request, ...).
+     * Callers pass the header value, e.g. PSR `$request->getHeaderLine('Authorization')`
+     * or Symfony `$request->headers->get('Authorization')`.
+     */
+    public function getBearerToken(?string $authorizationHeaderValue): ?string
+    {
+        if ($authorizationHeaderValue === null) {
+            return null;
+        }
+
+        if (preg_match('/^Bearer\s+(.+)$/i', $authorizationHeaderValue, $matches) !== 1) {
+            return null;
+        }
+
+        $token = trim($matches[1]);
+
+        return $token === '' ? null : $token;
+    }
 }

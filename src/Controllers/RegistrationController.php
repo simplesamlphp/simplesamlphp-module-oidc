@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Controllers;
 
 use League\OAuth2\Server\Exception\OAuthServerException;
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Codebooks\DcrRegistrationAuthEnum;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
@@ -29,8 +26,9 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * OpenID Connect Dynamic Client Registration 1.0 endpoint.
  *
- * Implements the Client Registration Endpoint (Section 3, create) and the Client Configuration Endpoint
- * (Section 4, read). Read requests are authenticated with the Registration Access Token issued at registration.
+ * Implements the Client Registration Endpoint (Section 3, create) and the
+ * Client Configuration Endpoint (Section 4, read). Read requests are
+ * authenticated with the Registration Access Token issued at registration.
  */
 class RegistrationController
 {
@@ -41,7 +39,6 @@ class RegistrationController
         private readonly ClientMetadataValidator $clientMetadataValidator,
         private readonly ClientEntityFactory $clientEntityFactory,
         private readonly ClientRepository $clientRepository,
-        private readonly PsrHttpBridge $psrHttpBridge,
         private readonly ErrorResponder $errorResponder,
         private readonly Helpers $helpers,
         private readonly Routes $routes,
@@ -50,15 +47,25 @@ class RegistrationController
     }
 
     /**
-     * HttpFoundation entry point wired in routes.php.
+     * Entry point wired in routes.php. Dispatches POST (create) and GET (read).
      */
     public function registration(Request $request): Response
     {
         try {
-            $psrRequest = $this->psrHttpBridge->getPsrHttpFactory()->createRequest($request);
-            $psrResponse = $this->handle($psrRequest);
+            if (!$this->moduleConfig->getOidcDcrEnabled()) {
+                $this->logger->error('RegistrationController: registration endpoint is disabled.');
+                return $this->routes->newResponse('', Response::HTTP_NOT_FOUND);
+            }
 
-            return $this->psrHttpBridge->getHttpFoundationFactory()->createResponse($psrResponse);
+            return match (strtoupper($request->getMethod())) {
+                HttpMethodsEnum::POST->value => $this->register($request),
+                HttpMethodsEnum::GET->value => $this->read($request),
+                default => $this->routes->newResponse(
+                    '',
+                    Response::HTTP_METHOD_NOT_ALLOWED,
+                    ['Allow' => HttpMethodsEnum::GET->value . ', ' . HttpMethodsEnum::POST->value],
+                ),
+            };
         } catch (OAuthServerException $exception) {
             return $this->errorResponder->forExceptionJson($exception);
         } catch (\Throwable $exception) {
@@ -73,31 +80,11 @@ class RegistrationController
     }
 
     /**
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
-     * @throws \JsonException
-     */
-    protected function handle(ServerRequestInterface $request): ResponseInterface
-    {
-        if (!$this->moduleConfig->getOidcDcrEnabled()) {
-            return $this->psrHttpBridge->getResponseFactory()->createResponse()->withStatus(404);
-        }
-
-        return match (strtoupper($request->getMethod())) {
-            HttpMethodsEnum::POST->value => $this->register($request),
-            HttpMethodsEnum::GET->value => $this->read($request),
-            default => $this->psrHttpBridge->getResponseFactory()->createResponse()
-                ->withStatus(405)
-                ->withHeader('Allow', HttpMethodsEnum::GET->value . ', ' . HttpMethodsEnum::POST->value),
-        };
-    }
-
-    /**
      * Handle a Client Registration Request (Section 3.1).
      *
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
-     * @throws \JsonException
      */
-    protected function register(ServerRequestInterface $request): ResponseInterface
+    protected function register(Request $request): Response
     {
         $this->guardAccess($request);
 
@@ -106,7 +93,8 @@ class RegistrationController
 
         $client = $this->clientEntityFactory->fromRegistrationData($metadata, RegistrationTypeEnum::Dynamic);
 
-        // Issue a Registration Access Token; only its hash is persisted, the plaintext is returned once.
+        // Issue a Registration Access Token; only its hash is persisted,
+        // the plaintext is returned once.
         $registrationAccessToken = $this->helpers->random()->getIdentifier();
         $client->setRegistrationAccessTokenHash($this->hashToken($registrationAccessToken));
 
@@ -115,20 +103,20 @@ class RegistrationController
         $response = $this->buildClientInformationResponse($client);
         $response[ClaimsEnum::RegistrationAccessToken->value] = $registrationAccessToken;
 
-        return $this->jsonResponse($response, 201);
+        return $this->jsonResponse($response, Response::HTTP_CREATED);
     }
 
     /**
-     * Handle a Client Read Request (Section 4.2) at the Client Configuration Endpoint.
+     * Handle a Client Read Request (Section 4.2) at the Client Configuration
+     * Endpoint.
      *
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
-     * @throws \JsonException
      */
-    protected function read(ServerRequestInterface $request): ResponseInterface
+    protected function read(Request $request): Response
     {
         /** @var mixed $clientId */
-        $clientId = $request->getQueryParams()[ClaimsEnum::ClientId->value] ?? null;
-        $token = $this->extractBearerToken($request);
+        $clientId = $request->query->all()[ClaimsEnum::ClientId->value] ?? null;
+        $token = $this->helpers->http()->getBearerToken($request->headers->get('Authorization'));
 
         if (!is_string($clientId) || $clientId === '' || $token === null) {
             throw OidcServerException::accessDenied('A valid client_id and Registration Access Token are required.');
@@ -137,7 +125,8 @@ class RegistrationController
         $client = $this->clientRepository->findById($clientId);
         $expectedHash = $client?->getRegistrationAccessTokenHash();
 
-        // Per Section 4.4, never reveal whether a client exists: respond 401 for every failure case (no 404).
+        // Per Section 4.4, never reveal whether a client exists: respond 401
+        // for every failure case (not 404).
         if (
             $client === null ||
             $client->getRegistrationType() !== RegistrationTypeEnum::Dynamic ||
@@ -147,7 +136,7 @@ class RegistrationController
             throw OidcServerException::accessDenied('Invalid Registration Access Token.');
         }
 
-        return $this->jsonResponse($this->buildClientInformationResponse($client), 200);
+        return $this->jsonResponse($this->buildClientInformationResponse($client), Response::HTTP_OK);
     }
 
     /**
@@ -155,13 +144,13 @@ class RegistrationController
      *
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
-    protected function guardAccess(ServerRequestInterface $request): void
+    protected function guardAccess(Request $request): void
     {
         if ($this->moduleConfig->getOidcDcrRegistrationAuth() !== DcrRegistrationAuthEnum::InitialAccessToken) {
             return;
         }
 
-        $token = $this->extractBearerToken($request);
+        $token = $this->helpers->http()->getBearerToken($request->headers->get('Authorization'));
         $allowedTokens = $this->moduleConfig->getOidcDcrInitialAccessTokens();
 
         if ($token === null) {
@@ -180,12 +169,11 @@ class RegistrationController
     /**
      * Parse and JSON-decode the request body into a metadata array.
      *
-     * @return array
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
-    protected function parseMetadata(ServerRequestInterface $request): array
+    protected function parseMetadata(Request $request): array
     {
-        $body = (string)$request->getBody();
+        $body = $request->getContent();
 
         try {
             /** @var mixed $decoded */
@@ -202,9 +190,8 @@ class RegistrationController
     }
 
     /**
-     * Build the Client Information Response (Section 3.2 / 4.3) from the persisted client.
-     *
-     * @return array
+     * Build the Client Information Response (Section 3.2 / 4.3) from the
+     * persisted client.
      */
     protected function buildClientInformationResponse(ClientEntityInterface $client): array
     {
@@ -242,19 +229,6 @@ class RegistrationController
         return $response;
     }
 
-    protected function extractBearerToken(ServerRequestInterface $request): ?string
-    {
-        $header = $request->getHeaderLine('Authorization');
-
-        if (preg_match('/^Bearer\s+(.+)$/i', $header, $matches) !== 1) {
-            return null;
-        }
-
-        $token = trim($matches[1]);
-
-        return $token === '' ? null : $token;
-    }
-
     protected function hashToken(string $token): string
     {
         return hash(self::HASH_ALGORITHM, $token);
@@ -262,18 +236,13 @@ class RegistrationController
 
     /**
      * @param array $body
-     * @throws \JsonException
      */
-    protected function jsonResponse(array $body, int $status): ResponseInterface
+    protected function jsonResponse(array $body, int $status): Response
     {
-        $response = $this->psrHttpBridge->getResponseFactory()->createResponse()
-            ->withStatus($status)
-            ->withHeader('Cache-Control', 'no-store')
-            ->withHeader('Pragma', 'no-cache')
-            ->withHeader('Content-Type', 'application/json');
-
-        $response->getBody()->write(json_encode($body, JSON_THROW_ON_ERROR));
-
-        return $response;
+        return $this->routes->newJsonResponse(
+            $body,
+            $status,
+            ['Cache-Control' => 'no-store', 'Pragma' => 'no-cache'],
+        );
     }
 }

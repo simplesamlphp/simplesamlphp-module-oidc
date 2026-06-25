@@ -6,10 +6,6 @@ namespace SimpleSAML\Test\Module\oidc\unit\Controllers;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use Laminas\Diactoros\ResponseFactory;
-use Laminas\Diactoros\ServerRequestFactory;
-use Laminas\Diactoros\StreamFactory;
-use Laminas\Diactoros\UploadedFileFactory;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -28,7 +24,7 @@ use SimpleSAML\Module\oidc\Server\Registration\ClientMetadataValidator;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Routes;
-use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -36,7 +32,7 @@ use Symfony\Component\HttpFoundation\Response;
 #[UsesClass(ClientMetadataValidator::class)]
 #[UsesClass(OidcServerException::class)]
 #[UsesClass(ErrorResponder::class)]
-#[UsesClass(PsrHttpBridge::class)]
+#[UsesClass(Helpers::class)]
 class RegistrationControllerTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
@@ -45,7 +41,6 @@ class RegistrationControllerTest extends TestCase
     protected MockObject $routesMock;
     protected MockObject $loggerMock;
     protected MockObject $clientMock;
-    protected PsrHttpBridge $psrHttpBridge;
     protected ClientMetadataValidator $clientMetadataValidator;
     protected ErrorResponder $errorResponder;
     protected Helpers $helpers;
@@ -59,20 +54,24 @@ class RegistrationControllerTest extends TestCase
 
         $this->clientEntityFactoryMock = $this->createMock(ClientEntityFactory::class);
         $this->clientRepositoryMock = $this->createMock(ClientRepository::class);
+
         $this->routesMock = $this->createMock(Routes::class);
         $this->routesMock->method('getModuleUrl')
             ->willReturn('https://op.example.org/oidc/register?client_id=client123');
+        $this->routesMock->method('newJsonResponse')->willReturnCallback(
+            fn(?array $data = null, int $status = 200, array $headers = [], bool $json = false): JsonResponse =>
+                new JsonResponse($data, $status, $headers, $json),
+        );
+        $this->routesMock->method('newResponse')->willReturnCallback(
+            fn(?string $content = '', int $status = 200, array $headers = []): Response =>
+                new Response((string)$content, $status, $headers),
+        );
+
         $this->loggerMock = $this->createMock(LoggerService::class);
 
-        $this->psrHttpBridge = new PsrHttpBridge(
-            new HttpFoundationFactory(),
-            new ServerRequestFactory(),
-            new ResponseFactory(),
-            new StreamFactory(),
-            new UploadedFileFactory(),
-        );
+        // ErrorResponder::forExceptionJson builds the JSON response itself and does not use the bridge.
+        $this->errorResponder = new ErrorResponder($this->createMock(PsrHttpBridge::class));
         $this->clientMetadataValidator = new ClientMetadataValidator($this->moduleConfigMock);
-        $this->errorResponder = new ErrorResponder($this->psrHttpBridge);
         $this->helpers = new Helpers();
 
         $this->clientMock = $this->createMock(ClientEntityInterface::class);
@@ -95,7 +94,6 @@ class RegistrationControllerTest extends TestCase
             $this->clientMetadataValidator,
             $this->clientEntityFactoryMock,
             $this->clientRepositoryMock,
-            $this->psrHttpBridge,
             $this->errorResponder,
             $this->helpers,
             $this->routesMock,
@@ -152,7 +150,9 @@ class RegistrationControllerTest extends TestCase
         $moduleConfigMock->method('getOidcDcrEnabled')->willReturn(false);
         $this->moduleConfigMock = $moduleConfigMock;
 
-        $response = $this->sut()->registration($this->postRequest('{"redirect_uris":["https://client.example.org/cb"]}'));
+        $response = $this->sut()->registration(
+            $this->postRequest('{"redirect_uris":["https://client.example.org/cb"]}'),
+        );
 
         $this->assertSame(404, $response->getStatusCode());
     }

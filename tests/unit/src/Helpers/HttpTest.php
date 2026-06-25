@@ -84,4 +84,25 @@ class HttpTest extends TestCase
             ),
         );
     }
+
+    public function testCanGetBearerToken(): void
+    {
+        $this->assertSame('abc123', $this->sut()->getBearerToken('Bearer abc123'));
+    }
+
+    public function testGetBearerTokenIsCaseInsensitiveAndTrimsToken(): void
+    {
+        $this->assertSame('abc123', $this->sut()->getBearerToken('bearer   abc123  '));
+    }
+
+    public function testGetBearerTokenReturnsNullWhenMissingOrNotBearer(): void
+    {
+        $this->assertNull($this->sut()->getBearerToken('Basic dXNlcjpwYXNz'));
+        $this->assertNull($this->sut()->getBearerToken(null));
+    }
+
+    public function testGetBearerTokenReturnsNullForEmptyToken(): void
+    {
+        $this->assertNull($this->sut()->getBearerToken('Bearer    '));
+    }
 }
