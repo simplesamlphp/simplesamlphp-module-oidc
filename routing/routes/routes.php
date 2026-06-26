@@ -107,12 +107,17 @@ return function (RoutingConfigurator $routes): void {
         ->controller([JwksController::class, 'jwks']);
 
     // OpenID Connect Dynamic Client Registration.
-    // POST registers a new client (create); GET reads an existing registration
-    // (Client Configuration Endpoint), authenticated with the Registration
-    // Access Token.
+    // POST registers a new client (create). The Client Configuration Endpoint
+    // supports GET (read), PUT (update) and DELETE (delete) of an existing
+    // registration, authenticated with the Registration Access Token.
     $routes->add(RoutesEnum::Registration->name, RoutesEnum::Registration->value)
         ->controller([RegistrationController::class, 'registration'])
-        ->methods([HttpMethodsEnum::GET->value, HttpMethodsEnum::POST->value]);
+        ->methods([
+            HttpMethodsEnum::GET->value,
+            HttpMethodsEnum::POST->value,
+            HttpMethodsEnum::PUT->value,
+            HttpMethodsEnum::DELETE->value,
+        ]);
 
     /*****************************************************************************************************************
      * OAuth 2.0 Authorization Server

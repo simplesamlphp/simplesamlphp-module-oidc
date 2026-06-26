@@ -27,8 +27,10 @@ use Symfony\Component\HttpFoundation\Response;
  * OpenID Connect Dynamic Client Registration 1.0 endpoint.
  *
  * Implements the Client Registration Endpoint (Section 3, create) and the
- * Client Configuration Endpoint (Section 4, read). Read requests are
- * authenticated with the Registration Access Token issued at registration.
+ * Client Configuration Endpoint (RFC 7592). The Client Configuration Endpoint
+ * supports read (GET), update (PUT) and delete (DELETE) of a dynamically
+ * registered client; all three are authenticated with the Registration Access
+ * Token issued at registration.
  */
 class RegistrationController
 {
@@ -47,7 +49,9 @@ class RegistrationController
     }
 
     /**
-     * Entry point wired in routes.php. Dispatches POST (create) and GET (read).
+     * Entry point wired in routes.php. Dispatches POST (create) at the
+     * registration endpoint, and GET (read) / PUT (update) / DELETE (delete) at
+     * the Client Configuration Endpoint.
      */
     public function registration(Request $request): Response
     {
@@ -60,10 +64,17 @@ class RegistrationController
             return match (strtoupper($request->getMethod())) {
                 HttpMethodsEnum::POST->value => $this->register($request),
                 HttpMethodsEnum::GET->value => $this->read($request),
+                HttpMethodsEnum::PUT->value => $this->update($request),
+                HttpMethodsEnum::DELETE->value => $this->delete($request),
                 default => $this->routes->newResponse(
                     '',
                     Response::HTTP_METHOD_NOT_ALLOWED,
-                    ['Allow' => HttpMethodsEnum::GET->value . ', ' . HttpMethodsEnum::POST->value],
+                    ['Allow' => implode(', ', [
+                        HttpMethodsEnum::GET->value,
+                        HttpMethodsEnum::POST->value,
+                        HttpMethodsEnum::PUT->value,
+                        HttpMethodsEnum::DELETE->value,
+                    ])],
                 ),
             };
         } catch (OAuthServerException $exception) {
@@ -117,6 +128,77 @@ class RegistrationController
      */
     protected function read(Request $request): Response
     {
+        $client = $this->authenticateConfigurationRequest($request);
+
+        return $this->jsonResponse($this->buildClientInformationResponse($client), Response::HTTP_OK);
+    }
+
+    /**
+     * Handle a Client Update Request (RFC 7592, Section 2.2) at the Client
+     * Configuration Endpoint. The request fully replaces the client's metadata.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    protected function update(Request $request): Response
+    {
+        $client = $this->authenticateConfigurationRequest($request);
+
+        $metadata = $this->parseMetadata($request);
+
+        // If the body carries client_id / client_secret, they MUST match the
+        // current client (RFC 7592, Section 2.2). The client_secret is then
+        // dropped so it cannot be used to override the stored value.
+        /** @var mixed $bodyClientId */
+        $bodyClientId = $metadata[ClaimsEnum::ClientId->value] ?? null;
+        if ($bodyClientId !== null && $bodyClientId !== $client->getIdentifier()) {
+            throw OidcServerException::invalidClientMetadata('The client_id must match the client being updated.');
+        }
+        /** @var mixed $bodyClientSecret */
+        $bodyClientSecret = $metadata[ClaimsEnum::ClientSecret->value] ?? null;
+        if ($bodyClientSecret !== null && $bodyClientSecret !== $client->getSecret()) {
+            throw OidcServerException::invalidClientMetadata(
+                'The client_secret must match the client being updated.',
+            );
+        }
+        unset($metadata[ClaimsEnum::ClientSecret->value]);
+
+        $metadata = $this->clientMetadataValidator->validate($metadata);
+
+        $updatedClient = $this->clientEntityFactory->fromRegistrationData(
+            $metadata,
+            RegistrationTypeEnum::Dynamic,
+            existingClient: $client,
+        );
+
+        $this->clientRepository->update($updatedClient);
+
+        return $this->jsonResponse($this->buildClientInformationResponse($updatedClient), Response::HTTP_OK);
+    }
+
+    /**
+     * Handle a Client Delete Request (RFC 7592, Section 2.3) at the Client
+     * Configuration Endpoint.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    protected function delete(Request $request): Response
+    {
+        $client = $this->authenticateConfigurationRequest($request);
+
+        $this->clientRepository->delete($client);
+
+        return $this->routes->newResponse('', Response::HTTP_NO_CONTENT);
+    }
+
+    /**
+     * Authenticate a Client Configuration Endpoint request (read / update /
+     * delete) using the client_id query parameter and the Registration Access
+     * Token, returning the resolved client.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    protected function authenticateConfigurationRequest(Request $request): ClientEntityInterface
+    {
         /** @var mixed $clientId */
         $clientId = $request->query->all()[ClaimsEnum::ClientId->value] ?? null;
         $token = $this->helpers->http()->getBearerToken($request->headers->get('Authorization'));
@@ -139,7 +221,7 @@ class RegistrationController
             throw OidcServerException::accessDenied('Invalid Registration Access Token.');
         }
 
-        return $this->jsonResponse($this->buildClientInformationResponse($client), Response::HTTP_OK);
+        return $client;
     }
 
     /**

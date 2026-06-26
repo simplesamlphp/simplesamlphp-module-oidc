@@ -91,6 +91,10 @@ class ClientMetadataValidator
             if (!is_string($redirectUri) || !$this->hasScheme($redirectUri)) {
                 throw OidcServerException::invalidRedirectUri('One or more redirect_uris values are invalid.');
             }
+            // OIDC Core 3.1.2.1: the redirect_uri MUST NOT include a fragment component.
+            if ($this->hasFragment($redirectUri)) {
+                throw OidcServerException::invalidRedirectUri('A redirect_uri must not contain a fragment component.');
+            }
             $validated[] = $redirectUri;
         }
 
@@ -211,6 +215,16 @@ class ClientMetadataValidator
         $scheme = parse_url($uri, PHP_URL_SCHEME);
 
         return is_string($scheme) && $scheme !== '';
+    }
+
+    /**
+     * Whether the URI has a fragment component (the part after '#').
+     */
+    private function hasFragment(string $uri): bool
+    {
+        $fragment = parse_url($uri, PHP_URL_FRAGMENT);
+
+        return is_string($fragment) && $fragment !== '';
     }
 
     /**

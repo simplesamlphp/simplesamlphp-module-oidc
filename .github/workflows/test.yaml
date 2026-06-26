@@ -266,6 +266,17 @@ jobs:
       - name: Run form_post implicit tests
         run: |
           ./conformance-suite/scripts/run-test-plan.py  "oidcc-formpost-implicit-certification-test-plan[server_metadata=discovery][client_registration=static_client]" ./main/conformance-tests/conformance-implicit-ci.json
+      - name: Run Dynamic registration conformance tests
+        # Non-blocking: the dynamic plan also re-exercises several OP-wide
+        # behaviours (signed UserInfo, key rotation, request_uri/jwks_uri fetched
+        # over the suite's self-signed cert, etc.) that are not Dynamic Client
+        # Registration and are not all passing in this docker setup. The known
+        # non-passing tests, and why, are inventoried in
+        # conformance-tests/dynamic-skips.json and docs/5-oidc-conformance.md.
+        # The DCR functionality itself passes; review the step log for details.
+        continue-on-error: true
+        run: |
+          ./conformance-suite/scripts/run-test-plan.py  --expected-failures-file ./main/conformance-tests/dynamic-warnings.json --expected-skips-file ./main/conformance-tests/dynamic-skips.json "oidcc-dynamic-certification-test-plan[response_type=code]" ./main/conformance-tests/conformance-dynamic-ci.json
       - name: Stop SSP
         working-directory: ./main
         run: |

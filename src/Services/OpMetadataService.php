@@ -95,6 +95,7 @@ class OpMetadataService
 
         $grantTypesSupported = [
             GrantTypesEnum::AuthorizationCode->value,
+            GrantTypesEnum::Implicit->value,
             GrantTypesEnum::RefreshToken->value,
         ];
         if ($this->moduleConfig->getVciEnabled()) {
