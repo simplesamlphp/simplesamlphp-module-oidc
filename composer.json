@@ -35,7 +35,7 @@
         "spomky-labs/base64url": "^2.0",
         "symfony/expression-language": "^7.4",
         "symfony/psr-http-message-bridge": "^7.4",
-        "web-token/jwt-framework": "^3",
+        "web-token/jwt-framework": "^3.4.10",
         "symfony/cache": "^7.4",
         "psr/simple-cache": "^3"
     },
