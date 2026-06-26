@@ -67,6 +67,9 @@ class RegistrationController
                 ),
             };
         } catch (OAuthServerException $exception) {
+            $this->logger->error(
+                'RegistrationController: error processing registration request: ' . $exception->getMessage(),
+            );
             return $this->errorResponder->forExceptionJson($exception);
         } catch (\Throwable $exception) {
             $this->logger->error(
@@ -93,7 +96,7 @@ class RegistrationController
 
         $client = $this->clientEntityFactory->fromRegistrationData($metadata, RegistrationTypeEnum::Dynamic);
 
-        // Issue a Registration Access Token; only its hash is persisted,
+        // Issue a Registration Access Token (RAT); only its hash is persisted,
         // the plaintext is returned once.
         $registrationAccessToken = $this->helpers->random()->getIdentifier();
         $client->setRegistrationAccessTokenHash($this->hashToken($registrationAccessToken));

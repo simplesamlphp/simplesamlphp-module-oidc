@@ -231,6 +231,7 @@ class ClientEntityTest extends TestCase
                 'require_signed_request_object' => false,
                 'request_uris' => [],
                 'authproc' => [],
+                'registration_access_token' => null,
             ],
         );
     }

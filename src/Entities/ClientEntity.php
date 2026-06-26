@@ -266,6 +266,7 @@ class ClientEntity implements ClientEntityInterface
             ClaimsEnum::RequireSignedRequestObject->value => $this->getRequireSignedRequestObject(),
             ClaimsEnum::RequestUris->value => $this->getRequestUris(),
             self::KEY_AUTH_PROC_FILTERS => $this->getAuthProcFilters(),
+            self::KEY_REGISTRATION_ACCESS_TOKEN => $this->registrationAccessToken,
         ];
     }
 
