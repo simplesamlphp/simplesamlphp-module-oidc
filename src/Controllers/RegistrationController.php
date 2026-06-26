@@ -52,7 +52,7 @@ class RegistrationController
     public function registration(Request $request): Response
     {
         try {
-            if (!$this->moduleConfig->getOidcDcrEnabled()) {
+            if (!$this->moduleConfig->getDcrEnabled()) {
                 $this->logger->error('RegistrationController: registration endpoint is disabled.');
                 return $this->routes->newResponse('', Response::HTTP_NOT_FOUND);
             }
@@ -146,12 +146,12 @@ class RegistrationController
      */
     protected function guardAccess(Request $request): void
     {
-        if ($this->moduleConfig->getOidcDcrRegistrationAuth() !== DcrRegistrationAuthEnum::InitialAccessToken) {
+        if ($this->moduleConfig->getDcrRegistrationAuth() !== DcrRegistrationAuthEnum::InitialAccessToken) {
             return;
         }
 
         $token = $this->helpers->http()->getBearerToken($request->headers->get('Authorization'));
-        $allowedTokens = $this->moduleConfig->getOidcDcrInitialAccessTokens();
+        $allowedTokens = $this->moduleConfig->getDcrInitialAccessTokens();
 
         if ($token === null) {
             throw OidcServerException::accessDenied('A valid Initial Access Token is required.');
@@ -234,9 +234,6 @@ class RegistrationController
         return hash(self::HASH_ALGORITHM, $token);
     }
 
-    /**
-     * @param array $body
-     */
     protected function jsonResponse(array $body, int $status): Response
     {
         return $this->routes->newJsonResponse(

@@ -377,13 +377,13 @@ The feature is **disabled by default**. It is configured through the following
 options in `config/module_oidc.php` (see the inline comments there for the full
 details and defaults):
 
-- `OPTION_OIDC_DCR_ENABLED` — master switch for the feature.
-- `OPTION_OIDC_DCR_REGISTRATION_AUTH` — access-control mode: `open` registration
+- `OPTION_DCR_ENABLED` — master switch for the feature.
+- `OPTION_DCR_REGISTRATION_AUTH` — access-control mode: `open` registration
   (the default) or `initial_access_token` (require a bearer Initial Access
   Token).
-- `OPTION_OIDC_DCR_INITIAL_ACCESS_TOKENS` — the accepted Initial Access Tokens,
+- `OPTION_DCR_INITIAL_ACCESS_TOKENS` — the accepted Initial Access Tokens,
   consulted only in `initial_access_token` mode.
-- `OPTION_OIDC_DCR_IMPERSONATION_PROTECTION_ENABLED` — when on (the default),
+- `OPTION_DCR_IMPERSONATION_PROTECTION_ENABLED` — when on (the default),
   the host of `logo_uri` / `policy_uri` / `tos_uri` must match the host of one of
   the registered `redirect_uris` (spec Section 9.1).
 

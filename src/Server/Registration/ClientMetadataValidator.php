@@ -61,7 +61,7 @@ class ClientMetadataValidator
         $this->validateContacts($metadata);
         $this->validateApplicationType($metadata);
 
-        if ($this->moduleConfig->getOidcDcrImpersonationProtectionEnabled()) {
+        if ($this->moduleConfig->getDcrImpersonationProtectionEnabled()) {
             $this->enforceImpersonationProtection($metadata, $redirectUris);
         }
 

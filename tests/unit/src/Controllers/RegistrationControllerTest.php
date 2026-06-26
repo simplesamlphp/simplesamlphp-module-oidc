@@ -48,9 +48,9 @@ class RegistrationControllerTest extends TestCase
     protected function setUp(): void
     {
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
-        $this->moduleConfigMock->method('getOidcDcrEnabled')->willReturn(true);
-        $this->moduleConfigMock->method('getOidcDcrRegistrationAuth')->willReturn(DcrRegistrationAuthEnum::Open);
-        $this->moduleConfigMock->method('getOidcDcrImpersonationProtectionEnabled')->willReturn(true);
+        $this->moduleConfigMock->method('getDcrEnabled')->willReturn(true);
+        $this->moduleConfigMock->method('getDcrRegistrationAuth')->willReturn(DcrRegistrationAuthEnum::Open);
+        $this->moduleConfigMock->method('getDcrImpersonationProtectionEnabled')->willReturn(true);
 
         $this->clientEntityFactoryMock = $this->createMock(ClientEntityFactory::class);
         $this->clientRepositoryMock = $this->createMock(ClientRepository::class);
@@ -147,7 +147,7 @@ class RegistrationControllerTest extends TestCase
     public function testDisabledFeatureReturns404(): void
     {
         $moduleConfigMock = $this->createMock(ModuleConfig::class);
-        $moduleConfigMock->method('getOidcDcrEnabled')->willReturn(false);
+        $moduleConfigMock->method('getDcrEnabled')->willReturn(false);
         $this->moduleConfigMock = $moduleConfigMock;
 
         $response = $this->sut()->registration(
@@ -176,10 +176,10 @@ class RegistrationControllerTest extends TestCase
     public function testInitialAccessTokenModeRejectsMissingToken(): void
     {
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
-        $this->moduleConfigMock->method('getOidcDcrEnabled')->willReturn(true);
-        $this->moduleConfigMock->method('getOidcDcrRegistrationAuth')
+        $this->moduleConfigMock->method('getDcrEnabled')->willReturn(true);
+        $this->moduleConfigMock->method('getDcrRegistrationAuth')
             ->willReturn(DcrRegistrationAuthEnum::InitialAccessToken);
-        $this->moduleConfigMock->method('getOidcDcrInitialAccessTokens')->willReturn(['secret-iat']);
+        $this->moduleConfigMock->method('getDcrInitialAccessTokens')->willReturn(['secret-iat']);
 
         $response = $this->sut()->registration(
             $this->postRequest('{"redirect_uris":["https://client.example.org/cb"]}'),

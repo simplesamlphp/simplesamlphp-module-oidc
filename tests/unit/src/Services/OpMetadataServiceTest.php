@@ -164,7 +164,7 @@ class OpMetadataServiceTest extends TestCase
 
     public function testAdvertisesRegistrationEndpointWhenDcrEnabled(): void
     {
-        $this->moduleConfigMock->method('getOidcDcrEnabled')->willReturn(true);
+        $this->moduleConfigMock->method('getDcrEnabled')->willReturn(true);
 
         $metadata = $this->sut()->getMetadata();
 
@@ -176,7 +176,7 @@ class OpMetadataServiceTest extends TestCase
 
     public function testDoesNotAdvertiseRegistrationEndpointWhenDcrDisabled(): void
     {
-        $this->moduleConfigMock->method('getOidcDcrEnabled')->willReturn(false);
+        $this->moduleConfigMock->method('getDcrEnabled')->willReturn(false);
 
         $this->assertArrayNotHasKey(
             ClaimsEnum::RegistrationEndpoint->value,

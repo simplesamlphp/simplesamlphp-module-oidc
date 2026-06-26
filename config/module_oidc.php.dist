@@ -598,7 +598,7 @@ $config = [
      * Note that dynamically registered clients are stored like any other client
      * and are visible / manageable in the admin UI.
      */
-    ModuleConfig::OPTION_OIDC_DCR_ENABLED => false,
+    ModuleConfig::OPTION_DCR_ENABLED => false,
 
     /**
      * Access-control mode for the registration (create) endpoint. Only relevant
@@ -611,15 +611,15 @@ $config = [
      * - DcrRegistrationAuthEnum::InitialAccessToken: callers must present a
      *   valid Initial Access Token (provisioned out-of-band) as an HTTP Bearer
      *   token to register. The accepted tokens are configured using
-     *   the OPTION_OIDC_DCR_INITIAL_ACCESS_TOKENS option below.
+     *   the OPTION_DCR_INITIAL_ACCESS_TOKENS option below.
      */
-    ModuleConfig::OPTION_OIDC_DCR_REGISTRATION_AUTH =>
+    ModuleConfig::OPTION_DCR_REGISTRATION_AUTH =>
         \SimpleSAML\Module\oidc\Codebooks\DcrRegistrationAuthEnum::Open->value,
 
     /**
      * Allowlist of Initial Access Tokens (opaque, randomly generated strings)
      * accepted by the registration endpoint. This option is only consulted when
-     * the access mode (OPTION_OIDC_DCR_REGISTRATION_AUTH) is set to
+     * the access mode (OPTION_DCR_REGISTRATION_AUTH) is set to
      * DcrRegistrationAuthEnum::InitialAccessToken; in 'open' mode it is ignored.
      *
      * A registration request must then carry one of these tokens as an HTTP
@@ -627,7 +627,7 @@ $config = [
      *
      * Format: string[] (array of strings)
      */
-    ModuleConfig::OPTION_OIDC_DCR_INITIAL_ACCESS_TOKENS => [
+    ModuleConfig::OPTION_DCR_INITIAL_ACCESS_TOKENS => [
 //        'a-long-random-secret-token',
     ],
 
@@ -647,7 +647,7 @@ $config = [
      * example, on a shared CDN or marketing domain). Note that the client_uri
      * (the client home page) is intentionally NOT subject to this check.
      */
-    ModuleConfig::OPTION_OIDC_DCR_IMPERSONATION_PROTECTION_ENABLED => true,
+    ModuleConfig::OPTION_DCR_IMPERSONATION_PROTECTION_ENABLED => true,
 
     /***************************************************************************
      * (optional) OpenID Federation-related options. If these are not set,

@@ -62,7 +62,7 @@ class OpMetadataService
         $this->metadata[ClaimsEnum::EndSessionEndpoint->value] =
         $this->routes->getModuleUrl(RoutesEnum::EndSession->value);
         $this->metadata[ClaimsEnum::JwksUri->value] = $this->routes->getModuleUrl(RoutesEnum::Jwks->value);
-        if ($this->moduleConfig->getOidcDcrEnabled()) {
+        if ($this->moduleConfig->getDcrEnabled()) {
             $this->metadata[ClaimsEnum::RegistrationEndpoint->value] =
             $this->routes->getModuleUrl(RoutesEnum::Registration->value);
         }

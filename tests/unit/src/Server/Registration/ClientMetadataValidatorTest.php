@@ -20,7 +20,7 @@ class ClientMetadataValidatorTest extends TestCase
     {
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         // Default: impersonation protection on.
-        $this->moduleConfigMock->method('getOidcDcrImpersonationProtectionEnabled')->willReturn(true);
+        $this->moduleConfigMock->method('getDcrImpersonationProtectionEnabled')->willReturn(true);
     }
 
     protected function sut(): ClientMetadataValidator
@@ -131,7 +131,7 @@ class ClientMetadataValidatorTest extends TestCase
     public function testImpersonationProtectionCanBeDisabled(): void
     {
         $moduleConfigMock = $this->createMock(ModuleConfig::class);
-        $moduleConfigMock->method('getOidcDcrImpersonationProtectionEnabled')->willReturn(false);
+        $moduleConfigMock->method('getDcrImpersonationProtectionEnabled')->willReturn(false);
 
         $metadata = [
             'redirect_uris' => ['https://client.example.org/cb'],

@@ -127,16 +127,11 @@ class ModuleConfig
     final public const string OPTION_TIMESTAMP_VALIDATION_LEEWAY = 'timestamp_validation_leeway';
     final public const string OPTION_VCI_SIGNATURE_KEY_PAIRS = 'vci_signature_key_pairs';
     final public const string OPTION_VCI_CREDENTIAL_JSON_LD_CONTEXT = 'vci_credential_json_ld_context';
-
-    /*****************************************************************************************************************
-     * OpenID Connect Dynamic Client Registration related config.
-     ****************************************************************************************************************/
-    final public const string OPTION_OIDC_DCR_ENABLED = 'oidc_dcr_enabled';
-    final public const string OPTION_OIDC_DCR_REGISTRATION_AUTH = 'oidc_dcr_registration_auth';
-    final public const string OPTION_OIDC_DCR_INITIAL_ACCESS_TOKENS = 'oidc_dcr_initial_access_tokens';
-    final public const string OPTION_OIDC_DCR_IMPERSONATION_PROTECTION_ENABLED =
-    'oidc_dcr_impersonation_protection_enabled';
-
+    final public const string OPTION_DCR_ENABLED = 'dcr_enabled';
+    final public const string OPTION_DCR_REGISTRATION_AUTH = 'dcr_registration_auth';
+    final public const string OPTION_DCR_INITIAL_ACCESS_TOKENS = 'dcr_initial_access_tokens';
+    final public const string OPTION_DCR_IMPERSONATION_PROTECTION_ENABLED =
+    'dcr_impersonation_protection_enabled';
     final public const string OPTION_PAR_REQUEST_URI_TTL = 'par_request_uri_ttl';
     final public const string OPTION_REQUIRE_PUSHED_AUTHORIZATION_REQUESTS = 'require_pushed_authorization_requests';
     final public const string OPTION_REQUIRE_SIGNED_REQUEST_OBJECT = 'require_signed_request_object';
@@ -672,7 +667,7 @@ class ModuleConfig
     }
 
     /**
-     * Get cache duration for client entities (user data), with given default
+     * Get cache duration for client entities (user data), with the given default
      *
      * @throws \Exception
      */
@@ -989,38 +984,41 @@ class ModuleConfig
      ****************************************************************************************************************/
 
     /**
-     * Master switch for the OIDC Dynamic Client Registration capability. When disabled (default), the registration
-     * and client-configuration endpoints are not served and `registration_endpoint` is not advertised in OP
+     * Master switch for the OIDC Dynamic Client Registration capability. When
+     * disabled (default), the registration and client-configuration endpoints
+     * are not served, and `registration_endpoint` is not advertised in OP
      * metadata.
      */
-    public function getOidcDcrEnabled(): bool
+    public function getDcrEnabled(): bool
     {
-        return $this->config()->getOptionalBoolean(self::OPTION_OIDC_DCR_ENABLED, false);
+        return $this->config()->getOptionalBoolean(self::OPTION_DCR_ENABLED, false);
     }
 
     /**
-     * Access-control mode for the registration endpoint: open registration (default) or gated behind an Initial
-     * Access Token.
+     * Access-control mode for the registration endpoint: open registration
+     * (default) or gated behind an Initial Access Token.
      */
-    public function getOidcDcrRegistrationAuth(): DcrRegistrationAuthEnum
+    public function getDcrRegistrationAuth(): DcrRegistrationAuthEnum
     {
         return DcrRegistrationAuthEnum::from(
             $this->config()->getOptionalString(
-                self::OPTION_OIDC_DCR_REGISTRATION_AUTH,
+                self::OPTION_DCR_REGISTRATION_AUTH,
                 DcrRegistrationAuthEnum::Open->value,
-            ) ?? DcrRegistrationAuthEnum::Open->value,
+            ),
         );
     }
 
     /**
-     * Static allow-list of opaque Initial Access Tokens accepted by the registration endpoint when the access mode
-     * is DcrRegistrationAuthEnum::InitialAccessToken. Issuance is out-of-band (per spec).
+     * Static allowlist of opaque Initial Access Tokens accepted by the
+     * registration endpoint when the access mode is
+     * DcrRegistrationAuthEnum::InitialAccessToken. Issuance is out-of-band
+     * (per spec).
      *
      * @return string[]
      */
-    public function getOidcDcrInitialAccessTokens(): array
+    public function getDcrInitialAccessTokens(): array
     {
-        $tokens = $this->config()->getOptionalArray(self::OPTION_OIDC_DCR_INITIAL_ACCESS_TOKENS, []);
+        $tokens = $this->config()->getOptionalArray(self::OPTION_DCR_INITIAL_ACCESS_TOKENS, []);
 
         $stringTokens = [];
         /** @var mixed $token */
@@ -1034,13 +1032,14 @@ class ModuleConfig
     }
 
     /**
-     * Whether impersonation protection (OIDC Dynamic Client Registration 1.0, Section 9.1) is enforced. When on
-     * (default), the host of `logo_uri`, `policy_uri` and `tos_uri` must match the host of one of the registered
+     * Whether impersonation protection (OIDC Dynamic Client Registration 1.0,
+     * Section 9.1) is enforced. When on (default), the host of `logo_uri`,
+     * `policy_uri` and `tos_uri` must match the host of one of the registered
      * `redirect_uris`, otherwise registration is rejected.
      */
-    public function getOidcDcrImpersonationProtectionEnabled(): bool
+    public function getDcrImpersonationProtectionEnabled(): bool
     {
-        return $this->config()->getOptionalBoolean(self::OPTION_OIDC_DCR_IMPERSONATION_PROTECTION_ENABLED, true);
+        return $this->config()->getOptionalBoolean(self::OPTION_DCR_IMPERSONATION_PROTECTION_ENABLED, true);
     }
 
 
