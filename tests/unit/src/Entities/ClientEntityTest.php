@@ -230,6 +230,13 @@ class ClientEntityTest extends TestCase
                 'require_pushed_authorization_requests' => false,
                 'require_signed_request_object' => false,
                 'request_uris' => [],
+                'grant_types' => [
+                    'authorization_code',
+                ],
+                'response_types' => [
+                    'code',
+                ],
+                'token_endpoint_auth_method' => 'none',
                 'authproc' => [],
                 'registration_access_token' => null,
             ],

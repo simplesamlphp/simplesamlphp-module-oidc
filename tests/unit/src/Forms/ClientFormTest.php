@@ -225,6 +225,30 @@ class ClientFormTest extends TestCase
         $this->sut()->setValues([ClaimsEnum::IdTokenSignedResponseAlg->value => 'HS256']);
     }
 
+    public function testGrantTypesResponseTypesAndAuthMethodRoundTrip(): void
+    {
+        $sut = $this->sut();
+        $sut->setValues([
+            ClaimsEnum::GrantTypes->value => ['authorization_code', 'refresh_token'],
+            ClaimsEnum::ResponseTypes->value => ['code'],
+            ClaimsEnum::TokenEndpointAuthMethod->value => 'private_key_jwt',
+        ]);
+
+        $values = $sut->getValues();
+        $this->assertSame(['authorization_code', 'refresh_token'], $values[ClaimsEnum::GrantTypes->value]);
+        $this->assertSame(['code'], $values[ClaimsEnum::ResponseTypes->value]);
+        $this->assertSame('private_key_jwt', $values[ClaimsEnum::TokenEndpointAuthMethod->value]);
+    }
+
+    public function testEmptyTokenEndpointAuthMethodNormalizesToNull(): void
+    {
+        $values = $this->sut()->getValues();
+
+        $this->assertNull($values[ClaimsEnum::TokenEndpointAuthMethod->value]);
+        $this->assertSame([], $values[ClaimsEnum::GrantTypes->value]);
+        $this->assertSame([], $values[ClaimsEnum::ResponseTypes->value]);
+    }
+
     public function testAcceptsValidAuthProcFilters(): void
     {
         $clientForm = $this->sut();

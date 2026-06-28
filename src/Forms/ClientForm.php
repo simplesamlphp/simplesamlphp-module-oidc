@@ -25,6 +25,9 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
+use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
+use SimpleSAML\OpenID\Codebooks\ResponseTypesEnum;
+use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
 use Traversable;
 
 /**
@@ -385,6 +388,26 @@ class ClientForm extends Form
             array_keys($this->getAllowedResponseModesValues()),
         );
 
+        /** @var mixed $grantTypes */
+        $grantTypes = $values[ClaimsEnum::GrantTypes->value] ?? null;
+        $grantTypes = is_array($grantTypes) ? $grantTypes : [];
+        $values[ClaimsEnum::GrantTypes->value] = array_values(
+            array_intersect($grantTypes, array_keys($this->getSupportedGrantTypes())),
+        );
+
+        /** @var mixed $responseTypes */
+        $responseTypes = $values[ClaimsEnum::ResponseTypes->value] ?? null;
+        $responseTypes = is_array($responseTypes) ? $responseTypes : [];
+        $values[ClaimsEnum::ResponseTypes->value] = array_values(
+            array_intersect($responseTypes, array_keys($this->getSupportedResponseTypes())),
+        );
+
+        /** @var mixed $tokenEndpointAuthMethod */
+        $tokenEndpointAuthMethod = $values[ClaimsEnum::TokenEndpointAuthMethod->value] ?? '';
+        $tokenEndpointAuthMethod = is_string($tokenEndpointAuthMethod) ? trim($tokenEndpointAuthMethod) : '';
+        $values[ClaimsEnum::TokenEndpointAuthMethod->value] = $tokenEndpointAuthMethod === '' ?
+        null : $tokenEndpointAuthMethod;
+
         $authProcFilters = trim((string)($values[ClientEntity::KEY_AUTH_PROC_FILTERS] ?? ''));
         try {
             /** @psalm-suppress MixedAssignment */
@@ -475,6 +498,28 @@ class ClientForm extends Form
         $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] = is_array(
             $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES],
         ) ? $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] : [];
+
+        /** @var mixed $grantTypes */
+        $grantTypes = $values[ClaimsEnum::GrantTypes->value] ?? null;
+        $grantTypes = is_array($grantTypes) ? $grantTypes : [];
+        $values[ClaimsEnum::GrantTypes->value] = array_values(
+            array_intersect($grantTypes, array_keys($this->getSupportedGrantTypes())),
+        );
+
+        /** @var mixed $responseTypes */
+        $responseTypes = $values[ClaimsEnum::ResponseTypes->value] ?? null;
+        $responseTypes = is_array($responseTypes) ? $responseTypes : [];
+        $values[ClaimsEnum::ResponseTypes->value] = array_values(
+            array_intersect($responseTypes, array_keys($this->getSupportedResponseTypes())),
+        );
+
+        /** @var mixed $tokenEndpointAuthMethod */
+        $tokenEndpointAuthMethod = $values[ClaimsEnum::TokenEndpointAuthMethod->value] ?? null;
+        $values[ClaimsEnum::TokenEndpointAuthMethod->value] = (is_string($tokenEndpointAuthMethod) &&
+            array_key_exists(
+                $tokenEndpointAuthMethod,
+                $this->getSupportedTokenEndpointAuthMethods(),
+            )) ? $tokenEndpointAuthMethod : null;
 
         /** @var mixed $authProcFilters */
         $authProcFilters = $values[ClientEntity::KEY_AUTH_PROC_FILTERS] ?? null;
@@ -588,6 +633,27 @@ class ClientForm extends Form
         $this->addTextArea(ClaimsEnum::RequestUris->value, 'Request URIs (OIDC Core / JAR, one per line)', null, 5)
             ->setHtmlAttribute('class', 'full-width');
 
+        $this->addMultiSelect(
+            ClaimsEnum::GrantTypes->value,
+            Translate::noop('Grant Types'),
+            $this->getSupportedGrantTypes(),
+            3,
+        )->setHtmlAttribute('class', 'full-width');
+
+        $this->addMultiSelect(
+            ClaimsEnum::ResponseTypes->value,
+            Translate::noop('Response Types'),
+            $this->getSupportedResponseTypes(),
+            3,
+        )->setHtmlAttribute('class', 'full-width');
+
+        $this->addSelect(
+            ClaimsEnum::TokenEndpointAuthMethod->value,
+            Translate::noop('Token Endpoint Authentication Method'),
+        )->setHtmlAttribute('class', 'full-width')
+            ->setItems($this->getSupportedTokenEndpointAuthMethods(), false)
+            ->setPrompt(Translate::noop('-'));
+
         $this->addTextArea(
             ClientEntity::KEY_AUTH_PROC_FILTERS,
             Translate::noop('Authentication Processing Filters'),
@@ -637,6 +703,57 @@ class ClientForm extends Form
     protected function getAllowedResponseModesValues(): array
     {
         $supported = $this->moduleConfig->getSupportedResponseModes();
+        return array_combine($supported, $supported);
+    }
+
+    /**
+     * Grant types the client may be registered to use (value => label), matching the OP's
+     * grant_types_supported.
+     *
+     * @return array<string,string>
+     */
+    protected function getSupportedGrantTypes(): array
+    {
+        $supported = [
+            GrantTypesEnum::AuthorizationCode->value,
+            GrantTypesEnum::Implicit->value,
+            GrantTypesEnum::RefreshToken->value,
+        ];
+
+        return array_combine($supported, $supported);
+    }
+
+    /**
+     * Response types the client may be registered to use (value => label), matching the OP's
+     * response_types_supported.
+     *
+     * @return array<string,string>
+     */
+    protected function getSupportedResponseTypes(): array
+    {
+        $supported = [
+            ResponseTypesEnum::Code->value,
+            ResponseTypesEnum::IdToken->value,
+            ResponseTypesEnum::IdTokenToken->value,
+        ];
+
+        return array_combine($supported, $supported);
+    }
+
+    /**
+     * Token endpoint authentication methods the client may be registered to use (value => label).
+     *
+     * @return array<string,string>
+     */
+    protected function getSupportedTokenEndpointAuthMethods(): array
+    {
+        $supported = [
+            TokenEndpointAuthMethodsEnum::ClientSecretBasic->value,
+            TokenEndpointAuthMethodsEnum::ClientSecretPost->value,
+            TokenEndpointAuthMethodsEnum::PrivateKeyJwt->value,
+            TokenEndpointAuthMethodsEnum::None->value,
+        ];
+
         return array_combine($supported, $supported);
     }
 

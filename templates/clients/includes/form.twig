@@ -168,6 +168,33 @@
             <span class="pure-form-message red-text">{{ form.request_uris.getError }}</span>
         {% endif %}
 
+        <label for="frm-grant_types">{{ 'Grant Types'|trans }}</label>
+        {{ form.grant_types.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}Grant types this Client is allowed to use. If none are selected, the Client is not restricted by grant type. Note that the refresh_token grant is allowed whenever the Client was granted the offline_access scope, regardless of this setting.{% endtrans %}
+        </span>
+        {% if form.grant_types.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.grant_types.getError }}</span>
+        {% endif %}
+
+        <label for="frm-response_types">{{ 'Response Types'|trans }}</label>
+        {{ form.response_types.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}Response types this Client is allowed to use at the authorization endpoint. If none are selected, the Client is not restricted by response type.{% endtrans %}
+        </span>
+        {% if form.response_types.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.response_types.getError }}</span>
+        {% endif %}
+
+        <label for="frm-token_endpoint_auth_method">{{ 'Token Endpoint Authentication Method'|trans }}</label>
+        {{ form.token_endpoint_auth_method.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}Client authentication method the Client must use at the token endpoint. If not set, the method is not enforced.{% endtrans %}
+        </span>
+        {% if form.token_endpoint_auth_method.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.token_endpoint_auth_method.getError }}</span>
+        {% endif %}
+
         <label for="">{{ 'Require Pushed Authorization Requests (PAR)'|trans }}</label>
         <label for="radio-option-require_pushed_authorization_requests-yes" class="pure-radio">
             <input type="radio"

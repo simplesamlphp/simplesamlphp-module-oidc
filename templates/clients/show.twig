@@ -243,6 +243,38 @@
             </tr>
             <tr>
                 <td class="client-col col-property">
+                    {{ 'Grant Types'|trans }}
+                </td>
+                <td>
+                    <ul class="disc">
+                        {% for grantType in client.grantTypes %}
+                            <li>{{ grantType }}</li>
+                        {% endfor %}
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Response Types'|trans }}
+                </td>
+                <td>
+                    <ul class="disc">
+                        {% for responseType in client.responseTypes %}
+                            <li>{{ responseType }}</li>
+                        {% endfor %}
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Token Endpoint Authentication Method'|trans }}
+                </td>
+                <td>
+                    {{ client.tokenEndpointAuthMethod|default('N/A'|trans) }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
                     {{ 'Require Pushed Authorization Requests (PAR)'|trans }}
                 </td>
                 <td>

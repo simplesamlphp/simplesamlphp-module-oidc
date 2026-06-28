@@ -80,9 +80,10 @@ and will be exposed as editable fields in the admin UI.
 ## Implementation order
 
 1. **`grant_types`, `response_types`, `token_endpoint_auth_method`** — promoted
-   from "inferred only" to persisted + echoed + enforced. **Done** (enforcement is
-   presence-based; conformance plan stays green). Remaining for this item: surface
-   these (and the other persisted DCR metadata) as editable fields in the admin UI.
+   from "inferred only" to persisted + echoed + enforced (presence-based), and
+   exposed as editable fields in the admin UI (multi-selects for grant/response
+   types, a select for the auth method), stored in `extra_metadata`. **Done**
+   (conformance plan stays green).
 2. **Reject** the unsupported security-relevant fields (signed/encrypted
    UserInfo, response/request-object encryption, `subject_type` non-`public`,
    `sector_identifier_uri`, front-channel logout) instead of silently ignoring.

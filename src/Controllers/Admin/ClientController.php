@@ -370,6 +370,19 @@ class ClientController
         $data[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] : [];
         $extraMetadata[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] = $allowedResponseModes;
 
+        /** @var mixed $grantTypes */
+        $grantTypes = $data[ClaimsEnum::GrantTypes->value] ?? null;
+        $extraMetadata[ClaimsEnum::GrantTypes->value] = is_array($grantTypes) ?
+        $grantTypes : [];
+        /** @var mixed $responseTypes */
+        $responseTypes = $data[ClaimsEnum::ResponseTypes->value] ?? null;
+        $extraMetadata[ClaimsEnum::ResponseTypes->value] = is_array($responseTypes) ?
+        $responseTypes : [];
+        /** @var mixed $tokenEndpointAuthMethod */
+        $tokenEndpointAuthMethod = $data[ClaimsEnum::TokenEndpointAuthMethod->value] ?? null;
+        $extraMetadata[ClaimsEnum::TokenEndpointAuthMethod->value] = is_string($tokenEndpointAuthMethod) ?
+        $tokenEndpointAuthMethod : null;
+
         // Per-client authproc filters. These are administrator-only (settable
         // here, via the admin UI), and are deliberately never accepted from
         // client-supplied registration metadata. See
