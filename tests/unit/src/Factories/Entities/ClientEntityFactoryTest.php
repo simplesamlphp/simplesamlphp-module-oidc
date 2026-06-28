@@ -253,6 +253,69 @@ class ClientEntityFactoryTest extends TestCase
     }
 
     /**
+     * A Dynamic registration that omits grant_types / response_types / token_endpoint_auth_method gets the
+     * OIDC DCR 1.0 defaults persisted, so they can be returned in the registration response and enforced.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataAppliesDefaultGrantResponseAndAuthMethodForDynamic(): void
+    {
+        $client = $this->sut()->fromRegistrationData(
+            [ClaimsEnum::RedirectUris->value => ['https://example.org/cb']],
+            RegistrationTypeEnum::Dynamic,
+        );
+
+        $this->assertSame(['authorization_code'], $client->getGrantTypes());
+        $this->assertSame(['code'], $client->getResponseTypes());
+        $this->assertSame('client_secret_basic', $client->getTokenEndpointAuthMethod());
+    }
+
+    /**
+     * Explicit grant_types / response_types / token_endpoint_auth_method on a Dynamic registration are persisted
+     * as-is.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataPersistsExplicitGrantResponseAndAuthMethod(): void
+    {
+        $client = $this->sut()->fromRegistrationData(
+            [
+                ClaimsEnum::RedirectUris->value => ['https://example.org/cb'],
+                ClaimsEnum::GrantTypes->value => ['authorization_code', 'refresh_token'],
+                ClaimsEnum::ResponseTypes->value => ['code'],
+                ClaimsEnum::TokenEndpointAuthMethod->value => 'private_key_jwt',
+            ],
+            RegistrationTypeEnum::Dynamic,
+        );
+
+        $this->assertSame(['authorization_code', 'refresh_token'], $client->getGrantTypes());
+        $this->assertSame(['code'], $client->getResponseTypes());
+        $this->assertSame('private_key_jwt', $client->getTokenEndpointAuthMethod());
+    }
+
+    /**
+     * Federation automatic registrations are not forced to the Dynamic defaults: nothing is persisted for these
+     * three fields unless the federation metadata provides them.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataDoesNotForceGrantTypeDefaultsForFederated(): void
+    {
+        $client = $this->sut()->fromRegistrationData(
+            [ClaimsEnum::RedirectUris->value => ['https://example.org/cb']],
+            RegistrationTypeEnum::FederatedAutomatic,
+        );
+
+        $extraMetadata = $client->getExtraMetadata();
+        $this->assertArrayNotHasKey(ClaimsEnum::GrantTypes->value, $extraMetadata);
+        $this->assertArrayNotHasKey(ClaimsEnum::ResponseTypes->value, $extraMetadata);
+        $this->assertArrayNotHasKey(ClaimsEnum::TokenEndpointAuthMethod->value, $extraMetadata);
+    }
+
+    /**
      * A Dynamic registration that omits `scope` is assigned the configured DCR default scope set.
      *
      * @throws \SimpleSAML\Error\ConfigurationError

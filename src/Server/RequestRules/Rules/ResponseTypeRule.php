@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
@@ -48,14 +50,32 @@ class ResponseTypeRule extends AbstractRule
             );
         }
 
-        // No need to validate the value against a list of supported response types here: this rule only runs from
-        // within a grant's request validation, which is reached only after AuthorizationServer has matched the
-        // request to a grant via canRespondToAuthorizationRequest(). By grant selection therefore
-        // already rejects unsupported response types (unsupportedResponseType) before this point.
-        // TODO: Also, we currently don't store allowed response types per client, so nothing to validate in that
-        // sense either. This should be fixed in the future, for example in DCR implementation.
+        // No need to validate the value against the globally supported response types here: this rule only runs
+        // from within a grant's request validation, which is reached only after AuthorizationServer has matched
+        // the request to a grant via canRespondToAuthorizationRequest(), so grant selection already rejects
+        // globally unsupported response types before this point.
 
         $responseType = (string)$requestParams[ParamsEnum::ResponseType->value];
+
+        // Per-client enforcement: if the client has explicitly registered response_types, the requested
+        // response_type must be one of them. We enforce only when the value was explicitly registered (present in
+        // the client's metadata); clients that do not have it configured are not constrained, preserving behavior
+        // for manually-managed clients. Dynamically registered clients always have it (the OIDC DCR default is
+        // applied at registration).
+        $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
+        /** @var mixed $registeredResponseTypes */
+        $registeredResponseTypes = ($client instanceof ClientEntityInterface) ?
+        ($client->getExtraMetadata()[ClaimsEnum::ResponseTypes->value] ?? null) : null;
+
+        if (is_array($registeredResponseTypes) && !in_array($responseType, $registeredResponseTypes, true)) {
+            $loggerService->error(
+                'ResponseTypeRule: response_type not registered for client.',
+                ['response_type' => $responseType, 'registered' => $registeredResponseTypes],
+            );
+            $redirectUri = $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
+            $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
+            throw OidcServerException::unsupportedResponseType($redirectUri, $state, $responseMode);
+        }
 
         return new Result($this->getKey(), $responseType);
     }

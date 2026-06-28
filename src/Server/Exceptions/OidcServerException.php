@@ -218,6 +218,36 @@ class OidcServerException extends OAuthServerException
     }
 
     /**
+     * The authenticated client is not authorized to use this authorization grant type or response type
+     * (RFC 6749 sections 4.1.2.1 / 5.2).
+     *
+     * @param string|null $hint
+     * @param string|null $redirectUri
+     * @param \Throwable|null $previous
+     * @param string|null $state
+     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface|null $responseMode
+     */
+    public static function unauthorizedClient(
+        ?string $hint = null,
+        ?string $redirectUri = null,
+        ?Throwable $previous = null,
+        ?string $state = null,
+        ?ResponseModeInterface $responseMode = null,
+    ): OidcServerException {
+        return new self(
+            'The client is not authorized to request a token using this method.',
+            10,
+            'unauthorized_client',
+            400,
+            $hint,
+            $redirectUri,
+            $previous,
+            $state,
+            $responseMode,
+        );
+    }
+
+    /**
      * Prompt none requires that user should be authenticated.
      *
      * @param string|null $hint

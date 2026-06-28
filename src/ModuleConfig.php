@@ -705,7 +705,17 @@ class ModuleConfig
      */
     public function getProtocolHttpClientOptions(): array
     {
-        return $this->config()->getOptionalArray(self::OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS, []);
+        $options = $this->config()->getOptionalArray(self::OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS, []);
+
+        // Guzzle request options are keyed by string option names; normalize keys to satisfy that contract.
+        $normalized = [];
+        /** @var mixed $value */
+        foreach ($options as $key => $value) {
+            /** @psalm-suppress MixedAssignment */
+            $normalized[(string)$key] = $value;
+        }
+
+        return $normalized;
     }
 
 

@@ -93,6 +93,18 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
     public function getRequestUris(): array;
 
     /**
+     * @return string[]
+     */
+    public function getGrantTypes(): array;
+
+    /**
+     * @return string[]
+     */
+    public function getResponseTypes(): array;
+
+    public function getTokenEndpointAuthMethod(): string;
+
+    /**
      * @return array
      */
     public function getAuthProcFilters(): array;

@@ -14,6 +14,7 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientAssertionTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
@@ -42,17 +43,52 @@ class AuthenticatedOAuth2ClientResolver
         ?ClientEntityInterface $preFetchedClient = null,
     ): ?ResolvedClientAuthenticationMethod {
         try {
-            return
+            $resolved =
             $this->forPrivateKeyJwt($request, $preFetchedClient) ??
             $this->forClientSecretBasic($request, $preFetchedClient) ??
             $this->forClientSecretPost($request, $preFetchedClient) ??
             $this->forPublicClient($request, $preFetchedClient);
+
+            if ($resolved !== null) {
+                $this->enforceRegisteredTokenEndpointAuthMethod($resolved);
+            }
+
+            return $resolved;
         } catch (\Throwable $exception) {
             $this->loggerService->error(
                 'Error while trying to resolve authenticated client: ' .
                     $exception->getMessage(),
             );
             return null;
+        }
+    }
+
+    /**
+     * If the client has explicitly registered a token_endpoint_auth_method, the method it actually authenticated
+     * with must match it. Enforced only when explicitly registered, preserving behavior for manually-managed
+     * clients that do not have it configured. Throwing here results in client authentication failing (the caller
+     * treats a null resolution as invalid_client).
+     *
+     * @throws AuthorizationException
+     */
+    protected function enforceRegisteredTokenEndpointAuthMethod(
+        ResolvedClientAuthenticationMethod $resolved,
+    ): void {
+        /** @var mixed $registeredMethod */
+        $registeredMethod = $resolved->getClient()->getExtraMetadata()[ClaimsEnum::TokenEndpointAuthMethod->value]
+        ?? null;
+
+        if (!is_string($registeredMethod)) {
+            return;
+        }
+
+        $usedMethod = $resolved->getClientAuthenticationMethod()->value;
+        if ($registeredMethod !== $usedMethod) {
+            throw new AuthorizationException(sprintf(
+                'Client authenticated with "%s" but is registered to use "%s" (token_endpoint_auth_method).',
+                $usedMethod,
+                $registeredMethod,
+            ));
         }
     }
 

@@ -23,7 +23,10 @@ use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
+use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
+use SimpleSAML\OpenID\Codebooks\ResponseTypesEnum;
+use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
 
 class ClientEntity implements ClientEntityInterface
 {
@@ -518,5 +521,63 @@ class ClientEntity implements ClientEntityInterface
         }
 
         return $stringUris;
+    }
+
+    /**
+     * The OAuth 2.0 grant types the client is registered to use. Defaults to ["authorization_code"]
+     * (OpenID Connect Dynamic Client Registration 1.0 default) when not explicitly registered.
+     *
+     * @return string[]
+     */
+    public function getGrantTypes(): array
+    {
+        /** @var mixed $grantTypes */
+        $grantTypes = is_array($this->extraMetadata) ?
+        ($this->extraMetadata[ClaimsEnum::GrantTypes->value] ?? null) : null;
+
+        if (!is_array($grantTypes)) {
+            return [GrantTypesEnum::AuthorizationCode->value];
+        }
+
+        return array_values(array_filter($grantTypes, 'is_string'));
+    }
+
+    /**
+     * The OAuth 2.0 response types the client is registered to use. Defaults to ["code"]
+     * (OpenID Connect Dynamic Client Registration 1.0 default) when not explicitly registered.
+     *
+     * @return string[]
+     */
+    public function getResponseTypes(): array
+    {
+        /** @var mixed $responseTypes */
+        $responseTypes = is_array($this->extraMetadata) ?
+        ($this->extraMetadata[ClaimsEnum::ResponseTypes->value] ?? null) : null;
+
+        if (!is_array($responseTypes)) {
+            return [ResponseTypesEnum::Code->value];
+        }
+
+        return array_values(array_filter($responseTypes, 'is_string'));
+    }
+
+    /**
+     * The client authentication method the client is registered to use at the token endpoint. Defaults to
+     * 'client_secret_basic' for confidential clients and 'none' for public clients when not explicitly registered
+     * (OpenID Connect Dynamic Client Registration 1.0).
+     */
+    public function getTokenEndpointAuthMethod(): string
+    {
+        /** @var mixed $method */
+        $method = is_array($this->extraMetadata) ?
+        ($this->extraMetadata[ClaimsEnum::TokenEndpointAuthMethod->value] ?? null) : null;
+
+        if (is_string($method) && $method !== '') {
+            return $method;
+        }
+
+        return $this->isConfidential() ?
+        TokenEndpointAuthMethodsEnum::ClientSecretBasic->value :
+        TokenEndpointAuthMethodsEnum::None->value;
     }
 }

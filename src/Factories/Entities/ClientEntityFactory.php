@@ -294,6 +294,50 @@ class ClientEntityFactory
             );
         }
 
+        // grant_types / response_types / token_endpoint_auth_method: persisted so they can be returned in the
+        // registration response (RFC 7591 Section 3.2.1) and, going forward, enforced. For Dynamic registrations
+        // the OIDC DCR 1.0 defaults are applied when the client does not provide them; manual and federation
+        // registrations are left untouched (any existing value is carried over from the existing client above).
+        if (isset($metadata[ClaimsEnum::GrantTypes->value]) && is_array($metadata[ClaimsEnum::GrantTypes->value])) {
+            $extraMetadata[ClaimsEnum::GrantTypes->value] = $this->helpers->arr()->ensureStringValues(
+                $metadata[ClaimsEnum::GrantTypes->value],
+            );
+        } elseif (
+            $registrationType === RegistrationTypeEnum::Dynamic &&
+            !array_key_exists(ClaimsEnum::GrantTypes->value, $extraMetadata)
+        ) {
+            $extraMetadata[ClaimsEnum::GrantTypes->value] = [GrantTypesEnum::AuthorizationCode->value];
+        }
+
+        if (
+            isset($metadata[ClaimsEnum::ResponseTypes->value]) &&
+            is_array($metadata[ClaimsEnum::ResponseTypes->value])
+        ) {
+            $extraMetadata[ClaimsEnum::ResponseTypes->value] = $this->helpers->arr()->ensureStringValues(
+                $metadata[ClaimsEnum::ResponseTypes->value],
+            );
+        } elseif (
+            $registrationType === RegistrationTypeEnum::Dynamic &&
+            !array_key_exists(ClaimsEnum::ResponseTypes->value, $extraMetadata)
+        ) {
+            $extraMetadata[ClaimsEnum::ResponseTypes->value] = [ResponseTypesEnum::Code->value];
+        }
+
+        if (
+            isset($metadata[ClaimsEnum::TokenEndpointAuthMethod->value]) &&
+            is_string($metadata[ClaimsEnum::TokenEndpointAuthMethod->value])
+        ) {
+            $extraMetadata[ClaimsEnum::TokenEndpointAuthMethod->value] =
+            $metadata[ClaimsEnum::TokenEndpointAuthMethod->value];
+        } elseif (
+            $registrationType === RegistrationTypeEnum::Dynamic &&
+            !array_key_exists(ClaimsEnum::TokenEndpointAuthMethod->value, $extraMetadata)
+        ) {
+            $extraMetadata[ClaimsEnum::TokenEndpointAuthMethod->value] = $isConfidential ?
+            TokenEndpointAuthMethodsEnum::ClientSecretBasic->value :
+            TokenEndpointAuthMethodsEnum::None->value;
+        }
+
         // Persist informational ("store & echo") metadata so it can be returned in registration/read responses.
         foreach (self::STORE_AND_ECHO_METADATA_KEYS as $storeAndEchoKey) {
             if (array_key_exists($storeAndEchoKey, $metadata)) {

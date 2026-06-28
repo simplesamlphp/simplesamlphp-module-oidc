@@ -306,6 +306,10 @@ class RegistrationController
             $response[ClaimsEnum::RequestUris->value] = $requestUris;
         }
 
+        $response[ClaimsEnum::GrantTypes->value] = $client->getGrantTypes();
+        $response[ClaimsEnum::ResponseTypes->value] = $client->getResponseTypes();
+        $response[ClaimsEnum::TokenEndpointAuthMethod->value] = $client->getTokenEndpointAuthMethod();
+
         // Echo back the stored informational ("store & echo") metadata.
         $extraMetadata = $client->getExtraMetadata();
         foreach (ClientEntityFactory::STORE_AND_ECHO_METADATA_KEYS as $key) {
