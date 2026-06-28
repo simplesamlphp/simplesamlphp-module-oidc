@@ -169,9 +169,21 @@ class ClientEntityFactory
         throw OidcServerException::accessDenied('redirect URIs missing');
         $redirectUris = $this->helpers->arr()->ensureStringValues($metadata[ClaimsEnum::RedirectUris->value]);
 
-        $scopes = $metadata[ClaimsEnum::Scope->value] ?? $existingClient?->getScopes();
-        $scopes = is_array($scopes) ? $this->helpers->arr()->ensureStringValues($scopes) :
-        $this->helpers->str()->convertScopesStringToArray((string)$scopes);
+        // Resolve the requested scopes: from this request's metadata, falling back to an existing client's scopes
+        // (e.g. on a DCR update that omits `scope`). null here means scopes were genuinely not specified.
+        $requestedScopes = $metadata[ClaimsEnum::Scope->value] ?? $existingClient?->getScopes();
+        if ($requestedScopes === null) {
+            // No scope was specified. For Dynamic Client Registration, assign the configured default scope set
+            // (OIDC DCR 1.0 lets the OP assign a default set). Manual and OpenID Federation automatic registrations
+            // keep the conservative `openid`-only default. Note: an explicit but unsupported `scope` is NOT treated
+            // as "not specified" - it falls through to the supported-scope filter below and ends up as `openid` only.
+            $scopes = $registrationType === RegistrationTypeEnum::Dynamic
+            ? $this->moduleConfig->getDcrDefaultScopes()
+            : [ScopesEnum::OpenId->value];
+        } else {
+            $scopes = is_array($requestedScopes) ? $this->helpers->arr()->ensureStringValues($requestedScopes) :
+            $this->helpers->str()->convertScopesStringToArray((string)$requestedScopes);
+        }
         // Filter to only allowed scopes
         $scopes = array_filter(
             $scopes,
@@ -267,6 +279,20 @@ class ClientEntityFactory
         }
 
         $extraMetadata[ClaimsEnum::IdTokenSignedResponseAlg->value] = $idTokenSignedResponseAlg;
+
+        // request_uris: persisted into extra metadata so that Request Objects passed by reference (request_uri,
+        // RFC 9101) can be exact-matched at the authorization endpoint when require_request_uri_registration is on
+        // (see ClientEntity::getRequestUris() and RequestParamsResolver::isHttpsRequestUriFetchAllowed()). Unlike
+        // the store-and-echo keys below this one IS behaviorally enforced. When omitted on update, any existing
+        // value is preserved (it is already carried over from the existing client's extra metadata above).
+        if (
+            isset($metadata[ClaimsEnum::RequestUris->value]) &&
+            is_array($metadata[ClaimsEnum::RequestUris->value])
+        ) {
+            $extraMetadata[ClaimsEnum::RequestUris->value] = $this->helpers->arr()->ensureStringValues(
+                $metadata[ClaimsEnum::RequestUris->value],
+            );
+        }
 
         // Persist informational ("store & echo") metadata so it can be returned in registration/read responses.
         foreach (self::STORE_AND_ECHO_METADATA_KEYS as $storeAndEchoKey) {

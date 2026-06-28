@@ -151,7 +151,7 @@ class OpMetadataServiceTest extends TestCase
                 'require_request_uri_registration' => true,
                 'pushed_authorization_request_endpoint' => 'http://localhost/par',
                 'require_pushed_authorization_requests' => false,
-                'grant_types_supported' => ['authorization_code', 'refresh_token'],
+                'grant_types_supported' => ['authorization_code', 'implicit', 'refresh_token'],
                 'claims_parameter_supported' => true,
                 'acr_values_supported' => ['1'],
                 'backchannel_logout_supported' => true,

@@ -163,4 +163,12 @@ $config = [
     // Connect Discovery and checked by the dynamic certification profile). The
     // module default is false; enabled here for conformance.
     ModuleConfig::OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED => true,
+
+    // The conformance suite serves client jwks_uri / request_uri over a per-instance
+    // self-signed TLS certificate (CN=localhost) that the OP would otherwise reject.
+    // Disable TLS verification for the openid library's protocol-layer HTTP fetches so
+    // those tests can run. NEVER do this in production.
+    ModuleConfig::OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS => [
+        'verify' => false,
+    ],
 ];

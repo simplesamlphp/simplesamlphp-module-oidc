@@ -302,6 +302,10 @@ class RegistrationController
             $response[ClaimsEnum::IdTokenSignedResponseAlg->value] = $idTokenSignedResponseAlg;
         }
 
+        if (($requestUris = $client->getRequestUris()) !== []) {
+            $response[ClaimsEnum::RequestUris->value] = $requestUris;
+        }
+
         // Echo back the stored informational ("store & echo") metadata.
         $extraMetadata = $client->getExtraMetadata();
         foreach (ClientEntityFactory::STORE_AND_ECHO_METADATA_KEYS as $key) {

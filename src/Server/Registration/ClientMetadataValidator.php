@@ -58,6 +58,7 @@ class ClientMetadataValidator
     {
         $redirectUris = $this->validateRedirectUris($metadata);
         $this->validateInformationalUris($metadata);
+        $this->validateRequestUris($metadata);
         $this->validateContacts($metadata);
         $this->validateApplicationType($metadata);
 
@@ -117,6 +118,41 @@ class ClientMetadataValidator
             $value = $metadata[$claim];
             if (!is_string($value) || !$this->isValidAbsoluteUri($value)) {
                 throw OidcServerException::invalidClientMetadata(sprintf('Invalid "%s" value.', $claim));
+            }
+        }
+    }
+
+    /**
+     * request_uris, when present, must be an array of absolute https URIs. A fragment component is permitted:
+     * OpenID Connect Core 1.0 Section 6.2 allows the request_uri to carry a base64url-encoded SHA-256 hash of the
+     * referenced Request Object as its fragment.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    private function validateRequestUris(array $metadata): void
+    {
+        if (!array_key_exists(ClaimsEnum::RequestUris->value, $metadata)) {
+            return;
+        }
+
+        /** @var mixed $requestUris */
+        $requestUris = $metadata[ClaimsEnum::RequestUris->value];
+        if (!is_array($requestUris)) {
+            throw OidcServerException::invalidClientMetadata('request_uris must be an array.');
+        }
+
+        /** @var mixed $requestUri */
+        foreach ($requestUris as $requestUri) {
+            $scheme = is_string($requestUri) ? parse_url($requestUri, PHP_URL_SCHEME) : null;
+            if (
+                !is_string($requestUri) ||
+                !is_string($scheme) ||
+                strtolower($scheme) !== 'https' ||
+                $this->extractHost($requestUri) === null
+            ) {
+                throw OidcServerException::invalidClientMetadata(
+                    'Each request_uris value must be a valid https URI.',
+                );
             }
         }
     }

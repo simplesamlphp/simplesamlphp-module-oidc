@@ -102,6 +102,7 @@ class ModuleConfig
     final public const string OPTION_PROTOCOL_CLIENT_ENTITY_CACHE_DURATION = 'protocol_client_entity_cache_duration';
     final public const string OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED =
     'protocol_discover_show_claims_supported';
+    final public const string OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS = 'protocol_http_client_options';
 
     final public const string OPTION_VCI_ENABLED = 'vci_enabled';
     final public const string OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED =
@@ -132,6 +133,7 @@ class ModuleConfig
     final public const string OPTION_DCR_INITIAL_ACCESS_TOKENS = 'dcr_initial_access_tokens';
     final public const string OPTION_DCR_IMPERSONATION_PROTECTION_ENABLED =
     'dcr_impersonation_protection_enabled';
+    final public const string OPTION_DCR_DEFAULT_SCOPES = 'dcr_default_scopes';
     final public const string OPTION_PAR_REQUEST_URI_TTL = 'par_request_uri_ttl';
     final public const string OPTION_REQUIRE_PUSHED_AUTHORIZATION_REQUESTS = 'require_pushed_authorization_requests';
     final public const string OPTION_REQUIRE_SIGNED_REQUEST_OBJECT = 'require_signed_request_object';
@@ -689,6 +691,23 @@ class ModuleConfig
         );
     }
 
+    /**
+     * Guzzle HTTP client options for the protocol-layer outbound fetches performed by the `openid` library
+     * (e.g. fetching a client's `jwks_uri` or a `request_uri`). The array is passed through verbatim to the
+     * underlying Guzzle client, see https://docs.guzzlephp.org/en/stable/request-options.html
+     *
+     * Default is an empty array (the library's secure defaults apply, i.e. TLS verification ON). The primary
+     * intended use is testing against endpoints with self-signed certificates (e.g. the OpenID conformance
+     * suite) by setting `['verify' => false]`. DO NOT disable TLS verification in production.
+     *
+     * @return array<string,mixed>
+     * @throws \Exception
+     */
+    public function getProtocolHttpClientOptions(): array
+    {
+        return $this->config()->getOptionalArray(self::OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS, []);
+    }
+
 
     /*****************************************************************************************************************
      * OpenID Federation related config.
@@ -1040,6 +1059,34 @@ class ModuleConfig
     public function getDcrImpersonationProtectionEnabled(): bool
     {
         return $this->config()->getOptionalBoolean(self::OPTION_DCR_IMPERSONATION_PROTECTION_ENABLED, true);
+    }
+
+    /**
+     * Scopes assigned to a Dynamic Client Registration (DCR) client that registers without an explicit `scope`.
+     * OpenID Connect Dynamic Client Registration 1.0 makes `scope` OPTIONAL and lets the OP assign a default set;
+     * this controls that set. When the option is not configured, it defaults to all scopes this OP supports (so a
+     * scope-less dynamic client can request any supported scope, including offline_access). This applies only to
+     * Dynamic registrations; manual and OpenID Federation automatic registrations are unaffected.
+     *
+     * @return string[]
+     * @throws \Exception
+     */
+    public function getDcrDefaultScopes(): array
+    {
+        $configured = $this->config()->getOptionalArray(
+            self::OPTION_DCR_DEFAULT_SCOPES,
+            array_keys($this->getScopes()),
+        );
+
+        $scopes = [];
+        /** @var mixed $scope */
+        foreach ($configured as $scope) {
+            if (is_string($scope) && $scope !== '') {
+                $scopes[] = $scope;
+            }
+        }
+
+        return $scopes;
     }
 
 

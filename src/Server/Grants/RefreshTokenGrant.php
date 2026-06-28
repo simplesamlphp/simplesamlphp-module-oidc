@@ -6,6 +6,8 @@ namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use Exception;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface as OAuth2AccessTokenEntityInterface;
+use League\OAuth2\Server\Entities\ClientEntityInterface;
+use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Grant\RefreshTokenGrant as OAuth2RefreshTokenGrant;
 use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
 use League\OAuth2\Server\RequestEvent;
@@ -16,6 +18,7 @@ use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
+use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
 
 use function is_null;
 use function json_decode;
@@ -53,9 +56,36 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
         RefreshTokenRepositoryInterface $refreshTokenRepository,
         AccessTokenEntityFactory $accessTokenEntityFactory,
         protected readonly RefreshTokenIssuer $refreshTokenIssuer,
+        protected readonly AuthenticatedOAuth2ClientResolver $authenticatedOAuth2ClientResolver,
     ) {
         parent::__construct($refreshTokenRepository);
         $this->accessTokenEntityFactory = $accessTokenEntityFactory;
+    }
+
+    /**
+     * Authenticate the client at the refresh token endpoint without requiring a `client_id` request
+     * parameter. The league default (AbstractGrant::validateClient) resolves the client from a
+     * client_id parameter or HTTP Basic username, which a private_key_jwt client does not send - it
+     * conveys its identity via the `client_assertion` JWT. This mirrors how the authorization_code
+     * grant authenticates the caller (via ClientAuthenticationRule, which uses the same resolver), so
+     * all supported authentication methods (private_key_jwt, client_secret_basic, client_secret_post
+     * and public/none) work consistently across the token endpoint.
+     *
+     * The refresh token is still bound to a specific client: validateOldRefreshToken() checks that the
+     * authenticated client matches the client the refresh token was issued to.
+     *
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     */
+    protected function validateClient(ServerRequestInterface $request): ClientEntityInterface
+    {
+        $resolvedClientAuthenticationMethod = $this->authenticatedOAuth2ClientResolver->forAnySupportedMethod($request);
+
+        if ($resolvedClientAuthenticationMethod === null) {
+            $this->getEmitter()->emit(new RequestEvent(RequestEvent::CLIENT_AUTHENTICATION_FAILED, $request));
+            throw OAuthServerException::invalidClient($request);
+        }
+
+        return $resolvedClientAuthenticationMethod->getClient();
     }
 
     /**

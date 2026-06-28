@@ -27,6 +27,7 @@ class RequestObjectFactory
             supportedAlgorithms: $this->moduleConfig->getSupportedAlgorithms(),
             timestampValidationLeeway: $this->moduleConfig->getTimestampValidationLeeway(),
             logger: $this->loggerService,
+            httpClientConfig: $this->moduleConfig->getProtocolHttpClientOptions(),
         );
     }
 }

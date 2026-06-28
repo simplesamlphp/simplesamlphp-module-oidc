@@ -108,6 +108,38 @@ class ClientMetadataValidatorTest extends TestCase
         );
     }
 
+    public function testValidRequestUrisPass(): void
+    {
+        // https URIs, including one with a fragment (OIDC Core allows a content-hash fragment on request_uri).
+        $metadata = [
+            'redirect_uris' => ['https://client.example.org/cb'],
+            'request_uris' => [
+                'https://client.example.org/request-object',
+                'https://client.example.org/request-object#sha256hash',
+            ],
+        ];
+
+        $this->assertSame($metadata, $this->sut()->validate($metadata));
+    }
+
+    public function testRequestUrisMustBeArray(): void
+    {
+        $this->assertRejected(
+            ['redirect_uris' => ['https://client.example.org/cb'], 'request_uris' => 'https://client.example.org/ro'],
+            'invalid_client_metadata',
+            'request_uris must be an array',
+        );
+    }
+
+    public function testNonHttpsRequestUriIsRejected(): void
+    {
+        $this->assertRejected(
+            ['redirect_uris' => ['https://client.example.org/cb'], 'request_uris' => ['http://client.example.org/ro']],
+            'invalid_client_metadata',
+            'request_uris',
+        );
+    }
+
     public function testImpersonationProtectionRejectsMismatchedHost(): void
     {
         $this->assertRejected(

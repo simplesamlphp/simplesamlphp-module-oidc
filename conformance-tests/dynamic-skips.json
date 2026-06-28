@@ -16,17 +16,5 @@
         "test-name": "oidcc-registration-sector-bad*",
         "configuration-filename": "*conformance-dynamic-ci.json",
         "variant": "*"
-    },
-    {
-        "comment": "Environment-only (local/CI docker) AND non-deterministic: the OP cannot fetch request_uri over the suite's self-signed TLS cert, so the browser times out on an error page. The test interrupts at a variable point (sometimes emitting a WebRunner failure, sometimes none), so its conditions are not stable enough for dynamic-warnings.json; tracked here at the whole-test level. request_uri IS supported and passes against a publicly-trusted cert (hosted conformance).",
-        "test-name": "oidcc-request-uri-unsigned*",
-        "configuration-filename": "*conformance-dynamic-ci.json",
-        "variant": "*"
-    },
-    {
-        "comment": "Environment-only (local/CI docker) AND non-deterministic: same as oidcc-request-uri-unsigned (request_uri fetch fails over the suite's self-signed TLS cert; browser-timeout failure is timing-dependent). Tracked at the whole-test level. request_uri IS supported and passes against a publicly-trusted cert (hosted conformance).",
-        "test-name": "oidcc-request-uri-signed-rs256*",
-        "configuration-filename": "*conformance-dynamic-ci.json",
-        "variant": "*"
     }
 ]

@@ -44,7 +44,12 @@ class ClientEntityFactoryTest extends TestCase
         $this->sspBridgeMock->method('utils')->willReturn($utilsMock);
 
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
-        $this->moduleConfigMock->method('getScopes')->willReturn(['openid' => ['description' => 'openid']]);
+        $this->moduleConfigMock->method('getScopes')->willReturn([
+            'openid' => ['description' => 'openid'],
+            'profile' => ['description' => 'profile'],
+            'email' => ['description' => 'email'],
+            'offline_access' => ['description' => 'offline_access'],
+        ]);
 
         $signatureKeyPairBagMock = $this->createMock(SignatureKeyPairBag::class);
         $signatureKeyPairBagMock->method('getAllAlgorithmNamesUnique')->willReturn(['RS256', 'ES256']);
@@ -224,5 +229,111 @@ class ClientEntityFactoryTest extends TestCase
         );
 
         $this->assertSame($adminSetFilters, $client->getAuthProcFilters());
+    }
+
+    /**
+     * request_uris from a registration request are persisted (into extra metadata) so they can be
+     * exact-matched when a Request Object is later passed by reference (request_uri). The fragment, which OIDC
+     * Core allows as a content hash, is preserved.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataPersistsRequestUris(): void
+    {
+        $client = $this->sut()->fromRegistrationData(
+            [
+                ClaimsEnum::RedirectUris->value => ['https://example.org/cb'],
+                ClaimsEnum::RequestUris->value => ['https://example.org/request-object#aHash'],
+            ],
+            RegistrationTypeEnum::Dynamic,
+        );
+
+        $this->assertSame(['https://example.org/request-object#aHash'], $client->getRequestUris());
+    }
+
+    /**
+     * A Dynamic registration that omits `scope` is assigned the configured DCR default scope set.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataAssignsDefaultScopesForScopelessDynamicRegistration(): void
+    {
+        $this->moduleConfigMock->method('getDcrDefaultScopes')
+            ->willReturn(['openid', 'profile', 'email', 'offline_access']);
+
+        $client = $this->sut()->fromRegistrationData(
+            [ClaimsEnum::RedirectUris->value => ['https://example.org/cb']],
+            RegistrationTypeEnum::Dynamic,
+        );
+
+        $this->assertEqualsCanonicalizing(
+            ['openid', 'profile', 'email', 'offline_access'],
+            array_values($client->getScopes()),
+        );
+    }
+
+    /**
+     * The DCR default scope set must NOT be applied to OpenID Federation automatic registrations; a federated
+     * client that omits `scope` keeps the conservative `openid`-only default.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataDoesNotApplyDcrDefaultScopesForFederatedRegistration(): void
+    {
+        $this->moduleConfigMock->expects($this->never())->method('getDcrDefaultScopes');
+
+        $client = $this->sut()->fromRegistrationData(
+            [ClaimsEnum::RedirectUris->value => ['https://example.org/cb']],
+            RegistrationTypeEnum::FederatedAutomatic,
+        );
+
+        $this->assertSame(['openid'], array_values($client->getScopes()));
+    }
+
+    /**
+     * An explicit but unsupported `scope` is NOT treated as "not specified": the unsupported values are dropped and
+     * the client ends up with `openid` only - it does not receive the DCR default scope set.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataWithUnsupportedScopeDoesNotApplyDcrDefaultScopes(): void
+    {
+        $this->moduleConfigMock->expects($this->never())->method('getDcrDefaultScopes');
+
+        $client = $this->sut()->fromRegistrationData(
+            [
+                ClaimsEnum::RedirectUris->value => ['https://example.org/cb'],
+                ClaimsEnum::Scope->value => 'unsupported_scope',
+            ],
+            RegistrationTypeEnum::Dynamic,
+        );
+
+        $this->assertSame(['openid'], array_values($client->getScopes()));
+    }
+
+    /**
+     * An explicit, supported `scope` on a Dynamic registration is honored as-is and is not overridden by the DCR
+     * default scope set.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataHonorsExplicitScopeForDynamicRegistration(): void
+    {
+        $this->moduleConfigMock->expects($this->never())->method('getDcrDefaultScopes');
+
+        $client = $this->sut()->fromRegistrationData(
+            [
+                ClaimsEnum::RedirectUris->value => ['https://example.org/cb'],
+                ClaimsEnum::Scope->value => 'openid email',
+            ],
+            RegistrationTypeEnum::Dynamic,
+        );
+
+        $this->assertEqualsCanonicalizing(['openid', 'email'], array_values($client->getScopes()));
     }
 }

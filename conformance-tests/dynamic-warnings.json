@@ -36,30 +36,12 @@
         "expected-result": "failure"
     },
     {
-        "comment": "Environment-only (local/CI docker): the OP cannot validate the client_assertion because it fails to fetch the client's jwks_uri from the conformance suite, which serves it over a self-signed TLS cert (cURL error 60). jwks_uri IS supported and passes against a publicly-trusted cert (hosted conformance).",
-        "test-name": "oidcc-registration-jwks-uri*",
-        "configuration-filename": "*conformance-dynamic-ci.json",
-        "variant": "*",
-        "current-block": "Verify authorization endpoint response",
-        "condition": "CheckTokenEndpointHttpStatus200",
-        "expected-result": "failure"
-    },
-    {
         "comment": "OP-wide gap (not DCR): the OP does not rotate its signing keys on demand. Not a DCR test (server_metadata variant only).",
         "test-name": "oidcc-server-rotate-keys*",
         "configuration-filename": "*conformance-dynamic-ci.json",
         "variant": "*",
         "current-block": "",
         "condition": "VerifyNewJwksHasNewSigningKey",
-        "expected-result": "failure"
-    },
-    {
-        "comment": "DCR scope-default limitation: a client registered without an explicit 'scope' is granted only 'openid', so a later authorization request for offline_access is rejected. Matches both oidcc-refresh-token and oidcc-refresh-token-rp-key-rotation. See docs/5-oidc-conformance.md.",
-        "test-name": "oidcc-refresh-token*",
-        "configuration-filename": "*conformance-dynamic-ci.json",
-        "variant": "*",
-        "current-block": "Verify authorization endpoint response",
-        "condition": "CheckIfAuthorizationEndpointError",
         "expected-result": "failure"
     }
 ]

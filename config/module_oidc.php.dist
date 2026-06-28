@@ -449,6 +449,24 @@ $config = [
     ModuleConfig::OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED => false,
 
     /**
+     * Guzzle HTTP client options for the protocol-layer outbound requests made by the underlying `openid`
+     * library, such as fetching a client's 'jwks_uri' or a 'request_uri'. The array is passed through verbatim
+     * to the Guzzle client; see https://docs.guzzlephp.org/en/stable/request-options.html for the full list.
+     *
+     * Leave empty (the default) to use the library's secure defaults (TLS verification enabled). The typical
+     * use for a non-empty value is testing against endpoints that present self-signed certificates (for
+     * example, the OpenID conformance suite), by disabling TLS verification:
+     *
+     *     ModuleConfig::OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS => [
+     *         'verify' => false,
+     *     ],
+     *
+     * SECURITY WARNING: disabling TLS verification ('verify' => false) exposes these fetches to
+     * man-in-the-middle attacks. Only use it in development/testing, NEVER in production.
+     */
+    ModuleConfig::OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS => [],
+
+    /**
      * Settings regarding Authentication Processing Filters.
      * Note: An OIDC authN state array will not contain all the keys which are
      * available during SAML authN, like Service Provider metadata, etc.
@@ -648,6 +666,33 @@ $config = [
      * (the client home page) is intentionally NOT subject to this check.
      */
     ModuleConfig::OPTION_DCR_IMPERSONATION_PROTECTION_ENABLED => true,
+
+    /**
+     * Default scopes assigned to a Dynamic Client Registration (DCR) client that
+     * registers WITHOUT an explicit 'scope'. The OpenID Connect Dynamic Client
+     * Registration 1.0 specification makes 'scope' OPTIONAL and lets the OP
+     * assign a default set; this option controls that set.
+     *
+     * If this option is omitted (commented out), it defaults to ALL scopes this
+     * OP supports, so a scope-less dynamic client may request any supported scope
+     * (including 'offline_access', i.e. refresh tokens). To restrict what a
+     * scope-less dynamic client receives, set an explicit list below; only values
+     * that are actually supported by this OP are kept.
+     *
+     * This applies ONLY to Dynamic registrations. Manual (admin) and OpenID
+     * Federation automatic registrations are NOT affected: a federated client
+     * with no 'scope' in its metadata still defaults to 'openid' only.
+     *
+     * Note: an explicit but unsupported 'scope' in a registration request is NOT
+     * treated as "not specified" - the unsupported values are dropped and the
+     * client ends up with 'openid' only (it does not receive this default set).
+     *
+     * Format: string[] (array of scope names)
+     */
+//    ModuleConfig::OPTION_DCR_DEFAULT_SCOPES => [
+//        'openid',
+//        'offline_access',
+//    ],
 
     /***************************************************************************
      * (optional) OpenID Federation-related options. If these are not set,

@@ -104,49 +104,49 @@ but the official dynamic certification profile does not exercise that mode. To
 test it manually, switch the OP to that mode and POST to the registration
 endpoint with a configured token as an HTTP Bearer token.
 
+#### Default scopes for scope-less DCR clients
+
+`scope` is OPTIONAL in a registration request. When a **Dynamic** registration
+omits it, the client is assigned the set configured by
+`OPTION_DCR_DEFAULT_SCOPES`, which **defaults to all scopes the OP supports**
+(including `offline_access`). This lets a scope-less dynamic client request any
+supported scope, e.g. obtain a refresh token via `offline_access`. To restrict
+this, set an explicit list in config. This applies to Dynamic registrations
+only: manual (admin) and OpenID Federation automatic registrations still default
+to `openid` only. An explicit but *unsupported* `scope` is not treated as
+"omitted" — the unsupported values are dropped and the client ends up with
+`openid` only (it does not receive the default set).
+
 ### Known non-passing tests in the dynamic plan
 
-The DCR functionality itself passes. The dynamic plan also re-runs general OP
-behaviours against dynamically-registered clients; the tests below are **not**
-Dynamic Client Registration and are currently not passing in the docker setup.
-They are inventoried, with the reason for each, across two files:
+The DCR functionality passes. With the conformance image configuration, the whole
+plan runs to a clean (exit 0) result: the only two non-passing tests are OP-wide
+gaps unrelated to Dynamic Client Registration, recorded as expected failures in
+`conformance-tests/dynamic-warnings.json` (condition-by-condition, so the runner
+reports them as *expected*):
 
-- `conformance-tests/dynamic-warnings.json` — tests that fail **deterministically**
-  at a known condition. These are listed condition-by-condition with
-  `expected-result: failure`, so the runner reports them as *expected* and they do
-  not count against the result.
-- `conformance-tests/dynamic-skips.json` — the genuinely optional tests the suite
-  itself skips (`oidcc-idtoken-unsigned`, the two `*-sector-*` tests), plus the
-  two `request_uri` tests, which can only be tracked at the whole-test level (see
-  the caveat below).
+- **OP-wide gaps (not DCR):** `oidcc-userinfo-rs256` (signed/JWT UserInfo responses
+  are not supported) and `oidcc-server-rotate-keys` (the OP does not rotate its
+  signing keys on demand).
 
-The categories:
+`conformance-tests/dynamic-skips.json` holds the genuinely optional tests the suite
+itself skips: `oidcc-idtoken-unsigned` (needs `id_token_signed_response_alg=none`)
+and the two `*-sector-*` tests (need `sector_identifier_uri`).
 
-- **Environment-only (pass in hosted conformance):** `oidcc-registration-jwks-uri`,
-  `oidcc-request-uri-unsigned`, `oidcc-request-uri-signed-rs256` — the OP fetches
-  the client `jwks_uri` / `request_uri` from the suite, which serves them over a
-  per-instance self-signed TLS certificate (`CN=localhost`) that the OP rejects.
-  These features are implemented and pass against a publicly-trusted certificate.
-- **OP-wide gaps (not DCR):** `oidcc-userinfo-rs256` (signed UserInfo responses)
-  and `oidcc-server-rotate-keys` (signing-key rotation).
-- **DCR scope default:** `oidcc-refresh-token` and
-  `oidcc-refresh-token-rp-key-rotation` — a client registered without an explicit
-  `scope` is granted only `openid`, so a later `offline_access` authorization
-  request is rejected. Granting the OP's supported scope set to scope-less
-  dynamic registrations would let dynamic clients obtain refresh tokens.
+Tests that previously failed only because of the conformance suite's self-signed
+TLS certificate — `oidcc-registration-jwks-uri`, `oidcc-request-uri-unsigned`,
+`oidcc-request-uri-signed-rs256` and `oidcc-refresh-token-rp-key-rotation` — now
+pass because the conformance image sets `OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS` to
+disable TLS verification for the `openid` library's outbound fetches (see "HTTP
+client options" in `config/module_oidc.php.dist`). `oidcc-refresh-token` passes
+because scope-less dynamic clients are granted `offline_access` by default (see
+"Default scopes for scope-less DCR clients") and the `refresh_token` grant
+authenticates `private_key_jwt` clients the same way the `authorization_code` grant
+does. `request_uri` by reference works because dynamically-registered `request_uris`
+are now persisted and exact-matched at the authorization endpoint.
 
-**Caveat on exit code.** The two `request_uri` tests fail via a *browser timeout*
-(the OP shows an error page; the suite waits for a success marker that never
-arrives). That timeout is timing-dependent: on some runs they log a `WebRunner`
-failure, on others they interrupt earlier with no failing condition. Because the
-conformance runner exits non-zero on **both** an unlisted failure *and* a listed
-expected-failure that did not occur, these two tests cannot be pinned to a clean
-exit either way — so they are tracked at the whole-test level in
-`dynamic-skips.json` and the GitHub Actions step is marked `continue-on-error`.
-In practice `run-test-plan.py` exits `0` on runs where neither `request_uri` test
-logs a condition, and exits non-zero (with only those one or two lines as
-"unexpected"/"did not happen") otherwise. Judge a local run by the per-test
-summary, not solely by the exit code.
+Because the plan is deterministic, the GitHub Actions step is a blocking gate (no
+`continue-on-error`).
 
 Prerequisites: run the docker deploy image for conformance tests (see
 README) and the conformance test image first.
