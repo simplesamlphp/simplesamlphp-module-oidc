@@ -38,6 +38,9 @@ class ClientEntityFactory
         ClaimsEnum::TosUri->value,
         ClaimsEnum::Contacts->value,
         ClaimsEnum::ApplicationType->value,
+        ClaimsEnum::InitiateLoginUri->value,
+        ClaimsEnum::SoftwareId->value,
+        ClaimsEnum::SoftwareVersion->value,
     ];
 
     public function __construct(
@@ -336,6 +339,30 @@ class ClientEntityFactory
             $extraMetadata[ClaimsEnum::TokenEndpointAuthMethod->value] = $isConfidential ?
             TokenEndpointAuthMethodsEnum::ClientSecretBasic->value :
             TokenEndpointAuthMethodsEnum::None->value;
+        }
+
+        // Behavioral "default when omitted" metadata, persisted (and enforced in the authorization flow / ID Token).
+        // Values are already format-validated at the registration boundary (ClientMetadataValidator) and the admin
+        // form; here we only persist when present so they can be echoed and applied. Preserved on update when omitted.
+        if (array_key_exists(ClaimsEnum::DefaultMaxAge->value, $metadata)) {
+            /** @var mixed $defaultMaxAge */
+            $defaultMaxAge = $metadata[ClaimsEnum::DefaultMaxAge->value];
+            if (is_int($defaultMaxAge) || (is_string($defaultMaxAge) && ctype_digit($defaultMaxAge))) {
+                $extraMetadata[ClaimsEnum::DefaultMaxAge->value] = (int)$defaultMaxAge;
+            }
+        }
+
+        if (array_key_exists(ClaimsEnum::RequireAuthTime->value, $metadata)) {
+            $extraMetadata[ClaimsEnum::RequireAuthTime->value] = (bool)$metadata[ClaimsEnum::RequireAuthTime->value];
+        }
+
+        if (
+            isset($metadata[ClaimsEnum::DefaultAcrValues->value]) &&
+            is_array($metadata[ClaimsEnum::DefaultAcrValues->value])
+        ) {
+            $extraMetadata[ClaimsEnum::DefaultAcrValues->value] = $this->helpers->arr()->ensureStringValues(
+                $metadata[ClaimsEnum::DefaultAcrValues->value],
+            );
         }
 
         // Persist informational ("store & echo") metadata so it can be returned in registration/read responses.

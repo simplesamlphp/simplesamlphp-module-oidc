@@ -195,6 +195,51 @@
             <span class="pure-form-message red-text">{{ form.token_endpoint_auth_method.getError }}</span>
         {% endif %}
 
+        <label for="frm-default_max_age">{{ 'Default Max Age (seconds)'|trans }}</label>
+        {{ form.default_max_age.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}Default Maximum Authentication Age, in seconds, applied when the authorization request omits max_age. Leave empty for no default.{% endtrans %}
+        </span>
+        {% if form.default_max_age.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.default_max_age.getError }}</span>
+        {% endif %}
+
+        <label for="">{{ 'Require auth_time in ID Token'|trans }}</label>
+        {{ form.require_auth_time.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}When enabled, the auth_time claim is always included in ID Tokens issued to this Client.{% endtrans %}
+        </span>
+
+        <label for="frm-default_acr_values">{{ 'Default ACR Values'|trans }}</label>
+        {{ form.default_acr_values.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}Default requested Authentication Context Class Reference values, applied when the authorization request omits acr_values. One per line.{% endtrans %}
+        </span>
+        {% if form.default_acr_values.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.default_acr_values.getError }}</span>
+        {% endif %}
+
+        <label for="frm-initiate_login_uri">{{ 'Initiate Login URI'|trans }}</label>
+        {{ form.initiate_login_uri.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}URI using the https scheme that a third party can use to initiate a login by the RP. Informational.{% endtrans %}
+        </span>
+        {% if form.initiate_login_uri.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.initiate_login_uri.getError }}</span>
+        {% endif %}
+
+        <label for="frm-software_id">{{ 'Software ID'|trans }}</label>
+        {{ form.software_id.control | raw }}
+        {% if form.software_id.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.software_id.getError }}</span>
+        {% endif %}
+
+        <label for="frm-software_version">{{ 'Software Version'|trans }}</label>
+        {{ form.software_version.control | raw }}
+        {% if form.software_version.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.software_version.getError }}</span>
+        {% endif %}
+
         <label for="">{{ 'Require Pushed Authorization Requests (PAR)'|trans }}</label>
         <label for="radio-option-require_pushed_authorization_requests-yes" class="pure-radio">
             <input type="radio"

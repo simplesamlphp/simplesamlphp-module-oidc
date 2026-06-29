@@ -310,6 +310,16 @@ class RegistrationController
         $response[ClaimsEnum::ResponseTypes->value] = $client->getResponseTypes();
         $response[ClaimsEnum::TokenEndpointAuthMethod->value] = $client->getTokenEndpointAuthMethod();
 
+        if (($defaultMaxAge = $client->getDefaultMaxAge()) !== null) {
+            $response[ClaimsEnum::DefaultMaxAge->value] = $defaultMaxAge;
+        }
+        if ($client->getRequireAuthTime()) {
+            $response[ClaimsEnum::RequireAuthTime->value] = true;
+        }
+        if (($defaultAcrValues = $client->getDefaultAcrValues()) !== []) {
+            $response[ClaimsEnum::DefaultAcrValues->value] = $defaultAcrValues;
+        }
+
         // Echo back the stored informational ("store & echo") metadata.
         $extraMetadata = $client->getExtraMetadata();
         foreach (ClientEntityFactory::STORE_AND_ECHO_METADATA_KEYS as $key) {

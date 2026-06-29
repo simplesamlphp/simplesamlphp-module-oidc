@@ -181,6 +181,60 @@ class ClientMetadataValidatorTest extends TestCase
         ];
     }
 
+    public function testValidAdditionalMetadataPasses(): void
+    {
+        $metadata = [
+            'redirect_uris' => ['https://client.example.org/cb'],
+            'default_max_age' => 600,
+            'require_auth_time' => true,
+            'default_acr_values' => ['urn:mace:incommon:iap:silver'],
+            'initiate_login_uri' => 'https://client.example.org/initiate',
+            'software_id' => 'example-suite',
+            'software_version' => '1.2.3',
+        ];
+
+        $this->assertSame($metadata, $this->sut()->validate($metadata));
+    }
+
+    public function testNegativeDefaultMaxAgeIsRejected(): void
+    {
+        $this->assertRejected(
+            ['redirect_uris' => ['https://client.example.org/cb'], 'default_max_age' => -5],
+            'invalid_client_metadata',
+            'default_max_age',
+        );
+    }
+
+    public function testNonBooleanRequireAuthTimeIsRejected(): void
+    {
+        $this->assertRejected(
+            ['redirect_uris' => ['https://client.example.org/cb'], 'require_auth_time' => 'yes'],
+            'invalid_client_metadata',
+            'require_auth_time',
+        );
+    }
+
+    public function testNonArrayDefaultAcrValuesIsRejected(): void
+    {
+        $this->assertRejected(
+            ['redirect_uris' => ['https://client.example.org/cb'], 'default_acr_values' => 'silver'],
+            'invalid_client_metadata',
+            'default_acr_values',
+        );
+    }
+
+    public function testNonHttpsInitiateLoginUriIsRejected(): void
+    {
+        $this->assertRejected(
+            [
+                'redirect_uris' => ['https://client.example.org/cb'],
+                'initiate_login_uri' => 'http://client.example.org/x',
+            ],
+            'invalid_client_metadata',
+            'initiate_login_uri',
+        );
+    }
+
     public function testImpersonationProtectionRejectsMismatchedHost(): void
     {
         $this->assertRejected(

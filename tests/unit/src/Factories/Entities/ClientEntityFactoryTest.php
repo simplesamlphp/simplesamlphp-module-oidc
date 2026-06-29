@@ -232,6 +232,36 @@ class ClientEntityFactoryTest extends TestCase
     }
 
     /**
+     * The behavioral default metadata (default_max_age, require_auth_time, default_acr_values) and informational
+     * metadata (initiate_login_uri, software_id, software_version) are persisted from a registration request.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataPersistsAdditionalMetadata(): void
+    {
+        $client = $this->sut()->fromRegistrationData(
+            [
+                ClaimsEnum::RedirectUris->value => ['https://example.org/cb'],
+                ClaimsEnum::DefaultMaxAge->value => 600,
+                ClaimsEnum::RequireAuthTime->value => true,
+                ClaimsEnum::DefaultAcrValues->value => ['acr-1', 'acr-2'],
+                ClaimsEnum::InitiateLoginUri->value => 'https://example.org/initiate',
+                ClaimsEnum::SoftwareId->value => 'suite',
+                ClaimsEnum::SoftwareVersion->value => '2.0',
+            ],
+            RegistrationTypeEnum::Dynamic,
+        );
+
+        $this->assertSame(600, $client->getDefaultMaxAge());
+        $this->assertTrue($client->getRequireAuthTime());
+        $this->assertSame(['acr-1', 'acr-2'], $client->getDefaultAcrValues());
+        $this->assertSame('https://example.org/initiate', $client->getInitiateLoginUri());
+        $this->assertSame('suite', $client->getSoftwareId());
+        $this->assertSame('2.0', $client->getSoftwareVersion());
+    }
+
+    /**
      * request_uris from a registration request are persisted (into extra metadata) so they can be
      * exact-matched when a Request Object is later passed by reference (request_uri). The fragment, which OIDC
      * Core allows as a content hash, is preserved.

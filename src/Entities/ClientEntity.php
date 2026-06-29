@@ -271,6 +271,12 @@ class ClientEntity implements ClientEntityInterface
             ClaimsEnum::GrantTypes->value => $this->getGrantTypes(),
             ClaimsEnum::ResponseTypes->value => $this->getResponseTypes(),
             ClaimsEnum::TokenEndpointAuthMethod->value => $this->getTokenEndpointAuthMethod(),
+            ClaimsEnum::DefaultMaxAge->value => $this->getDefaultMaxAge(),
+            ClaimsEnum::RequireAuthTime->value => $this->getRequireAuthTime(),
+            ClaimsEnum::DefaultAcrValues->value => $this->getDefaultAcrValues(),
+            ClaimsEnum::InitiateLoginUri->value => $this->getInitiateLoginUri(),
+            ClaimsEnum::SoftwareId->value => $this->getSoftwareId(),
+            ClaimsEnum::SoftwareVersion->value => $this->getSoftwareVersion(),
             self::KEY_AUTH_PROC_FILTERS => $this->getAuthProcFilters(),
             self::KEY_REGISTRATION_ACCESS_TOKEN => $this->registrationAccessToken,
         ];
@@ -582,5 +588,89 @@ class ClientEntity implements ClientEntityInterface
         return $this->isConfidential() ?
         TokenEndpointAuthMethodsEnum::ClientSecretBasic->value :
         TokenEndpointAuthMethodsEnum::None->value;
+    }
+
+    /**
+     * Default Maximum Authentication Age (seconds) applied when the authorization request omits max_age, or null
+     * when not registered.
+     */
+    public function getDefaultMaxAge(): ?int
+    {
+        /** @var mixed $value */
+        $value = is_array($this->extraMetadata) ?
+        ($this->extraMetadata[ClaimsEnum::DefaultMaxAge->value] ?? null) : null;
+
+        if (is_int($value) && $value >= 0) {
+            return $value;
+        }
+
+        // Tolerate a numeric string (e.g. when read back from JSON-ish storage).
+        if (is_string($value) && $value !== '' && ctype_digit($value)) {
+            return (int)$value;
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether the auth_time claim is required in the ID Token issued to this client.
+     */
+    public function getRequireAuthTime(): bool
+    {
+        /** @var mixed $value */
+        $value = is_array($this->extraMetadata) ?
+        ($this->extraMetadata[ClaimsEnum::RequireAuthTime->value] ?? null) : null;
+
+        return $value === true || $value === 'true' || $value === 1 || $value === '1';
+    }
+
+    /**
+     * Default ACR values requested when the authorization request omits acr_values.
+     *
+     * @return string[]
+     */
+    public function getDefaultAcrValues(): array
+    {
+        /** @var mixed $values */
+        $values = is_array($this->extraMetadata) ?
+        ($this->extraMetadata[ClaimsEnum::DefaultAcrValues->value] ?? null) : null;
+
+        if (!is_array($values)) {
+            return [];
+        }
+
+        return array_values(array_filter($values, 'is_string'));
+    }
+
+    /**
+     * URI a third party can use to initiate login for this client (informational; the OP does not act on it).
+     */
+    public function getInitiateLoginUri(): ?string
+    {
+        return $this->getStringExtraMetadata(ClaimsEnum::InitiateLoginUri->value);
+    }
+
+    /**
+     * RFC 7591 software_id (informational).
+     */
+    public function getSoftwareId(): ?string
+    {
+        return $this->getStringExtraMetadata(ClaimsEnum::SoftwareId->value);
+    }
+
+    /**
+     * RFC 7591 software_version (informational).
+     */
+    public function getSoftwareVersion(): ?string
+    {
+        return $this->getStringExtraMetadata(ClaimsEnum::SoftwareVersion->value);
+    }
+
+    private function getStringExtraMetadata(string $key): ?string
+    {
+        /** @var mixed $value */
+        $value = is_array($this->extraMetadata) ? ($this->extraMetadata[$key] ?? null) : null;
+
+        return (is_string($value) && $value !== '') ? $value : null;
     }
 }

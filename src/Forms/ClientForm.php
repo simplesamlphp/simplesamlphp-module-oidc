@@ -408,6 +408,33 @@ class ClientForm extends Form
         $values[ClaimsEnum::TokenEndpointAuthMethod->value] = $tokenEndpointAuthMethod === '' ?
         null : $tokenEndpointAuthMethod;
 
+        /** @var mixed $defaultMaxAgeRaw */
+        $defaultMaxAgeRaw = $values[ClaimsEnum::DefaultMaxAge->value] ?? '';
+        $defaultMaxAge = (is_string($defaultMaxAgeRaw) || is_int($defaultMaxAgeRaw)) ?
+        trim((string)$defaultMaxAgeRaw) : '';
+        $values[ClaimsEnum::DefaultMaxAge->value] = ctype_digit($defaultMaxAge) ? (int)$defaultMaxAge : null;
+
+        $values[ClaimsEnum::RequireAuthTime->value] = (bool)($values[ClaimsEnum::RequireAuthTime->value] ?? false);
+
+        /** @var mixed $defaultAcrValues */
+        $defaultAcrValues = $values[ClaimsEnum::DefaultAcrValues->value] ?? '';
+        $values[ClaimsEnum::DefaultAcrValues->value] = $this->helpers->str()->convertTextToArray(
+            is_string($defaultAcrValues) ? $defaultAcrValues : '',
+        );
+
+        foreach (
+            [
+                ClaimsEnum::InitiateLoginUri->value,
+                ClaimsEnum::SoftwareId->value,
+                ClaimsEnum::SoftwareVersion->value,
+            ] as $stringClaim
+        ) {
+            /** @var mixed $claimValue */
+            $claimValue = $values[$stringClaim] ?? '';
+            $stringValue = is_string($claimValue) ? trim($claimValue) : '';
+            $values[$stringClaim] = $stringValue === '' ? null : $stringValue;
+        }
+
         $authProcFilters = trim((string)($values[ClientEntity::KEY_AUTH_PROC_FILTERS] ?? ''));
         try {
             /** @psalm-suppress MixedAssignment */
@@ -520,6 +547,24 @@ class ClientForm extends Form
                 $tokenEndpointAuthMethod,
                 $this->getSupportedTokenEndpointAuthMethods(),
             )) ? $tokenEndpointAuthMethod : null;
+
+        /** @var mixed $defaultMaxAge */
+        $defaultMaxAge = $values[ClaimsEnum::DefaultMaxAge->value] ?? null;
+        $values[ClaimsEnum::DefaultMaxAge->value] = is_int($defaultMaxAge) ? (string)$defaultMaxAge : '';
+
+        $values[ClaimsEnum::RequireAuthTime->value] = (bool)($values[ClaimsEnum::RequireAuthTime->value] ?? false);
+
+        /** @var mixed $defaultAcrValues */
+        $defaultAcrValues = $values[ClaimsEnum::DefaultAcrValues->value] ?? null;
+        $defaultAcrValues = is_array($defaultAcrValues) ? $defaultAcrValues : [];
+        $defaultAcrStrings = [];
+        /** @var mixed $acr */
+        foreach ($defaultAcrValues as $acr) {
+            if (is_string($acr)) {
+                $defaultAcrStrings[] = $acr;
+            }
+        }
+        $values[ClaimsEnum::DefaultAcrValues->value] = implode("\n", $defaultAcrStrings);
 
         /** @var mixed $authProcFilters */
         $authProcFilters = $values[ClientEntity::KEY_AUTH_PROC_FILTERS] ?? null;
@@ -653,6 +698,28 @@ class ClientForm extends Form
         )->setHtmlAttribute('class', 'full-width')
             ->setItems($this->getSupportedTokenEndpointAuthMethods(), false)
             ->setPrompt(Translate::noop('-'));
+
+        $this->addText(ClaimsEnum::DefaultMaxAge->value, Translate::noop('Default Max Age (seconds)'))
+            ->setHtmlAttribute('class', 'full-width')
+            ->setHtmlType('number');
+
+        $this->addCheckbox(ClaimsEnum::RequireAuthTime->value, Translate::noop('Require auth_time in ID Token'));
+
+        $this->addTextArea(
+            ClaimsEnum::DefaultAcrValues->value,
+            Translate::noop('Default ACR Values (one per line)'),
+            null,
+            3,
+        )->setHtmlAttribute('class', 'full-width');
+
+        $this->addText(ClaimsEnum::InitiateLoginUri->value, Translate::noop('Initiate Login URI'))
+            ->setHtmlAttribute('class', 'full-width');
+
+        $this->addText(ClaimsEnum::SoftwareId->value, Translate::noop('Software ID'))
+            ->setHtmlAttribute('class', 'full-width');
+
+        $this->addText(ClaimsEnum::SoftwareVersion->value, Translate::noop('Software Version'))
+            ->setHtmlAttribute('class', 'full-width');
 
         $this->addTextArea(
             ClientEntity::KEY_AUTH_PROC_FILTERS,

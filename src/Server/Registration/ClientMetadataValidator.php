@@ -92,6 +92,7 @@ class ClientMetadataValidator
         $this->validateApplicationType($metadata);
         $this->validateSubjectType($metadata);
         $this->rejectUnsupportedFeatures($metadata);
+        $this->validateAdditionalMetadata($metadata);
 
         if ($this->moduleConfig->getDcrImpersonationProtectionEnabled()) {
             $this->enforceImpersonationProtection($metadata, $redirectUris);
@@ -256,6 +257,77 @@ class ClientMetadataValidator
             throw OidcServerException::invalidClientMetadata(
                 'Unsupported subject_type; only "public" is supported.',
             );
+        }
+    }
+
+    /**
+     * Validate additional supported metadata: the behavioral "default when omitted" fields (default_max_age,
+     * require_auth_time, default_acr_values) and the informational fields (initiate_login_uri, software_id,
+     * software_version).
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    private function validateAdditionalMetadata(array $metadata): void
+    {
+        if (array_key_exists(ClaimsEnum::DefaultMaxAge->value, $metadata)) {
+            /** @var mixed $defaultMaxAge */
+            $defaultMaxAge = $metadata[ClaimsEnum::DefaultMaxAge->value];
+            $isNonNegativeInt = is_int($defaultMaxAge) && $defaultMaxAge >= 0;
+            $isDigitString = is_string($defaultMaxAge) && $defaultMaxAge !== '' && ctype_digit($defaultMaxAge);
+            if (!$isNonNegativeInt && !$isDigitString) {
+                throw OidcServerException::invalidClientMetadata('default_max_age must be a non-negative integer.');
+            }
+        }
+
+        if (array_key_exists(ClaimsEnum::RequireAuthTime->value, $metadata)) {
+            /** @var mixed $requireAuthTime */
+            $requireAuthTime = $metadata[ClaimsEnum::RequireAuthTime->value];
+            if (!is_bool($requireAuthTime)) {
+                throw OidcServerException::invalidClientMetadata('require_auth_time must be a boolean.');
+            }
+        }
+
+        if (array_key_exists(ClaimsEnum::DefaultAcrValues->value, $metadata)) {
+            /** @var mixed $defaultAcrValues */
+            $defaultAcrValues = $metadata[ClaimsEnum::DefaultAcrValues->value];
+            if (!is_array($defaultAcrValues)) {
+                throw OidcServerException::invalidClientMetadata('default_acr_values must be an array.');
+            }
+            /** @var mixed $acr */
+            foreach ($defaultAcrValues as $acr) {
+                if (!is_string($acr) || $acr === '') {
+                    throw OidcServerException::invalidClientMetadata(
+                        'default_acr_values must be an array of non-empty strings.',
+                    );
+                }
+            }
+        }
+
+        // initiate_login_uri must be a valid https URI when present.
+        if (array_key_exists(ClaimsEnum::InitiateLoginUri->value, $metadata)) {
+            /** @var mixed $initiateLoginUri */
+            $initiateLoginUri = $metadata[ClaimsEnum::InitiateLoginUri->value];
+            $scheme = is_string($initiateLoginUri) ? parse_url($initiateLoginUri, PHP_URL_SCHEME) : null;
+            if (
+                !is_string($initiateLoginUri) ||
+                !is_string($scheme) ||
+                strtolower($scheme) !== 'https' ||
+                $this->extractHost($initiateLoginUri) === null
+            ) {
+                throw OidcServerException::invalidClientMetadata('initiate_login_uri must be a valid https URI.');
+            }
+        }
+
+        // software_id / software_version, when present, must be non-empty strings.
+        foreach ([ClaimsEnum::SoftwareId->value, ClaimsEnum::SoftwareVersion->value] as $claim) {
+            if (!array_key_exists($claim, $metadata)) {
+                continue;
+            }
+            /** @var mixed $value */
+            $value = $metadata[$claim];
+            if (!is_string($value) || $value === '') {
+                throw OidcServerException::invalidClientMetadata(sprintf('%s must be a non-empty string.', $claim));
+            }
         }
     }
 

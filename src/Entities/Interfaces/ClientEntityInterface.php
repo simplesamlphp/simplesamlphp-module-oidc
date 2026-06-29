@@ -104,6 +104,21 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
 
     public function getTokenEndpointAuthMethod(): string;
 
+    public function getDefaultMaxAge(): ?int;
+
+    public function getRequireAuthTime(): bool;
+
+    /**
+     * @return string[]
+     */
+    public function getDefaultAcrValues(): array;
+
+    public function getInitiateLoginUri(): ?string;
+
+    public function getSoftwareId(): ?string;
+
+    public function getSoftwareVersion(): ?string;
+
     /**
      * @return array
      */

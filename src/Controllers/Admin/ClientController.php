@@ -383,6 +383,25 @@ class ClientController
         $extraMetadata[ClaimsEnum::TokenEndpointAuthMethod->value] = is_string($tokenEndpointAuthMethod) ?
         $tokenEndpointAuthMethod : null;
 
+        /** @var mixed $defaultMaxAge */
+        $defaultMaxAge = $data[ClaimsEnum::DefaultMaxAge->value] ?? null;
+        if (is_int($defaultMaxAge)) {
+            $extraMetadata[ClaimsEnum::DefaultMaxAge->value] = $defaultMaxAge;
+        }
+        $extraMetadata[ClaimsEnum::RequireAuthTime->value] = (bool)($data[ClaimsEnum::RequireAuthTime->value] ?? false);
+        /** @var mixed $defaultAcrValues */
+        $defaultAcrValues = $data[ClaimsEnum::DefaultAcrValues->value] ?? null;
+        $extraMetadata[ClaimsEnum::DefaultAcrValues->value] = is_array($defaultAcrValues) ? $defaultAcrValues : [];
+        /** @var mixed $initiateLoginUri */
+        $initiateLoginUri = $data[ClaimsEnum::InitiateLoginUri->value] ?? null;
+        $extraMetadata[ClaimsEnum::InitiateLoginUri->value] = is_string($initiateLoginUri) ? $initiateLoginUri : null;
+        /** @var mixed $softwareId */
+        $softwareId = $data[ClaimsEnum::SoftwareId->value] ?? null;
+        $extraMetadata[ClaimsEnum::SoftwareId->value] = is_string($softwareId) ? $softwareId : null;
+        /** @var mixed $softwareVersion */
+        $softwareVersion = $data[ClaimsEnum::SoftwareVersion->value] ?? null;
+        $extraMetadata[ClaimsEnum::SoftwareVersion->value] = is_string($softwareVersion) ? $softwareVersion : null;
+
         // Per-client authproc filters. These are administrator-only (settable
         // here, via the admin UI), and are deliberately never accepted from
         // client-supplied registration metadata. See

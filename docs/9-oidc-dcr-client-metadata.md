@@ -57,13 +57,13 @@ contract for what was honored.
 | `request_object_signing_alg` | Ignored | TBD | Decide once request object policy is finalized. |
 | `request_object_encryption_alg` / `..._enc` | **Reject** if requested | Reject | Request object encryption not supported. |
 | `token_endpoint_auth_signing_alg` | Ignored | TBD | Relevant to `private_key_jwt` / `client_secret_jwt`. |
-| `default_max_age` | Ignored | TBD (validate + store + enforce) | |
-| `require_auth_time` | Ignored | TBD (validate + store + enforce) | |
-| `default_acr_values` | Ignored | TBD (validate + store) | |
-| `initiate_login_uri` | Ignored | TBD (validate + store + echo) | |
+| `default_max_age` | **Honored** (validate + store + echo + enforce) | Honored | Admin-editable. Default applied when max_age omitted (MaxAgeRule). |
+| `require_auth_time` | **Honored** (validate + store + echo + enforce) | Honored | Admin-editable. Forces auth_time into the ID Token (MaxAgeRule -> AuthCodeGrant). |
+| `default_acr_values` | **Honored** (validate + store + echo + enforce) | Honored | Admin-editable. Default applied when acr_values omitted (AcrValuesRule). |
+| `initiate_login_uri` | **Validated + echoed** | Validated + echoed | Admin-editable; https URI. Informational. |
 | `backchannel_logout_session_required` | Ignored | TBD | |
 | `frontchannel_logout_uri` / `..._session_required` | **Reject** if requested | Reject | Front-channel logout not supported. |
-| `software_id` / `software_version` | Ignored | TBD (store + echo) | RFC 7591 informational. |
+| `software_id` / `software_version` | **Validated + echoed** | Validated + echoed | Admin-editable. RFC 7591 informational. |
 | `software_statement` | Ignored | TBD | RFC 7591; only if signed-statement trust is implemented. |
 
 ## Enforcement policy
@@ -75,7 +75,7 @@ clients always do (the OIDC DCR defaults are applied at registration); clients
 that do not have it configured are not constrained. This avoids regressing
 manually-managed clients while still honoring the registered metadata. All client
 metadata is stored in the existing `extra_metadata` JSON column (no DB migration),
-and will be exposed as editable fields in the admin UI.
+and is exposed as editable fields in the admin UI.
 
 ## Implementation order
 
@@ -92,7 +92,11 @@ and will be exposed as editable fields in the admin UI.
    accordingly in `dynamic-warnings.json`; the plan stays green).
 3. **Validate + store (+ enforce/echo)** the remaining benign behavioral fields
    (`default_max_age`, `require_auth_time`, `default_acr_values`,
-   `initiate_login_uri`, `software_*`).
+   `initiate_login_uri`, `software_*`). **Done** — all validated, persisted, echoed
+   and admin-editable; the three behavioral defaults are enforced presence-based in
+   the authorization flow (`MaxAgeRule` for default_max_age + require_auth_time,
+   `AcrValuesRule` for default_acr_values). `software_statement` remains out of scope
+   (would require signed-statement trust). Conformance plan stays green.
 
 ## Note: `grant_types` vs `offline_access` / refresh tokens
 

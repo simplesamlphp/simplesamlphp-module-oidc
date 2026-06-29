@@ -275,6 +275,62 @@
             </tr>
             <tr>
                 <td class="client-col col-property">
+                    {{ 'Default Max Age (seconds)'|trans }}
+                </td>
+                <td>
+                    {{ client.defaultMaxAge is null ? 'N/A'|trans : client.defaultMaxAge }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Require auth_time in ID Token'|trans }}
+                </td>
+                <td>
+                    {{ client.requireAuthTime ? 'Yes' : 'No' }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Default ACR Values'|trans }}
+                </td>
+                <td>
+                    {% if client.defaultAcrValues is not empty %}
+                        <ul class="disc">
+                            {% for acr in client.defaultAcrValues %}
+                                <li>{{ acr }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        {{ 'N/A'|trans }}
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Initiate Login URI'|trans }}
+                </td>
+                <td>
+                    {{ client.initiateLoginUri|default('N/A'|trans) }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Software ID'|trans }}
+                </td>
+                <td>
+                    {{ client.softwareId|default('N/A'|trans) }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Software Version'|trans }}
+                </td>
+                <td>
+                    {{ client.softwareVersion|default('N/A'|trans) }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
                     {{ 'Require Pushed Authorization Requests (PAR)'|trans }}
                 </td>
                 <td>
