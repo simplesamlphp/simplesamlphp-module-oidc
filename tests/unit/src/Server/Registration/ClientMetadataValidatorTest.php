@@ -140,6 +140,47 @@ class ClientMetadataValidatorTest extends TestCase
         );
     }
 
+    public function testSubjectTypePublicIsAccepted(): void
+    {
+        $metadata = ['redirect_uris' => ['https://client.example.org/cb'], 'subject_type' => 'public'];
+
+        $this->assertSame($metadata, $this->sut()->validate($metadata));
+    }
+
+    public function testPairwiseSubjectTypeIsRejected(): void
+    {
+        $this->assertRejected(
+            ['redirect_uris' => ['https://client.example.org/cb'], 'subject_type' => 'pairwise'],
+            'invalid_client_metadata',
+            'subject_type',
+        );
+    }
+
+    /**
+     * @dataProvider unsupportedFeatureMetadataProvider
+     */
+    public function testUnsupportedFeatureMetadataIsRejected(string $field, mixed $value): void
+    {
+        $this->assertRejected(
+            ['redirect_uris' => ['https://client.example.org/cb'], $field => $value],
+            'invalid_client_metadata',
+            'Unsupported metadata',
+        );
+    }
+
+    public static function unsupportedFeatureMetadataProvider(): array
+    {
+        return [
+            'sector_identifier_uri' => ['sector_identifier_uri', 'https://client.example.org/sector'],
+            'userinfo_signed_response_alg' => ['userinfo_signed_response_alg', 'RS256'],
+            'userinfo_encrypted_response_alg' => ['userinfo_encrypted_response_alg', 'RSA-OAEP'],
+            'id_token_encrypted_response_alg' => ['id_token_encrypted_response_alg', 'RSA-OAEP'],
+            'request_object_encryption_alg' => ['request_object_encryption_alg', 'RSA-OAEP'],
+            'frontchannel_logout_uri' => ['frontchannel_logout_uri', 'https://client.example.org/fclo'],
+            'frontchannel_logout_session_required' => ['frontchannel_logout_session_required', true],
+        ];
+    }
+
     public function testImpersonationProtectionRejectsMismatchedHost(): void
     {
         $this->assertRejected(

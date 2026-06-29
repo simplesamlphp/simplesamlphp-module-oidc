@@ -49,20 +49,20 @@ contract for what was honored.
 | `tos_uri` | Validated + echoed | Validated + echoed | Subject to impersonation protection. |
 | `client_uri` | Validated + echoed | Validated + echoed | Excluded from impersonation protection. |
 | `client_registration_types` | Honored (federation) | Honored | OpenID Federation. |
-| `subject_type` | Ignored | **Reject** if not `public` | Only `public` is supported (no pairwise). |
-| `sector_identifier_uri` | Ignored | **Reject** if requested | Pairwise/sector grouping not supported (conformance `*-sector-*` skip). |
-| `userinfo_signed_response_alg` | Ignored | **Reject** if requested | Signed UserInfo not supported (conformance `userinfo-rs256` gap). |
-| `userinfo_encrypted_response_alg` / `..._enc` | Ignored | **Reject** if requested | Response encryption not supported. |
-| `id_token_encrypted_response_alg` / `..._enc` | Ignored | **Reject** if requested | Response encryption not supported. |
+| `subject_type` | **Reject** if not `public` | Reject if not `public` | Only `public` is supported (no pairwise). |
+| `sector_identifier_uri` | **Reject** if requested | Reject | Pairwise/sector grouping not supported. |
+| `userinfo_signed_response_alg` | **Reject** if requested | Reject | Signed UserInfo not supported (conformance `userinfo-rs256`). |
+| `userinfo_encrypted_response_alg` / `..._enc` | **Reject** if requested | Reject | Response encryption not supported. |
+| `id_token_encrypted_response_alg` / `..._enc` | **Reject** if requested | Reject | Response encryption not supported. |
 | `request_object_signing_alg` | Ignored | TBD | Decide once request object policy is finalized. |
-| `request_object_encryption_alg` / `..._enc` | Ignored | **Reject** if requested | Request object encryption not supported. |
+| `request_object_encryption_alg` / `..._enc` | **Reject** if requested | Reject | Request object encryption not supported. |
 | `token_endpoint_auth_signing_alg` | Ignored | TBD | Relevant to `private_key_jwt` / `client_secret_jwt`. |
 | `default_max_age` | Ignored | TBD (validate + store + enforce) | |
 | `require_auth_time` | Ignored | TBD (validate + store + enforce) | |
 | `default_acr_values` | Ignored | TBD (validate + store) | |
 | `initiate_login_uri` | Ignored | TBD (validate + store + echo) | |
 | `backchannel_logout_session_required` | Ignored | TBD | |
-| `frontchannel_logout_uri` / `..._session_required` | Ignored | **Reject** if requested | Front-channel logout not supported. |
+| `frontchannel_logout_uri` / `..._session_required` | **Reject** if requested | Reject | Front-channel logout not supported. |
 | `software_id` / `software_version` | Ignored | TBD (store + echo) | RFC 7591 informational. |
 | `software_statement` | Ignored | TBD | RFC 7591; only if signed-statement trust is implemented. |
 
@@ -87,6 +87,9 @@ and will be exposed as editable fields in the admin UI.
 2. **Reject** the unsupported security-relevant fields (signed/encrypted
    UserInfo, response/request-object encryption, `subject_type` non-`public`,
    `sector_identifier_uri`, front-channel logout) instead of silently ignoring.
+   **Done** — rejected in `ClientMetadataValidator` with `invalid_client_metadata`
+   (conformance `oidcc-userinfo-rs256` now fails at the registration step, recorded
+   accordingly in `dynamic-warnings.json`; the plan stays green).
 3. **Validate + store (+ enforce/echo)** the remaining benign behavioral fields
    (`default_max_age`, `require_auth_time`, `default_acr_values`,
    `initiate_login_uri`, `software_*`).

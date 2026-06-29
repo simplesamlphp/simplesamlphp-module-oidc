@@ -42,6 +42,35 @@ class ClientMetadataValidator
         ClaimsEnum::TosUri->value,
     ];
 
+    // Front-channel logout metadata (not modelled in ClaimsEnum; this OP only supports back-channel logout).
+    private const string CLAIM_FRONTCHANNEL_LOGOUT_URI = 'frontchannel_logout_uri';
+    private const string CLAIM_FRONTCHANNEL_LOGOUT_SESSION_REQUIRED = 'frontchannel_logout_session_required';
+
+    /**
+     * Metadata for features this OP does not support. When a client requests any of these, registration is
+     * rejected with invalid_client_metadata rather than silently ignored (which would leave the client behaving
+     * differently than it asked). Map of metadata field => human description for the error hint.
+     */
+    private const array UNSUPPORTED_FEATURE_CLAIMS = [
+        ClaimsEnum::SectorIdentifierUri->value =>
+            'sector_identifier_uri (pairwise subject identifiers are not supported)',
+        ClaimsEnum::UserinfoSignedResponseAlg->value =>
+            'userinfo_signed_response_alg (signed UserInfo responses are not supported)',
+        ClaimsEnum::UserinfoEncryptedResponseAlg->value =>
+            'userinfo_encrypted_response_alg (encrypted UserInfo responses are not supported)',
+        ClaimsEnum::UserinfoEncryptedResponseEnc->value =>
+            'userinfo_encrypted_response_enc (encrypted UserInfo responses are not supported)',
+        ClaimsEnum::IdTokenEncryptedResponseAlg->value =>
+            'id_token_encrypted_response_alg (encrypted ID Tokens are not supported)',
+        ClaimsEnum::IdTokenEncryptedResponseEnc->value =>
+            'id_token_encrypted_response_enc (encrypted ID Tokens are not supported)',
+        ClaimsEnum::RequestObjectEncryptionAlg->value =>
+            'request_object_encryption_alg (encrypted Request Objects are not supported)',
+        ClaimsEnum::RequestObjectEncryptionEnc->value =>
+            'request_object_encryption_enc (encrypted Request Objects are not supported)',
+        self::CLAIM_FRONTCHANNEL_LOGOUT_URI => 'frontchannel_logout_uri (front-channel logout is not supported)',
+    ];
+
     public function __construct(
         private readonly ModuleConfig $moduleConfig,
     ) {
@@ -61,6 +90,8 @@ class ClientMetadataValidator
         $this->validateRequestUris($metadata);
         $this->validateContacts($metadata);
         $this->validateApplicationType($metadata);
+        $this->validateSubjectType($metadata);
+        $this->rejectUnsupportedFeatures($metadata);
 
         if ($this->moduleConfig->getDcrImpersonationProtectionEnabled()) {
             $this->enforceImpersonationProtection($metadata, $redirectUris);
@@ -200,6 +231,58 @@ class ClientMetadataValidator
             ApplicationTypesEnum::tryFrom($applicationType) === null
         ) {
             throw OidcServerException::invalidClientMetadata('Invalid application_type value.');
+        }
+    }
+
+    /**
+     * subject_type, when present, must be 'public': this OP only issues public subject identifiers (no pairwise).
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    private function validateSubjectType(array $metadata): void
+    {
+        if (!array_key_exists(ClaimsEnum::SubjectType->value, $metadata)) {
+            return;
+        }
+
+        /** @var mixed $subjectType */
+        $subjectType = $metadata[ClaimsEnum::SubjectType->value];
+        // An empty value is treated as "not specified"; any other non-"public" value is rejected.
+        if ($subjectType === '' || $subjectType === null) {
+            return;
+        }
+
+        if ($subjectType !== 'public') {
+            throw OidcServerException::invalidClientMetadata(
+                'Unsupported subject_type; only "public" is supported.',
+            );
+        }
+    }
+
+    /**
+     * Reject metadata requesting features this OP does not support (see UNSUPPORTED_FEATURE_CLAIMS and front-channel
+     * logout), rather than silently ignoring it. This keeps the registration response an honest contract: the OP
+     * either honors a value or rejects it, it does not accept-and-diverge.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    private function rejectUnsupportedFeatures(array $metadata): void
+    {
+        foreach (self::UNSUPPORTED_FEATURE_CLAIMS as $claim => $description) {
+            /** @var mixed $value */
+            $value = $metadata[$claim] ?? null;
+            if (is_string($value) && $value !== '') {
+                throw OidcServerException::invalidClientMetadata(sprintf('Unsupported metadata: %s.', $description));
+            }
+        }
+
+        // front-channel logout session flag is a boolean modifier of the (unsupported) front-channel logout feature.
+        /** @var mixed $frontchannelSessionRequired */
+        $frontchannelSessionRequired = $metadata[self::CLAIM_FRONTCHANNEL_LOGOUT_SESSION_REQUIRED] ?? null;
+        if ($frontchannelSessionRequired === true || $frontchannelSessionRequired === 'true') {
+            throw OidcServerException::invalidClientMetadata(
+                'Unsupported metadata: frontchannel_logout_session_required (front-channel logout is not supported).',
+            );
         }
     }
 

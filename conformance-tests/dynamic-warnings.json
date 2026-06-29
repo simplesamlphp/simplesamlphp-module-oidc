@@ -1,38 +1,29 @@
 [
     {
-        "comment": "OP-wide gap (not DCR): discovery does not advertise userinfo_signing_alg_values_supported (signed UserInfo responses are not supported).",
+        "comment": "Signed UserInfo responses are not supported, so the OP now rejects a registration requesting userinfo_signed_response_alg with invalid_client_metadata (400) rather than silently ignoring it. The test therefore fails at the dynamic registration step.",
         "test-name": "oidcc-userinfo-rs256*",
         "configuration-filename": "*conformance-dynamic-ci.json",
         "variant": "*",
         "current-block": "",
-        "condition": "CheckDiscEndpointUserinfoSigningAlgValuesSupportedContainsRS256",
+        "condition": "EnsureHttpStatusCodeIs201",
         "expected-result": "failure"
     },
     {
-        "comment": "OP-wide gap (not DCR): signed (JWT) UserInfo responses are not supported.",
+        "comment": "Signed UserInfo responses are not supported; the registration requesting userinfo_signed_response_alg is rejected (see EnsureHttpStatusCodeIs201).",
         "test-name": "oidcc-userinfo-rs256*",
         "configuration-filename": "*conformance-dynamic-ci.json",
         "variant": "*",
         "current-block": "",
-        "condition": "EnsureContentTypeApplicationJwt",
+        "condition": "CheckNoErrorFromDynamicRegistrationEndpoint",
         "expected-result": "failure"
     },
     {
-        "comment": "OP-wide gap (not DCR): signed (JWT) UserInfo responses are not supported.",
+        "comment": "Signed UserInfo responses are not supported; the registration requesting userinfo_signed_response_alg is rejected (see EnsureHttpStatusCodeIs201).",
         "test-name": "oidcc-userinfo-rs256*",
         "configuration-filename": "*conformance-dynamic-ci.json",
         "variant": "*",
         "current-block": "",
-        "condition": "ValidateUserInfoResponseSignature",
-        "expected-result": "failure"
-    },
-    {
-        "comment": "OP-wide gap (not DCR): signed (JWT) UserInfo responses are not supported.",
-        "test-name": "oidcc-userinfo-rs256*",
-        "configuration-filename": "*conformance-dynamic-ci.json",
-        "variant": "*",
-        "current-block": "",
-        "condition": "ExtractSignedUserInfoFromUserInfoEndpointResponse",
+        "condition": "ExtractDynamicRegistrationResponse",
         "expected-result": "failure"
     },
     {
