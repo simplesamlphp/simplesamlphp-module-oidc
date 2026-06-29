@@ -246,11 +246,15 @@
                     {{ 'Grant Types'|trans }}
                 </td>
                 <td>
+                    {% if client.grantTypes is not empty %}
                     <ul class="disc">
                         {% for grantType in client.grantTypes %}
                             <li>{{ grantType }}</li>
                         {% endfor %}
                     </ul>
+                    {% else %}
+                        {{ 'N/A'|trans }}
+                    {% endif %}
                 </td>
             </tr>
             <tr>
@@ -258,11 +262,15 @@
                     {{ 'Response Types'|trans }}
                 </td>
                 <td>
+                    {% if client.responseTypes is not empty %}
                     <ul class="disc">
                         {% for responseType in client.responseTypes %}
                             <li>{{ responseType }}</li>
                         {% endfor %}
                     </ul>
+                    {% else %}
+                        {{ 'N/A'|trans }}
+                    {% endif %}
                 </td>
             </tr>
             <tr>
