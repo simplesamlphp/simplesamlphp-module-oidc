@@ -240,6 +240,45 @@
             <span class="pure-form-message red-text">{{ form.software_version.getError }}</span>
         {% endif %}
 
+        <label for="frm-logo_uri">{{ 'Logo URI'|trans }}</label>
+        {{ form.logo_uri.control | raw }}
+        {% if form.logo_uri.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.logo_uri.getError }}</span>
+        {% endif %}
+
+        <label for="frm-client_uri">{{ 'Client URI'|trans }}</label>
+        {{ form.client_uri.control | raw }}
+        {% if form.client_uri.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.client_uri.getError }}</span>
+        {% endif %}
+
+        <label for="frm-policy_uri">{{ 'Policy URI'|trans }}</label>
+        {{ form.policy_uri.control | raw }}
+        {% if form.policy_uri.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.policy_uri.getError }}</span>
+        {% endif %}
+
+        <label for="frm-tos_uri">{{ 'Terms of Service URI'|trans }}</label>
+        {{ form.tos_uri.control | raw }}
+        {% if form.tos_uri.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.tos_uri.getError }}</span>
+        {% endif %}
+
+        <label for="frm-application_type">{{ 'Application Type'|trans }}</label>
+        {{ form.application_type.control | raw }}
+        {% if form.application_type.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.application_type.getError }}</span>
+        {% endif %}
+
+        <label for="frm-contacts">{{ 'Contacts'|trans }}</label>
+        {{ form.contacts.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}Contacts for this Client (e.g. administrator e-mail addresses). One per line.{% endtrans %}
+        </span>
+        {% if form.contacts.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.contacts.getError }}</span>
+        {% endif %}
+
         <label for="">{{ 'Require Pushed Authorization Requests (PAR)'|trans }}</label>
         <label for="radio-option-require_pushed_authorization_requests-yes" class="pure-radio">
             <input type="radio"

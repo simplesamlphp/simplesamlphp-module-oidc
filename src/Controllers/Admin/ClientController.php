@@ -402,6 +402,23 @@ class ClientController
         $softwareVersion = $data[ClaimsEnum::SoftwareVersion->value] ?? null;
         $extraMetadata[ClaimsEnum::SoftwareVersion->value] = is_string($softwareVersion) ? $softwareVersion : null;
 
+        foreach (
+            [
+                ClaimsEnum::LogoUri->value,
+                ClaimsEnum::ClientUri->value,
+                ClaimsEnum::PolicyUri->value,
+                ClaimsEnum::TosUri->value,
+                ClaimsEnum::ApplicationType->value,
+            ] as $stringClaim
+        ) {
+            /** @var mixed $stringClaimValue */
+            $stringClaimValue = $data[$stringClaim] ?? null;
+            $extraMetadata[$stringClaim] = is_string($stringClaimValue) ? $stringClaimValue : null;
+        }
+        /** @var mixed $contacts */
+        $contacts = $data[ClaimsEnum::Contacts->value] ?? null;
+        $extraMetadata[ClaimsEnum::Contacts->value] = is_array($contacts) ? $contacts : [];
+
         // Per-client authproc filters. These are administrator-only (settable
         // here, via the admin UI), and are deliberately never accepted from
         // client-supplied registration metadata. See

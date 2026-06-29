@@ -30,6 +30,9 @@ OpenID Connect:
   object (passed by value and by reference)
 - [OpenID Connect Discovery 1.0](https://openid.net/specs/openid-connect-discovery-1_0.html)
   — `/.well-known/openid-configuration`
+- [OpenID Connect Dynamic Client Registration 1.0](https://openid.net/specs/openid-connect-registration-1_0.html)
+  — the Client Registration Endpoint (`registration_endpoint`); disabled by
+  default. See the [DCR note](#note-on-dynamic-client-registration-dcr) below
 - [OpenID Connect RP-Initiated Logout 1.0](https://openid.net/specs/openid-connect-rpinitiated-1_0.html)
 - [OpenID Connect Back-Channel Logout 1.0](https://openid.net/specs/openid-connect-backchannel-1_0.html)
 - [OAuth 2.0 Form Post Response Mode](https://openid.net/specs/oauth-v2-form-post-response-mode-1_0.html)
@@ -50,6 +53,10 @@ OAuth 2.0:
 - [JWT-Secured Authorization Request, JAR (RFC 9101)](https://www.rfc-editor.org/rfc/rfc9101)
   — `request` and `request_uri`
 - [OAuth 2.0 Pushed Authorization Requests, PAR (RFC 9126)](https://www.rfc-editor.org/rfc/rfc9126)
+- [OAuth 2.0 Dynamic Client Registration Protocol (RFC 7591)](https://www.rfc-editor.org/rfc/rfc7591)
+  and [OAuth 2.0 Dynamic Client Registration Management Protocol (RFC 7592)](https://www.rfc-editor.org/rfc/rfc7592)
+  — client register / read / update / delete at the `registration_endpoint`;
+  disabled by default. See the [DCR note](#note-on-dynamic-client-registration-dcr) below
 
 Drafts / experimental (see the notes below for scope and caveats):
 
@@ -57,6 +64,28 @@ Drafts / experimental (see the notes below for scope and caveats):
   (draft; breaking changes expected)
 - OpenID for Verifiable Credential Issuance, OpenID4VCI (draft 15; experimental,
   not for production)
+
+## Note on Dynamic Client Registration (DCR)
+
+The OP can let clients register themselves at the Client Registration Endpoint
+(`registration_endpoint`, served at `<basepath>/module.php/oidc/register`),
+implementing OpenID Connect Dynamic Client Registration 1.0 / RFC 7591 (create,
+read) and RFC 7592 (update, delete via the Client Configuration Endpoint,
+authenticated with the Registration Access Token issued at registration).
+
+DCR is **disabled by default**. When disabled, the registration endpoint returns
+`404` and is not advertised in discovery. When enabled, registration can be open
+or gated by an Initial Access Token, and impersonation protection
+(`logo_uri`/`policy_uri`/`tos_uri` host matching) is on by default.
+
+Most standard client metadata is supported. Metadata for features this OP does
+not implement is **rejected** with `invalid_client_metadata` rather than silently
+ignored — namely `subject_type` other than `public`, `sector_identifier_uri`,
+signed/encrypted UserInfo, ID Token / Request Object encryption, and front-channel
+logout. The full per-field policy (honored / validated / rejected) is documented in
+[DCR client metadata support](9-oidc-dcr-client-metadata.md). See the
+[upgrade guide](6-oidc-upgrade.md#version-6-to-7) for the configuration options,
+the client properties involved, and guidance for existing clients.
 
 ## Note on OpenID Federation (OIDFed)
 
@@ -134,6 +163,11 @@ plans against the module (using the OpenID conformance suite). See
   (`oidcc-rp-initiated-logout-certification-test-plan`)
 - OpenID Connect Back-Channel Logout
   (`oidcc-backchannel-rp-initiated-logout-certification-test-plan`)
+- OpenID Connect Core: Dynamic OP
+  (`oidcc-dynamic-certification-test-plan`) — exercises Dynamic Client
+  Registration. A few tests in this plan cover OP behaviours that are not DCR and
+  are not (yet) supported; they are tracked as expected failures. See
+  [OpenID Conformance](5-oidc-conformance.md) for details.
 
 Some specifications are not covered by these OpenID Connect certification
 profiles. In particular, PAR (RFC 9126) and the `request` / `request_uri`
@@ -166,6 +200,8 @@ Upgrading? See the [upgrade guide](6-oidc-upgrade.md).
   [Configuration](3-oidc-configuration.md#endpoint-locations-and-well-known-urls)
 - Running with containers: [Using Docker](4-oidc-docker.md)
 - Conformance tests: [OpenID Conformance](5-oidc-conformance.md)
+- Dynamic Client Registration metadata support:
+  [DCR client metadata](9-oidc-dcr-client-metadata.md)
 - Upgrading between versions: [Upgrade guide](6-oidc-upgrade.md)
 - Common questions: [FAQ](7-oidc-faq.md)
 - API documentation: [API](8-api.md)

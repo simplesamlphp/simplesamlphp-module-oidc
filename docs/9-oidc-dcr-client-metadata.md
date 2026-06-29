@@ -42,12 +42,12 @@ contract for what was honored.
 | `post_logout_redirect_uris` | Honored | Honored | |
 | `backchannel_logout_uri` | Honored | Honored | |
 | `id_token_signed_response_alg` | Honored (rejects unsupported) | Honored | Precedent for "reject unsupported". |
-| `application_type` | Validated + echoed | Validated + echoed | `web` / `native`. |
-| `contacts` | Validated + echoed | Validated + echoed | |
-| `logo_uri` | Validated + echoed | Validated + echoed | Subject to impersonation protection. |
-| `policy_uri` | Validated + echoed | Validated + echoed | Subject to impersonation protection. |
-| `tos_uri` | Validated + echoed | Validated + echoed | Subject to impersonation protection. |
-| `client_uri` | Validated + echoed | Validated + echoed | Excluded from impersonation protection. |
+| `application_type` | Validated + echoed | Validated + echoed | Admin-editable. `web` / `native`. |
+| `contacts` | Validated + echoed | Validated + echoed | Admin-editable. |
+| `logo_uri` | Validated + echoed | Validated + echoed | Admin-editable. Subject to impersonation protection (DCR path). |
+| `policy_uri` | Validated + echoed | Validated + echoed | Admin-editable. Subject to impersonation protection (DCR path). |
+| `tos_uri` | Validated + echoed | Validated + echoed | Admin-editable. Subject to impersonation protection (DCR path). |
+| `client_uri` | Validated + echoed | Validated + echoed | Admin-editable. Excluded from impersonation protection. |
 | `client_registration_types` | Honored (federation) | Honored | OpenID Federation. |
 | `subject_type` | **Reject** if not `public` | Reject if not `public` | Only `public` is supported (no pairwise). |
 | `sector_identifier_uri` | **Reject** if requested | Reject | Pairwise/sector grouping not supported. |

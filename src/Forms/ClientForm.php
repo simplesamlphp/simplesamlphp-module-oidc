@@ -23,6 +23,7 @@ use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\OpenID\Codebooks\ApplicationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
@@ -427,6 +428,11 @@ class ClientForm extends Form
                 ClaimsEnum::InitiateLoginUri->value,
                 ClaimsEnum::SoftwareId->value,
                 ClaimsEnum::SoftwareVersion->value,
+                ClaimsEnum::LogoUri->value,
+                ClaimsEnum::ClientUri->value,
+                ClaimsEnum::PolicyUri->value,
+                ClaimsEnum::TosUri->value,
+                ClaimsEnum::ApplicationType->value,
             ] as $stringClaim
         ) {
             /** @var mixed $claimValue */
@@ -434,6 +440,12 @@ class ClientForm extends Form
             $stringValue = is_string($claimValue) ? trim($claimValue) : '';
             $values[$stringClaim] = $stringValue === '' ? null : $stringValue;
         }
+
+        /** @var mixed $contacts */
+        $contacts = $values[ClaimsEnum::Contacts->value] ?? '';
+        $values[ClaimsEnum::Contacts->value] = $this->helpers->str()->convertTextToArray(
+            is_string($contacts) ? $contacts : '',
+        );
 
         $authProcFilters = trim((string)($values[ClientEntity::KEY_AUTH_PROC_FILTERS] ?? ''));
         try {
@@ -565,6 +577,18 @@ class ClientForm extends Form
             }
         }
         $values[ClaimsEnum::DefaultAcrValues->value] = implode("\n", $defaultAcrStrings);
+
+        /** @var mixed $contacts */
+        $contacts = $values[ClaimsEnum::Contacts->value] ?? null;
+        $contacts = is_array($contacts) ? $contacts : [];
+        $contactStrings = [];
+        /** @var mixed $contact */
+        foreach ($contacts as $contact) {
+            if (is_string($contact)) {
+                $contactStrings[] = $contact;
+            }
+        }
+        $values[ClaimsEnum::Contacts->value] = implode("\n", $contactStrings);
 
         /** @var mixed $authProcFilters */
         $authProcFilters = $values[ClientEntity::KEY_AUTH_PROC_FILTERS] ?? null;
@@ -721,6 +745,23 @@ class ClientForm extends Form
         $this->addText(ClaimsEnum::SoftwareVersion->value, Translate::noop('Software Version'))
             ->setHtmlAttribute('class', 'full-width');
 
+        $this->addText(ClaimsEnum::LogoUri->value, Translate::noop('Logo URI'))
+            ->setHtmlAttribute('class', 'full-width');
+        $this->addText(ClaimsEnum::ClientUri->value, Translate::noop('Client URI'))
+            ->setHtmlAttribute('class', 'full-width');
+        $this->addText(ClaimsEnum::PolicyUri->value, Translate::noop('Policy URI'))
+            ->setHtmlAttribute('class', 'full-width');
+        $this->addText(ClaimsEnum::TosUri->value, Translate::noop('Terms of Service URI'))
+            ->setHtmlAttribute('class', 'full-width');
+
+        $this->addSelect(ClaimsEnum::ApplicationType->value, Translate::noop('Application Type'))
+            ->setHtmlAttribute('class', 'full-width')
+            ->setItems($this->getSupportedApplicationTypes(), false)
+            ->setPrompt(Translate::noop('-'));
+
+        $this->addTextArea(ClaimsEnum::Contacts->value, Translate::noop('Contacts (one per line)'), null, 3)
+            ->setHtmlAttribute('class', 'full-width');
+
         $this->addTextArea(
             ClientEntity::KEY_AUTH_PROC_FILTERS,
             Translate::noop('Authentication Processing Filters'),
@@ -819,6 +860,21 @@ class ClientForm extends Form
             TokenEndpointAuthMethodsEnum::ClientSecretPost->value,
             TokenEndpointAuthMethodsEnum::PrivateKeyJwt->value,
             TokenEndpointAuthMethodsEnum::None->value,
+        ];
+
+        return array_combine($supported, $supported);
+    }
+
+    /**
+     * Application types the client may register (value => label).
+     *
+     * @return array<string,string>
+     */
+    protected function getSupportedApplicationTypes(): array
+    {
+        $supported = [
+            ApplicationTypesEnum::Web->value,
+            ApplicationTypesEnum::Native->value,
         ];
 
         return array_combine($supported, $supported);

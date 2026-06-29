@@ -119,6 +119,21 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
 
     public function getSoftwareVersion(): ?string;
 
+    public function getLogoUri(): ?string;
+
+    public function getClientUri(): ?string;
+
+    public function getPolicyUri(): ?string;
+
+    public function getTosUri(): ?string;
+
+    public function getApplicationType(): ?string;
+
+    /**
+     * @return string[]
+     */
+    public function getContacts(): array;
+
     /**
      * @return array
      */

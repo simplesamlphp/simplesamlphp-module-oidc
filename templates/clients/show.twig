@@ -331,6 +331,62 @@
             </tr>
             <tr>
                 <td class="client-col col-property">
+                    {{ 'Logo URI'|trans }}
+                </td>
+                <td>
+                    {{ client.logoUri|default('N/A'|trans) }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Client URI'|trans }}
+                </td>
+                <td>
+                    {{ client.clientUri|default('N/A'|trans) }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Policy URI'|trans }}
+                </td>
+                <td>
+                    {{ client.policyUri|default('N/A'|trans) }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Terms of Service URI'|trans }}
+                </td>
+                <td>
+                    {{ client.tosUri|default('N/A'|trans) }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Application Type'|trans }}
+                </td>
+                <td>
+                    {{ client.applicationType|default('N/A'|trans) }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Contacts'|trans }}
+                </td>
+                <td>
+                    {% if client.contacts is not empty %}
+                        <ul class="disc">
+                            {% for contact in client.contacts %}
+                                <li>{{ contact }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        {{ 'N/A'|trans }}
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
                     {{ 'Require Pushed Authorization Requests (PAR)'|trans }}
                 </td>
                 <td>

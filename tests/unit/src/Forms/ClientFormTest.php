@@ -249,6 +249,36 @@ class ClientFormTest extends TestCase
         $this->assertSame([], $values[ClaimsEnum::ResponseTypes->value]);
     }
 
+    public function testInformationalMetadataRoundTrip(): void
+    {
+        $sut = $this->sut();
+        $sut->setValues([
+            ClaimsEnum::LogoUri->value => 'https://client.example.org/logo.png',
+            ClaimsEnum::ClientUri->value => 'https://client.example.org/',
+            ClaimsEnum::PolicyUri->value => 'https://client.example.org/policy',
+            ClaimsEnum::TosUri->value => 'https://client.example.org/tos',
+            ClaimsEnum::ApplicationType->value => 'web',
+            ClaimsEnum::Contacts->value => "admin@example.org\nops@example.org",
+        ]);
+
+        $values = $sut->getValues();
+        $this->assertSame('https://client.example.org/logo.png', $values[ClaimsEnum::LogoUri->value]);
+        $this->assertSame('https://client.example.org/', $values[ClaimsEnum::ClientUri->value]);
+        $this->assertSame('https://client.example.org/policy', $values[ClaimsEnum::PolicyUri->value]);
+        $this->assertSame('https://client.example.org/tos', $values[ClaimsEnum::TosUri->value]);
+        $this->assertSame('web', $values[ClaimsEnum::ApplicationType->value]);
+        $this->assertSame(['admin@example.org', 'ops@example.org'], $values[ClaimsEnum::Contacts->value]);
+    }
+
+    public function testEmptyInformationalMetadataNormalizesToNullOrEmpty(): void
+    {
+        $values = $this->sut()->getValues();
+
+        $this->assertNull($values[ClaimsEnum::LogoUri->value]);
+        $this->assertNull($values[ClaimsEnum::ApplicationType->value]);
+        $this->assertSame([], $values[ClaimsEnum::Contacts->value]);
+    }
+
     public function testAcceptsValidAuthProcFilters(): void
     {
         $clientForm = $this->sut();

@@ -277,6 +277,12 @@ class ClientEntity implements ClientEntityInterface
             ClaimsEnum::InitiateLoginUri->value => $this->getInitiateLoginUri(),
             ClaimsEnum::SoftwareId->value => $this->getSoftwareId(),
             ClaimsEnum::SoftwareVersion->value => $this->getSoftwareVersion(),
+            ClaimsEnum::LogoUri->value => $this->getLogoUri(),
+            ClaimsEnum::ClientUri->value => $this->getClientUri(),
+            ClaimsEnum::PolicyUri->value => $this->getPolicyUri(),
+            ClaimsEnum::TosUri->value => $this->getTosUri(),
+            ClaimsEnum::ApplicationType->value => $this->getApplicationType(),
+            ClaimsEnum::Contacts->value => $this->getContacts(),
             self::KEY_AUTH_PROC_FILTERS => $this->getAuthProcFilters(),
             self::KEY_REGISTRATION_ACCESS_TOKEN => $this->registrationAccessToken,
         ];
@@ -664,6 +670,64 @@ class ClientEntity implements ClientEntityInterface
     public function getSoftwareVersion(): ?string
     {
         return $this->getStringExtraMetadata(ClaimsEnum::SoftwareVersion->value);
+    }
+
+    /**
+     * logo_uri (informational; subject to impersonation protection on the DCR path).
+     */
+    public function getLogoUri(): ?string
+    {
+        return $this->getStringExtraMetadata(ClaimsEnum::LogoUri->value);
+    }
+
+    /**
+     * client_uri (informational).
+     */
+    public function getClientUri(): ?string
+    {
+        return $this->getStringExtraMetadata(ClaimsEnum::ClientUri->value);
+    }
+
+    /**
+     * policy_uri (informational; subject to impersonation protection on the DCR path).
+     */
+    public function getPolicyUri(): ?string
+    {
+        return $this->getStringExtraMetadata(ClaimsEnum::PolicyUri->value);
+    }
+
+    /**
+     * tos_uri (informational; subject to impersonation protection on the DCR path).
+     */
+    public function getTosUri(): ?string
+    {
+        return $this->getStringExtraMetadata(ClaimsEnum::TosUri->value);
+    }
+
+    /**
+     * application_type (web or native), or null when not registered.
+     */
+    public function getApplicationType(): ?string
+    {
+        return $this->getStringExtraMetadata(ClaimsEnum::ApplicationType->value);
+    }
+
+    /**
+     * contacts (e.g. administrator e-mail addresses).
+     *
+     * @return string[]
+     */
+    public function getContacts(): array
+    {
+        /** @var mixed $contacts */
+        $contacts = is_array($this->extraMetadata) ?
+        ($this->extraMetadata[ClaimsEnum::Contacts->value] ?? null) : null;
+
+        if (!is_array($contacts)) {
+            return [];
+        }
+
+        return array_values(array_filter($contacts, 'is_string'));
     }
 
     private function getStringExtraMetadata(string $key): ?string
