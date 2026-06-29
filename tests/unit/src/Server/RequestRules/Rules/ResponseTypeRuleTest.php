@@ -138,6 +138,30 @@ class ResponseTypeRuleTest extends TestCase
         );
     }
 
+    public function testEmptyRegisteredResponseTypesIsNotEnforced(): void
+    {
+        // A present-but-empty response_types list means "not configured / unconstrained", not "allow nothing".
+        // This preserves behavior for pre-DCR clients that get an empty list persisted on an admin save.
+        $client = $this->createStub(ClientEntityInterface::class);
+        $client->method('getExtraMetadata')->willReturn(['response_types' => []]);
+
+        $bag = new ResultBag();
+        $bag->add(new Result(ClientRule::class, $client));
+
+        $this->requestParams['response_type'] = 'id_token';
+        $this->requestParamsResolverStub->method('getAllBasedOnAllowedMethods')->willReturn($this->requestParams);
+
+        $result = $this->sut()->checkRule(
+            $this->requestStub,
+            $bag,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        );
+
+        $this->assertSame('id_token', $result?->getValue());
+    }
+
     public function testResponseTypeRuleThrowsWithNoResponseTypeParamTest()
     {
         $params = $this->requestParams;

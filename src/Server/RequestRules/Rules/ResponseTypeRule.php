@@ -57,17 +57,21 @@ class ResponseTypeRule extends AbstractRule
 
         $responseType = (string)$requestParams[ParamsEnum::ResponseType->value];
 
-        // Per-client enforcement: if the client has explicitly registered response_types, the requested
-        // response_type must be one of them. We enforce only when the value was explicitly registered (present in
-        // the client's metadata); clients that do not have it configured are not constrained, preserving behavior
-        // for manually-managed clients. Dynamically registered clients always have it (the OIDC DCR default is
-        // applied at registration).
+        // Per-client enforcement: if the client has explicitly registered a non-empty response_types list, the
+        // requested response_type must be one of them. We enforce only when the value was explicitly registered
+        // (present and non-empty in the client's metadata); clients that do not have it configured - or have it as
+        // an empty list - are not constrained, preserving behavior for manually-managed and pre-DCR clients.
+        // Dynamically registered clients always have it (the OIDC DCR default is applied at registration).
         $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
         /** @var mixed $registeredResponseTypes */
         $registeredResponseTypes = ($client instanceof ClientEntityInterface) ?
         ($client->getExtraMetadata()[ClaimsEnum::ResponseTypes->value] ?? null) : null;
 
-        if (is_array($registeredResponseTypes) && !in_array($responseType, $registeredResponseTypes, true)) {
+        if (
+            is_array($registeredResponseTypes) &&
+            $registeredResponseTypes !== [] &&
+            !in_array($responseType, $registeredResponseTypes, true)
+        ) {
             $loggerService->error(
                 'ResponseTypeRule: response_type not registered for client.',
                 ['response_type' => $responseType, 'registered' => $registeredResponseTypes],

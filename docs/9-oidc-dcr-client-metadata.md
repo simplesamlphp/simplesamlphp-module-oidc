@@ -32,9 +32,9 @@ contract for what was honored.
 | `redirect_uris` | Honored | Honored | Required; scheme required, fragment rejected. |
 | `client_name` | Honored | Honored | Defaults to client_id. |
 | `scope` | Honored | Honored | DCR default = `OPTION_DCR_DEFAULT_SCOPES`. |
-| `grant_types` | **Honored** (persist + echo + enforce) | Honored | Default `["authorization_code"]`. Enforced for the code grant; refresh grant exempt (see note). |
-| `response_types` | **Honored** (persist + echo + enforce) | Honored | Default `["code"]`. Enforced at the authorization endpoint. |
-| `token_endpoint_auth_method` | **Honored** (persist + echo + enforce) | Honored | Default `client_secret_basic` (or `none` for public). Enforced at the token endpoint. |
+| `grant_types` | **Honored** (persist + echo + enforce) | Honored | DCR default `["authorization_code"]` stored at registration. Enforced for the code grant (presence + non-empty); refresh grant exempt (see note). |
+| `response_types` | **Honored** (persist + echo + enforce) | Honored | DCR default `["code"]` stored at registration. Enforced at the authorization endpoint (presence + non-empty). |
+| `token_endpoint_auth_method` | **Honored** (persist + echo + enforce) | Honored | DCR default `client_secret_basic` (or `none` for public) stored at registration. Enforced at the token endpoint (presence). |
 | `jwks` | Honored | Honored | Stored (column). |
 | `jwks_uri` | Honored | Honored | Stored (column); fetched for client auth / request objects. |
 | `signed_jwks_uri` | Honored | Honored | Stored (column). |
@@ -70,12 +70,34 @@ contract for what was honored.
 
 Per-client enforcement of `grant_types` / `response_types` /
 `token_endpoint_auth_method` is **presence-based**: a field is enforced for a
-client only when that client has it explicitly registered. Dynamically registered
-clients always do (the OIDC DCR defaults are applied at registration); clients
-that do not have it configured are not constrained. This avoids regressing
-manually-managed clients while still honoring the registered metadata. All client
-metadata is stored in the existing `extra_metadata` JSON column (no DB migration),
-and is exposed as editable fields in the admin UI.
+client only when that client has it explicitly registered. For the array-valued
+fields (`grant_types`, `response_types`) a present-but-**empty** list also counts as
+"not configured" and is not enforced (it never means "allow nothing"; this matches
+the admin form's "if none are selected, the client is not restricted"). Dynamically
+registered clients always have these stored (the OIDC DCR defaults are applied at
+registration); clients that do not have them configured are not constrained. This
+avoids regressing manually-managed and pre-DCR clients while still honoring the
+registered metadata. All client metadata is stored in the existing `extra_metadata`
+JSON column (no DB migration), and is exposed as editable fields in the admin UI.
+
+### Single source of truth (v7 transition)
+
+The entity getters for these fields (`getGrantTypes()`, `getResponseTypes()`,
+`getTokenEndpointAuthMethod()`) return the **raw registered value** — an empty array
+/ `null` when the client has nothing registered — rather than synthesizing the OIDC
+DCR spec default. This keeps the stored value the single source of truth, so:
+
+- the admin UI shows exactly what is registered (a pre-DCR client shows these fields
+  as unset, not as phantom defaults), and saving such a client does not silently
+  impose constraints;
+- the registration response still echoes the spec defaults, because for dynamic
+  registrations those defaults are persisted at registration time (in
+  `ClientEntityFactory`), not invented at read time.
+
+A future major version may move the spec defaults into the getters themselves (so an
+unset value resolves to the spec default everywhere). v7 deliberately does not, to
+give deployments a transition window in which to set explicit values on clients that
+predate these properties.
 
 ## Implementation order
 

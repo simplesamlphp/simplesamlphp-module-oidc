@@ -230,13 +230,9 @@ class ClientEntityTest extends TestCase
                 'require_pushed_authorization_requests' => false,
                 'require_signed_request_object' => false,
                 'request_uris' => [],
-                'grant_types' => [
-                    'authorization_code',
-                ],
-                'response_types' => [
-                    'code',
-                ],
-                'token_endpoint_auth_method' => 'none',
+                'grant_types' => [],
+                'response_types' => [],
+                'token_endpoint_auth_method' => null,
                 'default_max_age' => null,
                 'require_auth_time' => false,
                 'default_acr_values' => [],
@@ -297,5 +293,51 @@ class ClientEntityTest extends TestCase
 
         $this->assertSame($authProcFilters, $clientEntity->getAuthProcFilters());
         $this->assertSame($authProcFilters, $clientEntity->toArray()[ClientEntity::KEY_AUTH_PROC_FILTERS]);
+    }
+
+    public function testEnforcementGettersReturnRawRegisteredValues(): void
+    {
+        // v7 transition: when not registered, these getters return the raw "unset" value (empty / null) rather
+        // than synthesizing the OIDC DCR spec defaults, so the stored value stays the single source of truth and
+        // pre-DCR clients are not retroactively constrained.
+        $unset = $this->mock();
+        $this->assertSame([], $unset->getGrantTypes());
+        $this->assertSame([], $unset->getResponseTypes());
+        $this->assertNull($unset->getTokenEndpointAuthMethod());
+
+        // When registered, the stored values are returned.
+        $registered = new ClientEntity(
+            $this->id,
+            $this->secret,
+            $this->name,
+            $this->description,
+            $this->redirectUri,
+            $this->scopes,
+            $this->isEnabled,
+            $this->isConfidential,
+            $this->authSource,
+            $this->owner,
+            $this->postLogoutRedirectUri,
+            $this->backChannelLogoutUri,
+            $this->entityIdentifier,
+            $this->clientRegistrationTypes,
+            $this->federationJwks,
+            $this->jwks,
+            $this->jwksUri,
+            $this->signedJwksUri,
+            $this->registrationType,
+            $this->updatedAt,
+            $this->createdAt,
+            $this->expiresAt,
+            $this->isGeneric,
+            [
+                'grant_types' => ['authorization_code', 'refresh_token'],
+                'response_types' => ['code'],
+                'token_endpoint_auth_method' => 'private_key_jwt',
+            ],
+        );
+        $this->assertSame(['authorization_code', 'refresh_token'], $registered->getGrantTypes());
+        $this->assertSame(['code'], $registered->getResponseTypes());
+        $this->assertSame('private_key_jwt', $registered->getTokenEndpointAuthMethod());
     }
 }

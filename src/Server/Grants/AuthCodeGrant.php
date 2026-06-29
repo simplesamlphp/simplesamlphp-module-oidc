@@ -528,15 +528,17 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         // it is predefined as the ClientRule result and authenticated against by ClientAuthenticationRule above.
         $client = $authorizationClientEntity;
 
-        // Per-client grant_types enforcement: if the client explicitly registered grant_types, it must include
-        // 'authorization_code' to exchange a code here. Enforced only when explicitly registered, preserving
-        // behavior for manually-managed clients that do not have it configured. The refresh_token grant is
-        // intentionally NOT gated on grant_types (see RefreshTokenGrant): a refresh token is only issued when
-        // offline_access was granted and consented, which is itself the authorization to refresh.
+        // Per-client grant_types enforcement: if the client explicitly registered a non-empty grant_types list, it
+        // must include 'authorization_code' to exchange a code here. Enforced only when explicitly registered
+        // (present and non-empty), preserving behavior for manually-managed and pre-DCR clients that do not have it
+        // configured - or have it as an empty list. The refresh_token grant is intentionally NOT gated on
+        // grant_types (see RefreshTokenGrant): a refresh token is only issued when offline_access was granted and
+        // consented, which is itself the authorization to refresh.
         /** @var mixed $registeredGrantTypes */
         $registeredGrantTypes = $client->getExtraMetadata()[ClaimsEnum::GrantTypes->value] ?? null;
         if (
             is_array($registeredGrantTypes) &&
+            $registeredGrantTypes !== [] &&
             !in_array(GrantTypesEnum::AuthorizationCode->value, $registeredGrantTypes, true)
         ) {
             throw OidcServerException::unauthorizedClient(

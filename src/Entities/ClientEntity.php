@@ -23,10 +23,7 @@ use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
-use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
-use SimpleSAML\OpenID\Codebooks\ResponseTypesEnum;
-use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
 
 class ClientEntity implements ClientEntityInterface
 {
@@ -539,8 +536,14 @@ class ClientEntity implements ClientEntityInterface
     }
 
     /**
-     * The OAuth 2.0 grant types the client is registered to use. Defaults to ["authorization_code"]
-     * (OpenID Connect Dynamic Client Registration 1.0 default) when not explicitly registered.
+     * The OAuth 2.0 grant types the client is registered to use, or an empty array when none are registered.
+     *
+     * v7 transition: this returns the raw registered value (empty when unset) rather than synthesizing the
+     * OpenID Connect Dynamic Client Registration 1.0 default (["authorization_code"]). This keeps the stored
+     * value the single source of truth, so the admin UI and the registration echo reflect exactly what is
+     * registered, and clients created before this property existed are not retroactively constrained. The DCR
+     * default is still applied at registration time for dynamic clients (see ClientEntityFactory). A future
+     * major version may switch this getter to return the spec default when unset.
      *
      * @return string[]
      */
@@ -551,15 +554,17 @@ class ClientEntity implements ClientEntityInterface
         ($this->extraMetadata[ClaimsEnum::GrantTypes->value] ?? null) : null;
 
         if (!is_array($grantTypes)) {
-            return [GrantTypesEnum::AuthorizationCode->value];
+            return [];
         }
 
         return array_values(array_filter($grantTypes, 'is_string'));
     }
 
     /**
-     * The OAuth 2.0 response types the client is registered to use. Defaults to ["code"]
-     * (OpenID Connect Dynamic Client Registration 1.0 default) when not explicitly registered.
+     * The OAuth 2.0 response types the client is registered to use, or an empty array when none are registered.
+     *
+     * v7 transition: returns the raw registered value (empty when unset) rather than synthesizing the OpenID
+     * Connect Dynamic Client Registration 1.0 default (["code"]). See getGrantTypes() for the rationale.
      *
      * @return string[]
      */
@@ -570,18 +575,21 @@ class ClientEntity implements ClientEntityInterface
         ($this->extraMetadata[ClaimsEnum::ResponseTypes->value] ?? null) : null;
 
         if (!is_array($responseTypes)) {
-            return [ResponseTypesEnum::Code->value];
+            return [];
         }
 
         return array_values(array_filter($responseTypes, 'is_string'));
     }
 
     /**
-     * The client authentication method the client is registered to use at the token endpoint. Defaults to
-     * 'client_secret_basic' for confidential clients and 'none' for public clients when not explicitly registered
-     * (OpenID Connect Dynamic Client Registration 1.0).
+     * The client authentication method the client is registered to use at the token endpoint, or null when none
+     * is registered.
+     *
+     * v7 transition: returns the raw registered value (null when unset) rather than synthesizing the OpenID
+     * Connect Dynamic Client Registration 1.0 default ('client_secret_basic' / 'none'). See getGrantTypes() for
+     * the rationale.
      */
-    public function getTokenEndpointAuthMethod(): string
+    public function getTokenEndpointAuthMethod(): ?string
     {
         /** @var mixed $method */
         $method = is_array($this->extraMetadata) ?
@@ -591,9 +599,7 @@ class ClientEntity implements ClientEntityInterface
             return $method;
         }
 
-        return $this->isConfidential() ?
-        TokenEndpointAuthMethodsEnum::ClientSecretBasic->value :
-        TokenEndpointAuthMethodsEnum::None->value;
+        return null;
     }
 
     /**
@@ -604,7 +610,7 @@ class ClientEntity implements ClientEntityInterface
     {
         /** @var mixed $value */
         $value = is_array($this->extraMetadata) ?
-            ($this->extraMetadata[ClaimsEnum::DefaultMaxAge->value] ?? null) : null;
+        ($this->extraMetadata[ClaimsEnum::DefaultMaxAge->value] ?? null) : null;
 
         if (is_int($value) || is_string($value)) {
             $filtered = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
@@ -621,7 +627,7 @@ class ClientEntity implements ClientEntityInterface
     {
         /** @var mixed $value */
         $value = is_array($this->extraMetadata) ?
-            ($this->extraMetadata[ClaimsEnum::RequireAuthTime->value] ?? null) : null;
+        ($this->extraMetadata[ClaimsEnum::RequireAuthTime->value] ?? null) : null;
 
         return filter_var($value, FILTER_VALIDATE_BOOLEAN);
     }

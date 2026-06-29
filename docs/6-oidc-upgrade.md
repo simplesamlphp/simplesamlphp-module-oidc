@@ -149,12 +149,20 @@ per-field metadata policy (honored / validated / rejected) is documented in
   `response_types`, and `token_endpoint_auth_method` is presence-based, so existing
   clients (which do not have these properties set) are **not** restricted and
   require no action — their behavior is unchanged. The OIDC DCR defaults are
-  applied only to newly, dynamically registered clients, not retroactively. If you
-  want to start constraining an existing client to specific grant types / response
-  types / authentication method, set those properties on the client in the admin
-  UI; leaving them empty preserves the previous unconstrained behavior. DCR is also
-  opt-in (disabled by default), so unless you enable it, nothing changes for your
-  deployment.
+  applied only to newly, dynamically registered clients, not retroactively. In the
+  admin UI, a pre-upgrade client shows these new fields as **unset** (no grant
+  types / response types selected, no authentication method chosen) — that is the
+  honest representation of "not registered", and saving such a client does **not**
+  silently impose the spec defaults or otherwise constrain it. To start constraining
+  an existing client to specific grant types / response types / authentication
+  method, select them explicitly and save; leaving them empty preserves the
+  unconstrained behavior. (Implementation note: in v7 the client getters for these
+  fields return the raw registered value — empty / null when unset — rather than the
+  OIDC DCR spec default, so the stored value is the single source of truth; the
+  defaults are applied where it matters, i.e. when a client registers dynamically. A
+  future major version may switch the getters to fall back to the spec defaults.)
+  DCR is also opt-in (disabled by default), so unless you enable it, nothing changes
+  for your deployment.
 
 New configuration options:
 
