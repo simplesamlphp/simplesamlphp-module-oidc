@@ -604,15 +604,11 @@ class ClientEntity implements ClientEntityInterface
     {
         /** @var mixed $value */
         $value = is_array($this->extraMetadata) ?
-        ($this->extraMetadata[ClaimsEnum::DefaultMaxAge->value] ?? null) : null;
+            ($this->extraMetadata[ClaimsEnum::DefaultMaxAge->value] ?? null) : null;
 
-        if (is_int($value) && $value >= 0) {
-            return $value;
-        }
-
-        // Tolerate a numeric string (e.g. when read back from JSON-ish storage).
-        if (is_string($value) && $value !== '' && ctype_digit($value)) {
-            return (int)$value;
+        if (is_int($value) || is_string($value)) {
+            $filtered = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+            return $filtered !== false ? $filtered : null;
         }
 
         return null;
@@ -625,9 +621,9 @@ class ClientEntity implements ClientEntityInterface
     {
         /** @var mixed $value */
         $value = is_array($this->extraMetadata) ?
-        ($this->extraMetadata[ClaimsEnum::RequireAuthTime->value] ?? null) : null;
+            ($this->extraMetadata[ClaimsEnum::RequireAuthTime->value] ?? null) : null;
 
-        return $value === true || $value === 'true' || $value === 1 || $value === '1';
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN);
     }
 
     /**

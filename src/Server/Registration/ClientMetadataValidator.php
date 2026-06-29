@@ -272,9 +272,10 @@ class ClientMetadataValidator
         if (array_key_exists(ClaimsEnum::DefaultMaxAge->value, $metadata)) {
             /** @var mixed $defaultMaxAge */
             $defaultMaxAge = $metadata[ClaimsEnum::DefaultMaxAge->value];
-            $isNonNegativeInt = is_int($defaultMaxAge) && $defaultMaxAge >= 0;
-            $isDigitString = is_string($defaultMaxAge) && $defaultMaxAge !== '' && ctype_digit($defaultMaxAge);
-            if (!$isNonNegativeInt && !$isDigitString) {
+            if (
+                !(is_int($defaultMaxAge) || is_string($defaultMaxAge)) ||
+                filter_var($defaultMaxAge, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]) === false
+            ) {
                 throw OidcServerException::invalidClientMetadata('default_max_age must be a non-negative integer.');
             }
         }
