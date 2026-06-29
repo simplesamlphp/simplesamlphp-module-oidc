@@ -418,9 +418,10 @@ class ClientForm extends Form
         $values[ClaimsEnum::RequireAuthTime->value] = (bool)($values[ClaimsEnum::RequireAuthTime->value] ?? false);
 
         /** @var mixed $defaultAcrValues */
-        $defaultAcrValues = $values[ClaimsEnum::DefaultAcrValues->value] ?? '';
-        $values[ClaimsEnum::DefaultAcrValues->value] = $this->helpers->str()->convertTextToArray(
-            is_string($defaultAcrValues) ? $defaultAcrValues : '',
+        $defaultAcrValues = $values[ClaimsEnum::DefaultAcrValues->value] ?? null;
+        $defaultAcrValues = is_array($defaultAcrValues) ? $defaultAcrValues : [];
+        $values[ClaimsEnum::DefaultAcrValues->value] = array_values(
+            array_intersect($defaultAcrValues, array_keys($this->getSupportedAcrValues())),
         );
 
         foreach (
@@ -569,14 +570,11 @@ class ClientForm extends Form
         /** @var mixed $defaultAcrValues */
         $defaultAcrValues = $values[ClaimsEnum::DefaultAcrValues->value] ?? null;
         $defaultAcrValues = is_array($defaultAcrValues) ? $defaultAcrValues : [];
-        $defaultAcrStrings = [];
-        /** @var mixed $acr */
-        foreach ($defaultAcrValues as $acr) {
-            if (is_string($acr)) {
-                $defaultAcrStrings[] = $acr;
-            }
-        }
-        $values[ClaimsEnum::DefaultAcrValues->value] = implode("\n", $defaultAcrStrings);
+        // The field is a multi-select bound to the OP's supported ACRs; keep only currently-supported values so the
+        // control can render them (values no longer supported are dropped rather than shown as invalid options).
+        $values[ClaimsEnum::DefaultAcrValues->value] = array_values(
+            array_intersect($defaultAcrValues, array_keys($this->getSupportedAcrValues())),
+        );
 
         /** @var mixed $contacts */
         $contacts = $values[ClaimsEnum::Contacts->value] ?? null;
@@ -729,10 +727,12 @@ class ClientForm extends Form
 
         $this->addCheckbox(ClaimsEnum::RequireAuthTime->value, Translate::noop('Require auth_time in ID Token'));
 
-        $this->addTextArea(
+        // Bound to the OP's supported ACRs (acr_values_supported). When the OP advertises no ACRs, this has no
+        // items and the field is hidden in the template (a per-client default ACR cannot do anything in that case).
+        $this->addMultiSelect(
             ClaimsEnum::DefaultAcrValues->value,
-            Translate::noop('Default ACR Values (one per line)'),
-            null,
+            Translate::noop('Default ACR Values'),
+            $this->getSupportedAcrValues(),
             3,
         )->setHtmlAttribute('class', 'full-width');
 
@@ -863,6 +863,28 @@ class ClientForm extends Form
         ];
 
         return array_combine($supported, $supported);
+    }
+
+    /**
+     * The OP's supported ACR values (value => label), as configured via OPTION_AUTH_ACR_VALUES_SUPPORTED and
+     * advertised in discovery as acr_values_supported. Empty when the OP advertises no ACRs.
+     *
+     * @return array<string,string>
+     */
+    protected function getSupportedAcrValues(): array
+    {
+        $supported = array_values(array_filter($this->moduleConfig->getAcrValuesSupported(), 'is_string'));
+
+        return array_combine($supported, $supported);
+    }
+
+    /**
+     * Whether the OP has any supported ACR values configured. Used by the template to hide the per-client
+     * default_acr_values field when there is nothing to select.
+     */
+    public function hasConfiguredAcrValues(): bool
+    {
+        return $this->getSupportedAcrValues() !== [];
     }
 
     /**

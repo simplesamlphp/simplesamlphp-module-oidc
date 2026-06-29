@@ -47,6 +47,8 @@ class ClientFormTest extends TestCase
         $this->csrfProtectionMock =  $this->createMock(CsrfProtection::class);
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock->method('getSupportedResponseModes')->willReturn(['query', 'fragment', 'form_post']);
+        $this->moduleConfigMock->method('getAcrValuesSupported')
+            ->willReturn(['urn:mace:incommon:iap:silver', 'urn:mace:incommon:iap:bronze']);
 
         $signatureKeyPairBagMock = $this->createMock(SignatureKeyPairBag::class);
         $signatureKeyPairBagMock->method('getAllAlgorithmNamesUnique')->willReturn(['RS256', 'ES256']);
@@ -247,6 +249,24 @@ class ClientFormTest extends TestCase
         $this->assertNull($values[ClaimsEnum::TokenEndpointAuthMethod->value]);
         $this->assertSame([], $values[ClaimsEnum::GrantTypes->value]);
         $this->assertSame([], $values[ClaimsEnum::ResponseTypes->value]);
+    }
+
+    public function testDefaultAcrValuesAreConstrainedToSupported(): void
+    {
+        // The field is a multi-select bound to the OP's supported ACRs. setDefaults (the edit path) drops values
+        // that are no longer supported, so the control never receives an out-of-range value.
+        $data = array_merge($this->clientDataSample, [
+            ClaimsEnum::DefaultAcrValues->value => [
+                'urn:mace:incommon:iap:silver',
+                'urn:not:supported',
+            ],
+        ]);
+        $sut = $this->sut()->setDefaults($data);
+
+        $values = $sut->getValues();
+
+        $this->assertSame(['urn:mace:incommon:iap:silver'], $values[ClaimsEnum::DefaultAcrValues->value]);
+        $this->assertTrue($sut->hasConfiguredAcrValues());
     }
 
     public function testInformationalMetadataRoundTrip(): void

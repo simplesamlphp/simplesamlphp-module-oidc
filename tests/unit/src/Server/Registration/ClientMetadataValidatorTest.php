@@ -21,6 +21,8 @@ class ClientMetadataValidatorTest extends TestCase
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         // Default: impersonation protection on.
         $this->moduleConfigMock->method('getDcrImpersonationProtectionEnabled')->willReturn(true);
+        // Default: the OP advertises a single supported ACR.
+        $this->moduleConfigMock->method('getAcrValuesSupported')->willReturn(['urn:mace:incommon:iap:silver']);
     }
 
     protected function sut(): ClientMetadataValidator
@@ -218,6 +220,18 @@ class ClientMetadataValidatorTest extends TestCase
     {
         $this->assertRejected(
             ['redirect_uris' => ['https://client.example.org/cb'], 'default_acr_values' => 'silver'],
+            'invalid_client_metadata',
+            'default_acr_values',
+        );
+    }
+
+    public function testUnsupportedDefaultAcrValueIsRejected(): void
+    {
+        $this->assertRejected(
+            [
+                'redirect_uris' => ['https://client.example.org/cb'],
+                'default_acr_values' => ['urn:mace:incommon:iap:silver', 'urn:not:supported'],
+            ],
             'invalid_client_metadata',
             'default_acr_values',
         );

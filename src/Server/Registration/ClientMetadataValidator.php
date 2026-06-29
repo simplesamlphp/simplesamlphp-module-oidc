@@ -294,11 +294,19 @@ class ClientMetadataValidator
             if (!is_array($defaultAcrValues)) {
                 throw OidcServerException::invalidClientMetadata('default_acr_values must be an array.');
             }
+            $supportedAcrValues = $this->moduleConfig->getAcrValuesSupported();
             /** @var mixed $acr */
             foreach ($defaultAcrValues as $acr) {
                 if (!is_string($acr) || $acr === '') {
                     throw OidcServerException::invalidClientMetadata(
                         'default_acr_values must be an array of non-empty strings.',
+                    );
+                }
+                // Reject ACRs the OP does not support (advertised in discovery as acr_values_supported); requesting
+                // an unsupported ACR could never be satisfied at the authorization endpoint.
+                if (!in_array($acr, $supportedAcrValues, true)) {
+                    throw OidcServerException::invalidClientMetadata(
+                        sprintf('default_acr_values contains an unsupported ACR value: "%s".', $acr),
                     );
                 }
             }

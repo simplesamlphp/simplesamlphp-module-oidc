@@ -210,13 +210,15 @@
             {% trans %}When enabled, the auth_time claim is always included in ID Tokens issued to this Client.{% endtrans %}
         </span>
 
+        {% if form.hasConfiguredAcrValues() %}
         <label for="frm-default_acr_values">{{ 'Default ACR Values'|trans }}</label>
         {{ form.default_acr_values.control | raw }}
         <span class="pure-form-message">
-            {% trans %}Default requested Authentication Context Class Reference values, applied when the authorization request omits acr_values. One per line.{% endtrans %}
+            {% trans %}Default requested Authentication Context Class Reference values, applied when the authorization request omits acr_values. Selected from the ACRs supported by this OP.{% endtrans %}
         </span>
         {% if form.default_acr_values.hasErrors %}
             <span class="pure-form-message red-text">{{ form.default_acr_values.getError }}</span>
+        {% endif %}
         {% endif %}
 
         <label for="frm-initiate_login_uri">{{ 'Initiate Login URI'|trans }}</label>
