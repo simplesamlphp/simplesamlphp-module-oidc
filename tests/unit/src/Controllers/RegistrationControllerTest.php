@@ -232,13 +232,20 @@ class RegistrationControllerTest extends TestCase
         $this->clientMock->method('getRegistrationAccessTokenHash')->willReturn(hash('sha256', $token));
         $this->clientRepositoryMock->method('findById')->willReturn($this->clientMock);
 
+        // RFC 7592 Section 3: a read rotates the RAT - a new hash is persisted and the new plaintext returned.
+        $this->clientMock->expects($this->once())->method('setRegistrationAccessTokenHash');
+        $this->clientRepositoryMock->expects($this->once())->method('update');
+
         $request = Request::create('https://op.example.org/oidc/register?client_id=client123', 'GET');
         $request->headers->set('Authorization', 'Bearer ' . $token);
 
         $response = $this->sut()->registration($request);
 
         $this->assertSame(200, $response->getStatusCode());
-        $this->assertSame('client123', $this->decode($response)['client_id']);
+        $body = $this->decode($response);
+        $this->assertSame('client123', $body['client_id']);
+        $this->assertArrayHasKey('registration_access_token', $body);
+        $this->assertArrayHasKey('registration_client_uri', $body);
     }
 
     public function testReadReturns401ForInvalidToken(): void

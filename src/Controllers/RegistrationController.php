@@ -107,17 +107,15 @@ class RegistrationController
 
         $client = $this->clientEntityFactory->fromRegistrationData($metadata, RegistrationTypeEnum::Dynamic);
 
-        // Issue a Registration Access Token (RAT); only its hash is persisted,
-        // the plaintext is returned once.
-        $registrationAccessToken = $this->helpers->random()->getIdentifier();
-        $client->setRegistrationAccessTokenHash($this->hashToken($registrationAccessToken));
+        // Issue a Registration Access Token (RAT); only its hash is persisted, the plaintext is returned once.
+        $registrationAccessToken = $this->issueRegistrationAccessToken($client);
 
         $this->clientRepository->add($client);
 
-        $response = $this->buildClientInformationResponse($client);
-        $response[ClaimsEnum::RegistrationAccessToken->value] = $registrationAccessToken;
-
-        return $this->jsonResponse($response, Response::HTTP_CREATED);
+        return $this->jsonResponse(
+            $this->buildClientInformationResponse($client, $registrationAccessToken),
+            Response::HTTP_CREATED,
+        );
     }
 
     /**
@@ -130,7 +128,17 @@ class RegistrationController
     {
         $client = $this->authenticateConfigurationRequest($request);
 
-        return $this->jsonResponse($this->buildClientInformationResponse($client), Response::HTTP_OK);
+        // RFC 7592 Section 3 requires the Client Information Response to include a registration_access_token. Only
+        // the hash is stored, so we cannot return the original plaintext; instead we rotate the token on read,
+        // persist the new hash and return the new plaintext (RFC 7592 Section 2.1 permits the returned token to
+        // differ from the one issued previously; the client must then use the new token).
+        $registrationAccessToken = $this->issueRegistrationAccessToken($client);
+        $this->clientRepository->update($client);
+
+        return $this->jsonResponse(
+            $this->buildClientInformationResponse($client, $registrationAccessToken),
+            Response::HTTP_OK,
+        );
     }
 
     /**
@@ -170,9 +178,15 @@ class RegistrationController
             existingClient: $client,
         );
 
+        // Rotate the Registration Access Token: RFC 7592 Section 3 requires it in the response, and only its hash is
+        // stored. The factory carries over the previous hash from the existing client, which we overwrite here.
+        $registrationAccessToken = $this->issueRegistrationAccessToken($updatedClient);
         $this->clientRepository->update($updatedClient);
 
-        return $this->jsonResponse($this->buildClientInformationResponse($updatedClient), Response::HTTP_OK);
+        return $this->jsonResponse(
+            $this->buildClientInformationResponse($updatedClient, $registrationAccessToken),
+            Response::HTTP_OK,
+        );
     }
 
     /**
@@ -289,11 +303,16 @@ class RegistrationController
      * Build the Client Information Response (Section 3.2 / 4.3) from the
      * persisted client.
      */
-    protected function buildClientInformationResponse(ClientEntityInterface $client): array
-    {
+    protected function buildClientInformationResponse(
+        ClientEntityInterface $client,
+        string $registrationAccessToken,
+    ): array {
         $response = [
             ClaimsEnum::ClientId->value => $client->getIdentifier(),
             ClaimsEnum::ClientIdIssuedAt->value => $client->getCreatedAt()?->getTimestamp(),
+            // RFC 7592 Section 3: both registration_access_token and registration_client_uri are REQUIRED in the
+            // Client Information Response (the response shape used by create, read and update).
+            ClaimsEnum::RegistrationAccessToken->value => $registrationAccessToken,
             ClaimsEnum::RegistrationClientUri->value => $this->routes->getModuleUrl(
                 RoutesEnum::Registration->value,
                 [ClaimsEnum::ClientId->value => $client->getIdentifier()],
@@ -341,6 +360,18 @@ class RegistrationController
         }
 
         return $response;
+    }
+
+    /**
+     * Mint a fresh Registration Access Token, store only its hash on the client, and return the plaintext (returned
+     * once in the Client Information Response). Used at registration and rotated on each read/update.
+     */
+    protected function issueRegistrationAccessToken(ClientEntityInterface $client): string
+    {
+        $registrationAccessToken = $this->helpers->random()->getIdentifier();
+        $client->setRegistrationAccessTokenHash($this->hashToken($registrationAccessToken));
+
+        return $registrationAccessToken;
     }
 
     protected function hashToken(string $token): string

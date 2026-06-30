@@ -365,9 +365,13 @@ by [OpenID Connect Dynamic Client Registration 1.0](https://openid.net/specs/ope
 - a **Client Registration Endpoint** (`POST .../oidc/register`) that creates a
   client and returns its `client_id`, `client_secret` (for confidential
   clients), a `registration_access_token` and a `registration_client_uri`; and
-- a **Client Configuration Endpoint** (`GET .../oidc/register?client_id=...`)
-  that returns the current registration when called with the
-  `registration_access_token` as a bearer token.
+- a **Client Configuration Endpoint** (`GET` / `PUT` / `DELETE`
+  `.../oidc/register?client_id=...`, RFC 7592) to read, update (full replace) or
+  delete a dynamically registered client, called with the
+  `registration_access_token` as a bearer token. Per RFC 7592 the read and update
+  responses include a `registration_access_token`; because the OP stores only its
+  hash, the token is **rotated** on each successful read/update — the response
+  returns a new token that the client must use for subsequent requests.
 
 When enabled, the registration endpoint is advertised as `registration_endpoint`
 in the OP discovery metadata. Dynamically registered clients are stored like any
