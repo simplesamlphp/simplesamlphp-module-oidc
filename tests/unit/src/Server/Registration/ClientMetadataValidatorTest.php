@@ -237,6 +237,68 @@ class ClientMetadataValidatorTest extends TestCase
         );
     }
 
+    public function testNativeClientRejectsRemoteHttpRedirectUri(): void
+    {
+        $this->assertRejected(
+            [
+                'redirect_uris' => ['https://client.example.org/cb'],
+                'application_type' => 'native',
+            ],
+            'invalid_redirect_uri',
+            'native client',
+        );
+    }
+
+    public function testNativeClientAllowsCustomSchemeAndLoopbackRedirectUris(): void
+    {
+        $metadata = [
+            'redirect_uris' => [
+                'com.example.app:/oauth2redirect',
+                'http://localhost:1234/cb',
+                'http://127.0.0.1/cb',
+                'http://[::1]/cb',
+            ],
+            'application_type' => 'native',
+        ];
+
+        $this->assertSame($metadata, $this->sut()->validate($metadata));
+    }
+
+    public function testWebImplicitClientRejectsNonHttpsRedirectUri(): void
+    {
+        $this->assertRejected(
+            [
+                'redirect_uris' => ['http://client.example.org/cb'],
+                'response_types' => ['id_token'],
+            ],
+            'invalid_redirect_uri',
+            'web client using the implicit grant',
+        );
+    }
+
+    public function testWebImplicitClientRejectsLocalhostRedirectUri(): void
+    {
+        $this->assertRejected(
+            [
+                'redirect_uris' => ['https://localhost/cb'],
+                'response_types' => ['id_token'],
+            ],
+            'invalid_redirect_uri',
+            'web client using the implicit grant',
+        );
+    }
+
+    public function testWebCodeClientIsNotConstrainedByImplicitRule(): void
+    {
+        // Default (web) client not using implicit: an http://localhost redirect stays allowed.
+        $metadata = [
+            'redirect_uris' => ['http://localhost/cb'],
+            'response_types' => ['code'],
+        ];
+
+        $this->assertSame($metadata, $this->sut()->validate($metadata));
+    }
+
     public function testNonHttpsInitiateLoginUriIsRejected(): void
     {
         $this->assertRejected(

@@ -6,8 +6,10 @@ namespace SimpleSAML\Module\oidc\Server\Registration;
 
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Utils\ResponseTypeGrantTypeCorrespondence;
 use SimpleSAML\OpenID\Codebooks\ApplicationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 
 /**
  * Validates client-supplied registration metadata for the OpenID Connect Dynamic Client Registration endpoint.
@@ -90,6 +92,7 @@ class ClientMetadataValidator
         $this->validateRequestUris($metadata);
         $this->validateContacts($metadata);
         $this->validateApplicationType($metadata);
+        $this->validateRedirectUrisForApplicationType($metadata, $redirectUris);
         $this->validateSubjectType($metadata);
         $this->rejectUnsupportedFeatures($metadata);
         $this->validateAdditionalMetadata($metadata);
@@ -233,6 +236,96 @@ class ClientMetadataValidator
         ) {
             throw OidcServerException::invalidClientMetadata('Invalid application_type value.');
         }
+    }
+
+    /**
+     * Verify that every registered redirect_uri conforms to the constraints implied by application_type, as
+     * required by OpenID Connect Dynamic Client Registration 1.0 (Section 2, application_type):
+     *
+     *  - native clients: only custom URI schemes, or loopback URLs (localhost / 127.0.0.1 / [::1]), are allowed;
+     *  - web clients using the implicit grant: redirect_uris must use the https scheme and must not use localhost.
+     *
+     * application_type defaults to "web" when omitted. The https/localhost rule is, per spec, scoped to web clients
+     * that use the implicit grant; code-only web clients are not constrained here.
+     *
+     * @param string[] $redirectUris already-validated redirect URIs (absolute, no fragment)
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    private function validateRedirectUrisForApplicationType(array $metadata, array $redirectUris): void
+    {
+        /** @var mixed $applicationType */
+        $applicationType = $metadata[ClaimsEnum::ApplicationType->value] ?? ApplicationTypesEnum::Web->value;
+        $applicationType = is_string($applicationType) ? $applicationType : ApplicationTypesEnum::Web->value;
+
+        if ($applicationType === ApplicationTypesEnum::Native->value) {
+            foreach ($redirectUris as $redirectUri) {
+                $scheme = strtolower((string)parse_url($redirectUri, PHP_URL_SCHEME));
+                $isHttpScheme = in_array($scheme, ['http', 'https'], true);
+                // Only custom schemes, or loopback http(s) URLs, are allowed for native clients.
+                if ($isHttpScheme && !$this->isLoopbackHost($this->extractHost($redirectUri))) {
+                    throw OidcServerException::invalidRedirectUri(sprintf(
+                        'For a native client, each redirect_uri must use a custom scheme or a loopback address '
+                        . '(localhost, 127.0.0.1 or [::1]); "%s" is not allowed.',
+                        $redirectUri,
+                    ));
+                }
+            }
+
+            return;
+        }
+
+        // Web client. The https/localhost rule applies only when the client uses the implicit grant.
+        if (!$this->clientUsesImplicitGrant($metadata)) {
+            return;
+        }
+
+        foreach ($redirectUris as $redirectUri) {
+            $scheme = strtolower((string)parse_url($redirectUri, PHP_URL_SCHEME));
+            if ($scheme !== 'https' || $this->extractHost($redirectUri) === 'localhost') {
+                throw OidcServerException::invalidRedirectUri(sprintf(
+                    'For a web client using the implicit grant, each redirect_uri must use the https scheme and '
+                    . 'must not use localhost as the host; "%s" is not allowed.',
+                    $redirectUri,
+                ));
+            }
+        }
+    }
+
+    /**
+     * Whether the host is a loopback address per OIDC DCR (localhost, 127.0.0.1 or the IPv6 literal [::1]).
+     */
+    private function isLoopbackHost(?string $host): bool
+    {
+        return in_array($host, ['localhost', '127.0.0.1', '[::1]', '::1'], true);
+    }
+
+    /**
+     * Whether the registration declares use of the implicit grant, via grant_types (`implicit`) or via a
+     * response_type that requires it (`id_token`, `id_token token`, and the hybrid combinations). Reuses the shared
+     * response_type <-> grant_type correspondence so the notion of "uses implicit" stays in one place.
+     */
+    private function clientUsesImplicitGrant(array $metadata): bool
+    {
+        /** @var mixed $rawGrantTypes */
+        $rawGrantTypes = $metadata[ClaimsEnum::GrantTypes->value] ?? null;
+        $grantTypes = is_array($rawGrantTypes) ?
+        array_values(array_filter($rawGrantTypes, 'is_string')) :
+        [];
+        if (in_array(GrantTypesEnum::Implicit->value, $grantTypes, true)) {
+            return true;
+        }
+
+        /** @var mixed $rawResponseTypes */
+        $rawResponseTypes = $metadata[ClaimsEnum::ResponseTypes->value] ?? null;
+        $responseTypes = is_array($rawResponseTypes) ?
+        array_values(array_filter($rawResponseTypes, 'is_string')) :
+        [];
+
+        return in_array(
+            GrantTypesEnum::Implicit->value,
+            ResponseTypeGrantTypeCorrespondence::requiredGrantTypes($responseTypes),
+            true,
+        );
     }
 
     /**

@@ -42,7 +42,7 @@ contract for what was honored.
 | `post_logout_redirect_uris` | Honored | Honored | |
 | `backchannel_logout_uri` | Honored | Honored | |
 | `id_token_signed_response_alg` | Honored (rejects unsupported) | Honored | Precedent for "reject unsupported". |
-| `application_type` | Validated + echoed | Validated + echoed | Admin-editable. `web` / `native`. |
+| `application_type` | Validated + echoed | Validated + echoed | Admin-editable. `web` / `native`. Constrains `redirect_uris` (see below) and is a secondary signal for the client type. |
 | `contacts` | Validated + echoed | Validated + echoed | Admin-editable. |
 | `logo_uri` | Validated + echoed | Validated + echoed | Admin-editable. Subject to impersonation protection (DCR path). |
 | `policy_uri` | Validated + echoed | Validated + echoed | Admin-editable. Subject to impersonation protection (DCR path). |
@@ -95,6 +95,26 @@ form (live in the UI via `client-form.js` and normalized on save). When neither 
 method nor `native` is present (e.g. a federation/manual client), the explicit
 `is_confidential` value stands. (Consequence: to make a `native` client confidential,
 give it a real authentication method.)
+
+## `redirect_uris` constraints by `application_type`
+
+Per OpenID Connect Dynamic Client Registration 1.0 (Section 2, `application_type`),
+the OP verifies every registered `redirect_uris` value against the client's
+`application_type` (default `web`) **at the DCR registration endpoint**:
+
+- **native:** only custom URI schemes, or loopback URLs (`localhost`, `127.0.0.1`,
+  `[::1]`), are allowed; a non-loopback `http`/`https` redirect URI is rejected with
+  `invalid_redirect_uri`.
+- **web using the implicit grant:** every `redirect_uris` value must use `https` and
+  must not use `localhost` as the host. (Scoped to web clients that use the implicit
+  grant — determined from `grant_types`/`response_types`; code-only web clients are
+  not constrained by this rule.)
+
+These checks run on the **DCR path only** (`ClientMetadataValidator`). The admin UI
+does not enforce them — an administrator is trusted and may, for example, manage a
+client with mixed redirect URIs — but the admin form documents the rules under the
+Application Type field. The fragment-rejection and absolute-URI checks apply to all
+`redirect_uris` regardless of `application_type`.
 
 ## Enforcement policy
 

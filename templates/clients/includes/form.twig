@@ -61,7 +61,7 @@
         </label>
         <span class="pure-form-message">
             {% trans %}Choose if client is confidential or public. Confidential clients are capable of maintaining the confidentiality of their credentials (e.g., client implemented on a secure server with restricted access to the client credentials), or capable of secure client authentication using other means. Public clients are incapable of maintaining the confidentiality of their credentials (e.g., clients executing on the device used by the resource owner, such as an installed native application or a web browser-based application), and incapable of secure client authentication via any other means.{% endtrans %}
-            {% trans %}If a Token Endpoint Authentication Method is selected below, it determines this type ("none" means public, any other method means confidential).{% endtrans %}
+            {% trans %}This type is derived from the metadata where possible: if a Token Endpoint Authentication Method is selected below, it determines this type ("none" means public, any other method means confidential); otherwise, an Application Type of "native" means public. When neither is set, your explicit choice above is kept. To make a native client confidential, give it a real authentication method.{% endtrans %}
         </span>
 
         <label for="frm-token_endpoint_auth_method">{{ 'Token Endpoint Authentication Method'|trans }}</label>
@@ -75,6 +75,9 @@
 
         <label for="frm-application_type">{{ 'Application Type'|trans }}</label>
         {{ form.application_type.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}Kind of application (default: web). For dynamically registered clients this constrains the allowed Redirect URIs: native clients may only use custom URI schemes or loopback addresses (localhost, 127.0.0.1, [::1]); web clients using the implicit grant must use https and must not use localhost.{% endtrans %}
+        </span>
         {% if form.application_type.hasErrors %}
             <span class="pure-form-message red-text">{{ form.application_type.getError }}</span>
         {% endif %}
