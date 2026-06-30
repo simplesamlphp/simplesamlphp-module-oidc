@@ -70,7 +70,7 @@ class RegistrationControllerTest extends TestCase
         $this->loggerMock = $this->createMock(LoggerService::class);
 
         // ErrorResponder::forExceptionJson builds the JSON response itself and does not use the bridge.
-        $this->errorResponder = new ErrorResponder($this->createMock(PsrHttpBridge::class));
+        $this->errorResponder = new ErrorResponder($this->createMock(PsrHttpBridge::class), $this->loggerMock);
         $this->clientMetadataValidator = new ClientMetadataValidator($this->moduleConfigMock);
         $this->helpers = new Helpers();
 

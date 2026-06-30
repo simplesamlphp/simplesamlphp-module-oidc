@@ -49,6 +49,10 @@ class CodeChallengeRule extends AbstractRule
 
         if ($codeChallenge === null) {
             if (! $client->isConfidential()) {
+                $loggerService->notice(
+                    'Authorization request rejected: `code_challenge` (PKCE) is required for public clients.',
+                    ['client_id' => $client->getIdentifier()],
+                );
                 throw OidcServerException::invalidRequest(
                     ParamsEnum::CodeChallenge->value,
                     'Code Challenge must be provided for public clients.',
@@ -65,6 +69,11 @@ class CodeChallengeRule extends AbstractRule
         // Validate code_challenge according to RFC-7636
         // @see: https://tools.ietf.org/html/rfc7636#section-4.2
         if (preg_match('/^[A-Za-z0-9-._~]{43,128}$/', $codeChallenge) !== 1) {
+            $loggerService->notice(
+                'Authorization request rejected: `code_challenge` does not follow RFC-7636 (wrong length or ' .
+                'character set).',
+                ['client_id' => $client->getIdentifier()],
+            );
             throw OidcServerException::invalidRequest(
                 ParamsEnum::CodeChallenge->value,
                 'Code Challenge must follow the specifications of RFC-7636.',

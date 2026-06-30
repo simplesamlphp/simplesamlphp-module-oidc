@@ -45,6 +45,7 @@ class RequiredNonceRule extends AbstractRule
         );
 
         if ($nonce === null || $nonce === '') {
+            $loggerService->notice('Authorization request rejected: required `nonce` parameter is missing.');
             throw OidcServerException::invalidRequest(
                 ParamsEnum::Nonce->value,
                 'nonce is required',

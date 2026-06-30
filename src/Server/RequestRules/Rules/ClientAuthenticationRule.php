@@ -75,6 +75,9 @@ class ClientAuthenticationRule extends AbstractRule
         );
 
         if (is_null($resolvedClientAuthenticationMethod)) {
+            $loggerService->warning(
+                'Client authentication failed: no supported client authentication method was presented.',
+            );
             throw OidcServerException::accessDenied('Not a single client authentication method presented.');
         }
 
@@ -83,6 +86,10 @@ class ClientAuthenticationRule extends AbstractRule
             $resolvedClientAuthenticationMethod->getClientAuthenticationMethod()->isNone() &&
             $resolvedClientAuthenticationMethod->getClient()->isConfidential()
         ) {
+            $loggerService->warning(
+                'Client authentication failed: confidential client used the "none" authentication method.',
+                ['client_id' => $resolvedClientAuthenticationMethod->getClient()->getIdentifier()],
+            );
             throw OidcServerException::accessDenied(
                 'Confidential client must use an authentication method other than "none".',
             );

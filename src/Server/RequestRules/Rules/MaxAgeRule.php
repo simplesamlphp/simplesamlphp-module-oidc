@@ -79,6 +79,10 @@ class MaxAgeRule extends AbstractRule
                     ['options' => ['min_range' => 0]],
                 )
             ) {
+                $loggerService->notice(
+                    'Authorization request rejected: `max_age` is not a valid non-negative integer.',
+                    ['client_id' => $client->getIdentifier()],
+                );
                 throw OidcServerException::invalidRequest(
                     ParamsEnum::MaxAge->value,
                     'max_age must be a valid integer',

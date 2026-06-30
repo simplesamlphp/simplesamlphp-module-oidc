@@ -21,6 +21,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
 #[CoversClass(ImplicitGrant::class)]
@@ -39,6 +40,7 @@ class ImplicitGrantTest extends TestCase
     protected MockObject $scopeEntityMock;
     protected MockObject $clientEntityMock;
     protected MockObject $resultBagMock;
+    protected MockObject $loggerServiceMock;
 
     protected function setUp(): void
     {
@@ -56,6 +58,7 @@ class ImplicitGrantTest extends TestCase
         $this->scopeEntityMock = $this->createMock(ScopeEntityInterface::class);
         $this->clientEntityMock = $this->createMock(ClientEntity::class);
         $this->resultBagMock = $this->createMock(ResultBagInterface::class);
+        $this->loggerServiceMock = $this->createMock(LoggerService::class);
     }
 
     protected function sut(
@@ -66,6 +69,7 @@ class ImplicitGrantTest extends TestCase
         ?RequestParamsResolver $requestParamsResolver = null,
         ?AccessTokenEntityFactory $accessTokenEntityFactory = null,
         ?ScopeRepositoryInterface $scopeRepository = null,
+        ?LoggerService $loggerService = null,
     ): ImplicitGrant {
         $idTokenBuilder ??= $this->idTokenBuilderMock;
         $accessTokenTtl ??= $this->accessTokenTtl1h;
@@ -74,6 +78,7 @@ class ImplicitGrantTest extends TestCase
         $requestParamsResolver ??= $this->requestParamsResolverMock;
         $accessTokenEntityFactory ??= $this->accessTokenEntityFactoryMock;
         $scopeRepository ??= $this->scopeRepositoryMock;
+        $loggerService ??= $this->loggerServiceMock;
 
 
         $implicitGrant = new ImplicitGrant(
@@ -83,6 +88,7 @@ class ImplicitGrantTest extends TestCase
             $requestRulesManager,
             $requestParamsResolver,
             $accessTokenEntityFactory,
+            $loggerService,
         );
 
         $implicitGrant->setScopeRepository($scopeRepository);

@@ -79,6 +79,11 @@ class RequestObjectRule extends AbstractRule
         // The Request Object source is present, but it could not be parsed (by value) or fetched/parsed (by
         // reference). Note that for the by-reference case, RequestUriRule would normally reject this earlier.
         if ($requestObjectBag === null) {
+            $loggerService->notice(
+                'Authorization request rejected: request object could not be parsed (by value) or fetched (by ' .
+                'reference).',
+                ['client_id' => $client->getIdentifier()],
+            );
             throw OidcServerException::invalidRequest(
                 'request',
                 'Request object could not be parsed or fetched.',
@@ -95,6 +100,11 @@ class RequestObjectRule extends AbstractRule
             // containing the Client ID claim.
             $jarRequestObject = $requestObjectBag->get(JarRequestObject::class);
             if (!$jarRequestObject instanceof JarRequestObject) {
+                $loggerService->notice(
+                    'Authorization request rejected: request object is not a valid JAR (RFC 9101) Request Object ' .
+                    '(it must be signed).',
+                    ['client_id' => $client->getIdentifier()],
+                );
                 throw OidcServerException::invalidRequest(
                     'request',
                     'Request object is not a valid JAR Request Object (note that it must be signed).',
@@ -106,6 +116,14 @@ class RequestObjectRule extends AbstractRule
             }
 
             if ($jarRequestObject->getClientId() !== $client->getIdentifier()) {
+                $loggerService->warning(
+                    'Authorization request rejected: client_id claim in JAR request object does not match the ' .
+                    'client_id parameter.',
+                    [
+                        'client_id' => $client->getIdentifier(),
+                        'request_object_client_id' => $jarRequestObject->getClientId(),
+                    ],
+                );
                 throw OidcServerException::invalidRequest(
                     'request',
                     'Client ID claim in request object does not match the client_id parameter.',
@@ -129,6 +147,10 @@ class RequestObjectRule extends AbstractRule
         // (unless policy requires signature).
         $requestObject = $requestObjectBag->get(ConnectRequestObject::class);
         if (!$requestObject instanceof ConnectRequestObject) {
+            $loggerService->notice(
+                'Authorization request rejected: request object is not a valid OpenID Connect Request Object.',
+                ['client_id' => $client->getIdentifier()],
+            );
             throw OidcServerException::invalidRequest(
                 'request',
                 'Request object is not a valid Request Object.',
@@ -144,6 +166,11 @@ class RequestObjectRule extends AbstractRule
             $requireSigned = $this->moduleConfig->getRequireSignedRequestObject() ||
             $client->getRequireSignedRequestObject();
             if ($requireSigned) {
+                $loggerService->notice(
+                    'Authorization request rejected: an unsigned request object was provided but a signed one ' .
+                    'is required by server or client policy.',
+                    ['client_id' => $client->getIdentifier()],
+                );
                 throw OidcServerException::invalidRequest(
                     'request',
                     'Request object must be signed (alg: none is not allowed).',

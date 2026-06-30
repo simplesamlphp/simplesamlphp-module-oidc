@@ -38,6 +38,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Server\ResponseModes\FragmentResponseMode;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
@@ -58,6 +59,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         protected RequestRulesManager $requestRulesManager,
         protected RequestParamsResolver $requestParamsResolver,
         AccessTokenEntityFactory $accessTokenEntityFactory,
+        protected LoggerService $loggerService,
     ) {
         parent::__construct($accessTokenTTL);
 
@@ -105,6 +107,10 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
             return $this->completeOidcAuthorizationRequest($authorizationRequest);
         }
 
+        $this->loggerService->error(
+            'Implicit grant failed: unexpected authorization request type.',
+            ['type' => $authorizationRequest::class],
+        );
         throw new LogicException('Unexpected OAuth2AuthorizationRequest type.');
     }
 
@@ -200,12 +206,20 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         $user = $authorizationRequest->getUser();
 
         if ($user instanceof UserEntity === false) {
+            $this->loggerService->error(
+                'Implicit grant failed: no authenticated user set on the authorization request.',
+                ['client_id' => $authorizationRequest->getClient()->getIdentifier()],
+            );
             throw new LogicException('An instance of UserEntityInterface should be set on the AuthorizationRequest');
         }
 
         $redirectUrl = $this->getRedirectUrl($authorizationRequest);
 
         if ($authorizationRequest->isAuthorizationApproved() !== true) {
+            $this->loggerService->notice(
+                'Implicit grant: authorization request denied by the user.',
+                ['client_id' => $authorizationRequest->getClient()->getIdentifier()],
+            );
             throw OidcServerException::accessDenied(
                 'The user denied the request',
                 $redirectUrl,
@@ -237,9 +251,18 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         );
 
         if ($accessToken instanceof EntityStringRepresentationInterface === false) {
+            $this->loggerService->error(
+                'Implicit grant failed: issued access token does not implement ' .
+                EntityStringRepresentationInterface::class . '.',
+                ['client_id' => $authorizationRequest->getClient()->getIdentifier()],
+            );
             throw new RuntimeException('AccessToken must implement ' . EntityStringRepresentationInterface::class);
         }
         if ($accessToken instanceof AccessTokenEntity === false) {
+            $this->loggerService->error(
+                'Implicit grant failed: issued access token is not an instance of ' . AccessTokenEntity::class . '.',
+                ['client_id' => $authorizationRequest->getClient()->getIdentifier()],
+            );
             throw new RuntimeException('AccessToken must be ' . AccessTokenEntity::class);
         }
 
@@ -269,6 +292,11 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         $response = $responseMode->buildResponse(
             $redirectUrl,
             $responseParams,
+        );
+
+        $this->loggerService->notice(
+            'Implicit grant: authorization approved; ID token issued.',
+            ['client_id' => $authorizationRequest->getClient()->getIdentifier()],
         );
 
         return $response;

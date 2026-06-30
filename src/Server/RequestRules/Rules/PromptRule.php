@@ -75,12 +75,20 @@ class PromptRule extends AbstractRule
 
         $prompt = explode(" ", (string)$requestParams[ParamsEnum::Prompt->value]);
         if (count($prompt) > 1 && in_array('none', $prompt, true)) {
+            $loggerService->notice(
+                'Authorization request rejected: `prompt=none` cannot be combined with other prompt values.',
+                ['client_id' => $client->getIdentifier(), 'prompt' => $requestParams[ParamsEnum::Prompt->value]],
+            );
             throw OAuthServerException::invalidRequest(ParamsEnum::Prompt->value, 'Invalid prompt parameter');
         }
         $redirectUri = $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
         if (in_array('none', $prompt, true) && !$authSimple->isAuthenticated()) {
+            $loggerService->notice(
+                'Authorization request rejected: `prompt=none` was requested but the user is not authenticated.',
+                ['client_id' => $client->getIdentifier()],
+            );
             throw OidcServerException::loginRequired(
                 null,
                 $redirectUri,
