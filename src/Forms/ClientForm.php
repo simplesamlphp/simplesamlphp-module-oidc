@@ -23,8 +23,11 @@ use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Utils\ResponseTypeGrantTypeCorrespondence;
+use SimpleSAML\OpenID\Codebooks\ApplicationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
+use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
 use Traversable;
 
 /**
@@ -310,6 +313,22 @@ class ClientForm extends Form
         /** @psalm-suppress RedundantCast */
         $values = (array)parent::getValues(self::TYPE_ARRAY);
 
+        // Derive the client type (confidential/public) using the same precedence as DCR registration
+        // (see ClientEntityFactory::determineIsConfidential() + the token_endpoint_auth_method lockstep):
+        //   1. token_endpoint_auth_method, if selected: `none` => public, any real method => confidential;
+        //   2. else application_type `native` => public (a native app is a strong public-client indication);
+        //   3. else the explicit confidential/public choice stands.
+        // The server is the authority here; client-form.js mirrors this live in the UI.
+        /** @var mixed $selectedAuthMethod */
+        $selectedAuthMethod = $values[ClaimsEnum::TokenEndpointAuthMethod->value] ?? null;
+        /** @var mixed $selectedApplicationType */
+        $selectedApplicationType = $values[ClaimsEnum::ApplicationType->value] ?? null;
+        if (is_string($selectedAuthMethod) && trim($selectedAuthMethod) !== '') {
+            $values['is_confidential'] = trim($selectedAuthMethod) !== TokenEndpointAuthMethodsEnum::None->value;
+        } elseif ($selectedApplicationType === ApplicationTypesEnum::Native->value) {
+            $values['is_confidential'] = false;
+        }
+
         // Sanitize redirect_uri and allowed_origin
         $values['redirect_uri'] = $this->helpers->str()->convertTextToArray((string)$values['redirect_uri']);
         if (! $values['is_confidential'] && isset($values['allowed_origin'])) {
@@ -383,6 +402,81 @@ class ClientForm extends Form
         $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] = array_intersect(
             $responseModesAllowed,
             array_keys($this->getAllowedResponseModesValues()),
+        );
+
+        /** @var mixed $grantTypes */
+        $grantTypes = $values[ClaimsEnum::GrantTypes->value] ?? null;
+        $grantTypes = is_array($grantTypes) ? $grantTypes : [];
+        $values[ClaimsEnum::GrantTypes->value] = array_values(
+            array_intersect($grantTypes, array_keys($this->getSupportedGrantTypes())),
+        );
+
+        /** @var mixed $responseTypes */
+        $responseTypes = $values[ClaimsEnum::ResponseTypes->value] ?? null;
+        $responseTypes = is_array($responseTypes) ? $responseTypes : [];
+        $values[ClaimsEnum::ResponseTypes->value] = array_values(
+            array_intersect($responseTypes, array_keys($this->getSupportedResponseTypes())),
+        );
+
+        // Enforce the OIDC DCR response_type <-> grant_type correspondence server-side (the JS does the same live):
+        // every grant type required by a selected response_type must be present in grant_types. We keep only
+        // supported grant types so the multi-select can render the result.
+        /** @var string[] $selectedGrantTypes */
+        $selectedGrantTypes = $values[ClaimsEnum::GrantTypes->value];
+        /** @var string[] $selectedResponseTypes */
+        $selectedResponseTypes = $values[ClaimsEnum::ResponseTypes->value];
+
+        $normalizedGrantTypes = ResponseTypeGrantTypeCorrespondence::mergeRequiredGrantTypes(
+            $selectedGrantTypes,
+            $selectedResponseTypes,
+        );
+        $values[ClaimsEnum::GrantTypes->value] = array_values(
+            array_intersect($normalizedGrantTypes, array_keys($this->getSupportedGrantTypes())),
+        );
+
+        /** @var mixed $tokenEndpointAuthMethod */
+        $tokenEndpointAuthMethod = $values[ClaimsEnum::TokenEndpointAuthMethod->value] ?? '';
+        $tokenEndpointAuthMethod = is_string($tokenEndpointAuthMethod) ? trim($tokenEndpointAuthMethod) : '';
+        $values[ClaimsEnum::TokenEndpointAuthMethod->value] = $tokenEndpointAuthMethod === '' ?
+        null : $tokenEndpointAuthMethod;
+
+        /** @var mixed $defaultMaxAgeRaw */
+        $defaultMaxAgeRaw = $values[ClaimsEnum::DefaultMaxAge->value] ?? '';
+        $defaultMaxAge = (is_string($defaultMaxAgeRaw) || is_int($defaultMaxAgeRaw)) ?
+        trim((string)$defaultMaxAgeRaw) : '';
+        $values[ClaimsEnum::DefaultMaxAge->value] = ctype_digit($defaultMaxAge) ? (int)$defaultMaxAge : null;
+
+        $values[ClaimsEnum::RequireAuthTime->value] = (bool)($values[ClaimsEnum::RequireAuthTime->value] ?? false);
+
+        /** @var mixed $defaultAcrValues */
+        $defaultAcrValues = $values[ClaimsEnum::DefaultAcrValues->value] ?? null;
+        $defaultAcrValues = is_array($defaultAcrValues) ? $defaultAcrValues : [];
+        $values[ClaimsEnum::DefaultAcrValues->value] = array_values(
+            array_intersect($defaultAcrValues, array_keys($this->getSupportedAcrValues())),
+        );
+
+        foreach (
+            [
+                ClaimsEnum::InitiateLoginUri->value,
+                ClaimsEnum::SoftwareId->value,
+                ClaimsEnum::SoftwareVersion->value,
+                ClaimsEnum::LogoUri->value,
+                ClaimsEnum::ClientUri->value,
+                ClaimsEnum::PolicyUri->value,
+                ClaimsEnum::TosUri->value,
+                ClaimsEnum::ApplicationType->value,
+            ] as $stringClaim
+        ) {
+            /** @var mixed $claimValue */
+            $claimValue = $values[$stringClaim] ?? '';
+            $stringValue = is_string($claimValue) ? trim($claimValue) : '';
+            $values[$stringClaim] = $stringValue === '' ? null : $stringValue;
+        }
+
+        /** @var mixed $contacts */
+        $contacts = $values[ClaimsEnum::Contacts->value] ?? '';
+        $values[ClaimsEnum::Contacts->value] = $this->helpers->str()->convertTextToArray(
+            is_string($contacts) ? $contacts : '',
         );
 
         $authProcFilters = trim((string)($values[ClientEntity::KEY_AUTH_PROC_FILTERS] ?? ''));
@@ -475,6 +569,55 @@ class ClientForm extends Form
         $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] = is_array(
             $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES],
         ) ? $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] : [];
+
+        /** @var mixed $grantTypes */
+        $grantTypes = $values[ClaimsEnum::GrantTypes->value] ?? null;
+        $grantTypes = is_array($grantTypes) ? $grantTypes : [];
+        $values[ClaimsEnum::GrantTypes->value] = array_values(
+            array_intersect($grantTypes, array_keys($this->getSupportedGrantTypes())),
+        );
+
+        /** @var mixed $responseTypes */
+        $responseTypes = $values[ClaimsEnum::ResponseTypes->value] ?? null;
+        $responseTypes = is_array($responseTypes) ? $responseTypes : [];
+        $values[ClaimsEnum::ResponseTypes->value] = array_values(
+            array_intersect($responseTypes, array_keys($this->getSupportedResponseTypes())),
+        );
+
+        /** @var mixed $tokenEndpointAuthMethod */
+        $tokenEndpointAuthMethod = $values[ClaimsEnum::TokenEndpointAuthMethod->value] ?? null;
+        $values[ClaimsEnum::TokenEndpointAuthMethod->value] = (is_string($tokenEndpointAuthMethod) &&
+            array_key_exists(
+                $tokenEndpointAuthMethod,
+                $this->getSupportedTokenEndpointAuthMethods(),
+            )) ? $tokenEndpointAuthMethod : null;
+
+        /** @var mixed $defaultMaxAge */
+        $defaultMaxAge = $values[ClaimsEnum::DefaultMaxAge->value] ?? null;
+        $values[ClaimsEnum::DefaultMaxAge->value] = is_int($defaultMaxAge) ? (string)$defaultMaxAge : '';
+
+        $values[ClaimsEnum::RequireAuthTime->value] = (bool)($values[ClaimsEnum::RequireAuthTime->value] ?? false);
+
+        /** @var mixed $defaultAcrValues */
+        $defaultAcrValues = $values[ClaimsEnum::DefaultAcrValues->value] ?? null;
+        $defaultAcrValues = is_array($defaultAcrValues) ? $defaultAcrValues : [];
+        // The field is a multi-select bound to the OP's supported ACRs; keep only currently-supported values so the
+        // control can render them (values no longer supported are dropped rather than shown as invalid options).
+        $values[ClaimsEnum::DefaultAcrValues->value] = array_values(
+            array_intersect($defaultAcrValues, array_keys($this->getSupportedAcrValues())),
+        );
+
+        /** @var mixed $contacts */
+        $contacts = $values[ClaimsEnum::Contacts->value] ?? null;
+        $contacts = is_array($contacts) ? $contacts : [];
+        $contactStrings = [];
+        /** @var mixed $contact */
+        foreach ($contacts as $contact) {
+            if (is_string($contact)) {
+                $contactStrings[] = $contact;
+            }
+        }
+        $values[ClaimsEnum::Contacts->value] = implode("\n", $contactStrings);
 
         /** @var mixed $authProcFilters */
         $authProcFilters = $values[ClientEntity::KEY_AUTH_PROC_FILTERS] ?? null;
@@ -588,6 +731,68 @@ class ClientForm extends Form
         $this->addTextArea(ClaimsEnum::RequestUris->value, 'Request URIs (OIDC Core / JAR, one per line)', null, 5)
             ->setHtmlAttribute('class', 'full-width');
 
+        $this->addMultiSelect(
+            ClaimsEnum::GrantTypes->value,
+            Translate::noop('Grant Types'),
+            $this->getSupportedGrantTypes(),
+            3,
+        )->setHtmlAttribute('class', 'full-width');
+
+        $this->addMultiSelect(
+            ClaimsEnum::ResponseTypes->value,
+            Translate::noop('Response Types'),
+            $this->getSupportedResponseTypes(),
+            3,
+        )->setHtmlAttribute('class', 'full-width');
+
+        $this->addSelect(
+            ClaimsEnum::TokenEndpointAuthMethod->value,
+            Translate::noop('Token Endpoint Authentication Method'),
+        )->setHtmlAttribute('class', 'full-width')
+            ->setItems($this->getSupportedTokenEndpointAuthMethods(), false)
+            ->setPrompt(Translate::noop('-'));
+
+        $this->addText(ClaimsEnum::DefaultMaxAge->value, Translate::noop('Default Max Age (seconds)'))
+            ->setHtmlAttribute('class', 'full-width')
+            ->setHtmlType('number');
+
+        $this->addCheckbox(ClaimsEnum::RequireAuthTime->value, Translate::noop('Require auth_time in ID Token'));
+
+        // Bound to the OP's supported ACRs (acr_values_supported). When the OP advertises no ACRs, this has no
+        // items and the field is hidden in the template (a per-client default ACR cannot do anything in that case).
+        $this->addMultiSelect(
+            ClaimsEnum::DefaultAcrValues->value,
+            Translate::noop('Default ACR Values'),
+            $this->getSupportedAcrValues(),
+            3,
+        )->setHtmlAttribute('class', 'full-width');
+
+        $this->addText(ClaimsEnum::InitiateLoginUri->value, Translate::noop('Initiate Login URI'))
+            ->setHtmlAttribute('class', 'full-width');
+
+        $this->addText(ClaimsEnum::SoftwareId->value, Translate::noop('Software ID'))
+            ->setHtmlAttribute('class', 'full-width');
+
+        $this->addText(ClaimsEnum::SoftwareVersion->value, Translate::noop('Software Version'))
+            ->setHtmlAttribute('class', 'full-width');
+
+        $this->addText(ClaimsEnum::LogoUri->value, Translate::noop('Logo URI'))
+            ->setHtmlAttribute('class', 'full-width');
+        $this->addText(ClaimsEnum::ClientUri->value, Translate::noop('Client URI'))
+            ->setHtmlAttribute('class', 'full-width');
+        $this->addText(ClaimsEnum::PolicyUri->value, Translate::noop('Policy URI'))
+            ->setHtmlAttribute('class', 'full-width');
+        $this->addText(ClaimsEnum::TosUri->value, Translate::noop('Terms of Service URI'))
+            ->setHtmlAttribute('class', 'full-width');
+
+        $this->addSelect(ClaimsEnum::ApplicationType->value, Translate::noop('Application Type'))
+            ->setHtmlAttribute('class', 'full-width')
+            ->setItems($this->getSupportedApplicationTypes(), false)
+            ->setPrompt(Translate::noop('-'));
+
+        $this->addTextArea(ClaimsEnum::Contacts->value, Translate::noop('Contacts (one per line)'), null, 3)
+            ->setHtmlAttribute('class', 'full-width');
+
         $this->addTextArea(
             ClientEntity::KEY_AUTH_PROC_FILTERS,
             Translate::noop('Authentication Processing Filters'),
@@ -637,6 +842,97 @@ class ClientForm extends Form
     protected function getAllowedResponseModesValues(): array
     {
         $supported = $this->moduleConfig->getSupportedResponseModes();
+        return array_combine($supported, $supported);
+    }
+
+    /**
+     * Grant types the client may be registered to use (value => label), matching the OP's
+     * grant_types_supported.
+     *
+     * @return array<string,string>
+     */
+    protected function getSupportedGrantTypes(): array
+    {
+        $supported = $this->moduleConfig->getSupportedGrantTypes();
+
+        return array_combine($supported, $supported);
+    }
+
+    /**
+     * Response types the client may be registered to use (value => label), matching the OP's
+     * response_types_supported.
+     *
+     * @return array<string,string>
+     */
+    protected function getSupportedResponseTypes(): array
+    {
+        $supported = $this->moduleConfig->getSupportedResponseTypes();
+
+        return array_combine($supported, $supported);
+    }
+
+    /**
+     * Token endpoint authentication methods the client may be registered to use (value => label).
+     *
+     * @return array<string,string>
+     */
+    protected function getSupportedTokenEndpointAuthMethods(): array
+    {
+        $supported = $this->moduleConfig->getSupportedTokenEndpointAuthMethods();
+
+        return array_combine($supported, $supported);
+    }
+
+    /**
+     * The OP's supported ACR values (value => label), as configured via OPTION_AUTH_ACR_VALUES_SUPPORTED and
+     * advertised in discovery as acr_values_supported. Empty when the OP advertises no ACRs.
+     *
+     * @return array<string,string>
+     */
+    protected function getSupportedAcrValues(): array
+    {
+        /** @var list<string> $supported */
+        $supported = array_values(array_filter($this->moduleConfig->getAcrValuesSupported(), 'is_string'));
+
+        return array_combine($supported, $supported);
+    }
+
+    /**
+     * Whether the OP has any supported ACR values configured. Used by the template to hide the per-client
+     * default_acr_values field when there is nothing to select.
+     */
+    public function hasConfiguredAcrValues(): bool
+    {
+        return $this->getSupportedAcrValues() !== [];
+    }
+
+    /**
+     * JSON map of response_type => required grant_types, restricted to the response types this OP offers. Consumed
+     * by the admin-form JavaScript to live-select the corresponding grant types, sharing the single source of truth
+     * with the server-side normalization (ResponseTypeGrantTypeCorrespondence).
+     */
+    public function getResponseTypeGrantTypeMapJson(): string
+    {
+        $map = array_intersect_key(
+            ResponseTypeGrantTypeCorrespondence::map(),
+            $this->getSupportedResponseTypes(),
+        );
+
+        return (string)json_encode($map, JSON_UNESCAPED_SLASHES);
+    }
+
+    /**
+     * Application types the client may register (value => label).
+     *
+     * @return array<string,string>
+     */
+    protected function getSupportedApplicationTypes(): array
+    {
+        $supported = [
+            ApplicationTypesEnum::Web->value,
+            ApplicationTypesEnum::Native->value,
+        ];
+
         return array_combine($supported, $supported);
     }
 

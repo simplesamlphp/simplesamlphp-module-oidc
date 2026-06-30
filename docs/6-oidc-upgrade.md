@@ -99,6 +99,70 @@ given, the attributes are consulted in priority order and the first one actually
 present in the released attributes is used, both as the internal user identifier
 and as the default source for the `sub` claim. The single-string form continues
 to work unchanged, so existing configurations are unaffected.
+- Support for OpenID Connect Dynamic Client Registration (DCR), as per OpenID
+Connect Dynamic Client Registration 1.0 / RFC 7591 (register, read) and RFC 7592
+(update, delete). A new Client Registration Endpoint (`registration_endpoint`,
+served at `<basepath>/module.php/oidc/register`) lets clients register themselves
+(HTTP `POST`) and then read (`GET`), update (`PUT`), or delete (`DELETE`) their
+registration via the Client Configuration Endpoint, authenticated with the
+Registration Access Token issued at registration. DCR is **disabled by default**;
+when enabled it is advertised as `registration_endpoint` in discovery, registration
+can be open or gated by an Initial Access Token, and impersonation protection
+(`logo_uri`/`policy_uri`/`tos_uri` host matching) is on by default. The full
+per-field metadata policy (honored / validated / rejected) is documented in
+[DCR client metadata support](9-oidc-dcr-client-metadata.md).
+  - As part of this, several client properties are now first-class: they are
+  validated, persisted, returned in the registration response, enforced where
+  applicable, and editable in the client administration UI. New client properties:
+    - Grant Types (`grant_types`)
+    - Response Types (`response_types`)
+    - Token Endpoint Authentication Method (`token_endpoint_auth_method`)
+    - Default Max Age (`default_max_age`)
+    - Require `auth_time` (`require_auth_time`)
+    - Default ACR Values (`default_acr_values`)
+    - Initiate Login URI (`initiate_login_uri`)
+    - Software ID and Software Version (`software_id`, `software_version`)
+    - Logo URI, Client URI, Policy URI, Terms of Service URI (`logo_uri`,
+    `client_uri`, `policy_uri`, `tos_uri`)
+    - Application Type (`application_type`)
+    - Contacts (`contacts`)
+  - New rules / enforcement related to these properties:
+    - `grant_types`, `response_types`, and `token_endpoint_auth_method` are
+    enforced **per client, but only when explicitly registered for that client**
+    (presence-based): the client is restricted to the grant types / response types
+    / authentication method it registered. The `refresh_token` grant is
+    intentionally exempt from `grant_types` enforcement — a refresh token is only
+    issued when `offline_access` was granted and consented, which is itself the
+    authorization to refresh.
+    - `default_max_age` and `default_acr_values` are applied when the authorization
+    request omits `max_age` / `acr_values`; `require_auth_time` forces the
+    `auth_time` claim into the ID Token.
+    - A `redirect_uri` that contains a fragment component is rejected (OIDC Core).
+    - Metadata for features this OP does not support is **rejected** with
+    `invalid_client_metadata` rather than silently ignored: `subject_type` other
+    than `public`, `sector_identifier_uri`, signed/encrypted UserInfo, ID Token /
+    Request Object encryption, and front-channel logout.
+    - A client that registers without a `scope` is granted the configured default
+    scope set (`OPTION_DCR_DEFAULT_SCOPES`), which defaults to all scopes the OP
+    supports, so dynamic clients can obtain refresh tokens via `offline_access`.
+  - **Transition for existing clients:** enforcement of `grant_types`,
+  `response_types`, and `token_endpoint_auth_method` is presence-based, so existing
+  clients (which do not have these properties set) are **not** restricted and
+  require no action — their behavior is unchanged. The OIDC DCR defaults are
+  applied only to newly, dynamically registered clients, not retroactively. In the
+  admin UI, a pre-upgrade client shows these new fields as **unset** (no grant
+  types / response types selected, no authentication method chosen) — that is the
+  honest representation of "not registered", and saving such a client does **not**
+  silently impose the spec defaults or otherwise constrain it. To start constraining
+  an existing client to specific grant types / response types / authentication
+  method, select them explicitly and save; leaving them empty preserves the
+  unconstrained behavior. (Implementation note: in v7 the client getters for these
+  fields return the raw registered value — empty / null when unset — rather than the
+  OIDC DCR spec default, so the stored value is the single source of truth; the
+  defaults are applied where it matters, i.e. when a client registers dynamically. A
+  future major version may switch the getters to fall back to the spec defaults.)
+  DCR is also opt-in (disabled by default), so unless you enable it, nothing changes
+  for your deployment.
 
 New configuration options:
 
@@ -139,6 +203,38 @@ representation of a `\Defuse\Crypto\Key` to use as the encryption key. If not
 set (default), the SimpleSAMLphp secret salt is used as before. See the config
 template for how to generate the key and for the important caveat about
 invalidating already-issued artifacts when the key changes.
+- `ModuleConfig::OPTION_DCR_ENABLED` - optional, enables Dynamic Client
+Registration and advertises the `registration_endpoint` in discovery (default
+`false`).
+- `ModuleConfig::OPTION_DCR_REGISTRATION_AUTH` - optional, access-control mode for
+the registration (create) endpoint: `DcrRegistrationAuthEnum::Open` (default) for
+open registration, or `DcrRegistrationAuthEnum::InitialAccessToken` to require a
+configured Initial Access Token.
+- `ModuleConfig::OPTION_DCR_INITIAL_ACCESS_TOKENS` - optional, the set of accepted
+Initial Access Tokens (only consulted when the registration auth mode is
+`InitialAccessToken`).
+- `ModuleConfig::OPTION_DCR_IMPERSONATION_PROTECTION_ENABLED` - optional, when on
+(default `true`) the host of `logo_uri`/`policy_uri`/`tos_uri` must match the host
+of one of the registered `redirect_uris`, mitigating a rogue client reusing a
+legitimate client's branding.
+- `ModuleConfig::OPTION_DCR_DEFAULT_SCOPES` - optional, the scopes assigned to a
+DCR client that registers without an explicit `scope`. Defaults to all scopes the
+OP supports (so scope-less dynamic clients can request `offline_access`); set an
+explicit list to restrict it. Applies to Dynamic registrations only; manual and
+OpenID Federation registrations are unaffected.
+- `ModuleConfig::OPTION_DCR_REGISTERED_CLIENTS_ENABLED` - optional, whether a
+dynamically registered client is created enabled and immediately usable (default
+`true`). Set to `false` to create DCR clients disabled, so an administrator reviews
+and enables them before use ("register, then approve"); while disabled the client
+can still manage its own registration (RFC 7592) but cannot obtain tokens. Applies
+to Dynamic registrations only; OpenID Federation automatic registrations are always
+created enabled.
+- `ModuleConfig::OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS` - optional, Guzzle HTTP
+client options (passed through verbatim) for the protocol-layer outbound fetches
+made by the underlying `openid` library, such as fetching a client `jwks_uri` or a
+`request_uri`. Defaults to the library's secure settings; the primary use is
+testing against endpoints with self-signed certificates by setting
+`['verify' => false]`. Do NOT disable TLS verification in production.
 - Several new options regarding experimental support for OpenID4VCI.
 
 Major impact changes:
@@ -225,11 +321,13 @@ Low-impact changes:
 the client identity is conveyed by the client authentication method itself, in
 line with the specifications. For example, with `private_key_jwt` the client is
 identified by the assertion's `iss`/`sub` claims, and with `client_secret_basic`
-by the `Authorization` header. Requests that still send `client_id` are
-unaffected, and the authenticated client is always validated against the client
-the authorization code was issued to. Note that for non-registered (generic VCI)
-clients the `client_id` parameter is still required, as their identity cannot be
-derived from a credential.
+by the `Authorization` header. This now applies consistently to both the
+`authorization_code` and `refresh_token` grants (previously the `refresh_token`
+grant rejected `private_key_jwt` clients that did not also send `client_id`).
+Requests that still send `client_id` are unaffected, and the authenticated client
+is always validated against the client the authorization code / refresh token was
+issued to. Note that for non-registered (generic VCI) clients the `client_id`
+parameter is still required, as their identity cannot be derived from a credential.
 - Client property `is_federated` has been removed, as the OP implementation
 can now only be a leaf entity in the federation context, and not a federation
 operator or intermediary entity. Previously, this property was used to

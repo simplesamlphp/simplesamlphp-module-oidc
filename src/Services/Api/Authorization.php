@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Services\Api;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
@@ -23,6 +24,7 @@ class Authorization
         protected readonly ModuleConfig $moduleConfig,
         protected readonly SspBridge $sspBridge,
         protected readonly RequestParamsResolver $requestParamsResolver,
+        protected readonly Helpers $helpers,
     ) {
     }
 
@@ -79,17 +81,9 @@ class Authorization
 
     protected function findToken(Request $request): ?string
     {
-        if (
-            is_string($authorizationHeader = $request->headers->get(self::KEY_AUTHORIZATION))
-            && str_starts_with($authorizationHeader, 'Bearer ')
-        ) {
-            return trim(
-                (string) preg_replace(
-                    '/^\s*Bearer\s/',
-                    '',
-                    (string)$request->headers->get(self::KEY_AUTHORIZATION),
-                ),
-            );
+        $bearerToken = $this->helpers->http()->getBearerToken($request->headers->get(self::KEY_AUTHORIZATION));
+        if ($bearerToken !== null) {
+            return $bearerToken;
         }
 
         // Fallback to token parameter.

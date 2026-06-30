@@ -60,6 +60,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseModeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeOfflineAccessRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
@@ -73,6 +74,7 @@ use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
+use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
@@ -525,6 +527,23 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         // it is predefined as the ClientRule result and authenticated against by ClientAuthenticationRule above.
         $client = $authorizationClientEntity;
 
+        // Per-client grant_types enforcement: if the client explicitly registered a non-empty grant_types list, it
+        // must include 'authorization_code' to exchange a code here. getGrantTypes() returns the raw registered
+        // value (an empty array when nothing is registered - it does not synthesize the OIDC DCR spec default), so
+        // an empty list means "not configured" and is not enforced, preserving behavior for manually-managed and
+        // pre-DCR clients. The refresh_token grant is intentionally NOT gated on grant_types (see RefreshTokenGrant):
+        // a refresh token is only issued when offline_access was granted and consented, which is itself the
+        // authorization to refresh.
+        $registeredGrantTypes = $client->getGrantTypes();
+        if (
+            $registeredGrantTypes !== [] &&
+            !in_array(GrantTypesEnum::AuthorizationCode->value, $registeredGrantTypes, true)
+        ) {
+            throw OidcServerException::unauthorizedClient(
+                'The client is not authorized to use the authorization_code grant type.',
+            );
+        }
+
         $resolvedClientAuthenticationMethod = $authorizationClientEntity->isGeneric() ?
         null :
         $resultBag->getOrFail(ClientAuthenticationRule::class)->getValue();
@@ -758,6 +777,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         $rulesToExecute = [
             ClientIdRule::class,
+            ResponseTypeRule::class,
             RequestObjectRule::class,
             PromptRule::class,
             MaxAgeRule::class,

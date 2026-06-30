@@ -10,7 +10,6 @@ use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
-use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
 
 /**
  * OpenID Provider Metadata Service - provides information about OIDC authentication server.
@@ -62,16 +61,17 @@ class OpMetadataService
         $this->metadata[ClaimsEnum::EndSessionEndpoint->value] =
         $this->routes->getModuleUrl(RoutesEnum::EndSession->value);
         $this->metadata[ClaimsEnum::JwksUri->value] = $this->routes->getModuleUrl(RoutesEnum::Jwks->value);
+        if ($this->moduleConfig->getDcrEnabled()) {
+            $this->metadata[ClaimsEnum::RegistrationEndpoint->value] =
+            $this->routes->getModuleUrl(RoutesEnum::Registration->value);
+        }
         $this->metadata[ClaimsEnum::ScopesSupported->value] = array_keys($this->moduleConfig->getScopes());
-        $this->metadata[ClaimsEnum::ResponseTypesSupported->value] = ['code', 'id_token', 'id_token token'];
+        $this->metadata[ClaimsEnum::ResponseTypesSupported->value] = $this->moduleConfig->getSupportedResponseTypes();
         $this->metadata[ClaimsEnum::SubjectTypesSupported->value] = ['public'];
         $this->metadata[ClaimsEnum::IdTokenSigningAlgValuesSupported->value] = $protocolSignatureAlgorithmNames;
         $this->metadata[ClaimsEnum::CodeChallengeMethodsSupported->value] = ['plain', 'S256'];
-        $this->metadata[ClaimsEnum::TokenEndpointAuthMethodsSupported->value] = [
-            TokenEndpointAuthMethodsEnum::ClientSecretPost->value,
-            TokenEndpointAuthMethodsEnum::ClientSecretBasic->value,
-            TokenEndpointAuthMethodsEnum::PrivateKeyJwt->value,
-        ];
+        $this->metadata[ClaimsEnum::TokenEndpointAuthMethodsSupported->value] =
+        $this->moduleConfig->getSupportedTokenEndpointAuthMethods();
         $this->metadata[ClaimsEnum::TokenEndpointAuthSigningAlgValuesSupported->value] =
         $supportedSignatureAlgorithmNames;
         $this->metadata[ClaimsEnum::RequestParameterSupported->value] = true;
@@ -89,11 +89,10 @@ class OpMetadataService
         $this->metadata[ClaimsEnum::RequirePushedAuthorizationRequests->value] =
         $this->moduleConfig->getRequirePushedAuthorizationRequests();
 
-        $grantTypesSupported = [
-            GrantTypesEnum::AuthorizationCode->value,
-            GrantTypesEnum::RefreshToken->value,
-        ];
+        $grantTypesSupported = $this->moduleConfig->getSupportedGrantTypes();
         if ($this->moduleConfig->getVciEnabled()) {
+            // The VCI pre-authorized_code grant is an OP capability advertised in discovery, but it is not a
+            // per-client registerable grant type.
             $grantTypesSupported[] = GrantTypesEnum::PreAuthorizedCode->value;
         }
         $this->metadata[ClaimsEnum::GrantTypesSupported->value] = $grantTypesSupported;

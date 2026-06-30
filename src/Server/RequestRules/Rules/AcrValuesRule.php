@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
@@ -72,6 +73,15 @@ class AcrValuesRule extends AbstractRule
         );
         if ($acrValuesParam !== null) {
             $acrValues['values'] = array_merge($acrValues['values'], explode(' ', $acrValuesParam));
+        }
+
+        // Fall back to the client's registered default_acr_values when the request specified no acr (via the
+        // claims parameter or acr_values). OIDC DCR 1.0: default_acr_values are the Default requested ACRs.
+        if ($acrValues['values'] === []) {
+            $client = $currentResultBag->get(ClientRule::class)?->getValue();
+            if ($client instanceof ClientEntityInterface) {
+                $acrValues['values'] = $client->getDefaultAcrValues();
+            }
         }
 
         return new Result($this->getKey(), empty($acrValues['values']) ? null : $acrValues);

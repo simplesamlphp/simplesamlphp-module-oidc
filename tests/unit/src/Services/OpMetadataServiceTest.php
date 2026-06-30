@@ -52,12 +52,19 @@ class OpMetadataServiceTest extends TestCase
                     RoutesEnum::Jwks->value => 'http://localhost/jwks',
                     RoutesEnum::EndSession->value => 'http://localhost/end-session',
                     RoutesEnum::PushedAuthorizationRequest->value => 'http://localhost/par',
+                    RoutesEnum::Registration->value => 'http://localhost/register',
                 ];
 
                 return $paths[$path] ?? null;
             });
         $this->moduleConfigMock->method('getAcrValuesSupported')->willReturn(['1']);
         $this->moduleConfigMock->method('getSupportedResponseModes')->willReturn(['query', 'fragment', 'form_post']);
+        $this->moduleConfigMock->method('getSupportedResponseTypes')
+            ->willReturn(['code', 'id_token', 'id_token token']);
+        $this->moduleConfigMock->method('getSupportedGrantTypes')
+            ->willReturn(['authorization_code', 'implicit', 'refresh_token']);
+        $this->moduleConfigMock->method('getSupportedTokenEndpointAuthMethods')
+            ->willReturn(['client_secret_basic', 'client_secret_post', 'private_key_jwt', 'none']);
 
         $this->claimTranslatorExtractorMock = $this->createMock(ClaimTranslatorExtractor::class);
 
@@ -137,9 +144,10 @@ class OpMetadataServiceTest extends TestCase
                 'id_token_signing_alg_values_supported' => ['RS256'],
                 'code_challenge_methods_supported' => ['plain', 'S256'],
                 'token_endpoint_auth_methods_supported' => [
-                    'client_secret_post',
                     'client_secret_basic',
+                    'client_secret_post',
                     'private_key_jwt',
+                    'none',
                 ],
                 'token_endpoint_auth_signing_alg_values_supported' => [
                     'RS256',
@@ -150,13 +158,35 @@ class OpMetadataServiceTest extends TestCase
                 'require_request_uri_registration' => true,
                 'pushed_authorization_request_endpoint' => 'http://localhost/par',
                 'require_pushed_authorization_requests' => false,
-                'grant_types_supported' => ['authorization_code', 'refresh_token'],
+                'grant_types_supported' => ['authorization_code', 'implicit', 'refresh_token'],
                 'claims_parameter_supported' => true,
                 'acr_values_supported' => ['1'],
                 'backchannel_logout_supported' => true,
                 'backchannel_logout_session_supported' => true,
                 'response_modes_supported' => ['query', 'fragment', 'form_post'],
             ],
+            $this->sut()->getMetadata(),
+        );
+    }
+
+    public function testAdvertisesRegistrationEndpointWhenDcrEnabled(): void
+    {
+        $this->moduleConfigMock->method('getDcrEnabled')->willReturn(true);
+
+        $metadata = $this->sut()->getMetadata();
+
+        $this->assertSame(
+            'http://localhost/register',
+            $metadata[ClaimsEnum::RegistrationEndpoint->value] ?? null,
+        );
+    }
+
+    public function testDoesNotAdvertiseRegistrationEndpointWhenDcrDisabled(): void
+    {
+        $this->moduleConfigMock->method('getDcrEnabled')->willReturn(false);
+
+        $this->assertArrayNotHasKey(
+            ClaimsEnum::RegistrationEndpoint->value,
             $this->sut()->getMetadata(),
         );
     }

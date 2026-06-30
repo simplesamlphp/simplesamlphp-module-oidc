@@ -12,6 +12,7 @@ use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Utils\ResponseTypeGrantTypeCorrespondence;
 use SimpleSAML\OpenID\Codebooks\ApplicationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
@@ -21,6 +22,28 @@ use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
 
 class ClientEntityFactory
 {
+    /**
+     * Informational ("store & echo") client metadata that is persisted as-is
+     * into the extra metadata blob when present in registration data, so it
+     * can be echoed back in registration/read responses. These carry no
+     * behavioral enforcement on the OP. Format/security validation
+     * (and impersonation protection) happens at the registration boundary;
+     * see \SimpleSAML\Module\oidc\Server\Registration\ClientMetadataValidator.
+     *
+     * @var string[]
+     */
+    public const array STORE_AND_ECHO_METADATA_KEYS = [
+        ClaimsEnum::LogoUri->value,
+        ClaimsEnum::ClientUri->value,
+        ClaimsEnum::PolicyUri->value,
+        ClaimsEnum::TosUri->value,
+        ClaimsEnum::Contacts->value,
+        ClaimsEnum::ApplicationType->value,
+        ClaimsEnum::InitiateLoginUri->value,
+        ClaimsEnum::SoftwareId->value,
+        ClaimsEnum::SoftwareVersion->value,
+    ];
+
     public function __construct(
         private readonly SspBridge $sspBridge,
         private readonly Helpers $helpers,
@@ -61,6 +84,7 @@ class ClientEntityFactory
         ?DateTimeImmutable $expiresAt = null,
         bool $isGeneric = false,
         ?array $extraMetadata = null,
+        ?string $registrationAccessToken = null,
     ): ClientEntityInterface {
         return new ClientEntity(
             $id,
@@ -87,6 +111,7 @@ class ClientEntityFactory
             $expiresAt,
             $isGeneric,
             $extraMetadata,
+            $registrationAccessToken,
         );
     }
 
@@ -133,12 +158,22 @@ class ClientEntityFactory
             unset($metadata[$adminOnlyMetadataKey]);
         }
 
+        // RFC 7592 client update is a full REPLACE, not a merge: on a DCR update, client-settable metadata the
+        // request omits must be reset to its OP default (or removed), while server-managed and admin-only
+        // properties are still carried over from the existing client. We model that with a separate "metadata
+        // fallback" client that is null on a DCR update, so the per-field `?? $metadataFallbackClient?->...`
+        // expressions below fall back to the default rather than the previously-registered value. Manual and
+        // OpenID Federation registrations keep their existing merge behaviour (the entity statement / admin form
+        // carries the full intended state anyway).
+        $isDcrUpdate = $existingClient !== null && $registrationType === RegistrationTypeEnum::Dynamic;
+        $metadataFallbackClient = $isDcrUpdate ? null : $existingClient;
+
         $id = $clientIdentifier ?? $existingClient?->getIdentifier() ??
         $this->sspBridge->utils()->random()->generateID();
 
         $secret = $existingClient?->getSecret() ?? $this->sspBridge->utils()->random()->generateID();
 
-        $name = (string)($metadata[ClaimsEnum::ClientName->value] ?? $existingClient?->getName() ?? $id);
+        $name = (string)($metadata[ClaimsEnum::ClientName->value] ?? $metadataFallbackClient?->getName() ?? $id);
 
         $description = $existingClient?->getDescription() ?? '';
 
@@ -148,9 +183,21 @@ class ClientEntityFactory
         throw OidcServerException::accessDenied('redirect URIs missing');
         $redirectUris = $this->helpers->arr()->ensureStringValues($metadata[ClaimsEnum::RedirectUris->value]);
 
-        $scopes = $metadata[ClaimsEnum::Scope->value] ?? $existingClient?->getScopes();
-        $scopes = is_array($scopes) ? $this->helpers->arr()->ensureStringValues($scopes) :
-        $this->helpers->str()->convertScopesStringToArray((string)$scopes);
+        // Resolve the requested scopes: from this request's metadata, falling back to an existing client's scopes
+        // (e.g. on a DCR update that omits `scope`). null here means scopes were genuinely not specified.
+        $requestedScopes = $metadata[ClaimsEnum::Scope->value] ?? $metadataFallbackClient?->getScopes();
+        if ($requestedScopes === null) {
+            // No scope was specified. For Dynamic Client Registration, assign the configured default scope set
+            // (OIDC DCR 1.0 lets the OP assign a default set). Manual and OpenID Federation automatic registrations
+            // keep the conservative `openid`-only default. Note: an explicit but unsupported `scope` is NOT treated
+            // as "not specified" - it falls through to the supported-scope filter below and ends up as `openid` only.
+            $scopes = $registrationType === RegistrationTypeEnum::Dynamic
+            ? $this->moduleConfig->getDcrDefaultScopes()
+            : [ScopesEnum::OpenId->value];
+        } else {
+            $scopes = is_array($requestedScopes) ? $this->helpers->arr()->ensureStringValues($requestedScopes) :
+            $this->helpers->str()->convertScopesStringToArray((string)$requestedScopes);
+        }
         // Filter to only allowed scopes
         $scopes = array_filter(
             $scopes,
@@ -159,9 +206,16 @@ class ClientEntityFactory
         // Let's ensure there is at least 'openid' scope present.
         $scopes = empty($scopes) ? [ScopesEnum::OpenId->value] : $scopes;
 
-        $isEnabled = $existingClient?->isEnabled() ?? true;
+        // For a new Dynamic (DCR) client, the initial enabled state is governed by configuration: deployments can
+        // choose to create dynamically registered clients disabled, so an administrator reviews and enables them
+        // before use ("register, then approve"). On update the existing state is preserved (review only gates the
+        // initial registration). OpenID Federation automatic registrations are always created enabled.
+        $isEnabled = $existingClient?->isEnabled()
+        ?? ($registrationType === RegistrationTypeEnum::Dynamic
+                ? $this->moduleConfig->getDcrRegisteredClientsEnabled()
+                : true);
 
-        $isConfidential = $existingClient?->isConfidential() ?? $this->determineIsConfidential(
+        $isConfidential = $metadataFallbackClient?->isConfidential() ?? $this->determineIsConfidential(
             $metadata,
         );
 
@@ -170,21 +224,21 @@ class ClientEntityFactory
         $postLogoutRedirectUris = isset($metadata[ClaimsEnum::PostLogoutRedirectUris->value]) &&
         is_array($metadata[ClaimsEnum::PostLogoutRedirectUris->value]) ?
         $this->helpers->arr()->ensureStringValues($metadata[ClaimsEnum::PostLogoutRedirectUris->value]) :
-        $existingClient?->getPostLogoutRedirectUri() ?? [];
+        $metadataFallbackClient?->getPostLogoutRedirectUri() ?? [];
 
         $backChannelLogoutUri = isset($metadata[ClaimsEnum::BackChannelLogoutUri->value]) &&
         is_string($metadata[ClaimsEnum::BackChannelLogoutUri->value]) ?
         $metadata[ClaimsEnum::BackChannelLogoutUri->value] :
-        $existingClient?->getBackChannelLogoutUri();
+        $metadataFallbackClient?->getBackChannelLogoutUri();
 
         $entityIdentifier = $clientIdentifier ?? $existingClient?->getEntityIdentifier();
 
         $clientRegistrationTypes = isset($metadata[ClaimsEnum::ClientRegistrationTypes->value]) &&
         is_array($metadata[ClaimsEnum::ClientRegistrationTypes->value]) ?
         $this->helpers->arr()->ensureStringValues($metadata[ClaimsEnum::ClientRegistrationTypes->value]) :
-        $existingClient?->getClientRegistrationTypes();
+        $metadataFallbackClient?->getClientRegistrationTypes();
 
-        $federationJwks = $federationJwks ?? $existingClient?->getFederationJwks();
+        $federationJwks = $federationJwks ?? $metadataFallbackClient?->getFederationJwks();
 
         /** @var ?array[] $jwks */
         $jwks = isset($metadata[ClaimsEnum::Jwks->value]) &&
@@ -192,17 +246,17 @@ class ClientEntityFactory
         array_key_exists(ClaimsEnum::Keys->value, $metadata[ClaimsEnum::Jwks->value]) &&
         (!empty($metadata[ClaimsEnum::Jwks->value][ClaimsEnum::Keys->value])) ?
         $metadata[ClaimsEnum::Jwks->value] :
-        $existingClient?->getJwks();
+        $metadataFallbackClient?->getJwks();
 
         $jwksUri = isset($metadata[ClaimsEnum::JwksUri->value]) &&
         is_string($metadata[ClaimsEnum::JwksUri->value]) ?
         $metadata[ClaimsEnum::JwksUri->value] :
-        $existingClient?->getJwksUri();
+        $metadataFallbackClient?->getJwksUri();
 
         $signedJwksUri = isset($metadata[ClaimsEnum::SignedJwksUri->value]) &&
         is_string($metadata[ClaimsEnum::SignedJwksUri->value]) ?
         $metadata[ClaimsEnum::SignedJwksUri->value] :
-        $existingClient?->getSignedJwksUri();
+        $metadataFallbackClient?->getSignedJwksUri();
 
 //        $registrationType = $registrationType;
 
@@ -214,14 +268,31 @@ class ClientEntityFactory
 
         $isGeneric = $existingClient?->isGeneric() ?? false;
 
-        $extraMetadata = $existingClient?->getExtraMetadata() ?? [];
+        // Carry over any Registration Access Token hash from an existing client. For a newly registered client this
+        // is null here; the registration controller generates and assigns the token after building the entity.
+        $registrationAccessToken = $existingClient?->getRegistrationAccessTokenHash();
+
+        // On a DCR update this starts empty (replace semantics); on create/manual/federation it carries the existing
+        // extra metadata. Admin-only extra metadata (e.g. authproc) is never client-settable and is re-injected from
+        // the real existing client below so a DCR update cannot drop it.
+        $extraMetadata = $metadataFallbackClient?->getExtraMetadata() ?? [];
+        if ($isDcrUpdate) {
+            // $isDcrUpdate implies $existingClient is non-null (see its definition above).
+            $existingExtraMetadata = $existingClient->getExtraMetadata();
+            foreach (ClientEntity::ADMIN_ONLY_METADATA_KEYS as $adminOnlyMetadataKey) {
+                if (array_key_exists($adminOnlyMetadataKey, $existingExtraMetadata)) {
+                    /** @psalm-suppress MixedAssignment */
+                    $extraMetadata[$adminOnlyMetadataKey] = $existingExtraMetadata[$adminOnlyMetadataKey];
+                }
+            }
+        }
 
         // Handle any other supported client metadata as extra metadata.
         // id_token_signed_response_alg
         $idTokenSignedResponseAlg = isset($metadata[ClaimsEnum::IdTokenSignedResponseAlg->value]) &&
         is_string($metadata[ClaimsEnum::IdTokenSignedResponseAlg->value]) ?
         $metadata[ClaimsEnum::IdTokenSignedResponseAlg->value] :
-        $existingClient?->getIdTokenSignedResponseAlg();
+        $metadataFallbackClient?->getIdTokenSignedResponseAlg();
 
         // Make sure the requested id_token_signed_response_alg is one of the OP
         // can actually sign ID Tokens with, i.e. one for which a protocol
@@ -243,6 +314,125 @@ class ClientEntityFactory
 
         $extraMetadata[ClaimsEnum::IdTokenSignedResponseAlg->value] = $idTokenSignedResponseAlg;
 
+        // request_uris: persisted into extra metadata so that Request Objects passed by reference (request_uri,
+        // RFC 9101) can be exact-matched at the authorization endpoint when require_request_uri_registration is on
+        // (see ClientEntity::getRequestUris() and RequestParamsResolver::isHttpsRequestUriFetchAllowed()). Unlike
+        // the store-and-echo keys below this one IS behaviorally enforced. When omitted on update, any existing
+        // value is preserved (it is already carried over from the existing client's extra metadata above).
+        if (
+            isset($metadata[ClaimsEnum::RequestUris->value]) &&
+            is_array($metadata[ClaimsEnum::RequestUris->value])
+        ) {
+            $extraMetadata[ClaimsEnum::RequestUris->value] = $this->helpers->arr()->ensureStringValues(
+                $metadata[ClaimsEnum::RequestUris->value],
+            );
+        }
+
+        // grant_types / response_types / token_endpoint_auth_method: persisted so they can be returned in the
+        // registration response (RFC 7591 Section 3.2.1) and, going forward, enforced. For Dynamic registrations
+        // the OIDC DCR 1.0 defaults are applied when the client does not provide them; manual and federation
+        // registrations are left untouched (any existing value is carried over from the existing client above).
+        if (isset($metadata[ClaimsEnum::GrantTypes->value]) && is_array($metadata[ClaimsEnum::GrantTypes->value])) {
+            $extraMetadata[ClaimsEnum::GrantTypes->value] = $this->helpers->arr()->ensureStringValues(
+                $metadata[ClaimsEnum::GrantTypes->value],
+            );
+        } elseif (
+            $registrationType === RegistrationTypeEnum::Dynamic &&
+            !array_key_exists(ClaimsEnum::GrantTypes->value, $extraMetadata)
+        ) {
+            $extraMetadata[ClaimsEnum::GrantTypes->value] = [GrantTypesEnum::AuthorizationCode->value];
+        }
+
+        if (
+            isset($metadata[ClaimsEnum::ResponseTypes->value]) &&
+            is_array($metadata[ClaimsEnum::ResponseTypes->value])
+        ) {
+            $extraMetadata[ClaimsEnum::ResponseTypes->value] = $this->helpers->arr()->ensureStringValues(
+                $metadata[ClaimsEnum::ResponseTypes->value],
+            );
+        } elseif (
+            $registrationType === RegistrationTypeEnum::Dynamic &&
+            !array_key_exists(ClaimsEnum::ResponseTypes->value, $extraMetadata)
+        ) {
+            $extraMetadata[ClaimsEnum::ResponseTypes->value] = [ResponseTypesEnum::Code->value];
+        }
+
+        // Normalize grant_types to satisfy the OIDC DCR response_type <-> grant_type correspondence: every grant
+        // type required by a registered response_type MUST be present in grant_types. We augment rather than reject,
+        // so a client that (legally) omits grant_types while declaring a non-code response_type still ends up with a
+        // consistent, usable registration (echoed back per RFC 7591 Section 3.2.1). Only applied when grant_types is
+        // already present (Dynamic clients always are, after the default above); federation/manual registrations
+        // without a grant_types value are left untouched (presence-based, like the per-client enforcement).
+        if (
+            array_key_exists(ClaimsEnum::GrantTypes->value, $extraMetadata) &&
+            is_array($extraMetadata[ClaimsEnum::GrantTypes->value]) &&
+            array_key_exists(ClaimsEnum::ResponseTypes->value, $extraMetadata) &&
+            is_array($extraMetadata[ClaimsEnum::ResponseTypes->value])
+        ) {
+            $extraMetadata[ClaimsEnum::GrantTypes->value] =
+            ResponseTypeGrantTypeCorrespondence::mergeRequiredGrantTypes(
+                $this->helpers->arr()->ensureStringValues($extraMetadata[ClaimsEnum::GrantTypes->value]),
+                $this->helpers->arr()->ensureStringValues($extraMetadata[ClaimsEnum::ResponseTypes->value]),
+            );
+        }
+
+        if (
+            isset($metadata[ClaimsEnum::TokenEndpointAuthMethod->value]) &&
+            is_string($metadata[ClaimsEnum::TokenEndpointAuthMethod->value])
+        ) {
+            $extraMetadata[ClaimsEnum::TokenEndpointAuthMethod->value] =
+            $metadata[ClaimsEnum::TokenEndpointAuthMethod->value];
+        } elseif (
+            $registrationType === RegistrationTypeEnum::Dynamic &&
+            !array_key_exists(ClaimsEnum::TokenEndpointAuthMethod->value, $extraMetadata)
+        ) {
+            $extraMetadata[ClaimsEnum::TokenEndpointAuthMethod->value] = $isConfidential ?
+            TokenEndpointAuthMethodsEnum::ClientSecretBasic->value :
+            TokenEndpointAuthMethodsEnum::None->value;
+        }
+
+        // Keep the client type (confidential/public) in lockstep with the effective token_endpoint_auth_method,
+        // which is the DCR signal for it: `none` => public, any real authentication method => confidential. This is
+        // re-derived from the final resolved value (provided, carried over from an existing client, or defaulted
+        // above), so it stays correct on RFC 7592 updates too - not just first registration. When no auth method is
+        // resolved (e.g. a federation/manual registration that did not set one), the value determined earlier from
+        // the rest of the metadata (or carried over from the existing client) stands.
+        $effectiveTokenEndpointAuthMethod = $extraMetadata[ClaimsEnum::TokenEndpointAuthMethod->value] ?? null;
+        if (is_string($effectiveTokenEndpointAuthMethod) && $effectiveTokenEndpointAuthMethod !== '') {
+            $isConfidential = $effectiveTokenEndpointAuthMethod !== TokenEndpointAuthMethodsEnum::None->value;
+        }
+
+        // Behavioral "default when omitted" metadata, persisted (and enforced in the authorization flow / ID Token).
+        // Values are already format-validated at the registration boundary (ClientMetadataValidator) and the admin
+        // form; here we only persist when present so they can be echoed and applied. Preserved on update when omitted.
+        if (array_key_exists(ClaimsEnum::DefaultMaxAge->value, $metadata)) {
+            /** @var mixed $defaultMaxAge */
+            $defaultMaxAge = $metadata[ClaimsEnum::DefaultMaxAge->value];
+            if (is_int($defaultMaxAge) || (is_string($defaultMaxAge) && ctype_digit($defaultMaxAge))) {
+                $extraMetadata[ClaimsEnum::DefaultMaxAge->value] = (int)$defaultMaxAge;
+            }
+        }
+
+        if (array_key_exists(ClaimsEnum::RequireAuthTime->value, $metadata)) {
+            $extraMetadata[ClaimsEnum::RequireAuthTime->value] = (bool)$metadata[ClaimsEnum::RequireAuthTime->value];
+        }
+
+        if (
+            isset($metadata[ClaimsEnum::DefaultAcrValues->value]) &&
+            is_array($metadata[ClaimsEnum::DefaultAcrValues->value])
+        ) {
+            $extraMetadata[ClaimsEnum::DefaultAcrValues->value] = $this->helpers->arr()->ensureStringValues(
+                $metadata[ClaimsEnum::DefaultAcrValues->value],
+            );
+        }
+
+        // Persist informational ("store & echo") metadata so it can be returned in registration/read responses.
+        foreach (self::STORE_AND_ECHO_METADATA_KEYS as $storeAndEchoKey) {
+            if (array_key_exists($storeAndEchoKey, $metadata)) {
+                /** @psalm-suppress MixedAssignment */
+                $extraMetadata[$storeAndEchoKey] = $metadata[$storeAndEchoKey];
+            }
+        }
 
         return $this->fromData(
             $id,
@@ -269,6 +459,7 @@ class ClientEntityFactory
             $expiresAt,
             $isGeneric,
             $extraMetadata,
+            $registrationAccessToken,
         );
     }
 
@@ -404,6 +595,10 @@ class ClientEntityFactory
         null :
         json_decode((string)$state[ClientEntity::KEY_EXTRA_METADATA], true, 512, JSON_THROW_ON_ERROR);
 
+        $registrationAccessToken = empty($state[ClientEntity::KEY_REGISTRATION_ACCESS_TOKEN]) ?
+        null :
+        (string)$state[ClientEntity::KEY_REGISTRATION_ACCESS_TOKEN];
+
         return $this->fromData(
             $id,
             $secret,
@@ -429,6 +624,7 @@ class ClientEntityFactory
             $expiresAt,
             $isGeneric,
             $extraMetadata,
+            $registrationAccessToken,
         );
     }
 

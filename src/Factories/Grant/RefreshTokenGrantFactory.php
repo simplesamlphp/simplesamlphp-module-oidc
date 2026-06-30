@@ -20,6 +20,7 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
+use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
 
 class RefreshTokenGrantFactory
 {
@@ -28,6 +29,7 @@ class RefreshTokenGrantFactory
         private readonly RefreshTokenRepository $refreshTokenRepository,
         private readonly AccessTokenEntityFactory $accessTokenEntityFactory,
         private readonly RefreshTokenIssuer $refreshTokenIssuer,
+        private readonly AuthenticatedOAuth2ClientResolver $authenticatedOAuth2ClientResolver,
     ) {
     }
 
@@ -37,6 +39,7 @@ class RefreshTokenGrantFactory
             $this->refreshTokenRepository,
             $this->accessTokenEntityFactory,
             $this->refreshTokenIssuer,
+            $this->authenticatedOAuth2ClientResolver,
         );
 
         $refreshTokenGrant->setRefreshTokenTTL($this->moduleConfig->getRefreshTokenDuration());

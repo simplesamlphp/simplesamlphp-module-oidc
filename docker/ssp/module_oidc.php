@@ -145,4 +145,30 @@ $config = [
             \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::All, // Gives access to the whole API.
         ],
     ],
+
+    // OpenID Connect Dynamic Client Registration (DCR). Enabled here so the
+    // OpenID conformance "dynamic" certification test plan can register clients
+    // against this OP. Open registration (no Initial Access Token) is used,
+    // matching what the official dynamic certification profile exercises.
+    ModuleConfig::OPTION_DCR_ENABLED => true,
+    ModuleConfig::OPTION_DCR_REGISTRATION_AUTH =>
+        \SimpleSAML\Module\oidc\Codebooks\DcrRegistrationAuthEnum::Open->value,
+    // The conformance suite registers logo_uri/policy_uri/tos_uri on hosts that
+    // intentionally differ from the redirect_uris (e.g. tos_uri=https://openid.net),
+    // so impersonation protection must be off for the dynamic cert plan. The
+    // module default remains enabled (secure) for normal deployments.
+    ModuleConfig::OPTION_DCR_IMPERSONATION_PROTECTION_ENABLED => false,
+
+    // Advertise 'claims_supported' in discovery metadata (RECOMMENDED by OpenID
+    // Connect Discovery and checked by the dynamic certification profile). The
+    // module default is false; enabled here for conformance.
+    ModuleConfig::OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED => true,
+
+    // The conformance suite serves client jwks_uri / request_uri over a per-instance
+    // self-signed TLS certificate (CN=localhost) that the OP would otherwise reject.
+    // Disable TLS verification for the openid library's protocol-layer HTTP fetches so
+    // those tests can run. NEVER do this in production.
+    ModuleConfig::OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS => [
+        'verify' => false,
+    ],
 ];

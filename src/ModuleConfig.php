@@ -22,12 +22,16 @@ use Defuse\Crypto\Key;
 use SimpleSAML\Configuration;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
+use SimpleSAML\Module\oidc\Codebooks\DcrRegistrationAuthEnum;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
+use SimpleSAML\OpenID\Codebooks\ResponseTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ScopesEnum;
+use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\TrustMarkStatusEndpointUsagePolicyEnum;
 use SimpleSAML\OpenID\Serializers\JwsSerializerBag;
 use SimpleSAML\OpenID\Serializers\JwsSerializerEnum;
@@ -101,6 +105,7 @@ class ModuleConfig
     final public const string OPTION_PROTOCOL_CLIENT_ENTITY_CACHE_DURATION = 'protocol_client_entity_cache_duration';
     final public const string OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED =
     'protocol_discover_show_claims_supported';
+    final public const string OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS = 'protocol_http_client_options';
 
     final public const string OPTION_VCI_ENABLED = 'vci_enabled';
     final public const string OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED =
@@ -126,7 +131,13 @@ class ModuleConfig
     final public const string OPTION_TIMESTAMP_VALIDATION_LEEWAY = 'timestamp_validation_leeway';
     final public const string OPTION_VCI_SIGNATURE_KEY_PAIRS = 'vci_signature_key_pairs';
     final public const string OPTION_VCI_CREDENTIAL_JSON_LD_CONTEXT = 'vci_credential_json_ld_context';
-
+    final public const string OPTION_DCR_ENABLED = 'dcr_enabled';
+    final public const string OPTION_DCR_REGISTRATION_AUTH = 'dcr_registration_auth';
+    final public const string OPTION_DCR_INITIAL_ACCESS_TOKENS = 'dcr_initial_access_tokens';
+    final public const string OPTION_DCR_IMPERSONATION_PROTECTION_ENABLED =
+    'dcr_impersonation_protection_enabled';
+    final public const string OPTION_DCR_DEFAULT_SCOPES = 'dcr_default_scopes';
+    final public const string OPTION_DCR_REGISTERED_CLIENTS_ENABLED = 'dcr_registered_clients_enabled';
     final public const string OPTION_PAR_REQUEST_URI_TTL = 'par_request_uri_ttl';
     final public const string OPTION_REQUIRE_PUSHED_AUTHORIZATION_REQUESTS = 'require_pushed_authorization_requests';
     final public const string OPTION_REQUIRE_SIGNED_REQUEST_OBJECT = 'require_signed_request_object';
@@ -481,6 +492,57 @@ class ModuleConfig
     }
 
     /**
+     * Response types a client may be registered to use.
+     *
+     * Shared by OP discovery metadata, the dynamic client registration validator,
+     * and the client admin form so that the advertised, accepted, and admin-selectable
+     * sets cannot drift apart.
+     *
+     * @return string[]
+     */
+    public function getSupportedResponseTypes(): array
+    {
+        return [
+            ResponseTypesEnum::Code->value,
+            ResponseTypesEnum::IdToken->value,
+            ResponseTypesEnum::IdTokenToken->value,
+        ];
+    }
+
+    /**
+     * Grant types a client may be registered to use.
+     *
+     * Note: the discovery `grant_types_supported` may advertise additional grant types
+     * that are not registered per client (e.g. the VCI pre-authorized_code grant);
+     * that extension is applied by OpMetadataService on top of these values.
+     *
+     * @return string[]
+     */
+    public function getSupportedGrantTypes(): array
+    {
+        return [
+            GrantTypesEnum::AuthorizationCode->value,
+            GrantTypesEnum::Implicit->value,
+            GrantTypesEnum::RefreshToken->value,
+        ];
+    }
+
+    /**
+     * Token endpoint authentication methods a client may be registered to use.
+     *
+     * @return string[]
+     */
+    public function getSupportedTokenEndpointAuthMethods(): array
+    {
+        return [
+            TokenEndpointAuthMethodsEnum::ClientSecretBasic->value,
+            TokenEndpointAuthMethodsEnum::ClientSecretPost->value,
+            TokenEndpointAuthMethodsEnum::PrivateKeyJwt->value,
+            TokenEndpointAuthMethodsEnum::None->value,
+        ];
+    }
+
+    /**
      * @throws ConfigurationError
      * @return non-empty-array
      */
@@ -662,7 +724,7 @@ class ModuleConfig
     }
 
     /**
-     * Get cache duration for client entities (user data), with given default
+     * Get cache duration for client entities (user data), with the given default
      *
      * @throws \Exception
      */
@@ -682,6 +744,33 @@ class ModuleConfig
             self::OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED,
             false,
         );
+    }
+
+    /**
+     * Guzzle HTTP client options for the protocol-layer outbound fetches performed by the `openid` library
+     * (e.g. fetching a client's `jwks_uri` or a `request_uri`). The array is passed through verbatim to the
+     * underlying Guzzle client, see https://docs.guzzlephp.org/en/stable/request-options.html
+     *
+     * Default is an empty array (the library's secure defaults apply, i.e. TLS verification ON). The primary
+     * intended use is testing against endpoints with self-signed certificates (e.g. the OpenID conformance
+     * suite) by setting `['verify' => false]`. DO NOT disable TLS verification in production.
+     *
+     * @return array<string,mixed>
+     * @throws \Exception
+     */
+    public function getProtocolHttpClientOptions(): array
+    {
+        $options = $this->config()->getOptionalArray(self::OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS, []);
+
+        // Guzzle request options are keyed by string option names; normalize keys to satisfy that contract.
+        $normalized = [];
+        /** @var mixed $value */
+        foreach ($options as $key => $value) {
+            /** @psalm-suppress MixedAssignment */
+            $normalized[(string)$key] = $value;
+        }
+
+        return $normalized;
     }
 
 
@@ -971,6 +1060,111 @@ class ModuleConfig
     public function getVciEnabled(): bool
     {
         return $this->config()->getOptionalBoolean(self::OPTION_VCI_ENABLED, false);
+    }
+
+
+    /*****************************************************************************************************************
+     * OpenID Connect Dynamic Client Registration related config.
+     ****************************************************************************************************************/
+
+    /**
+     * Master switch for the OIDC Dynamic Client Registration capability. When
+     * disabled (default), the registration and client-configuration endpoints
+     * are not served, and `registration_endpoint` is not advertised in OP
+     * metadata.
+     */
+    public function getDcrEnabled(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_DCR_ENABLED, false);
+    }
+
+    /**
+     * Access-control mode for the registration endpoint: open registration
+     * (default) or gated behind an Initial Access Token.
+     */
+    public function getDcrRegistrationAuth(): DcrRegistrationAuthEnum
+    {
+        return DcrRegistrationAuthEnum::from(
+            $this->config()->getOptionalString(
+                self::OPTION_DCR_REGISTRATION_AUTH,
+                DcrRegistrationAuthEnum::Open->value,
+            ),
+        );
+    }
+
+    /**
+     * Static allowlist of opaque Initial Access Tokens accepted by the
+     * registration endpoint when the access mode is
+     * DcrRegistrationAuthEnum::InitialAccessToken. Issuance is out-of-band
+     * (per spec).
+     *
+     * @return string[]
+     */
+    public function getDcrInitialAccessTokens(): array
+    {
+        $tokens = $this->config()->getOptionalArray(self::OPTION_DCR_INITIAL_ACCESS_TOKENS, []);
+
+        $stringTokens = [];
+        /** @var mixed $token */
+        foreach ($tokens as $token) {
+            if (is_string($token) && $token !== '') {
+                $stringTokens[] = $token;
+            }
+        }
+
+        return $stringTokens;
+    }
+
+    /**
+     * Whether impersonation protection (OIDC Dynamic Client Registration 1.0,
+     * Section 9.1) is enforced. When on (default), the host of `logo_uri`,
+     * `policy_uri` and `tos_uri` must match the host of one of the registered
+     * `redirect_uris`, otherwise registration is rejected.
+     */
+    public function getDcrImpersonationProtectionEnabled(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_DCR_IMPERSONATION_PROTECTION_ENABLED, true);
+    }
+
+    /**
+     * Whether a client registered through Dynamic Client Registration (RFC 7591 / OIDC DCR) is created enabled and
+     * therefore immediately usable. When `true` (default) a dynamically registered client can be used right away.
+     * Set to `false` to create such clients disabled, so an administrator must review and enable them in the admin
+     * UI before they can complete authorization/token flows ("register, then approve"); the client can still read
+     * and manage its own registration (RFC 7592) while disabled. This applies only to Dynamic registrations; OpenID
+     * Federation automatic registrations (vouched for by their trust chain) are always created enabled.
+     */
+    public function getDcrRegisteredClientsEnabled(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_DCR_REGISTERED_CLIENTS_ENABLED, true);
+    }
+
+    /**
+     * Scopes assigned to a Dynamic Client Registration (DCR) client that registers without an explicit `scope`.
+     * OpenID Connect Dynamic Client Registration 1.0 makes `scope` OPTIONAL and lets the OP assign a default set;
+     * this controls that set. When the option is not configured, it defaults to all scopes this OP supports (so a
+     * scope-less dynamic client can request any supported scope, including offline_access). This applies only to
+     * Dynamic registrations; manual and OpenID Federation automatic registrations are unaffected.
+     *
+     * @return string[]
+     * @throws \Exception
+     */
+    public function getDcrDefaultScopes(): array
+    {
+        $configured = $this->config()->getOptionalArray(
+            self::OPTION_DCR_DEFAULT_SCOPES,
+            array_keys($this->getScopes()),
+        );
+
+        $scopes = [];
+        /** @var mixed $scope */
+        foreach ($configured as $scope) {
+            if (is_string($scope) && $scope !== '') {
+                $scopes[] = $scope;
+            }
+        }
+
+        return $scopes;
     }
 
 

@@ -1,0 +1,38 @@
+[
+    {
+        "comment": "Signed UserInfo responses are not supported, so the OP now rejects a registration requesting userinfo_signed_response_alg with invalid_client_metadata (400) rather than silently ignoring it. The test therefore fails at the dynamic registration step.",
+        "test-name": "oidcc-userinfo-rs256*",
+        "configuration-filename": "*conformance-dynamic-ci.json",
+        "variant": "*",
+        "current-block": "",
+        "condition": "EnsureHttpStatusCodeIs201",
+        "expected-result": "failure"
+    },
+    {
+        "comment": "Signed UserInfo responses are not supported; the registration requesting userinfo_signed_response_alg is rejected (see EnsureHttpStatusCodeIs201).",
+        "test-name": "oidcc-userinfo-rs256*",
+        "configuration-filename": "*conformance-dynamic-ci.json",
+        "variant": "*",
+        "current-block": "",
+        "condition": "CheckNoErrorFromDynamicRegistrationEndpoint",
+        "expected-result": "failure"
+    },
+    {
+        "comment": "Signed UserInfo responses are not supported; the registration requesting userinfo_signed_response_alg is rejected (see EnsureHttpStatusCodeIs201).",
+        "test-name": "oidcc-userinfo-rs256*",
+        "configuration-filename": "*conformance-dynamic-ci.json",
+        "variant": "*",
+        "current-block": "",
+        "condition": "ExtractDynamicRegistrationResponse",
+        "expected-result": "failure"
+    },
+    {
+        "comment": "OP-wide gap (not DCR): the OP does not rotate its signing keys on demand. Not a DCR test (server_metadata variant only).",
+        "test-name": "oidcc-server-rotate-keys*",
+        "configuration-filename": "*conformance-dynamic-ci.json",
+        "variant": "*",
+        "current-block": "",
+        "condition": "VerifyNewJwksHasNewSigningKey",
+        "expected-result": "failure"
+    }
+]

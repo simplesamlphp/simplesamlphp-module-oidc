@@ -449,6 +449,24 @@ $config = [
     ModuleConfig::OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED => false,
 
     /**
+     * Guzzle HTTP client options for the protocol-layer outbound requests made by the underlying `openid`
+     * library, such as fetching a client's 'jwks_uri' or a 'request_uri'. The array is passed through verbatim
+     * to the Guzzle client; see https://docs.guzzlephp.org/en/stable/request-options.html for the full list.
+     *
+     * Leave empty (the default) to use the library's secure defaults (TLS verification enabled). The typical
+     * use for a non-empty value is testing against endpoints that present self-signed certificates (for
+     * example, the OpenID conformance suite), by disabling TLS verification:
+     *
+     *     ModuleConfig::OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS => [
+     *         'verify' => false,
+     *     ],
+     *
+     * SECURITY WARNING: disabling TLS verification ('verify' => false) exposes these fetches to
+     * man-in-the-middle attacks. Only use it in development/testing, NEVER in production.
+     */
+    ModuleConfig::OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS => [],
+
+    /**
      * Settings regarding Authentication Processing Filters.
      * Note: An OIDC authN state array will not contain all the keys which are
      * available during SAML authN, like Service Provider metadata, etc.
@@ -569,6 +587,136 @@ $config = [
      * Pagination options, for example, on the client listing page.
      */
     ModuleConfig::OPTION_ADMIN_UI_PAGINATION_ITEMS_PER_PAGE => 20,
+
+    /***************************************************************************
+     * (optional) OpenID Connect Dynamic Client Registration (DCR) related
+     * options. If not enabled (the default), Dynamic Client Registration
+     * capabilities will be disabled.
+     **************************************************************************/
+
+    /**
+     * Enable or disable OpenID Connect Dynamic Client Registration (DCR), as
+     * described in the OpenID Connect Dynamic Client Registration 1.0
+     * specification (which is also compatible with RFC 7591). Default is
+     * disabled (false).
+     *
+     * When enabled, the module serves:
+     * - a Client Registration Endpoint (HTTP POST to .../oidc/register) which
+     *   creates a new client from the supplied client metadata and returns its
+     *   client_id, client_secret (for confidential clients), a
+     *   registration_access_token and a registration_client_uri; and
+     * - a Client Configuration Endpoint (HTTP GET to
+     *   .../oidc/register?client_id=...) which returns the current client
+     *   registration when called with the registration_access_token as an HTTP
+     *   Bearer token.
+     *
+     * When enabled, the registration endpoint is also advertised as the
+     * 'registration_endpoint' claim in the OP discovery metadata.
+     *
+     * Note that dynamically registered clients are stored like any other client
+     * and are visible / manageable in the admin UI.
+     */
+    ModuleConfig::OPTION_DCR_ENABLED => false,
+
+    /**
+     * Access-control mode for the registration (create) endpoint. Only relevant
+     * if Dynamic Client Registration is enabled. Possible values:
+     *
+     * - DcrRegistrationAuthEnum::Open (the default): open registration, meaning
+     *   anyone may register a client without authenticating. In this mode you
+     *   should protect the endpoint from abuse using rate limiting at the
+     *   web-server level.
+     * - DcrRegistrationAuthEnum::InitialAccessToken: callers must present a
+     *   valid Initial Access Token (provisioned out-of-band) as an HTTP Bearer
+     *   token to register. The accepted tokens are configured using
+     *   the OPTION_DCR_INITIAL_ACCESS_TOKENS option below.
+     */
+    ModuleConfig::OPTION_DCR_REGISTRATION_AUTH =>
+        \SimpleSAML\Module\oidc\Codebooks\DcrRegistrationAuthEnum::Open->value,
+
+    /**
+     * Allowlist of Initial Access Tokens (opaque, randomly generated strings)
+     * accepted by the registration endpoint. This option is only consulted when
+     * the access mode (OPTION_DCR_REGISTRATION_AUTH) is set to
+     * DcrRegistrationAuthEnum::InitialAccessToken; in 'open' mode it is ignored.
+     *
+     * A registration request must then carry one of these tokens as an HTTP
+     * Bearer token. Use long, high-entropy values and treat them as secrets.
+     *
+     * Format: string[] (array of strings)
+     */
+    ModuleConfig::OPTION_DCR_INITIAL_ACCESS_TOKENS => [
+//        'a-long-random-secret-token',
+    ],
+
+    /**
+     * Enable or disable impersonation protection for Dynamic Client
+     * Registration, as recommended by Section 9.1 of the OpenID Connect Dynamic
+     * Client Registration 1.0 specification. Default is enabled (true).
+     *
+     * When enabled, the host component of the logo_uri, policy_uri and tos_uri
+     * client metadata values (if provided) must match the host of one of the
+     * registered redirect_uris. Otherwise, the registration is rejected with an
+     * 'invalid_client_metadata' error. This mitigates a rogue client trying to
+     * impersonate a legitimate one by reusing its branding (logo) or links.
+     *
+     * You may want to disable this (set to false) if your clients legitimately
+     * host these resources on a different domain than their redirect URIs (for
+     * example, on a shared CDN or marketing domain). Note that the client_uri
+     * (the client home page) is intentionally NOT subject to this check.
+     */
+    ModuleConfig::OPTION_DCR_IMPERSONATION_PROTECTION_ENABLED => true,
+
+    /**
+     * Default scopes assigned to a Dynamic Client Registration (DCR) client that
+     * registers WITHOUT an explicit 'scope'. The OpenID Connect Dynamic Client
+     * Registration 1.0 specification makes 'scope' OPTIONAL and lets the OP
+     * assign a default set; this option controls that set.
+     *
+     * If this option is omitted (commented out), it defaults to ALL scopes this
+     * OP supports, so a scope-less dynamic client may request any supported scope
+     * (including 'offline_access', i.e. refresh tokens). To restrict what a
+     * scope-less dynamic client receives, set an explicit list below; only values
+     * that are actually supported by this OP are kept.
+     *
+     * This applies ONLY to Dynamic registrations. Manual (admin) and OpenID
+     * Federation automatic registrations are NOT affected: a federated client
+     * with no 'scope' in its metadata still defaults to 'openid' only.
+     *
+     * Note: an explicit but unsupported 'scope' in a registration request is NOT
+     * treated as "not specified" - the unsupported values are dropped and the
+     * client ends up with 'openid' only (it does not receive this default set).
+     *
+     * Format: string[] (array of scope names)
+     */
+//    ModuleConfig::OPTION_DCR_DEFAULT_SCOPES => [
+//        'openid',
+//        'offline_access',
+//    ],
+
+    /**
+     * Whether a client registered through Dynamic Client Registration (DCR) is
+     * created ENABLED and therefore immediately usable.
+     *
+     * When true (default), a dynamically registered client can be used right
+     * away. Set to false to create such clients DISABLED, so an administrator
+     * must review and enable them in the admin UI before they can complete
+     * authorization / token flows ("register, then approve"). While disabled, the
+     * client can still read and manage its own registration (RFC 7592) using the
+     * registration access token it received - it simply cannot obtain tokens until
+     * an administrator enables it.
+     *
+     * Note: there is no standard way to signal "pending approval" back to the
+     * client in the registration response (it receives a normal success response),
+     * so you may need to communicate the review step out-of-band.
+     *
+     * This applies ONLY to Dynamic registrations. OpenID Federation automatic
+     * registrations are always created enabled (they are vouched for by their
+     * trust chain).
+     *
+     * Format: bool (default: true)
+     */
+    ModuleConfig::OPTION_DCR_REGISTERED_CLIENTS_ENABLED => true,
 
     /***************************************************************************
      * (optional) OpenID Federation-related options. If these are not set,

@@ -304,7 +304,7 @@ class ClientController
     }
 
     /**
-     * TODO v7 mivanci Move to ClientEntityFactory::fromRegistrationData on dynamic client registration implementation.
+     * TODO v8 mivanci Move to ClientEntityFactory::fromRegistrationData on dynamic client registration implementation.
      * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
      */
     protected function buildClientEntityFromFormData(
@@ -369,6 +369,55 @@ class ClientController
         $allowedResponseModes = is_array($data[ClientEntity::KEY_ALLOWED_RESPONSE_MODES]) ?
         $data[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] : [];
         $extraMetadata[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] = $allowedResponseModes;
+
+        /** @var mixed $grantTypes */
+        $grantTypes = $data[ClaimsEnum::GrantTypes->value] ?? null;
+        $extraMetadata[ClaimsEnum::GrantTypes->value] = is_array($grantTypes) ?
+        $grantTypes : [];
+        /** @var mixed $responseTypes */
+        $responseTypes = $data[ClaimsEnum::ResponseTypes->value] ?? null;
+        $extraMetadata[ClaimsEnum::ResponseTypes->value] = is_array($responseTypes) ?
+        $responseTypes : [];
+        /** @var mixed $tokenEndpointAuthMethod */
+        $tokenEndpointAuthMethod = $data[ClaimsEnum::TokenEndpointAuthMethod->value] ?? null;
+        $extraMetadata[ClaimsEnum::TokenEndpointAuthMethod->value] = is_string($tokenEndpointAuthMethod) ?
+        $tokenEndpointAuthMethod : null;
+
+        /** @var mixed $defaultMaxAge */
+        $defaultMaxAge = $data[ClaimsEnum::DefaultMaxAge->value] ?? null;
+        if (is_int($defaultMaxAge)) {
+            $extraMetadata[ClaimsEnum::DefaultMaxAge->value] = $defaultMaxAge;
+        }
+        $extraMetadata[ClaimsEnum::RequireAuthTime->value] = (bool)($data[ClaimsEnum::RequireAuthTime->value] ?? false);
+        /** @var mixed $defaultAcrValues */
+        $defaultAcrValues = $data[ClaimsEnum::DefaultAcrValues->value] ?? null;
+        $extraMetadata[ClaimsEnum::DefaultAcrValues->value] = is_array($defaultAcrValues) ? $defaultAcrValues : [];
+        /** @var mixed $initiateLoginUri */
+        $initiateLoginUri = $data[ClaimsEnum::InitiateLoginUri->value] ?? null;
+        $extraMetadata[ClaimsEnum::InitiateLoginUri->value] = is_string($initiateLoginUri) ? $initiateLoginUri : null;
+        /** @var mixed $softwareId */
+        $softwareId = $data[ClaimsEnum::SoftwareId->value] ?? null;
+        $extraMetadata[ClaimsEnum::SoftwareId->value] = is_string($softwareId) ? $softwareId : null;
+        /** @var mixed $softwareVersion */
+        $softwareVersion = $data[ClaimsEnum::SoftwareVersion->value] ?? null;
+        $extraMetadata[ClaimsEnum::SoftwareVersion->value] = is_string($softwareVersion) ? $softwareVersion : null;
+
+        foreach (
+            [
+                ClaimsEnum::LogoUri->value,
+                ClaimsEnum::ClientUri->value,
+                ClaimsEnum::PolicyUri->value,
+                ClaimsEnum::TosUri->value,
+                ClaimsEnum::ApplicationType->value,
+            ] as $stringClaim
+        ) {
+            /** @var mixed $stringClaimValue */
+            $stringClaimValue = $data[$stringClaim] ?? null;
+            $extraMetadata[$stringClaim] = is_string($stringClaimValue) ? $stringClaimValue : null;
+        }
+        /** @var mixed $contacts */
+        $contacts = $data[ClaimsEnum::Contacts->value] ?? null;
+        $extraMetadata[ClaimsEnum::Contacts->value] = is_array($contacts) ? $contacts : [];
 
         // Per-client authproc filters. These are administrator-only (settable
         // here, via the admin UI), and are deliberately never accepted from

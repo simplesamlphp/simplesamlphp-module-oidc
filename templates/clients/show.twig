@@ -73,6 +73,22 @@
             </tr>
             <tr>
                 <td class="client-col col-property">
+                    {{ 'Token Endpoint Authentication Method'|trans }}
+                </td>
+                <td>
+                    {{ client.tokenEndpointAuthMethod|default('N/A'|trans) }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Application Type'|trans }}
+                </td>
+                <td>
+                    {{ client.applicationType|default('N/A'|trans) }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
                     {{ 'Identifier'|trans }}
                 </td>
                 <td>
@@ -234,6 +250,142 @@
                         <ul class="disc">
                             {% for uri in client.requestUris %}
                                 <li>{{ uri }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        {{ 'N/A'|trans }}
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Grant Types'|trans }}
+                </td>
+                <td>
+                    {% if client.grantTypes is not empty %}
+                    <ul class="disc">
+                        {% for grantType in client.grantTypes %}
+                            <li>{{ grantType }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                        {{ 'N/A'|trans }}
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Response Types'|trans }}
+                </td>
+                <td>
+                    {% if client.responseTypes is not empty %}
+                    <ul class="disc">
+                        {% for responseType in client.responseTypes %}
+                            <li>{{ responseType }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                        {{ 'N/A'|trans }}
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Default Max Age (seconds)'|trans }}
+                </td>
+                <td>
+                    {{ client.defaultMaxAge is null ? 'N/A'|trans : client.defaultMaxAge }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Require auth_time in ID Token'|trans }}
+                </td>
+                <td>
+                    {{ client.requireAuthTime ? 'Yes' : 'No' }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Default ACR Values'|trans }}
+                </td>
+                <td>
+                    {% if client.defaultAcrValues is not empty %}
+                        <ul class="disc">
+                            {% for acr in client.defaultAcrValues %}
+                                <li>{{ acr }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        {{ 'N/A'|trans }}
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Initiate Login URI'|trans }}
+                </td>
+                <td>
+                    {{ client.initiateLoginUri|default('N/A'|trans) }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Software ID'|trans }}
+                </td>
+                <td>
+                    {{ client.softwareId|default('N/A'|trans) }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Software Version'|trans }}
+                </td>
+                <td>
+                    {{ client.softwareVersion|default('N/A'|trans) }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Logo URI'|trans }}
+                </td>
+                <td>
+                    {{ client.logoUri|default('N/A'|trans) }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Client URI'|trans }}
+                </td>
+                <td>
+                    {{ client.clientUri|default('N/A'|trans) }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Policy URI'|trans }}
+                </td>
+                <td>
+                    {{ client.policyUri|default('N/A'|trans) }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Terms of Service URI'|trans }}
+                </td>
+                <td>
+                    {{ client.tosUri|default('N/A'|trans) }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Contacts'|trans }}
+                </td>
+                <td>
+                    {% if client.contacts is not empty %}
+                        <ul class="disc">
+                            {% for contact in client.contacts %}
+                                <li>{{ contact }}</li>
                             {% endfor %}
                         </ul>
                     {% else %}

@@ -29,6 +29,7 @@ class JwksFactory
             maxCacheDuration: $this->moduleConfig->getFederationCacheMaxDurationForFetched(),
             cache: $this->federationCache?->cache,
             logger: $this->loggerService,
+            httpClientConfig: $this->moduleConfig->getProtocolHttpClientOptions(),
         );
     }
 }

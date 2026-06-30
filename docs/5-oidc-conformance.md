@@ -80,7 +80,73 @@ conformance-suite/scripts/run-test-plan.py \
 conformance-suite/scripts/run-test-plan.py \
   "oidcc-rp-initiated-logout-certification-test-plan[response_type=code][client_registration=static_client]" \
   ${OIDC_MODULE_FOLDER}/conformance-tests/conformance-rp-initiated-logout-ci.json
+
+# Dynamic Client Registration (DCR)
+conformance-suite/scripts/run-test-plan.py \
+  --expected-failures-file ${OIDC_MODULE_FOLDER}/conformance-tests/dynamic-warnings.json \
+  --expected-skips-file ${OIDC_MODULE_FOLDER}/conformance-tests/dynamic-skips.json \
+  "oidcc-dynamic-certification-test-plan[response_type=code]" \
+  ${OIDC_MODULE_FOLDER}/conformance-tests/conformance-dynamic-ci.json
 ```
+
+### Dynamic Client Registration notes
+
+In `dynamic_client` mode the
+conformance suite registers its own clients by POSTing client metadata to the
+`registration_endpoint` advertised in discovery — and updates/deletes them via
+the Client Configuration Endpoint — so it exercises the module's DCR endpoint
+(`RegistrationController`) directly. No static `client` blocks are needed in
+`conformance-dynamic-ci.json`.
+
+The module also supports Initial Access Token registration
+(`DcrRegistrationAuthEnum::InitialAccessToken` plus `OPTION_DCR_INITIAL_ACCESS_TOKENS`),
+but the official dynamic certification profile does not exercise that mode. To
+test it manually, switch the OP to that mode and POST to the registration
+endpoint with a configured token as an HTTP Bearer token.
+
+#### Default scopes for scope-less DCR clients
+
+`scope` is OPTIONAL in a registration request. When a **Dynamic** registration
+omits it, the client is assigned the set configured by
+`OPTION_DCR_DEFAULT_SCOPES`, which **defaults to all scopes the OP supports**
+(including `offline_access`). This lets a scope-less dynamic client request any
+supported scope, e.g. obtain a refresh token via `offline_access`. To restrict
+this, set an explicit list in config. This applies to Dynamic registrations
+only: manual (admin) and OpenID Federation automatic registrations still default
+to `openid` only. An explicit but *unsupported* `scope` is not treated as
+"omitted" — the unsupported values are dropped and the client ends up with
+`openid` only (it does not receive the default set).
+
+### Known non-passing tests in the dynamic plan
+
+The DCR functionality passes. With the conformance image configuration, the whole
+plan runs to a clean (exit 0) result: the only two non-passing tests are OP-wide
+gaps unrelated to Dynamic Client Registration, recorded as expected failures in
+`conformance-tests/dynamic-warnings.json` (condition-by-condition, so the runner
+reports them as *expected*):
+
+- **OP-wide gaps (not DCR):** `oidcc-userinfo-rs256` (signed/JWT UserInfo responses
+  are not supported) and `oidcc-server-rotate-keys` (the OP does not rotate its
+  signing keys on demand).
+
+`conformance-tests/dynamic-skips.json` holds the genuinely optional tests the suite
+itself skips: `oidcc-idtoken-unsigned` (needs `id_token_signed_response_alg=none`)
+and the two `*-sector-*` tests (need `sector_identifier_uri`).
+
+Tests that previously failed only because of the conformance suite's self-signed
+TLS certificate — `oidcc-registration-jwks-uri`, `oidcc-request-uri-unsigned`,
+`oidcc-request-uri-signed-rs256` and `oidcc-refresh-token-rp-key-rotation` — now
+pass because the conformance image sets `OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS` to
+disable TLS verification for the `openid` library's outbound fetches (see "HTTP
+client options" in `config/module_oidc.php.dist`). `oidcc-refresh-token` passes
+because scope-less dynamic clients are granted `offline_access` by default (see
+"Default scopes for scope-less DCR clients") and the `refresh_token` grant
+authenticates `private_key_jwt` clients the same way the `authorization_code` grant
+does. `request_uri` by reference works because dynamically-registered `request_uris`
+are now persisted and exact-matched at the authorization endpoint.
+
+Because the plan is deterministic, the GitHub Actions step is a blocking gate (no
+`continue-on-error`).
 
 Prerequisites: run the docker deploy image for conformance tests (see
 README) and the conformance test image first.

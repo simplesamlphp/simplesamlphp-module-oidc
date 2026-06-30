@@ -7,11 +7,15 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
@@ -60,6 +64,11 @@ class ResponseTypeRuleTest extends TestCase
         $this->requestStub = $this->createStub(ServerRequestInterface::class);
 
         $this->resultBag = new ResultBag();
+        // The rule reads the resolved client; by default it has no registered response_types, so per-client
+        // enforcement does not apply (preserving the previous behavior).
+        $clientStub = $this->createStub(ClientEntityInterface::class);
+        $clientStub->method('getResponseTypes')->willReturn([]);
+        $this->resultBag->add(new Result(ClientRule::class, $clientStub));
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
         $this->helpers = new Helpers();
@@ -104,6 +113,53 @@ class ResponseTypeRuleTest extends TestCase
             ['id_token'],
             ['code'],
         ];
+    }
+
+    public function testRejectsResponseTypeNotRegisteredForClient(): void
+    {
+        $client = $this->createStub(ClientEntityInterface::class);
+        $client->method('getResponseTypes')->willReturn(['code']);
+
+        $bag = new ResultBag();
+        $bag->add(new Result(ClientRule::class, $client));
+        $bag->add(new Result(ClientRedirectUriRule::class, 'https://client.example.org/cb'));
+        $bag->add(new Result(StateRule::class, 'state123'));
+
+        $this->requestParams['response_type'] = 'id_token';
+        $this->requestParamsResolverStub->method('getAllBasedOnAllowedMethods')->willReturn($this->requestParams);
+
+        $this->expectException(OidcServerException::class);
+        $this->sut()->checkRule(
+            $this->requestStub,
+            $bag,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        );
+    }
+
+    public function testEmptyRegisteredResponseTypesIsNotEnforced(): void
+    {
+        // A present-but-empty response_types list means "not configured / unconstrained", not "allow nothing".
+        // This preserves behavior for pre-DCR clients that get an empty list persisted on an admin save.
+        $client = $this->createStub(ClientEntityInterface::class);
+        $client->method('getResponseTypes')->willReturn([]);
+
+        $bag = new ResultBag();
+        $bag->add(new Result(ClientRule::class, $client));
+
+        $this->requestParams['response_type'] = 'id_token';
+        $this->requestParamsResolverStub->method('getAllBasedOnAllowedMethods')->willReturn($this->requestParams);
+
+        $result = $this->sut()->checkRule(
+            $this->requestStub,
+            $bag,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        );
+
+        $this->assertSame('id_token', $result?->getValue());
     }
 
     public function testResponseTypeRuleThrowsWithNoResponseTypeParamTest()

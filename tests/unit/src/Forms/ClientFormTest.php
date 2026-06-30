@@ -47,6 +47,14 @@ class ClientFormTest extends TestCase
         $this->csrfProtectionMock =  $this->createMock(CsrfProtection::class);
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock->method('getSupportedResponseModes')->willReturn(['query', 'fragment', 'form_post']);
+        $this->moduleConfigMock->method('getAcrValuesSupported')
+            ->willReturn(['urn:mace:incommon:iap:silver', 'urn:mace:incommon:iap:bronze']);
+        $this->moduleConfigMock->method('getSupportedResponseTypes')
+            ->willReturn(['code', 'id_token', 'id_token token']);
+        $this->moduleConfigMock->method('getSupportedGrantTypes')
+            ->willReturn(['authorization_code', 'implicit', 'refresh_token']);
+        $this->moduleConfigMock->method('getSupportedTokenEndpointAuthMethods')
+            ->willReturn(['client_secret_basic', 'client_secret_post', 'private_key_jwt', 'none']);
 
         $signatureKeyPairBagMock = $this->createMock(SignatureKeyPairBag::class);
         $signatureKeyPairBagMock->method('getAllAlgorithmNamesUnique')->willReturn(['RS256', 'ES256']);
@@ -223,6 +231,140 @@ class ClientFormTest extends TestCase
         // An unsupported algorithm is rejected by the select (out of allowed set).
         $this->expectException(\Nette\InvalidArgumentException::class);
         $this->sut()->setValues([ClaimsEnum::IdTokenSignedResponseAlg->value => 'HS256']);
+    }
+
+    public function testGrantTypesResponseTypesAndAuthMethodRoundTrip(): void
+    {
+        $sut = $this->sut();
+        $sut->setValues([
+            ClaimsEnum::GrantTypes->value => ['authorization_code', 'refresh_token'],
+            ClaimsEnum::ResponseTypes->value => ['code'],
+            ClaimsEnum::TokenEndpointAuthMethod->value => 'private_key_jwt',
+        ]);
+
+        $values = $sut->getValues();
+        $this->assertSame(['authorization_code', 'refresh_token'], $values[ClaimsEnum::GrantTypes->value]);
+        $this->assertSame(['code'], $values[ClaimsEnum::ResponseTypes->value]);
+        $this->assertSame('private_key_jwt', $values[ClaimsEnum::TokenEndpointAuthMethod->value]);
+    }
+
+    public function testEmptyTokenEndpointAuthMethodNormalizesToNull(): void
+    {
+        $values = $this->sut()->getValues();
+
+        $this->assertNull($values[ClaimsEnum::TokenEndpointAuthMethod->value]);
+        $this->assertSame([], $values[ClaimsEnum::GrantTypes->value]);
+        $this->assertSame([], $values[ClaimsEnum::ResponseTypes->value]);
+    }
+
+    public function testDefaultAcrValuesAreConstrainedToSupported(): void
+    {
+        // The field is a multi-select bound to the OP's supported ACRs. setDefaults (the edit path) drops values
+        // that are no longer supported, so the control never receives an out-of-range value.
+        $data = array_merge($this->clientDataSample, [
+            ClaimsEnum::DefaultAcrValues->value => [
+                'urn:mace:incommon:iap:silver',
+                'urn:not:supported',
+            ],
+        ]);
+        $sut = $this->sut()->setDefaults($data);
+
+        $values = $sut->getValues();
+
+        $this->assertSame(['urn:mace:incommon:iap:silver'], $values[ClaimsEnum::DefaultAcrValues->value]);
+        $this->assertTrue($sut->hasConfiguredAcrValues());
+    }
+
+    public function testGrantTypesAreNormalizedToResponseTypeCorrespondence(): void
+    {
+        // Selecting an implicit response type must pull in the implicit grant type on save, even if the admin
+        // only had authorization_code selected.
+        $data = array_merge($this->clientDataSample, [
+            ClaimsEnum::ResponseTypes->value => ['code', 'id_token'],
+            ClaimsEnum::GrantTypes->value => ['authorization_code'],
+        ]);
+        $sut = $this->sut()->setDefaults($data);
+
+        $values = $sut->getValues();
+
+        $this->assertSame(['authorization_code', 'implicit'], $values[ClaimsEnum::GrantTypes->value]);
+        $this->assertSame(['code', 'id_token'], $values[ClaimsEnum::ResponseTypes->value]);
+    }
+
+    public function testClientTypeFollowsTokenEndpointAuthMethod(): void
+    {
+        // `none` => public, regardless of the submitted radio value.
+        $values = $this->sut()->setDefaults(array_merge($this->clientDataSample, [
+            ClaimsEnum::TokenEndpointAuthMethod->value => 'none',
+            'is_confidential' => true,
+        ]))->getValues();
+        $this->assertFalse($values['is_confidential']);
+
+        // A real authentication method => confidential, regardless of the submitted radio value.
+        $values = $this->sut()->setDefaults(array_merge($this->clientDataSample, [
+            ClaimsEnum::TokenEndpointAuthMethod->value => 'private_key_jwt',
+            'is_confidential' => false,
+        ]))->getValues();
+        $this->assertTrue($values['is_confidential']);
+    }
+
+    public function testNativeApplicationTypeMakesClientPublicWhenNoAuthMethod(): void
+    {
+        // native + no auth method => public, overriding the submitted radio (mirrors DCR).
+        $values = $this->sut()->setDefaults(array_merge($this->clientDataSample, [
+            ClaimsEnum::ApplicationType->value => 'native',
+            ClaimsEnum::TokenEndpointAuthMethod->value => '',
+            'is_confidential' => true,
+        ]))->getValues();
+        $this->assertFalse($values['is_confidential']);
+
+        // An explicit auth method still takes precedence over the native hint.
+        $values = $this->sut()->setDefaults(array_merge($this->clientDataSample, [
+            ClaimsEnum::ApplicationType->value => 'native',
+            ClaimsEnum::TokenEndpointAuthMethod->value => 'client_secret_basic',
+            'is_confidential' => false,
+        ]))->getValues();
+        $this->assertTrue($values['is_confidential']);
+    }
+
+    public function testClientTypeStandsWhenAuthMethodUnset(): void
+    {
+        // When no auth method is selected, the explicit confidential/public choice is preserved.
+        $values = $this->sut()->setDefaults(array_merge($this->clientDataSample, [
+            ClaimsEnum::TokenEndpointAuthMethod->value => '',
+            'is_confidential' => true,
+        ]))->getValues();
+        $this->assertTrue($values['is_confidential']);
+    }
+
+    public function testInformationalMetadataRoundTrip(): void
+    {
+        $sut = $this->sut();
+        $sut->setValues([
+            ClaimsEnum::LogoUri->value => 'https://client.example.org/logo.png',
+            ClaimsEnum::ClientUri->value => 'https://client.example.org/',
+            ClaimsEnum::PolicyUri->value => 'https://client.example.org/policy',
+            ClaimsEnum::TosUri->value => 'https://client.example.org/tos',
+            ClaimsEnum::ApplicationType->value => 'web',
+            ClaimsEnum::Contacts->value => "admin@example.org\nops@example.org",
+        ]);
+
+        $values = $sut->getValues();
+        $this->assertSame('https://client.example.org/logo.png', $values[ClaimsEnum::LogoUri->value]);
+        $this->assertSame('https://client.example.org/', $values[ClaimsEnum::ClientUri->value]);
+        $this->assertSame('https://client.example.org/policy', $values[ClaimsEnum::PolicyUri->value]);
+        $this->assertSame('https://client.example.org/tos', $values[ClaimsEnum::TosUri->value]);
+        $this->assertSame('web', $values[ClaimsEnum::ApplicationType->value]);
+        $this->assertSame(['admin@example.org', 'ops@example.org'], $values[ClaimsEnum::Contacts->value]);
+    }
+
+    public function testEmptyInformationalMetadataNormalizesToNullOrEmpty(): void
+    {
+        $values = $this->sut()->getValues();
+
+        $this->assertNull($values[ClaimsEnum::LogoUri->value]);
+        $this->assertNull($values[ClaimsEnum::ApplicationType->value]);
+        $this->assertSame([], $values[ClaimsEnum::Contacts->value]);
     }
 
     public function testAcceptsValidAuthProcFilters(): void

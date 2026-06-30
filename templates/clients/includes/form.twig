@@ -61,7 +61,26 @@
         </label>
         <span class="pure-form-message">
             {% trans %}Choose if client is confidential or public. Confidential clients are capable of maintaining the confidentiality of their credentials (e.g., client implemented on a secure server with restricted access to the client credentials), or capable of secure client authentication using other means. Public clients are incapable of maintaining the confidentiality of their credentials (e.g., clients executing on the device used by the resource owner, such as an installed native application or a web browser-based application), and incapable of secure client authentication via any other means.{% endtrans %}
+            {% trans %}This type is derived from the metadata where possible: if a Token Endpoint Authentication Method is selected below, it determines this type ("none" means public, any other method means confidential); otherwise, an Application Type of "native" means public. When neither is set, your explicit choice above is kept. To make a native client confidential, give it a real authentication method.{% endtrans %}
         </span>
+
+        <label for="frm-token_endpoint_auth_method">{{ 'Token Endpoint Authentication Method'|trans }}</label>
+        {{ form.token_endpoint_auth_method.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}Client authentication method the Client must use at the token endpoint. If not set, the method is not enforced.{% endtrans %}
+        </span>
+        {% if form.token_endpoint_auth_method.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.token_endpoint_auth_method.getError }}</span>
+        {% endif %}
+
+        <label for="frm-application_type">{{ 'Application Type'|trans }}</label>
+        {{ form.application_type.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}Kind of application. For dynamically registered clients this constrains the allowed Redirect URIs: native clients may only use custom URI schemes or loopback addresses (localhost, 127.0.0.1, [::1]); web clients using the implicit grant must use https and must not use localhost.{% endtrans %}
+        </span>
+        {% if form.application_type.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.application_type.getError }}</span>
+        {% endif %}
 
         <label for="frm-redirect_uri">{{ 'Redirect URIs'|trans }}</label>
         {{ form.redirect_uri.control | raw }}
@@ -166,6 +185,107 @@
         </span>
         {% if form.request_uris.hasErrors %}
             <span class="pure-form-message red-text">{{ form.request_uris.getError }}</span>
+        {% endif %}
+
+        <label for="frm-grant_types">{{ 'Grant Types'|trans }}</label>
+        {{ form.grant_types.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}Grant types this Client is allowed to use. If none are selected, the Client is not restricted by grant type. Note that the refresh_token grant is allowed whenever the Client was granted the offline_access scope, regardless of this setting.{% endtrans %}
+        </span>
+        {% if form.grant_types.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.grant_types.getError }}</span>
+        {% endif %}
+
+        <label for="frm-response_types">{{ 'Response Types'|trans }}</label>
+        {{ form.response_types.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}Response types this Client is allowed to use at the authorization endpoint. If none are selected, the Client is not restricted by response type. Selecting a response type automatically selects the grant types it requires.{% endtrans %}
+        </span>
+        {% if form.response_types.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.response_types.getError }}</span>
+        {% endif %}
+
+        {# Single source of truth for the response_type -> required grant_types correspondence, consumed by client-form.js. #}
+        <script type="application/json" id="oidc-response-type-grant-type-map">{{ form.getResponseTypeGrantTypeMapJson()|raw }}</script>
+
+        <label for="frm-default_max_age">{{ 'Default Max Age (seconds)'|trans }}</label>
+        {{ form.default_max_age.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}Default Maximum Authentication Age, in seconds, applied when the authorization request omits max_age. Leave empty for no default.{% endtrans %}
+        </span>
+        {% if form.default_max_age.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.default_max_age.getError }}</span>
+        {% endif %}
+
+        <label for="">{{ 'Require auth_time in ID Token'|trans }}</label>
+        {{ form.require_auth_time.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}When enabled, the auth_time claim is always included in ID Tokens issued to this Client.{% endtrans %}
+        </span>
+
+        {% if form.hasConfiguredAcrValues() %}
+        <label for="frm-default_acr_values">{{ 'Default ACR Values'|trans }}</label>
+        {{ form.default_acr_values.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}Default requested Authentication Context Class Reference values, applied when the authorization request omits acr_values. Selected from the ACRs supported by this OP.{% endtrans %}
+        </span>
+        {% if form.default_acr_values.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.default_acr_values.getError }}</span>
+        {% endif %}
+        {% endif %}
+
+        <label for="frm-initiate_login_uri">{{ 'Initiate Login URI'|trans }}</label>
+        {{ form.initiate_login_uri.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}URI using the https scheme that a third party can use to initiate a login by the RP. Informational.{% endtrans %}
+        </span>
+        {% if form.initiate_login_uri.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.initiate_login_uri.getError }}</span>
+        {% endif %}
+
+        <label for="frm-software_id">{{ 'Software ID'|trans }}</label>
+        {{ form.software_id.control | raw }}
+        {% if form.software_id.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.software_id.getError }}</span>
+        {% endif %}
+
+        <label for="frm-software_version">{{ 'Software Version'|trans }}</label>
+        {{ form.software_version.control | raw }}
+        {% if form.software_version.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.software_version.getError }}</span>
+        {% endif %}
+
+        <label for="frm-logo_uri">{{ 'Logo URI'|trans }}</label>
+        {{ form.logo_uri.control | raw }}
+        {% if form.logo_uri.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.logo_uri.getError }}</span>
+        {% endif %}
+
+        <label for="frm-client_uri">{{ 'Client URI'|trans }}</label>
+        {{ form.client_uri.control | raw }}
+        {% if form.client_uri.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.client_uri.getError }}</span>
+        {% endif %}
+
+        <label for="frm-policy_uri">{{ 'Policy URI'|trans }}</label>
+        {{ form.policy_uri.control | raw }}
+        {% if form.policy_uri.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.policy_uri.getError }}</span>
+        {% endif %}
+
+        <label for="frm-tos_uri">{{ 'Terms of Service URI'|trans }}</label>
+        {{ form.tos_uri.control | raw }}
+        {% if form.tos_uri.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.tos_uri.getError }}</span>
+        {% endif %}
+
+        <label for="frm-contacts">{{ 'Contacts'|trans }}</label>
+        {{ form.contacts.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}Contacts for this Client (e.g. administrator e-mail addresses). One per line.{% endtrans %}
+        </span>
+        {% if form.contacts.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.contacts.getError }}</span>
         {% endif %}
 
         <label for="">{{ 'Require Pushed Authorization Requests (PAR)'|trans }}</label>

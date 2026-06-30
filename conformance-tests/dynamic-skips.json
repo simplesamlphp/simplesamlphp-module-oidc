@@ -1,0 +1,20 @@
+[
+    {
+        "comment": "Optional feature not supported: id_token_signed_response_alg=none (the OP always signs ID Tokens). The suite skips this test.",
+        "test-name": "oidcc-idtoken-unsigned*",
+        "configuration-filename": "*conformance-dynamic-ci.json",
+        "variant": "*"
+    },
+    {
+        "comment": "Optional feature not supported: sector_identifier_uri (pairwise sector grouping). The suite skips this test.",
+        "test-name": "oidcc-registration-sector-uri*",
+        "configuration-filename": "*conformance-dynamic-ci.json",
+        "variant": "*"
+    },
+    {
+        "comment": "Optional feature not supported: sector_identifier_uri (pairwise sector grouping). The suite skips this test.",
+        "test-name": "oidcc-registration-sector-bad*",
+        "configuration-filename": "*conformance-dynamic-ci.json",
+        "variant": "*"
+    }
+]

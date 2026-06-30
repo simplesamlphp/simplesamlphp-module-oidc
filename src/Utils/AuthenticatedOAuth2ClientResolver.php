@@ -42,17 +42,52 @@ class AuthenticatedOAuth2ClientResolver
         ?ClientEntityInterface $preFetchedClient = null,
     ): ?ResolvedClientAuthenticationMethod {
         try {
-            return
+            $resolved =
             $this->forPrivateKeyJwt($request, $preFetchedClient) ??
             $this->forClientSecretBasic($request, $preFetchedClient) ??
             $this->forClientSecretPost($request, $preFetchedClient) ??
             $this->forPublicClient($request, $preFetchedClient);
+
+            if ($resolved !== null) {
+                $this->enforceRegisteredTokenEndpointAuthMethod($resolved);
+            }
+
+            return $resolved;
         } catch (\Throwable $exception) {
             $this->loggerService->error(
                 'Error while trying to resolve authenticated client: ' .
                     $exception->getMessage(),
             );
             return null;
+        }
+    }
+
+    /**
+     * If the client has explicitly registered a token_endpoint_auth_method, the method it actually authenticated
+     * with must match it. Enforced only when explicitly registered, preserving behavior for manually-managed
+     * clients that do not have it configured. Throwing here results in client authentication failing (the caller
+     * treats a null resolution as invalid_client).
+     *
+     * @throws AuthorizationException
+     */
+    protected function enforceRegisteredTokenEndpointAuthMethod(
+        ResolvedClientAuthenticationMethod $resolved,
+    ): void {
+        // getTokenEndpointAuthMethod() returns the raw registered value, or null when nothing is registered (it does
+        // not synthesize the OIDC DCR spec default), so null means "not configured" and is not enforced.
+        $registeredMethod = $resolved->getClient()->getTokenEndpointAuthMethod();
+
+        if ($registeredMethod === null) {
+            return;
+        }
+
+        $usedMethod = $resolved->getClientAuthenticationMethod()->value;
+        if ($registeredMethod !== $usedMethod) {
+            throw new AuthorizationException(sprintf(
+                'Client authenticated with "%s" but is registered to use "%s" (token_endpoint_auth_method).',
+                $usedMethod,
+                $registeredMethod,
+            ));
         }
     }
 

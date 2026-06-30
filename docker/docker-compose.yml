@@ -12,6 +12,12 @@ services:
 #      - oidc-rp
   oidc-op:
     hostname: op.local.stack-dev.cirrusidentity.com
+    # The conformance suite tells the OP to fetch client jwks_uri / request_uri
+    # from its own host (https://localhost.emobix.co.uk:8443/...). That hostname
+    # is not resolvable from inside the OP container, so map it to the Docker
+    # host gateway, where the conformance suite is published on port 8443.
+    extra_hosts:
+      - "localhost.emobix.co.uk:host-gateway"
     build:
       context: .
       dockerfile: docker/Dockerfile

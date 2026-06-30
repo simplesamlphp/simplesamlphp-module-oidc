@@ -14,6 +14,7 @@ It complements the inline comments in `config/module_oidc.php`.
 - Attribute translation
 - Auth Proc filters (OIDC)
 - Client registration permissions
+- OpenID Connect Dynamic Client Registration
 - Running multiple OPs on one server
 
 ## Caching protocol artifacts
@@ -354,6 +355,45 @@ $config = [
 Users can visit the following link for administration:
 
 - [https://example.com/simplesaml/module.php/oidc/clients/](https://example.com/simplesaml/module.php/oidc/clients/)
+
+## OpenID Connect Dynamic Client Registration
+
+The module can let Relying Parties register themselves dynamically, as described
+by [OpenID Connect Dynamic Client Registration 1.0](https://openid.net/specs/openid-connect-registration-1_0.html)
+(which is also compatible with RFC 7591). It exposes:
+
+- a **Client Registration Endpoint** (`POST .../oidc/register`) that creates a
+  client and returns its `client_id`, `client_secret` (for confidential
+  clients), a `registration_access_token` and a `registration_client_uri`; and
+- a **Client Configuration Endpoint** (`GET` / `PUT` / `DELETE`
+  `.../oidc/register?client_id=...`, RFC 7592) to read, update (full replace) or
+  delete a dynamically registered client, called with the
+  `registration_access_token` as a bearer token. Per RFC 7592 the read and update
+  responses include a `registration_access_token`; because the OP stores only its
+  hash, the token is **rotated** on each successful read/update — the response
+  returns a new token that the client must use for subsequent requests.
+
+When enabled, the registration endpoint is advertised as `registration_endpoint`
+in the OP discovery metadata. Dynamically registered clients are stored like any
+other client and are visible in the admin UI.
+
+The feature is **disabled by default**. It is configured through the following
+options in `config/module_oidc.php` (see the inline comments there for the full
+details and defaults):
+
+- `OPTION_DCR_ENABLED` — master switch for the feature.
+- `OPTION_DCR_REGISTRATION_AUTH` — access-control mode: `open` registration
+  (the default) or `initial_access_token` (require a bearer Initial Access
+  Token).
+- `OPTION_DCR_INITIAL_ACCESS_TOKENS` — the accepted Initial Access Tokens,
+  consulted only in `initial_access_token` mode.
+- `OPTION_DCR_IMPERSONATION_PROTECTION_ENABLED` — when on (the default),
+  the host of `logo_uri` / `policy_uri` / `tos_uri` must match the host of one of
+  the registered `redirect_uris` (spec Section 9.1).
+
+> **Security note:** open registration lets anyone create a client, so protect
+> the endpoint with rate limiting at the web-server level, or require an Initial
+> Access Token.
 
 ## Running multiple OPs on one server
 

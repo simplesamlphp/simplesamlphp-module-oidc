@@ -218,6 +218,36 @@ class OidcServerException extends OAuthServerException
     }
 
     /**
+     * The authenticated client is not authorized to use this authorization grant type or response type
+     * (RFC 6749 sections 4.1.2.1 / 5.2).
+     *
+     * @param string|null $hint
+     * @param string|null $redirectUri
+     * @param \Throwable|null $previous
+     * @param string|null $state
+     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface|null $responseMode
+     */
+    public static function unauthorizedClient(
+        ?string $hint = null,
+        ?string $redirectUri = null,
+        ?Throwable $previous = null,
+        ?string $state = null,
+        ?ResponseModeInterface $responseMode = null,
+    ): OidcServerException {
+        return new self(
+            'The client is not authorized to request a token using this method.',
+            10,
+            'unauthorized_client',
+            400,
+            $hint,
+            $redirectUri,
+            $previous,
+            $state,
+            $responseMode,
+        );
+    }
+
+    /**
      * Prompt none requires that user should be authenticated.
      *
      * @param string|null $hint
@@ -359,6 +389,35 @@ class OidcServerException extends OAuthServerException
             'The value of one of the client metadata fields is invalid and the server has rejected this request.',
             13,
             ErrorsEnum::InvalidClientMetadata->value,
+            400,
+            $hint,
+            null,
+            $previous,
+        );
+    }
+
+    /**
+     * Invalid redirect URI error, as defined by the OAuth 2.0 Dynamic Client
+     * Registration Protocol (RFC 7591, section 3.2.2) and OpenID Connect
+     * Dynamic Client Registration 1.0 (section 3.3). The value of one or more
+     * redirect_uris is invalid.
+     *
+     * @see https://www.rfc-editor.org/rfc/rfc7591#section-3.2.2
+     *
+     * @param string|null $hint
+     * @param \Throwable|null $previous
+     *
+     * @return self
+     * @psalm-suppress LessSpecificImplementedReturnType
+     */
+    public static function invalidRedirectUri(
+        ?string $hint = null,
+        ?Throwable $previous = null,
+    ): OidcServerException {
+        return new self(
+            'The value of one or more redirect_uris is invalid.',
+            14,
+            ErrorsEnum::InvalidRedirectUri->value,
             400,
             $hint,
             null,

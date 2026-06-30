@@ -22,6 +22,9 @@ use Nette\Utils\Random;
 use SimpleSAML\Session;
 use Stringable;
 
+/**
+ * @psalm-suppress DeprecatedClass
+ */
 class CsrfProtection extends BaseCsrfProtection
 {
     final public const array PROTECTION = [

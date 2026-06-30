@@ -81,6 +81,8 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
     public function isGeneric(): bool;
 
     public function getExtraMetadata(): array;
+    public function getRegistrationAccessTokenHash(): ?string;
+    public function setRegistrationAccessTokenHash(?string $registrationAccessTokenHash): void;
     public function getIdTokenSignedResponseAlg(): ?string;
     public function getAllowedResponseModes(): array;
     public function getRequirePushedAuthorizationRequests(): bool;
@@ -89,6 +91,48 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
      * @return string[]
      */
     public function getRequestUris(): array;
+
+    /**
+     * @return string[]
+     */
+    public function getGrantTypes(): array;
+
+    /**
+     * @return string[]
+     */
+    public function getResponseTypes(): array;
+
+    public function getTokenEndpointAuthMethod(): ?string;
+
+    public function getDefaultMaxAge(): ?int;
+
+    public function getRequireAuthTime(): bool;
+
+    /**
+     * @return string[]
+     */
+    public function getDefaultAcrValues(): array;
+
+    public function getInitiateLoginUri(): ?string;
+
+    public function getSoftwareId(): ?string;
+
+    public function getSoftwareVersion(): ?string;
+
+    public function getLogoUri(): ?string;
+
+    public function getClientUri(): ?string;
+
+    public function getPolicyUri(): ?string;
+
+    public function getTosUri(): ?string;
+
+    public function getApplicationType(): ?string;
+
+    /**
+     * @return string[]
+     */
+    public function getContacts(): array;
 
     /**
      * @return array

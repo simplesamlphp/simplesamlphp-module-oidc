@@ -7,10 +7,12 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
@@ -107,6 +109,36 @@ class AcrValuesRuleTest extends TestCase
         ) ?? new Result(AcrValuesRule::class, null);
 
         $this->assertSame(['1', '0'], $result->getValue()['values']);
+        $this->assertFalse($result->getValue()['essential']);
+    }
+
+    /**
+     * When no acr is requested (claims param or acr_values), the client's registered default_acr_values are used.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFallsBackToClientDefaultAcrValues(): void
+    {
+        $client = $this->createStub(ClientEntityInterface::class);
+        $client->method('getDefaultAcrValues')->willReturn(['acr-default']);
+        $clientResult = $this->createStub(Result::class);
+        $clientResult->method('getValue')->willReturn($client);
+
+        $resultBag = $this->createStub(ResultBagInterface::class);
+        $resultBag->method('get')->willReturnCallback(
+            fn(string $key): ?Result => $key === ClientRule::class ? $clientResult : null,
+        );
+
+        // No acr_values request parameter and no requested claims => fall back to the client default.
+        $result = $this->sut()->checkRule(
+            $this->requestStub,
+            $resultBag,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        ) ?? new Result(AcrValuesRule::class, null);
+
+        $this->assertSame(['acr-default'], $result->getValue()['values']);
         $this->assertFalse($result->getValue()['essential']);
     }
 }

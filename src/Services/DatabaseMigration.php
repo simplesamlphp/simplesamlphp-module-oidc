@@ -225,6 +225,11 @@ class DatabaseMigration
             $this->version20260608130000();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20260608130000')");
         }
+
+        if (!in_array('20260624000001', $versions, true)) {
+            $this->version20260624000001();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20260624000001')");
+        }
     }
 
     private function versionsTableName(): string
@@ -769,6 +774,20 @@ EOT
         ,);
 
         $this->database->write("CREATE INDEX $idxParExpiresAt ON $parTableName (expires_at)");
+    }
+
+    /**
+     * Add storage for the OpenID Connect Dynamic Client Registration Access Token (a hash of it), used to
+     * authenticate read requests at the Client Configuration Endpoint.
+     */
+    private function version20260624000001(): void
+    {
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $this->database->write(<<< EOT
+        ALTER TABLE {$clientTableName}
+            ADD registration_access_token VARCHAR(255) NULL
+EOT
+            ,);
     }
 
 

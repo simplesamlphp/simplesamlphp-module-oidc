@@ -55,6 +55,11 @@ class ClientEntity implements ClientEntityInterface
     public const string KEY_EXPIRES_AT = 'expires_at';
     public const string KEY_IS_GENERIC = 'is_generic';
     public const string KEY_EXTRA_METADATA = 'extra_metadata';
+    /**
+     * Hash of the OpenID Connect Dynamic Client Registration Access Token, used to authenticate read requests at
+     * the Client Configuration Endpoint. The plaintext token is shown to the client only once (at registration).
+     */
+    public const string KEY_REGISTRATION_ACCESS_TOKEN = 'registration_access_token';
     public const string KEY_ALLOWED_RESPONSE_MODES = 'allowed_response_modes';
     /**
      * Per-client Authentication Processing Filters. Stored as an entry inside
@@ -120,6 +125,7 @@ class ClientEntity implements ClientEntityInterface
     private ?DateTimeImmutable $expiresAt;
     private bool $isGeneric;
     private ?array $extraMetadata;
+    private ?string $registrationAccessToken;
 
     /**
      * @param string[] $redirectUri
@@ -154,6 +160,7 @@ class ClientEntity implements ClientEntityInterface
         ?DateTimeImmutable $expiresAt = null,
         bool $isGeneric = false,
         ?array $extraMetadata = null,
+        ?string $registrationAccessToken = null,
     ) {
         $this->identifier = $identifier;
         $this->secret = $secret;
@@ -179,6 +186,7 @@ class ClientEntity implements ClientEntityInterface
         $this->expiresAt = $expiresAt;
         $this->isGeneric = $isGeneric;
         $this->extraMetadata = $extraMetadata;
+        $this->registrationAccessToken = $registrationAccessToken;
     }
 
     /**
@@ -220,6 +228,7 @@ class ClientEntity implements ClientEntityInterface
             self::KEY_EXTRA_METADATA => is_null($this->extraMetadata) ?
                 null :
                 json_encode($this->extraMetadata, JSON_THROW_ON_ERROR),
+            self::KEY_REGISTRATION_ACCESS_TOKEN => $this->registrationAccessToken,
         ];
     }
 
@@ -256,7 +265,23 @@ class ClientEntity implements ClientEntityInterface
             ClaimsEnum::RequirePushedAuthorizationRequests->value => $this->getRequirePushedAuthorizationRequests(),
             ClaimsEnum::RequireSignedRequestObject->value => $this->getRequireSignedRequestObject(),
             ClaimsEnum::RequestUris->value => $this->getRequestUris(),
+            ClaimsEnum::GrantTypes->value => $this->getGrantTypes(),
+            ClaimsEnum::ResponseTypes->value => $this->getResponseTypes(),
+            ClaimsEnum::TokenEndpointAuthMethod->value => $this->getTokenEndpointAuthMethod(),
+            ClaimsEnum::DefaultMaxAge->value => $this->getDefaultMaxAge(),
+            ClaimsEnum::RequireAuthTime->value => $this->getRequireAuthTime(),
+            ClaimsEnum::DefaultAcrValues->value => $this->getDefaultAcrValues(),
+            ClaimsEnum::InitiateLoginUri->value => $this->getInitiateLoginUri(),
+            ClaimsEnum::SoftwareId->value => $this->getSoftwareId(),
+            ClaimsEnum::SoftwareVersion->value => $this->getSoftwareVersion(),
+            ClaimsEnum::LogoUri->value => $this->getLogoUri(),
+            ClaimsEnum::ClientUri->value => $this->getClientUri(),
+            ClaimsEnum::PolicyUri->value => $this->getPolicyUri(),
+            ClaimsEnum::TosUri->value => $this->getTosUri(),
+            ClaimsEnum::ApplicationType->value => $this->getApplicationType(),
+            ClaimsEnum::Contacts->value => $this->getContacts(),
             self::KEY_AUTH_PROC_FILTERS => $this->getAuthProcFilters(),
+            self::KEY_REGISTRATION_ACCESS_TOKEN => $this->registrationAccessToken,
         ];
     }
 
@@ -401,6 +426,20 @@ class ClientEntity implements ClientEntityInterface
         return $this->extraMetadata ?? [];
     }
 
+    /**
+     * Hash of the Registration Access Token associated with this client, or null if none was issued (e.g. clients
+     * not created via OIDC Dynamic Client Registration).
+     */
+    public function getRegistrationAccessTokenHash(): ?string
+    {
+        return $this->registrationAccessToken;
+    }
+
+    public function setRegistrationAccessTokenHash(?string $registrationAccessTokenHash): void
+    {
+        $this->registrationAccessToken = $registrationAccessTokenHash;
+    }
+
     public function getIdTokenSignedResponseAlg(): ?string
     {
         if (!is_array($this->extraMetadata)) {
@@ -494,5 +533,210 @@ class ClientEntity implements ClientEntityInterface
         }
 
         return $stringUris;
+    }
+
+    /**
+     * The OAuth 2.0 grant types the client is registered to use, or an empty array when none are registered.
+     *
+     * v7 transition: this returns the raw registered value (empty when unset) rather than synthesizing the
+     * OpenID Connect Dynamic Client Registration 1.0 default (["authorization_code"]). This keeps the stored
+     * value the single source of truth, so the admin UI and the registration echo reflect exactly what is
+     * registered, and clients created before this property existed are not retroactively constrained. The DCR
+     * default is still applied at registration time for dynamic clients (see ClientEntityFactory). A future
+     * major version may switch this getter to return the spec default when unset.
+     *
+     * @return string[]
+     */
+    public function getGrantTypes(): array
+    {
+        /** @var mixed $grantTypes */
+        $grantTypes = is_array($this->extraMetadata) ?
+        ($this->extraMetadata[ClaimsEnum::GrantTypes->value] ?? null) : null;
+
+        if (!is_array($grantTypes)) {
+            return [];
+        }
+
+        return array_values(array_filter($grantTypes, 'is_string'));
+    }
+
+    /**
+     * The OAuth 2.0 response types the client is registered to use, or an empty array when none are registered.
+     *
+     * v7 transition: returns the raw registered value (empty when unset) rather than synthesizing the OpenID
+     * Connect Dynamic Client Registration 1.0 default (["code"]). See getGrantTypes() for the rationale.
+     *
+     * @return string[]
+     */
+    public function getResponseTypes(): array
+    {
+        /** @var mixed $responseTypes */
+        $responseTypes = is_array($this->extraMetadata) ?
+        ($this->extraMetadata[ClaimsEnum::ResponseTypes->value] ?? null) : null;
+
+        if (!is_array($responseTypes)) {
+            return [];
+        }
+
+        return array_values(array_filter($responseTypes, 'is_string'));
+    }
+
+    /**
+     * The client authentication method the client is registered to use at the token endpoint, or null when none
+     * is registered.
+     *
+     * v7 transition: returns the raw registered value (null when unset) rather than synthesizing the OpenID
+     * Connect Dynamic Client Registration 1.0 default ('client_secret_basic' / 'none'). See getGrantTypes() for
+     * the rationale.
+     */
+    public function getTokenEndpointAuthMethod(): ?string
+    {
+        /** @var mixed $method */
+        $method = is_array($this->extraMetadata) ?
+        ($this->extraMetadata[ClaimsEnum::TokenEndpointAuthMethod->value] ?? null) : null;
+
+        if (is_string($method) && $method !== '') {
+            return $method;
+        }
+
+        return null;
+    }
+
+    /**
+     * Default Maximum Authentication Age (seconds) applied when the authorization request omits max_age, or null
+     * when not registered.
+     */
+    public function getDefaultMaxAge(): ?int
+    {
+        /** @var mixed $value */
+        $value = is_array($this->extraMetadata) ?
+        ($this->extraMetadata[ClaimsEnum::DefaultMaxAge->value] ?? null) : null;
+
+        if (is_int($value) || is_string($value)) {
+            $filtered = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+            return $filtered !== false ? $filtered : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether the auth_time claim is required in the ID Token issued to this client.
+     */
+    public function getRequireAuthTime(): bool
+    {
+        /** @var mixed $value */
+        $value = is_array($this->extraMetadata) ?
+        ($this->extraMetadata[ClaimsEnum::RequireAuthTime->value] ?? null) : null;
+
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    /**
+     * Default ACR values requested when the authorization request omits acr_values.
+     *
+     * @return string[]
+     */
+    public function getDefaultAcrValues(): array
+    {
+        /** @var mixed $values */
+        $values = is_array($this->extraMetadata) ?
+        ($this->extraMetadata[ClaimsEnum::DefaultAcrValues->value] ?? null) : null;
+
+        if (!is_array($values)) {
+            return [];
+        }
+
+        return array_values(array_filter($values, 'is_string'));
+    }
+
+    /**
+     * URI a third party can use to initiate login for this client (informational; the OP does not act on it).
+     */
+    public function getInitiateLoginUri(): ?string
+    {
+        return $this->getStringExtraMetadata(ClaimsEnum::InitiateLoginUri->value);
+    }
+
+    /**
+     * RFC 7591 software_id (informational).
+     */
+    public function getSoftwareId(): ?string
+    {
+        return $this->getStringExtraMetadata(ClaimsEnum::SoftwareId->value);
+    }
+
+    /**
+     * RFC 7591 software_version (informational).
+     */
+    public function getSoftwareVersion(): ?string
+    {
+        return $this->getStringExtraMetadata(ClaimsEnum::SoftwareVersion->value);
+    }
+
+    /**
+     * logo_uri (informational; subject to impersonation protection on the DCR path).
+     */
+    public function getLogoUri(): ?string
+    {
+        return $this->getStringExtraMetadata(ClaimsEnum::LogoUri->value);
+    }
+
+    /**
+     * client_uri (informational).
+     */
+    public function getClientUri(): ?string
+    {
+        return $this->getStringExtraMetadata(ClaimsEnum::ClientUri->value);
+    }
+
+    /**
+     * policy_uri (informational; subject to impersonation protection on the DCR path).
+     */
+    public function getPolicyUri(): ?string
+    {
+        return $this->getStringExtraMetadata(ClaimsEnum::PolicyUri->value);
+    }
+
+    /**
+     * tos_uri (informational; subject to impersonation protection on the DCR path).
+     */
+    public function getTosUri(): ?string
+    {
+        return $this->getStringExtraMetadata(ClaimsEnum::TosUri->value);
+    }
+
+    /**
+     * application_type (web or native), or null when not registered.
+     */
+    public function getApplicationType(): ?string
+    {
+        return $this->getStringExtraMetadata(ClaimsEnum::ApplicationType->value);
+    }
+
+    /**
+     * contacts (e.g. administrator e-mail addresses).
+     *
+     * @return string[]
+     */
+    public function getContacts(): array
+    {
+        /** @var mixed $contacts */
+        $contacts = is_array($this->extraMetadata) ?
+        ($this->extraMetadata[ClaimsEnum::Contacts->value] ?? null) : null;
+
+        if (!is_array($contacts)) {
+            return [];
+        }
+
+        return array_values(array_filter($contacts, 'is_string'));
+    }
+
+    private function getStringExtraMetadata(string $key): ?string
+    {
+        /** @var mixed $value */
+        $value = is_array($this->extraMetadata) ? ($this->extraMetadata[$key] ?? null) : null;
+
+        return (is_string($value) && $value !== '') ? $value : null;
     }
 }

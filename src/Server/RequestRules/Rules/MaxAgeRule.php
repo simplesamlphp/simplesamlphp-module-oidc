@@ -6,6 +6,7 @@ namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -64,35 +65,48 @@ class MaxAgeRule extends AbstractRule
 
         $authSimple = $this->authSimpleFactory->build($client);
 
-        if (!array_key_exists(ParamsEnum::MaxAge->value, $requestParams) || !$authSimple->isAuthenticated()) {
+        // Determine the effective max_age: the request parameter takes precedence over the client's registered
+        // default_max_age (OIDC DCR 1.0). When neither is present, max_age is not in effect.
+        $effectiveMaxAge = null;
+        if (array_key_exists(ParamsEnum::MaxAge->value, $requestParams)) {
+            $redirectUri = $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
+            $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
+
+            if (
+                false === filter_var(
+                    $requestParams[ParamsEnum::MaxAge->value],
+                    FILTER_VALIDATE_INT,
+                    ['options' => ['min_range' => 0]],
+                )
+            ) {
+                throw OidcServerException::invalidRequest(
+                    ParamsEnum::MaxAge->value,
+                    'max_age must be a valid integer',
+                    null,
+                    $redirectUri,
+                    $state,
+                    $responseMode,
+                );
+            }
+
+            $effectiveMaxAge = (int) $requestParams[ParamsEnum::MaxAge->value];
+        } elseif ($client instanceof ClientEntityInterface) {
+            $effectiveMaxAge = $client->getDefaultMaxAge();
+        }
+
+        // require_auth_time forces the auth_time claim into the ID Token even when no max_age is in effect.
+        $requireAuthTime = $client instanceof ClientEntityInterface && $client->getRequireAuthTime();
+
+        // Nothing to enforce or compute when neither an effective max_age nor require_auth_time applies, or when the
+        // user is not (yet) authenticated (the normal authentication flow handles login in that case).
+        if (($effectiveMaxAge === null && !$requireAuthTime) || !$authSimple->isAuthenticated()) {
             return null;
         }
 
-        $redirectUri = $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
-        $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
+        $lastAuth = (int) $authSimple->getAuthData('AuthnInstant');
 
-        if (
-            false === filter_var(
-                $requestParams[ParamsEnum::MaxAge->value],
-                FILTER_VALIDATE_INT,
-                ['options' => ['min_range' => 0]],
-            )
-        ) {
-            throw OidcServerException::invalidRequest(
-                ParamsEnum::MaxAge->value,
-                'max_age must be a valid integer',
-                null,
-                $redirectUri,
-                $state,
-                $responseMode,
-            );
-        }
-
-        $maxAge = (int) $requestParams[ParamsEnum::MaxAge->value];
-        $lastAuth =  (int) $authSimple->getAuthData('AuthnInstant');
-        $isExpired = $lastAuth + $maxAge < time();
-
-        if ($isExpired) {
+        // Enforce re-authentication when the session is older than the effective max_age.
+        if ($effectiveMaxAge !== null && ($lastAuth + $effectiveMaxAge < time())) {
             unset($requestParams['prompt']);
             $loginParams = [];
             $loginParams['ReturnTo'] = $this->sspBridge->utils()->http()->addURLParameters(
@@ -103,6 +117,8 @@ class MaxAgeRule extends AbstractRule
             $this->authenticationService->authenticateForClient($client, $loginParams);
         }
 
+        // The result value becomes the ID Token auth_time (set by the grant), satisfying require_auth_time and/or
+        // recording the authentication instant used for the max_age check.
         return new Result($this->getKey(), $lastAuth);
     }
 }
