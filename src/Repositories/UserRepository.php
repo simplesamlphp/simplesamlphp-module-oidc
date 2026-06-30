@@ -99,9 +99,9 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
      * @throws \Exception
      */
     public function getUserEntityByUserCredentials(
-        $username,
-        $password,
-        $grantType,
+        string $username,
+        string $password,
+        string $grantType,
         OAuth2ClientEntityInterface $clientEntity,
     ): ?UserEntityInterface {
         throw new Exception('Not supported');

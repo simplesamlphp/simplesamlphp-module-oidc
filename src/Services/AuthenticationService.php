@@ -17,7 +17,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Services;
 
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
-use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
+use League\OAuth2\Server\RequestTypes\AuthorizationRequestInterface as OAuth2AuthorizationRequestInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Auth\ProcessingChain;
 use SimpleSAML\Auth\Simple;
@@ -80,7 +80,7 @@ class AuthenticationService
 
     /**
      * @param   ServerRequestInterface           $request
-     * @param   OAuth2AuthorizationRequest       $authorizationRequest
+     * @param   OAuth2AuthorizationRequestInterface       $authorizationRequest
      *
      * @return array
      * @throws Error\AuthSource
@@ -92,7 +92,7 @@ class AuthenticationService
      */
     public function processRequest(
         ServerRequestInterface $request,
-        OAuth2AuthorizationRequest $authorizationRequest,
+        OAuth2AuthorizationRequestInterface $authorizationRequest,
     ): array {
         $oidcClient = $authorizationRequest->getClient();
         $authSimple = $this->authSimpleFactory->build($oidcClient);
@@ -179,11 +179,11 @@ class AuthenticationService
     /**
      * @param   array|null  $state
      *
-     * @return OAuth2AuthorizationRequest
+     * @return OAuth2AuthorizationRequestInterface
      * @throws Exception
      */
 
-    public function getAuthorizationRequestFromState(array|null $state): OAuth2AuthorizationRequest
+    public function getAuthorizationRequestFromState(array|null $state): OAuth2AuthorizationRequestInterface
     {
         if (!isset($state['authorizationRequest'])) {
             throw new Exception('Authorization Request is not set.');
@@ -191,7 +191,7 @@ class AuthenticationService
 
         if ($state['authorizationRequest'] instanceof AuthorizationRequest) {
             return $state['authorizationRequest'];
-        } elseif ($state['authorizationRequest'] instanceof OAuth2AuthorizationRequest) {
+        } elseif ($state['authorizationRequest'] instanceof OAuth2AuthorizationRequestInterface) {
             return $state['authorizationRequest'];
         } else {
             throw new Exception('Authorization Request is not valid.');
@@ -202,7 +202,7 @@ class AuthenticationService
      * @param   Simple                      $authSimple
      * @param   OAuth2ClientEntityInterface       $client
      * @param   ServerRequestInterface      $request
-     * @param   OAuth2AuthorizationRequest  $authorizationRequest
+     * @param   OAuth2AuthorizationRequestInterface  $authorizationRequest
      *
      * @return array
      * @throws Error\AuthSource
@@ -212,7 +212,7 @@ class AuthenticationService
         Simple $authSimple,
         OAuth2ClientEntityInterface $client,
         ServerRequestInterface $request,
-        OAuth2AuthorizationRequest $authorizationRequest,
+        OAuth2AuthorizationRequestInterface $authorizationRequest,
     ): array {
         $state = $authSimple->getAuthDataArray();
 

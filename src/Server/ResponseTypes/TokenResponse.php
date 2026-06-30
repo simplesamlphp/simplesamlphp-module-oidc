@@ -16,7 +16,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Server\ResponseTypes;
 
-use League\OAuth2\Server\CryptKey;
+use League\OAuth2\Server\CryptKeyInterface;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\ResponseTypes\BearerTokenResponse;
 use RuntimeException;
@@ -37,6 +37,8 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
  * @license http://opensource.org/licenses/MIT MIT
  *
  * @see https://github.com/steverhoades/oauth2-openid-connect-server/blob/master/src/IdTokenResponse.php
+ *
+ * @psalm-suppress PropertyNotSetInConstructor
  */
 class TokenResponse extends BearerTokenResponse implements
     // phpcs:ignore
@@ -56,22 +58,10 @@ class TokenResponse extends BearerTokenResponse implements
 
     protected ?string $sessionId = null;
 
-    /**
-     * @var \League\OAuth2\Server\Entities\AccessTokenEntityInterface
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
-    protected $accessToken;
-
-    /**
-     * @var \League\OAuth2\Server\Entities\RefreshTokenEntityInterface
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
-    protected $refreshToken;
-
     public function __construct(
         private readonly IdentityProviderInterface $identityProvider,
         protected IdTokenBuilder $idTokenBuilder,
-        CryptKey $privateKey,
+        CryptKeyInterface $privateKey,
         protected LoggerService $loggerService,
     ) {
         $this->privateKey = $privateKey;
@@ -120,7 +110,7 @@ class TokenResponse extends BearerTokenResponse implements
             throw OidcServerException::accessDenied('No user identifier present in AccessToken.');
         }
 
-        $userEntity = $this->identityProvider->getUserEntityByIdentifier((string)$userIdentifier);
+        $userEntity = $this->identityProvider->getUserEntityByIdentifier($userIdentifier);
 
         if (empty($userEntity)) {
             throw OidcServerException::accessDenied('No user available for provided user identifier.');

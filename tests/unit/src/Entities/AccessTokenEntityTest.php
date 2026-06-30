@@ -129,12 +129,12 @@ class AccessTokenEntityTest extends TestCase
     public function testHasImmutableStringRepresentation(): void
     {
         $instance = $this->mock();
-        $this->assertNull($instance->toString());
 
-        $stringRepresentation = (string) $instance;
+        $stringRepresentation = $instance->toString();
 
         $this->assertIsString($instance->toString());
 
+        $this->assertSame($stringRepresentation, (string) $instance);
         $this->assertSame($stringRepresentation, $instance->toString());
     }
 }

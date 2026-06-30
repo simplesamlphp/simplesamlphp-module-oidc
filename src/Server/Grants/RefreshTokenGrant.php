@@ -24,33 +24,12 @@ use function is_null;
 use function json_decode;
 use function time;
 
+/**
+ * @psalm-suppress PropertyNotSetInConstructor
+ */
 class RefreshTokenGrant extends OAuth2RefreshTokenGrant
 {
     use IssueAccessTokenTrait;
-
-    /** @psalm-suppress PropertyNotSetInConstructor */
-    protected $revokeRefreshTokens;
-
-    /** @psalm-suppress PropertyNotSetInConstructor */
-    protected $defaultScope;
-
-    /** @psalm-suppress PropertyNotSetInConstructor */
-    protected $privateKey;
-
-    /** @psalm-suppress PropertyNotSetInConstructor */
-    protected $userRepository;
-
-    /** @psalm-suppress PropertyNotSetInConstructor */
-    protected $authCodeRepository;
-
-    /** @psalm-suppress PropertyNotSetInConstructor */
-    protected $scopeRepository;
-
-    /** @psalm-suppress PropertyNotSetInConstructor */
-    protected $accessTokenRepository;
-
-    /** @psalm-suppress PropertyNotSetInConstructor */
-    protected $clientRepository;
 
     public function __construct(
         RefreshTokenRepositoryInterface $refreshTokenRepository,
@@ -92,7 +71,7 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
      * @throws \JsonException
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
-    protected function validateOldRefreshToken(ServerRequestInterface $request, $clientId): array
+    protected function validateOldRefreshToken(ServerRequestInterface $request, string $clientId): array
     {
         $encryptedRefreshToken = $this->getRequestParameter('refresh_token', $request);
         if (is_null($encryptedRefreshToken)) {
@@ -111,6 +90,8 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
         if (! is_array($refreshTokenData)) {
             throw OidcServerException::invalidRefreshToken('Refresh token has unexpected type');
         }
+
+        /** @var array<string, mixed> $refreshTokenData */
         if ($refreshTokenData['client_id'] !== $clientId) {
             $this->getEmitter()->emit(new RequestEvent(RequestEvent::REFRESH_TOKEN_CLIENT_FAILED, $request));
             throw OidcServerException::invalidRefreshToken('Refresh token is not linked to client');
@@ -151,7 +132,7 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
 
     protected function issueRefreshToken(
         OAuth2AccessTokenEntityInterface $accessToken,
-        string $authCodeId = null,
+        ?string $authCodeId = null,
     ): ?RefreshTokenEntityInterface {
         if (! is_a($accessToken, AccessTokenEntityInterface::class)) {
             throw OidcServerException::serverError('Unexpected access token entity type.');

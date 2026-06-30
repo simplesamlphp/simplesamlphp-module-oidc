@@ -9,6 +9,7 @@ use League\OAuth2\Server\Entities\AccessTokenEntityInterface as OAuth2AccessToke
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\RequestEvent;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
+use League\OAuth2\Server\RequestTypes\AuthorizationRequestInterface as OAuth2AuthorizationRequestInterface;
 use League\OAuth2\Server\ResponseTypes\RedirectResponse;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -26,6 +27,9 @@ use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
+/**
+ * @psalm-suppress PropertyNotSetInConstructor
+ */
 class PreAuthCodeGrant extends AuthCodeGrant
 {
     public function getIdentifier(): string
@@ -59,7 +63,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
      * @throws \JsonException
      */
     public function completeAuthorizationRequest(
-        OAuth2AuthorizationRequest $authorizationRequest,
+        OAuth2AuthorizationRequestInterface $authorizationRequest,
     ): ResponseTypeInterface {
         throw OidcServerException::serverError('Not implemented');
     }
@@ -263,7 +267,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
     public function validateAuthorizationRequestWithRequestRules(
         ServerRequestInterface $request,
         ResultBagInterface $resultBag,
-    ): OAuth2AuthorizationRequest {
+    ): OAuth2AuthorizationRequestInterface {
         throw OidcServerException::serverError('Not implemented');
     }
 

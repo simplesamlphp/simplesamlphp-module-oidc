@@ -17,6 +17,7 @@ use League\OAuth2\Server\Grant\AuthCodeGrant as OAuth2AuthCodeGrant;
 use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface as OAuth2AuthCodeRepositoryInterface;
 use League\OAuth2\Server\RequestEvent;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
+use League\OAuth2\Server\RequestTypes\AuthorizationRequestInterface as OAuth2AuthorizationRequestInterface;
 use League\OAuth2\Server\ResponseTypes\AbstractResponseType;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
@@ -80,6 +81,9 @@ use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 use function array_key_exists;
 
+/**
+ * @psalm-suppress PropertyNotSetInConstructor
+ */
 class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     // phpcs:ignore
     PkceEnabledGrantTypeInterface,
@@ -94,60 +98,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
     /** @var \League\OAuth2\Server\CodeChallengeVerifiers\CodeChallengeVerifierInterface[] */
     protected array $codeChallengeVerifiers = [];
-
-    /**
-     * @var \League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
-    protected $authCodeRepository;
-
-    /**
-     * @var \League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
-    protected $accessTokenRepository;
-
-    /**
-     * @var \League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
-    protected $refreshTokenRepository;
-
-    /**
-     * @var bool
-     * @psalm-suppress PropertyNotSetInConstructor
-      */
-    protected $revokeRefreshTokens;
-
-    /**
-     * @var string
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
-    protected $defaultScope;
-
-    /**
-     * @var \League\OAuth2\Server\Repositories\UserRepositoryInterface
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
-    protected $userRepository;
-
-    /**
-     * @var \League\OAuth2\Server\Repositories\ScopeRepositoryInterface
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
-    protected $scopeRepository;
-
-    /**
-     * @var \League\OAuth2\Server\Repositories\ClientRepositoryInterface
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
-    protected $clientRepository;
-
-    /**
-     * @var \League\OAuth2\Server\CryptKey
-     * @psalm-suppress PropertyNotSetInConstructor
-     */
-    protected $privateKey;
 
     /** @var HttpMethodsEnum[]  */
     protected array $allowedAuthorizationHttpMethods = [HttpMethodsEnum::GET, HttpMethodsEnum::POST];
@@ -241,7 +191,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      * @throws \JsonException
      */
     public function completeAuthorizationRequest(
-        OAuth2AuthorizationRequest $authorizationRequest,
+        OAuth2AuthorizationRequestInterface $authorizationRequest,
     ): ResponseTypeInterface {
         if ($authorizationRequest instanceof AuthorizationRequest) {
             return $this->completeOidcAuthorizationRequest($authorizationRequest);
@@ -267,7 +217,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         }
 
         $finalRedirectUri = $authorizationRequest->getRedirectUri()
-        ?? $this->getClientRedirectUri($authorizationRequest);
+        ?? $this->getAuthorizationRequestClientRedirectUri($authorizationRequest);
 
         if ($authorizationRequest->isAuthorizationApproved() !== true) {
             // The user denied the client, redirect them back with an error
@@ -378,8 +328,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      *
      * @return string
      */
-    protected function getClientRedirectUri(OAuth2AuthorizationRequest $authorizationRequest): string
-    {
+    protected function getAuthorizationRequestClientRedirectUri(
+        OAuth2AuthorizationRequest $authorizationRequest,
+    ): string {
         $rediretctUri = $authorizationRequest->getClient()->getRedirectUri();
 
         if (is_array($rediretctUri)) {
@@ -579,8 +530,13 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         $this->validateAuthorizationCode($authCodePayload, $client, $request, $storedAuthCodeEntity);
 
+        $authCodeScopes = $authCodePayload->scopes;
+        if (is_array($authCodeScopes)) {
+            $authCodeScopes = array_values(array_filter($authCodeScopes, 'is_string'));
+        }
+
         $scopes = $this->scopeRepository->finalizeScopes(
-            $this->validateScopes($authCodePayload->scopes),
+            $this->validateScopes($authCodeScopes),
             $this->getIdentifier(),
             $client,
             $authCodePayload->user_id,
@@ -772,7 +728,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     public function validateAuthorizationRequestWithRequestRules(
         ServerRequestInterface $request,
         ResultBagInterface $resultBag,
-    ): OAuth2AuthorizationRequest {
+    ): OAuth2AuthorizationRequestInterface {
         $this->loggerService->debug('AuthCodeGrant::validateAuthorizationRequestWithRequestRules');
 
         $rulesToExecute = [

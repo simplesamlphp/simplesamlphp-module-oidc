@@ -102,7 +102,7 @@ class ClientRuleTest extends TestCase
     public function testCheckRuleInvalidClientThrows(): void
     {
         $this->requestParamsResolverStub->method('getBasedOnAllowedMethods')->willReturn('123');
-        $this->clientRepositoryStub->method('getClientEntity')->willReturn('invalid');
+        $this->clientRepositoryStub->method('getClientEntity')->willReturn(null);
         $this->expectException(OidcServerException::class);
         $this->sut()->checkRule(
             $this->requestStub,

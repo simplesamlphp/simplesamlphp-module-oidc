@@ -82,8 +82,15 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
         $authorizationRequest->setClient($oAuth2authorizationRequest->getClient());
         $authorizationRequest->setRedirectUri($oAuth2authorizationRequest->getRedirectUri());
         $authorizationRequest->setScopes($oAuth2authorizationRequest->getScopes());
-        $authorizationRequest->setCodeChallenge($oAuth2authorizationRequest->getCodeChallenge());
-        $authorizationRequest->setCodeChallengeMethod($oAuth2authorizationRequest->getCodeChallengeMethod());
+        $codeChallenge = $oAuth2authorizationRequest->getCodeChallenge();
+        if ($codeChallenge !== null) {
+            $authorizationRequest->setCodeChallenge($codeChallenge);
+        }
+
+        $codeChallengeMethod = $oAuth2authorizationRequest->getCodeChallengeMethod();
+        if ($codeChallengeMethod !== null) {
+            $authorizationRequest->setCodeChallengeMethod($codeChallengeMethod);
+        }
 
         $state = $oAuth2authorizationRequest->getState();
         if (null !== $state) {

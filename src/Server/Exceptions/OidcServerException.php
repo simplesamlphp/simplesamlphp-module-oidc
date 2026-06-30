@@ -17,45 +17,16 @@ use function json_encode;
 class OidcServerException extends OAuthServerException
 {
     /**
-     * @var array
-     */
-    protected array $payload;
-
-    /**
-     * @var int
-     * @psalm-suppress PossiblyUnusedProperty Property is private in parent.
-     */
-    protected int $httpStatusCode;
-
-    /**
-     * @var string
-     * @psalm-suppress PossiblyUnusedProperty Property is private in parent.
-     */
-    protected string $errorType;
-
-    /**
      * @var null|string
      */
-    protected ?string $redirectUri;
+    protected ?string $redirectUri = null;
 
     /**
      * @var null|ResponseModeInterface
      */
     protected ?ResponseModeInterface $responseMode = null;
 
-    /**
-     * Throw a new exception.
-     *
-     * @param string $message Error message
-     * @param int $code Error code
-     * @param string $errorType Error type
-     * @param int $httpStatusCode HTTP status code to send (default = 400)
-     * @param null|string $hint A helper hint
-     * @param null|string $redirectUri An HTTP URI to redirect the user back to
-     * @param \Throwable|null $previous Previous exception
-     * @param string|null $state
-     */
-    public function __construct(
+    private static function create(
         string $message,
         int $code,
         string $errorType,
@@ -65,13 +36,11 @@ class OidcServerException extends OAuthServerException
         ?Throwable $previous = null,
         ?string $state = null,
         ?ResponseModeInterface $responseMode = null,
-    ) {
-        parent::__construct($message, $code, $errorType, $httpStatusCode, $hint, $redirectUri, $previous);
+    ): static {
+        $exception = new static($message, $code, $errorType, $httpStatusCode, $hint, $redirectUri, $previous);
 
-        $this->httpStatusCode = $httpStatusCode;
-        $this->errorType = $errorType;
-        $this->redirectUri = $redirectUri;
-        $this->responseMode = $responseMode;
+        $exception->redirectUri = $redirectUri;
+        $exception->responseMode = $responseMode;
 
         if ($hint !== null) {
             $message .= ' (' . $hint . ')';
@@ -86,7 +55,9 @@ class OidcServerException extends OAuthServerException
             $payload['state'] = $state;
         }
 
-        $this->payload = $payload;
+        $exception->setPayload($payload);
+
+        return $exception;
     }
 
     /**
@@ -95,7 +66,7 @@ class OidcServerException extends OAuthServerException
      * @param string|null $redirectUri
      * @param string|null $state
      * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface|null $responseMode
-     * @return OidcServerException
+     * @return static
      */
     public static function unsupportedResponseType(
         ?string $redirectUri = null,
@@ -105,7 +76,7 @@ class OidcServerException extends OAuthServerException
         $errorMessage = 'The response type is not supported by the authorization server.';
         $hint = 'Check that all required parameters have been provided';
 
-        return new self(
+        return self::create(
             $errorMessage,
             2,
             'unsupported_response_type',
@@ -125,15 +96,15 @@ class OidcServerException extends OAuthServerException
      * @param string|null $redirectUri An HTTP URI to redirect the user back to
      * @param string|null $state
      * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface|null $responseMode
-     * @return OidcServerException
+     * @return static
      * @psalm-suppress LessSpecificImplementedReturnType
      */
     public static function invalidScope(
-        $scope,
-        $redirectUri = null,
+        string $scope,
+        ?string $redirectUri = null,
         ?string $state = null,
         ?ResponseModeInterface $responseMode = null,
-    ): OidcServerException {
+    ): static {
         if (empty($scope)) {
             $hint = 'Specify a scope in the request or set a default scope';
         } else {
@@ -143,7 +114,7 @@ class OidcServerException extends OAuthServerException
             );
         }
 
-        $e = new self(
+        $e = self::create(
             'The requested scope is invalid, unknown, or malformed',
             5,
             'invalid_scope',
@@ -167,21 +138,31 @@ class OidcServerException extends OAuthServerException
      * @param string|null $redirectUri
      * @param string|null $state
      * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface|null $responseMode
-     * @return OidcServerException
+     * @return static
      * @psalm-suppress LessSpecificImplementedReturnType
      */
     public static function invalidRequest(
-        $parameter,
-        $hint = null,
+        string $parameter,
+        ?string $hint = null,
         ?Throwable $previous = null,
         ?string $redirectUri = null,
         ?string $state = null,
         ?ResponseModeInterface $responseMode = null,
-    ): OidcServerException {
+    ): static {
         $errorMessage = 'The request is missing a required parameter, includes an invalid parameter value, ' .
         'includes a parameter more than once, or is otherwise malformed.';
         $hint = ($hint === null) ? \sprintf('Check the `%s` parameter', $parameter) : $hint;
-        $e = new self($errorMessage, 9, 'invalid_request', 400, $hint, $redirectUri, $previous, $state, $responseMode);
+        $e = self::create(
+            $errorMessage,
+            9,
+            'invalid_request',
+            400,
+            $hint,
+            $redirectUri,
+            $previous,
+            $state,
+            $responseMode,
+        );
 
         return $e;
     }
@@ -192,17 +173,17 @@ class OidcServerException extends OAuthServerException
      * @param \Throwable|null $previous
      * @param string|null $state
      * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface|null $responseMode
-     * @return OidcServerException
+     * @return static
      * @psalm-suppress LessSpecificImplementedReturnType
      */
     public static function accessDenied(
-        $hint = null,
-        $redirectUri = null,
+        ?string $hint = null,
+        ?string $redirectUri = null,
         ?Throwable $previous = null,
         ?string $state = null,
         ?ResponseModeInterface $responseMode = null,
-    ): OidcServerException {
-        $e = new self(
+    ): static {
+        $e = self::create(
             'The resource owner or authorization server denied the request.',
             9,
             'access_denied',
@@ -233,8 +214,8 @@ class OidcServerException extends OAuthServerException
         ?Throwable $previous = null,
         ?string $state = null,
         ?ResponseModeInterface $responseMode = null,
-    ): OidcServerException {
-        return new self(
+    ): static {
+        return self::create(
             'The client is not authorized to request a token using this method.',
             10,
             'unauthorized_client',
@@ -256,7 +237,7 @@ class OidcServerException extends OAuthServerException
      * @param string|null $state
      * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface|null $responseMode
      *
-     * @return OidcServerException
+     * @return static
      */
     public static function loginRequired(
         ?string $hint = null,
@@ -267,7 +248,17 @@ class OidcServerException extends OAuthServerException
     ): OidcServerException {
         $errorMessage = "End-User is not already authenticated.";
 
-        $e = new self($errorMessage, 6, 'login_required', 400, $hint, $redirectUri, $previous, $state, $responseMode);
+        $e = self::create(
+            $errorMessage,
+            6,
+            'login_required',
+            400,
+            $hint,
+            $redirectUri,
+            $previous,
+            $state,
+            $responseMode,
+        );
 
         return $e;
     }
@@ -281,7 +272,7 @@ class OidcServerException extends OAuthServerException
      * @param string|null $state
      * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface|null $responseMode
      *
-     * @return OidcServerException
+     * @return static
      */
     public static function requestNotSupported(
         ?string $hint = null,
@@ -292,7 +283,7 @@ class OidcServerException extends OAuthServerException
     ): OidcServerException {
         $errorMessage = "Request object not supported.";
 
-        $e = new self(
+        $e = self::create(
             $errorMessage,
             7,
             'request_not_supported',
@@ -313,12 +304,12 @@ class OidcServerException extends OAuthServerException
      * @param string|null $hint
      * @param \Throwable|null $previous
      *
-     * @return OidcServerException
+     * @return static
      * @psalm-suppress LessSpecificImplementedReturnType
      */
-    public static function invalidRefreshToken($hint = null, ?Throwable $previous = null): OidcServerException
+    public static function invalidRefreshToken(?string $hint = null, ?Throwable $previous = null): static
     {
-        return new self('The refresh token is invalid.', 8, 'invalid_grant', 400, $hint, null, $previous);
+        return self::create('The refresh token is invalid.', 8, 'invalid_grant', 400, $hint, null, $previous);
     }
 
     public static function invalidTrustChain(
@@ -330,7 +321,7 @@ class OidcServerException extends OAuthServerException
     ): OidcServerException {
         $errorMessage = 'Trust chain validation failed.';
 
-        $e = new self(
+        $e = self::create(
             $errorMessage,
             12,
             ErrorsEnum::InvalidTrustChain->value,
@@ -356,7 +347,7 @@ class OidcServerException extends OAuthServerException
      */
     public static function forbidden(?string $hint = null, ?Throwable $previous = null): OidcServerException
     {
-        return new self(
+        return self::create(
             'Request understood, but refused to process it.',
             11,
             'forbidden',
@@ -385,7 +376,7 @@ class OidcServerException extends OAuthServerException
         ?string $hint = null,
         ?Throwable $previous = null,
     ): OidcServerException {
-        return new self(
+        return self::create(
             'The value of one of the client metadata fields is invalid and the server has rejected this request.',
             13,
             ErrorsEnum::InvalidClientMetadata->value,
@@ -414,7 +405,7 @@ class OidcServerException extends OAuthServerException
         ?string $hint = null,
         ?Throwable $previous = null,
     ): OidcServerException {
-        return new self(
+        return self::create(
             'The value of one or more redirect_uris is invalid.',
             14,
             ErrorsEnum::InvalidRedirectUri->value,
@@ -428,21 +419,21 @@ class OidcServerException extends OAuthServerException
     /**
      * Returns the current payload.
      *
-     * @return array
+     * @return array<string, string>
      */
     public function getPayload(): array
     {
-        return $this->payload;
+        return parent::getPayload();
     }
 
     /**
      * Updates the current payload.
      *
-     * @param array $payload
+     * @param array<string, string> $payload
      */
     public function setPayload(array $payload): void
     {
-        $this->payload = $payload;
+        parent::setPayload($payload);
     }
 
     /**
@@ -484,11 +475,15 @@ class OidcServerException extends OAuthServerException
     public function setState(?string $state = null): void
     {
         if ($state === null) {
-            unset($this->payload['state']);
+            $payload = $this->getPayload();
+            unset($payload['state']);
+            $this->setPayload($payload);
             return;
         }
 
-        $this->payload['state'] = $state;
+        $payload = $this->getPayload();
+        $payload['state'] = $state;
+        $this->setPayload($payload);
     }
 
     /**
@@ -505,7 +500,6 @@ class OidcServerException extends OAuthServerException
         $useFragment = false,
         $jsonOptions = 0,
     ): ResponseInterface {
-        /** @var array<string,string> $headers */
         $headers = $this->getHttpHeaders();
 
         $payload = $this->getPayload();

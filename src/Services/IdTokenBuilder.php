@@ -147,9 +147,7 @@ class IdTokenBuilder
                                         EntityStringRepresentationInterface::class);
         }
 
-        // Try to use toString() so that it uses the string representation if
-        // it was already cast to string, otherwise, use the cast version.
-        $accessTokenString = $accessToken->toString() ?? (string) $accessToken;
+        $accessTokenString = $accessToken->toString();
 
         return Base64Url::encode(
             substr(

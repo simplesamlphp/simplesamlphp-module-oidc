@@ -117,7 +117,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
             $this->helpers->dateTime()->getSecondsToExpirationTime(
                 $authCodeEntity->getExpiryDateTime()->getTimestamp(),
             ),
-            $this->getCacheKey((string)$authCodeEntity->getIdentifier()),
+            $this->getCacheKey($authCodeEntity->getIdentifier()),
         );
     }
 
@@ -155,7 +155,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
             $this->helpers->dateTime()->getSecondsToExpirationTime(
                 $authCodeEntity->getExpiryDateTime()->getTimestamp(),
             ),
-            $this->getCacheKey((string)$authCodeEntity->getIdentifier()),
+            $this->getCacheKey($authCodeEntity->getIdentifier()),
         );
 
         return $authCodeEntity;
@@ -166,7 +166,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
      * @throws \Exception
      * @throws \JsonException
      */
-    public function revokeAuthCode($codeId): void
+    public function revokeAuthCode(string $codeId): void
     {
         $authCode = $this->findById($codeId);
 
@@ -182,7 +182,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
      * {@inheritdoc}
      * @throws \Exception
      */
-    public function isAuthCodeRevoked($codeId): bool
+    public function isAuthCodeRevoked(string $codeId): bool
     {
         $authCode = $this->findById($codeId);
 
@@ -245,7 +245,7 @@ EOS
             $this->helpers->dateTime()->getSecondsToExpirationTime(
                 $authCodeEntity->getExpiryDateTime()->getTimestamp(),
             ),
-            $this->getCacheKey((string)$authCodeEntity->getIdentifier()),
+            $this->getCacheKey($authCodeEntity->getIdentifier()),
         );
     }
 

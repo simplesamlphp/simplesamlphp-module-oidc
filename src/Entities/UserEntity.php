@@ -26,12 +26,20 @@ use SimpleSAML\Module\oidc\Entities\Interfaces\MementoInterface;
  */
 class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInterface
 {
+    /** @var non-empty-string */
+    private readonly string $identifier;
+
     public function __construct(
-        private readonly string $identifier,
+        string $identifier,
         private readonly DateTimeImmutable $createdAt,
         private DateTimeImmutable $updatedAt,
         private array $claims = [],
     ) {
+        if ($identifier === '') {
+            throw new \InvalidArgumentException('User identifier cannot be empty.');
+        }
+
+        $this->identifier = $identifier;
     }
 
     /**

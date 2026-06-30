@@ -8,7 +8,6 @@ use DateInterval;
 use DateTimeImmutable;
 use League\OAuth2\Server\Entities\ClientEntityInterface;
 use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
-use League\OAuth2\Server\Grant\AbstractGrant;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
@@ -23,16 +22,6 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
  */
 trait IssueAccessTokenTrait
 {
-    /**
-     * @psalm-suppress MissingPropertyType
-     */
-    protected $accessTokenRepository;
-
-    /**
-     * @var \League\OAuth2\Server\CryptKey
-     */
-    protected $privateKey;
-
     protected AccessTokenEntityFactory $accessTokenEntityFactory;
 
     /**
@@ -57,7 +46,7 @@ trait IssueAccessTokenTrait
         ?string $boundRedirectUri = null,
         ?string $issuerState = null,
     ): AccessTokenEntityInterface {
-        $maxGenerationAttempts = AbstractGrant::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
+        $maxGenerationAttempts = self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
 
         /** Since we are using our own repository interface, check for proper type. */
         if (! is_a($this->accessTokenRepository, AccessTokenRepositoryInterface::class)) {
@@ -102,5 +91,5 @@ trait IssueAccessTokenTrait
      *
      * @return string
      */
-    abstract protected function generateUniqueIdentifier($length = 40);
+    abstract protected function generateUniqueIdentifier(int $length = 40): string;
 }

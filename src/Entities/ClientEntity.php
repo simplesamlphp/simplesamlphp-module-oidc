@@ -162,6 +162,10 @@ class ClientEntity implements ClientEntityInterface
         ?array $extraMetadata = null,
         ?string $registrationAccessToken = null,
     ) {
+        if ($identifier === '') {
+            throw new \InvalidArgumentException('Client identifier cannot be empty.');
+        }
+
         $this->identifier = $identifier;
         $this->secret = $secret;
         $this->name = $name;
