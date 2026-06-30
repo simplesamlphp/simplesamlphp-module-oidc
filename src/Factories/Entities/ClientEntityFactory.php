@@ -158,12 +158,22 @@ class ClientEntityFactory
             unset($metadata[$adminOnlyMetadataKey]);
         }
 
+        // RFC 7592 client update is a full REPLACE, not a merge: on a DCR update, client-settable metadata the
+        // request omits must be reset to its OP default (or removed), while server-managed and admin-only
+        // properties are still carried over from the existing client. We model that with a separate "metadata
+        // fallback" client that is null on a DCR update, so the per-field `?? $metadataFallbackClient?->...`
+        // expressions below fall back to the default rather than the previously-registered value. Manual and
+        // OpenID Federation registrations keep their existing merge behaviour (the entity statement / admin form
+        // carries the full intended state anyway).
+        $isDcrUpdate = $existingClient !== null && $registrationType === RegistrationTypeEnum::Dynamic;
+        $metadataFallbackClient = $isDcrUpdate ? null : $existingClient;
+
         $id = $clientIdentifier ?? $existingClient?->getIdentifier() ??
         $this->sspBridge->utils()->random()->generateID();
 
         $secret = $existingClient?->getSecret() ?? $this->sspBridge->utils()->random()->generateID();
 
-        $name = (string)($metadata[ClaimsEnum::ClientName->value] ?? $existingClient?->getName() ?? $id);
+        $name = (string)($metadata[ClaimsEnum::ClientName->value] ?? $metadataFallbackClient?->getName() ?? $id);
 
         $description = $existingClient?->getDescription() ?? '';
 
@@ -175,7 +185,7 @@ class ClientEntityFactory
 
         // Resolve the requested scopes: from this request's metadata, falling back to an existing client's scopes
         // (e.g. on a DCR update that omits `scope`). null here means scopes were genuinely not specified.
-        $requestedScopes = $metadata[ClaimsEnum::Scope->value] ?? $existingClient?->getScopes();
+        $requestedScopes = $metadata[ClaimsEnum::Scope->value] ?? $metadataFallbackClient?->getScopes();
         if ($requestedScopes === null) {
             // No scope was specified. For Dynamic Client Registration, assign the configured default scope set
             // (OIDC DCR 1.0 lets the OP assign a default set). Manual and OpenID Federation automatic registrations
@@ -205,7 +215,7 @@ class ClientEntityFactory
                 ? $this->moduleConfig->getDcrRegisteredClientsEnabled()
                 : true);
 
-        $isConfidential = $existingClient?->isConfidential() ?? $this->determineIsConfidential(
+        $isConfidential = $metadataFallbackClient?->isConfidential() ?? $this->determineIsConfidential(
             $metadata,
         );
 
@@ -214,21 +224,21 @@ class ClientEntityFactory
         $postLogoutRedirectUris = isset($metadata[ClaimsEnum::PostLogoutRedirectUris->value]) &&
         is_array($metadata[ClaimsEnum::PostLogoutRedirectUris->value]) ?
         $this->helpers->arr()->ensureStringValues($metadata[ClaimsEnum::PostLogoutRedirectUris->value]) :
-        $existingClient?->getPostLogoutRedirectUri() ?? [];
+        $metadataFallbackClient?->getPostLogoutRedirectUri() ?? [];
 
         $backChannelLogoutUri = isset($metadata[ClaimsEnum::BackChannelLogoutUri->value]) &&
         is_string($metadata[ClaimsEnum::BackChannelLogoutUri->value]) ?
         $metadata[ClaimsEnum::BackChannelLogoutUri->value] :
-        $existingClient?->getBackChannelLogoutUri();
+        $metadataFallbackClient?->getBackChannelLogoutUri();
 
         $entityIdentifier = $clientIdentifier ?? $existingClient?->getEntityIdentifier();
 
         $clientRegistrationTypes = isset($metadata[ClaimsEnum::ClientRegistrationTypes->value]) &&
         is_array($metadata[ClaimsEnum::ClientRegistrationTypes->value]) ?
         $this->helpers->arr()->ensureStringValues($metadata[ClaimsEnum::ClientRegistrationTypes->value]) :
-        $existingClient?->getClientRegistrationTypes();
+        $metadataFallbackClient?->getClientRegistrationTypes();
 
-        $federationJwks = $federationJwks ?? $existingClient?->getFederationJwks();
+        $federationJwks = $federationJwks ?? $metadataFallbackClient?->getFederationJwks();
 
         /** @var ?array[] $jwks */
         $jwks = isset($metadata[ClaimsEnum::Jwks->value]) &&
@@ -236,17 +246,17 @@ class ClientEntityFactory
         array_key_exists(ClaimsEnum::Keys->value, $metadata[ClaimsEnum::Jwks->value]) &&
         (!empty($metadata[ClaimsEnum::Jwks->value][ClaimsEnum::Keys->value])) ?
         $metadata[ClaimsEnum::Jwks->value] :
-        $existingClient?->getJwks();
+        $metadataFallbackClient?->getJwks();
 
         $jwksUri = isset($metadata[ClaimsEnum::JwksUri->value]) &&
         is_string($metadata[ClaimsEnum::JwksUri->value]) ?
         $metadata[ClaimsEnum::JwksUri->value] :
-        $existingClient?->getJwksUri();
+        $metadataFallbackClient?->getJwksUri();
 
         $signedJwksUri = isset($metadata[ClaimsEnum::SignedJwksUri->value]) &&
         is_string($metadata[ClaimsEnum::SignedJwksUri->value]) ?
         $metadata[ClaimsEnum::SignedJwksUri->value] :
-        $existingClient?->getSignedJwksUri();
+        $metadataFallbackClient?->getSignedJwksUri();
 
 //        $registrationType = $registrationType;
 
@@ -262,14 +272,27 @@ class ClientEntityFactory
         // is null here; the registration controller generates and assigns the token after building the entity.
         $registrationAccessToken = $existingClient?->getRegistrationAccessTokenHash();
 
-        $extraMetadata = $existingClient?->getExtraMetadata() ?? [];
+        // On a DCR update this starts empty (replace semantics); on create/manual/federation it carries the existing
+        // extra metadata. Admin-only extra metadata (e.g. authproc) is never client-settable and is re-injected from
+        // the real existing client below so a DCR update cannot drop it.
+        $extraMetadata = $metadataFallbackClient?->getExtraMetadata() ?? [];
+        if ($isDcrUpdate) {
+            // $isDcrUpdate implies $existingClient is non-null (see its definition above).
+            $existingExtraMetadata = $existingClient->getExtraMetadata();
+            foreach (ClientEntity::ADMIN_ONLY_METADATA_KEYS as $adminOnlyMetadataKey) {
+                if (array_key_exists($adminOnlyMetadataKey, $existingExtraMetadata)) {
+                    /** @psalm-suppress MixedAssignment */
+                    $extraMetadata[$adminOnlyMetadataKey] = $existingExtraMetadata[$adminOnlyMetadataKey];
+                }
+            }
+        }
 
         // Handle any other supported client metadata as extra metadata.
         // id_token_signed_response_alg
         $idTokenSignedResponseAlg = isset($metadata[ClaimsEnum::IdTokenSignedResponseAlg->value]) &&
         is_string($metadata[ClaimsEnum::IdTokenSignedResponseAlg->value]) ?
         $metadata[ClaimsEnum::IdTokenSignedResponseAlg->value] :
-        $existingClient?->getIdTokenSignedResponseAlg();
+        $metadataFallbackClient?->getIdTokenSignedResponseAlg();
 
         // Make sure the requested id_token_signed_response_alg is one of the OP
         // can actually sign ID Tokens with, i.e. one for which a protocol

@@ -96,6 +96,18 @@ method nor `native` is present (e.g. a federation/manual client), the explicit
 `is_confidential` value stands. (Consequence: to make a `native` client confidential,
 give it a real authentication method.)
 
+## RFC 7592 update semantics (full replace)
+
+A client update at the Client Configuration Endpoint (HTTP `PUT`) is a **full
+replace**, not a merge, per RFC 7592 §2.2: client-settable metadata that the update
+request omits is reset to its OP default (or removed), so the client must send the
+complete intended metadata set on every update. Server-managed and admin-only
+properties are preserved across the update — the client identifier and secret,
+`created_at`, the registration type, the registration access token, and in
+particular any administrator-set `authproc` (which a registering client can never
+set). This applies to Dynamic (DCR) registrations; manual (admin UI) and OpenID
+Federation registrations are unaffected.
+
 ## `redirect_uris` constraints by `application_type`
 
 Per OpenID Connect Dynamic Client Registration 1.0 (Section 2, `application_type`),

@@ -510,6 +510,84 @@ class ClientEntityFactoryTest extends TestCase
     }
 
     /**
+     * RFC 7592 update is a full replace: client-settable metadata omitted from the update request is reset to its
+     * default (or removed), not retained from the previous registration.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataUpdateReplacesOmittedClientMetadata(): void
+    {
+        $this->moduleConfigMock->method('getDcrDefaultScopes')->willReturn(['openid']);
+
+        $original = $this->sut()->fromRegistrationData(
+            [
+                ClaimsEnum::RedirectUris->value => ['https://example.org/cb'],
+                ClaimsEnum::ClientName->value => 'Original Name',
+                ClaimsEnum::Scope->value => 'openid profile',
+                ClaimsEnum::GrantTypes->value => ['authorization_code', 'refresh_token'],
+                ClaimsEnum::LogoUri->value => 'https://example.org/logo.png',
+                ClaimsEnum::PostLogoutRedirectUris->value => ['https://example.org/post'],
+            ],
+            RegistrationTypeEnum::Dynamic,
+        );
+        $this->assertSame('Original Name', $original->getName());
+        $this->assertContains('refresh_token', $original->getGrantTypes());
+        $this->assertSame('https://example.org/logo.png', $original->getLogoUri());
+
+        // Update with redirect_uris only: every other client-settable field must be reset.
+        $updated = $this->sut()->fromRegistrationData(
+            [ClaimsEnum::RedirectUris->value => ['https://example.org/cb2']],
+            RegistrationTypeEnum::Dynamic,
+            existingClient: $original,
+        );
+
+        $this->assertSame(['https://example.org/cb2'], $updated->getRedirectUris());
+        $this->assertSame($updated->getIdentifier(), $updated->getName()); // client_name reset to client_id
+        $this->assertSame(['authorization_code'], $updated->getGrantTypes()); // reset to DCR default
+        $this->assertSame(['openid'], $updated->getScopes()); // reset to default scope set
+        $this->assertNull($updated->getLogoUri()); // removed
+        $this->assertSame([], $updated->getPostLogoutRedirectUri()); // removed
+
+        // Server-managed identity is preserved across the update.
+        $this->assertSame($original->getIdentifier(), $updated->getIdentifier());
+        $this->assertSame($original->getSecret(), $updated->getSecret());
+    }
+
+    /**
+     * Admin-only metadata (e.g. authproc, which a registering client can never set) survives an RFC 7592 update,
+     * even though the update otherwise replaces client-settable metadata.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataUpdateRetainsAdminOnlyMetadata(): void
+    {
+        $authProcFilters = [60 => ['class' => 'core:AttributeAdd']];
+        $existing = $this->sut()->fromData(
+            'client-1',
+            'secret-1',
+            'Name',
+            '',
+            ['https://example.org/cb'],
+            ['openid'],
+            true,
+            true,
+            registrationType: RegistrationTypeEnum::Dynamic,
+            extraMetadata: [ClientEntity::KEY_AUTH_PROC_FILTERS => $authProcFilters],
+        );
+        $this->assertSame($authProcFilters, $existing->getAuthProcFilters());
+
+        $updated = $this->sut()->fromRegistrationData(
+            [ClaimsEnum::RedirectUris->value => ['https://example.org/cb2']],
+            RegistrationTypeEnum::Dynamic,
+            existingClient: $existing,
+        );
+
+        $this->assertSame($authProcFilters, $updated->getAuthProcFilters());
+    }
+
+    /**
      * Federation automatic registrations are not forced to the Dynamic defaults: nothing is persisted for these
      * three fields unless the federation metadata provides them.
      *
