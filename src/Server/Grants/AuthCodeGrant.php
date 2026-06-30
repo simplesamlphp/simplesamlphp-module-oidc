@@ -74,7 +74,6 @@ use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
-use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
@@ -529,15 +528,14 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $client = $authorizationClientEntity;
 
         // Per-client grant_types enforcement: if the client explicitly registered a non-empty grant_types list, it
-        // must include 'authorization_code' to exchange a code here. Enforced only when explicitly registered
-        // (present and non-empty), preserving behavior for manually-managed and pre-DCR clients that do not have it
-        // configured - or have it as an empty list. The refresh_token grant is intentionally NOT gated on
-        // grant_types (see RefreshTokenGrant): a refresh token is only issued when offline_access was granted and
-        // consented, which is itself the authorization to refresh.
-        /** @var mixed $registeredGrantTypes */
-        $registeredGrantTypes = $client->getExtraMetadata()[ClaimsEnum::GrantTypes->value] ?? null;
+        // must include 'authorization_code' to exchange a code here. getGrantTypes() returns the raw registered
+        // value (an empty array when nothing is registered - it does not synthesize the OIDC DCR spec default), so
+        // an empty list means "not configured" and is not enforced, preserving behavior for manually-managed and
+        // pre-DCR clients. The refresh_token grant is intentionally NOT gated on grant_types (see RefreshTokenGrant):
+        // a refresh token is only issued when offline_access was granted and consented, which is itself the
+        // authorization to refresh.
+        $registeredGrantTypes = $client->getGrantTypes();
         if (
-            is_array($registeredGrantTypes) &&
             $registeredGrantTypes !== [] &&
             !in_array(GrantTypesEnum::AuthorizationCode->value, $registeredGrantTypes, true)
         ) {

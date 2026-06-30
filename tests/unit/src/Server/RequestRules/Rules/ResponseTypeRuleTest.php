@@ -67,7 +67,7 @@ class ResponseTypeRuleTest extends TestCase
         // The rule reads the resolved client; by default it has no registered response_types, so per-client
         // enforcement does not apply (preserving the previous behavior).
         $clientStub = $this->createStub(ClientEntityInterface::class);
-        $clientStub->method('getExtraMetadata')->willReturn([]);
+        $clientStub->method('getResponseTypes')->willReturn([]);
         $this->resultBag->add(new Result(ClientRule::class, $clientStub));
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
@@ -118,7 +118,7 @@ class ResponseTypeRuleTest extends TestCase
     public function testRejectsResponseTypeNotRegisteredForClient(): void
     {
         $client = $this->createStub(ClientEntityInterface::class);
-        $client->method('getExtraMetadata')->willReturn(['response_types' => ['code']]);
+        $client->method('getResponseTypes')->willReturn(['code']);
 
         $bag = new ResultBag();
         $bag->add(new Result(ClientRule::class, $client));
@@ -143,7 +143,7 @@ class ResponseTypeRuleTest extends TestCase
         // A present-but-empty response_types list means "not configured / unconstrained", not "allow nothing".
         // This preserves behavior for pre-DCR clients that get an empty list persisted on an admin save.
         $client = $this->createStub(ClientEntityInterface::class);
-        $client->method('getExtraMetadata')->willReturn(['response_types' => []]);
+        $client->method('getResponseTypes')->willReturn([]);
 
         $bag = new ResultBag();
         $bag->add(new Result(ClientRule::class, $client));

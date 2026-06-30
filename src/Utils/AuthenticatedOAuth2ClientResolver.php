@@ -14,7 +14,6 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
-use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientAssertionTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
@@ -74,11 +73,11 @@ class AuthenticatedOAuth2ClientResolver
     protected function enforceRegisteredTokenEndpointAuthMethod(
         ResolvedClientAuthenticationMethod $resolved,
     ): void {
-        /** @var mixed $registeredMethod */
-        $registeredMethod = $resolved->getClient()->getExtraMetadata()[ClaimsEnum::TokenEndpointAuthMethod->value]
-        ?? null;
+        // getTokenEndpointAuthMethod() returns the raw registered value, or null when nothing is registered (it does
+        // not synthesize the OIDC DCR spec default), so null means "not configured" and is not enforced.
+        $registeredMethod = $resolved->getClient()->getTokenEndpointAuthMethod();
 
-        if (!is_string($registeredMethod)) {
+        if ($registeredMethod === null) {
             return;
         }
 

@@ -12,7 +12,6 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
@@ -63,12 +62,11 @@ class ResponseTypeRule extends AbstractRule
         // an empty list - are not constrained, preserving behavior for manually-managed and pre-DCR clients.
         // Dynamically registered clients always have it (the OIDC DCR default is applied at registration).
         $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
-        /** @var mixed $registeredResponseTypes */
-        $registeredResponseTypes = ($client instanceof ClientEntityInterface) ?
-        ($client->getExtraMetadata()[ClaimsEnum::ResponseTypes->value] ?? null) : null;
+        // getResponseTypes() returns the raw registered value (empty array when nothing is registered - it does not
+        // synthesize the OIDC DCR spec default), so an empty list means "not configured" and is not enforced.
+        $registeredResponseTypes = ($client instanceof ClientEntityInterface) ? $client->getResponseTypes() : [];
 
         if (
-            is_array($registeredResponseTypes) &&
             $registeredResponseTypes !== [] &&
             !in_array($responseType, $registeredResponseTypes, true)
         ) {
