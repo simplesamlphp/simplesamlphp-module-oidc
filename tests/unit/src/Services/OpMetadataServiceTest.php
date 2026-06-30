@@ -138,9 +138,10 @@ class OpMetadataServiceTest extends TestCase
                 'id_token_signing_alg_values_supported' => ['RS256'],
                 'code_challenge_methods_supported' => ['plain', 'S256'],
                 'token_endpoint_auth_methods_supported' => [
-                    'client_secret_post',
                     'client_secret_basic',
+                    'client_secret_post',
                     'private_key_jwt',
+                    'none',
                 ],
                 'token_endpoint_auth_signing_alg_values_supported' => [
                     'RS256',

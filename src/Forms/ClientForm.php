@@ -24,11 +24,10 @@ use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\ResponseTypeGrantTypeCorrespondence;
+use SimpleSAML\Module\oidc\Utils\SupportedClientMetadata;
 use SimpleSAML\OpenID\Codebooks\ApplicationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
-use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
-use SimpleSAML\OpenID\Codebooks\ResponseTypesEnum;
 use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
 use Traversable;
 
@@ -855,11 +854,7 @@ class ClientForm extends Form
      */
     protected function getSupportedGrantTypes(): array
     {
-        $supported = [
-            GrantTypesEnum::AuthorizationCode->value,
-            GrantTypesEnum::Implicit->value,
-            GrantTypesEnum::RefreshToken->value,
-        ];
+        $supported = SupportedClientMetadata::grantTypes();
 
         return array_combine($supported, $supported);
     }
@@ -872,11 +867,7 @@ class ClientForm extends Form
      */
     protected function getSupportedResponseTypes(): array
     {
-        $supported = [
-            ResponseTypesEnum::Code->value,
-            ResponseTypesEnum::IdToken->value,
-            ResponseTypesEnum::IdTokenToken->value,
-        ];
+        $supported = SupportedClientMetadata::responseTypes();
 
         return array_combine($supported, $supported);
     }
@@ -888,12 +879,7 @@ class ClientForm extends Form
      */
     protected function getSupportedTokenEndpointAuthMethods(): array
     {
-        $supported = [
-            TokenEndpointAuthMethodsEnum::ClientSecretBasic->value,
-            TokenEndpointAuthMethodsEnum::ClientSecretPost->value,
-            TokenEndpointAuthMethodsEnum::PrivateKeyJwt->value,
-            TokenEndpointAuthMethodsEnum::None->value,
-        ];
+        $supported = SupportedClientMetadata::tokenEndpointAuthMethods();
 
         return array_combine($supported, $supported);
     }

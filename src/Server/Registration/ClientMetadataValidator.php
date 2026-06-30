@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Server\Registration;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\ResponseTypeGrantTypeCorrespondence;
+use SimpleSAML\Module\oidc\Utils\SupportedClientMetadata;
 use SimpleSAML\OpenID\Codebooks\ApplicationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
@@ -93,6 +94,7 @@ class ClientMetadataValidator
         $this->validateContacts($metadata);
         $this->validateApplicationType($metadata);
         $this->validateRedirectUrisForApplicationType($metadata, $redirectUris);
+        $this->validateRegisterableProtocolValues($metadata);
         $this->validateSubjectType($metadata);
         $this->rejectUnsupportedFeatures($metadata);
         $this->validateAdditionalMetadata($metadata);
@@ -235,6 +237,73 @@ class ClientMetadataValidator
             ApplicationTypesEnum::tryFrom($applicationType) === null
         ) {
             throw OidcServerException::invalidClientMetadata('Invalid application_type value.');
+        }
+    }
+
+    /**
+     * Reject registration of grant_types / response_types / token_endpoint_auth_method values that this OP does not
+     * support (the same sets it advertises in discovery via SupportedClientMetadata). Without this, a client could
+     * register values that can never be honored and would fail at authentication/token time.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    private function validateRegisterableProtocolValues(array $metadata): void
+    {
+        $this->rejectUnsupportedArrayValues(
+            $metadata,
+            ClaimsEnum::GrantTypes->value,
+            SupportedClientMetadata::grantTypes(),
+        );
+        $this->rejectUnsupportedArrayValues(
+            $metadata,
+            ClaimsEnum::ResponseTypes->value,
+            SupportedClientMetadata::responseTypes(),
+        );
+
+        if (array_key_exists(ClaimsEnum::TokenEndpointAuthMethod->value, $metadata)) {
+            /** @var mixed $authMethod */
+            $authMethod = $metadata[ClaimsEnum::TokenEndpointAuthMethod->value];
+            if (
+                !is_string($authMethod) ||
+                !in_array($authMethod, SupportedClientMetadata::tokenEndpointAuthMethods(), true)
+            ) {
+                throw OidcServerException::invalidClientMetadata(
+                    'Unsupported token_endpoint_auth_method. Supported: ' .
+                    implode(', ', SupportedClientMetadata::tokenEndpointAuthMethods()) . '.',
+                );
+            }
+        }
+    }
+
+    /**
+     * Reject the registration when a list-valued metadata field contains a value outside the supported set. When
+     * present, the field must be an array of strings, each of which must be supported.
+     *
+     * @param string[] $supported
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    private function rejectUnsupportedArrayValues(array $metadata, string $claim, array $supported): void
+    {
+        if (!array_key_exists($claim, $metadata)) {
+            return;
+        }
+
+        /** @var mixed $values */
+        $values = $metadata[$claim];
+        if (!is_array($values)) {
+            throw OidcServerException::invalidClientMetadata(sprintf('%s must be an array.', $claim));
+        }
+
+        /** @var mixed $value */
+        foreach ($values as $value) {
+            if (!is_string($value) || !in_array($value, $supported, true)) {
+                throw OidcServerException::invalidClientMetadata(sprintf(
+                    'Unsupported %s value: %s. Supported: %s.',
+                    $claim,
+                    is_string($value) ? '"' . $value . '"' : var_export($value, true),
+                    implode(', ', $supported),
+                ));
+            }
         }
     }
 

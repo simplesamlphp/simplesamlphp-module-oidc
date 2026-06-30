@@ -225,6 +225,55 @@ class ClientMetadataValidatorTest extends TestCase
         );
     }
 
+    public function testUnsupportedGrantTypeIsRejected(): void
+    {
+        $this->assertRejected(
+            [
+                'redirect_uris' => ['https://client.example.org/cb'],
+                'grant_types' => ['authorization_code', 'client_credentials'],
+            ],
+            'invalid_client_metadata',
+            'grant_types',
+        );
+    }
+
+    public function testUnsupportedResponseTypeIsRejected(): void
+    {
+        $this->assertRejected(
+            [
+                'redirect_uris' => ['https://client.example.org/cb'],
+                'response_types' => ['code id_token token'],
+            ],
+            'invalid_client_metadata',
+            'response_types',
+        );
+    }
+
+    public function testUnsupportedTokenEndpointAuthMethodIsRejected(): void
+    {
+        $this->assertRejected(
+            [
+                'redirect_uris' => ['https://client.example.org/cb'],
+                'token_endpoint_auth_method' => 'tls_client_auth',
+            ],
+            'invalid_client_metadata',
+            'token_endpoint_auth_method',
+        );
+    }
+
+    public function testSupportedGrantResponseAndAuthMethodArePassedThrough(): void
+    {
+        // 'none' (public client) and the implicit response/grant types are supported and must be accepted.
+        $metadata = [
+            'redirect_uris' => ['https://client.example.org/cb'],
+            'grant_types' => ['authorization_code', 'implicit', 'refresh_token'],
+            'response_types' => ['code', 'id_token', 'id_token token'],
+            'token_endpoint_auth_method' => 'none',
+        ];
+
+        $this->assertSame($metadata, $this->sut()->validate($metadata));
+    }
+
     public function testUnsupportedDefaultAcrValueIsRejected(): void
     {
         $this->assertRejected(
