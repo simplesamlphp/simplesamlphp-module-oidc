@@ -258,6 +258,17 @@ class RegistrationController
      */
     protected function parseMetadata(Request $request): array
     {
+        // RFC 7591 Section 3.1 / RFC 7592 Section 2.2: registration (create) and update requests carry a JSON
+        // document and MUST use Content-Type: application/json. Reject other media types rather than parsing them.
+        // Parameters such as "; charset=utf-8" are allowed; the comparison is on the media type only.
+        $contentType = strtolower(trim(explode(';', (string)$request->headers->get('Content-Type', ''))[0]));
+        if ($contentType !== 'application/json') {
+            throw OidcServerException::invalidRequest(
+                'Content-Type',
+                'Registration requests must use Content-Type: application/json.',
+            );
+        }
+
         $body = $request->getContent();
 
         try {

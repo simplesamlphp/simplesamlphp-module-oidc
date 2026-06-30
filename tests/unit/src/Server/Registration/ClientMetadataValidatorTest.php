@@ -292,6 +292,24 @@ class ClientMetadataValidatorTest extends TestCase
         );
     }
 
+    public function testRedirectUriWithEmptyFragmentIsRejected(): void
+    {
+        // A trailing '#' is an (empty) fragment component, which OIDC Core 3.1.2.1 forbids.
+        $this->assertRejected(
+            ['redirect_uris' => ['https://client.example.org/cb#']],
+            'invalid_redirect_uri',
+            'fragment',
+        );
+    }
+
+    public function testRedirectUriWithEncodedHashIsAllowed(): void
+    {
+        // A percent-encoded '%23' in the path is a literal '#', not a fragment delimiter.
+        $metadata = ['redirect_uris' => ['https://client.example.org/cb%23section']];
+
+        $this->assertSame($metadata, $this->sut()->validate($metadata));
+    }
+
     public function testNativeClientRejectsRemoteHttpRedirectUri(): void
     {
         $this->assertRejected(

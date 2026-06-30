@@ -173,6 +173,43 @@ class RegistrationControllerTest extends TestCase
         $this->assertSame('invalid_client_metadata', $this->decode($response)['error']);
     }
 
+    public function testWrongContentTypeReturns400InvalidRequest(): void
+    {
+        $request = Request::create(
+            'https://op.example.org/oidc/register',
+            'POST',
+            [],
+            [],
+            [],
+            ['CONTENT_TYPE' => 'text/plain'],
+            '{"redirect_uris":["https://client.example.org/cb"]}',
+        );
+
+        $response = $this->sut()->registration($request);
+
+        $this->assertSame(400, $response->getStatusCode());
+        $this->assertSame('invalid_request', $this->decode($response)['error']);
+    }
+
+    public function testJsonContentTypeWithCharsetParameterIsAccepted(): void
+    {
+        $this->clientEntityFactoryMock->method('fromRegistrationData')->willReturn($this->clientMock);
+
+        $request = Request::create(
+            'https://op.example.org/oidc/register',
+            'POST',
+            [],
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json; charset=utf-8'],
+            '{"redirect_uris":["https://client.example.org/cb"]}',
+        );
+
+        $response = $this->sut()->registration($request);
+
+        $this->assertSame(201, $response->getStatusCode());
+    }
+
     public function testInitialAccessTokenModeRejectsMissingToken(): void
     {
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);

@@ -579,13 +579,14 @@ class ClientMetadataValidator
     }
 
     /**
-     * Whether the URI has a fragment component (the part after '#').
+     * Whether the URI has a fragment component at all. OpenID Connect Core 3.1.2.1 requires redirect_uris to
+     * contain no fragment component, which includes an empty fragment: a trailing '#' (e.g. ".../cb#") is a
+     * fragment component even though parse_url() reports it as an empty string. Any literal '#' delimiter therefore
+     * counts; a percent-encoded '%23' in the path/query does not (it is not a fragment delimiter).
      */
     private function hasFragment(string $uri): bool
     {
-        $fragment = parse_url($uri, PHP_URL_FRAGMENT);
-
-        return is_string($fragment) && $fragment !== '';
+        return str_contains($uri, '#');
     }
 
     /**
