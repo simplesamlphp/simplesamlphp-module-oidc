@@ -196,7 +196,14 @@ class ClientEntityFactory
         // Let's ensure there is at least 'openid' scope present.
         $scopes = empty($scopes) ? [ScopesEnum::OpenId->value] : $scopes;
 
-        $isEnabled = $existingClient?->isEnabled() ?? true;
+        // For a new Dynamic (DCR) client, the initial enabled state is governed by configuration: deployments can
+        // choose to create dynamically registered clients disabled, so an administrator reviews and enables them
+        // before use ("register, then approve"). On update the existing state is preserved (review only gates the
+        // initial registration). OpenID Federation automatic registrations are always created enabled.
+        $isEnabled = $existingClient?->isEnabled()
+        ?? ($registrationType === RegistrationTypeEnum::Dynamic
+                ? $this->moduleConfig->getDcrRegisteredClientsEnabled()
+                : true);
 
         $isConfidential = $existingClient?->isConfidential() ?? $this->determineIsConfidential(
             $metadata,

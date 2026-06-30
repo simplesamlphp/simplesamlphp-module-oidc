@@ -222,6 +222,13 @@ DCR client that registers without an explicit `scope`. Defaults to all scopes th
 OP supports (so scope-less dynamic clients can request `offline_access`); set an
 explicit list to restrict it. Applies to Dynamic registrations only; manual and
 OpenID Federation registrations are unaffected.
+- `ModuleConfig::OPTION_DCR_REGISTERED_CLIENTS_ENABLED` - optional, whether a
+dynamically registered client is created enabled and immediately usable (default
+`true`). Set to `false` to create DCR clients disabled, so an administrator reviews
+and enables them before use ("register, then approve"); while disabled the client
+can still manage its own registration (RFC 7592) but cannot obtain tokens. Applies
+to Dynamic registrations only; OpenID Federation automatic registrations are always
+created enabled.
 - `ModuleConfig::OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS` - optional, Guzzle HTTP
 client options (passed through verbatim) for the protocol-layer outbound fetches
 made by the underlying `openid` library, such as fetching a client `jwks_uri` or a

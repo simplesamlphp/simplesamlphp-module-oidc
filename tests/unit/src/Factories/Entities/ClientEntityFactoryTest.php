@@ -27,6 +27,9 @@ class ClientEntityFactoryTest extends TestCase
 {
     protected MockObject $sspBridgeMock;
     protected MockObject $moduleConfigMock;
+
+    /** Backing value for ModuleConfig::getDcrRegisteredClientsEnabled() in tests (real default is true). */
+    protected bool $dcrRegisteredClientsEnabled = true;
     protected Helpers $helpers;
 
     /**
@@ -50,6 +53,9 @@ class ClientEntityFactoryTest extends TestCase
             'email' => ['description' => 'email'],
             'offline_access' => ['description' => 'offline_access'],
         ]);
+        // Real default is true (auto-enable); individual tests may flip $this->dcrRegisteredClientsEnabled.
+        $this->moduleConfigMock->method('getDcrRegisteredClientsEnabled')
+            ->willReturnCallback(fn(): bool => $this->dcrRegisteredClientsEnabled);
 
         $signatureKeyPairBagMock = $this->createMock(SignatureKeyPairBag::class);
         $signatureKeyPairBagMock->method('getAllAlgorithmNamesUnique')->willReturn(['RS256', 'ES256']);
@@ -419,6 +425,88 @@ class ClientEntityFactoryTest extends TestCase
 
         $this->assertTrue($updatedClient->isConfidential());
         $this->assertSame('client_secret_basic', $updatedClient->getTokenEndpointAuthMethod());
+    }
+
+    /**
+     * A new Dynamic client is created enabled by default (auto-enable).
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataEnablesNewDynamicClientByDefault(): void
+    {
+        $this->dcrRegisteredClientsEnabled = true;
+
+        $client = $this->sut()->fromRegistrationData(
+            [ClaimsEnum::RedirectUris->value => ['https://example.org/cb']],
+            RegistrationTypeEnum::Dynamic,
+        );
+
+        $this->assertTrue($client->isEnabled());
+    }
+
+    /**
+     * When configured for review, a new Dynamic client is created disabled.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataCreatesNewDynamicClientDisabledWhenConfigured(): void
+    {
+        $this->dcrRegisteredClientsEnabled = false;
+
+        $client = $this->sut()->fromRegistrationData(
+            [ClaimsEnum::RedirectUris->value => ['https://example.org/cb']],
+            RegistrationTypeEnum::Dynamic,
+        );
+
+        $this->assertFalse($client->isEnabled());
+    }
+
+    /**
+     * The review setting applies to Dynamic registrations only: OpenID Federation automatic registrations are
+     * always created enabled (they are vouched for by their trust chain).
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataAlwaysEnablesFederatedClientRegardlessOfReviewSetting(): void
+    {
+        $this->dcrRegisteredClientsEnabled = false;
+
+        $client = $this->sut()->fromRegistrationData(
+            [ClaimsEnum::RedirectUris->value => ['https://example.org/cb']],
+            RegistrationTypeEnum::FederatedAutomatic,
+        );
+
+        $this->assertTrue($client->isEnabled());
+    }
+
+    /**
+     * The review gate only applies to the initial registration: an update preserves the existing enabled state
+     * (so re-registering an already-approved client does not silently disable it again).
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataUpdatePreservesEnabledStateUnderReviewSetting(): void
+    {
+        $this->dcrRegisteredClientsEnabled = true;
+        $existingClient = $this->sut()->fromRegistrationData(
+            [ClaimsEnum::RedirectUris->value => ['https://example.org/cb']],
+            RegistrationTypeEnum::Dynamic,
+        );
+        $this->assertTrue($existingClient->isEnabled());
+
+        // Even if the option is now off, updating an existing (enabled) client keeps it enabled.
+        $this->dcrRegisteredClientsEnabled = false;
+        $updatedClient = $this->sut()->fromRegistrationData(
+            [ClaimsEnum::RedirectUris->value => ['https://example.org/cb2']],
+            RegistrationTypeEnum::Dynamic,
+            existingClient: $existingClient,
+        );
+
+        $this->assertTrue($updatedClient->isEnabled());
     }
 
     /**

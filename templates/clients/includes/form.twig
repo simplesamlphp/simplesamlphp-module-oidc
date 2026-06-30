@@ -76,7 +76,7 @@
         <label for="frm-application_type">{{ 'Application Type'|trans }}</label>
         {{ form.application_type.control | raw }}
         <span class="pure-form-message">
-            {% trans %}Kind of application (default: web). For dynamically registered clients this constrains the allowed Redirect URIs: native clients may only use custom URI schemes or loopback addresses (localhost, 127.0.0.1, [::1]); web clients using the implicit grant must use https and must not use localhost.{% endtrans %}
+            {% trans %}Kind of application. For dynamically registered clients this constrains the allowed Redirect URIs: native clients may only use custom URI schemes or loopback addresses (localhost, 127.0.0.1, [::1]); web clients using the implicit grant must use https and must not use localhost.{% endtrans %}
         </span>
         {% if form.application_type.hasErrors %}
             <span class="pure-form-message red-text">{{ form.application_type.getError }}</span>

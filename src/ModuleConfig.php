@@ -134,6 +134,7 @@ class ModuleConfig
     final public const string OPTION_DCR_IMPERSONATION_PROTECTION_ENABLED =
     'dcr_impersonation_protection_enabled';
     final public const string OPTION_DCR_DEFAULT_SCOPES = 'dcr_default_scopes';
+    final public const string OPTION_DCR_REGISTERED_CLIENTS_ENABLED = 'dcr_registered_clients_enabled';
     final public const string OPTION_PAR_REQUEST_URI_TTL = 'par_request_uri_ttl';
     final public const string OPTION_REQUIRE_PUSHED_AUTHORIZATION_REQUESTS = 'require_pushed_authorization_requests';
     final public const string OPTION_REQUIRE_SIGNED_REQUEST_OBJECT = 'require_signed_request_object';
@@ -1069,6 +1070,19 @@ class ModuleConfig
     public function getDcrImpersonationProtectionEnabled(): bool
     {
         return $this->config()->getOptionalBoolean(self::OPTION_DCR_IMPERSONATION_PROTECTION_ENABLED, true);
+    }
+
+    /**
+     * Whether a client registered through Dynamic Client Registration (RFC 7591 / OIDC DCR) is created enabled and
+     * therefore immediately usable. When `true` (default) a dynamically registered client can be used right away.
+     * Set to `false` to create such clients disabled, so an administrator must review and enable them in the admin
+     * UI before they can complete authorization/token flows ("register, then approve"); the client can still read
+     * and manage its own registration (RFC 7592) while disabled. This applies only to Dynamic registrations; OpenID
+     * Federation automatic registrations (vouched for by their trust chain) are always created enabled.
+     */
+    public function getDcrRegisteredClientsEnabled(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_DCR_REGISTERED_CLIENTS_ENABLED, true);
     }
 
     /**

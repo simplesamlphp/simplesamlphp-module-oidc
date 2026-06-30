@@ -694,6 +694,30 @@ $config = [
 //        'offline_access',
 //    ],
 
+    /**
+     * Whether a client registered through Dynamic Client Registration (DCR) is
+     * created ENABLED and therefore immediately usable.
+     *
+     * When true (default), a dynamically registered client can be used right
+     * away. Set to false to create such clients DISABLED, so an administrator
+     * must review and enable them in the admin UI before they can complete
+     * authorization / token flows ("register, then approve"). While disabled, the
+     * client can still read and manage its own registration (RFC 7592) using the
+     * registration access token it received - it simply cannot obtain tokens until
+     * an administrator enables it.
+     *
+     * Note: there is no standard way to signal "pending approval" back to the
+     * client in the registration response (it receives a normal success response),
+     * so you may need to communicate the review step out-of-band.
+     *
+     * This applies ONLY to Dynamic registrations. OpenID Federation automatic
+     * registrations are always created enabled (they are vouched for by their
+     * trust chain).
+     *
+     * Format: bool (default: true)
+     */
+    ModuleConfig::OPTION_DCR_REGISTERED_CLIENTS_ENABLED => true,
+
     /***************************************************************************
      * (optional) OpenID Federation-related options. If these are not set,
      * OpenID Federation capabilities will be disabled.
