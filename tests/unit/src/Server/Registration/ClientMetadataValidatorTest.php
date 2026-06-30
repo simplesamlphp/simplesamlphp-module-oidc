@@ -23,6 +23,12 @@ class ClientMetadataValidatorTest extends TestCase
         $this->moduleConfigMock->method('getDcrImpersonationProtectionEnabled')->willReturn(true);
         // Default: the OP advertises a single supported ACR.
         $this->moduleConfigMock->method('getAcrValuesSupported')->willReturn(['urn:mace:incommon:iap:silver']);
+        $this->moduleConfigMock->method('getSupportedResponseTypes')
+            ->willReturn(['code', 'id_token', 'id_token token']);
+        $this->moduleConfigMock->method('getSupportedGrantTypes')
+            ->willReturn(['authorization_code', 'implicit', 'refresh_token']);
+        $this->moduleConfigMock->method('getSupportedTokenEndpointAuthMethods')
+            ->willReturn(['client_secret_basic', 'client_secret_post', 'private_key_jwt', 'none']);
     }
 
     protected function sut(): ClientMetadataValidator
@@ -384,6 +390,12 @@ class ClientMetadataValidatorTest extends TestCase
     {
         $moduleConfigMock = $this->createMock(ModuleConfig::class);
         $moduleConfigMock->method('getDcrImpersonationProtectionEnabled')->willReturn(false);
+        $moduleConfigMock->method('getSupportedResponseTypes')
+            ->willReturn(['code', 'id_token', 'id_token token']);
+        $moduleConfigMock->method('getSupportedGrantTypes')
+            ->willReturn(['authorization_code', 'implicit', 'refresh_token']);
+        $moduleConfigMock->method('getSupportedTokenEndpointAuthMethods')
+            ->willReturn(['client_secret_basic', 'client_secret_post', 'private_key_jwt', 'none']);
 
         $metadata = [
             'redirect_uris' => ['https://client.example.org/cb'],

@@ -49,6 +49,12 @@ class ClientFormTest extends TestCase
         $this->moduleConfigMock->method('getSupportedResponseModes')->willReturn(['query', 'fragment', 'form_post']);
         $this->moduleConfigMock->method('getAcrValuesSupported')
             ->willReturn(['urn:mace:incommon:iap:silver', 'urn:mace:incommon:iap:bronze']);
+        $this->moduleConfigMock->method('getSupportedResponseTypes')
+            ->willReturn(['code', 'id_token', 'id_token token']);
+        $this->moduleConfigMock->method('getSupportedGrantTypes')
+            ->willReturn(['authorization_code', 'implicit', 'refresh_token']);
+        $this->moduleConfigMock->method('getSupportedTokenEndpointAuthMethods')
+            ->willReturn(['client_secret_basic', 'client_secret_post', 'private_key_jwt', 'none']);
 
         $signatureKeyPairBagMock = $this->createMock(SignatureKeyPairBag::class);
         $signatureKeyPairBagMock->method('getAllAlgorithmNamesUnique')->willReturn(['RS256', 'ES256']);

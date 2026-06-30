@@ -32,7 +32,7 @@ contract for what was honored.
 | `redirect_uris` | Honored | Honored | Required; scheme required, fragment rejected. |
 | `client_name` | Honored | Honored | Defaults to client_id. |
 | `scope` | Honored | Honored | DCR default = `OPTION_DCR_DEFAULT_SCOPES`. |
-| `grant_types` | **Honored** (persist + echo + enforce) | Honored | DCR default `["authorization_code"]` stored at registration. Unsupported values rejected (`SupportedClientMetadata`). Enforced for the code grant (presence + non-empty); refresh grant exempt (see note). |
+| `grant_types` | **Honored** (persist + echo + enforce) | Honored | DCR default `["authorization_code"]` stored at registration. Unsupported values rejected (`ModuleConfig`). Enforced for the code grant (presence + non-empty); refresh grant exempt (see note). |
 | `response_types` | **Honored** (persist + echo + enforce) | Honored | DCR default `["code"]` stored at registration. Unsupported values rejected. Enforced at the authorization endpoint (presence + non-empty). |
 | `token_endpoint_auth_method` | **Honored** (persist + echo + enforce) | Honored | DCR default `client_secret_basic` (or `none` for public) stored at registration. Unsupported values rejected. Enforced at the token endpoint (presence). Also the primary signal for the client type (see below): `none` ⇒ public, any real method ⇒ confidential. |
 | `jwks` | Honored | Honored | Stored (column). |

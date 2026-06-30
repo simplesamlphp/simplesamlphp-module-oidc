@@ -8,7 +8,6 @@ use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\Routes;
-use SimpleSAML\Module\oidc\Utils\SupportedClientMetadata;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 
@@ -67,12 +66,12 @@ class OpMetadataService
             $this->routes->getModuleUrl(RoutesEnum::Registration->value);
         }
         $this->metadata[ClaimsEnum::ScopesSupported->value] = array_keys($this->moduleConfig->getScopes());
-        $this->metadata[ClaimsEnum::ResponseTypesSupported->value] = SupportedClientMetadata::responseTypes();
+        $this->metadata[ClaimsEnum::ResponseTypesSupported->value] = $this->moduleConfig->getSupportedResponseTypes();
         $this->metadata[ClaimsEnum::SubjectTypesSupported->value] = ['public'];
         $this->metadata[ClaimsEnum::IdTokenSigningAlgValuesSupported->value] = $protocolSignatureAlgorithmNames;
         $this->metadata[ClaimsEnum::CodeChallengeMethodsSupported->value] = ['plain', 'S256'];
         $this->metadata[ClaimsEnum::TokenEndpointAuthMethodsSupported->value] =
-        SupportedClientMetadata::tokenEndpointAuthMethods();
+        $this->moduleConfig->getSupportedTokenEndpointAuthMethods();
         $this->metadata[ClaimsEnum::TokenEndpointAuthSigningAlgValuesSupported->value] =
         $supportedSignatureAlgorithmNames;
         $this->metadata[ClaimsEnum::RequestParameterSupported->value] = true;
@@ -90,10 +89,10 @@ class OpMetadataService
         $this->metadata[ClaimsEnum::RequirePushedAuthorizationRequests->value] =
         $this->moduleConfig->getRequirePushedAuthorizationRequests();
 
-        $grantTypesSupported = SupportedClientMetadata::grantTypes();
+        $grantTypesSupported = $this->moduleConfig->getSupportedGrantTypes();
         if ($this->moduleConfig->getVciEnabled()) {
             // The VCI pre-authorized_code grant is an OP capability advertised in discovery, but it is not a
-            // per-client registerable grant type (it is not part of SupportedClientMetadata).
+            // per-client registerable grant type.
             $grantTypesSupported[] = GrantTypesEnum::PreAuthorizedCode->value;
         }
         $this->metadata[ClaimsEnum::GrantTypesSupported->value] = $grantTypesSupported;

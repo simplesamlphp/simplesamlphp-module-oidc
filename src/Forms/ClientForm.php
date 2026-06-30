@@ -24,7 +24,6 @@ use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\ResponseTypeGrantTypeCorrespondence;
-use SimpleSAML\Module\oidc\Utils\SupportedClientMetadata;
 use SimpleSAML\OpenID\Codebooks\ApplicationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
@@ -854,7 +853,7 @@ class ClientForm extends Form
      */
     protected function getSupportedGrantTypes(): array
     {
-        $supported = SupportedClientMetadata::grantTypes();
+        $supported = $this->moduleConfig->getSupportedGrantTypes();
 
         return array_combine($supported, $supported);
     }
@@ -867,7 +866,7 @@ class ClientForm extends Form
      */
     protected function getSupportedResponseTypes(): array
     {
-        $supported = SupportedClientMetadata::responseTypes();
+        $supported = $this->moduleConfig->getSupportedResponseTypes();
 
         return array_combine($supported, $supported);
     }
@@ -879,7 +878,7 @@ class ClientForm extends Form
      */
     protected function getSupportedTokenEndpointAuthMethods(): array
     {
-        $supported = SupportedClientMetadata::tokenEndpointAuthMethods();
+        $supported = $this->moduleConfig->getSupportedTokenEndpointAuthMethods();
 
         return array_combine($supported, $supported);
     }
