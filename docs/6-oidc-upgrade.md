@@ -163,6 +163,8 @@ per-field metadata policy (honored / validated / rejected) is documented in
   future major version may switch the getters to fall back to the spec defaults.)
   DCR is also opt-in (disabled by default), so unless you enable it, nothing changes
   for your deployment.
+- Logging has been improved for authentication flows. It should now be easier
+to find information about what went wrong by looking at the relevant log entries.
 
 New configuration options:
 
@@ -345,6 +347,8 @@ and shown the module's own "you are logged out" page instead of being
 redirected. Requests that do include `id_token_hint` are unchanged: the
 `post_logout_redirect_uri` is still validated against the client's registered
 values, and the redirection is performed as before.
+- The underlying `thephpleague/oauth2-server` library has been updated from
+v8 to v9
 
 ## Version 6.3 to 6.4
 
