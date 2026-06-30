@@ -14,6 +14,7 @@ use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
 use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
@@ -26,6 +27,7 @@ class RefreshTokenGrantTest extends TestCase
     protected MockObject $refreshTokenIssuerMock;
     protected MockObject $clientResolverMock;
     protected MockObject $serverRequestMock;
+    protected MockObject $loggerServiceMock;
 
     protected function setUp(): void
     {
@@ -34,6 +36,7 @@ class RefreshTokenGrantTest extends TestCase
         $this->refreshTokenIssuerMock = $this->createMock(RefreshTokenIssuer::class);
         $this->clientResolverMock = $this->createMock(AuthenticatedOAuth2ClientResolver::class);
         $this->serverRequestMock = $this->createMock(ServerRequestInterface::class);
+        $this->loggerServiceMock = $this->createMock(LoggerService::class);
     }
 
     protected function sut(): RefreshTokenGrant
@@ -43,6 +46,7 @@ class RefreshTokenGrantTest extends TestCase
             $this->accessTokenEntityFactoryMock,
             $this->refreshTokenIssuerMock,
             $this->clientResolverMock,
+            $this->loggerServiceMock,
         );
     }
 

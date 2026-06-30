@@ -60,6 +60,7 @@ class ResponseModeRule extends AbstractRule
         if (
             !isset($requestParams[ParamsEnum::ClientId->value])
         ) {
+            $loggerService->notice('Authorization request rejected: `client_id` is required to resolve response_mode.');
             throw OidcServerException::invalidRequest(
                 ParamsEnum::ClientId->value,
                 'Missing client_id',
@@ -88,6 +89,10 @@ class ResponseModeRule extends AbstractRule
                 true,
             )
         ) {
+            $loggerService->notice(
+                'Authorization request rejected: `response_mode` is not supported by this server.',
+                ['response_mode' => $responseModeValue],
+            );
             throw OidcServerException::invalidRequest(
                 ParamsEnum::ResponseMode->value,
                 'Invalid response_mode',
@@ -103,6 +108,14 @@ class ResponseModeRule extends AbstractRule
 
         $allowedResponseModes = $client->getAllowedResponseModes();
         if (!in_array($responseModeValue, $allowedResponseModes, true)) {
+            $loggerService->notice(
+                'Authorization request rejected: `response_mode` is not allowed for this client.',
+                [
+                    'client_id' => $client->getIdentifier(),
+                    'response_mode' => $responseModeValue,
+                    'allowed_response_modes' => $allowedResponseModes,
+                ],
+            );
             throw OidcServerException::invalidRequest(
                 'response_mode',
                 'response_mode "' . $responseModeValue . '" is not allowed for this client',

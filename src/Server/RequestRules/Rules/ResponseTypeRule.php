@@ -43,6 +43,9 @@ class ResponseTypeRule extends AbstractRule
             !isset($requestParams[ParamsEnum::ResponseType->value]) ||
             !isset($requestParams[ParamsEnum::ClientId->value])
         ) {
+            $loggerService->notice(
+                'Authorization request rejected: missing `response_type` or `client_id` parameter.',
+            );
             throw OidcServerException::invalidRequest(
                 ParamsEnum::ResponseType->value,
                 'Missing response_type or client_id',

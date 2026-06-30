@@ -18,6 +18,7 @@ use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
 
 use function is_null;
@@ -36,6 +37,7 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
         AccessTokenEntityFactory $accessTokenEntityFactory,
         protected readonly RefreshTokenIssuer $refreshTokenIssuer,
         protected readonly AuthenticatedOAuth2ClientResolver $authenticatedOAuth2ClientResolver,
+        protected readonly LoggerService $loggerService,
     ) {
         parent::__construct($refreshTokenRepository);
         $this->accessTokenEntityFactory = $accessTokenEntityFactory;
@@ -60,6 +62,10 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
         $resolvedClientAuthenticationMethod = $this->authenticatedOAuth2ClientResolver->forAnySupportedMethod($request);
 
         if ($resolvedClientAuthenticationMethod === null) {
+            $this->loggerService->warning(
+                'Refresh token request rejected: client authentication failed (no supported client ' .
+                'authentication method could be resolved).',
+            );
             $this->getEmitter()->emit(new RequestEvent(RequestEvent::CLIENT_AUTHENTICATION_FAILED, $request));
             throw OAuthServerException::invalidClient($request);
         }
@@ -75,6 +81,10 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
     {
         $encryptedRefreshToken = $this->getRequestParameter('refresh_token', $request);
         if (is_null($encryptedRefreshToken)) {
+            $this->loggerService->notice(
+                'Refresh token request rejected: `refresh_token` parameter not provided.',
+                ['client_id' => $clientId],
+            );
             throw OidcServerException::invalidGrant('Failed to verify `refresh_token`');
         }
 
@@ -82,22 +92,45 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
         try {
             $refreshToken = $this->decrypt($encryptedRefreshToken);
         } catch (Exception $e) {
+            $this->loggerService->warning(
+                'Refresh token request rejected: could not decrypt the refresh token.',
+                ['client_id' => $clientId, 'exception' => $e->getMessage()],
+            );
             throw OidcServerException::invalidRefreshToken('Cannot decrypt the refresh token', $e);
         }
 
         $refreshTokenData = json_decode($refreshToken, true, 512, JSON_THROW_ON_ERROR);
 
         if (! is_array($refreshTokenData)) {
+            $this->loggerService->warning(
+                'Refresh token request rejected: decrypted refresh token has an unexpected type.',
+                ['client_id' => $clientId],
+            );
             throw OidcServerException::invalidRefreshToken('Refresh token has unexpected type');
         }
 
         /** @var array<string, mixed> $refreshTokenData */
         if ($refreshTokenData['client_id'] !== $clientId) {
+            $this->loggerService->warning(
+                'Refresh token request rejected: refresh token is not linked to the authenticated client.',
+                [
+                    'client_id' => $clientId,
+                    'refresh_token_client_id' => $refreshTokenData['client_id'],
+                    'refresh_token_id' => $refreshTokenData['refresh_token_id'] ?? null,
+                ],
+            );
             $this->getEmitter()->emit(new RequestEvent(RequestEvent::REFRESH_TOKEN_CLIENT_FAILED, $request));
             throw OidcServerException::invalidRefreshToken('Refresh token is not linked to client');
         }
 
         if ($refreshTokenData['expire_time'] < time()) {
+            $this->loggerService->notice(
+                'Refresh token request rejected: refresh token has expired.',
+                [
+                    'client_id' => $clientId,
+                    'refresh_token_id' => $refreshTokenData['refresh_token_id'] ?? null,
+                ],
+            );
             throw OidcServerException::invalidRefreshToken('Refresh token has expired');
         }
 
@@ -106,6 +139,13 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
                 (string)$refreshTokenData['refresh_token_id'],
             ) === true
         ) {
+            $this->loggerService->warning(
+                'Refresh token request rejected: refresh token has been revoked.',
+                [
+                    'client_id' => $clientId,
+                    'refresh_token_id' => $refreshTokenData['refresh_token_id'] ?? null,
+                ],
+            );
             throw OidcServerException::invalidRefreshToken('Refresh token has been revoked');
         }
 

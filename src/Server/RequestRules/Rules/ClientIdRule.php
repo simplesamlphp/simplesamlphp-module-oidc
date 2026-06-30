@@ -58,6 +58,9 @@ class ClientIdRule extends AbstractRule
         ) ?? $request->getServerParams()['PHP_AUTH_USER'] ?? null;
 
         if ($clientId === null) {
+            $loggerService->notice(
+                'Request rejected: `client_id` not found in request parameters or HTTP Basic auth.',
+            );
             throw OidcServerException::invalidRequest('client_id');
         }
 

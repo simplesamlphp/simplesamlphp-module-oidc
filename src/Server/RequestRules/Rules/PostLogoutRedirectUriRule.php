@@ -82,6 +82,10 @@ class PostLogoutRedirectUriRule extends AbstractRule
         foreach ($auds as $aud) {
             $client = $this->clientRepository->findById($aud);
             if ($client === null) {
+                $loggerService->notice(
+                    'End session request rejected: `id_token_hint` aud claim does not match a known client.',
+                    ['aud' => $aud],
+                );
                 throw OidcServerException::invalidRequest(
                     ParamsEnum::IdTokenHint->value,
                     'aud claim not valid',
@@ -97,6 +101,11 @@ class PostLogoutRedirectUriRule extends AbstractRule
         }
 
         if (! $isPostLogoutRedirectUriRegistered) {
+            $loggerService->notice(
+                'End session request rejected: `post_logout_redirect_uri` is not registered for any client in ' .
+                'the id_token_hint aud claim.',
+                ['post_logout_redirect_uri' => $postLogoutRedirectUri],
+            );
             throw OidcServerException::invalidRequest(
                 ParamsEnum::IdTokenHint->value,
                 'post_logout_redirect_uri not registered',

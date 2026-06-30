@@ -63,6 +63,7 @@ class IdTokenHintRule extends AbstractRule
         }
 
         if (empty($idTokenHintParam)) {
+            $loggerService->notice('End session request rejected: `id_token_hint` was provided but empty.');
             throw OidcServerException::invalidRequest(
                 ParamsEnum::IdTokenHint->value,
                 'Received empty id_token_hint',
@@ -79,6 +80,10 @@ class IdTokenHintRule extends AbstractRule
         $idTokenHint = $this->core->idTokenFactory()->fromToken($idTokenHintParam);
 
         if ($idTokenHint->getIssuer() !== $this->moduleConfig->getIssuer()) {
+            $loggerService->notice(
+                'End session request rejected: `id_token_hint` was not issued by this OP.',
+                ['issuer' => $idTokenHint->getIssuer(), 'expected_issuer' => $this->moduleConfig->getIssuer()],
+            );
             throw OidcServerException::invalidRequest(
                 ParamsEnum::IdTokenHint->value,
                 'Invalid ID Token Hint Issuer',
@@ -91,6 +96,10 @@ class IdTokenHintRule extends AbstractRule
         try {
             $idTokenHint->verifyWithKeySet($jwks);
         } catch (\Throwable $exception) {
+            $loggerService->notice(
+                'End session request rejected: `id_token_hint` signature verification failed.',
+                ['exception' => $exception->getMessage()],
+            );
             throw OidcServerException::invalidRequest(
                 ParamsEnum::IdTokenHint->value,
                 $exception->getMessage(),

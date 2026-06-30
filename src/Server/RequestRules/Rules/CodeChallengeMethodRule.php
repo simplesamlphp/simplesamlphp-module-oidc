@@ -58,6 +58,10 @@ class CodeChallengeMethodRule extends AbstractRule
         $codeChallengeVerifiers = $this->codeChallengeVerifiersRepository->getAll();
 
         if ($this->codeChallengeVerifiersRepository->has($codeChallengeMethod) === false) {
+            $loggerService->notice(
+                'Authorization request rejected: unsupported `code_challenge_method`.',
+                ['code_challenge_method' => $codeChallengeMethod],
+            );
             throw OidcServerException::invalidRequest(
                 'code_challenge_method',
                 'Code challenge method must be one of ' . implode(', ', array_map(

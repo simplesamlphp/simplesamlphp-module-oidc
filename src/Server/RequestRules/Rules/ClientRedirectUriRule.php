@@ -63,6 +63,10 @@ class ClientRedirectUriRule extends AbstractRule
         // On OAuth2 redirect_uri is optional if there is only one registered, however we will always require it
         // since this is OIDC oriented package and in OIDC this parameter is required.
         if ($redirectUri === null) {
+            $loggerService->notice(
+                'Request rejected: `redirect_uri` parameter is required but was not provided.',
+                ['client_id' => $client->getIdentifier()],
+            );
             throw OidcServerException::invalidRequest(ParamsEnum::RedirectUri->value);
         }
 

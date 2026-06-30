@@ -220,6 +220,10 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         ?? $this->getAuthorizationRequestClientRedirectUri($authorizationRequest);
 
         if ($authorizationRequest->isAuthorizationApproved() !== true) {
+            $this->loggerService->notice(
+                'Authorization request denied by the user.',
+                ['client_id' => $authorizationRequest->getClient()->getIdentifier()],
+            );
             // The user denied the client, redirect them back with an error
             throw OidcServerException::accessDenied(
                 'The user denied the request',
@@ -237,6 +241,11 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $user->getIdentifier(),
             $finalRedirectUri,
             $authorizationRequest,
+        );
+
+        $this->loggerService->notice(
+            'Authorization approved; authorization code issued.',
+            ['client_id' => $authCode->getClient()->getIdentifier(), 'auth_code_id' => $authCode->getIdentifier()],
         );
 
         $payload = [
@@ -370,7 +379,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $encryptedAuthCode = $this->getRequestParameter('code', $request);
 
         if ($encryptedAuthCode === null) {
-            $this->loggerService->debug('Code parameter not provided.');
+            $this->loggerService->notice('Token request rejected: `code` parameter not provided.');
             throw OAuthServerException::invalidRequest('code');
         }
 
@@ -381,10 +390,15 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
              */
             $authCodePayload = json_decode($this->decrypt($encryptedAuthCode), null, 512, JSON_THROW_ON_ERROR);
         } catch (LogicException $e) {
+            $this->loggerService->warning(
+                'Token request rejected: could not decrypt the authorization code.',
+                ['exception' => $e->getMessage()],
+            );
             throw OAuthServerException::invalidRequest('code', 'Cannot decrypt the authorization code', $e);
         }
 
         if (!property_exists($authCodePayload, 'auth_code_id')) {
+            $this->loggerService->notice('Token request rejected: authorization code is malformed (no auth_code_id).');
             throw OAuthServerException::invalidRequest('code', 'Authorization code malformed');
         }
 
@@ -395,6 +409,10 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $storedAuthCodeEntity = $this->authCodeRepository->findById($authCodePayload->auth_code_id);
 
         if ($storedAuthCodeEntity === null) {
+            $this->loggerService->notice(
+                'Token request rejected: authorization code not found in storage.',
+                ['auth_code_id' => $authCodePayload->auth_code_id],
+            );
             throw OAuthServerException::invalidGrant('Authorization code not found');
         }
 
@@ -441,10 +459,22 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             // client_id below. If an authentication scheme for non-registered clients is introduced later (e.g.
             // attestation), this can be relaxed the same way it was for registered clients.
             if (! $clientId) {
+                $this->loggerService->notice(
+                    'Token request rejected: generic (non-registered) client did not provide required `client_id`.',
+                    ['auth_code_id' => $authCodePayload->auth_code_id],
+                );
                 throw OidcServerException::invalidRequest('client_id');
             }
 
             if ($clientId !== $storedAuthCodeEntity->getBoundClientId()) {
+                $this->loggerService->warning(
+                    'Token request rejected: `client_id` does not match the one the authorization code was bound to.',
+                    [
+                        'auth_code_id' => $authCodePayload->auth_code_id,
+                        'client_id' => $clientId,
+                        'bound_client_id' => $storedAuthCodeEntity->getBoundClientId(),
+                    ],
+                );
                 throw OAuthServerException::invalidGrant('Authorization code not intended for this client_id.');
             }
 
@@ -455,10 +485,24 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             );
 
             if (! $redirectUri) {
+                $this->loggerService->notice(
+                    'Token request rejected: generic (non-registered) client did not provide required `redirect_uri`.',
+                    ['auth_code_id' => $authCodePayload->auth_code_id, 'client_id' => $clientId],
+                );
                 throw OidcServerException::invalidRequest(ParamsEnum::RedirectUri->value);
             }
 
             if ($redirectUri !== $storedAuthCodeEntity->getBoundRedirectUri()) {
+                $this->loggerService->warning(
+                    'Token request rejected: `redirect_uri` does not match the one the authorization code ' .
+                    'was bound to.',
+                    [
+                        'auth_code_id' => $authCodePayload->auth_code_id,
+                        'client_id' => $clientId,
+                        'redirect_uri' => $redirectUri,
+                        'bound_redirect_uri' => $storedAuthCodeEntity->getBoundRedirectUri(),
+                    ],
+                );
                 throw OAuthServerException::invalidGrant('Authorization code not intended for this redirect_uri.');
             }
 
@@ -490,6 +534,13 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $registeredGrantTypes !== [] &&
             !in_array(GrantTypesEnum::AuthorizationCode->value, $registeredGrantTypes, true)
         ) {
+            $this->loggerService->warning(
+                'Token request rejected: client is not authorized to use the authorization_code grant type.',
+                [
+                    'client_id' => $client->getIdentifier(),
+                    'registered_grant_types' => $registeredGrantTypes,
+                ],
+            );
             throw OidcServerException::unauthorizedClient(
                 'The client is not authorized to use the authorization_code grant type.',
             );
@@ -516,6 +567,11 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         }
 
         if (empty($utilizedClientAuthenticationParams)) {
+            $this->loggerService->warning(
+                'Token request rejected: client authentication not performed (no client authentication ' .
+                'method and no PKCE code_verifier presented).',
+                ['client_id' => $client->getIdentifier(), 'auth_code_id' => $authCodePayload->auth_code_id],
+            );
             throw OidcServerException::accessDenied('Client authentication not performed.');
         }
 
@@ -547,6 +603,11 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         // If a code challenge isn't present but a code verifier is, reject the request to block PKCE downgrade attack
         if (empty($authCodePayload->code_challenge) && $codeVerifier !== null) {
+            $this->loggerService->warning(
+                'Token request rejected: `code_verifier` received but the authorization request had no ' .
+                '`code_challenge` (possible PKCE downgrade attempt).',
+                ['client_id' => $client->getIdentifier(), 'auth_code_id' => $authCodePayload->auth_code_id],
+            );
             throw OAuthServerException::invalidRequest(
                 'code_challenge',
                 'code_verifier received when no code_challenge is present',
@@ -556,6 +617,11 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         // Validate code challenge
         if (!empty($authCodePayload->code_challenge)) {
             if ($codeVerifier === null) {
+                $this->loggerService->notice(
+                    'Token request rejected: `code_verifier` is missing while a `code_challenge` was used ' .
+                    'in the authorization request.',
+                    ['client_id' => $client->getIdentifier(), 'auth_code_id' => $authCodePayload->auth_code_id],
+                );
                 throw OAuthServerException::invalidRequest('code_verifier');
             }
 
@@ -570,8 +636,11 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 //            }
 
             if (property_exists($authCodePayload, 'code_challenge_method')) {
-                if (isset($this->codeChallengeVerifiers[$authCodePayload->code_challenge_method])) {
-                    $codeChallengeVerifier = $this->codeChallengeVerifiers[$authCodePayload->code_challenge_method];
+                $codeChallengeMethod = isset($authCodePayload->code_challenge_method) ?
+                $authCodePayload->code_challenge_method :
+                '';
+                if (isset($this->codeChallengeVerifiers[$codeChallengeMethod])) {
+                    $codeChallengeVerifier = $this->codeChallengeVerifiers[$codeChallengeMethod];
 
                     if (
                         $codeChallengeVerifier->verifyCodeChallenge(
@@ -579,13 +648,30 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                             $authCodePayload->code_challenge,
                         ) === false
                     ) {
+                        $this->loggerService->warning(
+                            'Token request rejected: PKCE `code_verifier` failed verification against the ' .
+                            'stored `code_challenge`.',
+                            [
+                                'client_id' => $client->getIdentifier(),
+                                'auth_code_id' => $authCodePayload->auth_code_id,
+                                'code_challenge_method' => $codeChallengeMethod,
+                            ],
+                        );
                         throw OAuthServerException::invalidGrant('Failed to verify `code_verifier`.');
                     }
                 } else {
+                    $this->loggerService->error(
+                        'Token request failed: unsupported code challenge method stored on authorization code.',
+                        [
+                            'client_id' => $client->getIdentifier(),
+                            'auth_code_id' => $authCodePayload->auth_code_id,
+                            'code_challenge_method' => $codeChallengeMethod,
+                        ],
+                    );
                     throw OAuthServerException::serverError(
                         sprintf(
                             'Unsupported code challenge method `%s`',
-                            ($authCodePayload->code_challenge_method ?? ''),
+                            $codeChallengeMethod,
                         ),
                     );
                 }
@@ -661,6 +747,11 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         // Revoke used auth code
         $this->authCodeRepository->revokeAuthCode($authCodePayload->auth_code_id);
 
+        $this->loggerService->notice(
+            'Authorization code redeemed; access token issued.',
+            ['client_id' => $client->getIdentifier(), 'auth_code_id' => $authCodePayload->auth_code_id],
+        );
+
         return $responseType;
     }
 
@@ -693,10 +784,19 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         }
 
         if (time() > $authCodePayload->expire_time) {
+            $this->loggerService->notice(
+                'Token request rejected: authorization code has expired.',
+                ['client_id' => $client->getIdentifier(), 'auth_code_id' => $authCodePayload->auth_code_id],
+            );
             throw OAuthServerException::invalidGrant('Authorization code has expired');
         }
 
         if ($storedAuthCodeEntity->isRevoked()) {
+            $this->loggerService->warning(
+                'Token request rejected: authorization code has been revoked (likely reused). Revoking all ' .
+                'related access and refresh tokens.',
+                ['client_id' => $client->getIdentifier(), 'auth_code_id' => $authCodePayload->auth_code_id],
+            );
             // Code is reused, all related tokens must be revoked, per https://tools.ietf.org/html/rfc6749#section-4.1.2
             $this->accessTokenRepository->revokeByAuthCodeId($authCodePayload->auth_code_id);
             $this->refreshTokenRepository->revokeByAuthCodeId($authCodePayload->auth_code_id);
@@ -704,16 +804,37 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         }
 
         if ($authCodePayload->client_id !== $client->getIdentifier()) {
+            $this->loggerService->warning(
+                'Token request rejected: authorization code was not issued to the authenticated client.',
+                [
+                    'client_id' => $client->getIdentifier(),
+                    'auth_code_client_id' => $authCodePayload->client_id,
+                    'auth_code_id' => $authCodePayload->auth_code_id,
+                ],
+            );
             throw OAuthServerException::invalidRequest('code', 'Authorization code was not issued to this client');
         }
 
         // The redirect URI is required in this request
         $redirectUri = $this->getRequestParameter('redirect_uri', $request);
         if (empty($authCodePayload->redirect_uri) === false && $redirectUri === null) {
+            $this->loggerService->notice(
+                'Token request rejected: `redirect_uri` parameter is required but was not provided.',
+                ['client_id' => $client->getIdentifier(), 'auth_code_id' => $authCodePayload->auth_code_id],
+            );
             throw OAuthServerException::invalidRequest('redirect_uri');
         }
 
         if ($authCodePayload->redirect_uri !== $redirectUri) {
+            $this->loggerService->warning(
+                'Token request rejected: `redirect_uri` does not match the one from the authorization request.',
+                [
+                    'client_id' => $client->getIdentifier(),
+                    'auth_code_id' => $authCodePayload->auth_code_id,
+                    'redirect_uri' => $redirectUri,
+                    'authorization_redirect_uri' => $authCodePayload->redirect_uri,
+                ],
+            );
             throw OAuthServerException::invalidRequest(
                 'redirect_uri',
                 'Invalid redirect URI or not the same as in authorization request',
