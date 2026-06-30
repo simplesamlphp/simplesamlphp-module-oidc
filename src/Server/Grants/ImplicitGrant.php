@@ -6,7 +6,7 @@ namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use DateInterval;
 use League\OAuth2\Server\Grant\ImplicitGrant as OAuth2ImplicitGrant;
-use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
+use League\OAuth2\Server\RequestTypes\AuthorizationRequestInterface as OAuth2AuthorizationRequestInterface;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
@@ -51,12 +51,6 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
     /** @var HttpMethodsEnum[]  */
     protected array $allowedAuthorizationHttpMethods = [HttpMethodsEnum::GET, HttpMethodsEnum::POST];
 
-    /**
-     * @psalm-suppress PropertyNotSetInConstructor
-     * @var \League\OAuth2\Server\CryptKey
-     */
-    protected $privateKey;
-
     public function __construct(
         protected IdTokenBuilder $idTokenBuilder,
         protected DateInterval $accessTokenTTL,
@@ -98,14 +92,14 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
 
     /**
      * {@inheritdoc}
-     * @param \League\OAuth2\Server\RequestTypes\AuthorizationRequest $authorizationRequest
+     * @param \League\OAuth2\Server\RequestTypes\AuthorizationRequestInterface $authorizationRequest
      * @return \League\OAuth2\Server\ResponseTypes\ResponseTypeInterface
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function completeAuthorizationRequest(
-        OAuth2AuthorizationRequest $authorizationRequest,
+        OAuth2AuthorizationRequestInterface $authorizationRequest,
     ): ResponseTypeInterface {
         if ($authorizationRequest instanceof AuthorizationRequest) {
             return $this->completeOidcAuthorizationRequest($authorizationRequest);
@@ -121,7 +115,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
     public function validateAuthorizationRequestWithRequestRules(
         ServerRequestInterface $request,
         ResultBagInterface $resultBag,
-    ): OAuth2AuthorizationRequest {
+    ): OAuth2AuthorizationRequestInterface {
         $rulesToExecute = [
             ScopeRule::class,
             RequestObjectRule::class,
@@ -253,7 +247,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         if ($authorizationRequest->shouldReturnAccessTokenInAuthorizationResponse()) {
             $addAccessTokenHashToIdToken = true;
 
-            $responseParams['access_token'] = $accessToken->toString() ?? (string) $accessToken;
+            $responseParams['access_token'] = $accessToken->toString();
             $responseParams['token_type'] = 'Bearer';
             $responseParams['expires_in'] = $accessToken->getExpiryDateTime()->getTimestamp() - time();
         }

@@ -57,7 +57,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
     /**
      * {@inheritdoc}
      */
-    public function getNewRefreshToken(): RefreshTokenEntityInterface
+    public function getNewRefreshToken(): ?RefreshTokenEntityInterface
     {
         throw new RuntimeException('Not implemented. Use RefreshTokenEntityFactory instead.');
     }
@@ -88,7 +88,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
             $this->helpers->dateTime()->getSecondsToExpirationTime(
                 $refreshTokenEntity->getExpiryDateTime()->getTimestamp(),
             ),
-            $this->getCacheKey((string)$refreshTokenEntity->getIdentifier()),
+            $this->getCacheKey($refreshTokenEntity->getIdentifier()),
         );
     }
 
@@ -127,7 +127,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
             $this->helpers->dateTime()->getSecondsToExpirationTime(
                 $refreshTokenEntity->getExpiryDateTime()->getTimestamp(),
             ),
-            $this->getCacheKey((string)$refreshTokenEntity->getIdentifier()),
+            $this->getCacheKey($refreshTokenEntity->getIdentifier()),
         );
 
         return $refreshTokenEntity;
@@ -137,7 +137,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
      * {@inheritdoc}
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
-    public function revokeRefreshToken($tokenId): void
+    public function revokeRefreshToken(string $tokenId): void
     {
         $refreshToken = $this->findById($tokenId);
 
@@ -168,7 +168,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
      * {@inheritdoc}
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
-    public function isRefreshTokenRevoked($tokenId): bool
+    public function isRefreshTokenRevoked(string $tokenId): bool
     {
         $refreshToken = $this->findById($tokenId);
 

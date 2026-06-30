@@ -20,7 +20,7 @@ interface AccessTokenRepositoryInterface extends OAuth2AccessTokenRepositoryInte
      *
      * @param \League\OAuth2\Server\Entities\ClientEntityInterface $clientEntity
      * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
-     * @param mixed $userIdentifier
+     * @param string|null $userIdentifier
      * @param string|null $authCodeId
      * @param array|null $requestedClaims Any requested claims
      * @return \SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface
@@ -28,7 +28,7 @@ interface AccessTokenRepositoryInterface extends OAuth2AccessTokenRepositoryInte
     public function getNewToken(
         OAuth2ClientEntityInterface $clientEntity,
         array $scopes,
-        $userIdentifier = null,
+        ?string $userIdentifier = null,
         ?string $authCodeId = null,
         ?array $requestedClaims = null,
     ): AccessTokenEntityInterface;

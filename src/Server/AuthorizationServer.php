@@ -7,10 +7,11 @@ namespace SimpleSAML\Module\oidc\Server;
 use Defuse\Crypto\Key;
 use League\OAuth2\Server\AuthorizationServer as OAuth2AuthorizationServer;
 use League\OAuth2\Server\CryptKey;
+use League\OAuth2\Server\CryptKeyInterface;
 use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
-use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
+use League\OAuth2\Server\RequestTypes\AuthorizationRequestInterface as OAuth2AuthorizationRequestInterface;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
@@ -31,6 +32,9 @@ use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
+/**
+ * @psalm-suppress PropertyNotSetInConstructor
+ */
 class AuthorizationServer extends OAuth2AuthorizationServer
 {
     /** @psalm-suppress PossiblyUnusedProperty Private property in parent. */
@@ -39,10 +43,10 @@ class AuthorizationServer extends OAuth2AuthorizationServer
     protected RequestRulesManager $requestRulesManager;
 
     /**
-     * @var \League\OAuth2\Server\CryptKey
+     * @var \League\OAuth2\Server\CryptKeyInterface
      * @psalm-suppress PropertyNotSetInConstructor
      */
-    protected $publicKey;
+    protected CryptKeyInterface $publicKey;
 
     /**
      * @inheritDoc
@@ -80,7 +84,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \Throwable
      */
-    public function validateAuthorizationRequest(ServerRequestInterface $request): OAuth2AuthorizationRequest
+    public function validateAuthorizationRequest(ServerRequestInterface $request): OAuth2AuthorizationRequestInterface
     {
         $this->loggerService?->debug('AuthorizationServer::validateAuthorizationRequest');
 

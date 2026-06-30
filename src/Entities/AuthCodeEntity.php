@@ -51,11 +51,15 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
         protected readonly ?string $boundRedirectUri = null,
         protected readonly ?string $issuerState = null,
     ) {
+        if ($id === '') {
+            throw new \InvalidArgumentException('Authorization code identifier cannot be empty.');
+        }
+
         $this->identifier = $id;
         $this->client = $client;
         $this->scopes = $scopes;
         $this->expiryDateTime = $expiryDateTime;
-        $this->userIdentifier = $userIdentifier;
+        $this->userIdentifier = $userIdentifier === '' ? null : $userIdentifier;
         $this->redirectUri = $redirectUri;
         $this->nonce = $nonce;
         $this->isRevoked = $isRevoked;

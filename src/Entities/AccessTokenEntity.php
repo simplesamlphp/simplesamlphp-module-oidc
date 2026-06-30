@@ -75,13 +75,22 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         protected readonly ?string $boundRedirectUri = null,
         protected readonly ?string $issuerState = null,
     ) {
+        if ($id === '') {
+            throw new \InvalidArgumentException('Access token identifier cannot be empty.');
+        }
+
         $this->setIdentifier($id);
         $this->setClient($clientEntity);
         foreach ($scopes as $scope) {
             $this->addScope($scope);
         }
         $this->setExpiryDateTime($expiryDateTime);
-        $this->setUserIdentifier($userIdentifier);
+        if (!is_null($userIdentifier)) {
+            $userIdentifier = (string)$userIdentifier;
+        }
+        if (!empty($userIdentifier)) {
+            $this->setUserIdentifier($userIdentifier);
+        }
         $this->setAuthCodeId($authCodeId);
         $this->setRequestedClaims($requestedClaims ?? []);
         if ($isRevoked) {
@@ -134,16 +143,16 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
      */
     public function __toString(): string
     {
-        return $this->stringRepresentation = $this->convertToJWT()->getToken();
+        return $this->toString();
     }
 
     /**
      * Get string representation of access token at the moment of casting it to string.
-     * @return string|null String representation or null if it was not cast to string yet.
+     * @return string String representation of the access token.
      */
-    public function toString(): ?string
+    public function toString(): string
     {
-        return $this->stringRepresentation;
+        return $this->stringRepresentation ??= $this->convertToJWT()->getToken();
     }
 
     /**
@@ -162,7 +171,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         $payload = array_filter([
             ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
             ClaimsEnum::Iat->value => $currentTimestamp,
-            ClaimsEnum::Jti->value => (string)$this->getIdentifier(),
+            ClaimsEnum::Jti->value => $this->getIdentifier(),
             ClaimsEnum::Aud->value => $this->getClient()->getIdentifier(),
             ClaimsEnum::Nbf->value => $currentTimestamp,
             ClaimsEnum::Exp->value => $this->expiryDateTime->getTimestamp(),

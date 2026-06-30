@@ -168,8 +168,10 @@ class ClientEntityFactory
         $isDcrUpdate = $existingClient !== null && $registrationType === RegistrationTypeEnum::Dynamic;
         $metadataFallbackClient = $isDcrUpdate ? null : $existingClient;
 
-        $id = $clientIdentifier ?? $existingClient?->getIdentifier() ??
-        $this->sspBridge->utils()->random()->generateID();
+        $id = $clientIdentifier ?: $existingClient?->getIdentifier();
+        if (empty($id)) {
+            $id = $this->sspBridge->utils()->random()->generateID();
+        }
 
         $secret = $existingClient?->getSecret() ?? $this->sspBridge->utils()->random()->generateID();
 

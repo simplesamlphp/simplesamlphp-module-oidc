@@ -9,5 +9,5 @@ interface EntityStringRepresentationInterface
     /**
      * Generate string representation of entity.
      */
-    public function toString(): ?string;
+    public function toString(): string;
 }

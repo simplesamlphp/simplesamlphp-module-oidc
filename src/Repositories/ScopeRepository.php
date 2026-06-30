@@ -38,7 +38,7 @@ class ScopeRepository implements ScopeRepositoryInterface
      * {@inheritdoc}
      * @throws \Exception
      */
-    public function getScopeEntityByIdentifier($identifier): ScopeEntity|ScopeEntityInterface|null
+    public function getScopeEntityByIdentifier(string $identifier): ScopeEntity|ScopeEntityInterface|null
     {
         $scopes = $this->moduleConfig->getScopes();
 
@@ -68,9 +68,10 @@ class ScopeRepository implements ScopeRepositoryInterface
      */
     public function finalizeScopes(
         array $scopes,
-        $grantType,
+        string $grantType,
         OAuth2ClientEntityInterface $clientEntity,
-        $userIdentifier = null,
+        ?string $userIdentifier = null,
+        ?string $authCodeId = null,
     ): array {
         if (!$clientEntity instanceof ClientEntity) {
             return [];

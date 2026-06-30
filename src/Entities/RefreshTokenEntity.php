@@ -38,6 +38,10 @@ class RefreshTokenEntity implements RefreshTokenEntityInterface
         ?string $authCodeId = null,
         bool $isRevoked = false,
     ) {
+        if ($id === '') {
+            throw new \InvalidArgumentException('Refresh token identifier cannot be empty.');
+        }
+
         $this->setIdentifier($id);
         $this->setExpiryDateTime($expiryDateTime);
         $this->setAccessToken($accessTokenEntity);

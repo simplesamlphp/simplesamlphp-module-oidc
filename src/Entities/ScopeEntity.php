@@ -35,6 +35,10 @@ class ScopeEntity implements ScopeEntityInterface
         protected ?string $icon = null,
         protected array $claims = [],
     ) {
+        if ($identifier === '') {
+            throw new \InvalidArgumentException('Scope identifier cannot be empty.');
+        }
+
         $this->identifier = $identifier;
     }
 
@@ -58,6 +62,6 @@ class ScopeEntity implements ScopeEntityInterface
 
     public function jsonSerialize(): string
     {
-        return (string) $this->getIdentifier();
+        return $this->getIdentifier();
     }
 }

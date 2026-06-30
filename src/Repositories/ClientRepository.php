@@ -15,6 +15,7 @@ declare(strict_types=1);
  */
 namespace SimpleSAML\Module\oidc\Repositories;
 
+use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Repositories\ClientRepositoryInterface;
 use PDO;
 use SimpleSAML\Database;
@@ -48,7 +49,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
      * @throws \JsonException
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
-    public function getClientEntity($clientIdentifier)
+    public function getClientEntity(string $clientIdentifier): ?OAuth2ClientEntityInterface
     {
         $client = $this->findById($clientIdentifier);
 
@@ -72,7 +73,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
      * @throws \JsonException
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
-    public function validateClient($clientIdentifier, $clientSecret, $grantType): bool
+    public function validateClient(string $clientIdentifier, ?string $clientSecret, ?string $grantType): bool
     {
         $client = $this->getClientEntity($clientIdentifier);
 

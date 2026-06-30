@@ -61,15 +61,12 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
     public function getNewToken(
         OAuth2ClientEntityInterface $clientEntity,
         array $scopes,
-        $userIdentifier = null,
+        ?string $userIdentifier = null,
         ?string $authCodeId = null,
         ?array $requestedClaims = null,
         ?string $id = null,
         ?DateTimeImmutable $expiryDateTime = null,
     ): AccessTokenEntityInterface {
-        if (!is_null($userIdentifier)) {
-            $userIdentifier = (string)$userIdentifier;
-        }
         if (empty($userIdentifier)) {
             $userIdentifier = null;
         }
@@ -145,7 +142,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
             $this->helpers->dateTime()->getSecondsToExpirationTime(
                 $accessTokenEntity->getExpiryDateTime()->getTimestamp(),
             ),
-            $this->getCacheKey((string)$accessTokenEntity->getIdentifier()),
+            $this->getCacheKey($accessTokenEntity->getIdentifier()),
         );
     }
 
@@ -184,7 +181,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
             $this->helpers->dateTime()->getSecondsToExpirationTime(
                 $accessTokenEntity->getExpiryDateTime()->getTimestamp(),
             ),
-            $this->getCacheKey((string)$accessTokenEntity->getIdentifier()),
+            $this->getCacheKey($accessTokenEntity->getIdentifier()),
         );
 
         return $accessTokenEntity;
@@ -195,7 +192,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
      * @throws \JsonException
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
-    public function revokeAccessToken($tokenId): void
+    public function revokeAccessToken(string $tokenId): void
     {
         $accessToken = $this->findById($tokenId);
 
@@ -227,7 +224,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
      * {@inheritdoc}
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
-    public function isAccessTokenRevoked($tokenId): bool
+    public function isAccessTokenRevoked(string $tokenId): bool
     {
         $accessToken = $this->findById($tokenId);
 
@@ -286,7 +283,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
             $this->helpers->dateTime()->getSecondsToExpirationTime(
                 $accessTokenEntity->getExpiryDateTime()->getTimestamp(),
             ),
-            $this->getCacheKey((string)$accessTokenEntity->getIdentifier()),
+            $this->getCacheKey($accessTokenEntity->getIdentifier()),
         );
     }
 
