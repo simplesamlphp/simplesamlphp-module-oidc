@@ -64,6 +64,21 @@
             {% trans %}If a Token Endpoint Authentication Method is selected below, it determines this type ("none" means public, any other method means confidential).{% endtrans %}
         </span>
 
+        <label for="frm-token_endpoint_auth_method">{{ 'Token Endpoint Authentication Method'|trans }}</label>
+        {{ form.token_endpoint_auth_method.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}Client authentication method the Client must use at the token endpoint. If not set, the method is not enforced.{% endtrans %}
+        </span>
+        {% if form.token_endpoint_auth_method.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.token_endpoint_auth_method.getError }}</span>
+        {% endif %}
+
+        <label for="frm-application_type">{{ 'Application Type'|trans }}</label>
+        {{ form.application_type.control | raw }}
+        {% if form.application_type.hasErrors %}
+            <span class="pure-form-message red-text">{{ form.application_type.getError }}</span>
+        {% endif %}
+
         <label for="frm-redirect_uri">{{ 'Redirect URIs'|trans }}</label>
         {{ form.redirect_uri.control | raw }}
         <span class="pure-form-message">
@@ -190,15 +205,6 @@
         {# Single source of truth for the response_type -> required grant_types correspondence, consumed by client-form.js. #}
         <script type="application/json" id="oidc-response-type-grant-type-map">{{ form.getResponseTypeGrantTypeMapJson()|raw }}</script>
 
-        <label for="frm-token_endpoint_auth_method">{{ 'Token Endpoint Authentication Method'|trans }}</label>
-        {{ form.token_endpoint_auth_method.control | raw }}
-        <span class="pure-form-message">
-            {% trans %}Client authentication method the Client must use at the token endpoint. If not set, the method is not enforced.{% endtrans %}
-        </span>
-        {% if form.token_endpoint_auth_method.hasErrors %}
-            <span class="pure-form-message red-text">{{ form.token_endpoint_auth_method.getError }}</span>
-        {% endif %}
-
         <label for="frm-default_max_age">{{ 'Default Max Age (seconds)'|trans }}</label>
         {{ form.default_max_age.control | raw }}
         <span class="pure-form-message">
@@ -268,12 +274,6 @@
         {{ form.tos_uri.control | raw }}
         {% if form.tos_uri.hasErrors %}
             <span class="pure-form-message red-text">{{ form.tos_uri.getError }}</span>
-        {% endif %}
-
-        <label for="frm-application_type">{{ 'Application Type'|trans }}</label>
-        {{ form.application_type.control | raw }}
-        {% if form.application_type.hasErrors %}
-            <span class="pure-form-message red-text">{{ form.application_type.getError }}</span>
         {% endif %}
 
         <label for="frm-contacts">{{ 'Contacts'|trans }}</label>

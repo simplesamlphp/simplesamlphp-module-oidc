@@ -315,14 +315,20 @@ class ClientForm extends Form
         /** @psalm-suppress RedundantCast */
         $values = (array)parent::getValues(self::TYPE_ARRAY);
 
-        // Keep the client type (confidential/public) in lockstep with token_endpoint_auth_method, which is the
-        // primary signal for it: `none` => public, any real authentication method => confidential. When an auth
-        // method is selected it determines the type; when it is left unset, the explicit confidential/public choice
-        // stands. The server is the authority here; client-form.js mirrors this live in the UI.
+        // Derive the client type (confidential/public) using the same precedence as DCR registration
+        // (see ClientEntityFactory::determineIsConfidential() + the token_endpoint_auth_method lockstep):
+        //   1. token_endpoint_auth_method, if selected: `none` => public, any real method => confidential;
+        //   2. else application_type `native` => public (a native app is a strong public-client indication);
+        //   3. else the explicit confidential/public choice stands.
+        // The server is the authority here; client-form.js mirrors this live in the UI.
         /** @var mixed $selectedAuthMethod */
         $selectedAuthMethod = $values[ClaimsEnum::TokenEndpointAuthMethod->value] ?? null;
+        /** @var mixed $selectedApplicationType */
+        $selectedApplicationType = $values[ClaimsEnum::ApplicationType->value] ?? null;
         if (is_string($selectedAuthMethod) && trim($selectedAuthMethod) !== '') {
             $values['is_confidential'] = trim($selectedAuthMethod) !== TokenEndpointAuthMethodsEnum::None->value;
+        } elseif ($selectedApplicationType === ApplicationTypesEnum::Native->value) {
+            $values['is_confidential'] = false;
         }
 
         // Sanitize redirect_uri and allowed_origin

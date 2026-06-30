@@ -87,12 +87,14 @@ real, stored client property (`is_confidential`) that the OP and the underlying
 OAuth2 library need at runtime (e.g. PKCE requirement for public clients, whether a
 client secret is required / echoed). It is kept in lockstep with
 `token_endpoint_auth_method`, which is the DCR signal for it: **`none` ⇒ public, any
-real authentication method ⇒ confidential** (`application_type: native` is a secondary
-hint used only when no auth method is resolved). This is derived at registration and
-re-derived on RFC 7592 updates, and the admin form keeps the confidential/public
-choice and the auth-method selection consistent (live in the UI and normalized on
-save). When no auth method is set (e.g. a federation/manual client), the explicit
-`is_confidential` value stands.
+real authentication method ⇒ confidential**, with `application_type: native` as a
+secondary hint (⇒ public) used only when no auth method is resolved. The full
+precedence is: **auth method (if set) → `native` → explicit/default**. This is derived
+at registration, re-derived on RFC 7592 updates, and applied identically in the admin
+form (live in the UI via `client-form.js` and normalized on save). When neither an auth
+method nor `native` is present (e.g. a federation/manual client), the explicit
+`is_confidential` value stands. (Consequence: to make a `native` client confidential,
+give it a real authentication method.)
 
 ## Enforcement policy
 

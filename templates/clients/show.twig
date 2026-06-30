@@ -73,6 +73,22 @@
             </tr>
             <tr>
                 <td class="client-col col-property">
+                    {{ 'Token Endpoint Authentication Method'|trans }}
+                </td>
+                <td>
+                    {{ client.tokenEndpointAuthMethod|default('N/A'|trans) }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
+                    {{ 'Application Type'|trans }}
+                </td>
+                <td>
+                    {{ client.applicationType|default('N/A'|trans) }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
                     {{ 'Identifier'|trans }}
                 </td>
                 <td>
@@ -275,14 +291,6 @@
             </tr>
             <tr>
                 <td class="client-col col-property">
-                    {{ 'Token Endpoint Authentication Method'|trans }}
-                </td>
-                <td>
-                    {{ client.tokenEndpointAuthMethod|default('N/A'|trans) }}
-                </td>
-            </tr>
-            <tr>
-                <td class="client-col col-property">
                     {{ 'Default Max Age (seconds)'|trans }}
                 </td>
                 <td>
@@ -367,14 +375,6 @@
                 </td>
                 <td>
                     {{ client.tosUri|default('N/A'|trans) }}
-                </td>
-            </tr>
-            <tr>
-                <td class="client-col col-property">
-                    {{ 'Application Type'|trans }}
-                </td>
-                <td>
-                    {{ client.applicationType|default('N/A'|trans) }}
                 </td>
             </tr>
             <tr>

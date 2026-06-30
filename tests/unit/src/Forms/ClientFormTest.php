@@ -302,6 +302,25 @@ class ClientFormTest extends TestCase
         $this->assertTrue($values['is_confidential']);
     }
 
+    public function testNativeApplicationTypeMakesClientPublicWhenNoAuthMethod(): void
+    {
+        // native + no auth method => public, overriding the submitted radio (mirrors DCR).
+        $values = $this->sut()->setDefaults(array_merge($this->clientDataSample, [
+            ClaimsEnum::ApplicationType->value => 'native',
+            ClaimsEnum::TokenEndpointAuthMethod->value => '',
+            'is_confidential' => true,
+        ]))->getValues();
+        $this->assertFalse($values['is_confidential']);
+
+        // An explicit auth method still takes precedence over the native hint.
+        $values = $this->sut()->setDefaults(array_merge($this->clientDataSample, [
+            ClaimsEnum::ApplicationType->value => 'native',
+            ClaimsEnum::TokenEndpointAuthMethod->value => 'client_secret_basic',
+            'is_confidential' => false,
+        ]))->getValues();
+        $this->assertTrue($values['is_confidential']);
+    }
+
     public function testClientTypeStandsWhenAuthMethodUnset(): void
     {
         // When no auth method is selected, the explicit confidential/public choice is preserved.

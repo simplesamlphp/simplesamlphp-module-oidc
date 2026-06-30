@@ -370,6 +370,26 @@ class ClientEntityFactoryTest extends TestCase
     }
 
     /**
+     * application_type `native` (with no auth method provided) yields a public client.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataDerivesPublicTypeFromNativeApplicationType(): void
+    {
+        $client = $this->sut()->fromRegistrationData(
+            [
+                ClaimsEnum::RedirectUris->value => ['https://example.org/cb'],
+                ClaimsEnum::ApplicationType->value => 'native',
+            ],
+            RegistrationTypeEnum::Dynamic,
+        );
+
+        $this->assertFalse($client->isConfidential());
+        $this->assertSame('none', $client->getTokenEndpointAuthMethod());
+    }
+
+    /**
      * The client type is re-derived on an RFC 7592 update too: changing token_endpoint_auth_method from `none` to a
      * real authentication method flips the client from public to confidential (previously it was carried over from
      * the existing client and never recomputed).

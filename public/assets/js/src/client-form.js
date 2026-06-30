@@ -61,29 +61,38 @@
         syncRequiredGrantTypes();
     }
 
-    // Keep the confidential/public type in lockstep with token_endpoint_auth_method (the primary signal):
-    // `none` => public, any real authentication method => confidential. When the auth method is left unset ("-"),
-    // the admin's explicit confidential/public choice stands. The server normalizes the same way on save.
+    // Keep the confidential/public type in lockstep with the metadata, using the same precedence as the server
+    // (and DCR): token_endpoint_auth_method decides when selected (`none` => public, any real method =>
+    // confidential); otherwise application_type `native` => public; otherwise the explicit choice stands.
     const tokenEndpointAuthMethodSelect = document.getElementById("frm-token_endpoint_auth_method");
+    const applicationTypeSelect = document.getElementById("frm-application_type");
 
-    function syncClientTypeFromAuthMethod() {
-        if (!tokenEndpointAuthMethodSelect) {
+    function syncClientType() {
+        const method = tokenEndpointAuthMethodSelect ? tokenEndpointAuthMethodSelect.value : "";
+        if (method !== "") {
+            if (method === "none") {
+                radioOptionPublic.checked = true;
+            } else {
+                radioOptionConfidential.checked = true;
+            }
+            toggleAllowedOrigins();
             return;
         }
-        const method = tokenEndpointAuthMethodSelect.value;
-        if (method === "") {
-            return; // Unset: leave the explicit type choice as-is.
-        }
-        if (method === "none") {
+        // No auth method selected: a native application type indicates a public client.
+        if (applicationTypeSelect && applicationTypeSelect.value === "native") {
             radioOptionPublic.checked = true;
-        } else {
-            radioOptionConfidential.checked = true;
+            toggleAllowedOrigins();
         }
-        toggleAllowedOrigins(); // Keep the allowed-origins field enabled/disabled in sync with the type.
+        // Otherwise leave the explicit confidential/public choice as-is.
     }
 
     if (tokenEndpointAuthMethodSelect) {
-        tokenEndpointAuthMethodSelect.addEventListener("change", syncClientTypeFromAuthMethod);
-        syncClientTypeFromAuthMethod();
+        tokenEndpointAuthMethodSelect.addEventListener("change", syncClientType);
+    }
+    if (applicationTypeSelect) {
+        applicationTypeSelect.addEventListener("change", syncClientType);
+    }
+    if (tokenEndpointAuthMethodSelect || applicationTypeSelect) {
+        syncClientType();
     }
 })();
