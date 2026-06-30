@@ -34,7 +34,7 @@ contract for what was honored.
 | `scope` | Honored | Honored | DCR default = `OPTION_DCR_DEFAULT_SCOPES`. |
 | `grant_types` | **Honored** (persist + echo + enforce) | Honored | DCR default `["authorization_code"]` stored at registration. Enforced for the code grant (presence + non-empty); refresh grant exempt (see note). |
 | `response_types` | **Honored** (persist + echo + enforce) | Honored | DCR default `["code"]` stored at registration. Enforced at the authorization endpoint (presence + non-empty). |
-| `token_endpoint_auth_method` | **Honored** (persist + echo + enforce) | Honored | DCR default `client_secret_basic` (or `none` for public) stored at registration. Enforced at the token endpoint (presence). |
+| `token_endpoint_auth_method` | **Honored** (persist + echo + enforce) | Honored | DCR default `client_secret_basic` (or `none` for public) stored at registration. Enforced at the token endpoint (presence). Also the primary signal for the client type (see below): `none` ⇒ public, any real method ⇒ confidential. |
 | `jwks` | Honored | Honored | Stored (column). |
 | `jwks_uri` | Honored | Honored | Stored (column); fetched for client auth / request objects. |
 | `signed_jwks_uri` | Honored | Honored | Stored (column). |
@@ -79,6 +79,20 @@ runs on save in the admin UI, and the admin form additionally selects the requir
 grant types live as the response types are chosen (the JavaScript and the server
 share one correspondence map, `ResponseTypeGrantTypeCorrespondence`). `refresh_token`
 has no response-type correspondence (it is gated by `offline_access`).
+
+## Client type (confidential / public)
+
+The OAuth 2.0 client type (RFC 6749 §2.1) is not a DCR metadata field, but it is a
+real, stored client property (`is_confidential`) that the OP and the underlying
+OAuth2 library need at runtime (e.g. PKCE requirement for public clients, whether a
+client secret is required / echoed). It is kept in lockstep with
+`token_endpoint_auth_method`, which is the DCR signal for it: **`none` ⇒ public, any
+real authentication method ⇒ confidential** (`application_type: native` is a secondary
+hint used only when no auth method is resolved). This is derived at registration and
+re-derived on RFC 7592 updates, and the admin form keeps the confidential/public
+choice and the auth-method selection consistent (live in the UI and normalized on
+save). When no auth method is set (e.g. a federation/manual client), the explicit
+`is_confidential` value stands.
 
 ## Enforcement policy
 

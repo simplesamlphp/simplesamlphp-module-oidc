@@ -315,6 +315,16 @@ class ClientForm extends Form
         /** @psalm-suppress RedundantCast */
         $values = (array)parent::getValues(self::TYPE_ARRAY);
 
+        // Keep the client type (confidential/public) in lockstep with token_endpoint_auth_method, which is the
+        // primary signal for it: `none` => public, any real authentication method => confidential. When an auth
+        // method is selected it determines the type; when it is left unset, the explicit confidential/public choice
+        // stands. The server is the authority here; client-form.js mirrors this live in the UI.
+        /** @var mixed $selectedAuthMethod */
+        $selectedAuthMethod = $values[ClaimsEnum::TokenEndpointAuthMethod->value] ?? null;
+        if (is_string($selectedAuthMethod) && trim($selectedAuthMethod) !== '') {
+            $values['is_confidential'] = trim($selectedAuthMethod) !== TokenEndpointAuthMethodsEnum::None->value;
+        }
+
         // Sanitize redirect_uri and allowed_origin
         $values['redirect_uri'] = $this->helpers->str()->convertTextToArray((string)$values['redirect_uri']);
         if (! $values['is_confidential'] && isset($values['allowed_origin'])) {

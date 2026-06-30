@@ -361,6 +361,17 @@ class ClientEntityFactory
             TokenEndpointAuthMethodsEnum::None->value;
         }
 
+        // Keep the client type (confidential/public) in lockstep with the effective token_endpoint_auth_method,
+        // which is the DCR signal for it: `none` => public, any real authentication method => confidential. This is
+        // re-derived from the final resolved value (provided, carried over from an existing client, or defaulted
+        // above), so it stays correct on RFC 7592 updates too - not just first registration. When no auth method is
+        // resolved (e.g. a federation/manual registration that did not set one), the value determined earlier from
+        // the rest of the metadata (or carried over from the existing client) stands.
+        $effectiveTokenEndpointAuthMethod = $extraMetadata[ClaimsEnum::TokenEndpointAuthMethod->value] ?? null;
+        if (is_string($effectiveTokenEndpointAuthMethod) && $effectiveTokenEndpointAuthMethod !== '') {
+            $isConfidential = $effectiveTokenEndpointAuthMethod !== TokenEndpointAuthMethodsEnum::None->value;
+        }
+
         // Behavioral "default when omitted" metadata, persisted (and enforced in the authorization flow / ID Token).
         // Values are already format-validated at the registration boundary (ClientMetadataValidator) and the admin
         // form; here we only persist when present so they can be echoed and applied. Preserved on update when omitted.

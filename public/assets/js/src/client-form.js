@@ -60,4 +60,30 @@
         responseTypesSelect.addEventListener("change", syncRequiredGrantTypes);
         syncRequiredGrantTypes();
     }
+
+    // Keep the confidential/public type in lockstep with token_endpoint_auth_method (the primary signal):
+    // `none` => public, any real authentication method => confidential. When the auth method is left unset ("-"),
+    // the admin's explicit confidential/public choice stands. The server normalizes the same way on save.
+    const tokenEndpointAuthMethodSelect = document.getElementById("frm-token_endpoint_auth_method");
+
+    function syncClientTypeFromAuthMethod() {
+        if (!tokenEndpointAuthMethodSelect) {
+            return;
+        }
+        const method = tokenEndpointAuthMethodSelect.value;
+        if (method === "") {
+            return; // Unset: leave the explicit type choice as-is.
+        }
+        if (method === "none") {
+            radioOptionPublic.checked = true;
+        } else {
+            radioOptionConfidential.checked = true;
+        }
+        toggleAllowedOrigins(); // Keep the allowed-origins field enabled/disabled in sync with the type.
+    }
+
+    if (tokenEndpointAuthMethodSelect) {
+        tokenEndpointAuthMethodSelect.addEventListener("change", syncClientTypeFromAuthMethod);
+        syncClientTypeFromAuthMethod();
+    }
 })();

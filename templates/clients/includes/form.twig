@@ -61,6 +61,7 @@
         </label>
         <span class="pure-form-message">
             {% trans %}Choose if client is confidential or public. Confidential clients are capable of maintaining the confidentiality of their credentials (e.g., client implemented on a secure server with restricted access to the client credentials), or capable of secure client authentication using other means. Public clients are incapable of maintaining the confidentiality of their credentials (e.g., clients executing on the device used by the resource owner, such as an installed native application or a web browser-based application), and incapable of secure client authentication via any other means.{% endtrans %}
+            {% trans %}If a Token Endpoint Authentication Method is selected below, it determines this type ("none" means public, any other method means confidential).{% endtrans %}
         </span>
 
         <label for="frm-redirect_uri">{{ 'Redirect URIs'|trans }}</label>

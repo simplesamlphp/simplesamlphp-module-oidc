@@ -350,6 +350,58 @@ class ClientEntityFactoryTest extends TestCase
     }
 
     /**
+     * The client type (confidential/public) follows token_endpoint_auth_method: `none` yields a public client.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataDerivesPublicTypeFromNoneAuthMethod(): void
+    {
+        $client = $this->sut()->fromRegistrationData(
+            [
+                ClaimsEnum::RedirectUris->value => ['https://example.org/cb'],
+                ClaimsEnum::TokenEndpointAuthMethod->value => 'none',
+            ],
+            RegistrationTypeEnum::Dynamic,
+        );
+
+        $this->assertFalse($client->isConfidential());
+        $this->assertSame('none', $client->getTokenEndpointAuthMethod());
+    }
+
+    /**
+     * The client type is re-derived on an RFC 7592 update too: changing token_endpoint_auth_method from `none` to a
+     * real authentication method flips the client from public to confidential (previously it was carried over from
+     * the existing client and never recomputed).
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataReDerivesClientTypeOnUpdate(): void
+    {
+        $publicClient = $this->sut()->fromRegistrationData(
+            [
+                ClaimsEnum::RedirectUris->value => ['https://example.org/cb'],
+                ClaimsEnum::TokenEndpointAuthMethod->value => 'none',
+            ],
+            RegistrationTypeEnum::Dynamic,
+        );
+        $this->assertFalse($publicClient->isConfidential());
+
+        $updatedClient = $this->sut()->fromRegistrationData(
+            [
+                ClaimsEnum::RedirectUris->value => ['https://example.org/cb'],
+                ClaimsEnum::TokenEndpointAuthMethod->value => 'client_secret_basic',
+            ],
+            RegistrationTypeEnum::Dynamic,
+            existingClient: $publicClient,
+        );
+
+        $this->assertTrue($updatedClient->isConfidential());
+        $this->assertSame('client_secret_basic', $updatedClient->getTokenEndpointAuthMethod());
+    }
+
+    /**
      * Federation automatic registrations are not forced to the Dynamic defaults: nothing is persisted for these
      * three fields unless the federation metadata provides them.
      *

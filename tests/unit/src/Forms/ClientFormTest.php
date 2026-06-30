@@ -285,6 +285,33 @@ class ClientFormTest extends TestCase
         $this->assertSame(['code', 'id_token'], $values[ClaimsEnum::ResponseTypes->value]);
     }
 
+    public function testClientTypeFollowsTokenEndpointAuthMethod(): void
+    {
+        // `none` => public, regardless of the submitted radio value.
+        $values = $this->sut()->setDefaults(array_merge($this->clientDataSample, [
+            ClaimsEnum::TokenEndpointAuthMethod->value => 'none',
+            'is_confidential' => true,
+        ]))->getValues();
+        $this->assertFalse($values['is_confidential']);
+
+        // A real authentication method => confidential, regardless of the submitted radio value.
+        $values = $this->sut()->setDefaults(array_merge($this->clientDataSample, [
+            ClaimsEnum::TokenEndpointAuthMethod->value => 'private_key_jwt',
+            'is_confidential' => false,
+        ]))->getValues();
+        $this->assertTrue($values['is_confidential']);
+    }
+
+    public function testClientTypeStandsWhenAuthMethodUnset(): void
+    {
+        // When no auth method is selected, the explicit confidential/public choice is preserved.
+        $values = $this->sut()->setDefaults(array_merge($this->clientDataSample, [
+            ClaimsEnum::TokenEndpointAuthMethod->value => '',
+            'is_confidential' => true,
+        ]))->getValues();
+        $this->assertTrue($values['is_confidential']);
+    }
+
     public function testInformationalMetadataRoundTrip(): void
     {
         $sut = $this->sut();
