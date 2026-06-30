@@ -434,4 +434,21 @@ class ClientFormTest extends TestCase
             $sut->getValues()[ClientEntity::KEY_AUTH_PROC_FILTERS],
         );
     }
+
+    public function testAddClaimsToIdTokenDefaultsToFalse(): void
+    {
+        $this->assertFalse($this->sut()->getValues()[ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN]);
+    }
+
+    public function testSetDefaultsAndGetValuesRoundTripAddClaimsToIdToken(): void
+    {
+        $this->sspBridgeAuthSourceMock->method('getSources')->willReturn(['default-sp']);
+
+        $data = $this->clientDataSample;
+        $data[ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN] = true;
+
+        $sut = $this->sut()->setDefaults($data);
+
+        $this->assertTrue($sut->getValues()[ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN]);
+    }
 }

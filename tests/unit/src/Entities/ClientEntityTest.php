@@ -246,6 +246,7 @@ class ClientEntityTest extends TestCase
                 'application_type' => null,
                 'contacts' => [],
                 'authproc' => [],
+                'add_claims_to_id_token' => false,
                 'registration_access_token' => null,
             ],
         );
@@ -293,6 +294,46 @@ class ClientEntityTest extends TestCase
 
         $this->assertSame($authProcFilters, $clientEntity->getAuthProcFilters());
         $this->assertSame($authProcFilters, $clientEntity->toArray()[ClientEntity::KEY_AUTH_PROC_FILTERS]);
+    }
+
+    /**
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
+     */
+    public function testCanGetAddClaimsToIdToken(): void
+    {
+        // No extra metadata -> disabled by default.
+        $this->assertFalse($this->mock()->getAddClaimsToIdToken());
+
+        $clientEntity = new ClientEntity(
+            $this->id,
+            $this->secret,
+            $this->name,
+            $this->description,
+            $this->redirectUri,
+            $this->scopes,
+            $this->isEnabled,
+            $this->isConfidential,
+            $this->authSource,
+            $this->owner,
+            $this->postLogoutRedirectUri,
+            $this->backChannelLogoutUri,
+            $this->entityIdentifier,
+            $this->clientRegistrationTypes,
+            $this->federationJwks,
+            $this->jwks,
+            $this->jwksUri,
+            $this->signedJwksUri,
+            $this->registrationType,
+            $this->updatedAt,
+            $this->createdAt,
+            $this->expiresAt,
+            $this->isGeneric,
+            [ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN => true],
+        );
+
+        $this->assertTrue($clientEntity->getAddClaimsToIdToken());
+        $this->assertTrue($clientEntity->toArray()[ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN]);
     }
 
     public function testEnforcementGettersReturnRawRegisteredValues(): void

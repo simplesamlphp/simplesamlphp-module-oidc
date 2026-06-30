@@ -448,6 +448,9 @@ class ClientForm extends Form
 
         $values[ClaimsEnum::RequireAuthTime->value] = (bool)($values[ClaimsEnum::RequireAuthTime->value] ?? false);
 
+        $values[ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN] =
+        (bool)($values[ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN] ?? false);
+
         /** @var mixed $defaultAcrValues */
         $defaultAcrValues = $values[ClaimsEnum::DefaultAcrValues->value] ?? null;
         $defaultAcrValues = is_array($defaultAcrValues) ? $defaultAcrValues : [];
@@ -597,6 +600,9 @@ class ClientForm extends Form
         $values[ClaimsEnum::DefaultMaxAge->value] = is_int($defaultMaxAge) ? (string)$defaultMaxAge : '';
 
         $values[ClaimsEnum::RequireAuthTime->value] = (bool)($values[ClaimsEnum::RequireAuthTime->value] ?? false);
+
+        $values[ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN] =
+        (bool)($values[ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN] ?? false);
 
         /** @var mixed $defaultAcrValues */
         $defaultAcrValues = $values[ClaimsEnum::DefaultAcrValues->value] ?? null;
@@ -757,6 +763,11 @@ class ClientForm extends Form
             ->setHtmlType('number');
 
         $this->addCheckbox(ClaimsEnum::RequireAuthTime->value, Translate::noop('Require auth_time in ID Token'));
+
+        $this->addCheckbox(
+            ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN,
+            Translate::noop('Release user claims in ID Token'),
+        );
 
         // Bound to the OP's supported ACRs (acr_values_supported). When the OP advertises no ACRs, this has no
         // items and the field is hidden in the template (a per-client default ACR cannot do anything in that case).

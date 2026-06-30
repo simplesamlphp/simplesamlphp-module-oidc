@@ -133,11 +133,13 @@ class TokenResponseTest extends TestCase
         $this->idTokenMock = $this->createMock(IdToken::class);
     }
 
-    protected function prepareMockedInstance(): TokenResponse
+    protected function prepareMockedInstance(?IdTokenBuilder $idTokenBuilder = null): TokenResponse
     {
+        $idTokenBuilder ??= $this->idTokenBuilder;
+
         $tokenResponse = new TokenResponse(
             $this->identityProviderMock,
-            $this->idTokenBuilder,
+            $idTokenBuilder,
             $this->privateKey,
             $this->loggerMock,
         );
@@ -215,6 +217,73 @@ class TokenResponseTest extends TestCase
         $response->getBody()->rewind();
         $body = $response->getBody()->getContents();
         $this->assertTrue($this->shouldHaveValidIdToken($body, ['name' => 'Homer Simpson']));
+    }
+
+    /**
+     * When the client is configured to release user claims in the ID Token (admin-only
+     * `add_claims_to_id_token`), the ID Token is built with $addClaimsFromScopes = true, so the scope-derived
+     * user claims end up in the ID Token (in addition to the UserInfo endpoint).
+     *
+     * @throws \Exception
+     */
+    public function testReleasesUserClaimsInIdTokenWhenClientConfiguredTo(): void
+    {
+        $this->clientEntityMock->method('getAddClaimsToIdToken')->willReturn(true);
+        $this->accessTokenEntityMock->method('getRequestedClaims')->willReturn([]);
+        $this->accessTokenEntityMock->method('getScopes')->willReturn($this->scopes);
+
+        $idTokenBuilderMock = $this->createMock(IdTokenBuilder::class);
+        $idTokenBuilderMock->expects($this->once())
+            ->method('buildFor')
+            ->with(
+                $this->anything(),
+                $this->anything(),
+                true, // $addClaimsFromScopes
+                $this->anything(),
+                $this->anything(),
+                $this->anything(),
+                $this->anything(),
+                $this->anything(),
+            )
+            ->willReturn($this->idTokenMock);
+        $this->idTokenMock->method('getToken')->willReturn('token');
+
+        $idTokenResponse = $this->prepareMockedInstance($idTokenBuilderMock);
+        $idTokenResponse->setAccessToken($this->accessTokenEntityMock);
+        $idTokenResponse->generateHttpResponse(new Response());
+    }
+
+    /**
+     * By default (client not configured to release claims in the ID Token), the ID Token is built with
+     * $addClaimsFromScopes = false, so scope-derived user claims remain available only at the UserInfo endpoint.
+     *
+     * @throws \Exception
+     */
+    public function testDoesNotReleaseUserClaimsInIdTokenByDefault(): void
+    {
+        $this->clientEntityMock->method('getAddClaimsToIdToken')->willReturn(false);
+        $this->accessTokenEntityMock->method('getRequestedClaims')->willReturn([]);
+        $this->accessTokenEntityMock->method('getScopes')->willReturn($this->scopes);
+
+        $idTokenBuilderMock = $this->createMock(IdTokenBuilder::class);
+        $idTokenBuilderMock->expects($this->once())
+            ->method('buildFor')
+            ->with(
+                $this->anything(),
+                $this->anything(),
+                false, // $addClaimsFromScopes
+                $this->anything(),
+                $this->anything(),
+                $this->anything(),
+                $this->anything(),
+                $this->anything(),
+            )
+            ->willReturn($this->idTokenMock);
+        $this->idTokenMock->method('getToken')->willReturn('token');
+
+        $idTokenResponse = $this->prepareMockedInstance($idTokenBuilderMock);
+        $idTokenResponse->setAccessToken($this->accessTokenEntityMock);
+        $idTokenResponse->generateHttpResponse(new Response());
     }
 
     public function testNoExtraParamsForNonOidcRequest(): void

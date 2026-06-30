@@ -104,9 +104,10 @@ request omits is reset to its OP default (or removed), so the client must send t
 complete intended metadata set on every update. Server-managed and admin-only
 properties are preserved across the update — the client identifier and secret,
 `created_at`, the registration type, the registration access token, and in
-particular any administrator-set `authproc` (which a registering client can never
-set). This applies to Dynamic (DCR) registrations; manual (admin UI) and OpenID
-Federation registrations are unaffected.
+particular any administrator-set admin-only extra metadata, i.e. `authproc` and
+`add_claims_to_id_token` (which a registering client can never set). This applies
+to Dynamic (DCR) registrations; manual (admin UI) and OpenID Federation
+registrations are unaffected.
 
 ## `redirect_uris` constraints by `application_type`
 

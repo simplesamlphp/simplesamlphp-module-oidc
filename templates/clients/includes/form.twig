@@ -223,6 +223,12 @@
             {% trans %}When enabled, the auth_time claim is always included in ID Tokens issued to this Client.{% endtrans %}
         </span>
 
+        <label for="">{{ 'Release user claims in ID Token'|trans }}</label>
+        {{ form.add_claims_to_id_token.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}When enabled, the user's claims (resolved from the granted scopes) are included directly in the ID Token issued to this Client, in addition to being available from the UserInfo endpoint. This is useful for clients that do not call the UserInfo endpoint and rely solely on the ID Token to obtain user attributes. Leave it disabled (the default) unless a client needs it, since it increases the ID Token size. For security reasons, this can only be set here (by an administrator) and is never accepted from dynamic / federation client registration.{% endtrans %}
+        </span>
+
         {% if form.hasConfiguredAcrValues() %}
         <label for="frm-default_acr_values">{{ 'Default ACR Values'|trans }}</label>
         {{ form.default_acr_values.control | raw }}
