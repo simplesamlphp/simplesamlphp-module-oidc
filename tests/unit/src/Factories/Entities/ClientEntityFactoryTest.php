@@ -326,6 +326,30 @@ class ClientEntityFactoryTest extends TestCase
     }
 
     /**
+     * The OIDC DCR response_type <-> grant_type correspondence is normalized: grant types required by the
+     * registered response_types are added to grant_types, even when the client omitted grant_types (so it falls
+     * back to the authorization_code default first).
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataNormalizesGrantTypesToResponseTypeCorrespondence(): void
+    {
+        // Client declares implicit response types but omits grant_types -> implicit must be added (alongside the
+        // authorization_code default).
+        $client = $this->sut()->fromRegistrationData(
+            [
+                ClaimsEnum::RedirectUris->value => ['https://example.org/cb'],
+                ClaimsEnum::ResponseTypes->value => ['code', 'id_token'],
+            ],
+            RegistrationTypeEnum::Dynamic,
+        );
+
+        $this->assertSame(['authorization_code', 'implicit'], $client->getGrantTypes());
+        $this->assertSame(['code', 'id_token'], $client->getResponseTypes());
+    }
+
+    /**
      * Federation automatic registrations are not forced to the Dynamic defaults: nothing is persisted for these
      * three fields unless the federation metadata provides them.
      *

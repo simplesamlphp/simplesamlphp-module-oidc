@@ -269,6 +269,22 @@ class ClientFormTest extends TestCase
         $this->assertTrue($sut->hasConfiguredAcrValues());
     }
 
+    public function testGrantTypesAreNormalizedToResponseTypeCorrespondence(): void
+    {
+        // Selecting an implicit response type must pull in the implicit grant type on save, even if the admin
+        // only had authorization_code selected.
+        $data = array_merge($this->clientDataSample, [
+            ClaimsEnum::ResponseTypes->value => ['code', 'id_token'],
+            ClaimsEnum::GrantTypes->value => ['authorization_code'],
+        ]);
+        $sut = $this->sut()->setDefaults($data);
+
+        $values = $sut->getValues();
+
+        $this->assertSame(['authorization_code', 'implicit'], $values[ClaimsEnum::GrantTypes->value]);
+        $this->assertSame(['code', 'id_token'], $values[ClaimsEnum::ResponseTypes->value]);
+    }
+
     public function testInformationalMetadataRoundTrip(): void
     {
         $sut = $this->sut();

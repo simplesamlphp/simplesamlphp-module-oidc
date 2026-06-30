@@ -66,6 +66,20 @@ contract for what was honored.
 | `software_id` / `software_version` | **Validated + echoed** | Validated + echoed | Admin-editable. RFC 7591 informational. |
 | `software_statement` | Ignored | TBD | RFC 7591; only if signed-statement trust is implemented. |
 
+## `response_type` ↔ `grant_type` correspondence
+
+OpenID Connect Dynamic Client Registration 1.0 requires that the `grant_types`
+list include the grant type(s) corresponding to each registered `response_type`
+(`code` → `authorization_code`; `id_token` / `id_token token` → `implicit`). The OP
+**normalizes** rather than rejects: when a client registers `response_types`, the
+required grant types are merged into `grant_types` (and echoed back per RFC 7591
+§3.2.1), so a client that legally omits `grant_types` while declaring a non-`code`
+response type still gets a consistent, usable registration. The same normalization
+runs on save in the admin UI, and the admin form additionally selects the required
+grant types live as the response types are chosen (the JavaScript and the server
+share one correspondence map, `ResponseTypeGrantTypeCorrespondence`). `refresh_token`
+has no response-type correspondence (it is gated by `offline_access`).
+
 ## Enforcement policy
 
 Per-client enforcement of `grant_types` / `response_types` /

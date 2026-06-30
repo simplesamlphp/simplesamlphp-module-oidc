@@ -180,11 +180,14 @@
         <label for="frm-response_types">{{ 'Response Types'|trans }}</label>
         {{ form.response_types.control | raw }}
         <span class="pure-form-message">
-            {% trans %}Response types this Client is allowed to use at the authorization endpoint. If none are selected, the Client is not restricted by response type.{% endtrans %}
+            {% trans %}Response types this Client is allowed to use at the authorization endpoint. If none are selected, the Client is not restricted by response type. Selecting a response type automatically selects the grant types it requires.{% endtrans %}
         </span>
         {% if form.response_types.hasErrors %}
             <span class="pure-form-message red-text">{{ form.response_types.getError }}</span>
         {% endif %}
+
+        {# Single source of truth for the response_type -> required grant_types correspondence, consumed by client-form.js. #}
+        <script type="application/json" id="oidc-response-type-grant-type-map">{{ form.getResponseTypeGrantTypeMapJson()|raw }}</script>
 
         <label for="frm-token_endpoint_auth_method">{{ 'Token Endpoint Authentication Method'|trans }}</label>
         {{ form.token_endpoint_auth_method.control | raw }}

@@ -12,6 +12,7 @@ use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Utils\ResponseTypeGrantTypeCorrespondence;
 use SimpleSAML\OpenID\Codebooks\ApplicationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
@@ -324,6 +325,25 @@ class ClientEntityFactory
             !array_key_exists(ClaimsEnum::ResponseTypes->value, $extraMetadata)
         ) {
             $extraMetadata[ClaimsEnum::ResponseTypes->value] = [ResponseTypesEnum::Code->value];
+        }
+
+        // Normalize grant_types to satisfy the OIDC DCR response_type <-> grant_type correspondence: every grant
+        // type required by a registered response_type MUST be present in grant_types. We augment rather than reject,
+        // so a client that (legally) omits grant_types while declaring a non-code response_type still ends up with a
+        // consistent, usable registration (echoed back per RFC 7591 Section 3.2.1). Only applied when grant_types is
+        // already present (Dynamic clients always are, after the default above); federation/manual registrations
+        // without a grant_types value are left untouched (presence-based, like the per-client enforcement).
+        if (
+            array_key_exists(ClaimsEnum::GrantTypes->value, $extraMetadata) &&
+            is_array($extraMetadata[ClaimsEnum::GrantTypes->value]) &&
+            array_key_exists(ClaimsEnum::ResponseTypes->value, $extraMetadata) &&
+            is_array($extraMetadata[ClaimsEnum::ResponseTypes->value])
+        ) {
+            $extraMetadata[ClaimsEnum::GrantTypes->value] =
+            ResponseTypeGrantTypeCorrespondence::mergeRequiredGrantTypes(
+                $this->helpers->arr()->ensureStringValues($extraMetadata[ClaimsEnum::GrantTypes->value]),
+                $this->helpers->arr()->ensureStringValues($extraMetadata[ClaimsEnum::ResponseTypes->value]),
+            );
         }
 
         if (

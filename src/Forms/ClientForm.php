@@ -23,6 +23,7 @@ use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Utils\ResponseTypeGrantTypeCorrespondence;
 use SimpleSAML\OpenID\Codebooks\ApplicationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
@@ -401,6 +402,22 @@ class ClientForm extends Form
         $responseTypes = is_array($responseTypes) ? $responseTypes : [];
         $values[ClaimsEnum::ResponseTypes->value] = array_values(
             array_intersect($responseTypes, array_keys($this->getSupportedResponseTypes())),
+        );
+
+        // Enforce the OIDC DCR response_type <-> grant_type correspondence server-side (the JS does the same live):
+        // every grant type required by a selected response_type must be present in grant_types. We keep only
+        // supported grant types so the multi-select can render the result.
+        /** @var string[] $selectedGrantTypes */
+        $selectedGrantTypes = $values[ClaimsEnum::GrantTypes->value];
+        /** @var string[] $selectedResponseTypes */
+        $selectedResponseTypes = $values[ClaimsEnum::ResponseTypes->value];
+
+        $normalizedGrantTypes = ResponseTypeGrantTypeCorrespondence::mergeRequiredGrantTypes(
+            $selectedGrantTypes,
+            $selectedResponseTypes,
+        );
+        $values[ClaimsEnum::GrantTypes->value] = array_values(
+            array_intersect($normalizedGrantTypes, array_keys($this->getSupportedGrantTypes())),
         );
 
         /** @var mixed $tokenEndpointAuthMethod */
@@ -873,6 +890,7 @@ class ClientForm extends Form
      */
     protected function getSupportedAcrValues(): array
     {
+        /** @var list<string> $supported */
         $supported = array_values(array_filter($this->moduleConfig->getAcrValuesSupported(), 'is_string'));
 
         return array_combine($supported, $supported);
@@ -885,6 +903,21 @@ class ClientForm extends Form
     public function hasConfiguredAcrValues(): bool
     {
         return $this->getSupportedAcrValues() !== [];
+    }
+
+    /**
+     * JSON map of response_type => required grant_types, restricted to the response types this OP offers. Consumed
+     * by the admin-form JavaScript to live-select the corresponding grant types, sharing the single source of truth
+     * with the server-side normalization (ResponseTypeGrantTypeCorrespondence).
+     */
+    public function getResponseTypeGrantTypeMapJson(): string
+    {
+        $map = array_intersect_key(
+            ResponseTypeGrantTypeCorrespondence::map(),
+            $this->getSupportedResponseTypes(),
+        );
+
+        return (string)json_encode($map, JSON_UNESCAPED_SLASHES);
     }
 
     /**
