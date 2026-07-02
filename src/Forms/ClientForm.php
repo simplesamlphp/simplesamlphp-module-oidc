@@ -766,7 +766,7 @@ class ClientForm extends Form
 
         $this->addCheckbox(
             ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN,
-            Translate::noop('Release user claims in ID Token'),
+            Translate::noop('Release User Claims in ID Token'),
         );
 
         // Bound to the OP's supported ACRs (acr_values_supported). When the OP advertises no ACRs, this has no
