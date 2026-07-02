@@ -84,12 +84,14 @@ ID Token. Some clients, however, never call the UserInfo endpoint and rely solel
 on the ID Token to obtain user attributes. For such clients, this new per-client
 property makes the OP include the user's claims (resolved from the granted
 scopes) in the ID Token as well. It is disabled by default, so existing clients
-are unaffected; enable it only for clients that need it, as it increases the ID
-Token size. (Note: for the bare `id_token` implicit response type there is no
-access token to call UserInfo with, so the claims are already included in the ID
-Token regardless of this property.) For security reasons, it can only be set by an
-administrator (via the admin UI / API) and is deliberately never accepted from
-client-supplied dynamic / OpenID Federation registration metadata.
+are unaffected; enable it only for clients that need it, as it opens some
+privacy challenges (for example, ID token ending up in access logs), and as it
+increases the ID Token size. (Note: for the bare `id_token` implicit response
+type there is no access token to call UserInfo with, so the claims are already
+included in the ID Token regardless of this property.) For security reasons,
+it can only be set by an administrator (via the admin UI) and is
+deliberately never accepted from client-supplied dynamic / OpenID Federation
+registration metadata.
   - Clients can now be configured with a new property related to the above:
     - Release user claims in ID Token (`add_claims_to_id_token`)
 - The encryption key (used to encrypt / decrypt artifacts like authorization
