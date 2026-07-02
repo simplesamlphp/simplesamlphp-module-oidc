@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Controllers;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
+use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\LogoutHandlers\BackChannelLogoutHandler;
@@ -15,6 +16,7 @@ use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
+use SimpleSAML\Module\oidc\Utils\UiLocalesResolver;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\Session;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -32,6 +34,8 @@ class EndSessionController
         protected TemplateFactory $templateFactory,
         protected PsrHttpBridge $psrHttpBridge,
         protected ErrorResponder $errorResponder,
+        protected UiLocalesResolver $uiLocalesResolver,
+        protected SspBridge $sspBridge,
     ) {
     }
 
@@ -50,6 +54,8 @@ class EndSessionController
         // intentionally left intact. No token revocation is therefore required during logout.
 
         $logoutRequest = $this->authorizationServer->validateLogoutRequest($request);
+
+        $uiLanguage = $this->setUiLanguage($logoutRequest);
 
         // Set indication that the logout is initiated using OIDC protocol. This will be checked in the
         // logoutHandler() method.
@@ -134,7 +140,33 @@ class EndSessionController
         // run for other logout initiated actions, like (currently) re-authentication...
         $this->sessionService->setIsOidcInitiatedLogout(false);
 
-        return $this->resolveResponse($logoutRequest, $wasLogoutActionCalled);
+        return $this->resolveResponse($logoutRequest, $wasLogoutActionCalled, $uiLanguage);
+    }
+
+    /**
+     * Set the UI language for the current user agent based on the ui_locales logout request parameter, if any of
+     * the requested languages are available in SimpleSAMLphp. This is done using the standard SimpleSAMLphp
+     * language cookie (same mechanism as when the user picks a language on any SimpleSAMLphp page). Per
+     * specification this is best-effort, so no error is raised if none of the requested languages are
+     * available. Returns the resolved language, so it can also be applied when rendering the logout
+     * page in the current request (the language cookie only affects subsequent requests).
+     */
+    protected function setUiLanguage(LogoutRequest $logoutRequest): ?string
+    {
+        $language = $this->uiLocalesResolver->resolve($logoutRequest->getUiLocales());
+
+        if ($language === null) {
+            return null;
+        }
+
+        $this->loggerService->debug(
+            'EndSessionController: setting UI language based on ui_locales parameter.',
+            ['uiLocales' => $logoutRequest->getUiLocales(), 'language' => $language],
+        );
+
+        $this->sspBridge->locale()->language()->setLanguageCookie($language);
+
+        return $language;
     }
 
     public function endSession(Request $request): Response
@@ -211,8 +243,11 @@ class EndSessionController
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
      */
-    protected function resolveResponse(LogoutRequest $logoutRequest, bool $wasLogoutActionCalled): Response
-    {
+    protected function resolveResponse(
+        LogoutRequest $logoutRequest,
+        bool $wasLogoutActionCalled,
+        ?string $uiLanguage = null,
+    ): Response {
         if (($postLogoutRedirectUri = $logoutRequest->getPostLogoutRedirectUri()) !== null) {
             $this->loggerService->debug(
                 'Logout request includes post-logout redirect URI: ' . $postLogoutRedirectUri,
@@ -248,6 +283,7 @@ class EndSessionController
             showMenu: false,
             showModuleName: false,
             showSubPageTitle: false,
+            language: $uiLanguage,
         );
     }
 }

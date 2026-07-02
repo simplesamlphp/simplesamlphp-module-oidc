@@ -14,7 +14,7 @@ use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 /**
- * @extends AbstractRule<mixed>
+ * @extends AbstractRule<string|null>
  */
 class UiLocalesRule extends AbstractRule
 {
@@ -32,7 +32,7 @@ class UiLocalesRule extends AbstractRule
         ResponseModeInterface $responseMode = new QueryResponseMode(),
         array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
     ): ?Result {
-        return new Result($this->getKey(), $this->requestParamsResolver->getBasedOnAllowedMethods(
+        return new Result($this->getKey(), $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
             ParamsEnum::UiLocales->value,
             $request,
             $allowedServerRequestMethods,

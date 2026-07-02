@@ -12,6 +12,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 use SimpleSAML\Auth\ProcessingChain;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
+use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Controllers\AuthorizationController;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -21,6 +22,7 @@ use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\UiLocalesResolver;
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
@@ -52,6 +54,10 @@ class AuthorizationControllerTest extends TestCase
     protected Stub $responseStub;
     protected MockObject $psrHttpBridgeMock;
     protected MockObject $errorResponderMock;
+    protected Stub $uiLocalesResolverStub;
+    protected MockObject $sspBridgeMock;
+    protected MockObject $sspBridgeLocaleMock;
+    protected MockObject $sspBridgeLocaleLanguageMock;
     protected array $state;
 
     protected static string $sampleAuthSourceId = 'authSource123';
@@ -82,6 +88,13 @@ class AuthorizationControllerTest extends TestCase
 
         $this->psrHttpBridgeMock = $this->createMock(PsrHttpBridge::class);
         $this->errorResponderMock = $this->createMock(ErrorResponder::class);
+
+        $this->uiLocalesResolverStub = $this->createStub(UiLocalesResolver::class);
+        $this->sspBridgeMock = $this->createMock(SspBridge::class);
+        $this->sspBridgeLocaleMock = $this->createMock(SspBridge\Locale::class);
+        $this->sspBridgeLocaleLanguageMock = $this->createMock(SspBridge\Locale\Language::class);
+        $this->sspBridgeMock->method('locale')->willReturn($this->sspBridgeLocaleMock);
+        $this->sspBridgeLocaleMock->method('language')->willReturn($this->sspBridgeLocaleLanguageMock);
 
         $this->state = [
             'Attributes' => self::AUTH_DATA['Attributes'],
@@ -122,6 +135,8 @@ class AuthorizationControllerTest extends TestCase
         ?LoggerService $loggerService = null,
         ?PsrHttpBridge $psrHttpBridge = null,
         ?ErrorResponder $errorResponder = null,
+        ?UiLocalesResolver $uiLocalesResolver = null,
+        ?SspBridge $sspBridge = null,
     ): AuthorizationController {
         $authenticationService ??= $this->authenticationServiceStub;
         $authorizationServer ??= $this->authorizationServerStub;
@@ -129,6 +144,8 @@ class AuthorizationControllerTest extends TestCase
         $loggerService ??= $this->loggerServiceMock;
         $psrHttpBridge ??= $this->psrHttpBridgeMock;
         $errorResponder ??= $this->errorResponderMock;
+        $uiLocalesResolver ??= $this->uiLocalesResolverStub;
+        $sspBridge ??= $this->sspBridgeMock;
 
         return new AuthorizationController(
             $authenticationService,
@@ -137,6 +154,8 @@ class AuthorizationControllerTest extends TestCase
             $loggerService,
             $psrHttpBridge,
             $errorResponder,
+            $uiLocalesResolver,
+            $sspBridge,
         );
     }
 
@@ -170,14 +189,7 @@ class AuthorizationControllerTest extends TestCase
             ->method('getAuthorizationRequestFromState')
             ->willReturn($this->authorizationRequestMock);
 
-        $controller = new AuthorizationController(
-            $this->authenticationServiceStub,
-            $this->authorizationServerStub,
-            $this->moduleConfigStub,
-            $this->loggerServiceMock,
-            $this->psrHttpBridgeMock,
-            $this->errorResponderMock,
-        );
+        $controller = $this->mock();
 
         if (empty($queryParameters)) {
             $this->authenticationServiceStub->expects($this->once())
@@ -221,14 +233,7 @@ class AuthorizationControllerTest extends TestCase
 
         $this->expectException(OidcServerException::class);
 
-        (new AuthorizationController(
-            $this->authenticationServiceStub,
-            $this->authorizationServerStub,
-            $this->moduleConfigStub,
-            $this->loggerServiceMock,
-            $this->psrHttpBridgeMock,
-            $this->errorResponderMock,
-        ))($this->serverRequestStub);
+        ($this->mock())($this->serverRequestStub);
     }
 
     /**
@@ -263,14 +268,7 @@ class AuthorizationControllerTest extends TestCase
 
         $this->expectException(OidcServerException::class);
 
-        (new AuthorizationController(
-            $this->authenticationServiceStub,
-            $this->authorizationServerStub,
-            $this->moduleConfigStub,
-            $this->loggerServiceMock,
-            $this->psrHttpBridgeMock,
-            $this->errorResponderMock,
-        ))($this->serverRequestStub);
+        ($this->mock())($this->serverRequestStub);
     }
 
     /**
@@ -314,14 +312,7 @@ class AuthorizationControllerTest extends TestCase
 
         $this->authorizationRequestMock->expects($this->once())->method('setAcr')->with('0');
 
-        (new AuthorizationController(
-            $this->authenticationServiceStub,
-            $this->authorizationServerStub,
-            $this->moduleConfigStub,
-            $this->loggerServiceMock,
-            $this->psrHttpBridgeMock,
-            $this->errorResponderMock,
-        ))($this->serverRequestStub);
+        ($this->mock())($this->serverRequestStub);
     }
 
     /**
@@ -365,14 +356,7 @@ class AuthorizationControllerTest extends TestCase
 
         $this->expectException(OidcServerException::class);
 
-        (new AuthorizationController(
-            $this->authenticationServiceStub,
-            $this->authorizationServerStub,
-            $this->moduleConfigStub,
-            $this->loggerServiceMock,
-            $this->psrHttpBridgeMock,
-            $this->errorResponderMock,
-        ))($this->serverRequestStub);
+        ($this->mock())($this->serverRequestStub);
     }
 
     /**
@@ -416,14 +400,7 @@ class AuthorizationControllerTest extends TestCase
 
         $this->authorizationRequestMock->expects($this->once())->method('setAcr')->with('1');
 
-        (new AuthorizationController(
-            $this->authenticationServiceStub,
-            $this->authorizationServerStub,
-            $this->moduleConfigStub,
-            $this->loggerServiceMock,
-            $this->psrHttpBridgeMock,
-            $this->errorResponderMock,
-        ))($this->serverRequestStub);
+        ($this->mock())($this->serverRequestStub);
     }
 
     /**
@@ -467,14 +444,7 @@ class AuthorizationControllerTest extends TestCase
 
         $this->authorizationRequestMock->expects($this->once())->method('setAcr')->with('1');
 
-        (new AuthorizationController(
-            $this->authenticationServiceStub,
-            $this->authorizationServerStub,
-            $this->moduleConfigStub,
-            $this->loggerServiceMock,
-            $this->psrHttpBridgeMock,
-            $this->errorResponderMock,
-        ))($this->serverRequestStub);
+        ($this->mock())($this->serverRequestStub);
     }
 
     /**
@@ -519,14 +489,7 @@ class AuthorizationControllerTest extends TestCase
         $this->authorizationRequestMock->expects($this->once())->method('setAcr');
         $this->loggerServiceMock->expects($this->once())->method('warning');
 
-        (new AuthorizationController(
-            $this->authenticationServiceStub,
-            $this->authorizationServerStub,
-            $this->moduleConfigStub,
-            $this->loggerServiceMock,
-            $this->psrHttpBridgeMock,
-            $this->errorResponderMock,
-        ))($this->serverRequestStub);
+        ($this->mock())($this->serverRequestStub);
     }
 
     public function testItAlwaysReturnsAccessControlAllowOrigin(): void
@@ -540,5 +503,64 @@ class AuthorizationControllerTest extends TestCase
             ->with('Access-Control-Allow-Origin', '*');
 
         $this->mock()->authorization($this->symfonyRequestMock);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testSetsUiLanguageBasedOnUiLocalesOnInitialRequest(): void
+    {
+        $this->authorizationRequestMock->method('getUiLocales')->willReturn('hr en');
+        $this->uiLocalesResolverStub->method('resolve')->willReturn('hr');
+
+        $this->authorizationServerStub
+            ->method('validateAuthorizationRequest')
+            ->willReturn($this->authorizationRequestMock);
+        $this->authorizationServerStub
+            ->method('completeAuthorizationRequest')
+            ->willReturn($this->responseStub);
+
+        $this->serverRequestStub->method('getQueryParams')->willReturn([]);
+
+        $this->authenticationServiceStub->method('manageState')->willReturn($this->state);
+        $this->authenticationServiceStub->method('getAuthenticateUser')->willReturn($this->userEntityStub);
+        $this->authenticationServiceStub
+            ->method('getAuthorizationRequestFromState')
+            ->willReturn($this->authorizationRequestMock);
+
+        $this->sspBridgeLocaleLanguageMock->expects($this->once())
+            ->method('setLanguageCookie')
+            ->with('hr');
+
+        ($this->mock())($this->serverRequestStub);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testDoesNotSetUiLanguageWhenNoRequestedLanguageIsAvailable(): void
+    {
+        $this->authorizationRequestMock->method('getUiLocales')->willReturn('de');
+        $this->uiLocalesResolverStub->method('resolve')->willReturn(null);
+
+        $this->authorizationServerStub
+            ->method('validateAuthorizationRequest')
+            ->willReturn($this->authorizationRequestMock);
+        $this->authorizationServerStub
+            ->method('completeAuthorizationRequest')
+            ->willReturn($this->responseStub);
+
+        $this->serverRequestStub->method('getQueryParams')->willReturn([]);
+
+        $this->authenticationServiceStub->method('manageState')->willReturn($this->state);
+        $this->authenticationServiceStub->method('getAuthenticateUser')->willReturn($this->userEntityStub);
+        $this->authenticationServiceStub
+            ->method('getAuthorizationRequestFromState')
+            ->willReturn($this->authorizationRequestMock);
+
+        $this->sspBridgeLocaleLanguageMock->expects($this->never())
+            ->method('setLanguageCookie');
+
+        ($this->mock())($this->serverRequestStub);
     }
 }

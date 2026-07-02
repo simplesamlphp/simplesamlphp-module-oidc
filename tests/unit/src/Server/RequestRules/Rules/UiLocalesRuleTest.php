@@ -60,7 +60,7 @@ class UiLocalesRuleTest extends TestCase
      */
     public function testCheckRuleReturnsResultWhenParamSet()
     {
-        $this->requestParamsResolverStub->method('getBasedOnAllowedMethods')->willReturn('en');
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('en');
 
         $result = $this->sut()->checkRule(
             $this->requestStub,
