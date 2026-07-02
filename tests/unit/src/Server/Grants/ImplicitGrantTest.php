@@ -170,20 +170,18 @@ class ImplicitGrantTest extends TestCase
     }
 
     /**
-     * For id_token token the AddClaimsToIdTokenRule does not request the claims (the rule only matches the exact
-     * "id_token" response type), but a client configured with the administrator-only `add_claims_to_id_token`
-     * option still gets the user's claims released in the ID Token.
+     * The grant forwards the "add claims to ID Token" decision (made by AddClaimsToIdTokenRule and carried on the
+     * authorization request) to the ID Token builder. When it is true, the user's claims are released in the ID
+     * Token.
      */
-    public function testReleasesUserClaimsInIdTokenWhenClientConfiguredTo(): void
+    public function testReleasesUserClaimsInIdTokenWhenRequested(): void
     {
         $this->authorizationRequestMock->method('getUser')->willReturn($this->userEntityMock);
         $this->authorizationRequestMock->method('getRedirectUri')->willReturn('redirectUri');
         $this->authorizationRequestMock->method('isAuthorizationApproved')->willReturn(true);
         $this->authorizationRequestMock->method('getScopes')->willReturn([$this->scopeEntityMock]);
         $this->authorizationRequestMock->method('getClient')->willReturn($this->clientEntityMock);
-        // Response-type rule did NOT request the claims (e.g. id_token token), but the client opts in.
-        $this->authorizationRequestMock->method('getAddClaimsToIdToken')->willReturn(false);
-        $this->clientEntityMock->method('getAddClaimsToIdToken')->willReturn(true);
+        $this->authorizationRequestMock->method('getAddClaimsToIdToken')->willReturn(true);
         $this->scopeRepositoryMock->method('finalizeScopes')->willReturn([$this->scopeEntityMock]);
 
         $idTokenMock = $this->createMock(IdToken::class);
@@ -206,10 +204,10 @@ class ImplicitGrantTest extends TestCase
     }
 
     /**
-     * When neither the response type nor the client requests it, the user's claims are not released in the ID
-     * Token (they remain available at the UserInfo endpoint via the issued access token).
+     * When the decision is false, the user's claims are not released in the ID Token (they remain available at
+     * the UserInfo endpoint via the issued access token).
      */
-    public function testDoesNotReleaseUserClaimsInIdTokenByDefault(): void
+    public function testDoesNotReleaseUserClaimsInIdTokenWhenNotRequested(): void
     {
         $this->authorizationRequestMock->method('getUser')->willReturn($this->userEntityMock);
         $this->authorizationRequestMock->method('getRedirectUri')->willReturn('redirectUri');
@@ -217,7 +215,6 @@ class ImplicitGrantTest extends TestCase
         $this->authorizationRequestMock->method('getScopes')->willReturn([$this->scopeEntityMock]);
         $this->authorizationRequestMock->method('getClient')->willReturn($this->clientEntityMock);
         $this->authorizationRequestMock->method('getAddClaimsToIdToken')->willReturn(false);
-        $this->clientEntityMock->method('getAddClaimsToIdToken')->willReturn(false);
         $this->scopeRepositoryMock->method('finalizeScopes')->willReturn([$this->scopeEntityMock]);
 
         $idTokenMock = $this->createMock(IdToken::class);

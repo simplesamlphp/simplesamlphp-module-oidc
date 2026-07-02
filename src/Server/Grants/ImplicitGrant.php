@@ -12,7 +12,6 @@ use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
 use RuntimeException;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
-use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
@@ -276,19 +275,13 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
             $responseParams['expires_in'] = $accessToken->getExpiryDateTime()->getTimestamp() - time();
         }
 
-        // Decide whether the user's (scope-derived) claims go into the ID Token. The response-type-driven decision
-        // (AddClaimsToIdTokenRule) already requests them for response_type=id_token, where there is no access token
-        // to call the UserInfo endpoint with. For id_token token the claims would otherwise be available only at
-        // UserInfo, so we additionally honor the per-client, administrator-only `add_claims_to_id_token` option,
-        // matching the authorization code flow (see TokenResponse::prepareIdTokenExtraParam()).
-        $client = $authorizationRequest->getClient();
-        $addClaimsToIdToken = $authorizationRequest->getAddClaimsToIdToken()
-        || ($client instanceof ClientEntity && $client->getAddClaimsToIdToken());
-
+        // Whether to release the user's claims in the ID Token is decided by AddClaimsToIdTokenRule (based on the
+        // response type and the per-client `add_claims_to_id_token` option) and carried on the authorization
+        // request; see validateAuthorizationRequestWithRequestRules().
         $idToken = $this->idTokenBuilder->buildFor(
             $user,
             $accessToken,
-            $addClaimsToIdToken,
+            $authorizationRequest->getAddClaimsToIdToken(),
             $addAccessTokenHashToIdToken,
             $authorizationRequest->getNonce(),
             $authorizationRequest->getAuthTime(),
