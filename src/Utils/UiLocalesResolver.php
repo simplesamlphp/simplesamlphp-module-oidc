@@ -63,6 +63,32 @@ class UiLocalesResolver
         return null;
     }
 
+    /**
+     * Get languages available in SimpleSAMLphp (per the language.available config option), represented as
+     * BCP47 language tags (SSP uses underscore as region separator in some codes, like pt_BR, while BCP47
+     * uses hyphen). Can be used to advertise supported UI locales in OP discovery metadata
+     * (ui_locales_supported).
+     *
+     * @return string[]
+     */
+    public function getSupportedUiLocales(): array
+    {
+        $availableLanguages = $this->sspConfiguration->getOptionalArray(
+            'language.available',
+            [Language::FALLBACKLANGUAGE],
+        );
+
+        $supportedUiLocales = [];
+        /** @psalm-suppress MixedAssignment */
+        foreach ($availableLanguages as $availableLanguage) {
+            if (is_string($availableLanguage)) {
+                $supportedUiLocales[] = str_replace('_', '-', $availableLanguage);
+            }
+        }
+
+        return $supportedUiLocales;
+    }
+
     protected function normalize(string $languageTag): string
     {
         return strtolower(str_replace('-', '_', $languageTag));

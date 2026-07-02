@@ -11,6 +11,7 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\Module\oidc\Utils\UiLocalesResolver;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
@@ -30,6 +31,7 @@ class OpMetadataServiceTest extends TestCase
     protected MockObject $supportedAlgorithmsMock;
     protected MockObject $signatureKeyPairBagMock;
     protected MockObject $signatureKeyPairMock;
+    protected MockObject $uiLocalesResolverMock;
 
     /**
      * @throws \Exception
@@ -93,6 +95,9 @@ class OpMetadataServiceTest extends TestCase
             ->willReturn($this->signatureKeyPairBagMock);
 
         $this->moduleConfigMock->method('getRequestUriParameterSupported')->willReturn(true);
+
+        $this->uiLocalesResolverMock = $this->createMock(UiLocalesResolver::class);
+        $this->uiLocalesResolverMock->method('getSupportedUiLocales')->willReturn(['en', 'pt-BR']);
     }
 
     /**
@@ -102,15 +107,18 @@ class OpMetadataServiceTest extends TestCase
         ?ModuleConfig $moduleConfig = null,
         ?ClaimTranslatorExtractor $claimTranslatorExtractor = null,
         ?Routes $routes = null,
+        ?UiLocalesResolver $uiLocalesResolver = null,
     ): OpMetadataService {
         $moduleConfig = $moduleConfig ?? $this->moduleConfigMock;
         $claimTranslatorExtractor = $claimTranslatorExtractor ?? $this->claimTranslatorExtractorMock;
         $routes = $routes ?? $this->routesMock;
+        $uiLocalesResolver = $uiLocalesResolver ?? $this->uiLocalesResolverMock;
 
         return new OpMetadataService(
             $moduleConfig,
             $claimTranslatorExtractor,
             $routes,
+            $uiLocalesResolver,
         );
     }
 
@@ -164,8 +172,23 @@ class OpMetadataServiceTest extends TestCase
                 'backchannel_logout_supported' => true,
                 'backchannel_logout_session_supported' => true,
                 'response_modes_supported' => ['query', 'fragment', 'form_post'],
+                'ui_locales_supported' => ['en', 'pt-BR'],
             ],
             $this->sut()->getMetadata(),
+        );
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testDoesNotAdvertiseUiLocalesSupportedWhenNoneAvailable(): void
+    {
+        $uiLocalesResolverMock = $this->createMock(UiLocalesResolver::class);
+        $uiLocalesResolverMock->method('getSupportedUiLocales')->willReturn([]);
+
+        $this->assertArrayNotHasKey(
+            ClaimsEnum::UiLocalesSupported->value,
+            $this->sut(uiLocalesResolver: $uiLocalesResolverMock)->getMetadata(),
         );
     }
 

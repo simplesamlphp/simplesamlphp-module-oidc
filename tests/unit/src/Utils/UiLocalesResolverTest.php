@@ -61,4 +61,14 @@ class UiLocalesResolverTest extends TestCase
         $this->assertSame('en', $this->sut()->resolve('en de'));
         $this->assertNull($this->sut()->resolve('de'));
     }
+
+    public function testCanGetSupportedUiLocalesAsBcp47Tags(): void
+    {
+        $this->assertSame(['en', 'hr', 'pt-BR'], $this->sut(['en', 'hr', 'pt_BR'])->getSupportedUiLocales());
+    }
+
+    public function testSupportedUiLocalesFallBackToDefaultAvailableLanguage(): void
+    {
+        $this->assertSame(['en'], $this->sut()->getSupportedUiLocales());
+    }
 }

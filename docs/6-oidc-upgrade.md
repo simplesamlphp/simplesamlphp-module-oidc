@@ -192,7 +192,9 @@ the flow (login page, consent, logout page...) are rendered in the requested
 language. Matching includes a fallback to the primary language subtag (for
 example, requested `fr-CA` matches available `fr`). Per specification this is
 best-effort: if none of the requested languages are available, the parameter is
-ignored without raising an error.
+ignored without raising an error. The available languages are also advertised
+in the OP discovery metadata via the `ui_locales_supported` claim (as BCP47
+language tags).
 - Logging has been improved for authentication flows. It should now be easier
 to find information about what went wrong by looking at the relevant log entries.
 
