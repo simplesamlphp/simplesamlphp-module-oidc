@@ -429,6 +429,12 @@ class ClientController
         $extraMetadata[ClientEntity::KEY_AUTH_PROC_FILTERS] = is_array($rawAuthProcFilters) ?
         $rawAuthProcFilters : [];
 
+        // Per-client "release user claims in ID Token" toggle. Like authproc, this is administrator-only
+        // (settable here, via the admin UI) and is never accepted from client-supplied registration metadata.
+        // See ClientEntity::ADMIN_ONLY_METADATA_KEYS.
+        $extraMetadata[ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN] =
+        (bool)($data[ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN] ?? false);
+
         return $this->clientEntityFactory->fromData(
             $identifier,
             $secret,

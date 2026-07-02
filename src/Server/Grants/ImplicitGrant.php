@@ -275,6 +275,9 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
             $responseParams['expires_in'] = $accessToken->getExpiryDateTime()->getTimestamp() - time();
         }
 
+        // Whether to release the user's claims in the ID Token is decided by AddClaimsToIdTokenRule (based on the
+        // response type and the per-client `add_claims_to_id_token` option) and carried on the authorization
+        // request; see validateAuthorizationRequestWithRequestRules().
         $idToken = $this->idTokenBuilder->buildFor(
             $user,
             $accessToken,

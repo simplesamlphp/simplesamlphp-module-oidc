@@ -66,6 +66,12 @@ class ClientEntity implements ClientEntityInterface
      * the extra metadata JSON blob.
      */
     public const string KEY_AUTH_PROC_FILTERS = 'authproc';
+    /**
+     * Whether all of the user's (scope-derived) claims should be released in the
+     * ID Token issued to this client, in addition to being available at the
+     * UserInfo endpoint. Stored as an entry inside the extra metadata JSON blob.
+     */
+    public const string KEY_ADD_CLAIMS_TO_ID_TOKEN = 'add_claims_to_id_token';
 
     /**
      * Client properties (metadata keys) which are "administrator-only":
@@ -80,6 +86,7 @@ class ClientEntity implements ClientEntityInterface
      */
     public const array ADMIN_ONLY_METADATA_KEYS = [
         self::KEY_AUTH_PROC_FILTERS,
+        self::KEY_ADD_CLAIMS_TO_ID_TOKEN,
     ];
 
 
@@ -285,6 +292,7 @@ class ClientEntity implements ClientEntityInterface
             ClaimsEnum::ApplicationType->value => $this->getApplicationType(),
             ClaimsEnum::Contacts->value => $this->getContacts(),
             self::KEY_AUTH_PROC_FILTERS => $this->getAuthProcFilters(),
+            self::KEY_ADD_CLAIMS_TO_ID_TOKEN => $this->getAddClaimsToIdToken(),
             self::KEY_REGISTRATION_ACCESS_TOKEN => $this->registrationAccessToken,
         ];
     }
@@ -511,6 +519,25 @@ class ClientEntity implements ClientEntityInterface
         $authProcFilters = $this->extraMetadata[self::KEY_AUTH_PROC_FILTERS] ?? null;
 
         return is_array($authProcFilters) ? $authProcFilters : [];
+    }
+
+    /**
+     * Whether all of the user's (scope-derived) claims should be released in the
+     * ID Token issued to this client. By default (false) such claims are only
+     * available from the UserInfo endpoint in the authorization code flow; some
+     * clients never call UserInfo and rely solely on the ID Token, which is what
+     * this per-client, administrator-only option accommodates.
+     */
+    public function getAddClaimsToIdToken(): bool
+    {
+        if (!is_array($this->extraMetadata)) {
+            return false;
+        }
+
+        return filter_var(
+            $this->extraMetadata[self::KEY_ADD_CLAIMS_TO_ID_TOKEN] ?? false,
+            FILTER_VALIDATE_BOOLEAN,
+        );
     }
 
     /**

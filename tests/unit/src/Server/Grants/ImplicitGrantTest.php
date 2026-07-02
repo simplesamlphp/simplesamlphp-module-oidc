@@ -23,6 +23,7 @@ use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\OpenID\Core\IdToken;
 
 #[CoversClass(ImplicitGrant::class)]
 class ImplicitGrantTest extends TestCase
@@ -166,6 +167,73 @@ class ImplicitGrantTest extends TestCase
             RedirectResponse::class,
             $this->sut()->completeAuthorizationRequest($this->authorizationRequestMock),
         );
+    }
+
+    /**
+     * The grant forwards the "add claims to ID Token" decision (made by AddClaimsToIdTokenRule and carried on the
+     * authorization request) to the ID Token builder. When it is true, the user's claims are released in the ID
+     * Token.
+     */
+    public function testReleasesUserClaimsInIdTokenWhenRequested(): void
+    {
+        $this->authorizationRequestMock->method('getUser')->willReturn($this->userEntityMock);
+        $this->authorizationRequestMock->method('getRedirectUri')->willReturn('redirectUri');
+        $this->authorizationRequestMock->method('isAuthorizationApproved')->willReturn(true);
+        $this->authorizationRequestMock->method('getScopes')->willReturn([$this->scopeEntityMock]);
+        $this->authorizationRequestMock->method('getClient')->willReturn($this->clientEntityMock);
+        $this->authorizationRequestMock->method('getAddClaimsToIdToken')->willReturn(true);
+        $this->scopeRepositoryMock->method('finalizeScopes')->willReturn([$this->scopeEntityMock]);
+
+        $idTokenMock = $this->createMock(IdToken::class);
+        $idTokenMock->method('getToken')->willReturn('token');
+        $this->idTokenBuilderMock->expects($this->once())
+            ->method('buildFor')
+            ->with(
+                $this->anything(),
+                $this->anything(),
+                true, // $addClaimsFromScopes
+                $this->anything(),
+                $this->anything(),
+                $this->anything(),
+                $this->anything(),
+                $this->anything(),
+            )
+            ->willReturn($idTokenMock);
+
+        $this->sut()->completeAuthorizationRequest($this->authorizationRequestMock);
+    }
+
+    /**
+     * When the decision is false, the user's claims are not released in the ID Token (they remain available at
+     * the UserInfo endpoint via the issued access token).
+     */
+    public function testDoesNotReleaseUserClaimsInIdTokenWhenNotRequested(): void
+    {
+        $this->authorizationRequestMock->method('getUser')->willReturn($this->userEntityMock);
+        $this->authorizationRequestMock->method('getRedirectUri')->willReturn('redirectUri');
+        $this->authorizationRequestMock->method('isAuthorizationApproved')->willReturn(true);
+        $this->authorizationRequestMock->method('getScopes')->willReturn([$this->scopeEntityMock]);
+        $this->authorizationRequestMock->method('getClient')->willReturn($this->clientEntityMock);
+        $this->authorizationRequestMock->method('getAddClaimsToIdToken')->willReturn(false);
+        $this->scopeRepositoryMock->method('finalizeScopes')->willReturn([$this->scopeEntityMock]);
+
+        $idTokenMock = $this->createMock(IdToken::class);
+        $idTokenMock->method('getToken')->willReturn('token');
+        $this->idTokenBuilderMock->expects($this->once())
+            ->method('buildFor')
+            ->with(
+                $this->anything(),
+                $this->anything(),
+                false, // $addClaimsFromScopes
+                $this->anything(),
+                $this->anything(),
+                $this->anything(),
+                $this->anything(),
+                $this->anything(),
+            )
+            ->willReturn($idTokenMock);
+
+        $this->sut()->completeAuthorizationRequest($this->authorizationRequestMock);
     }
 
     public function testCanValidateAuthorizationRequestWithRequestRules(): void

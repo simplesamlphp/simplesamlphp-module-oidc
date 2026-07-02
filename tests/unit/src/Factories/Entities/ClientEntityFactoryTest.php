@@ -238,6 +238,55 @@ class ClientEntityFactoryTest extends TestCase
     }
 
     /**
+     * The administrator-only "release user claims in ID Token" property must NEVER be honored when supplied
+     * through client registration metadata; an untrusted client must not be able to force its own claims into
+     * the ID Token. It can only be set by an administrator via the admin UI / API.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataIgnoresAdminOnlyAddClaimsToIdToken(): void
+    {
+        $client = $this->sut()->fromRegistrationData(
+            [
+                ClaimsEnum::RedirectUris->value => ['https://example.org/cb'],
+                // Client tries to opt itself into ID Token claim release.
+                ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN => true,
+            ],
+            RegistrationTypeEnum::FederatedAutomatic,
+        );
+
+        $this->assertFalse($client->getAddClaimsToIdToken());
+    }
+
+    /**
+     * An administrator-set "release user claims in ID Token" value on an existing client must be preserved
+     * across re-registration, and must not be overridable by the (untrusted) registration metadata.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataPreservesAdminSetAddClaimsToIdTokenAndIgnoresSuppliedOnes(): void
+    {
+        $existingClient = $this->createMock(ClientEntity::class);
+        $existingClient->method('getExtraMetadata')->willReturn(
+            [ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN => true],
+        );
+
+        $client = $this->sut()->fromRegistrationData(
+            [
+                ClaimsEnum::RedirectUris->value => ['https://example.org/cb'],
+                // Attempt to turn the admin-set value off via registration metadata.
+                ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN => false,
+            ],
+            RegistrationTypeEnum::FederatedAutomatic,
+            existingClient: $existingClient,
+        );
+
+        $this->assertTrue($client->getAddClaimsToIdToken());
+    }
+
+    /**
      * The behavioral default metadata (default_max_age, require_auth_time, default_acr_values) and informational
      * metadata (initiate_login_uri, software_id, software_version) are persisted from a registration request.
      *

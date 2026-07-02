@@ -21,6 +21,7 @@ use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\ResponseTypes\BearerTokenResponse;
 use RuntimeException;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\IdentityProviderInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AcrResponseTypeInterface;
@@ -116,11 +117,17 @@ class TokenResponse extends BearerTokenResponse implements
             throw OidcServerException::accessDenied('No user available for provided user identifier.');
         }
 
+        // Release the user's (scope-derived) claims in the ID Token when the client is configured to (the
+        // administrator-only `add_claims_to_id_token` property). Otherwise such claims remain available only at
+        // the UserInfo endpoint in the authorization code flow.
+        $client = $accessToken->getClient();
+        $addClaimsToIdToken = $client instanceof ClientEntity && $client->getAddClaimsToIdToken();
+
         //$token = $this->idTokenBuilder->build(
         $token = $this->idTokenBuilder->buildFor(
             $userEntity,
             $accessToken,
-            false,
+            $addClaimsToIdToken,
             true,
             $this->getNonce(),
             $this->getAuthTime(),

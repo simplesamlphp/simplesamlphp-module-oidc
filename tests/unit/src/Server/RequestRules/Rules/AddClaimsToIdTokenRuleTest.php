@@ -8,10 +8,12 @@ use LogicException;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AddClaimsToIdTokenRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
@@ -134,6 +136,57 @@ class AddClaimsToIdTokenRuleTest extends TestCase
             ['code token'],
             ['code id_token token'],
         ];
+    }
+
+    /**
+     * A client configured with the administrator-only `add_claims_to_id_token` option gets the claims released
+     * in the ID Token even for a response type that would not otherwise trigger it (e.g. `id_token token`).
+     *
+     * @throws \Throwable
+     */
+    public function testAddsClaimsWhenClientConfiguredEvenForNonIdTokenResponseType(): void
+    {
+        $this->resultBag->add(new Result(ResponseTypeRule::class, 'id_token token'));
+
+        $clientStub = $this->createStub(ClientEntityInterface::class);
+        $clientStub->method('getAddClaimsToIdToken')->willReturn(true);
+        $this->resultBag->add(new Result(ClientRule::class, $clientStub));
+
+        $result = $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBag,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        ) ??
+        new Result(AddClaimsToIdTokenRule::class, null);
+
+        $this->assertTrue($result->getValue());
+    }
+
+    /**
+     * When neither the response type nor the client requests it, claims are not released in the ID Token.
+     *
+     * @throws \Throwable
+     */
+    public function testDoesNotAddClaimsWhenNeitherResponseTypeNorClientRequestIt(): void
+    {
+        $this->resultBag->add(new Result(ResponseTypeRule::class, 'id_token token'));
+
+        $clientStub = $this->createStub(ClientEntityInterface::class);
+        $clientStub->method('getAddClaimsToIdToken')->willReturn(false);
+        $this->resultBag->add(new Result(ClientRule::class, $clientStub));
+
+        $result = $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBag,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        ) ??
+        new Result(AddClaimsToIdTokenRule::class, null);
+
+        $this->assertFalse($result->getValue());
     }
 
     /**

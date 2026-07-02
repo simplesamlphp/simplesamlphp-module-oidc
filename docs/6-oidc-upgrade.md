@@ -76,6 +76,24 @@ registration metadata (a filter names a PHP class executed on the OP, so
 honoring it from registration would be a remote code execution vector).
   - Clients can now be configured with a new property related to the above:
     - Authentication Processing Filters (`authproc`)
+- Clients can now be configured to release the user's claims directly in the ID
+Token. By default, whenever an access token is also issued (the authorization
+code flow, and the `id_token token` implicit flow) the user's (scope-derived)
+claims are only available from the UserInfo endpoint and are not included in the
+ID Token. Some clients, however, never call the UserInfo endpoint and rely solely
+on the ID Token to obtain user attributes. For such clients, this new per-client
+property makes the OP include the user's claims (resolved from the granted
+scopes) in the ID Token as well. It is disabled by default, so existing clients
+are unaffected; enable it only for clients that need it, as it opens some
+privacy challenges (for example, ID token ending up in access logs), and as it
+increases the ID Token size. (Note: for the bare `id_token` implicit response
+type there is no access token to call UserInfo with, so the claims are already
+included in the ID Token regardless of this property.) For security reasons,
+it can only be set by an administrator (via the admin UI) and is
+deliberately never accepted from client-supplied dynamic / OpenID Federation
+registration metadata.
+  - Clients can now be configured with a new property related to the above:
+    - Release user claims in ID Token (`add_claims_to_id_token`)
 - The encryption key (used to encrypt / decrypt artifacts like authorization
 codes and refresh tokens) can now optionally be set to a strong, pre-generated
 `\Defuse\Crypto\Key`, instead of always deriving it from the SimpleSAMLphp

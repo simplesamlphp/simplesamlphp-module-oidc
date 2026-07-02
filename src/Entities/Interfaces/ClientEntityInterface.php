@@ -138,4 +138,9 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
      * @return array
      */
     public function getAuthProcFilters(): array;
+
+    /**
+     * Whether the user's (scope-derived) claims should be released in the ID Token issued to this client.
+     */
+    public function getAddClaimsToIdToken(): bool;
 }
