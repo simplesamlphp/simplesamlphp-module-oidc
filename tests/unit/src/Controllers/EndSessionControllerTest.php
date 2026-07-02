@@ -11,6 +11,7 @@ use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
+use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Controllers\EndSessionController;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
@@ -20,6 +21,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
+use SimpleSAML\Module\oidc\Utils\UiLocalesResolver;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Core\IdToken;
 use SimpleSAML\Session;
@@ -48,6 +50,10 @@ class EndSessionControllerTest extends TestCase
     protected Stub $templateFactoryStub;
     protected MockObject $psrHttpBridgeMock;
     protected MockObject $errorResponderMock;
+    protected Stub $uiLocalesResolverStub;
+    protected MockObject $sspBridgeMock;
+    protected MockObject $sspBridgeLocaleMock;
+    protected MockObject $sspBridgeLocaleLanguageMock;
 
     /**
      * @throws \PHPUnit\Framework\MockObject\Exception
@@ -68,6 +74,13 @@ class EndSessionControllerTest extends TestCase
 
         $this->psrHttpBridgeMock = $this->createMock(PsrHttpBridge::class);
         $this->errorResponderMock = $this->createMock(ErrorResponder::class);
+
+        $this->uiLocalesResolverStub = $this->createStub(UiLocalesResolver::class);
+        $this->sspBridgeMock = $this->createMock(SspBridge::class);
+        $this->sspBridgeLocaleMock = $this->createMock(SspBridge\Locale::class);
+        $this->sspBridgeLocaleLanguageMock = $this->createMock(SspBridge\Locale\Language::class);
+        $this->sspBridgeMock->method('locale')->willReturn($this->sspBridgeLocaleMock);
+        $this->sspBridgeLocaleMock->method('language')->willReturn($this->sspBridgeLocaleLanguageMock);
     }
 
     protected function mock(): EndSessionController
@@ -80,6 +93,8 @@ class EndSessionControllerTest extends TestCase
             $this->templateFactoryStub,
             $this->psrHttpBridgeMock,
             $this->errorResponderMock,
+            $this->uiLocalesResolverStub,
+            $this->sspBridgeMock,
         );
     }
 
@@ -210,5 +225,44 @@ class EndSessionControllerTest extends TestCase
     public function testLogoutHandler(): never
     {
         $this->markTestIncomplete();
+    }
+
+    /**
+     * @throws \Throwable
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testSetsUiLanguageBasedOnUiLocales(): void
+    {
+        $this->currentSessionMock->method('getAuthorities')->willReturn([]);
+        $this->sessionServiceStub->method('getCurrentSession')->willReturn($this->currentSessionMock);
+        $this->logoutRequestStub->method('getUiLocales')->willReturn('hr en');
+        $this->authorizationServerStub->method('validateLogoutRequest')->willReturn($this->logoutRequestStub);
+        $this->uiLocalesResolverStub->method('resolve')->willReturn('hr');
+
+        $this->sspBridgeLocaleLanguageMock->expects($this->once())
+            ->method('setLanguageCookie')
+            ->with('hr');
+
+        $this->mock()->__invoke($this->serverRequestStub);
+    }
+
+    /**
+     * @throws \Throwable
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testDoesNotSetUiLanguageWhenNoRequestedLanguageIsAvailable(): void
+    {
+        $this->currentSessionMock->method('getAuthorities')->willReturn([]);
+        $this->sessionServiceStub->method('getCurrentSession')->willReturn($this->currentSessionMock);
+        $this->logoutRequestStub->method('getUiLocales')->willReturn('de');
+        $this->authorizationServerStub->method('validateLogoutRequest')->willReturn($this->logoutRequestStub);
+        $this->uiLocalesResolverStub->method('resolve')->willReturn(null);
+
+        $this->sspBridgeLocaleLanguageMock->expects($this->never())
+            ->method('setLanguageCookie');
+
+        $this->mock()->__invoke($this->serverRequestStub);
     }
 }

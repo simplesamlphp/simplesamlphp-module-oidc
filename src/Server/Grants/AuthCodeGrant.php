@@ -65,6 +65,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeOfflineAccessRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AcrResponseTypeInterface;
@@ -867,6 +868,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             CodeChallengeMethodRule::class,
             IssuerStateRule::class,
             AuthorizationDetailsRule::class,
+            UiLocalesRule::class,
         ];
 
         // Since we have already validated redirect_uri, and we have state, make it available for other checkers.
@@ -983,6 +985,10 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $acrValues = $resultBag->getOrFail(AcrValuesRule::class)->getValue();
         $this->loggerService->debug('AuthCodeGrant: ACR values: ', ['acrValues' => $acrValues]);
         $authorizationRequest->setRequestedAcrValues($acrValues);
+
+        $uiLocales = $resultBag->getOrFail(UiLocalesRule::class)->getValue();
+        $this->loggerService->debug('AuthCodeGrant: UI locales: ', ['uiLocales' => $uiLocales]);
+        $authorizationRequest->setUiLocales($uiLocales);
 
 
         $authorizationRequest->setIsVciRequest($isVciAuthorizationCodeRequest);

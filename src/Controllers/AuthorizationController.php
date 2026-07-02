@@ -17,10 +17,12 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Controllers;
 
 use League\OAuth2\Server\Exception\OAuthServerException;
+use League\OAuth2\Server\RequestTypes\AuthorizationRequestInterface as OAuth2AuthorizationRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Auth\ProcessingChain;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
+use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -28,6 +30,7 @@ use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\UiLocalesResolver;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -40,6 +43,8 @@ class AuthorizationController
         private readonly LoggerService $loggerService,
         private readonly PsrHttpBridge $psrHttpBridge,
         private readonly ErrorResponder $errorResponder,
+        private readonly UiLocalesResolver $uiLocalesResolver,
+        private readonly SspBridge $sspBridge,
     ) {
     }
 
@@ -64,6 +69,7 @@ class AuthorizationController
         if (!isset($queryParameters[ProcessingChain::AUTHPARAM])) {
             $this->loggerService->debug('AuthorizationController::invoke: No AuthProcId query param.');
             $authorizationRequest = $this->authorizationServer->validateAuthorizationRequest($request);
+            $this->setUiLanguage($authorizationRequest);
             $state = $this->authenticationService->processRequest($request, $authorizationRequest);
             // processState will trigger a redirect
         }
@@ -121,6 +127,34 @@ class AuthorizationController
         } catch (OAuthServerException $exception) {
             return $this->errorResponder->forException($exception);
         }
+    }
+
+    /**
+     * Set the UI language for the current user agent based on the ui_locales authorization request parameter,
+     * if any of the requested languages are available in SimpleSAMLphp. This is done using the standard
+     * SimpleSAMLphp language cookie (same mechanism as when the user picks a language on any SimpleSAMLphp
+     * page), so subsequent screens shown during the authentication flow (login page, consent...) are
+     * rendered in the requested language. Per specification this is best-effort, so no error is raised
+     * if none of the requested languages are available.
+     */
+    protected function setUiLanguage(OAuth2AuthorizationRequestInterface $authorizationRequest): void
+    {
+        if (!$authorizationRequest instanceof AuthorizationRequest) {
+            return;
+        }
+
+        $language = $this->uiLocalesResolver->resolve($authorizationRequest->getUiLocales());
+
+        if ($language === null) {
+            return;
+        }
+
+        $this->loggerService->debug(
+            'AuthorizationController: setting UI language based on ui_locales parameter.',
+            ['uiLocales' => $authorizationRequest->getUiLocales(), 'language' => $language],
+        );
+
+        $this->sspBridge->locale()->language()->setLanguageCookie($language);
     }
 
     /**
