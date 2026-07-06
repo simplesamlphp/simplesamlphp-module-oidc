@@ -6,6 +6,7 @@ This document shows how to run and test the module with Docker.
 - Local testing with other DBs
 - Testing AuthProc filters
 - Build image for conformance tests
+- Build against an unreleased SimpleSAMLphp version
 - Docker Compose
 
 ## Run with the current git branch (live mount)
@@ -117,18 +118,59 @@ docker exec ssp-oidc-dev-image sqlite3 /var/simplesamlphp/data/mydb.sq3 '.dump' 
 
 Conformance tests are easier to run locally. See [Conformance](5-oidc-conformance.md).
 
+## Build against an unreleased SimpleSAMLphp version
+
+The OP image is built `FROM` a SimpleSAMLphp base image, selected with the
+`SSP_IMAGE` build argument (default: a published `cirrusid/simplesamlphp`
+release tag). Published tags only exist for SimpleSAMLphp *releases*, so to run
+against an unreleased SimpleSAMLphp branch (or any specific ref) you first build
+a base image from that ref and then point `SSP_IMAGE` at it.
+
+> During v7 development the module depends on the unreleased `simplesamlphp-2.5`
+> branch (it uses `\SimpleSAML\Locale\Language::getAvailableLanguages()`, added
+> there for the `ui_locales` support). Until a SimpleSAMLphp release contains it,
+> the OP image must be built from that branch, otherwise the discovery endpoint
+> fails.
+
+The [cirrusid/simplesamlphp image](https://github.com/cirrusidentity/docker-simplesamlphp)
+installs SimpleSAMLphp with Composer when given an `SSP_COMPOSER_VERSION` build
+argument, which accepts any Composer version — a branch (`dev-<branch>`) or a
+tag (`v2.5.2`):
+
+```bash
+# 1. Build a SimpleSAMLphp base image from the desired ref (branch or tag).
+git clone https://github.com/cirrusidentity/docker-simplesamlphp.git
+docker build docker-simplesamlphp/docker \
+  --build-arg SSP_COMPOSER_VERSION=dev-simplesamlphp-2.5 \
+  -t ssp-base:dev-simplesamlphp-2.5
+
+# 2. Build and run the OP on top of it. For the docker/Dockerfile-based builds
+#    (Docker Compose below and the conformance image above) set SSP_IMAGE:
+SSP_IMAGE=ssp-base:dev-simplesamlphp-2.5 OIDC_VERSION=@dev \
+  docker compose -f docker/docker-compose.yml --project-directory . up --build
+```
+
+For the live-mount `docker run` example above, use the built base image name
+(`ssp-base:dev-simplesamlphp-2.5`) directly in place of
+`cirrusid/simplesamlphp:...`. This is exactly what the GitHub Actions conformance
+job does: it builds the base image from `matrix.ssp-composer-version` and passes
+it as `SSP_IMAGE`.
+
 ## Docker Compose
 
 Docker Compose runs multiple containers to ease testing. It builds an
 image containing the OIDC module. You can remove `--build` to reuse an
-existing container.
+existing container. The SimpleSAMLphp base image defaults to a published
+`cirrusid/simplesamlphp` release tag; override it with `SSP_IMAGE` to run
+against a different base (see "Build against an unreleased SimpleSAMLphp
+version" above).
 
 ```bash
 # Use current branch/git checkout. Composer installs local checkout
-OIDC_VERSION=@dev docker-compose -f docker/docker-compose.yml --project-directory . up --build
+OIDC_VERSION=@dev docker compose -f docker/docker-compose.yml --project-directory . up --build
 
 # Use a specific module version
-OIDC_VERSION=dev-master docker-compose -f docker/docker-compose.yml --project-directory . up --build
+OIDC_VERSION=dev-master docker compose -f docker/docker-compose.yml --project-directory . up --build
 ```
 
 Visit the OP and verify a few clients exist:

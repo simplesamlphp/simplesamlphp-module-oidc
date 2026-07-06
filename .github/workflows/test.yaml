@@ -211,7 +211,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ssp-version: ["v2.5.0"]
+        # SimpleSAMLphp ref to build the OP base image from. Any Composer version works: a released tag
+        # (e.g. "v2.5.2") or an (unreleased) branch (e.g. "dev-simplesamlphp-2.5"). During v7 development
+        # the module depends on the unreleased simplesamlphp-2.5 branch, which exposes
+        # \SimpleSAML\Locale\Language::getAvailableLanguages() used by the ui_locales support.
+        ssp-composer-version: ["dev-simplesamlphp-2.5"]
     env:
       SUITE_BASE_URL: https://localhost.emobix.co.uk:8443
       VERSION: release-v5.1.45
@@ -241,11 +245,22 @@ jobs:
         run: |
           docker compose -f docker-compose-dev.yml up -d
           while ! curl -skfail https://localhost.emobix.co.uk:8443/api/runner/available >/dev/null; do sleep 2; done
+      - name: Build SimpleSAMLphp base image
+        # SimpleSAMLphp is installed into the base image via Composer (cirrus's SSP_COMPOSER_VERSION path),
+        # so any tag or branch can be used - here the unreleased simplesamlphp-2.5 branch the module
+        # currently depends on. The image is built locally each run and not pushed to any registry. The
+        # cirrus image recipe is pinned to a commit for reproducibility; bump it when needed.
+        run: |
+          git clone https://github.com/cirrusidentity/docker-simplesamlphp.git ssp-base-image
+          git -C ssp-base-image checkout 0bf3ae9df5c0
+          docker build ssp-base-image/docker \
+            --build-arg SSP_COMPOSER_VERSION=${{ matrix.ssp-composer-version }} \
+            -t ssp-base:${{ matrix.ssp-composer-version }}
       - name: Start SSP docker
         working-directory: ./main
         # Must run after conformance suite since they share a docker network.
         run: |
-          SSP_VERSION=${{ matrix.ssp-version }} OIDC_VERSION=@dev docker compose -f docker/docker-compose.yml --project-directory . up -d --build
+          SSP_IMAGE=ssp-base:${{ matrix.ssp-composer-version }} OIDC_VERSION=@dev docker compose -f docker/docker-compose.yml --project-directory . up -d --build
           sleep 30
         # while ! curl -skfail https://op.local.stack-dev.cirrusidentity.com/.well-known/openid-configuration >/dev/null; do sleep 2; done
       - name: Run Basic conformance tests

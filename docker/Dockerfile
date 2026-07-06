@@ -1,6 +1,8 @@
-ARG SSP_VERSION="v2.5.0"
-FROM cirrusid/simplesamlphp:${SSP_VERSION}
-#FROM cicnavi/simplesamlphp:${SSP_VERSION}
+# Base SimpleSAMLphp image. Defaults to a published cirrusid/simplesamlphp release tag, but can be
+# overridden to run against a different base image, for example one built locally from an unreleased
+# SimpleSAMLphp branch (see "Build against an unreleased SimpleSAMLphp version" in docs/4-oidc-docker.md).
+ARG SSP_IMAGE="cirrusid/simplesamlphp:v2.5.0"
+FROM ${SSP_IMAGE}
 
 RUN apt-get update && apt-get --no-install-recommends install -y sqlite3
 # Prepopulate the DB with items needed for testing

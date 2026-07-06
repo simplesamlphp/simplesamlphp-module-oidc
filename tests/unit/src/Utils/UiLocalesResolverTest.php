@@ -45,7 +45,6 @@ class UiLocalesResolverTest extends TestCase
             'multiple whitespace between tags' => ['de  en', ['en', 'hr'], 'en'],
             'returns configured code, not requested tag' => ['en-US', ['en'], 'en'],
             'configured code unknown to the translation system is not matched' => ['xx', ['en', 'xx'], null],
-            'deprecated configured code is renamed like in SSP' => ['pt-BR', ['en', 'pt-br'], 'pt_BR'],
         ];
     }
 
@@ -78,10 +77,5 @@ class UiLocalesResolverTest extends TestCase
     public function testSupportedUiLocalesExcludeCodesUnknownToTranslationSystem(): void
     {
         $this->assertSame(['en'], $this->sut(['en', 'xx'])->getSupportedUiLocales());
-    }
-
-    public function testSupportedUiLocalesIncludeRenamedDeprecatedCodes(): void
-    {
-        $this->assertSame(['en', 'pt-BR', 'zh-TW'], $this->sut(['en', 'pt-br', 'zh-tw'])->getSupportedUiLocales());
     }
 }

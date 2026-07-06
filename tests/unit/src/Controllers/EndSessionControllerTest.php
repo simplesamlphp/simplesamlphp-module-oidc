@@ -274,7 +274,10 @@ class EndSessionControllerTest extends TestCase
                 ?bool $showModuleName = null,
                 ?bool $showSubPageTitle = null,
                 ?string $language = null,
-            ) use (&$capturedLanguage, $templateStub): Template {
+            ) use (
+                &$capturedLanguage,
+                $templateStub,
+            ): Template {
                 $capturedLanguage = $language;
                 return $templateStub;
             },

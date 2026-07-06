@@ -199,7 +199,11 @@ example, requested `fr-CA` matches available `fr`). Per specification this is
 best-effort: if none of the requested languages are available, the parameter is
 ignored without raising an error. The available languages are also advertised
 in the OP discovery metadata via the `ui_locales_supported` claim (as BCP47
-language tags).
+language tags). Note: use the canonical SimpleSAMLphp locale codes in
+`language.available` (for example `pt_BR` and `zh_TW`); the deprecated codes
+(`pt-br`, `zh-tw`), which SimpleSAMLphp itself warns against, are not fully
+supported by `ui_locales` on the authorization endpoint, because the language
+cookie is validated against the raw configured codes.
 - Logging has been improved for authentication flows. It should now be easier
 to find information about what went wrong by looking at the relevant log entries.
 
