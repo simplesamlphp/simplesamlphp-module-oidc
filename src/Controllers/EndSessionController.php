@@ -7,7 +7,6 @@ namespace SimpleSAML\Module\oidc\Controllers;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
-use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\LogoutHandlers\BackChannelLogoutHandler;
@@ -35,7 +34,6 @@ class EndSessionController
         protected PsrHttpBridge $psrHttpBridge,
         protected ErrorResponder $errorResponder,
         protected UiLocalesResolver $uiLocalesResolver,
-        protected SspBridge $sspBridge,
     ) {
     }
 
@@ -55,7 +53,7 @@ class EndSessionController
 
         $logoutRequest = $this->authorizationServer->validateLogoutRequest($request);
 
-        $uiLanguage = $this->setUiLanguage($logoutRequest);
+        $uiLanguage = $this->resolveUiLanguage($logoutRequest);
 
         // Set indication that the logout is initiated using OIDC protocol. This will be checked in the
         // logoutHandler() method.
@@ -144,14 +142,16 @@ class EndSessionController
     }
 
     /**
-     * Set the UI language for the current user agent based on the ui_locales logout request parameter, if any of
-     * the requested languages are available in SimpleSAMLphp. This is done using the standard SimpleSAMLphp
-     * language cookie (same mechanism as when the user picks a language on any SimpleSAMLphp page). Per
-     * specification this is best-effort, so no error is raised if none of the requested languages are
-     * available. Returns the resolved language, so it can also be applied when rendering the logout
-     * page in the current request (the language cookie only affects subsequent requests).
+     * Resolve the UI language to use for the logout page based on the ui_locales logout request parameter, if
+     * any of the requested languages are available in SimpleSAMLphp. The resolved language is applied only when
+     * rendering the logout page in the current request (see resolveResponse()); unlike the authorization flow,
+     * the logout flow renders at most a single page and has no subsequent SimpleSAMLphp screens, so the
+     * persistent, instance-wide language cookie is intentionally not set here (it would be a side effect
+     * affecting later unrelated screens, including when a post_logout_redirect_uri is used and no page is
+     * rendered at all). Per specification this is best-effort, so no error is raised if none of the
+     * requested languages are available.
      */
-    protected function setUiLanguage(LogoutRequest $logoutRequest): ?string
+    protected function resolveUiLanguage(LogoutRequest $logoutRequest): ?string
     {
         $language = $this->uiLocalesResolver->resolve($logoutRequest->getUiLocales());
 
@@ -160,11 +160,9 @@ class EndSessionController
         }
 
         $this->loggerService->debug(
-            'EndSessionController: setting UI language based on ui_locales parameter.',
+            'EndSessionController: resolved UI language based on ui_locales parameter.',
             ['uiLocales' => $logoutRequest->getUiLocales(), 'language' => $language],
         );
-
-        $this->sspBridge->locale()->language()->setLanguageCookie($language);
 
         return $language;
     }

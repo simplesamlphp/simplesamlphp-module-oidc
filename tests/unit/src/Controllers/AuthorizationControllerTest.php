@@ -563,4 +563,35 @@ class AuthorizationControllerTest extends TestCase
 
         ($this->mock())($this->serverRequestStub);
     }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testDoesNotOverrideExistingLanguageCookieWithUiLocales(): void
+    {
+        $this->authorizationRequestMock->method('getUiLocales')->willReturn('hr en');
+        $this->uiLocalesResolverStub->method('resolve')->willReturn('hr');
+        // An explicit language choice is already stored in the language cookie.
+        $this->sspBridgeLocaleLanguageMock->method('getLanguageCookie')->willReturn('de');
+
+        $this->authorizationServerStub
+            ->method('validateAuthorizationRequest')
+            ->willReturn($this->authorizationRequestMock);
+        $this->authorizationServerStub
+            ->method('completeAuthorizationRequest')
+            ->willReturn($this->responseStub);
+
+        $this->serverRequestStub->method('getQueryParams')->willReturn([]);
+
+        $this->authenticationServiceStub->method('manageState')->willReturn($this->state);
+        $this->authenticationServiceStub->method('getAuthenticateUser')->willReturn($this->userEntityStub);
+        $this->authenticationServiceStub
+            ->method('getAuthorizationRequestFromState')
+            ->willReturn($this->authorizationRequestMock);
+
+        $this->sspBridgeLocaleLanguageMock->expects($this->never())
+            ->method('setLanguageCookie');
+
+        ($this->mock())($this->serverRequestStub);
+    }
 }

@@ -136,6 +136,10 @@ class AuthorizationController
      * page), so subsequent screens shown during the authentication flow (login page, consent...) are
      * rendered in the requested language. Per specification this is best-effort, so no error is raised
      * if none of the requested languages are available.
+     *
+     * The SimpleSAMLphp language cookie is a persistent, instance-wide preference, so an already present
+     * cookie (an explicit language choice the user, or a previous interaction, has made) is not
+     * overridden by the client-supplied ui_locales value.
      */
     protected function setUiLanguage(OAuth2AuthorizationRequestInterface $authorizationRequest): void
     {
@@ -146,6 +150,14 @@ class AuthorizationController
         $language = $this->uiLocalesResolver->resolve($authorizationRequest->getUiLocales());
 
         if ($language === null) {
+            return;
+        }
+
+        if ($this->sspBridge->locale()->language()->getLanguageCookie() !== null) {
+            $this->loggerService->debug(
+                'AuthorizationController: not overriding existing language cookie with ui_locales parameter.',
+                ['uiLocales' => $authorizationRequest->getUiLocales(), 'language' => $language],
+            );
             return;
         }
 
