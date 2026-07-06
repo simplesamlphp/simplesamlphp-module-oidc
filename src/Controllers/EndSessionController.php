@@ -15,6 +15,7 @@ use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
+use SimpleSAML\Module\oidc\Utils\UiLocalesResolver;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\Session;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -32,6 +33,7 @@ class EndSessionController
         protected TemplateFactory $templateFactory,
         protected PsrHttpBridge $psrHttpBridge,
         protected ErrorResponder $errorResponder,
+        protected UiLocalesResolver $uiLocalesResolver,
     ) {
     }
 
@@ -50,6 +52,8 @@ class EndSessionController
         // intentionally left intact. No token revocation is therefore required during logout.
 
         $logoutRequest = $this->authorizationServer->validateLogoutRequest($request);
+
+        $uiLanguage = $this->resolveUiLanguage($logoutRequest);
 
         // Set indication that the logout is initiated using OIDC protocol. This will be checked in the
         // logoutHandler() method.
@@ -134,7 +138,33 @@ class EndSessionController
         // run for other logout initiated actions, like (currently) re-authentication...
         $this->sessionService->setIsOidcInitiatedLogout(false);
 
-        return $this->resolveResponse($logoutRequest, $wasLogoutActionCalled);
+        return $this->resolveResponse($logoutRequest, $wasLogoutActionCalled, $uiLanguage);
+    }
+
+    /**
+     * Resolve the UI language to use for the logout page based on the ui_locales logout request parameter, if
+     * any of the requested languages are available in SimpleSAMLphp. The resolved language is applied only when
+     * rendering the logout page in the current request (see resolveResponse()); unlike the authorization flow,
+     * the logout flow renders at most a single page and has no subsequent SimpleSAMLphp screens, so the
+     * persistent, instance-wide language cookie is intentionally not set here (it would be a side effect
+     * affecting later unrelated screens, including when a post_logout_redirect_uri is used and no page is
+     * rendered at all). Per specification this is best-effort, so no error is raised if none of the
+     * requested languages are available.
+     */
+    protected function resolveUiLanguage(LogoutRequest $logoutRequest): ?string
+    {
+        $language = $this->uiLocalesResolver->resolve($logoutRequest->getUiLocales());
+
+        if ($language === null) {
+            return null;
+        }
+
+        $this->loggerService->debug(
+            'EndSessionController: resolved UI language based on ui_locales parameter.',
+            ['uiLocales' => $logoutRequest->getUiLocales(), 'language' => $language],
+        );
+
+        return $language;
     }
 
     public function endSession(Request $request): Response
@@ -211,8 +241,11 @@ class EndSessionController
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
      */
-    protected function resolveResponse(LogoutRequest $logoutRequest, bool $wasLogoutActionCalled): Response
-    {
+    protected function resolveResponse(
+        LogoutRequest $logoutRequest,
+        bool $wasLogoutActionCalled,
+        ?string $uiLanguage = null,
+    ): Response {
         if (($postLogoutRedirectUri = $logoutRequest->getPostLogoutRedirectUri()) !== null) {
             $this->loggerService->debug(
                 'Logout request includes post-logout redirect URI: ' . $postLogoutRedirectUri,
@@ -248,6 +281,7 @@ class EndSessionController
             showMenu: false,
             showModuleName: false,
             showSubPageTitle: false,
+            language: $uiLanguage,
         );
     }
 }

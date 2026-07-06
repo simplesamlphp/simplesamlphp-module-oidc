@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Bridges;
 
 use SimpleSAML\Module\oidc\Bridges\SspBridge\Auth;
+use SimpleSAML\Module\oidc\Bridges\SspBridge\Locale;
 use SimpleSAML\Module\oidc\Bridges\SspBridge\Module;
 use SimpleSAML\Module\oidc\Bridges\SspBridge\Utils;
 
@@ -17,6 +18,7 @@ class SspBridge
     protected static ?Auth $auth = null;
     protected static ?Utils $utils = null;
     protected static ?Module $module = null;
+    protected static ?Locale $locale = null;
 
     public function utils(): Utils
     {
@@ -31,5 +33,10 @@ class SspBridge
     public function auth(): Auth
     {
         return self::$auth ??= new Auth();
+    }
+
+    public function locale(): Locale
+    {
+        return self::$locale ??= new Locale();
     }
 }

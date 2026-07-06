@@ -54,8 +54,15 @@ class TemplateFactory
         ?bool $showMenu = null,
         ?bool $showModuleName = null,
         ?bool $showSubPageTitle = null,
+        ?string $language = null,
     ): Template {
         $template = new Template($this->sspConfiguration, $templateName);
+
+        if ($language !== null) {
+            // Render this template in the given language. Note that the language cookie is intentionally not
+            // set here (callers can do that themselves, for example, using the SSP bridge).
+            $template->getTranslator()->getLanguage()->setLanguage($language, false);
+        }
 
         $includeDefaultMenuItems ??= $this->includeDefaultMenuItems;
         $showMenu ??= $this->showMenu;

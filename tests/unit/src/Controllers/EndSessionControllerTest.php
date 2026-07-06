@@ -20,9 +20,11 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
+use SimpleSAML\Module\oidc\Utils\UiLocalesResolver;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Core\IdToken;
 use SimpleSAML\Session;
+use SimpleSAML\XHTML\Template;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -48,6 +50,7 @@ class EndSessionControllerTest extends TestCase
     protected Stub $templateFactoryStub;
     protected MockObject $psrHttpBridgeMock;
     protected MockObject $errorResponderMock;
+    protected Stub $uiLocalesResolverStub;
 
     /**
      * @throws \PHPUnit\Framework\MockObject\Exception
@@ -68,18 +71,21 @@ class EndSessionControllerTest extends TestCase
 
         $this->psrHttpBridgeMock = $this->createMock(PsrHttpBridge::class);
         $this->errorResponderMock = $this->createMock(ErrorResponder::class);
+
+        $this->uiLocalesResolverStub = $this->createStub(UiLocalesResolver::class);
     }
 
-    protected function mock(): EndSessionController
+    protected function mock(?TemplateFactory $templateFactory = null): EndSessionController
     {
         return new EndSessionController(
             $this->authorizationServerStub,
             $this->sessionServiceStub,
             $this->sessionLogoutTicketStoreBuilderStub,
             $this->loggerServiceMock,
-            $this->templateFactoryStub,
+            $templateFactory ?? $this->templateFactoryStub,
             $this->psrHttpBridgeMock,
             $this->errorResponderMock,
+            $this->uiLocalesResolverStub,
         );
     }
 
@@ -210,5 +216,75 @@ class EndSessionControllerTest extends TestCase
     public function testLogoutHandler(): never
     {
         $this->markTestIncomplete();
+    }
+
+    /**
+     * @throws \Throwable
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testRendersLogoutPageInResolvedUiLanguage(): void
+    {
+        $this->currentSessionMock->method('getAuthorities')->willReturn([]);
+        $this->sessionServiceStub->method('getCurrentSession')->willReturn($this->currentSessionMock);
+        $this->logoutRequestStub->method('getUiLocales')->willReturn('hr en');
+        $this->authorizationServerStub->method('validateLogoutRequest')->willReturn($this->logoutRequestStub);
+        $this->uiLocalesResolverStub->method('resolve')->willReturn('hr');
+
+        $this->assertSame('hr', $this->captureRenderedTemplateLanguage());
+    }
+
+    /**
+     * @throws \Throwable
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testRendersLogoutPageWithoutLanguageWhenNoneResolved(): void
+    {
+        $this->currentSessionMock->method('getAuthorities')->willReturn([]);
+        $this->sessionServiceStub->method('getCurrentSession')->willReturn($this->currentSessionMock);
+        $this->logoutRequestStub->method('getUiLocales')->willReturn('de');
+        $this->authorizationServerStub->method('validateLogoutRequest')->willReturn($this->logoutRequestStub);
+        $this->uiLocalesResolverStub->method('resolve')->willReturn(null);
+
+        $this->assertNull($this->captureRenderedTemplateLanguage());
+    }
+
+    /**
+     * Invoke the controller with a TemplateFactory mock and return the language passed to the rendered
+     * logout template.
+     *
+     * @throws \Throwable
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    private function captureRenderedTemplateLanguage(): ?string
+    {
+        $templateStub = $this->createStub(Template::class);
+        $capturedLanguage = null;
+
+        $templateFactoryMock = $this->createMock(TemplateFactory::class);
+        $templateFactoryMock->method('build')->willReturnCallback(
+            function (
+                string $templateName,
+                array $data = [],
+                ?string $activeHrefPath = null,
+                ?bool $includeDefaultMenuItems = null,
+                ?bool $showMenu = null,
+                ?bool $showModuleName = null,
+                ?bool $showSubPageTitle = null,
+                ?string $language = null,
+            ) use (
+                &$capturedLanguage,
+                $templateStub,
+            ): Template {
+                $capturedLanguage = $language;
+                return $templateStub;
+            },
+        );
+
+        $this->mock($templateFactoryMock)->__invoke($this->serverRequestStub);
+
+        return $capturedLanguage;
     }
 }

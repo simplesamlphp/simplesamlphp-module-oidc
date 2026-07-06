@@ -181,6 +181,29 @@ per-field metadata policy (honored / validated / rejected) is documented in
   future major version may switch the getters to fall back to the spec defaults.)
   DCR is also opt-in (disabled by default), so unless you enable it, nothing changes
   for your deployment.
+- Support for the `ui_locales` parameter on the authorization and end session
+endpoints (previously ignored). The parameter carries the End-User's preferred
+UI languages as a space-separated list of BCP47 language tags, ordered by
+preference. The most preferred requested language which is also available in
+SimpleSAMLphp (per the `language.available` config option) is used to render
+the screens shown during the flow. On the authorization endpoint, where the
+login page and consent are rendered by SimpleSAMLphp in subsequent requests,
+this is done via the standard SimpleSAMLphp language cookie (the same mechanism
+as when the user picks a language on any SimpleSAMLphp page); to avoid a
+client-supplied parameter silently overwriting a persistent, instance-wide
+preference, an already present language cookie (an explicit choice the user
+made) is not overridden. On the end session endpoint, the logout page is
+rendered directly in the requested language, without setting the language
+cookie. Matching includes a fallback to the primary language subtag (for
+example, requested `fr-CA` matches available `fr`). Per specification this is
+best-effort: if none of the requested languages are available, the parameter is
+ignored without raising an error. The available languages are also advertised
+in the OP discovery metadata via the `ui_locales_supported` claim (as BCP47
+language tags). Note: use the canonical SimpleSAMLphp locale codes in
+`language.available` (for example `pt_BR` and `zh_TW`); the deprecated codes
+(`pt-br`, `zh-tw`), which SimpleSAMLphp itself warns against, are not fully
+supported by `ui_locales` on the authorization endpoint, because the language
+cookie is validated against the raw configured codes.
 - Logging has been improved for authentication flows. It should now be easier
 to find information about what went wrong by looking at the relevant log entries.
 

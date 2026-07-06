@@ -35,4 +35,9 @@ class SspBridgeTest extends TestCase
     {
         $this->assertInstanceOf(SspBridge\Auth::class, $this->sut()->auth());
     }
+
+    public function testCanBuildLocaleInstance(): void
+    {
+        $this->assertInstanceOf(SspBridge\Locale::class, $this->sut()->locale());
+    }
 }

@@ -8,6 +8,7 @@ use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\Module\oidc\Utils\UiLocalesResolver;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 
@@ -28,6 +29,7 @@ class OpMetadataService
         private readonly ModuleConfig $moduleConfig,
         private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
         private readonly Routes $routes,
+        private readonly UiLocalesResolver $uiLocalesResolver,
     ) {
         $this->initMetadata();
     }
@@ -110,6 +112,10 @@ class OpMetadataService
         }
 
         $this->metadata[ClaimsEnum::ResponseModesSupported->value] = $this->moduleConfig->getSupportedResponseModes();
+
+        if (!(empty($uiLocalesSupported = $this->uiLocalesResolver->getSupportedUiLocales()))) {
+            $this->metadata[ClaimsEnum::UiLocalesSupported->value] = $uiLocalesSupported;
+        }
 
         // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-oauth-20-authorization-serv
         // OPTIONAL

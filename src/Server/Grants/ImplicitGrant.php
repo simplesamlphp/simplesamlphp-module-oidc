@@ -35,6 +35,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseModeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Server\ResponseModes\FragmentResponseMode;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
@@ -133,6 +134,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
             RequiredNonceRule::class,
             RequestedClaimsRule::class,
             AcrValuesRule::class,
+            UiLocalesRule::class,
         ];
 
         $this->requestRulesManager->predefineResultBag($resultBag);
@@ -188,6 +190,9 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
 
         $acrValues = $resultBag->getOrFail(AcrValuesRule::class)->getValue();
         $authorizationRequest->setRequestedAcrValues($acrValues);
+
+        $uiLocales = $resultBag->getOrFail(UiLocalesRule::class)->getValue();
+        $authorizationRequest->setUiLocales($uiLocales);
 
         $responseMode = $resultBag->getOrFail(ResponseModeRule::class)->getValue();
         $authorizationRequest->setResponseMode($responseMode);

@@ -196,7 +196,6 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         $idTokenHint = $resultBag->getOrFail(IdTokenHintRule::class)->getValue();
         $postLogoutRedirectUri = $resultBag->getOrFail(PostLogoutRedirectUriRule::class)->getValue();
         $state = $resultBag->getOrFail(StateRule::class)->getValue();
-        /** @var string|null $uiLocales */
         $uiLocales = $resultBag->getOrFail(UiLocalesRule::class)->getValue();
 
         return new LogoutRequest($idTokenHint, $postLogoutRedirectUri, $state, $uiLocales);

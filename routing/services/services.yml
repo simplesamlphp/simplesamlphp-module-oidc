@@ -107,6 +107,7 @@ services:
   SimpleSAML\Module\oidc\Utils\Routes: ~
   SimpleSAML\Module\oidc\Utils\RequestParamsResolver: ~
   SimpleSAML\Module\oidc\Utils\UserIdentifierResolver: ~
+  SimpleSAML\Module\oidc\Utils\UiLocalesResolver: ~
   SimpleSAML\Module\oidc\Utils\ClassInstanceBuilder: ~
   SimpleSAML\Module\oidc\Utils\JwksResolver: ~
   SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver: ~

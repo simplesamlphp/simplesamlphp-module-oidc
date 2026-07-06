@@ -18,8 +18,8 @@ Clone, build, and run the conformance test suite:
 git clone https://gitlab.com/openid/conformance-suite.git
 cd conformance-suite
 git checkout release-v5.1.45
-MAVEN_CACHE=./m2 docker-compose -f builder-compose.yml run builder
-docker-compose up
+MAVEN_CACHE=./m2 docker compose -f builder-compose.yml run builder
+docker compose up
 ```
 
 This starts the Java conformance app and a MongoDB server. Then:
@@ -35,8 +35,16 @@ Next, run your SSP OIDC image.
 ### Run SSP
 
 Run SSP with OIDC on the same Docker network as the conformance tests so
-containers can communicate. See the "Docker Compose" section in the
-README for details.
+containers can communicate. See the "Docker Compose" section in
+[Using Docker](4-oidc-docker.md) for details.
+
+The OP image is built on a SimpleSAMLphp base image. During v7 development the
+module depends on the unreleased `simplesamlphp-2.5` branch, so the base image
+must be built from that branch (or discovery fails); see
+"Build against an unreleased SimpleSAMLphp version" in
+[Using Docker](4-oidc-docker.md). The GitHub Actions conformance job does this
+automatically: it builds the base image from the SimpleSAMLphp ref in its
+matrix (`ssp-composer-version`) and passes it to the OP build as `SSP_IMAGE`.
 
 ### Run conformance tests (interactive)
 
@@ -149,7 +157,7 @@ Because the plan is deterministic, the GitHub Actions step is a blocking gate (n
 `continue-on-error`).
 
 Prerequisites: run the docker deploy image for conformance tests (see
-README) and the conformance test image first.
+[Using Docker](4-oidc-docker.md)) and the conformance test image first.
 
 ## Run hosted tests
 
@@ -158,8 +166,8 @@ OP must be publicly accessible on the internet.
 
 ### Deploy SSP OIDC image
 
-Use the docker image described in the README. It contains a SQLite DB
-pre-populated with data for the tests. Build and run the image.
+Use the docker image described in [Using Docker](4-oidc-docker.md). It contains
+a SQLite DB pre-populated with data for the tests. Build and run the image.
 
 ### Register and create conformance tests
 

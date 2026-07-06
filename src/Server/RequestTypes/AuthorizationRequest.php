@@ -37,6 +37,12 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     protected ?array $requestedAcrValues = null;
 
     /**
+     * End-User's preferred UI languages, as requested using the ui_locales parameter (space-separated list of
+     * BCP47 language tags, ordered by preference).
+     */
+    protected ?string $uiLocales = null;
+
+    /**
      * ACR used during authn.
      */
     protected ?string $acr = null;
@@ -223,6 +229,16 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     public function setRequestedAcrValues(?array $requestedAcrValues): void
     {
         $this->requestedAcrValues = $requestedAcrValues;
+    }
+
+    public function getUiLocales(): ?string
+    {
+        return $this->uiLocales;
+    }
+
+    public function setUiLocales(?string $uiLocales): void
+    {
+        $this->uiLocales = $uiLocales;
     }
 
     public function getAcr(): ?string
