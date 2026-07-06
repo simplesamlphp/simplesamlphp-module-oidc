@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
+use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Utils\UiLocalesResolver;
 
 #[CoversClass(UiLocalesResolver::class)]
@@ -19,7 +20,7 @@ class UiLocalesResolverTest extends TestCase
             $availableLanguages === null ? [] : ['language.available' => $availableLanguages],
         );
 
-        return new UiLocalesResolver($sspConfiguration);
+        return new UiLocalesResolver($sspConfiguration, new SspBridge());
     }
 
     public function testCanCreateInstance(): void
@@ -43,6 +44,8 @@ class UiLocalesResolverTest extends TestCase
             'no match' => ['de fr', ['en', 'hr'], null],
             'multiple whitespace between tags' => ['de  en', ['en', 'hr'], 'en'],
             'returns configured code, not requested tag' => ['en-US', ['en'], 'en'],
+            'configured code unknown to the translation system is not matched' => ['xx', ['en', 'xx'], null],
+            'deprecated configured code is renamed like in SSP' => ['pt-BR', ['en', 'pt-br'], 'pt_BR'],
         ];
     }
 
@@ -70,5 +73,15 @@ class UiLocalesResolverTest extends TestCase
     public function testSupportedUiLocalesFallBackToDefaultAvailableLanguage(): void
     {
         $this->assertSame(['en'], $this->sut()->getSupportedUiLocales());
+    }
+
+    public function testSupportedUiLocalesExcludeCodesUnknownToTranslationSystem(): void
+    {
+        $this->assertSame(['en'], $this->sut(['en', 'xx'])->getSupportedUiLocales());
+    }
+
+    public function testSupportedUiLocalesIncludeRenamedDeprecatedCodes(): void
+    {
+        $this->assertSame(['en', 'pt-BR', 'zh-TW'], $this->sut(['en', 'pt-br', 'zh-tw'])->getSupportedUiLocales());
     }
 }

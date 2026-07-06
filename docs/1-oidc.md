@@ -180,8 +180,11 @@ Minor versions listed show which SimpleSAMLphp versions were used during
 module development. SimpleSAMLphp follows semantic versioning for its
 API since v2.0. PHP version requirements may differ.
 
+TODO mivanci require simplesamlphp/simplesamlphp:^2.5.3 in composer.json
+
 | OIDC module | Tested SimpleSAMLphp |  PHP   |
 |:------------|:---------------------|:------:|
+| v7\*        | dev-simplesamlphp-2.5| \>=8.3 |
 | v6.4.\*     | v2.5.\*              | \>=8.3 |
 | v6.3.\*     | v2.3.\*, v2.4.\*     | \>=8.2 |
 | v5.\*       | v2.1.\*              | \>=8.1 |

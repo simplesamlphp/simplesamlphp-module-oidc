@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Utils;
 
 use SimpleSAML\Configuration;
-use SimpleSAML\Locale\Language;
+use SimpleSAML\Module\oidc\Bridges\SspBridge;
 
 /**
  * Resolve the SimpleSAMLphp UI language to use based on the OpenID Connect
@@ -16,6 +16,7 @@ class UiLocalesResolver
 {
     public function __construct(
         protected readonly Configuration $sspConfiguration,
+        protected readonly SspBridge $sspBridge,
     ) {
     }
 
@@ -34,17 +35,9 @@ class UiLocalesResolver
             return null;
         }
 
-        $availableLanguages = $this->sspConfiguration->getOptionalArray(
-            'language.available',
-            [Language::FALLBACKLANGUAGE],
-        );
-
         $normalizedAvailableLanguages = [];
-        /** @psalm-suppress MixedAssignment */
-        foreach ($availableLanguages as $availableLanguage) {
-            if (is_string($availableLanguage)) {
-                $normalizedAvailableLanguages[$this->normalize($availableLanguage)] = $availableLanguage;
-            }
+        foreach ($this->getAvailableLanguages() as $availableLanguage) {
+            $normalizedAvailableLanguages[$this->normalize($availableLanguage)] = $availableLanguage;
         }
 
         foreach (preg_split('/\s+/', trim($uiLocales)) ?: [] as $languageTag) {
@@ -64,29 +57,32 @@ class UiLocalesResolver
     }
 
     /**
-     * Get languages available in SimpleSAMLphp (per the language.available config option), represented as
-     * BCP47 language tags (SSP uses underscore as region separator in some codes, like pt_BR, while BCP47
-     * uses hyphen). Can be used to advertise supported UI locales in OP discovery metadata
-     * (ui_locales_supported).
+     * Get languages available in SimpleSAMLphp, represented as BCP47 language tags (SSP uses underscore as
+     * region separator in some codes, like pt_BR, while BCP47 uses hyphen). Can be used to advertise
+     * supported UI locales in OP discovery metadata (ui_locales_supported).
      *
      * @return string[]
      */
     public function getSupportedUiLocales(): array
     {
-        $availableLanguages = $this->sspConfiguration->getOptionalArray(
-            'language.available',
-            [Language::FALLBACKLANGUAGE],
+        return array_map(
+            fn(string $availableLanguage): string => str_replace('_', '-', $availableLanguage),
+            $this->getAvailableLanguages(),
         );
+    }
 
-        $supportedUiLocales = [];
-        /** @psalm-suppress MixedAssignment */
-        foreach ($availableLanguages as $availableLanguage) {
-            if (is_string($availableLanguage)) {
-                $supportedUiLocales[] = str_replace('_', '-', $availableLanguage);
-            }
-        }
-
-        return $supportedUiLocales;
+    /**
+     * Get languages available in SimpleSAMLphp (configured in language.available and usable for UI
+     * rendering), as computed by SimpleSAMLphp itself
+     * (\SimpleSAML\Locale\Language::getAvailableLanguages()). This includes SimpleSAMLphp's own handling
+     * of deprecated locale codes and filtering of codes unknown to the translation system, so such codes
+     * are neither advertised nor matched here.
+     *
+     * @return string[]
+     */
+    protected function getAvailableLanguages(): array
+    {
+        return $this->sspBridge->locale()->language()->getAvailableLanguages($this->sspConfiguration);
     }
 
     protected function normalize(string $languageTag): string
