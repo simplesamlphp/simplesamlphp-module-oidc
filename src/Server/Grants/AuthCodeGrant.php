@@ -858,6 +858,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             ClientIdRule::class,
             ResponseTypeRule::class,
             RequestObjectRule::class,
+            // LoginHintRule must run before PromptRule and MaxAgeRule, which consume its result when they
+            // trigger re-authentication (prompt=login / expired max_age) to pre-fill the username.
+            LoginHintRule::class,
             PromptRule::class,
             MaxAgeRule::class,
             ScopeRule::class,
@@ -870,7 +873,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             IssuerStateRule::class,
             AuthorizationDetailsRule::class,
             UiLocalesRule::class,
-            LoginHintRule::class,
         ];
 
         // Since we have already validated redirect_uri, and we have state, make it available for other checkers.

@@ -127,6 +127,9 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         $rulesToExecute = [
             ScopeRule::class,
             RequestObjectRule::class,
+            // LoginHintRule must run before PromptRule and MaxAgeRule, which consume its result when they
+            // trigger re-authentication (prompt=login / expired max_age) to pre-fill the username.
+            LoginHintRule::class,
             PromptRule::class,
             MaxAgeRule::class,
             RequiredOpenIdScopeRule::class,
@@ -136,7 +139,6 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
             RequestedClaimsRule::class,
             AcrValuesRule::class,
             UiLocalesRule::class,
-            LoginHintRule::class,
         ];
 
         $this->requestRulesManager->predefineResultBag($resultBag);

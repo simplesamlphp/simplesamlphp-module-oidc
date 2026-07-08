@@ -18,6 +18,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\LoginHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
@@ -120,10 +121,9 @@ class MaxAgeRuleTest extends TestCase
     {
         $this->resultBag->add(new Result(ClientRedirectUriRule::class, 'https://rp.example.org/cb'));
         $this->resultBag->add(new Result(StateRule::class, 'state123'));
+        $this->resultBag->add(new Result(LoginHintRule::class, 'user@example.org'));
         $this->requestParamsResolverMock->method('getAllBasedOnAllowedMethods')
             ->willReturn(['max_age' => 0, 'login_hint' => 'user@example.org']);
-        $this->requestParamsResolverMock->method('getAsStringBasedOnAllowedMethods')
-            ->willReturn('user@example.org');
         $this->clientMock->method('getRequireAuthTime')->willReturn(false);
         $this->authSimpleMock->method('isAuthenticated')->willReturn(true);
         // Authenticated well before the (zero) max_age window, so re-authentication is enforced.

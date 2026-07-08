@@ -18,6 +18,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\LoginHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
@@ -92,10 +93,9 @@ class PromptRuleTest extends TestCase
 
     public function testPromptLoginReAuthenticatesAndPropagatesLoginHint(): void
     {
+        $this->resultBag->add(new Result(LoginHintRule::class, 'user@example.org'));
         $this->requestParamsResolverMock->method('getAllBasedOnAllowedMethods')
             ->willReturn(['prompt' => 'login', 'login_hint' => 'user@example.org']);
-        $this->requestParamsResolverMock->method('getAsStringBasedOnAllowedMethods')
-            ->willReturn('user@example.org');
         $this->authSimpleMock->method('isAuthenticated')->willReturn(true);
 
         $httpMock = $this->createMock(SspHttp::class);

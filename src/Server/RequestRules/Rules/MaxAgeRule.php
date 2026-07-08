@@ -117,7 +117,11 @@ class MaxAgeRule extends AbstractRule
                 $this->sspBridge->utils()->http()->getSelfURLNoQuery(),
                 $requestParams,
             );
-            $this->addLoginHintParam($loginParams, $request, $allowedServerRequestMethods);
+            // Propagate login_hint (resolved earlier by LoginHintRule) as the pre-filled username.
+            $loginHint = $currentResultBag->getOrFail(LoginHintRule::class)->getValue();
+            if ($loginHint !== null) {
+                $loginParams[AuthenticationService::LOGIN_PARAM_USERNAME] = $loginHint;
+            }
 
             $this->authenticationService->authenticateForClient($client, $loginParams);
         }
