@@ -55,6 +55,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeVerifierRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\LoginHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
@@ -869,6 +870,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             IssuerStateRule::class,
             AuthorizationDetailsRule::class,
             UiLocalesRule::class,
+            LoginHintRule::class,
         ];
 
         // Since we have already validated redirect_uri, and we have state, make it available for other checkers.
@@ -989,6 +991,10 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $uiLocales = $resultBag->getOrFail(UiLocalesRule::class)->getValue();
         $this->loggerService->debug('AuthCodeGrant: UI locales: ', ['uiLocales' => $uiLocales]);
         $authorizationRequest->setUiLocales($uiLocales);
+
+        $loginHint = $resultBag->getOrFail(LoginHintRule::class)->getValue();
+        $this->loggerService->debug('AuthCodeGrant: Login hint: ', ['loginHint' => $loginHint]);
+        $authorizationRequest->setLoginHint($loginHint);
 
 
         $authorizationRequest->setIsVciRequest($isVciAuthorizationCodeRequest);

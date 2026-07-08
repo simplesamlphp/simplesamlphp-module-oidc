@@ -43,6 +43,11 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     protected ?string $uiLocales = null;
 
     /**
+     * Hint about the login identifier the End-User might use to log in, as requested using the login_hint parameter.
+     */
+    protected ?string $loginHint = null;
+
+    /**
      * ACR used during authn.
      */
     protected ?string $acr = null;
@@ -239,6 +244,16 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     public function setUiLocales(?string $uiLocales): void
     {
         $this->uiLocales = $uiLocales;
+    }
+
+    public function getLoginHint(): ?string
+    {
+        return $this->loginHint;
+    }
+
+    public function setLoginHint(?string $loginHint): void
+    {
+        $this->loginHint = $loginHint;
     }
 
     public function getAcr(): ?string
