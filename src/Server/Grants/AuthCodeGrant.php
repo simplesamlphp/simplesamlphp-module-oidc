@@ -993,7 +993,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $authorizationRequest->setUiLocales($uiLocales);
 
         $loginHint = $resultBag->getOrFail(LoginHintRule::class)->getValue();
-        // Only log presence, not the value: login_hint is commonly an email or username (PII).
+        // Only log presence, not the value: login_hint is commonly a PII.
         $loginHintPresent = $loginHint !== null;
         $this->loggerService->debug('AuthCodeGrant: Login hint present: ', ['loginHintPresent' => $loginHintPresent]);
         $authorizationRequest->setLoginHint($loginHint);
