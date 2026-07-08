@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\RequestRuleInterface;
+use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
@@ -52,5 +53,32 @@ abstract class AbstractRule implements RequestRuleInterface
         ) ?? '';
 
         return in_array(ScopesEnum::OpenId->value, explode(' ', $scope), true);
+    }
+
+    /**
+     * Propagate the login_hint authorization request parameter (if present) into the given login params as the
+     * pre-filled username, so it survives a rule-initiated re-authentication (e.g. prompt=login or expired max_age),
+     * where the normal AuthenticationService propagation path is bypassed. Best-effort, mirroring
+     * AuthenticationService::resolveLoginParams().
+     *
+     * @param array<string,mixed> $loginParams
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedServerRequestMethods
+     */
+    protected function addLoginHintParam(
+        array &$loginParams,
+        ServerRequestInterface $request,
+        array $allowedServerRequestMethods = [HttpMethodsEnum::GET],
+    ): void {
+        $loginHint = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
+            ParamsEnum::LoginHint->value,
+            $request,
+            $allowedServerRequestMethods,
+        );
+
+        if ($loginHint === null) {
+            return;
+        }
+
+        $loginParams[AuthenticationService::LOGIN_PARAM_USERNAME] = $loginHint;
     }
 }

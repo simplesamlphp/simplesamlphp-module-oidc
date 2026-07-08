@@ -117,6 +117,7 @@ class MaxAgeRule extends AbstractRule
                 $this->sspBridge->utils()->http()->getSelfURLNoQuery(),
                 $requestParams,
             );
+            $this->addLoginHintParam($loginParams, $request, $allowedServerRequestMethods);
 
             $this->authenticationService->authenticateForClient($client, $loginParams);
         }

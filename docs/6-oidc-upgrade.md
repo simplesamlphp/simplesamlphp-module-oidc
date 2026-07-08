@@ -212,7 +212,8 @@ SimpleSAMLphp login page as the pre-filled username (using the standard
 specification this is best-effort: authentication sources that do not use the
 core login form simply ignore it, and an incorrect value can be corrected by
 the user (or the login fails with invalid credentials). No error is raised if
-the parameter is present but unused.
+the parameter is present but unused. This also applies to forced
+re-authentication triggered by `prompt=login` or an expired `max_age`.
 - Logging has been improved for authentication flows. It should now be easier
 to find information about what went wrong by looking at the relevant log entries.
 

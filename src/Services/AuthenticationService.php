@@ -47,6 +47,11 @@ use SimpleSAML\Module\oidc\Utils\UserIdentifierResolver;
 class AuthenticationService
 {
     /**
+     * Login parameter (state array key) used to pre-fill the username on the SimpleSAMLphp core UserPass login form.
+     */
+    public const string LOGIN_PARAM_USERNAME = 'core:username';
+
+    /**
      * ID of auth source used during authn.
      */
     private ?string $authSourceId = null;
@@ -292,7 +297,7 @@ class AuthenticationService
             return [];
         }
 
-        return ['core:username' => $loginHint];
+        return [self::LOGIN_PARAM_USERNAME => $loginHint];
     }
 
     /**
