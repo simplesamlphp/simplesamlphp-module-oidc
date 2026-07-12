@@ -55,6 +55,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeVerifierRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\LoginHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
@@ -857,6 +858,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             ClientIdRule::class,
             ResponseTypeRule::class,
             RequestObjectRule::class,
+            // LoginHintRule must run before PromptRule and MaxAgeRule, which consume its result when they
+            // trigger re-authentication (prompt=login / expired max_age) to pre-fill the username.
+            LoginHintRule::class,
             PromptRule::class,
             MaxAgeRule::class,
             ScopeRule::class,
@@ -989,6 +993,12 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $uiLocales = $resultBag->getOrFail(UiLocalesRule::class)->getValue();
         $this->loggerService->debug('AuthCodeGrant: UI locales: ', ['uiLocales' => $uiLocales]);
         $authorizationRequest->setUiLocales($uiLocales);
+
+        $loginHint = $resultBag->getOrFail(LoginHintRule::class)->getValue();
+        // Only log presence, not the value: login_hint is commonly a PII.
+        $loginHintPresent = $loginHint !== null;
+        $this->loggerService->debug('AuthCodeGrant: Login hint present: ', ['loginHintPresent' => $loginHintPresent]);
+        $authorizationRequest->setLoginHint($loginHint);
 
 
         $authorizationRequest->setIsVciRequest($isVciAuthorizationCodeRequest);

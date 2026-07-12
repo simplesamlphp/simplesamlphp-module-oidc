@@ -25,6 +25,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AddClaimsToIdTokenRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\LoginHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
@@ -126,6 +127,9 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         $rulesToExecute = [
             ScopeRule::class,
             RequestObjectRule::class,
+            // LoginHintRule must run before PromptRule and MaxAgeRule, which consume its result when they
+            // trigger re-authentication (prompt=login / expired max_age) to pre-fill the username.
+            LoginHintRule::class,
             PromptRule::class,
             MaxAgeRule::class,
             RequiredOpenIdScopeRule::class,
@@ -193,6 +197,9 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
 
         $uiLocales = $resultBag->getOrFail(UiLocalesRule::class)->getValue();
         $authorizationRequest->setUiLocales($uiLocales);
+
+        $loginHint = $resultBag->getOrFail(LoginHintRule::class)->getValue();
+        $authorizationRequest->setLoginHint($loginHint);
 
         $responseMode = $resultBag->getOrFail(ResponseModeRule::class)->getValue();
         $authorizationRequest->setResponseMode($responseMode);

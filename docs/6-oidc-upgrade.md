@@ -204,6 +204,16 @@ language tags). Note: use the canonical SimpleSAMLphp locale codes in
 (`pt-br`, `zh-tw`), which SimpleSAMLphp itself warns against, are not fully
 supported by `ui_locales` on the authorization endpoint, because the language
 cookie is validated against the raw configured codes.
+- Support for the `login_hint` parameter on the authorization endpoint
+(previously ignored). The parameter carries a hint about the login identifier
+the End-User might use to log in. When present, it is propagated to the
+SimpleSAMLphp login page as the pre-filled username (using the standard
+`core:username` state key consumed by the core UserPass login form). Per
+specification this is best-effort: authentication sources that do not use the
+core login form simply ignore it, and an incorrect value can be corrected by
+the user (or the login fails with invalid credentials). No error is raised if
+the parameter is present but unused. This also applies to forced
+re-authentication triggered by `prompt=login` or an expired `max_age`.
 - Logging has been improved for authentication flows. It should now be easier
 to find information about what went wrong by looking at the relevant log entries.
 

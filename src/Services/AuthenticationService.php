@@ -47,6 +47,11 @@ use SimpleSAML\Module\oidc\Utils\UserIdentifierResolver;
 class AuthenticationService
 {
     /**
+     * Login parameter (state array key) used to pre-fill the username on the SimpleSAMLphp core UserPass login form.
+     */
+    public const string LOGIN_PARAM_USERNAME = 'core:username';
+
+    /**
      * ID of auth source used during authn.
      */
     private ?string $authSourceId = null;
@@ -100,7 +105,7 @@ class AuthenticationService
         $this->authSourceId = $authSimple->getAuthSource()->getAuthId();
 
         if (! $authSimple->isAuthenticated()) {
-            $this->authenticate($authSimple);
+            $this->authenticate($authSimple, $this->resolveLoginParams($authorizationRequest));
         } elseif ($this->sessionService->getIsAuthnPerformedInPreviousRequest()) {
             $this->sessionService->setIsAuthnPerformedInPreviousRequest(false);
 
@@ -270,6 +275,29 @@ class AuthenticationService
     public function getSessionId(): ?string
     {
         return $this->sessionService->getCurrentSession()->getSessionId();
+    }
+
+    /**
+     * Resolve additional login parameters to pass to the authentication source, based on the authorization request.
+     *
+     * Currently this propagates the login_hint authorization request parameter to the SimpleSAMLphp login page as
+     * the pre-filled username (the standard 'core:username' state key consumed by the core UserPass login form).
+     * Per specification this is a hint about the identifier the End-User might use to log in, so it is best-effort:
+     * auth sources that do not use the core login form simply ignore it, and an incorrect value is corrected by the
+     * user (or the login simply fails with invalid credentials).
+     *
+     * @return array<string,mixed>
+     */
+    protected function resolveLoginParams(OAuth2AuthorizationRequestInterface $authorizationRequest): array
+    {
+        if (
+            !$authorizationRequest instanceof AuthorizationRequest ||
+            ($loginHint = $authorizationRequest->getLoginHint()) === null
+        ) {
+            return [];
+        }
+
+        return [self::LOGIN_PARAM_USERNAME => $loginHint];
     }
 
     /**

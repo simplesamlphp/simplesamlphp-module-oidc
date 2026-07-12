@@ -19,7 +19,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\LoginHintRule;
-use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
@@ -27,8 +27,8 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Utils\HTTP as SspHttp;
 
-#[CoversClass(MaxAgeRule::class)]
-class MaxAgeRuleTest extends TestCase
+#[CoversClass(PromptRule::class)]
+class PromptRuleTest extends TestCase
 {
     protected MockObject $requestParamsResolverMock;
     protected MockObject $authSimpleFactoryMock;
@@ -57,11 +57,13 @@ class MaxAgeRuleTest extends TestCase
 
         $this->resultBag = new ResultBag();
         $this->resultBag->add(new Result(ClientRule::class, $this->clientMock));
+        $this->resultBag->add(new Result(ClientRedirectUriRule::class, 'https://rp.example.org/cb'));
+        $this->resultBag->add(new Result(StateRule::class, 'state123'));
     }
 
-    protected function sut(): MaxAgeRule
+    protected function sut(): PromptRule
     {
-        return new MaxAgeRule(
+        return new PromptRule(
             $this->requestParamsResolverMock,
             new Helpers(),
             $this->authSimpleFactoryMock,
@@ -81,57 +83,25 @@ class MaxAgeRuleTest extends TestCase
         );
     }
 
-    public function testReturnsNullWhenNoMaxAgeNoDefaultAndNoRequireAuthTime(): void
+    public function testReturnsNullWhenNoPromptParam(): void
     {
         $this->requestParamsResolverMock->method('getAllBasedOnAllowedMethods')->willReturn([]);
-        $this->clientMock->method('getDefaultMaxAge')->willReturn(null);
-        $this->clientMock->method('getRequireAuthTime')->willReturn(false);
+        $this->authenticationServiceMock->expects($this->never())->method('authenticateForClient');
 
         $this->assertNull($this->checkRule());
     }
 
-    public function testRequireAuthTimeReturnsAuthInstantWithoutMaxAge(): void
+    public function testPromptLoginReAuthenticatesAndPropagatesLoginHint(): void
     {
-        $this->requestParamsResolverMock->method('getAllBasedOnAllowedMethods')->willReturn([]);
-        $this->clientMock->method('getDefaultMaxAge')->willReturn(null);
-        $this->clientMock->method('getRequireAuthTime')->willReturn(true);
-        $this->authSimpleMock->method('isAuthenticated')->willReturn(true);
-        $this->authSimpleMock->method('getAuthData')->willReturn(1000);
-        // No re-authentication must happen when there is no effective max_age.
-        $this->authenticationServiceMock->expects($this->never())->method('authenticateForClient');
-
-        $result = $this->checkRule();
-
-        $this->assertSame(1000, $result?->getValue());
-    }
-
-    public function testDefaultMaxAgeNotExpiredReturnsAuthInstant(): void
-    {
-        $this->requestParamsResolverMock->method('getAllBasedOnAllowedMethods')->willReturn([]);
-        $this->clientMock->method('getDefaultMaxAge')->willReturn(3600);
-        $this->clientMock->method('getRequireAuthTime')->willReturn(false);
-        $this->authSimpleMock->method('isAuthenticated')->willReturn(true);
-        $this->authSimpleMock->method('getAuthData')->willReturn(time() - 10);
-        $this->authenticationServiceMock->expects($this->never())->method('authenticateForClient');
-
-        $this->assertNotNull($this->checkRule());
-    }
-
-    public function testExpiredMaxAgeReAuthenticatesAndPropagatesLoginHint(): void
-    {
-        $this->resultBag->add(new Result(ClientRedirectUriRule::class, 'https://rp.example.org/cb'));
-        $this->resultBag->add(new Result(StateRule::class, 'state123'));
         $this->resultBag->add(new Result(LoginHintRule::class, 'user@example.org'));
         $this->requestParamsResolverMock->method('getAllBasedOnAllowedMethods')
-            ->willReturn(['max_age' => 0, 'login_hint' => 'user@example.org']);
-        $this->clientMock->method('getRequireAuthTime')->willReturn(false);
+            ->willReturn(['prompt' => 'login', 'login_hint' => 'user@example.org']);
         $this->authSimpleMock->method('isAuthenticated')->willReturn(true);
-        // Authenticated well before the (zero) max_age window, so re-authentication is enforced.
-        $this->authSimpleMock->method('getAuthData')->willReturn(time() - 3600);
 
         $httpMock = $this->createMock(SspHttp::class);
         $httpMock->method('getSelfURLNoQuery')->willReturn('https://op.example.org/authorize');
-        $httpMock->method('addURLParameters')->willReturn('https://op.example.org/authorize?max_age=0');
+        $httpMock->method('addURLParameters')
+            ->willReturn('https://op.example.org/authorize?login_hint=user@example.org');
         $utilsMock = $this->createMock(SspBridgeUtils::class);
         $utilsMock->method('http')->willReturn($httpMock);
         $this->sspBridgeMock->method('utils')->willReturn($utilsMock);
@@ -144,6 +114,6 @@ class MaxAgeRuleTest extends TestCase
                     ($loginParams['core:username'] ?? null) === 'user@example.org'),
             );
 
-        $this->checkRule();
+        $this->assertNull($this->checkRule());
     }
 }

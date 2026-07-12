@@ -434,6 +434,54 @@ class AuthenticationServiceTest extends TestCase
     }
 
     /**
+     * When the user is not yet authenticated and a login_hint is present in the authorization request, it must be
+     * propagated to the authentication source as the pre-filled username (the 'core:username' login parameter).
+     *
+     * @throws \Throwable
+     */
+    public function testItPropagatesLoginHintToAuthentication(): void
+    {
+        $authenticationServiceMock = $this->getMockBuilder(AuthenticationService::class)
+            ->enableOriginalConstructor()
+            ->setConstructorArgs([
+                                     $this->userRepositoryMock,
+                                     $this->authSimpleFactoryMock,
+                                     $this->clientRepositoryMock,
+                                     $this->opMetadataService,
+                                     $this->sessionServiceMock,
+                                     $this->claimTranslatorExtractorMock,
+                                     $this->moduleConfigMock,
+                                     $this->processingChainFactoryMock,
+                                     $this->stateServiceMock,
+                                     $this->requestParamsResolverMock,
+                                     $this->userEntityFactoryMock,
+                                     $this->routesMock,
+                                     new UserIdentifierResolver(),
+                                 ])
+            ->onlyMethods(['runAuthProcs', 'prepareStateArray', 'authenticate'])
+            ->getMock();
+
+        $this->authSimpleMock->method('getAuthSource')->willReturn($this->authSourceMock);
+        $this->authSourceMock->method('getAuthId')->willReturn(self::AUTH_SOURCE);
+        $this->authSimpleMock->expects($this->once())->method('isAuthenticated')->willReturn(false);
+        $this->authorizationRequestMock->method('getClient')->willReturn($this->clientEntityMock);
+        $this->authorizationRequestMock->method('getLoginHint')->willReturn('user@example.org');
+        $authenticationServiceMock->method('prepareStateArray')->willReturn(self::STATE);
+
+        $authenticationServiceMock->expects($this->once())
+            ->method('authenticate')
+            ->with($this->authSimpleMock, ['core:username' => 'user@example.org']);
+
+        $this->assertSame(
+            $authenticationServiceMock->processRequest(
+                $this->serverRequestMock,
+                $this->authorizationRequestMock,
+            ),
+            self::STATE,
+        );
+    }
+
+    /**
      * @throws NoState
      */
     public function testItThrowsOnMissingQueryParameterAuthparam(): void

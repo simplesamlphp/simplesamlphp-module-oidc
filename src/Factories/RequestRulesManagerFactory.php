@@ -25,6 +25,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeVerifierRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\LoginHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
@@ -171,6 +172,7 @@ class RequestRulesManagerFactory
             ),
             new PostLogoutRedirectUriRule($this->requestParamsResolver, $this->helpers, $this->clientRepository),
             new UiLocalesRule($this->requestParamsResolver, $this->helpers),
+            new LoginHintRule($this->requestParamsResolver, $this->helpers),
             new AcrValuesRule($this->requestParamsResolver, $this->helpers),
             new ScopeOfflineAccessRule($this->requestParamsResolver, $this->helpers),
             new ClientAuthenticationRule(
