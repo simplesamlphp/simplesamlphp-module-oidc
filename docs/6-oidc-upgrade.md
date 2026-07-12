@@ -214,6 +214,16 @@ core login form simply ignore it, and an incorrect value can be corrected by
 the user (or the login fails with invalid credentials). No error is raised if
 the parameter is present but unused. This also applies to forced
 re-authentication triggered by `prompt=login` or an expired `max_age`.
+- Support for the `id_token_hint` parameter on the authorization endpoint
+(previously ignored; it was already supported on the end session endpoint). The
+parameter carries an ID Token previously issued by this OP as a hint about the
+End-User's session. When present, it is validated (issuer and signature). Its
+main effect is with `prompt=none`: the request is only satisfied when the
+currently authenticated End-User matches the subject (`sub`) in the
+`id_token_hint`; otherwise a `login_required` error is returned rather than
+silently issuing a token for a different user. A malformed, wrongly-issued or
+improperly-signed `id_token_hint` results in an `invalid_request` error
+redirected back to the client.
 - Logging has been improved for authentication flows. It should now be easier
 to find information about what went wrong by looking at the relevant log entries.
 

@@ -52,6 +52,13 @@ class IdTokenHintRule extends AbstractRule
     ): ?Result {
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
+        // When this rule runs in the authorization flow, the redirect URI has already been validated and is
+        // available in the result bag, so validation errors can be redirected back to the client (as required at
+        // the authorization endpoint). In the logout (end session) flow there is no ClientRedirectUriRule, so this
+        // resolves to null and the error is returned directly, preserving the previous behavior.
+        $redirectUriValue = $currentResultBag->get(ClientRedirectUriRule::class)?->getValue();
+        $redirectUri = is_string($redirectUriValue) ? $redirectUriValue : null;
+
         $idTokenHintParam = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
             ParamsEnum::IdTokenHint->value,
             $request,
@@ -63,13 +70,14 @@ class IdTokenHintRule extends AbstractRule
         }
 
         if (empty($idTokenHintParam)) {
-            $loggerService->notice('End session request rejected: `id_token_hint` was provided but empty.');
+            $loggerService->notice('Request rejected: `id_token_hint` was provided but empty.');
             throw OidcServerException::invalidRequest(
                 ParamsEnum::IdTokenHint->value,
                 'Received empty id_token_hint',
                 null,
-                null,
+                $redirectUri,
                 $state,
+                $responseMode,
             );
         }
 
@@ -81,15 +89,16 @@ class IdTokenHintRule extends AbstractRule
 
         if ($idTokenHint->getIssuer() !== $this->moduleConfig->getIssuer()) {
             $loggerService->notice(
-                'End session request rejected: `id_token_hint` was not issued by this OP.',
+                'Request rejected: `id_token_hint` was not issued by this OP.',
                 ['issuer' => $idTokenHint->getIssuer(), 'expected_issuer' => $this->moduleConfig->getIssuer()],
             );
             throw OidcServerException::invalidRequest(
                 ParamsEnum::IdTokenHint->value,
                 'Invalid ID Token Hint Issuer',
                 null,
-                null,
+                $redirectUri,
                 $state,
+                $responseMode,
             );
         }
 
@@ -97,15 +106,16 @@ class IdTokenHintRule extends AbstractRule
             $idTokenHint->verifyWithKeySet($jwks);
         } catch (\Throwable $exception) {
             $loggerService->notice(
-                'End session request rejected: `id_token_hint` signature verification failed.',
+                'Request rejected: `id_token_hint` signature verification failed.',
                 ['exception' => $exception->getMessage()],
             );
             throw OidcServerException::invalidRequest(
                 ParamsEnum::IdTokenHint->value,
                 $exception->getMessage(),
                 null,
-                null,
+                $redirectUri,
                 $state,
+                $responseMode,
             );
         }
 

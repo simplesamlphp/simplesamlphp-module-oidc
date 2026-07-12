@@ -331,6 +331,32 @@ class AuthenticationService
     }
 
     /**
+     * Resolve the OIDC subject identifier (`sub`) from a set of released user attributes, using the same logic
+     * that produces the `sub` claim during token issuance: the configured user identifier attributes select the
+     * user identifier, and any `sub` claim mapping (openid scope) takes precedence over it.
+     *
+     * This is used to compare the currently authenticated user against an `id_token_hint` subject at the
+     * authorization endpoint (see PromptRule), so that a `prompt=none` request is not silently satisfied for a
+     * different user than the one the hint identifies.
+     *
+     * @param array<array-key,mixed> $attributes Released attributes (each value an array of values).
+     * @return string|null The resolved subject, or null when no user identifier can be resolved.
+     */
+    public function resolveSubjectFromAttributes(array $attributes): ?string
+    {
+        $userId = $this->userIdentifierResolver->resolve($this->userIdAttrs, $attributes);
+
+        if ($userId === null) {
+            return null;
+        }
+
+        // We need to make sure that we use 'sub' as user identifier, if configured.
+        $claims = $this->claimTranslatorExtractor->extract(['openid'], $attributes);
+
+        return (string)($claims['sub'] ?? $userId);
+    }
+
+    /**
      * Store Relying on Party Association to the current session.
      * @throws \Exception
      */

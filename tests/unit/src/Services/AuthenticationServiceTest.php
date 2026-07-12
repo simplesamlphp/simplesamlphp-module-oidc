@@ -482,6 +482,48 @@ class AuthenticationServiceTest extends TestCase
     }
 
     /**
+     * When no `sub` claim mapping applies, the resolved subject is the user identifier selected from the
+     * configured user identifier attributes.
+     */
+    public function testResolveSubjectFromAttributesFallsBackToUserIdentifier(): void
+    {
+        $this->claimTranslatorExtractorMock->method('extract')
+            ->with(['openid'], self::USER_ENTITY_ATTRIBUTES)
+            ->willReturn([]);
+
+        $this->assertSame(
+            self::USERNAME,
+            $this->mock()->resolveSubjectFromAttributes(self::USER_ENTITY_ATTRIBUTES),
+        );
+    }
+
+    /**
+     * When a `sub` claim is produced (e.g. via a configured `sub` mapping), it takes precedence over the raw
+     * user identifier.
+     */
+    public function testResolveSubjectFromAttributesUsesSubClaimWhenPresent(): void
+    {
+        $this->claimTranslatorExtractorMock->method('extract')
+            ->with(['openid'], self::USER_ENTITY_ATTRIBUTES)
+            ->willReturn(['sub' => 'mapped-subject']);
+
+        $this->assertSame(
+            'mapped-subject',
+            $this->mock()->resolveSubjectFromAttributes(self::USER_ENTITY_ATTRIBUTES),
+        );
+    }
+
+    /**
+     * When none of the configured user identifier attributes are present, no subject can be resolved.
+     */
+    public function testResolveSubjectFromAttributesReturnsNullWhenNoIdentifier(): void
+    {
+        $this->assertNull(
+            $this->mock()->resolveSubjectFromAttributes(['someOtherAttribute' => ['value']]),
+        );
+    }
+
+    /**
      * @throws NoState
      */
     public function testItThrowsOnMissingQueryParameterAuthparam(): void

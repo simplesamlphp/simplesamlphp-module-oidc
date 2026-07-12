@@ -54,6 +54,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeVerifierRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\LoginHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
@@ -861,6 +862,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             // LoginHintRule must run before PromptRule and MaxAgeRule, which consume its result when they
             // trigger re-authentication (prompt=login / expired max_age) to pre-fill the username.
             LoginHintRule::class,
+            // IdTokenHintRule must run before PromptRule, which consumes its result to enforce that a prompt=none
+            // request is only satisfied for the End-User identified by the id_token_hint.
+            IdTokenHintRule::class,
             PromptRule::class,
             MaxAgeRule::class,
             ScopeRule::class,

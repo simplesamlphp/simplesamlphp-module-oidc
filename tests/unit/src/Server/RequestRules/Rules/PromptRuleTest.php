@@ -14,10 +14,12 @@ use SimpleSAML\Module\oidc\Bridges\SspBridge\Utils as SspBridgeUtils;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\LoginHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
@@ -25,6 +27,7 @@ use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\OpenID\Core\IdToken;
 use SimpleSAML\Utils\HTTP as SspHttp;
 
 #[CoversClass(PromptRule::class)]
@@ -115,5 +118,62 @@ class PromptRuleTest extends TestCase
             );
 
         $this->assertNull($this->checkRule());
+    }
+
+    public function testPromptNoneThrowsLoginRequiredWhenNotAuthenticated(): void
+    {
+        $this->requestParamsResolverMock->method('getAllBasedOnAllowedMethods')
+            ->willReturn(['prompt' => 'none']);
+        $this->authSimpleMock->method('isAuthenticated')->willReturn(false);
+
+        $this->expectException(OidcServerException::class);
+        $this->expectExceptionMessage('End-User is not already authenticated.');
+        $this->checkRule();
+    }
+
+    public function testPromptNoneWithoutIdTokenHintProceeds(): void
+    {
+        $this->resultBag->add(new Result(IdTokenHintRule::class, null));
+        $this->requestParamsResolverMock->method('getAllBasedOnAllowedMethods')
+            ->willReturn(['prompt' => 'none']);
+        $this->authSimpleMock->method('isAuthenticated')->willReturn(true);
+
+        $this->authenticationServiceMock->expects($this->never())->method('resolveSubjectFromAttributes');
+
+        $this->assertNull($this->checkRule());
+    }
+
+    public function testPromptNoneWithMatchingIdTokenHintSubjectProceeds(): void
+    {
+        $idTokenHintMock = $this->createMock(IdToken::class);
+        $idTokenHintMock->method('getSubject')->willReturn('subject-123');
+        $this->resultBag->add(new Result(IdTokenHintRule::class, $idTokenHintMock));
+
+        $this->requestParamsResolverMock->method('getAllBasedOnAllowedMethods')
+            ->willReturn(['prompt' => 'none']);
+        $this->authSimpleMock->method('isAuthenticated')->willReturn(true);
+        $this->authSimpleMock->method('getAttributes')->willReturn(['uid' => ['subject-123']]);
+        $this->authenticationServiceMock->method('resolveSubjectFromAttributes')
+            ->willReturn('subject-123');
+
+        $this->assertNull($this->checkRule());
+    }
+
+    public function testPromptNoneWithMismatchedIdTokenHintSubjectThrowsLoginRequired(): void
+    {
+        $idTokenHintMock = $this->createMock(IdToken::class);
+        $idTokenHintMock->method('getSubject')->willReturn('subject-123');
+        $this->resultBag->add(new Result(IdTokenHintRule::class, $idTokenHintMock));
+
+        $this->requestParamsResolverMock->method('getAllBasedOnAllowedMethods')
+            ->willReturn(['prompt' => 'none']);
+        $this->authSimpleMock->method('isAuthenticated')->willReturn(true);
+        $this->authSimpleMock->method('getAttributes')->willReturn(['uid' => ['other-user']]);
+        $this->authenticationServiceMock->method('resolveSubjectFromAttributes')
+            ->willReturn('other-subject');
+
+        $this->expectException(OidcServerException::class);
+        $this->expectExceptionMessage('End-User is not already authenticated.');
+        $this->checkRule();
     }
 }

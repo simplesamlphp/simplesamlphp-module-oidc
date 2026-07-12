@@ -84,18 +84,47 @@ class PromptRule extends AbstractRule
         $redirectUri = $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
         $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
 
-        if (in_array('none', $prompt, true) && !$authSimple->isAuthenticated()) {
-            $loggerService->notice(
-                'Authorization request rejected: `prompt=none` was requested but the user is not authenticated.',
-                ['client_id' => $client->getIdentifier()],
-            );
-            throw OidcServerException::loginRequired(
-                null,
-                $redirectUri,
-                null,
-                $state,
-                $responseMode,
-            );
+        if (in_array('none', $prompt, true)) {
+            if (!$authSimple->isAuthenticated()) {
+                $loggerService->notice(
+                    'Authorization request rejected: `prompt=none` was requested but the user is not authenticated.',
+                    ['client_id' => $client->getIdentifier()],
+                );
+                throw OidcServerException::loginRequired(
+                    null,
+                    $redirectUri,
+                    null,
+                    $state,
+                    $responseMode,
+                );
+            }
+
+            // If an id_token_hint is present, the RP is asking to silently continue the session of a specific
+            // End-User. Since prompt=none forbids any interaction, we can not switch users: the currently
+            // authenticated subject must match the subject in the hint. Otherwise, per OIDC Core, we return
+            // login_required rather than silently issuing a token for a different user.
+            $idTokenHint = $currentResultBag->getOrFail(IdTokenHintRule::class)->getValue();
+            if ($idTokenHint !== null) {
+                $hintSubject = $idTokenHint->getSubject();
+                $currentSubject = $this->authenticationService->resolveSubjectFromAttributes(
+                    $authSimple->getAttributes(),
+                );
+
+                if ($currentSubject === null || !hash_equals($hintSubject, $currentSubject)) {
+                    $loggerService->notice(
+                        'Authorization request rejected: `prompt=none` was requested with an `id_token_hint` for a ' .
+                        'different End-User than the one currently authenticated.',
+                        ['client_id' => $client->getIdentifier()],
+                    );
+                    throw OidcServerException::loginRequired(
+                        null,
+                        $redirectUri,
+                        null,
+                        $state,
+                        $responseMode,
+                    );
+                }
+            }
         }
 
         if (in_array('login', $prompt, true) && $authSimple->isAuthenticated()) {
