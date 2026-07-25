@@ -594,4 +594,66 @@ class AuthorizationControllerTest extends TestCase
 
         ($this->mock())($this->serverRequestStub);
     }
+
+    /**
+     * When an id_token_hint is present and the authenticated End-User's subject matches it, the request proceeds.
+     *
+     * @throws \Throwable
+     */
+    public function testValidateIdTokenHintPassesOnSubjectMatch(): void
+    {
+        $this->authorizationRequestMock->method('getRequestedAcrValues')->willReturn(null);
+        $this->authorizationRequestMock->method('getIdTokenHintSubject')->willReturn('subject-a');
+
+        $this->authorizationServerStub
+            ->method('validateAuthorizationRequest')
+            ->willReturn($this->authorizationRequestMock);
+        $this->authorizationServerStub
+            ->method('completeAuthorizationRequest')
+            ->willReturn($this->responseStub);
+
+        $this->serverRequestStub->method('getQueryParams')->willReturn([ProcessingChain::AUTHPARAM => '123']);
+
+        $this->authenticationServiceStub->method('manageState')->willReturn($this->state);
+        $this->authenticationServiceStub->method('getAuthenticateUser')->willReturn($this->userEntityStub);
+        $this->authenticationServiceStub
+            ->method('getAuthorizationRequestFromState')
+            ->willReturn($this->authorizationRequestMock);
+        $this->authenticationServiceStub->method('subjectMatchesAttributes')->willReturn(true);
+
+        $this->assertInstanceOf(ResponseInterface::class, ($this->mock())($this->serverRequestStub));
+    }
+
+    /**
+     * When an id_token_hint is present but the authenticated End-User's subject differs from it, the request is
+     * rejected with login_required rather than issued for a different user.
+     *
+     * @throws \Throwable
+     */
+    public function testValidateIdTokenHintThrowsLoginRequiredOnSubjectMismatch(): void
+    {
+        $clientStub = $this->createStub(\SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface::class);
+        $clientStub->method('getIdentifier')->willReturn('clientid');
+
+        $this->authorizationRequestMock->method('getIdTokenHintSubject')->willReturn('subject-a');
+        $this->authorizationRequestMock->method('getClient')->willReturn($clientStub);
+        $this->authorizationRequestMock->method('getRedirectUri')->willReturn('https://rp.example.org/cb');
+
+        $this->authorizationServerStub
+            ->method('validateAuthorizationRequest')
+            ->willReturn($this->authorizationRequestMock);
+
+        $this->serverRequestStub->method('getQueryParams')->willReturn([ProcessingChain::AUTHPARAM => '123']);
+
+        $this->authenticationServiceStub->method('manageState')->willReturn($this->state);
+        $this->authenticationServiceStub
+            ->method('getAuthorizationRequestFromState')
+            ->willReturn($this->authorizationRequestMock);
+        $this->authenticationServiceStub->method('subjectMatchesAttributes')->willReturn(false);
+
+        $this->expectException(OidcServerException::class);
+        $this->expectExceptionMessage('End-User is not already authenticated.');
+
+        ($this->mock())($this->serverRequestStub);
+    }
 }

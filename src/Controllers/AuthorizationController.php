@@ -77,6 +77,13 @@ class AuthorizationController
         $state ??= $this->authenticationService->manageState($queryParameters);
         $authorizationRequest = $this->authenticationService->getAuthorizationRequestFromState($state);
 
+        // Validate any id_token_hint against the authenticated End-User before the user is resolved and (as a side
+        // effect) associated with the client, so that a mismatched request leaves no relying party association
+        // behind (which could otherwise later receive a back-channel logout for that End-User).
+        if ($authorizationRequest instanceof AuthorizationRequest) {
+            $this->validateIdTokenHint($authorizationRequest, $state);
+        }
+
         $user = $this->authenticationService->getAuthenticateUser($state);
 
         $authorizationRequest->setUser($user);
@@ -178,6 +185,70 @@ class AuthorizationController
     protected function validatePostAuthnAuthorizationRequest(AuthorizationRequest $authorizationRequest): void
     {
         $this->validateAcr($authorizationRequest);
+    }
+
+    /**
+     * Validate the `id_token_hint` authorization request parameter (if any) against the authenticated End-User.
+     *
+     * The hint is an ID Token previously issued by this OP; its issuer and signature were already validated early
+     * (IdTokenHintRule) and its subject carried on the authorization request. Here, using the released post-authproc
+     * attributes (the same ones from which the issued subject is derived), we verify that the authenticated End-User
+     * matches the subject in the hint. Per OpenID Connect Core, the request must not be satisfied for a different
+     * End-User than the one the hint identifies; if they differ we return `login_required` (the specification's
+     * suggested error) rather than issuing a token/code for the wrong user. This applies to all prompt modes: with
+     * `prompt=none` it prevents a silent response for a mismatched cookie session, and with interactive
+     * authentication it rejects the request when a different End-User authenticated than the hint asked for (the
+     * client can then retry, e.g. with `prompt=login`).
+     *
+     * This runs before the End-User is resolved and associated with the client, so a mismatch does not leave a
+     * relying party association behind.
+     *
+     * @param array<array-key,mixed>|null $state
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    protected function validateIdTokenHint(AuthorizationRequest $authorizationRequest, ?array $state): void
+    {
+        $hintSubject = $authorizationRequest->getIdTokenHintSubject();
+        if ($hintSubject === null) {
+            return;
+        }
+
+        // No released attributes means no End-User to match the hint against, so the request can not be satisfied
+        // for the End-User the hint identifies (subjectMatchesAttributes() returns false for an empty set).
+        $attributes = (isset($state['Attributes']) && is_array($state['Attributes'])) ? $state['Attributes'] : [];
+
+        if ($this->authenticationService->subjectMatchesAttributes($hintSubject, $attributes)) {
+            return;
+        }
+
+        $this->loggerService->notice(
+            'Authorization request rejected: the authenticated End-User does not match the `id_token_hint` subject.',
+            ['client_id' => $authorizationRequest->getClient()->getIdentifier()],
+        );
+
+        throw OidcServerException::loginRequired(
+            'Authenticated End-User does not match the id_token_hint subject.',
+            $this->resolveRedirectUri($authorizationRequest),
+            null,
+            $authorizationRequest->getState(),
+            $authorizationRequest->getResponseMode(),
+        );
+    }
+
+    /**
+     * Resolve the redirect URI to use for redirected error responses: the one validated for this request, or the
+     * client's first registered redirect URI as a fallback.
+     */
+    protected function resolveRedirectUri(AuthorizationRequest $authorizationRequest): ?string
+    {
+        $redirectUri = $authorizationRequest->getRedirectUri();
+        if ($redirectUri !== null) {
+            return $redirectUri;
+        }
+
+        $clientRedirectUri = $authorizationRequest->getClient()->getRedirectUri();
+
+        return is_array($clientRedirectUri) ? ($clientRedirectUri[0] ?? null) : $clientRedirectUri;
     }
 
     /**

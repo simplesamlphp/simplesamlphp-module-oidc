@@ -482,6 +482,61 @@ class AuthenticationServiceTest extends TestCase
     }
 
     /**
+     * The subject matches when it equals the resolved user identifier (the default `sub` produced by
+     * IdTokenBuilder when no `sub` mapping is in effect).
+     */
+    public function testSubjectMatchesAttributesMatchesUserIdentifier(): void
+    {
+        $this->claimTranslatorExtractorMock->method('extract')
+            ->with(['openid'], self::USER_ENTITY_ATTRIBUTES)
+            ->willReturn([]);
+
+        $this->assertTrue(
+            $this->mock()->subjectMatchesAttributes(self::USERNAME, self::USER_ENTITY_ATTRIBUTES),
+        );
+    }
+
+    /**
+     * The subject also matches a mapped `sub` claim, so a hint issued when the `sub` mapping was applied is
+     * accepted for the same user.
+     */
+    public function testSubjectMatchesAttributesMatchesMappedSubClaim(): void
+    {
+        $this->claimTranslatorExtractorMock->method('extract')
+            ->with(['openid'], self::USER_ENTITY_ATTRIBUTES)
+            ->willReturn(['sub' => 'mapped-subject']);
+
+        $this->assertTrue(
+            $this->mock()->subjectMatchesAttributes('mapped-subject', self::USER_ENTITY_ATTRIBUTES),
+        );
+    }
+
+    /**
+     * A subject that matches neither the user identifier nor a mapped `sub` claim identifies a different
+     * End-User and must not match.
+     */
+    public function testSubjectMatchesAttributesRejectsDifferentSubject(): void
+    {
+        $this->claimTranslatorExtractorMock->method('extract')
+            ->with(['openid'], self::USER_ENTITY_ATTRIBUTES)
+            ->willReturn([]);
+
+        $this->assertFalse(
+            $this->mock()->subjectMatchesAttributes('someone-else', self::USER_ENTITY_ATTRIBUTES),
+        );
+    }
+
+    /**
+     * When no user identifier can be resolved from the attributes, no subject can match.
+     */
+    public function testSubjectMatchesAttributesReturnsFalseWhenNoIdentifier(): void
+    {
+        $this->assertFalse(
+            $this->mock()->subjectMatchesAttributes('anything', ['someOtherAttribute' => ['value']]),
+        );
+    }
+
+    /**
      * @throws NoState
      */
     public function testItThrowsOnMissingQueryParameterAuthparam(): void

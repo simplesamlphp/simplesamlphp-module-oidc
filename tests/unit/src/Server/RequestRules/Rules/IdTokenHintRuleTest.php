@@ -9,17 +9,20 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Core;
-use SimpleSAML\OpenID\Core\Factories\IdTokenFactory;
-use SimpleSAML\OpenID\Core\IdToken;
+use SimpleSAML\OpenID\Core\Factories\IdTokenHintFactory;
+use SimpleSAML\OpenID\Core\IdTokenHint;
 use SimpleSAML\OpenID\Jwks;
 use Throwable;
 
@@ -69,9 +72,9 @@ class IdTokenHintRuleTest extends TestCase
 
         $this->jwksMock = $this->createMock(Jwks::class);
         $this->coreMock = $this->createMock(Core::class);
-        $this->idTokenFactoryMock = $this->createMock(IdTokenFactory::class);
-        $this->idTokenMock = $this->createMock(IdToken::class);
-        $this->coreMock->method('idTokenFactory')->willReturn($this->idTokenFactoryMock);
+        $this->idTokenFactoryMock = $this->createMock(IdTokenHintFactory::class);
+        $this->idTokenMock = $this->createMock(IdTokenHint::class);
+        $this->coreMock->method('idTokenHintFactory')->willReturn($this->idTokenFactoryMock);
         $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
 
@@ -121,12 +124,19 @@ class IdTokenHintRuleTest extends TestCase
     }
 
     /**
+     * A hint that can not be parsed/validated (malformed JWS, missing/invalid required claims, or an expired
+     * token) must be translated into a protocol-level invalid_request error, not surface as a raw exception.
+     *
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
-    public function testCheckRuleThrowsForMalformedIdToken(): void
+    public function testCheckRuleThrowsInvalidRequestForUnparsableIdToken(): void
     {
         $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('malformed');
-        $this->expectException(Throwable::class);
+        $this->idTokenFactoryMock->method('fromToken')
+            ->with('malformed')
+            ->willThrowException(new \Exception('parse-failure'));
+
+        $this->expectException(OidcServerException::class);
         $this->sut()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
@@ -204,6 +214,39 @@ class IdTokenHintRuleTest extends TestCase
         ) ??
         new Result(IdTokenHintRule::class);
 
-        $this->assertInstanceOf(IdToken::class, $result->getValue());
+        $this->assertInstanceOf(IdTokenHint::class, $result->getValue());
+    }
+
+    /**
+     * In the authorization flow (ClientRule present), a hint whose audience does not include the requesting client
+     * is rejected, binding the hint to the requesting client.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testCheckRuleThrowsWhenClientNotInAudience(): void
+    {
+        $clientStub = $this->createStub(ClientEntityInterface::class);
+        $clientStub->method('getIdentifier')->willReturn('client-b');
+
+        $resultBagStub = $this->createStub(ResultBagInterface::class);
+        $resultBagStub->method('get')->willReturnCallback(
+            fn(string $key): ?Result => $key === ClientRule::class ?
+                new Result(ClientRule::class, $clientStub) :
+                null,
+        );
+
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('id-token');
+        $this->idTokenMock->method('getIssuer')->willReturn(self::$issuer);
+        $this->idTokenMock->method('getAudience')->willReturn(['client-a']);
+        $this->idTokenFactoryMock->method('fromToken')->willReturn($this->idTokenMock);
+
+        $this->expectException(OidcServerException::class);
+        $this->sut()->checkRule(
+            $this->requestStub,
+            $resultBagStub,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        );
     }
 }

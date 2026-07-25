@@ -54,6 +54,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeVerifierRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\LoginHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
@@ -861,6 +862,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             // LoginHintRule must run before PromptRule and MaxAgeRule, which consume its result when they
             // trigger re-authentication (prompt=login / expired max_age) to pre-fill the username.
             LoginHintRule::class,
+            // IdTokenHintRule must run before PromptRule, which consumes its result to enforce that a prompt=none
+            // request is only satisfied for the End-User identified by the id_token_hint.
+            IdTokenHintRule::class,
             PromptRule::class,
             MaxAgeRule::class,
             ScopeRule::class,
@@ -999,6 +1003,15 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $loginHintPresent = $loginHint !== null;
         $this->loggerService->debug('AuthCodeGrant: Login hint present: ', ['loginHintPresent' => $loginHintPresent]);
         $authorizationRequest->setLoginHint($loginHint);
+
+        // Carry the id_token_hint subject (if the hint was provided and validated by IdTokenHintRule) so that,
+        // after authentication, the authenticated End-User can be verified against the one the hint identifies.
+        $idTokenHint = $resultBag->getOrFail(IdTokenHintRule::class)->getValue();
+        $this->loggerService->debug(
+            'AuthCodeGrant: ID Token hint present: ',
+            ['idTokenHintPresent' => $idTokenHint !== null],
+        );
+        $authorizationRequest->setIdTokenHintSubject($idTokenHint?->getSubject());
 
 
         $authorizationRequest->setIsVciRequest($isVciAuthorizationCodeRequest);

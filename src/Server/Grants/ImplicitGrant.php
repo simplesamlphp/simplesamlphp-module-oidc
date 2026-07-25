@@ -25,6 +25,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AddClaimsToIdTokenRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\LoginHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
@@ -130,6 +131,9 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
             // LoginHintRule must run before PromptRule and MaxAgeRule, which consume its result when they
             // trigger re-authentication (prompt=login / expired max_age) to pre-fill the username.
             LoginHintRule::class,
+            // IdTokenHintRule must run before PromptRule, which consumes its result to enforce that a prompt=none
+            // request is only satisfied for the End-User identified by the id_token_hint.
+            IdTokenHintRule::class,
             PromptRule::class,
             MaxAgeRule::class,
             RequiredOpenIdScopeRule::class,
@@ -200,6 +204,11 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
 
         $loginHint = $resultBag->getOrFail(LoginHintRule::class)->getValue();
         $authorizationRequest->setLoginHint($loginHint);
+
+        // Carry the id_token_hint subject (if the hint was provided and validated by IdTokenHintRule) so that,
+        // after authentication, the authenticated End-User can be verified against the one the hint identifies.
+        $idTokenHint = $resultBag->getOrFail(IdTokenHintRule::class)->getValue();
+        $authorizationRequest->setIdTokenHintSubject($idTokenHint?->getSubject());
 
         $responseMode = $resultBag->getOrFail(ResponseModeRule::class)->getValue();
         $authorizationRequest->setResponseMode($responseMode);
