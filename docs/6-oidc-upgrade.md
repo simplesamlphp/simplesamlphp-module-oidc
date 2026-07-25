@@ -234,16 +234,15 @@ since a hint is commonly sent after it has expired); its signature, issuer and
 improperly-signed `id_token_hint` results in an `invalid_request` error
 redirected back to the client.
 - The ID Token subject (`sub`) is now resolved consistently for a given
-End-User, independently of the flow, the granted scopes and the client's
-`add_claims_to_id_token` setting. Previously, when a `sub` claim mapping was
-configured, the mapped value was only applied if the user's claims were
-released in the ID Token, so the same End-User could receive different `sub`
-values depending on the flow and client. Deployments that did not customize the
-`sub` claim mapping are unaffected (the user identifier attributes are used for
-`sub` by default, which already produced the same value in both cases). If you
-did map `sub` to a different attribute, clients relying on the previously
-inconsistent value may see a changed `sub` in flows where the claims were not
-released.
+End-User, independently of the flow, and the granted scopes. Previously,
+when a `sub` claim mapping was configured, the mapped value was only applied
+if the user's claims were released in the ID Token (no Access Token scenario),
+so the same End-User could receive different `sub` values depending on the flow.
+Deployments that did not customize the `sub` claim mapping are unaffected
+(the user identifier attributes are used for `sub` by default, which already
+produced the same value in both cases). If you did map `sub` to a different
+attribute, clients relying on the previously inconsistent value may see a
+changed `sub` in flows where the claims were not released.
 - Logging has been improved for authentication flows. It should now be easier
 to find information about what went wrong by looking at the relevant log entries.
 
