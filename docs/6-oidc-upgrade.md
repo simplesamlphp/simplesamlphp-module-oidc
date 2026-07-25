@@ -317,6 +317,14 @@ made by the underlying `openid` library, such as fetching a client `jwks_uri` or
 `request_uri`. Defaults to the library's secure settings; the primary use is
 testing against endpoints with self-signed certificates by setting
 `['verify' => false]`. Do NOT disable TLS verification in production.
+- `ModuleConfig::OPTION_BACKCHANNEL_LOGOUT_HTTP_CLIENT_OPTIONS` - optional, Guzzle
+HTTP client options for the outbound Back-Channel Logout requests sent to the
+Relying Parties' `backchannel_logout_uri` endpoints, merged over the handler's
+defaults (3 second connect and total timeouts). Note that previous versions sent
+these requests with TLS verification disabled unconditionally; verification is now
+enabled, and a deployment that relied on the old behaviour (for example, Relying
+Parties presenting self-signed certificates) must opt back out explicitly by
+setting `['verify' => false]`. Do NOT disable TLS verification in production.
 - Several new options regarding experimental support for OpenID4VCI.
 
 Major impact changes:

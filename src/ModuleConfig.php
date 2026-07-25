@@ -106,6 +106,8 @@ class ModuleConfig
     final public const string OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED =
     'protocol_discover_show_claims_supported';
     final public const string OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS = 'protocol_http_client_options';
+    final public const string OPTION_BACKCHANNEL_LOGOUT_HTTP_CLIENT_OPTIONS =
+    'backchannel_logout_http_client_options';
 
     final public const string OPTION_VCI_ENABLED = 'vci_enabled';
     final public const string OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED =
@@ -760,7 +762,37 @@ class ModuleConfig
      */
     public function getProtocolHttpClientOptions(): array
     {
-        $options = $this->config()->getOptionalArray(self::OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS, []);
+        return $this->getHttpClientOptions(self::OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS);
+    }
+
+    /**
+     * Guzzle HTTP client options for the outbound Back-Channel Logout requests sent to the Relying Parties'
+     * `backchannel_logout_uri` endpoints. The array is merged over the handler's own defaults (which set a
+     * conservative timeout) and passed to the Guzzle client, see
+     * https://docs.guzzlephp.org/en/stable/request-options.html
+     *
+     * Default is an empty array, meaning TLS verification is ON. The primary intended use is testing against
+     * Relying Parties with self-signed certificates by setting `['verify' => false]`. DO NOT disable TLS
+     * verification in production: the Logout Token is a signed JWT carrying the `sub` / `sid` claims, so an
+     * unverified connection lets an active attacker collect it.
+     *
+     * @return array<string,mixed>
+     * @throws \Exception
+     */
+    public function getBackChannelLogoutHttpClientOptions(): array
+    {
+        return $this->getHttpClientOptions(self::OPTION_BACKCHANNEL_LOGOUT_HTTP_CLIENT_OPTIONS);
+    }
+
+    /**
+     * Read a Guzzle HTTP client options array from the given config option.
+     *
+     * @return array<string,mixed>
+     * @throws \Exception
+     */
+    protected function getHttpClientOptions(string $option): array
+    {
+        $options = $this->config()->getOptionalArray($option, []);
 
         // Guzzle request options are keyed by string option names; normalize keys to satisfy that contract.
         $normalized = [];

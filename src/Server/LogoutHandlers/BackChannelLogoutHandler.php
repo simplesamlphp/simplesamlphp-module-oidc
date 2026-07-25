@@ -11,15 +11,32 @@ use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Pool;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
+use GuzzleHttp\RequestOptions;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\LogoutTokenBuilder;
 use Throwable;
 
 class BackChannelLogoutHandler
 {
+    /**
+     * Baseline Guzzle options for the outbound Back-Channel Logout requests. Deployment-specific options from
+     * ModuleConfig::getBackChannelLogoutHttpClientOptions() are merged over these, so a deployment can override
+     * any of them. Note that TLS verification is deliberately absent here: Guzzle verifies by default, and the
+     * Logout Token carries the `sub` / `sid` claims, so it must not be sent over an unverified connection
+     * unless a deployment explicitly opts out.
+     *
+     * @var array<string,mixed>
+     */
+    protected const array DEFAULT_HTTP_CLIENT_OPTIONS = [
+        RequestOptions::CONNECT_TIMEOUT => 3,
+        RequestOptions::TIMEOUT => 3,
+    ];
+
     public function __construct(
         protected LogoutTokenBuilder $logoutTokenBuilder = new LogoutTokenBuilder(),
         protected LoggerService $loggerService = new LoggerService(),
+        protected ModuleConfig $moduleConfig = new ModuleConfig(),
     ) {
     }
 
@@ -28,10 +45,18 @@ class BackChannelLogoutHandler
      *   $relyingPartyAssociations
      * @param \GuzzleHttp\HandlerStack|null $handlerStack For easier testing
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \Exception
      */
     public function handle(array $relyingPartyAssociations, ?HandlerStack $handlerStack = null): void
     {
-        $clientConfig = ['timeout' => 3, 'verify' => false, 'handler' => $handlerStack];
+        $clientConfig = array_merge(
+            self::DEFAULT_HTTP_CLIENT_OPTIONS,
+            $this->moduleConfig->getBackChannelLogoutHttpClientOptions(),
+        );
+
+        if ($handlerStack instanceof HandlerStack) {
+            $clientConfig['handler'] = $handlerStack;
+        }
 
         $client = new Client($clientConfig);
 

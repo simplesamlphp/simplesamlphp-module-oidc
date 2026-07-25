@@ -171,4 +171,13 @@ $config = [
     ModuleConfig::OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS => [
         'verify' => false,
     ],
+
+    // The Back-Channel Logout conformance plan points the clients' 'backchannel_logout_uri' at
+    // https://nginx:8443/..., which is served by the same per-instance self-signed certificate (CN=localhost),
+    // so verification would fail both on the untrusted CA and on the hostname mismatch. Disable TLS
+    // verification for the outbound Back-Channel Logout requests so those tests can run.
+    // NEVER do this in production: the Logout Token carries the 'sub' / 'sid' claims.
+    ModuleConfig::OPTION_BACKCHANNEL_LOGOUT_HTTP_CLIENT_OPTIONS => [
+        'verify' => false,
+    ],
 ];

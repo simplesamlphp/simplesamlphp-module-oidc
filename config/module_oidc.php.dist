@@ -467,6 +467,26 @@ $config = [
     ModuleConfig::OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS => [],
 
     /**
+     * Guzzle HTTP client options for the outbound Back-Channel Logout requests sent to the Relying Parties'
+     * 'backchannel_logout_uri' endpoints. The array is merged over the handler's own defaults, which set a
+     * 3 second connect timeout and a 3 second total timeout, so any of those can be overridden here. See
+     * https://docs.guzzlephp.org/en/stable/request-options.html for the full list of options.
+     *
+     * Leave empty (the default) to keep TLS verification enabled. The typical use for a non-empty value is
+     * testing against Relying Parties that present self-signed certificates, by disabling TLS verification:
+     *
+     *     ModuleConfig::OPTION_BACKCHANNEL_LOGOUT_HTTP_CLIENT_OPTIONS => [
+     *         'verify' => false,
+     *     ],
+     *
+     * SECURITY WARNING: disabling TLS verification ('verify' => false) exposes these requests to
+     * man-in-the-middle attacks. The Logout Token is a signed JWT carrying the 'sub' and 'sid' claims, so an
+     * unverified connection lets an active attacker collect it. Only use it in development/testing, NEVER in
+     * production.
+     */
+    ModuleConfig::OPTION_BACKCHANNEL_LOGOUT_HTTP_CLIENT_OPTIONS => [],
+
+    /**
      * Settings regarding Authentication Processing Filters.
      * Note: An OIDC authN state array will not contain all the keys which are
      * available during SAML authN, like Service Provider metadata, etc.
