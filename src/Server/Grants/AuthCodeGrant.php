@@ -1004,6 +1004,15 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $this->loggerService->debug('AuthCodeGrant: Login hint present: ', ['loginHintPresent' => $loginHintPresent]);
         $authorizationRequest->setLoginHint($loginHint);
 
+        // Carry the id_token_hint subject (if the hint was provided and validated by IdTokenHintRule) so that,
+        // after authentication, the authenticated End-User can be verified against the one the hint identifies.
+        $idTokenHint = $resultBag->getOrFail(IdTokenHintRule::class)->getValue();
+        $this->loggerService->debug(
+            'AuthCodeGrant: ID Token hint present: ',
+            ['idTokenHintPresent' => $idTokenHint !== null],
+        );
+        $authorizationRequest->setIdTokenHintSubject($idTokenHint?->getSubject());
+
 
         $authorizationRequest->setIsVciRequest($isVciAuthorizationCodeRequest);
         $flowType = $isVciAuthorizationCodeRequest ?

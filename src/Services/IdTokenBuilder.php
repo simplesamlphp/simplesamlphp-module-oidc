@@ -64,6 +64,17 @@ class IdTokenBuilder
 
         $currentTimestamp = $this->core->helpers()->dateTime()->getUtc()->getTimestamp();
 
+        // Resolve the canonical subject identifier for this user. The subject is the user identifier, unless a `sub`
+        // claim mapping (openid scope) produces a value, which then takes precedence. This is resolved up front, and
+        // independently of the claim-release settings below, so that the issued `sub` is stable for a given user
+        // across flows and clients (it must not vary with `add_claims_to_id_token` or the granted scopes): the `sub`
+        // is the End-User's identity towards the client and is relied upon elsewhere, e.g. when matching an
+        // `id_token_hint` (see AuthenticationService::subjectMatchesAttributes()) and in logout token association.
+        $openIdClaims = $this->claimExtractor->extract(['openid'], $userEntity->getClaims());
+        $subject = (isset($openIdClaims['sub']) && is_scalar($openIdClaims['sub'])) ?
+        (string)$openIdClaims['sub'] :
+        $userEntity->getIdentifier();
+
         $payload = array_filter([
             ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
             ClaimsEnum::Iat->value => $currentTimestamp,
@@ -71,9 +82,6 @@ class IdTokenBuilder
             ClaimsEnum::Aud->value => $client->getIdentifier(),
             ClaimsEnum::Nbf->value => $currentTimestamp,
             ClaimsEnum::Exp->value => $accessToken->getExpiryDateTime()->getTimestamp(),
-            ClaimsEnum::Sub->value => $this->core->helpers()->type()->ensureNonEmptyString(
-                $userEntity->getIdentifier(),
-            ),
             ClaimsEnum::Nonce->value => $nonce,
             ClaimsEnum::AuthTime->value => $authTime,
             ClaimsEnum::ATHash->value => $addAccessTokenHash ?
@@ -85,6 +93,10 @@ class IdTokenBuilder
             ClaimsEnum::Acr->value => $acr,
             ClaimsEnum::Sid->value => $sessionId,
         ]);
+
+        // The subject is set after the optional claims above have been filtered, since it is REQUIRED and must be
+        // kept even for a value that array_filter() would consider falsy (for example the valid subject "0").
+        $payload[ClaimsEnum::Sub->value] = $this->core->helpers()->type()->ensureNonEmptyString($subject);
 
         // Reduce the number of claims by provided scope.
         $claims = $this->claimExtractor->extract(

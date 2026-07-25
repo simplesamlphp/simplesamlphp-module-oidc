@@ -205,6 +205,11 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         $loginHint = $resultBag->getOrFail(LoginHintRule::class)->getValue();
         $authorizationRequest->setLoginHint($loginHint);
 
+        // Carry the id_token_hint subject (if the hint was provided and validated by IdTokenHintRule) so that,
+        // after authentication, the authenticated End-User can be verified against the one the hint identifies.
+        $idTokenHint = $resultBag->getOrFail(IdTokenHintRule::class)->getValue();
+        $authorizationRequest->setIdTokenHintSubject($idTokenHint?->getSubject());
+
         $responseMode = $resultBag->getOrFail(ResponseModeRule::class)->getValue();
         $authorizationRequest->setResponseMode($responseMode);
 

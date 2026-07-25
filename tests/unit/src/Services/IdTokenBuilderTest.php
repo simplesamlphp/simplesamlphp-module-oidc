@@ -108,7 +108,9 @@ class IdTokenBuilderTest extends TestCase
                 $this->arrayHasKey(ClaimsEnum::Iss->value),
             );
 
-        $this->claimTranslatorExtractorMock->expects($this->once())
+        // extract() is called twice: once with the openid scope to resolve the canonical `sub`, and once with the
+        // access token scopes to gather the claims to release.
+        $this->claimTranslatorExtractorMock->expects($this->exactly(2))
             ->method('extract')
             ->willReturn(['foo' => 'bar']);
 
@@ -128,6 +130,105 @@ class IdTokenBuilderTest extends TestCase
                 null,
                 null,
             ),
+        );
+    }
+
+    /**
+     * The issued `sub` must be the canonical subject (the mapped `sub` claim when one is configured), regardless of
+     * whether the client releases the user's claims in the ID Token. A stable `sub` is relied upon elsewhere, e.g.
+     * when matching an `id_token_hint`.
+     */
+    public function testSubIsCanonicalRegardlessOfClaimRelease(): void
+    {
+        $this->userEntityMock->method('getIdentifier')->willReturn('raw-identifier');
+        $this->userEntityMock->method('getClaims')->willReturn(['uid' => ['raw-identifier']]);
+
+        // The `sub` payload value passes through the type helper, so make it return the value it is given.
+        $typeHelperMock = $this->createMock(\SimpleSAML\OpenID\Helpers\Type::class);
+        $typeHelperMock->method('ensureNonEmptyString')->willReturnArgument(0);
+        $dateTimeHelperMock = $this->createMock(\SimpleSAML\OpenID\Helpers\DateTime::class);
+        $dateTimeHelperMock->method('getUtc')->willReturn(new DateTimeImmutable());
+        $randomHelperMock = $this->createMock(\SimpleSAML\OpenID\Helpers\Random::class);
+        $randomHelperMock->method('string')->willReturn('random-jti');
+        $openIdHelpersMock = $this->createMock(\SimpleSAML\OpenID\Helpers::class);
+        $openIdHelpersMock->method('type')->willReturn($typeHelperMock);
+        $openIdHelpersMock->method('dateTime')->willReturn($dateTimeHelperMock);
+        $openIdHelpersMock->method('random')->willReturn($randomHelperMock);
+        $this->coreMock->method('helpers')->willReturn($openIdHelpersMock);
+
+        $this->claimTranslatorExtractorMock->method('extract')
+            ->willReturnCallback(
+                fn(array $scopes, array $claims): array => $scopes === ['openid'] ?
+                    ['sub' => 'mapped-subject'] :
+                    [],
+            );
+        $this->claimTranslatorExtractorMock->method('extractAdditionalIdTokenClaims')->willReturn([]);
+
+        $this->idTokenFactoryMock->expects($this->once())->method('fromData')
+            ->with(
+                $this->anything(),
+                $this->anything(),
+                $this->callback(
+                    fn(array $payload): bool => ($payload[ClaimsEnum::Sub->value] ?? null) === 'mapped-subject',
+                ),
+                $this->anything(),
+            );
+
+        // add_claims_to_id_token = false: the user's claims are not released, but `sub` must still be canonical.
+        $this->sut()->buildFor(
+            $this->userEntityMock,
+            $this->accessTokenEntityMock,
+            false,
+            false,
+            null,
+            null,
+            null,
+            null,
+        );
+    }
+
+    /**
+     * The subject is REQUIRED, so it must be kept even when its value would be considered falsy (e.g. "0").
+     */
+    public function testSubIsKeptForFalsyValue(): void
+    {
+        $this->userEntityMock->method('getIdentifier')->willReturn('0');
+        $this->userEntityMock->method('getClaims')->willReturn(['uid' => ['0']]);
+
+        $typeHelperMock = $this->createMock(\SimpleSAML\OpenID\Helpers\Type::class);
+        $typeHelperMock->method('ensureNonEmptyString')->willReturnArgument(0);
+        $dateTimeHelperMock = $this->createMock(\SimpleSAML\OpenID\Helpers\DateTime::class);
+        $dateTimeHelperMock->method('getUtc')->willReturn(new DateTimeImmutable());
+        $randomHelperMock = $this->createMock(\SimpleSAML\OpenID\Helpers\Random::class);
+        $randomHelperMock->method('string')->willReturn('random-jti');
+        $openIdHelpersMock = $this->createMock(\SimpleSAML\OpenID\Helpers::class);
+        $openIdHelpersMock->method('type')->willReturn($typeHelperMock);
+        $openIdHelpersMock->method('dateTime')->willReturn($dateTimeHelperMock);
+        $openIdHelpersMock->method('random')->willReturn($randomHelperMock);
+        $this->coreMock->method('helpers')->willReturn($openIdHelpersMock);
+
+        $this->claimTranslatorExtractorMock->method('extract')->willReturn([]);
+        $this->claimTranslatorExtractorMock->method('extractAdditionalIdTokenClaims')->willReturn([]);
+
+        $this->idTokenFactoryMock->expects($this->once())->method('fromData')
+            ->with(
+                $this->anything(),
+                $this->anything(),
+                $this->callback(
+                    fn(array $payload): bool => ($payload[ClaimsEnum::Sub->value] ?? null) === '0',
+                ),
+                $this->anything(),
+            );
+
+        $this->sut()->buildFor(
+            $this->userEntityMock,
+            $this->accessTokenEntityMock,
+            false,
+            false,
+            null,
+            null,
+            null,
+            null,
         );
     }
 

@@ -99,31 +99,32 @@ class PromptRule extends AbstractRule
                 );
             }
 
-            // If an id_token_hint is present, the RP is asking to silently continue the session of a specific
-            // End-User. Since prompt=none forbids any interaction, we can not switch users: the currently
-            // authenticated subject must match the subject in the hint. Otherwise, per OIDC Core, we return
-            // login_required rather than silently issuing a token for a different user.
+            // `prompt=none` forbids any interaction. If an id_token_hint is present, verify here (before the normal,
+            // potentially interactive, authentication processing runs) that the existing session belongs to the
+            // End-User the hint identifies, so a mismatch is rejected passively rather than after authproc filters
+            // may have shown UI. The authoritative post-authentication check still runs for all prompt modes in the
+            // controller; for `prompt=none` the End-User is the existing (cookie) session, so its released
+            // attributes are used here.
             $idTokenHint = $currentResultBag->getOrFail(IdTokenHintRule::class)->getValue();
-            if ($idTokenHint !== null) {
-                $hintSubject = $idTokenHint->getSubject();
-                $currentSubject = $this->authenticationService->resolveSubjectFromAttributes(
+            if (
+                $idTokenHint !== null &&
+                !$this->authenticationService->subjectMatchesAttributes(
+                    $idTokenHint->getSubject(),
                     $authSimple->getAttributes(),
+                )
+            ) {
+                $loggerService->notice(
+                    'Authorization request rejected: `prompt=none` was requested with an `id_token_hint` for a ' .
+                    'different End-User than the one currently authenticated.',
+                    ['client_id' => $client->getIdentifier()],
                 );
-
-                if ($currentSubject === null || !hash_equals($hintSubject, $currentSubject)) {
-                    $loggerService->notice(
-                        'Authorization request rejected: `prompt=none` was requested with an `id_token_hint` for a ' .
-                        'different End-User than the one currently authenticated.',
-                        ['client_id' => $client->getIdentifier()],
-                    );
-                    throw OidcServerException::loginRequired(
-                        null,
-                        $redirectUri,
-                        null,
-                        $state,
-                        $responseMode,
-                    );
-                }
+                throw OidcServerException::loginRequired(
+                    null,
+                    $redirectUri,
+                    null,
+                    $state,
+                    $responseMode,
+                );
             }
         }
 

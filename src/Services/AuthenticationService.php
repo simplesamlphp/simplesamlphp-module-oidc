@@ -331,29 +331,34 @@ class AuthenticationService
     }
 
     /**
-     * Resolve the OIDC subject identifier (`sub`) from a set of released user attributes, using the same logic
-     * that produces the `sub` claim during token issuance: the configured user identifier attributes select the
-     * user identifier, and any `sub` claim mapping (openid scope) takes precedence over it.
+     * Determine whether the given subject identifier corresponds to the End-User described by the released
+     * (post-authproc) attributes. This is used to verify an `id_token_hint` subject against the authenticated
+     * End-User at the authorization endpoint (see AuthorizationController).
      *
-     * This is used to compare the currently authenticated user against an `id_token_hint` subject at the
-     * authorization endpoint (see PromptRule), so that a `prompt=none` request is not silently satisfied for a
-     * different user than the one the hint identifies.
+     * A single canonical subject is derived using the same default logic that produces the `sub` claim during token
+     * issuance (see IdTokenBuilder and addRelyingPartyAssociation()): the resolved user identifier, unless a `sub`
+     * claim mapping (openid scope) produces a value, which then takes precedence. Deriving one value (rather than
+     * accepting several candidate forms) is important for security: distinct subject namespaces could otherwise
+     * collide across users (one user's mapped `sub` equalling another user's raw identifier), which would let an
+     * `id_token_hint` match the wrong End-User.
      *
-     * @param array<array-key,mixed> $attributes Released attributes (each value an array of values).
-     * @return string|null The resolved subject, or null when no user identifier can be resolved.
+     * This mirrors the canonical subject resolution in IdTokenBuilder, which issues the same value for a given user
+     * regardless of the flow, client claim-release settings or granted scopes, so the comparison is exact.
+     *
+     * @param array<array-key,mixed> $attributes Released (post-authproc) attributes.
      */
-    public function resolveSubjectFromAttributes(array $attributes): ?string
+    public function subjectMatchesAttributes(string $subject, array $attributes): bool
     {
         $userId = $this->userIdentifierResolver->resolve($this->userIdAttrs, $attributes);
-
         if ($userId === null) {
-            return null;
+            return false;
         }
 
         // We need to make sure that we use 'sub' as user identifier, if configured.
         $claims = $this->claimTranslatorExtractor->extract(['openid'], $attributes);
+        $canonicalSubject = (isset($claims['sub']) && is_scalar($claims['sub'])) ? (string)$claims['sub'] : $userId;
 
-        return (string)($claims['sub'] ?? $userId);
+        return hash_equals($canonicalSubject, $subject);
     }
 
     /**

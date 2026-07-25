@@ -217,13 +217,33 @@ re-authentication triggered by `prompt=login` or an expired `max_age`.
 - Support for the `id_token_hint` parameter on the authorization endpoint
 (previously ignored; it was already supported on the end session endpoint). The
 parameter carries an ID Token previously issued by this OP as a hint about the
-End-User's session. When present, it is validated (issuer and signature). Its
-main effect is with `prompt=none`: the request is only satisfied when the
-currently authenticated End-User matches the subject (`sub`) in the
-`id_token_hint`; otherwise a `login_required` error is returned rather than
-silently issuing a token for a different user. A malformed, wrongly-issued or
+End-User's session with the requesting client. When present, it is validated
+(issuer, signature, and — since the hint represents a session with the
+requesting client — that the client is an audience of the hint) and, after
+authentication, the subject (`sub`) that would be issued for the authenticated
+End-User is compared to the subject in the `id_token_hint`. If
+they differ, a `login_required` error is returned rather than issuing a
+token/code for a different End-User than the one the hint identifies. This
+applies to all prompt modes: with `prompt=none` it prevents a silent response
+for a mismatched cookie session, and with interactive authentication it rejects
+the request when a different End-User authenticated than requested (the client
+can then retry, e.g. with `prompt=login`). An otherwise-valid `id_token_hint`
+whose ID Token has expired is accepted (as recommended by the specification,
+since a hint is commonly sent after it has expired); its signature, issuer and
+`nbf`/`iat` timestamps are still validated. A malformed, wrongly-issued or
 improperly-signed `id_token_hint` results in an `invalid_request` error
 redirected back to the client.
+- The ID Token subject (`sub`) is now resolved consistently for a given
+End-User, independently of the flow, the granted scopes and the client's
+`add_claims_to_id_token` setting. Previously, when a `sub` claim mapping was
+configured, the mapped value was only applied if the user's claims were
+released in the ID Token, so the same End-User could receive different `sub`
+values depending on the flow and client. Deployments that did not customize the
+`sub` claim mapping are unaffected (the user identifier attributes are used for
+`sub` by default, which already produced the same value in both cases). If you
+did map `sub` to a different attribute, clients relying on the previously
+inconsistent value may see a changed `sub` in flows where the claims were not
+released.
 - Logging has been improved for authentication flows. It should now be easier
 to find information about what went wrong by looking at the relevant log entries.
 

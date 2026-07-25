@@ -48,6 +48,15 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     protected ?string $loginHint = null;
 
     /**
+     * Subject (`sub`) claim of the ID Token supplied as the `id_token_hint` parameter, if any. Only the subject is
+     * carried here (not the whole token): the token itself is validated early (issuer, signature) by IdTokenHintRule,
+     * and this value must survive serialization into the SimpleSAMLphp authentication state across the login
+     * redirect. It is used after authentication to verify the authenticated End-User matches the one the hint
+     * identifies (see AuthorizationController).
+     */
+    protected ?string $idTokenHintSubject = null;
+
+    /**
      * ACR used during authn.
      */
     protected ?string $acr = null;
@@ -254,6 +263,16 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     public function setLoginHint(?string $loginHint): void
     {
         $this->loginHint = $loginHint;
+    }
+
+    public function getIdTokenHintSubject(): ?string
+    {
+        return $this->idTokenHintSubject;
+    }
+
+    public function setIdTokenHintSubject(?string $idTokenHintSubject): void
+    {
+        $this->idTokenHintSubject = $idTokenHintSubject;
     }
 
     public function getAcr(): ?string

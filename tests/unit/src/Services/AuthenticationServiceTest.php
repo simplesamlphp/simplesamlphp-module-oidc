@@ -482,44 +482,57 @@ class AuthenticationServiceTest extends TestCase
     }
 
     /**
-     * When no `sub` claim mapping applies, the resolved subject is the user identifier selected from the
-     * configured user identifier attributes.
+     * The subject matches when it equals the resolved user identifier (the default `sub` produced by
+     * IdTokenBuilder when no `sub` mapping is in effect).
      */
-    public function testResolveSubjectFromAttributesFallsBackToUserIdentifier(): void
+    public function testSubjectMatchesAttributesMatchesUserIdentifier(): void
     {
         $this->claimTranslatorExtractorMock->method('extract')
             ->with(['openid'], self::USER_ENTITY_ATTRIBUTES)
             ->willReturn([]);
 
-        $this->assertSame(
-            self::USERNAME,
-            $this->mock()->resolveSubjectFromAttributes(self::USER_ENTITY_ATTRIBUTES),
+        $this->assertTrue(
+            $this->mock()->subjectMatchesAttributes(self::USERNAME, self::USER_ENTITY_ATTRIBUTES),
         );
     }
 
     /**
-     * When a `sub` claim is produced (e.g. via a configured `sub` mapping), it takes precedence over the raw
-     * user identifier.
+     * The subject also matches a mapped `sub` claim, so a hint issued when the `sub` mapping was applied is
+     * accepted for the same user.
      */
-    public function testResolveSubjectFromAttributesUsesSubClaimWhenPresent(): void
+    public function testSubjectMatchesAttributesMatchesMappedSubClaim(): void
     {
         $this->claimTranslatorExtractorMock->method('extract')
             ->with(['openid'], self::USER_ENTITY_ATTRIBUTES)
             ->willReturn(['sub' => 'mapped-subject']);
 
-        $this->assertSame(
-            'mapped-subject',
-            $this->mock()->resolveSubjectFromAttributes(self::USER_ENTITY_ATTRIBUTES),
+        $this->assertTrue(
+            $this->mock()->subjectMatchesAttributes('mapped-subject', self::USER_ENTITY_ATTRIBUTES),
         );
     }
 
     /**
-     * When none of the configured user identifier attributes are present, no subject can be resolved.
+     * A subject that matches neither the user identifier nor a mapped `sub` claim identifies a different
+     * End-User and must not match.
      */
-    public function testResolveSubjectFromAttributesReturnsNullWhenNoIdentifier(): void
+    public function testSubjectMatchesAttributesRejectsDifferentSubject(): void
     {
-        $this->assertNull(
-            $this->mock()->resolveSubjectFromAttributes(['someOtherAttribute' => ['value']]),
+        $this->claimTranslatorExtractorMock->method('extract')
+            ->with(['openid'], self::USER_ENTITY_ATTRIBUTES)
+            ->willReturn([]);
+
+        $this->assertFalse(
+            $this->mock()->subjectMatchesAttributes('someone-else', self::USER_ENTITY_ATTRIBUTES),
+        );
+    }
+
+    /**
+     * When no user identifier can be resolved from the attributes, no subject can match.
+     */
+    public function testSubjectMatchesAttributesReturnsFalseWhenNoIdentifier(): void
+    {
+        $this->assertFalse(
+            $this->mock()->subjectMatchesAttributes('anything', ['someOtherAttribute' => ['value']]),
         );
     }
 

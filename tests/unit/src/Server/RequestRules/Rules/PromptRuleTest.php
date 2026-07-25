@@ -27,7 +27,7 @@ use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
-use SimpleSAML\OpenID\Core\IdToken;
+use SimpleSAML\OpenID\Core\IdTokenHint;
 use SimpleSAML\Utils\HTTP as SspHttp;
 
 #[CoversClass(PromptRule::class)]
@@ -131,21 +131,9 @@ class PromptRuleTest extends TestCase
         $this->checkRule();
     }
 
-    public function testPromptNoneWithoutIdTokenHintProceeds(): void
+    public function testPromptNoneWithMatchingIdTokenHintProceeds(): void
     {
-        $this->resultBag->add(new Result(IdTokenHintRule::class, null));
-        $this->requestParamsResolverMock->method('getAllBasedOnAllowedMethods')
-            ->willReturn(['prompt' => 'none']);
-        $this->authSimpleMock->method('isAuthenticated')->willReturn(true);
-
-        $this->authenticationServiceMock->expects($this->never())->method('resolveSubjectFromAttributes');
-
-        $this->assertNull($this->checkRule());
-    }
-
-    public function testPromptNoneWithMatchingIdTokenHintSubjectProceeds(): void
-    {
-        $idTokenHintMock = $this->createMock(IdToken::class);
+        $idTokenHintMock = $this->createMock(IdTokenHint::class);
         $idTokenHintMock->method('getSubject')->willReturn('subject-123');
         $this->resultBag->add(new Result(IdTokenHintRule::class, $idTokenHintMock));
 
@@ -153,15 +141,26 @@ class PromptRuleTest extends TestCase
             ->willReturn(['prompt' => 'none']);
         $this->authSimpleMock->method('isAuthenticated')->willReturn(true);
         $this->authSimpleMock->method('getAttributes')->willReturn(['uid' => ['subject-123']]);
-        $this->authenticationServiceMock->method('resolveSubjectFromAttributes')
-            ->willReturn('subject-123');
+        $this->authenticationServiceMock->method('subjectMatchesAttributes')->willReturn(true);
 
         $this->assertNull($this->checkRule());
     }
 
-    public function testPromptNoneWithMismatchedIdTokenHintSubjectThrowsLoginRequired(): void
+    public function testPromptNoneWithoutIdTokenHintProceeds(): void
     {
-        $idTokenHintMock = $this->createMock(IdToken::class);
+        $this->resultBag->add(new Result(IdTokenHintRule::class, null));
+
+        $this->requestParamsResolverMock->method('getAllBasedOnAllowedMethods')
+            ->willReturn(['prompt' => 'none']);
+        $this->authSimpleMock->method('isAuthenticated')->willReturn(true);
+        $this->authenticationServiceMock->expects($this->never())->method('subjectMatchesAttributes');
+
+        $this->assertNull($this->checkRule());
+    }
+
+    public function testPromptNoneWithMismatchedIdTokenHintThrowsLoginRequired(): void
+    {
+        $idTokenHintMock = $this->createMock(IdTokenHint::class);
         $idTokenHintMock->method('getSubject')->willReturn('subject-123');
         $this->resultBag->add(new Result(IdTokenHintRule::class, $idTokenHintMock));
 
@@ -169,8 +168,7 @@ class PromptRuleTest extends TestCase
             ->willReturn(['prompt' => 'none']);
         $this->authSimpleMock->method('isAuthenticated')->willReturn(true);
         $this->authSimpleMock->method('getAttributes')->willReturn(['uid' => ['other-user']]);
-        $this->authenticationServiceMock->method('resolveSubjectFromAttributes')
-            ->willReturn('other-subject');
+        $this->authenticationServiceMock->method('subjectMatchesAttributes')->willReturn(false);
 
         $this->expectException(OidcServerException::class);
         $this->expectExceptionMessage('End-User is not already authenticated.');
