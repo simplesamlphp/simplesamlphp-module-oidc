@@ -312,7 +312,6 @@ class ClientController
         ?\DateTimeImmutable $expiresAt = null,
         ?string $owner = null,
     ): ClientEntityInterface {
-        /** @var array $data */
         $data = $form->getValues('array');
 
         if (
