@@ -310,8 +310,7 @@ class ClientForm extends Form
 
     public function getValues(string|object|bool|null $returnType = null, ?array $controls = null): array
     {
-        /** @psalm-suppress RedundantCast */
-        $values = (array)parent::getValues(self::TYPE_ARRAY);
+        $values = parent::getValues(self::TYPE_ARRAY);
 
         // Derive the client type (confidential/public) using the same precedence as DCR registration
         // (see ClientEntityFactory::determineIsConfidential() + the token_endpoint_auth_method lockstep):
