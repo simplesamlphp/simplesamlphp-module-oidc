@@ -325,6 +325,22 @@ these requests with TLS verification disabled unconditionally; verification is n
 enabled, and a deployment that relied on the old behaviour (for example, Relying
 Parties presenting self-signed certificates) must opt back out explicitly by
 setting `['verify' => false]`. Do NOT disable TLS verification in production.
+- `ModuleConfig::OPTION_FEDERATION_HTTP_CLIENT_OPTIONS` - optional, Guzzle HTTP
+client options for the federation-layer outbound fetches (entity statements,
+subordinate listings, Trust Mark status), kept separate from the protocol-layer
+option because these run against arbitrary federation entities. Merged over the
+`openid` library's hardening defaults; the library logs a warning when a value
+undoes one of them. Do NOT disable TLS verification in production.
+- `ModuleConfig::OPTION_FEDERATION_MAX_TRUST_CHAIN_DEPTH` (default `9`),
+`ModuleConfig::OPTION_FEDERATION_MAX_AUTHORITY_HINTS` (default `6`),
+`ModuleConfig::OPTION_FEDERATION_MAX_TRUST_CHAIN_FETCHES` (default `100`),
+`ModuleConfig::OPTION_FEDERATION_TRUST_CHAIN_RESOLVE_TIMEOUT` (default `30`
+seconds) and `ModuleConfig::OPTION_FEDERATION_MAX_FETCH_SIZE_BYTES` (default
+`102400`) - all optional, bounding the work a single Trust Chain resolution may
+perform. Trust Chain resolution is reachable before a Request Object signature can
+be verified, so these limit what an anonymous request can make the OP do. The
+defaults mirror the `openid` library's own and need no action; raise them only for
+a legitimately large federation.
 - Several new options regarding experimental support for OpenID4VCI.
 
 Major impact changes:

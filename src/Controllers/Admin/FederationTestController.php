@@ -33,10 +33,18 @@ class FederationTestController
 
         $this->arrayLogger->setWeight(ArrayLogger::WEIGHT_WARNING);
         // Let's create a new Federation instance so we can inject our debug logger and go without cache.
+        // The traversal limits and HTTP client options are taken from the deployment's own configuration, so
+        // that what this page reports matches what the protocol endpoints would actually do.
         $this->federationWithArrayLogger = new Federation(
             supportedAlgorithms: $this->federation->supportedAlgorithms(),
+            maxTrustChainDepth: $this->moduleConfig->getFederationMaxTrustChainDepth(),
             cache: null,
             logger: $this->arrayLogger,
+            httpClientConfig: $this->moduleConfig->getFederationHttpClientOptions(),
+            maxAuthorityHints: $this->moduleConfig->getFederationMaxAuthorityHints(),
+            maxTrustChainFetches: $this->moduleConfig->getFederationMaxTrustChainFetches(),
+            trustChainResolveTimeout: $this->moduleConfig->getFederationTrustChainResolveTimeout(),
+            maxFetchSizeBytes: $this->moduleConfig->getFederationMaxFetchSizeBytes(),
         );
     }
 

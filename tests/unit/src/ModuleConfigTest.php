@@ -275,6 +275,57 @@ class ModuleConfigTest extends TestCase
         $this->assertInstanceOf(DateInterval::class, $this->sut()->getTimestampValidationLeeway());
     }
 
+    /**
+     * The defaults deliberately mirror the `openid` library's own, so that the module does not silently
+     * diverge from the limits upstream calibrated.
+     */
+    public function testFederationTraversalLimitsDefaultToLibraryValues(): void
+    {
+        $sut = $this->sut();
+
+        $this->assertSame(9, $sut->getFederationMaxTrustChainDepth());
+        $this->assertSame(6, $sut->getFederationMaxAuthorityHints());
+        $this->assertSame(100, $sut->getFederationMaxTrustChainFetches());
+        $this->assertSame(30, $sut->getFederationTrustChainResolveTimeout());
+        $this->assertSame(102400, $sut->getFederationMaxFetchSizeBytes());
+        $this->assertSame([], $sut->getFederationHttpClientOptions());
+    }
+
+    public function testCanOverrideFederationTraversalLimits(): void
+    {
+        $sut = $this->sut(
+            overrides: [
+                ModuleConfig::OPTION_FEDERATION_MAX_TRUST_CHAIN_DEPTH => 3,
+                ModuleConfig::OPTION_FEDERATION_MAX_AUTHORITY_HINTS => 2,
+                ModuleConfig::OPTION_FEDERATION_MAX_TRUST_CHAIN_FETCHES => 25,
+                ModuleConfig::OPTION_FEDERATION_TRUST_CHAIN_RESOLVE_TIMEOUT => 10,
+                ModuleConfig::OPTION_FEDERATION_MAX_FETCH_SIZE_BYTES => 4096,
+            ],
+        );
+
+        $this->assertSame(3, $sut->getFederationMaxTrustChainDepth());
+        $this->assertSame(2, $sut->getFederationMaxAuthorityHints());
+        $this->assertSame(25, $sut->getFederationMaxTrustChainFetches());
+        $this->assertSame(10, $sut->getFederationTrustChainResolveTimeout());
+        $this->assertSame(4096, $sut->getFederationMaxFetchSizeBytes());
+    }
+
+    /**
+     * Federation HTTP client options are read independently of the protocol-layer ones, so that disabling TLS
+     * verification for one can never leak into the other.
+     */
+    public function testFederationHttpClientOptionsAreSeparateFromProtocolOnes(): void
+    {
+        $sut = $this->sut(
+            overrides: [
+                ModuleConfig::OPTION_FEDERATION_HTTP_CLIENT_OPTIONS => ['verify' => false, 'timeout' => 7],
+            ],
+        );
+
+        $this->assertSame(['verify' => false, 'timeout' => 7], $sut->getFederationHttpClientOptions());
+        $this->assertSame([], $sut->getProtocolHttpClientOptions());
+    }
+
     public function testCanGetFederationSignatureKeyPairBag(): void
     {
         $sut = $this->sut();

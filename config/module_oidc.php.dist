@@ -902,6 +902,55 @@ $config = [
     ModuleConfig::OPTION_FEDERATION_CACHE_MAX_DURATION_FOR_FETCHED => 'PT6H', // 6 hours
 
     /**
+     * Limits on the work a single OpenID Federation Trust Chain resolution may perform. These matter because
+     * resolution is reachable on an unauthenticated code path: a Relying Party that is not registered locally
+     * is looked up in the federation while processing its Request Object, before that object's signature can
+     * be verified (the resolved chain is what yields the verification keys). The entity configurations walked
+     * along the way are fetched from arbitrary, possibly hostile, federation entities.
+     *
+     * The defaults below mirror the underlying `openid` library's own defaults, which are already safe; they
+     * are surfaced here so a deployment can tighten them, or raise them for a legitimately large federation.
+     * The library clamps each one to a sane range, and logs when a resolution hits a limit.
+     *
+     * Note that depth and authority hints multiply out: their product, not either one on its own, is what
+     * bounds a traversal. The fetch budget and the resolve timeout are the effective bounds.
+     */
+    // Maximum number of hops from the leaf entity up to a Trust Anchor. Clamped by the library to 1..20.
+    ModuleConfig::OPTION_FEDERATION_MAX_TRUST_CHAIN_DEPTH => 9,
+    // Maximum 'authority_hints' honoured per entity (the branching factor). Clamped by the library to 1..12.
+    ModuleConfig::OPTION_FEDERATION_MAX_AUTHORITY_HINTS => 6,
+    // Maximum entity statement fetches for one resolution. Clamped by the library to 1..1000.
+    ModuleConfig::OPTION_FEDERATION_MAX_TRUST_CHAIN_FETCHES => 100,
+    // Wall-clock deadline in seconds for one resolution. Clamped by the library to 1..300.
+    ModuleConfig::OPTION_FEDERATION_TRUST_CHAIN_RESOLVE_TIMEOUT => 30,
+    // Maximum response body size in bytes read for a federation fetch.
+    ModuleConfig::OPTION_FEDERATION_MAX_FETCH_SIZE_BYTES => 102400, // 100 KB
+
+    /**
+     * Guzzle HTTP client options for the federation-layer outbound fetches made by the underlying `openid`
+     * library (entity statements, subordinate listings, Trust Mark status). Kept separate from
+     * OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS because these fetches run against arbitrary federation entities on
+     * the unauthenticated path described above.
+     *
+     * The array is merged OVER the library's hardening defaults, so anything set here replaces the
+     * corresponding default. Of note: 'timeout' and 'connect_timeout' (Guzzle reads 0 as "no timeout"), and
+     * 'allow_redirects' (the library restricts redirects to at most 3 https hops; setting true restores
+     * Guzzle's permissive defaults, which allow a downgrade to plain http). The library logs a warning when a
+     * value undoes one of these defaults. See https://docs.guzzlephp.org/en/stable/request-options.html
+     *
+     * Leave empty (the default) to keep the library defaults, including TLS verification. The typical use for
+     * a non-empty value is testing against federation entities that present self-signed certificates:
+     *
+     *     ModuleConfig::OPTION_FEDERATION_HTTP_CLIENT_OPTIONS => [
+     *         'verify' => false,
+     *     ],
+     *
+     * SECURITY WARNING: disabling TLS verification ('verify' => false) exposes these fetches to
+     * man-in-the-middle attacks. Only use it in development/testing, NEVER in production.
+     */
+    ModuleConfig::OPTION_FEDERATION_HTTP_CLIENT_OPTIONS => [],
+
+    /**
      * Federation entity statement duration which determines the Expiration Time
      * (exp) claim set in entity statement JWSs published by this OP. If not
      * set, a default of 1 day will be used. For duration format info, check

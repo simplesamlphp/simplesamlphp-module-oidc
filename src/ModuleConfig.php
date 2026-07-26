@@ -33,6 +33,7 @@ use SimpleSAML\OpenID\Codebooks\ResponseTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ScopesEnum;
 use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\TrustMarkStatusEndpointUsagePolicyEnum;
+use SimpleSAML\OpenID\Decorators\HttpClientDecorator;
 use SimpleSAML\OpenID\Serializers\JwsSerializerBag;
 use SimpleSAML\OpenID\Serializers\JwsSerializerEnum;
 use SimpleSAML\OpenID\SupportedAlgorithms;
@@ -99,6 +100,13 @@ class ModuleConfig
     final public const string OPTION_FEDERATION_TRUST_MARK_STATUS_ENDPOINT_USAGE_POLICY =
     'federation_trust_mark_status_endpoint_usage_policy';
     final public const string OPTION_FEDERATION_CACHE_DURATION_FOR_PRODUCED = 'federation_cache_duration_for_produced';
+    final public const string OPTION_FEDERATION_HTTP_CLIENT_OPTIONS = 'federation_http_client_options';
+    final public const string OPTION_FEDERATION_MAX_TRUST_CHAIN_DEPTH = 'federation_max_trust_chain_depth';
+    final public const string OPTION_FEDERATION_MAX_AUTHORITY_HINTS = 'federation_max_authority_hints';
+    final public const string OPTION_FEDERATION_MAX_TRUST_CHAIN_FETCHES = 'federation_max_trust_chain_fetches';
+    final public const string OPTION_FEDERATION_TRUST_CHAIN_RESOLVE_TIMEOUT =
+    'federation_trust_chain_resolve_timeout';
+    final public const string OPTION_FEDERATION_MAX_FETCH_SIZE_BYTES = 'federation_max_fetch_size_bytes';
     final public const string OPTION_PROTOCOL_CACHE_ADAPTER = 'protocol_cache_adapter';
     final public const string OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS = 'protocol_cache_adapter_arguments';
     final public const string OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION = 'protocol_user_entity_cache_duration';
@@ -992,6 +1000,83 @@ class ModuleConfig
     {
         return new DateInterval(
             $this->config()->getOptionalString(self::OPTION_FEDERATION_CACHE_MAX_DURATION_FOR_FETCHED, 'PT6H'),
+        );
+    }
+
+    /**
+     * Guzzle HTTP client options for the federation-layer outbound fetches performed by the `openid` library
+     * (entity statements, subordinate listings, Trust Mark status). Kept separate from the protocol-layer
+     * options because these fetches have a different risk profile: they run against arbitrary federation
+     * entities, on a code path reachable before a Request Object signature has been verified.
+     *
+     * The array is merged OVER the library's hardening defaults (connect/request timeouts, and redirects
+     * restricted to 3 https hops), so anything set here replaces the corresponding default. The library logs
+     * a warning when a value undoes one of those defaults. Default here is an empty array, which keeps the
+     * library defaults, including TLS verification. DO NOT disable TLS verification in production.
+     *
+     * @return array<string,mixed>
+     * @throws \Exception
+     */
+    public function getFederationHttpClientOptions(): array
+    {
+        return $this->getHttpClientOptions(self::OPTION_FEDERATION_HTTP_CLIENT_OPTIONS);
+    }
+
+    /**
+     * Maximum number of hops from the leaf entity up to a Trust Anchor. Mirrors the `openid` library default;
+     * the library clamps it to 1..20.
+     *
+     * @throws \Exception
+     */
+    public function getFederationMaxTrustChainDepth(): int
+    {
+        return $this->config()->getOptionalInteger(self::OPTION_FEDERATION_MAX_TRUST_CHAIN_DEPTH, 9);
+    }
+
+    /**
+     * Maximum number of `authority_hints` honoured per entity, which is the branching factor of the trust
+     * chain traversal. Mirrors the `openid` library default; the library clamps it to 1..12.
+     *
+     * @throws \Exception
+     */
+    public function getFederationMaxAuthorityHints(): int
+    {
+        return $this->config()->getOptionalInteger(self::OPTION_FEDERATION_MAX_AUTHORITY_HINTS, 6);
+    }
+
+    /**
+     * Maximum number of entity statement fetches allowed for a single trust chain resolution. This, together
+     * with the resolve timeout, is what actually bounds the work an anonymous request can trigger: depth and
+     * breadth limits alone multiply out. Mirrors the `openid` library default; clamped by it to 1..1000.
+     *
+     * @throws \Exception
+     */
+    public function getFederationMaxTrustChainFetches(): int
+    {
+        return $this->config()->getOptionalInteger(self::OPTION_FEDERATION_MAX_TRUST_CHAIN_FETCHES, 100);
+    }
+
+    /**
+     * Wall-clock deadline, in seconds, for a single trust chain resolution. Mirrors the `openid` library
+     * default; clamped by it to 1..300.
+     *
+     * @throws \Exception
+     */
+    public function getFederationTrustChainResolveTimeout(): int
+    {
+        return $this->config()->getOptionalInteger(self::OPTION_FEDERATION_TRUST_CHAIN_RESOLVE_TIMEOUT, 30);
+    }
+
+    /**
+     * Maximum response body size, in bytes, read for a federation fetch. Mirrors the `openid` library default.
+     *
+     * @throws \Exception
+     */
+    public function getFederationMaxFetchSizeBytes(): int
+    {
+        return $this->config()->getOptionalInteger(
+            self::OPTION_FEDERATION_MAX_FETCH_SIZE_BYTES,
+            HttpClientDecorator::DEFAULT_MAX_FETCH_SIZE_BYTES,
         );
     }
 

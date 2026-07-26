@@ -27,6 +27,7 @@ use SimpleSAML\OpenID\Codebooks\EntityTypesEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Exceptions\JwsException;
+use SimpleSAML\OpenID\Exceptions\TrustChainResolutionBudgetException;
 use SimpleSAML\OpenID\Federation;
 use SimpleSAML\OpenID\Federation\RequestObject as FederationRequestObject;
 use Throwable;
@@ -196,10 +197,15 @@ class ClientRule extends AbstractRule
         }
 
         // Check for reuse of the Request Object. Request Object MUST only be used once (by OpenID Federation spec).
-        if (
-            $this->federationCache &&
-            $this->federationCache->has(self::KEY_REQUEST_OBJECT_JTI, $requestObject->getJwtId())
-        ) {
+        if (is_null($this->federationCache)) {
+            // Without a cache there is nowhere to remember which JTIs have been seen, so the replay check
+            // below is silently a no-op. That also means the (expensive, unauthenticated) trust chain
+            // resolution further down can be triggered repeatedly with one and the same Request Object.
+            $this->loggerService->warning(
+                'ClientRule: Federation cache is not configured, so the Request Object replay check is ' .
+                'skipped. Configure ' . ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER . ' to enable it.',
+            );
+        } elseif ($this->federationCache->has(self::KEY_REQUEST_OBJECT_JTI, $requestObject->getJwtId())) {
             $this->loggerService->error(
                 'ClientRule: Request object reused.',
                 ['request_object_jti' => $requestObject->getJwtId()],
@@ -231,6 +237,16 @@ class ClientRule extends AbstractRule
             )->getShortest();
         } catch (ConfigurationError $exception) {
             $this->loggerService->error('ClientRule: Invalid OIDC configuration: ' . $exception->getMessage());
+            return null;
+        } catch (TrustChainResolutionBudgetException $exception) {
+            // Called out separately from the generic failure below: this is not a broken federation or an
+            // unreachable entity, but the resolution hitting its fetch budget or deadline. Either the
+            // federation legitimately needs higher limits, or someone is pointing a deliberately expensive
+            // entity graph at this (unauthenticated) endpoint.
+            $this->loggerService->error(
+                'ClientRule: Trust chain resolution exceeded its budget: ' . $exception->getMessage(),
+                ['client_id' => $clientEntityId],
+            );
             return null;
         } catch (Throwable $exception) {
             $this->loggerService->error(
