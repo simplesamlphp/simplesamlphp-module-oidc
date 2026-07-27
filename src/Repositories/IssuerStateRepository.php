@@ -29,7 +29,7 @@ class IssuerStateRepository extends AbstractDatabaseRepository
 
     public function getTableName(): string
     {
-        return self::TABLE_NAME;
+        return $this->database->applyPrefix(self::TABLE_NAME);
     }
 
     public function find(string $value): ?IssuerStateEntity
