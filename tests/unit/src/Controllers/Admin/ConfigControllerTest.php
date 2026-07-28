@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Admin\Authorization;
+use SimpleSAML\Module\oidc\Admin\ConfigOverview\ProtocolOverviewBuilder;
 use SimpleSAML\Module\oidc\Controllers\Admin\ConfigController;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -27,6 +28,7 @@ class ConfigControllerTest extends TestCase
     protected MockObject $sessionMessagesServiceMock;
     protected MockObject $federationMock;
     protected MockObject $routesMock;
+    protected MockObject $protocolOverviewBuilderMock;
     protected MockObject $trustMarkFactoryMock;
     protected MockObject $entityStatementFetcherMock;
     protected MockObject $trustMarkFetcherMock;
@@ -40,6 +42,7 @@ class ConfigControllerTest extends TestCase
         $this->sessionMessagesServiceMock = $this->createMock(SessionMessagesService::class);
         $this->federationMock = $this->createMock(Federation::class);
         $this->routesMock = $this->createMock(Routes::class);
+        $this->protocolOverviewBuilderMock = $this->createMock(ProtocolOverviewBuilder::class);
 
         $this->trustMarkFactoryMock = $this->createMock(TrustMarkFactory::class);
         $this->federationMock->method('trustMarkFactory')->willReturn($this->trustMarkFactoryMock);
@@ -59,6 +62,7 @@ class ConfigControllerTest extends TestCase
         ?SessionMessagesService $sessionMessagesService = null,
         ?Federation $federation = null,
         ?Routes $routes = null,
+        ?ProtocolOverviewBuilder $protocolOverviewBuilder = null,
     ): ConfigController {
         $moduleConfig ??= $this->moduleConfigMock;
         $templateFactory ??= $this->templateFactoryMock;
@@ -67,6 +71,7 @@ class ConfigControllerTest extends TestCase
         $sessionMessagesService ??= $this->sessionMessagesServiceMock;
         $federation ??= $this->federationMock;
         $routes ??= $this->routesMock;
+        $protocolOverviewBuilder ??= $this->protocolOverviewBuilderMock;
 
         return new ConfigController(
             $moduleConfig,
@@ -76,6 +81,7 @@ class ConfigControllerTest extends TestCase
             $sessionMessagesService,
             $federation,
             $routes,
+            $protocolOverviewBuilder,
         );
     }
 
@@ -112,6 +118,8 @@ class ConfigControllerTest extends TestCase
 
     public function testCanShowProtocolSettingsScreen(): void
     {
+        $this->protocolOverviewBuilderMock->expects($this->once())->method('build')->willReturn([]);
+
         $this->templateFactoryMock->expects($this->once())->method('build')
             ->with('oidc:config/protocol.twig');
 

@@ -106,6 +106,43 @@ table.client-table {
 
 
 
+/* Configuration overview screens */
+.config-toc {
+    margin: 0 0 1em 0;
+    font-size: 0.9em;
+    line-height: 1.8;
+}
+
+table.config-table {
+    width: 100%;
+    margin-bottom: 1.5em;
+}
+
+.config-col.col-property {
+    width: 30%;
+    font-weight: bolder;
+    vertical-align: top;
+}
+
+.config-note {
+    margin-top: 0.35em;
+    font-size: 0.85em;
+    color: #555;
+}
+
+.config-warning {
+    margin-top: 0.35em;
+    padding: 0.4em 0.6em;
+    font-size: 0.85em;
+    color: #8a4b00;
+    background-color: #fdf3e3;
+    border-left: 3px solid #d98b00;
+}
+
+.config-key-pair + .config-key-pair {
+    margin-top: 0.75em;
+}
+
 form.pure-form-stacked .full-width {
     width: 100%;
 }

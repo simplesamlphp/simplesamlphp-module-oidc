@@ -6,6 +6,7 @@ namespace SimpleSAML\Module\oidc\Controllers\Admin;
 
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Admin\Authorization;
+use SimpleSAML\Module\oidc\Admin\ConfigOverview\ProtocolOverviewBuilder;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -25,6 +26,7 @@ class ConfigController
         protected readonly SessionMessagesService $sessionMessagesService,
         protected readonly Federation $federation,
         protected readonly Routes $routes,
+        protected readonly ProtocolOverviewBuilder $protocolOverviewBuilder,
     ) {
         $this->authorization->requireAdmin(true);
     }
@@ -55,12 +57,16 @@ class ConfigController
         return $this->routes->newRedirectResponseToModuleUrl(RoutesEnum::AdminMigrations->value);
     }
 
+    /**
+     * @throws \Exception
+     */
     public function protocolSettings(): Response
     {
         return $this->templateFactory->build(
             'oidc:config/protocol.twig',
             [
                 'moduleConfig' => $this->moduleConfig,
+                'sections' => $this->protocolOverviewBuilder->build(),
             ],
             RoutesEnum::AdminConfigProtocol->value,
         );

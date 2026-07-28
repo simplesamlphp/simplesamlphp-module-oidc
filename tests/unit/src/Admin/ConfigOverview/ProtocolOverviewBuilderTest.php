@@ -1,0 +1,517 @@
+<?php
+
+declare(strict_types=1);
+
+namespace SimpleSAML\Test\Module\oidc\unit\Admin\ConfigOverview;
+
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\Admin\ConfigOverview\ProtocolOverviewBuilder;
+use SimpleSAML\Module\oidc\Admin\ConfigOverview\Row;
+use SimpleSAML\Module\oidc\Admin\ConfigOverview\Section;
+use SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum;
+use SimpleSAML\Module\oidc\Codebooks\DcrRegistrationAuthEnum;
+use SimpleSAML\Module\oidc\ModuleConfig;
+
+#[CoversClass(ProtocolOverviewBuilder::class)]
+#[CoversClass(Row::class)]
+#[CoversClass(Section::class)]
+class ProtocolOverviewBuilderTest extends TestCase
+{
+    use ProtocolOverviewTestTrait;
+
+    public function testCanCreateInstance(): void
+    {
+        $this->assertInstanceOf(ProtocolOverviewBuilder::class, $this->buildProtocolOverviewBuilder());
+    }
+
+    public function testCanBuildSections(): void
+    {
+        $sections = $this->buildProtocolOverviewBuilder()->build();
+
+        $this->assertNotEmpty($sections);
+
+        foreach ($sections as $section) {
+            $this->assertInstanceOf(Section::class, $section);
+            $this->assertNotEmpty($section->getTitle());
+            $this->assertNotEmpty($section->getAnchor());
+            $this->assertNotEmpty($section->getRows());
+        }
+    }
+
+    public function testSectionAnchorsAreUnique(): void
+    {
+        $anchors = array_map(
+            fn(Section $section): string => $section->getAnchor(),
+            $this->buildProtocolOverviewBuilder()->build(),
+        );
+
+        $this->assertSame($anchors, array_unique($anchors));
+    }
+
+    public function testEveryRowHasALabel(): void
+    {
+        foreach ($this->flattenRows($this->buildProtocolOverviewBuilder()->build()) as $row) {
+            $this->assertNotEmpty($row->getLabel());
+        }
+    }
+
+    public function testEachConfigOptionIsShownOnlyOnce(): void
+    {
+        $configOptions = [];
+
+        foreach ($this->flattenRows($this->buildProtocolOverviewBuilder()->build()) as $row) {
+            if (is_null($configOption = $row->getConfigOption())) {
+                continue;
+            }
+
+            $configOptions[] = $configOption;
+        }
+
+        $this->assertSame($configOptions, array_unique($configOptions));
+    }
+
+    public function testRendersDurationsIncludingYears(): void
+    {
+        $sections = $this->buildProtocolOverviewBuilder(
+            [ModuleConfig::OPTION_TOKEN_REFRESH_TOKEN_TTL => 'P1Y'],
+        )->build();
+
+        $row = $this->findRowForOption($sections, ModuleConfig::OPTION_TOKEN_REFRESH_TOKEN_TTL);
+
+        $this->assertNotNull($row);
+        $this->assertSame('1 year (P1Y)', $row->getValue());
+    }
+
+    public function testNotesWhenIssuerIsNotExplicitlyConfigured(): void
+    {
+        $configuredRow = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder()->build(),
+            ModuleConfig::OPTION_ISSUER,
+        );
+        $this->assertNotNull($configuredRow);
+        $this->assertNull($configuredRow->getNote());
+
+        $derivedRow = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder([ModuleConfig::OPTION_ISSUER => null])->build(),
+            ModuleConfig::OPTION_ISSUER,
+        );
+        $this->assertNotNull($derivedRow);
+        $this->assertStringContainsString('derived', (string)$derivedRow->getNote());
+    }
+
+    public function testNeverExposesEncryptionKey(): void
+    {
+        $sections = $this->buildProtocolOverviewBuilder(
+            [ModuleConfig::OPTION_ENCRYPTION_KEY => 'super-secret-encryption-key'],
+        )->build();
+
+        $this->assertStringNotContainsString(
+            'super-secret-encryption-key',
+            $this->renderableContent($sections),
+        );
+
+        $row = $this->findRowForOption($sections, ModuleConfig::OPTION_ENCRYPTION_KEY);
+        $this->assertNotNull($row);
+        $this->assertStringContainsString('Dedicated', (string)$row->getValue());
+    }
+
+    public function testReportsEncryptionKeyFallbackToSecretSalt(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder()->build(),
+            ModuleConfig::OPTION_ENCRYPTION_KEY,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertStringContainsString('secret salt', (string)$row->getValue());
+    }
+
+    public function testNeverExposesInitialAccessTokens(): void
+    {
+        $sections = $this->buildProtocolOverviewBuilder([
+            ModuleConfig::OPTION_DCR_ENABLED => true,
+            ModuleConfig::OPTION_DCR_INITIAL_ACCESS_TOKENS => ['super-secret-initial-access-token'],
+        ])->build();
+
+        $this->assertStringNotContainsString(
+            'super-secret-initial-access-token',
+            $this->renderableContent($sections),
+        );
+
+        $row = $this->findRowForOption($sections, ModuleConfig::OPTION_DCR_INITIAL_ACCESS_TOKENS);
+        $this->assertNotNull($row);
+        $this->assertSame('1', $row->getValue());
+    }
+
+    public function testNeverExposesApiTokens(): void
+    {
+        $sections = $this->buildProtocolOverviewBuilder([
+            ModuleConfig::OPTION_API_ENABLED => true,
+            ModuleConfig::OPTION_API_TOKENS => ['super-secret-api-token' => ['scope']],
+        ])->build();
+
+        $this->assertStringNotContainsString(
+            'super-secret-api-token',
+            $this->renderableContent($sections),
+        );
+    }
+
+    public function testNeverExposesCacheAdapterArguments(): void
+    {
+        $sections = $this->buildProtocolOverviewBuilder([
+            ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS => [
+                'memcached://user:super-secret-password@localhost',
+            ],
+        ])->build();
+
+        $this->assertStringNotContainsString(
+            'super-secret-password',
+            $this->renderableContent($sections),
+        );
+    }
+
+    public function testRedactsCredentialsInHttpClientOptions(): void
+    {
+        $sections = $this->buildProtocolOverviewBuilder([
+            ModuleConfig::OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS => [
+                'timeout' => 9,
+                'auth' => ['api-user', 'super-secret-basic-password'],
+                'proxy' => 'http://proxy-user:super-secret-proxy-password@proxy.example.org:8080',
+                'headers' => ['Authorization' => 'Bearer super-secret-bearer-token'],
+                'cert' => ['/path/to/client.pem', 'super-secret-cert-passphrase'],
+            ],
+        ])->build();
+
+        $content = $this->renderableContent($sections);
+
+        $this->assertStringNotContainsString('super-secret-basic-password', $content);
+        $this->assertStringNotContainsString('super-secret-proxy-password', $content);
+        $this->assertStringNotContainsString('super-secret-bearer-token', $content);
+        $this->assertStringNotContainsString('super-secret-cert-passphrase', $content);
+
+        $row = $this->findRowForOption($sections, ModuleConfig::OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS);
+        $this->assertNotNull($row);
+
+        $value = $row->getValue();
+        $this->assertIsArray($value);
+
+        // Allowlisted options stay visible, everything else keeps only its name.
+        $this->assertSame(9, $value['timeout']);
+        $this->assertSame('(not shown)', $value['auth']);
+        $this->assertSame('(not shown)', $value['proxy']);
+        $this->assertSame('(not shown)', $value['headers']);
+        $this->assertSame('(not shown)', $value['cert']);
+    }
+
+    public function testStillDetectsDisabledTlsVerificationBehindRedaction(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder([
+                ModuleConfig::OPTION_BACKCHANNEL_LOGOUT_HTTP_CLIENT_OPTIONS => [
+                    'verify' => false,
+                    'auth' => ['user', 'super-secret-password'],
+                ],
+            ])->build(),
+            ModuleConfig::OPTION_BACKCHANNEL_LOGOUT_HTTP_CLIENT_OPTIONS,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertNotNull($row->getWarning());
+
+        $value = $row->getValue();
+        $this->assertIsArray($value);
+        $this->assertFalse($value['verify']);
+        $this->assertSame('(not shown)', $value['auth']);
+    }
+
+    public function testConfiguredValuesAreNotTranslatable(): void
+    {
+        $sections = $this->buildProtocolOverviewBuilder()->build();
+
+        foreach (
+            [
+                ModuleConfig::OPTION_ISSUER,
+                ModuleConfig::OPTION_AUTH_SOURCE,
+                ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER,
+                ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_TTL,
+                ModuleConfig::OPTION_REQUEST_URI_FETCH_TIMEOUT,
+                ModuleConfig::OPTION_REQUEST_URI_MAX_SIZE_BYTES,
+            ] as $configOption
+        ) {
+            $row = $this->findRowForOption($sections, $configOption);
+
+            $this->assertNotNull($row, "No row found for $configOption");
+            $this->assertSame(
+                ConfigOverviewValueTypeEnum::RawText,
+                $row->getValueType(),
+                "Configured value for $configOption must not be passed through the translator.",
+            );
+        }
+    }
+
+    public function testWarnsWhenTlsVerificationIsDisabled(): void
+    {
+        $sections = $this->buildProtocolOverviewBuilder([
+            ModuleConfig::OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS => ['verify' => false],
+        ])->build();
+
+        $row = $this->findRowForOption($sections, ModuleConfig::OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS);
+
+        $this->assertNotNull($row);
+        $this->assertStringContainsString('man-in-the-middle', (string)$row->getWarning());
+    }
+
+    public function testDoesNotWarnAboutTlsVerificationByDefault(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder()->build(),
+            ModuleConfig::OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertNull($row->getWarning());
+    }
+
+    public function testShowsFederationRequestUriAllowlist(): void
+    {
+        $deniedRow = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder()->build(),
+            ModuleConfig::OPTION_FEDERATION_REQUEST_URI_ALLOWED_PREFIXES,
+        );
+        $this->assertNotNull($deniedRow);
+        $this->assertStringContainsString('None', (string)$deniedRow->getValue());
+        $this->assertNull($deniedRow->getWarning());
+
+        $allowlistedRow = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder([
+                ModuleConfig::OPTION_FEDERATION_REQUEST_URI_ALLOWED_PREFIXES => ['https://rp.example.org/'],
+            ])->build(),
+            ModuleConfig::OPTION_FEDERATION_REQUEST_URI_ALLOWED_PREFIXES,
+        );
+        $this->assertNotNull($allowlistedRow);
+        $this->assertSame(['https://rp.example.org/'], $allowlistedRow->getValue());
+        $this->assertNull($allowlistedRow->getWarning());
+    }
+
+    public function testWarnsWhenAnyFederationRequestUriIsAllowed(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder([
+                ModuleConfig::OPTION_FEDERATION_ENABLED => true,
+                ModuleConfig::OPTION_FEDERATION_REQUEST_URI_ALLOWED_PREFIXES => null,
+            ])->build(),
+            ModuleConfig::OPTION_FEDERATION_REQUEST_URI_ALLOWED_PREFIXES,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertStringContainsString('server-side request forgery', (string)$row->getWarning());
+    }
+
+    public function testDoesNotWarnAboutRequestUriAllowlistWhenFetchingIsDisabled(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder([
+                ModuleConfig::OPTION_FEDERATION_ENABLED => true,
+                ModuleConfig::OPTION_REQUEST_URI_PARAMETER_SUPPORTED => false,
+                ModuleConfig::OPTION_FEDERATION_REQUEST_URI_ALLOWED_PREFIXES => null,
+            ])->build(),
+            ModuleConfig::OPTION_FEDERATION_REQUEST_URI_ALLOWED_PREFIXES,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertNull($row->getWarning());
+    }
+
+    /**
+     * RequestParamsResolver only takes the federation by-reference path when federation is enabled,
+     * so warning about it while federation is off would be a false alarm.
+     */
+    public function testDoesNotWarnAboutRequestUriAllowlistWhenFederationIsDisabled(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder([
+                ModuleConfig::OPTION_FEDERATION_ENABLED => false,
+                ModuleConfig::OPTION_REQUEST_URI_PARAMETER_SUPPORTED => true,
+                ModuleConfig::OPTION_FEDERATION_REQUEST_URI_ALLOWED_PREFIXES => null,
+            ])->build(),
+            ModuleConfig::OPTION_FEDERATION_REQUEST_URI_ALLOWED_PREFIXES,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertNull($row->getWarning());
+        $this->assertStringContainsString('Federation is disabled', (string)$row->getNote());
+    }
+
+    public function testWarnsWhenDynamicClientRegistrationIsOpen(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder([ModuleConfig::OPTION_DCR_ENABLED => true])->build(),
+            ModuleConfig::OPTION_DCR_REGISTRATION_AUTH,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertStringContainsString('open', (string)$row->getWarning());
+    }
+
+    public function testDoesNotWarnAboutOpenRegistrationWhenDcrIsDisabled(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder()->build(),
+            ModuleConfig::OPTION_DCR_REGISTRATION_AUTH,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertNull($row->getWarning());
+    }
+
+    public function testWarnsWhenInitialAccessTokenModeHasNoTokens(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder([
+                ModuleConfig::OPTION_DCR_ENABLED => true,
+                ModuleConfig::OPTION_DCR_REGISTRATION_AUTH => DcrRegistrationAuthEnum::InitialAccessToken->value,
+                ModuleConfig::OPTION_DCR_INITIAL_ACCESS_TOKENS => [],
+            ])->build(),
+            ModuleConfig::OPTION_DCR_INITIAL_ACCESS_TOKENS,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertStringContainsString('rejected', (string)$row->getWarning());
+    }
+
+    public function testWarnsWhenImpersonationProtectionIsDisabled(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder([
+                ModuleConfig::OPTION_DCR_ENABLED => true,
+                ModuleConfig::OPTION_DCR_IMPERSONATION_PROTECTION_ENABLED => false,
+            ])->build(),
+            ModuleConfig::OPTION_DCR_IMPERSONATION_PROTECTION_ENABLED,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertNotNull($row->getWarning());
+    }
+
+    public function testNotesWhenDcrDefaultScopesFallBackToAllSupported(): void
+    {
+        $fallbackRow = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder()->build(),
+            ModuleConfig::OPTION_DCR_DEFAULT_SCOPES,
+        );
+        $this->assertNotNull($fallbackRow);
+        $this->assertStringContainsString('offline_access', (string)$fallbackRow->getNote());
+
+        $configuredRow = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder(
+                [ModuleConfig::OPTION_DCR_DEFAULT_SCOPES => ['openid']],
+            )->build(),
+            ModuleConfig::OPTION_DCR_DEFAULT_SCOPES,
+        );
+        $this->assertNotNull($configuredRow);
+        $this->assertNull($configuredRow->getNote());
+        $this->assertSame(['openid'], $configuredRow->getValue());
+    }
+
+    public function testMarksScopeOrigin(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder([
+                ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES => [
+                    'private' => [
+                        'description' => 'private scope',
+                        'claim_name_prefix' => 'prefix_',
+                        'are_multiple_claim_values_allowed' => true,
+                        'claims' => ['national_document_id'],
+                    ],
+                ],
+            ])->build(),
+            ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame(ConfigOverviewValueTypeEnum::Scopes, $row->getValueType());
+
+        $scopes = $row->getValue();
+        $this->assertIsArray($scopes);
+
+        $scopesByName = array_column($scopes, null, 'name');
+
+        $this->assertSame('Standard', $scopesByName['openid']['origin']);
+        $this->assertSame('Custom', $scopesByName['private']['origin']);
+        $this->assertSame('prefix_', $scopesByName['private']['claimNamePrefix']);
+        $this->assertTrue($scopesByName['private']['areMultipleClaimValuesAllowed']);
+        $this->assertSame(['national_document_id'], $scopesByName['private']['claims']);
+    }
+
+    public function testRendersAuthProcFiltersInBothConfigForms(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder([
+                ModuleConfig::OPTION_AUTH_PROCESSING_FILTERS => [
+                    10 => ['class' => 'core:AttributeMap'],
+                    20 => 'core:TargetedID',
+                    30 => ['no-class-key' => 'value'],
+                ],
+            ])->build(),
+            ModuleConfig::OPTION_AUTH_PROCESSING_FILTERS,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame(
+            [
+                '10: core:AttributeMap',
+                '20: core:TargetedID',
+                '30: [filter class not set]',
+            ],
+            $row->getValue(),
+        );
+    }
+
+    /**
+     * SimpleSAMLphp's ProcessingChain runs filters by priority, not by order of declaration, so the
+     * overview must show the effective execution order.
+     */
+    public function testSortsAuthProcFiltersByPriority(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder([
+                ModuleConfig::OPTION_AUTH_PROCESSING_FILTERS => [
+                    50 => ['class' => 'core:LastToRun'],
+                    10 => ['class' => 'core:FirstToRun'],
+                    30 => ['class' => 'core:SecondToRun'],
+                ],
+            ])->build(),
+            ModuleConfig::OPTION_AUTH_PROCESSING_FILTERS,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame(
+            [
+                '10: core:FirstToRun',
+                '30: core:SecondToRun',
+                '50: core:LastToRun',
+            ],
+            $row->getValue(),
+        );
+    }
+
+    public function testShowsRegistrationEndpointOnlyWhenDcrIsEnabled(): void
+    {
+        $labels = fn(array $sections): array => array_map(
+            fn(Row $row): string => $row->getLabel(),
+            $this->flattenRows($sections),
+        );
+
+        $this->assertNotContains(
+            'Client Registration',
+            $labels($this->buildProtocolOverviewBuilder()->build()),
+        );
+
+        $this->assertContains(
+            'Client Registration',
+            $labels($this->buildProtocolOverviewBuilder([ModuleConfig::OPTION_DCR_ENABLED => true])->build()),
+        );
+    }
+}

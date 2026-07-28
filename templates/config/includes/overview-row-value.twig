@@ -1,0 +1,110 @@
+{#
+    Renders the value of a single configuration overview row.
+
+    Expects:
+    - row: \SimpleSAML\Module\oidc\Admin\ConfigOverview\Row
+
+    Value types come from \SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum.
+#}
+{% set valueType = row.valueType.value %}
+
+{% if valueType == 'url' %}
+
+    <a href="{{ row.value }}" target="_blank" rel="noopener noreferrer">{{ row.value }}</a>
+
+{% elseif valueType == 'stringList' %}
+
+    {% if row.value is not empty %}
+        <ul class="disc">
+            {% for item in row.value %}
+                <li>{{ item }}</li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        {{ 'N/A'|trans }}
+    {% endif %}
+
+{% elseif valueType == 'stringMap' %}
+
+    {% if row.value is not empty %}
+        <ul class="disc">
+            {% for key, values in row.value %}
+                <li>
+                    <strong>{{ key }}</strong>:
+                    {% for value in values %}{{ value }}{{ loop.last ? '' : ', ' }}{% endfor %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        {{ 'N/A'|trans }}
+    {% endif %}
+
+{% elseif valueType == 'json' %}
+
+    {% if row.value is not empty %}
+        <code class="code-box code-box-content">
+            {{- row.value|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_SLASHES')) -}}
+        </code>
+    {% else %}
+        {{ 'N/A'|trans }}
+    {% endif %}
+
+{% elseif valueType == 'signatureKeyPairs' %}
+
+    {% for signatureKeyPair in row.value.getAll %}
+        <div class="config-key-pair">
+            <strong>{{ signatureKeyPair.getSignatureAlgorithm.value }}</strong>
+            {% if loop.first %}
+                <em>({{ 'default'|trans }})</em>
+            {% endif %}
+            <br>
+            {{ 'Key ID'|trans }}: <code>{{ signatureKeyPair.getKeyPair.getKeyId }}</code>
+            <code class="code-box code-box-content">
+                {{- signatureKeyPair.getKeyPair.getPublicKey.jsonSerialize|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_SLASHES')) -}}
+            </code>
+        </div>
+    {% endfor %}
+
+{% elseif valueType == 'scopes' %}
+
+    {% if row.value is not empty %}
+        <ul class="disc">
+            {% for scope in row.value %}
+                <li>
+                    <strong>{{ scope.name }}</strong>
+                    <em>({{ scope.origin|trans }})</em>
+                    {% if scope.description is not empty and scope.description != scope.name %}
+                        &mdash; {{ scope.description }}
+                    {% endif %}
+                    {% if scope.claims is not empty %}
+                        <br>
+                        <small>
+                            {{ 'Claims'|trans }}:
+                            {% for claim in scope.claims %}{{ claim }}{{ loop.last ? '' : ', ' }}{% endfor %}
+                        </small>
+                    {% endif %}
+                    {% if scope.claimNamePrefix %}
+                        <br>
+                        <small>{{ 'Claim name prefix'|trans }}: <code>{{ scope.claimNamePrefix }}</code></small>
+                    {% endif %}
+                    {% if scope.areMultipleClaimValuesAllowed %}
+                        <br>
+                        <small>{{ 'Multiple claim values allowed'|trans }}</small>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        {{ 'N/A'|trans }}
+    {% endif %}
+
+{% elseif valueType == 'rawText' %}
+
+    {# Configured data, shown verbatim and deliberately not translated. #}
+    {{ row.value }}
+
+{% else %}
+
+    {{ row.value|trans }}
+
+{% endif %}

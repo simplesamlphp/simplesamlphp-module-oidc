@@ -1,0 +1,38 @@
+{#
+    Renders a list of configuration overview sections, preceded by an in-page table of contents.
+
+    Expects:
+    - sections: \SimpleSAML\Module\oidc\Admin\ConfigOverview\Section[]
+#}
+<nav class="config-toc">
+    {% for section in sections %}
+        <a href="#{{ section.anchor }}">{{ section.title|trans }}</a>{{ loop.last ? '' : ' | ' }}
+    {% endfor %}
+</nav>
+
+{% for section in sections %}
+    <h4 id="{{ section.anchor }}">{{ section.title|trans }}</h4>
+
+    <table class="pure-table pure-table-striped config-table">
+        <tbody>
+        {% for row in section.rows %}
+            <tr>
+                <td class="config-col col-property">{{ row.label|trans }}</td>
+                <td>
+                    {% include '@oidc/config/includes/overview-row-value.twig' with { row: row } only %}
+
+                    {% if row.warning %}
+                        <div class="config-warning">
+                            <i class="fa fa-triangle-exclamation"></i> {{ row.warning|trans }}
+                        </div>
+                    {% endif %}
+
+                    {% if row.note %}
+                        <div class="config-note">{{ row.note|trans }}</div>
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% endfor %}
