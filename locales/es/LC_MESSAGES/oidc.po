@@ -972,3 +972,255 @@ msgstr ""
 msgid "[filter class not set]"
 msgstr ""
 
+msgid ""
+"All OpenID Federation capabilities are off, and the federation "
+"endpoints are not served. The settings below are inert until this is "
+"enabled."
+msgstr ""
+
+msgid "Also this entity's Entity Identifier in the federation."
+msgstr ""
+
+msgid "Always required"
+msgstr ""
+
+msgid ""
+"At least one resolved Trust Mark could not be read and is not listed "
+"here, for example because its 'trust_mark_type' claim is missing. "
+"The reason was written to the SimpleSAMLphp log."
+msgstr ""
+
+msgid ""
+"At least one Trust Anchor has a JWKS value which is neither a JSON "
+"string nor null. Trust Chain validation against it will fail."
+msgstr ""
+
+msgid ""
+"A Trust Anchor without a JWKS is validated only by the keys acquired "
+"during Trust Chain resolution, so its security relies on TLS alone."
+msgstr ""
+
+msgid ""
+"Avoids recomputing the JWS signature for statements this OP "
+"publishes on every request."
+msgstr ""
+
+msgid ""
+"Before running the migrations, make sure that the database user has "
+"proper privileges to change the scheme (for example, <kbd>alter, "
+"create, drop, index</kbd>). After running the migrations, it is a "
+"good practice to remove those privileges."
+msgstr ""
+
+msgid "Cache Duration for Produced Artifacts"
+msgstr ""
+
+msgid ""
+"Caps how long a fetched artifact is cached, since its own expiry is "
+"set by the issuer and can be long. Lower values propagate federation "
+"changes faster."
+msgstr ""
+
+msgid "Credential Issuer Configuration URL"
+msgstr ""
+
+msgid ""
+"Depth and authority hints multiply out, so this budget and the "
+"timeout below are the effective bounds. Clamped by the library to "
+"1..1000."
+msgstr ""
+
+msgid "Display Name"
+msgstr ""
+
+msgid "Dynamically Fetched Trust Marks"
+msgstr ""
+
+msgid ""
+"Entity Identifiers of the Intermediates or Trust Anchors directly "
+"above this entity. Required if this entity has a Superior."
+msgstr ""
+
+msgid "Federation Configuration URL"
+msgstr ""
+
+msgid "Federation HTTP Client Options"
+msgstr ""
+
+msgid "Federation Participation Limits"
+msgstr ""
+
+msgid "Federation Signature Key Pairs"
+msgstr ""
+
+msgid ""
+"Hops from the leaf entity up to a Trust Anchor. Clamped by the "
+"library to 1..20."
+msgstr ""
+
+msgid "Information URI"
+msgstr ""
+
+msgid "Invalid, expected a JWKS JSON string or null"
+msgstr ""
+
+msgid "JWT VC Issuer Configuration URL"
+msgstr ""
+
+msgid "Keywords"
+msgstr ""
+
+msgid "Maximum Authority Hints per Entity"
+msgstr ""
+
+msgid "Maximum Cache Duration for Fetched Artifacts"
+msgstr ""
+
+msgid "Maximum Entity Statement Fetches per Resolution"
+msgstr ""
+
+msgid "Maximum Fetch Response Size (bytes)"
+msgstr ""
+
+msgid "Maximum Trust Chain Depth"
+msgstr ""
+
+msgid ""
+"Merged over the library's hardening defaults, so a value set here "
+"replaces the corresponding default. Of note: 'timeout' and "
+"'connect_timeout' (Guzzle reads 0 as no timeout), and "
+"'allow_redirects' (the library restricts redirects to at most 3 "
+"https hops)."
+msgstr ""
+
+msgid "Not served, since OpenID Federation is disabled."
+msgstr ""
+
+msgid ""
+"Not set, so no federation caching is performed and every Trust Chain "
+"resolution refetches. Setting a cache adapter is recommended in "
+"production."
+msgstr ""
+
+msgid ""
+"Not set, so the library's hardening defaults apply, including TLS "
+"verification and restricted redirects."
+msgstr ""
+
+msgid "Not used"
+msgstr ""
+
+msgid "Not used, since no federation cache adapter is configured."
+msgstr ""
+
+msgid "Organization URI"
+msgstr ""
+
+msgid ""
+"Per Trust Anchor, the Trust Marks an entity must hold in order to "
+"participate. 'one_of' requires at least one from the list, 'all_of' "
+"requires them all. Trust Anchors which are not listed apply no Trust "
+"Mark limit."
+msgstr ""
+
+msgid "Required for non-expiring Trust Marks only"
+msgstr ""
+
+msgid "Required if the issuer provides the endpoint"
+msgstr ""
+
+msgid ""
+"Required if the issuer provides the endpoint, for non-expiring Trust "
+"Marks only"
+msgstr ""
+
+msgid "Resolved Trust Marks"
+msgstr ""
+
+msgid ""
+"Sets the Expiration Time (exp) claim on Entity Statements published "
+"by this OP."
+msgstr ""
+
+msgid ""
+"Signed JWTs held in configuration, intended for long lasting or "
+"non-expiring Trust Marks. Their decoded payloads are listed above."
+msgstr ""
+
+msgid ""
+"Some entries have an unexpected shape. Each Trust Anchor must map to "
+"a list of limits, and each limit to a list of Trust Mark Type "
+"strings."
+msgstr ""
+
+msgid ""
+"Statically configured tokens together with the dynamically fetched "
+"ones. A Trust Mark which could not be fetched is reported as a "
+"message at the top of this screen instead of appearing here."
+msgstr ""
+
+msgid "Statically Configured Trust Mark Tokens"
+msgstr ""
+
+msgid "The branching factor. Clamped by the library to 1..12."
+msgstr ""
+
+msgid ""
+"These limits matter because Trust Chain resolution is reachable on "
+"an unauthenticated path, walking entity configurations fetched from "
+"arbitrary, possibly hostile, federation entities."
+msgstr ""
+
+msgid ""
+"This option could not be resolved, so what is shown here may be "
+"incomplete. The reason was written to the SimpleSAMLphp log."
+msgstr ""
+
+msgid "Trust Anchors and Authority Hints"
+msgstr ""
+
+msgid "Trust Chain resolution limits"
+msgstr ""
+
+msgid "Trust Chain Resolve Timeout (seconds)"
+msgstr ""
+
+msgid "Trust Mark Status Endpoint Usage Policy"
+msgstr ""
+
+msgid "Trust Mark Type, and the Trust Mark Issuer it is fetched from."
+msgstr ""
+
+msgid ""
+"Unrecognized limit identifiers and entries of an unexpected shape "
+"are configured. The runtime validator rejects both, so federation "
+"participation will fail for the affected Trust Anchors."
+msgstr ""
+
+msgid ""
+"Unrecognized limit identifiers are configured, which the runtime "
+"validator rejects. Only 'one_of' and 'all_of' are supported."
+msgstr ""
+
+msgid ""
+"Used to sign Entity Statements. The first entry is the default "
+"signing key. These keys should not be the same as the protocol "
+"(Connect) signing keys."
+msgstr ""
+
+msgid "Verifiable Credential Enabled"
+msgstr ""
+
+msgid "Verifiable Credential Settings"
+msgstr ""
+
+msgid ""
+"Wall-clock deadline for one resolution. Clamped by the library to "
+"1..300."
+msgstr ""
+
+msgid ""
+"When the Trust Mark Issuer's status endpoint is consulted to check "
+"whether a Trust Mark is still valid."
+msgstr ""
+
