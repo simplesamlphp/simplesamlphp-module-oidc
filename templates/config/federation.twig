@@ -51,7 +51,7 @@
     </p>
     <p>
         {{ 'Entity Statement Duration'|trans }}:
-        {{ moduleConfig.getFederationEntityStatementDuration|date("%mm %dd %hh %i' %s''") }}
+        {{ moduleConfig.getFederationEntityStatementDuration|date("%yy %mm %dd %hh %i' %s''") }}
     </p>
 
     <h4>{{ 'Signature algorithms and public keys'|trans }}</h4>
@@ -119,10 +119,10 @@
         {{ moduleConfig.getFederationCacheAdapterClass|default('N/A'|trans) }}
         <br>
         {{ 'Maximum Cache Duration For Fetched Artifacts'|trans }}:
-        {{ moduleConfig.getFederationCacheMaxDurationForFetched|date("%mm %dd %hh %i' %s''") }}
+        {{ moduleConfig.getFederationCacheMaxDurationForFetched|date("%yy %mm %dd %hh %i' %s''") }}
         <br>
         {{ 'Cache Duration For Produced Artifacts'|trans }}:
-        {{ moduleConfig.getFederationEntityStatementCacheDurationForProduced|date("%mm %dd %hh %i' %s''") }}
+        {{ moduleConfig.getFederationEntityStatementCacheDurationForProduced|date("%yy %mm %dd %hh %i' %s''") }}
 
     </p>
 
