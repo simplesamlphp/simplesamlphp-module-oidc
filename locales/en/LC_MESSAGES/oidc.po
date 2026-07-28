@@ -576,3 +576,399 @@ msgstr ""
 
 msgid "Continue"
 msgstr ""
+
+msgid "'request_uri' Fetch Timeout (seconds)"
+msgstr ""
+
+msgid "'request_uri' Maximum Response Size (bytes)"
+msgstr ""
+
+msgid "Access Token TTL"
+msgstr ""
+
+msgid "ACRs are listed in order of importance, most important first."
+msgstr ""
+
+msgid "Allowed Request URI Prefixes for Federation Candidates"
+msgstr ""
+
+msgid "Any request URI is allowed"
+msgstr ""
+
+msgid ""
+"Any request URI supplied by an unregistered federation candidate "
+"will be fetched, which is a server-side request forgery surface. "
+"Configure explicit prefixes instead."
+msgstr ""
+
+msgid "API"
+msgstr ""
+
+msgid "API Enabled"
+msgstr ""
+
+msgid "API Tokens"
+msgstr ""
+
+msgid ""
+"Applied to Back-Channel Logout requests sent to a client's "
+"'backchannel_logout_uri'. Merged over a 3 second connect and total "
+"timeout."
+msgstr ""
+
+msgid ""
+"Applied to Back-Channel Logout requests sent to a client's "
+"'backchannel_logout_uri'. Merged over a 3 second connect and total "
+"timeout. Not set, so TLS verification stays enabled."
+msgstr ""
+
+msgid ""
+"Applied to protocol-layer fetches, such as a client's 'jwks_uri' or "
+"a 'request_uri'."
+msgstr ""
+
+msgid ""
+"Applied to protocol-layer fetches, such as a client's 'jwks_uri' or "
+"a 'request_uri'. Not set, so the library defaults apply, including "
+"TLS verification."
+msgstr ""
+
+msgid ""
+"Applies only to OpenID Federation candidates, that is, clients which "
+"are not registered in storage. For registered clients the request "
+"URI must match one of their own registered request URIs exactly."
+msgstr ""
+
+msgid "Authorization"
+msgstr ""
+
+msgid "Authorization Code TTL"
+msgstr ""
+
+msgid "Back-Channel Logout HTTP Client Options"
+msgstr ""
+
+msgid "Cache Adapter Arguments"
+msgstr ""
+
+msgid "Claim name prefix"
+msgstr ""
+
+msgid "Claims"
+msgstr ""
+
+msgid "Client Entity Cache Duration"
+msgstr ""
+
+msgid "Client Registration"
+msgstr ""
+
+msgid ""
+"Consulted in the order shown. The first attribute actually present "
+"in the released attributes is used as the user identifier, and as "
+"the default source for the 'sub' claim."
+msgstr ""
+
+msgid "Custom"
+msgstr ""
+
+msgid "Dedicated encryption key configured"
+msgstr ""
+
+msgid "default"
+msgstr ""
+
+msgid "Default Scopes for Scope-less Registrations"
+msgstr ""
+
+msgid "Derived from the SimpleSAMLphp secret salt"
+msgstr ""
+
+msgid ""
+"Disabled, so a rogue client can reuse the branding and links of a "
+"legitimate one during registration."
+msgstr ""
+
+msgid "Dynamic Client Registration"
+msgstr ""
+
+msgid "Encryption Key"
+msgstr ""
+
+msgid "Endpoints"
+msgstr ""
+
+msgid "End Session"
+msgstr ""
+
+msgid "Forced ACR for Cookie Authentication"
+msgstr ""
+
+msgid "Impersonation Protection"
+msgstr ""
+
+msgid "Initial Access Token required"
+msgstr ""
+
+msgid "Initial Access Tokens"
+msgstr ""
+
+msgid "Key ID"
+msgstr ""
+
+msgid "Master switch for the module specific (non-protocol) API endpoints."
+msgstr ""
+
+msgid "Multiple claim values allowed"
+msgstr ""
+
+msgid "None, so no such request URI is fetched"
+msgstr ""
+
+msgid "None configured"
+msgstr ""
+
+msgid ""
+"No specific ACR is forced, so the resulting ACR is one of those "
+"supported by the auth source used during session creation."
+msgstr ""
+
+msgid ""
+"Not configured, so this falls back to every scope this OP supports, "
+"meaning a client which registers without a 'scope' may request any "
+"of them, including 'offline_access'."
+msgstr ""
+
+msgid ""
+"Not configured, so this falls back to the SimpleSAMLphp session "
+"duration."
+msgstr ""
+
+msgid ""
+"Not configured, so this falls back to the SimpleSAMLphp session "
+"duration. Not used anyway, since no cache adapter is configured."
+msgstr ""
+
+msgid ""
+"Not explicitly configured, so it is derived from the current HTTP "
+"host. This means the issuer can change depending on how the OP is "
+"reached."
+msgstr ""
+
+msgid ""
+"Not set, so no protocol caching is performed. Setting a cache "
+"adapter is recommended in production."
+msgstr ""
+
+msgid "Not used, since no cache adapter is configured."
+msgstr ""
+
+msgid ""
+"Not used, since OpenID Federation is disabled and the by-reference "
+"fetch for federation candidates therefore never runs."
+msgstr ""
+
+msgid "OAuth2 Authorization Server Metadata URL"
+msgstr ""
+
+msgid "OAuth2 Token Introspection Endpoint Enabled"
+msgstr ""
+
+msgid "Open (no authentication required)"
+msgstr ""
+
+msgid "OpenID Connect Discovery URL"
+msgstr ""
+
+msgid ""
+"Order matters. The first entry is the default signing key, and is "
+"used when a client does not designate a signing algorithm. "
+"Additional entries are advertised on the JWKS endpoint, which is "
+"what makes key rollover possible."
+msgstr ""
+
+msgid "Outbound HTTP requests"
+msgstr ""
+
+msgid "PAR Request URI TTL"
+msgstr ""
+
+msgid ""
+"Protects issued authorization codes and refresh tokens. The value "
+"itself is a secret and is never shown here. Changing it invalidates "
+"all outstanding encrypted artifacts."
+msgstr ""
+
+msgid "Protocol HTTP Client Options"
+msgstr ""
+
+msgid "Protocol Signature Key Pairs"
+msgstr ""
+
+msgid "Publish 'claims_supported' in Discovery"
+msgstr ""
+
+msgid "Published in the OP discovery document as 'acr_values_supported'."
+msgstr ""
+
+msgid "Pushed Authorization Request (PAR)"
+msgstr ""
+
+msgid "Refresh Token TTL"
+msgstr ""
+
+msgid "Registered Clients Are Enabled"
+msgstr ""
+
+msgid "Registration Access Control"
+msgstr ""
+
+msgid ""
+"Registration is open, so anyone can register a client without "
+"authenticating. Protect the endpoint from abuse using rate limiting "
+"at the web server level."
+msgstr ""
+
+msgid ""
+"Registration requires an Initial Access Token, but none are "
+"configured, so every registration attempt will be rejected."
+msgstr ""
+
+msgid "Request Object and Pushed Authorization Requests"
+msgstr ""
+
+msgid "Request Objects can only be passed by value, and through PAR."
+msgstr ""
+
+msgid "Require Pushed Authorization Requests (PAR)"
+msgstr ""
+
+msgid ""
+"Requires every Relying Party to sign its Request Objects, and the OP "
+"to have their signing keys available."
+msgstr ""
+
+msgid "Require Signed Request Object"
+msgstr ""
+
+msgid ""
+"Run for every OIDC authentication, in the order shown, which is by "
+"priority. Per-client filters are merged into the same chain by "
+"priority as well."
+msgstr ""
+
+msgid "SAML Attribute to OIDC Claim Translation"
+msgstr ""
+
+msgid "Scopes and claims"
+msgstr ""
+
+msgid "Signature algorithms and public keys"
+msgstr ""
+
+msgid "Standard"
+msgstr ""
+
+msgid ""
+"Standard scopes are always available. Custom scopes come from "
+"configuration, while Verifiable Credential scopes are derived from "
+"the supported credential configurations, and only exist while that "
+"capability is enabled."
+msgstr ""
+
+msgid "Support 'request_uri' Parameter"
+msgstr ""
+
+msgid ""
+"The API is enabled, but no API tokens are configured, so it can only "
+"be used by a logged in SimpleSAMLphp administrator. Token "
+"authenticated callers will be rejected."
+msgstr ""
+
+msgid ""
+"The effective table: module defaults with the configured translation "
+"table merged over them, the user identifier attributes prepended to "
+"the 'sub' claim, and any per-scope claim name prefixes already "
+"applied."
+msgstr ""
+
+msgid ""
+"The OP fetches Request Objects by reference, which means outbound "
+"HTTP requests to URIs supplied in authorization requests. Disable it "
+"to remove that surface entirely. Pushed Authorization Request URIs "
+"(urn form) are not affected."
+msgstr ""
+
+msgid ""
+"The registration and client configuration endpoints are not served, "
+"and the 'registration_endpoint' claim is not advertised in OP "
+"metadata."
+msgstr ""
+
+msgid "The tokens themselves are secrets and are never shown here."
+msgstr ""
+
+msgid "Timestamp Validation Leeway"
+msgstr ""
+
+msgid ""
+"TLS certificate verification is disabled, which exposes these "
+"requests to man-in-the-middle attacks. Never use this in production."
+msgstr ""
+
+msgid "Token"
+msgstr ""
+
+msgid "Token Introspection Endpoint"
+msgstr ""
+
+msgid "Tokens and cryptography"
+msgstr ""
+
+msgid ""
+"Tolerance allowed when validating timestamp claims (exp, iat, nbf) "
+"on JWS artifacts."
+msgstr ""
+
+msgid ""
+"Used for clients which do not have their own authentication source "
+"set."
+msgstr ""
+
+msgid "User Identifier Attributes"
+msgstr ""
+
+msgid "UserInfo"
+msgstr ""
+
+msgid ""
+"Values are not shown, since adapter arguments can carry connection "
+"credentials."
+msgstr ""
+
+msgid "Verifiable Credential"
+msgstr ""
+
+msgid ""
+"When disabled, dynamically registered clients must be reviewed and "
+"enabled by an administrator before they can obtain tokens."
+msgstr ""
+
+msgid ""
+"When enabled, the discovery document lists all claims for which a "
+"translation is defined."
+msgstr ""
+
+msgid ""
+"When enabled, the host of a client's logo_uri, policy_uri and "
+"tos_uri must match the host of one of its redirect URIs."
+msgstr ""
+
+msgid ""
+"When required, authorization requests which do not reference a "
+"previously pushed request are rejected."
+msgstr ""
+
+msgid "[filter class not set]"
+msgstr ""
+
