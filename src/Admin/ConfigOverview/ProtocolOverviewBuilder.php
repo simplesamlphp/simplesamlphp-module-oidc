@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Admin\ConfigOverview;
 
-use DateInterval;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\DcrRegistrationAuthEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\DateIntervalFormatter;
 use SimpleSAML\Module\oidc\Utils\Routes;
@@ -24,7 +24,7 @@ use SimpleSAML\Module\oidc\Utils\Routes;
  * Secret values (encryption key, initial access tokens, API tokens, cache adapter credentials,
  * private key passwords) must never be rendered. For those, report whether they are configured.
  */
-class ProtocolOverviewBuilder
+class ProtocolOverviewBuilder extends AbstractOverviewBuilder
 {
     /**
      * Custom scope config keys, mirroring ClaimTranslatorExtractorFactory.
@@ -34,44 +34,14 @@ class ProtocolOverviewBuilder
     protected const string SCOPE_KEY_CLAIM_NAME_PREFIX = 'claim_name_prefix';
     protected const string SCOPE_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED = 'are_multiple_claim_values_allowed';
 
-    /**
-     * Placeholder shown instead of an HTTP client option value which is not on the allowlist below.
-     */
-    protected const string REDACTED = '(not shown)';
-
-    /**
-     * Guzzle request options which are safe to render verbatim.
-     *
-     * The HTTP client option arrays are passed through to Guzzle as configured, so they can carry
-     * credentials: 'auth' holds basic auth user and password, 'proxy' can embed userinfo in the URL,
-     * 'headers' can hold an Authorization or Cookie header, and 'cert' / 'ssl_key' can hold a
-     * private key passphrase. An allowlist is used rather than a denylist of known-secret keys, so
-     * that a Guzzle option added in the future does not leak by default. Redacted options still have
-     * their name shown, so it stays visible that they are set.
-     *
-     * @see https://docs.guzzlephp.org/en/stable/request-options.html
-     */
-    protected const array DISPLAYABLE_HTTP_CLIENT_OPTIONS = [
-        'allow_redirects',
-        'connect_timeout',
-        'decode_content',
-        'expect',
-        'force_ip_resolve',
-        'http_errors',
-        'read_timeout',
-        'stream',
-        'synchronous',
-        'timeout',
-        'verify',
-        'version',
-    ];
-
     public function __construct(
-        protected readonly ModuleConfig $moduleConfig,
-        protected readonly Routes $routes,
-        protected readonly DateIntervalFormatter $dateIntervalFormatter,
+        ModuleConfig $moduleConfig,
+        Routes $routes,
+        DateIntervalFormatter $dateIntervalFormatter,
+        LoggerService $logger,
         protected readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
     ) {
+        parent::__construct($moduleConfig, $routes, $dateIntervalFormatter, $logger);
     }
 
     /**
@@ -696,92 +666,6 @@ class ProtocolOverviewBuilder
         return new Section(Translate::noop('API'), 'api', ...$rows);
     }
 
-    protected function buildDurationRow(
-        string $label,
-        DateInterval $duration,
-        string $configOption,
-        ?string $note = null,
-    ): Row {
-        return new Row(
-            $label,
-            $this->dateIntervalFormatter->toHumanReadable($duration) .
-            ' (' . $this->dateIntervalFormatter->toDurationSpec($duration) . ')',
-            // Composed of a count, an English unit name and the configured duration spec, so it is
-            // rendered as-is rather than looked up in the message catalog.
-            ConfigOverviewValueTypeEnum::RawText,
-            $configOption,
-            $note,
-        );
-    }
-
-    /**
-     * @param array<string,mixed> $options
-     */
-    protected function buildHttpClientOptionsRow(
-        string $label,
-        array $options,
-        string $configOption,
-        string $note,
-        string $noteWhenNotSet,
-    ): Row {
-        // Note that the check runs against the raw options, before redaction.
-        $isTlsVerificationDisabled = array_key_exists('verify', $options) && $options['verify'] === false;
-
-        return new Row(
-            $label,
-            $this->redactHttpClientOptions($options),
-            ConfigOverviewValueTypeEnum::Json,
-            $configOption,
-            $options === [] ? $noteWhenNotSet : $note,
-            $isTlsVerificationDisabled ? Translate::noop(
-                'TLS certificate verification is disabled, which exposes these requests to ' .
-                'man-in-the-middle attacks. Never use this in production.',
-            ) : null,
-        );
-    }
-
-    /**
-     * Replace every HTTP client option value which is not explicitly allowlisted, so that a
-     * credential carried in these options can not reach the screen.
-     *
-     * @param array<string,mixed> $options
-     * @return array<string,mixed>
-     */
-    protected function redactHttpClientOptions(array $options): array
-    {
-        $redacted = [];
-
-        /** @var mixed $value */
-        foreach ($options as $key => $value) {
-            /** @psalm-suppress MixedAssignment */
-            $redacted[$key] = in_array($key, self::DISPLAYABLE_HTTP_CLIENT_OPTIONS, true) ?
-            $value :
-            self::REDACTED;
-        }
-
-        return $redacted;
-    }
-
-    /**
-     * Row reporting how many secret values are configured, without disclosing any of them.
-     */
-    protected function buildSecretCountRow(
-        string $label,
-        int $count,
-        string $configOption,
-        string $note,
-        ?string $warning = null,
-    ): Row {
-        return new Row(
-            $label,
-            $count === 0 ? Translate::noop('None configured') : (string)$count,
-            $count === 0 ? ConfigOverviewValueTypeEnum::Text : ConfigOverviewValueTypeEnum::RawText,
-            $configOption,
-            $note,
-            $warning,
-        );
-    }
-
     /**
      * Human readable description of the Dynamic Client Registration access-control mode.
      */
@@ -885,31 +769,5 @@ class ProtocolOverviewBuilder
         }
 
         return $scopes;
-    }
-
-    protected function yesNo(bool $value): string
-    {
-        return $value ? Translate::noop('Yes') : Translate::noop('No');
-    }
-
-    protected function formatBytes(int $bytes): string
-    {
-        if ($bytes >= 1048576) {
-            return sprintf('%d B (%s MB)', $bytes, $this->formatDecimal($bytes / 1048576));
-        }
-
-        if ($bytes >= 1024) {
-            return sprintf('%d B (%s KB)', $bytes, $this->formatDecimal($bytes / 1024));
-        }
-
-        return sprintf('%d B', $bytes);
-    }
-
-    /**
-     * Render a number with at most one decimal place, dropping a trailing '.0'.
-     */
-    protected function formatDecimal(float $value): string
-    {
-        return rtrim(rtrim(number_format($value, 1, '.', ''), '0'), '.');
     }
 }

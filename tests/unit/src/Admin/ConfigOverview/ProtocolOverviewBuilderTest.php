@@ -18,6 +18,7 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 #[CoversClass(Section::class)]
 class ProtocolOverviewBuilderTest extends TestCase
 {
+    use OverviewTestTrait;
     use ProtocolOverviewTestTrait;
 
     public function testCanCreateInstance(): void
