@@ -257,6 +257,19 @@ class ClaimTranslatorExtractor
         return array_key_exists($scope, $this->claimSets);
     }
 
+    /**
+     * Get the effective SAML attribute to OIDC claim translation table, that is, the default table
+     * with the configured one merged over it, the user identifier attributes prepended to the 'sub'
+     * claim, and any per-scope claim name prefixes already applied. Primarily intended for the
+     * administrative configuration overview.
+     *
+     * @return array
+     */
+    public function getTranslationTable(): array
+    {
+        return $this->translationTable;
+    }
+
     private function translateSamlAttributesToClaims(array $translationTable, array $samlAttributes): array
     {
         $claims = [];

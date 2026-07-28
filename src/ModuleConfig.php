@@ -324,6 +324,17 @@ class ModuleConfig
         return $issuer;
     }
 
+    /**
+     * Whether the issuer is explicitly configured. If it is not, getIssuer() derives it from the
+     * current HTTP host, which means it can differ depending on how the OP is reached.
+     */
+    public function isIssuerConfigured(): bool
+    {
+        $issuer = $this->config()->getOptionalString(self::OPTION_ISSUER, null);
+
+        return $issuer !== null && $issuer !== '';
+    }
+
     public function getAuthCodeDuration(): DateInterval
     {
         return new DateInterval(
@@ -694,6 +705,39 @@ class ModuleConfig
                 ),
             );
         }
+    }
+
+    /**
+     * Whether a dedicated encryption key is configured. When it is not, getEncryptionKey() falls
+     * back to the SimpleSAMLphp secret salt, which is used as a password from which the actual key
+     * is derived on every encrypt / decrypt operation.
+     *
+     * Note that this intentionally only reports whether the option is set. The key itself is a
+     * secret and must never be exposed in the admin UI.
+     */
+    public function isEncryptionKeyConfigured(): bool
+    {
+        $encryptionKey = $this->config()->getOptionalString(self::OPTION_ENCRYPTION_KEY, null);
+
+        return $encryptionKey !== null && $encryptionKey !== '';
+    }
+
+    /**
+     * Get the configured SAML attribute to OIDC claim translation table.
+     *
+     * Note that this is only the configured part of the table. At runtime it is merged over the
+     * default translation table, the user identifier attributes are prepended to the 'sub' claim,
+     * and any per-scope claim name prefixes are applied.
+     *
+     * @see \SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory
+     * @see \SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor::getTranslationTable()
+     *
+     * @return array
+     * @throws \Exception
+     */
+    public function getSamlToOidcTranslateTable(): array
+    {
+        return $this->config()->getOptionalArray(self::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE, []);
     }
 
     /**

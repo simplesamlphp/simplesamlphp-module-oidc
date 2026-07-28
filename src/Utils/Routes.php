@@ -199,6 +199,15 @@ class Routes
         return $this->getModuleUrl(RoutesEnum::EndSession->value, $parameters);
     }
 
+    /**
+     * Dynamic Client Registration endpoint. Only served (and only advertised in OP metadata) when
+     * Dynamic Client Registration is enabled.
+     */
+    public function urlRegistration(array $parameters = []): string
+    {
+        return $this->getModuleUrl(RoutesEnum::Registration->value, $parameters);
+    }
+
     /*****************************************************************************************************************
      * OpenID Federation URLs.
      ****************************************************************************************************************/
