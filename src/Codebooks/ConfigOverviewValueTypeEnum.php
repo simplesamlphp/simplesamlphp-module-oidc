@@ -39,4 +39,10 @@ enum ConfigOverviewValueTypeEnum: string
 
     /** Scope definitions, as prepared by the overview builder. */
     case Scopes = 'scopes';
+
+    /** Trust Anchor definitions (entity ID and optional JWKS), as prepared by the overview builder. */
+    case TrustAnchors = 'trustAnchors';
+
+    /** Resolved Trust Marks (type and payload), as prepared by the overview builder. */
+    case TrustMarks = 'trustMarks';
 }

@@ -6,6 +6,7 @@ namespace SimpleSAML\Module\oidc\Controllers\Admin;
 
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Admin\Authorization;
+use SimpleSAML\Module\oidc\Admin\ConfigOverview\FederationOverviewBuilder;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\ProtocolOverviewBuilder;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
@@ -27,6 +28,7 @@ class ConfigController
         protected readonly Federation $federation,
         protected readonly Routes $routes,
         protected readonly ProtocolOverviewBuilder $protocolOverviewBuilder,
+        protected readonly FederationOverviewBuilder $federationOverviewBuilder,
     ) {
         $this->authorization->requireAdmin(true);
     }
@@ -111,7 +113,7 @@ class ConfigController
             'oidc:config/federation.twig',
             [
                 'moduleConfig' => $this->moduleConfig,
-                'trustMarks' => $trustMarks,
+                'sections' => $this->federationOverviewBuilder->build($trustMarks),
             ],
             RoutesEnum::AdminConfigFederation->value,
         );

@@ -51,7 +51,8 @@
 
 {% elseif valueType == 'signatureKeyPairs' %}
 
-    {% for signatureKeyPair in row.value.getAll %}
+    {# The bag is null when the key pairs could not be resolved; the row warning explains why. #}
+    {% for signatureKeyPair in (row.value ? row.value.getAll : []) %}
         <div class="config-key-pair">
             <strong>{{ signatureKeyPair.getSignatureAlgorithm.value }}</strong>
             {% if loop.first %}
@@ -94,6 +95,42 @@
                 </li>
             {% endfor %}
         </ul>
+    {% else %}
+        {{ 'N/A'|trans }}
+    {% endif %}
+
+{% elseif valueType == 'trustAnchors' %}
+
+    {% if row.value is not empty %}
+        {% for trustAnchor in row.value %}
+            <div class="config-key-pair">
+                <strong>{{ trustAnchor.id }}</strong>
+                <br>
+                {{ 'JWKS'|trans }}:
+                {% if trustAnchor.isJwksInvalid %}
+                    <em class="red-text">{{ 'Invalid, expected a JWKS JSON string or null'|trans }}</em>
+                {% elseif trustAnchor.jwks is not null %}
+                    <code class="code-box code-box-content">{{- trustAnchor.jwks -}}</code>
+                {% else %}
+                    {{ 'N/A'|trans }}
+                {% endif %}
+            </div>
+        {% endfor %}
+    {% else %}
+        {{ 'N/A'|trans }}
+    {% endif %}
+
+{% elseif valueType == 'trustMarks' %}
+
+    {% if row.value is not empty %}
+        {% for trustMark in row.value %}
+            <div class="config-key-pair">
+                <strong>{{ trustMark.type }}</strong>
+                <code class="code-box code-box-content">
+                    {{- trustMark.payload|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_SLASHES')) -}}
+                </code>
+            </div>
+        {% endfor %}
     {% else %}
         {{ 'N/A'|trans }}
     {% endif %}

@@ -7,6 +7,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Admin\ConfigOverview;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\OpenID\Federation\TrustMark;
 use Twig\Environment;
 use Twig\Loader\FilesystemLoader;
 use Twig\TwigFilter;
@@ -22,7 +23,9 @@ use Twig\TwigFilter;
 #[CoversNothing]
 class OverviewTemplateRenderTest extends TestCase
 {
+    use OverviewTestTrait;
     use ProtocolOverviewTestTrait;
+    use FederationOverviewTestTrait;
 
     protected function twig(): Environment
     {
@@ -40,9 +43,28 @@ class OverviewTemplateRenderTest extends TestCase
      */
     protected function render(array $overrides = []): string
     {
+        return $this->renderSections($this->buildProtocolOverviewBuilder($overrides)->build());
+    }
+
+    /**
+     * @throws \Exception
+     */
+    protected function renderFederation(array $overrides = [], array $trustMarks = []): string
+    {
+        return $this->renderSections(
+            $this->buildFederationOverviewBuilder($overrides)->build($trustMarks),
+        );
+    }
+
+    /**
+     * @param \SimpleSAML\Module\oidc\Admin\ConfigOverview\Section[] $sections
+     * @throws \Exception
+     */
+    protected function renderSections(array $sections): string
+    {
         return $this->twig()->render(
             '@oidc/config/includes/overview-sections.twig',
-            ['sections' => $this->buildProtocolOverviewBuilder($overrides)->build()],
+            ['sections' => $sections],
         );
     }
 
@@ -178,6 +200,88 @@ class OverviewTemplateRenderTest extends TestCase
         $this->assertStringNotContainsString('super-secret-bearer-token', $html);
         $this->assertStringContainsString('not shown', $html);
         $this->assertStringContainsString('&quot;timeout&quot;', $html);
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testCanRenderAllFederationSections(): void
+    {
+        $html = $this->renderFederation();
+
+        $this->assertNotEmpty($html);
+
+        foreach ($this->buildFederationOverviewBuilder()->build() as $section) {
+            $this->assertStringContainsString('id="' . $section->getAnchor() . '"', $html);
+            $this->assertStringContainsString($section->getTitle(), $html);
+        }
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testRendersTrustAnchorValues(): void
+    {
+        $html = $this->renderFederation([
+            ModuleConfig::OPTION_FEDERATION_TRUST_ANCHORS => [
+                'https://ta.example.org/' => '{"keys":[]}',
+                'https://ta2.example.org/' => null,
+            ],
+        ]);
+
+        $this->assertStringContainsString('https://ta.example.org/', $html);
+        $this->assertStringContainsString('https://ta2.example.org/', $html);
+        $this->assertStringContainsString('code-box-content', $html);
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testRendersTrustMarkValues(): void
+    {
+        $trustMark = $this->createMock(TrustMark::class);
+        $trustMark->method('getTrustMarkType')->willReturn('https://ta.example.org/trust-mark-type');
+        $trustMark->method('getPayload')->willReturn(['trust_mark_type' => 'https://ta.example.org/trust-mark-type']);
+
+        $html = $this->renderFederation([], [$trustMark]);
+
+        $this->assertStringContainsString('https://ta.example.org/trust-mark-type', $html);
+        $this->assertStringContainsString('trust_mark_type', $html);
+    }
+
+    /**
+     * The key pair bag is null when it could not be resolved, and the template must cope.
+     *
+     * @throws \Exception
+     */
+    public function testRendersSignatureKeyPairsWhenTheyCanNotBeResolved(): void
+    {
+        $html = $this->renderFederation([
+            ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS => [],
+        ]);
+
+        $this->assertStringContainsString('Federation Signature Key Pairs', $html);
+        $this->assertStringContainsString('config-warning', $html);
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testDoesNotRenderFederationSecrets(): void
+    {
+        $html = $this->renderFederation([
+            ModuleConfig::OPTION_FEDERATION_TRUST_MARK_TOKENS => ['ey-super-secret-trust-mark-token'],
+            ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS => [
+                'memcached://user:super-secret-password@localhost',
+            ],
+            ModuleConfig::OPTION_FEDERATION_HTTP_CLIENT_OPTIONS => [
+                'auth' => ['user', 'super-secret-basic-password'],
+            ],
+        ]);
+
+        $this->assertStringNotContainsString('ey-super-secret-trust-mark-token', $html);
+        $this->assertStringNotContainsString('super-secret-password', $html);
+        $this->assertStringNotContainsString('super-secret-basic-password', $html);
     }
 
     /**
