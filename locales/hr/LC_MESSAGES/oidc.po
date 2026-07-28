@@ -1272,3 +1272,10 @@ msgid ""
 "whether a Trust Mark is still valid."
 msgstr ""
 
+msgid ""
+"Not explicitly configured, so it is derived from the current HTTP "
+"host. Since this is also the Entity Identifier, it can change "
+"depending on how the OP is reached, which breaks Trust Chain "
+"resolution."
+msgstr ""
+
