@@ -17,12 +17,15 @@ trait ProtocolOverviewTestTrait
 {
     /**
      * @param array $overrides Module config option overrides.
+     * @param string $derivedHost Host getIssuer() falls back to when the issuer is not configured.
      * @throws \Exception
      */
-    protected function buildProtocolOverviewBuilder(array $overrides = []): ProtocolOverviewBuilder
-    {
+    protected function buildProtocolOverviewBuilder(
+        array $overrides = [],
+        string $derivedHost = 'https://derived-host.example.org',
+    ): ProtocolOverviewBuilder {
         return new ProtocolOverviewBuilder(
-            $this->buildOverviewModuleConfig($overrides),
+            $this->buildOverviewModuleConfig($overrides, $derivedHost),
             $this->createMock(Routes::class),
             new DateIntervalFormatter(),
             $this->createMock(LoggerService::class),

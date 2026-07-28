@@ -79,6 +79,23 @@ class FederationOverviewBuilderTest extends TestCase
         $this->assertNull($enabledRow->getNote());
     }
 
+    /**
+     * Same guard as on the protocol screen: isIssuerConfigured() reads the option through
+     * getOptionalString(), which throws for a non-string value.
+     */
+    public function testSurvivesNonStringIssuerValue(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildFederationOverviewBuilder([ModuleConfig::OPTION_ISSUER => ['not-a-string']])->build(),
+            ModuleConfig::OPTION_ISSUER,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('N/A', $row->getValue());
+        $this->assertNotNull($row->getWarning());
+        $this->assertNull($row->getNote());
+    }
+
     public function testShowsTrustAnchorsWithAndWithoutJwks(): void
     {
         $row = $this->findRowForOption(

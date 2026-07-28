@@ -152,6 +152,42 @@ abstract class AbstractOverviewBuilder
     }
 
     /**
+     * Row showing this entity's issuer, which both screens display.
+     *
+     * getIssuer() throws when neither the option nor the derived host yields a value, so it is
+     * resolved defensively like any other option which can fail.
+     *
+     * @param ?string $noteWhenConfigured Note to show when the issuer is explicitly configured.
+     * @param string $noteWhenDerived Note to show when it is derived from the current HTTP host.
+     */
+    protected function buildIssuerRow(?string $noteWhenConfigured, string $noteWhenDerived): Row
+    {
+        $issuer = null;
+        $isConfigured = false;
+        $error = null;
+
+        try {
+            $issuer = $this->moduleConfig->getIssuer();
+            // Must stay inside the guard: isIssuerConfigured() reads the same option through
+            // getOptionalString(), which itself throws when the configured value is not a string.
+            $isConfigured = $this->moduleConfig->isIssuerConfigured();
+        } catch (Throwable $exception) {
+            $error = $this->describeResolutionError($exception, ModuleConfig::OPTION_ISSUER);
+        }
+
+        return new Row(
+            Translate::noop('Issuer'),
+            $issuer ?? Translate::noop('N/A'),
+            // A resolved issuer is data, the 'N/A' placeholder is UI text.
+            is_null($issuer) ? ConfigOverviewValueTypeEnum::Text : ConfigOverviewValueTypeEnum::RawText,
+            ModuleConfig::OPTION_ISSUER,
+            // On failure neither note applies: the value is configured, it is simply unusable.
+            is_null($error) ? ($isConfigured ? $noteWhenConfigured : $noteWhenDerived) : null,
+            $error,
+        );
+    }
+
+    /**
      * Row for an optional single-value entity metadata parameter.
      */
     protected function buildOptionalTextRow(

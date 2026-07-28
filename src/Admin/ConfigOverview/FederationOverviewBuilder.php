@@ -64,12 +64,13 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
                     'not served. The settings below are inert until this is enabled.',
                 ),
             ),
-            new Row(
-                Translate::noop('Issuer'),
-                $this->moduleConfig->getIssuer(),
-                ConfigOverviewValueTypeEnum::RawText,
-                ModuleConfig::OPTION_ISSUER,
+            $this->buildIssuerRow(
                 Translate::noop('Also this entity\'s Entity Identifier in the federation.'),
+                Translate::noop(
+                    'Not explicitly configured, so it is derived from the current HTTP host. Since ' .
+                    'this is also the Entity Identifier, it can change depending on how the OP is ' .
+                    'reached, which breaks Trust Chain resolution.',
+                ),
             ),
             $this->buildOptionalTextRow(
                 Translate::noop('Organization Name'),

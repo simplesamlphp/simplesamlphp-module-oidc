@@ -12,6 +12,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\DateIntervalFormatter;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use Throwable;
 
 /**
  * Builds the sections shown on the protocol (Connect) configuration overview screen.
@@ -74,12 +75,9 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
         return new Section(
             Translate::noop('Entity'),
             'entity',
-            new Row(
-                Translate::noop('Issuer'),
-                $this->moduleConfig->getIssuer(),
-                ConfigOverviewValueTypeEnum::RawText,
-                ModuleConfig::OPTION_ISSUER,
-                $this->moduleConfig->isIssuerConfigured() ? null : Translate::noop(
+            $this->buildIssuerRow(
+                null,
+                Translate::noop(
                     'Not explicitly configured, so it is derived from the current HTTP host. This ' .
                     'means the issuer can change depending on how the OP is reached.',
                 ),
@@ -195,12 +193,24 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
      */
     protected function buildSignatureKeysSection(): Section
     {
+        $keyPairBag = null;
+        $error = null;
+
+        try {
+            $keyPairBag = $this->moduleConfig->getProtocolSignatureKeyPairBag();
+        } catch (Throwable $exception) {
+            $error = $this->describeResolutionError(
+                $exception,
+                ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS,
+            );
+        }
+
         return new Section(
             Translate::noop('Signature algorithms and public keys'),
             'signature-keys',
             new Row(
                 Translate::noop('Protocol Signature Key Pairs'),
-                $this->moduleConfig->getProtocolSignatureKeyPairBag(),
+                $keyPairBag,
                 ConfigOverviewValueTypeEnum::SignatureKeyPairs,
                 ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS,
                 Translate::noop(
@@ -208,6 +218,7 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
                     'client does not designate a signing algorithm. Additional entries are advertised ' .
                     'on the JWKS endpoint, which is what makes key rollover possible.',
                 ),
+                $error,
             ),
         );
     }
@@ -296,19 +307,32 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
      */
     protected function buildScopesAndClaimsSection(): Section
     {
+        // The scope list pulls in Verifiable Credential scopes, so a malformed credential
+        // configuration can make this throw even though it is not a protocol option.
+        $scopes = [];
+        $error = null;
+
+        try {
+            $scopes = $this->buildScopeList();
+        } catch (Throwable $exception) {
+            $error = $this->describeResolutionError($exception, ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES);
+        }
+
         return new Section(
             Translate::noop('Scopes and claims'),
             'scopes-and-claims',
             new Row(
                 Translate::noop('Scopes'),
-                $this->buildScopeList(),
+                $scopes,
                 ConfigOverviewValueTypeEnum::Scopes,
                 ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES,
-                Translate::noop(
+                // Suppressed on failure, so the description does not contradict an empty list.
+                is_null($error) ? Translate::noop(
                     'Standard scopes are always available. Custom scopes come from configuration, ' .
                     'while Verifiable Credential scopes are derived from the supported credential ' .
                     'configurations, and only exist while that capability is enabled.',
-                ),
+                ) : null,
+                $error,
             ),
             new Row(
                 Translate::noop('SAML Attribute to OIDC Claim Translation'),
@@ -447,6 +471,20 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
         $registrationAuth === DcrRegistrationAuthEnum::InitialAccessToken &&
         $initialAccessTokenCount === 0;
 
+        // Falls back to every supported scope when unset, which walks the same Verifiable Credential
+        // scope resolution that can throw on a malformed credential configuration.
+        $defaultScopes = [];
+        $defaultScopesError = null;
+
+        try {
+            $defaultScopes = $this->moduleConfig->getDcrDefaultScopes();
+        } catch (Throwable $exception) {
+            $defaultScopesError = $this->describeResolutionError(
+                $exception,
+                ModuleConfig::OPTION_DCR_DEFAULT_SCOPES,
+            );
+        }
+
         return new Section(
             Translate::noop('Dynamic Client Registration'),
             'dynamic-client-registration',
@@ -507,14 +545,17 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
             ),
             new Row(
                 Translate::noop('Default Scopes for Scope-less Registrations'),
-                $this->moduleConfig->getDcrDefaultScopes(),
+                $defaultScopes,
                 ConfigOverviewValueTypeEnum::StringList,
                 ModuleConfig::OPTION_DCR_DEFAULT_SCOPES,
-                $areDefaultScopesConfigured ? null : Translate::noop(
+                // Suppressed on failure: the fallback set could not be resolved, so claiming it
+                // contains every supported scope would contradict the warning and the empty value.
+                ($areDefaultScopesConfigured || !is_null($defaultScopesError)) ? null : Translate::noop(
                     'Not configured, so this falls back to every scope this OP supports, meaning a ' .
                     "client which registers without a 'scope' may request any of them, including " .
                     "'offline_access'.",
                 ),
+                $defaultScopesError,
             ),
         );
     }

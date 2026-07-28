@@ -21,10 +21,14 @@ trait OverviewTestTrait
 {
     /**
      * @param array $overrides Module config option overrides.
+     * @param string $derivedHost Host getIssuer() falls back to when the issuer is not configured.
+     *                            An empty string makes it throw, which the screens must survive.
      * @throws \Exception
      */
-    protected function buildOverviewModuleConfig(array $overrides = []): ModuleConfig
-    {
+    protected function buildOverviewModuleConfig(
+        array $overrides = [],
+        string $derivedHost = 'https://derived-host.example.org',
+    ): ModuleConfig {
         $sspBridgeUtilsConfigMock = $this->createMock(Config::class);
         $sspBridgeUtilsConfigMock->method('getCertPath')
             ->willReturnCallback(
@@ -34,7 +38,7 @@ trait OverviewTestTrait
         // Used when the issuer is not explicitly configured, in which case it is derived from the
         // current HTTP host.
         $sspBridgeUtilsHttpMock = $this->createMock(HTTP::class);
-        $sspBridgeUtilsHttpMock->method('getSelfURLHost')->willReturn('https://derived-host.example.org');
+        $sspBridgeUtilsHttpMock->method('getSelfURLHost')->willReturn($derivedHost);
 
         $sspBridgeUtilsMock = $this->createMock(SspBridge\Utils::class);
         $sspBridgeUtilsMock->method('config')->willReturn($sspBridgeUtilsConfigMock);

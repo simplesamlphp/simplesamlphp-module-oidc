@@ -12,6 +12,10 @@ use SimpleSAML\Module\oidc\Admin\ConfigOverview\Section;
 use SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\DcrRegistrationAuthEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Utils\DateIntervalFormatter;
+use SimpleSAML\Module\oidc\Utils\Routes;
 
 #[CoversClass(ProtocolOverviewBuilder::class)]
 #[CoversClass(Row::class)]
@@ -99,6 +103,107 @@ class ProtocolOverviewBuilderTest extends TestCase
         );
         $this->assertNotNull($derivedRow);
         $this->assertStringContainsString('derived', (string)$derivedRow->getNote());
+    }
+
+    /**
+     * A broken option must be reported in place rather than take the screen down, since this is the
+     * screen an administrator opens to diagnose it. Mirrors the federation screen's behaviour.
+     */
+    public function testReportsSignatureKeyPairErrorInPlace(): void
+    {
+        $sections = $this->buildProtocolOverviewBuilder([
+            ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS => [],
+        ])->build();
+
+        $row = $this->findRowForOption($sections, ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS);
+
+        $this->assertNotNull($row);
+        $this->assertNull($row->getValue());
+        $this->assertStringContainsString('written to the SimpleSAMLphp log', (string)$row->getWarning());
+    }
+
+    public function testReportsIssuerErrorInPlace(): void
+    {
+        // With no configured issuer and a host which resolves to an empty string, getIssuer() throws.
+        $sections = $this->buildProtocolOverviewBuilder(
+            [ModuleConfig::OPTION_ISSUER => null],
+            derivedHost: '',
+        )->build();
+
+        $row = $this->findRowForOption($sections, ModuleConfig::OPTION_ISSUER);
+
+        $this->assertNotNull($row);
+        $this->assertSame('N/A', $row->getValue());
+        $this->assertNotNull($row->getWarning());
+    }
+
+    /**
+     * A non-string issuer makes getOptionalString() throw, which both getIssuer() and
+     * isIssuerConfigured() go through. Resolving the configured state outside the guard would
+     * rethrow and take the screen down anyway.
+     */
+    public function testSurvivesNonStringIssuerValue(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder([ModuleConfig::OPTION_ISSUER => ['not-a-string']])->build(),
+            ModuleConfig::OPTION_ISSUER,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('N/A', $row->getValue());
+        $this->assertNotNull($row->getWarning());
+        // Neither note applies: the issuer is configured, it is simply unusable.
+        $this->assertNull($row->getNote());
+    }
+
+    /**
+     * The scope list pulls in Verifiable Credential scopes, so a malformed VCI configuration can
+     * break protocol rows. When that happens the descriptive notes must be suppressed, otherwise the
+     * row claims things about a value it could not resolve.
+     */
+    public function testSuppressesNotesWhenScopeResolutionFails(): void
+    {
+        $sections = $this->buildProtocolOverviewBuilder([
+            ModuleConfig::OPTION_VCI_ENABLED => true,
+            ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => 'not-an-array',
+        ])->build();
+
+        $scopesRow = $this->findRowForOption($sections, ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES);
+        $this->assertNotNull($scopesRow);
+        $this->assertSame([], $scopesRow->getValue());
+        $this->assertNotNull($scopesRow->getWarning());
+        $this->assertNull($scopesRow->getNote());
+
+        $defaultScopesRow = $this->findRowForOption($sections, ModuleConfig::OPTION_DCR_DEFAULT_SCOPES);
+        $this->assertNotNull($defaultScopesRow);
+        $this->assertSame([], $defaultScopesRow->getValue());
+        $this->assertNotNull($defaultScopesRow->getWarning());
+        // Must not simultaneously claim the fallback contains every supported scope.
+        $this->assertNull($defaultScopesRow->getNote());
+    }
+
+    public function testDoesNotExposeConfigurationErrorDetail(): void
+    {
+        $loggerMock = $this->createMock(LoggerService::class);
+        $loggerMock->expects($this->atLeastOnce())
+            ->method('error')
+            ->with($this->stringContains(ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS));
+
+        $builder = new ProtocolOverviewBuilder(
+            $this->buildOverviewModuleConfig([ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS => []]),
+            $this->createMock(Routes::class),
+            new DateIntervalFormatter(),
+            $loggerMock,
+            $this->createMock(ClaimTranslatorExtractor::class),
+        );
+
+        $row = $this->findRowForOption(
+            $builder->build(),
+            ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertStringNotContainsString('At least one', (string)$row->getWarning());
     }
 
     public function testNeverExposesEncryptionKey(): void
