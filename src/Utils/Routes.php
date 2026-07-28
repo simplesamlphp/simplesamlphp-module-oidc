@@ -217,17 +217,6 @@ class Routes
         return $this->getModuleUrl(RoutesEnum::FederationConfiguration->value, $parameters);
     }
 
-    public function urlFederationFetch(array $parameters = []): string
-    {
-        return $this->getModuleUrl(RoutesEnum::FederationFetch->value, $parameters);
-    }
-
-    public function urlFederationList(array $parameters = []): string
-    {
-        return $this->getModuleUrl(RoutesEnum::FederationList->value, $parameters);
-    }
-
-
     public function urlPushedAuthorizationRequest(array $parameters = []): string
     {
         return $this->getModuleUrl(RoutesEnum::PushedAuthorizationRequest->value, $parameters);

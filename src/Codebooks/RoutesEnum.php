@@ -57,9 +57,9 @@ enum RoutesEnum: string
      * OpenID Federation
      ****************************************************************************************************************/
 
+    // Only the entity configuration endpoint is served. As a leaf entity, this OP must not expose fetch or
+    // subordinate listing endpoints, so no routes for those exist (nor should they be added).
     case FederationConfiguration = '.well-known/openid-federation';
-    case FederationFetch = 'federation/fetch';
-    case FederationList = 'federation/list';
 
     /*****************************************************************************************************************
      * OpenID for Verifiable Credential Issuance
