@@ -143,6 +143,22 @@ table.config-table {
     margin-top: 0.75em;
 }
 
+/*
+ * Values such as a did:jwk key ID or a JWKS payload are single unbroken tokens. Having no wrap
+ * opportunity of their own they set the minimum width of the table, which then pushes the page
+ * sideways. 'anywhere' rather than 'break-word' because only 'anywhere' is taken into account when
+ * the min-content width is computed, and that width is what widens the table.
+ */
+.config-table code {
+    overflow-wrap: anywhere;
+}
+
+/* Keep the pretty printed JSON on its own lines, but let an over-long line wrap. */
+.config-table code.code-box-content {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
 form.pure-form-stacked .full-width {
     width: 100%;
 }
