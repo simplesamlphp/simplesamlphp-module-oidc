@@ -28,6 +28,12 @@ class ConfigOptionCoverageTest extends TestCase
     use OverviewTestTrait;
     use ProtocolOverviewTestTrait;
     use FederationOverviewTestTrait;
+    use VciOverviewTestTrait;
+
+    /**
+     * The overview screens, and how to build each one's sections.
+     */
+    protected const array SCREENS = ['protocol', 'federation', 'vci'];
 
     /**
      * Constants which are intentionally not shown on any overview screen, and why.
@@ -42,20 +48,6 @@ class ConfigOptionCoverageTest extends TestCase
             'Admin UI setting. Belongs to a general settings screen, which does not exist yet.',
         'OPTION_ADMIN_UI_PAGINATION_ITEMS_PER_PAGE' =>
             'Admin UI setting. Belongs to a general settings screen, which does not exist yet.',
-
-        'OPTION_API_VCI_CREDENTIAL_OFFER_ENDPOINT_ENABLED' =>
-            'Verifiable Credential API endpoint, belongs to the verifiable credential screen.',
-        'OPTION_DEFAULT_USERS_EMAIL_ATTRIBUTE_NAME' =>
-            'Only used when building Verifiable Credential offers, belongs to the verifiable credential screen.',
-        'OPTION_AUTH_SOURCES_TO_USERS_EMAIL_ATTRIBUTE_NAME_MAP' =>
-            'Only used when building Verifiable Credential offers, belongs to the verifiable credential screen.',
-    ];
-
-    /**
-     * Constant name prefixes belonging to a screen which has not been reworked yet.
-     */
-    protected const array PENDING_SCREEN_PREFIXES = [
-        'OPTION_VCI_' => 'Verifiable Credential option, belongs to the verifiable credential screen.',
     ];
 
     /**
@@ -88,6 +80,7 @@ class ConfigOptionCoverageTest extends TestCase
         $sections = match ($screen) {
             'protocol' => $this->buildProtocolOverviewBuilder()->build(),
             'federation' => $this->buildFederationOverviewBuilder()->build(),
+            'vci' => $this->buildVciOverviewBuilder()->build(),
             default => self::fail("Unknown screen '$screen'."),
         };
 
@@ -112,22 +105,18 @@ class ConfigOptionCoverageTest extends TestCase
      */
     protected function displayedAnywhere(): array
     {
-        return array_merge($this->displayedBy('protocol'), $this->displayedBy('federation'));
+        $displayed = [];
+
+        foreach (self::SCREENS as $screen) {
+            $displayed = array_merge($displayed, $this->displayedBy($screen));
+        }
+
+        return $displayed;
     }
 
     protected function isExcluded(string $constantName): bool
     {
-        if (array_key_exists($constantName, self::NOT_DISPLAYED)) {
-            return true;
-        }
-
-        foreach (array_keys(self::PENDING_SCREEN_PREFIXES) as $prefix) {
-            if (str_starts_with($constantName, $prefix)) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_key_exists($constantName, self::NOT_DISPLAYED);
     }
 
     public function testFoundModuleConfigOptions(): void
@@ -208,7 +197,7 @@ class ConfigOptionCoverageTest extends TestCase
      */
     public function testNoScreenShowsTheSameOptionTwice(): void
     {
-        foreach (['protocol', 'federation'] as $screen) {
+        foreach (self::SCREENS as $screen) {
             $displayed = $this->displayedBy($screen);
 
             $this->assertSame(
