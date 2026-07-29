@@ -1231,3 +1231,227 @@ msgid ""
 "resolution."
 msgstr ""
 
+msgid "Allowed Redirect URI Prefixes"
+msgstr ""
+
+msgid "Allow Non-registered Clients"
+msgstr ""
+
+msgid ""
+"All Verifiable Credential capabilities are off, and the credential "
+"issuer endpoints are not served. The settings below are inert until "
+"this is enabled."
+msgstr ""
+
+msgid "Also the Credential Issuer identifier."
+msgstr ""
+
+msgid ""
+"A redirect URI from a non-registered client must start with one of "
+"these. Keep them specific: a loose prefix defeats the check."
+msgstr ""
+
+msgid ""
+"At least one attribute map entry holds more than one attribute. "
+"Issuance reads only the first pair of an entry, so the rest are "
+"ignored. Give each attribute its own entry."
+msgstr ""
+
+msgid ""
+"At least one attribute mapping never reaches the credential, and at "
+"least one map entry holds more than one attribute, of which issuance "
+"reads only the first. The affected mappings are marked above."
+msgstr ""
+
+msgid ""
+"At least one attribute mapping never reaches the credential. The "
+"affected mappings are marked above with the reason."
+msgstr ""
+
+msgid ""
+"At least one configured override is not a string, so it is not an "
+"override at all: that authentication source falls back to the "
+"default attribute above. Such entries are not listed here."
+msgstr ""
+
+msgid ""
+"At least one credential configuration has a missing or unsupported "
+"format, so it cannot issue credentials at all. Supported formats are "
+"jwt_vc_json, dc+sd-jwt and vc+sd-jwt."
+msgstr ""
+
+msgid "Attribute read to find the address a credential offer is sent to."
+msgstr ""
+
+msgid "Attribute to claim path"
+msgstr ""
+
+msgid "Attribute to Claim Path Mappings"
+msgstr ""
+
+msgid "Authentication Sources to Email Attribute Map"
+msgstr ""
+
+msgid ""
+"A wallet which is not registered as a client may request "
+"credentials. The redirect URI prefix allowlist below is the only "
+"control on where it is sent back."
+msgstr ""
+
+msgid "Claim paths"
+msgstr ""
+
+msgid "Credential"
+msgstr ""
+
+msgid "Credential configurations"
+msgstr ""
+
+msgid "Credential Offer (API)"
+msgstr ""
+
+msgid "Credential Offer Endpoint Enabled"
+msgstr ""
+
+msgid "Credential offers"
+msgstr ""
+
+msgid "declared, but outside credentialSubject, so this format discards it"
+msgstr ""
+
+msgid "Default User Email Attribute"
+msgstr ""
+
+msgid "Display name"
+msgstr ""
+
+msgid "Durations"
+msgstr ""
+
+msgid "How long an issuer state from a credential offer stays usable."
+msgstr ""
+
+msgid "How long a proof-of-possession nonce stays valid."
+msgstr ""
+
+msgid "Issuer State TTL"
+msgstr ""
+
+msgid "JSON-LD context"
+msgstr ""
+
+msgid "JSON-LD Context Documents"
+msgstr ""
+
+msgid ""
+"Lets a credential offer be created through the module API, for "
+"example to send it to a user by email."
+msgstr ""
+
+msgid "missing or unsupported format, cannot issue credentials"
+msgstr ""
+
+msgid "Non-registered clients"
+msgstr ""
+
+msgid ""
+"Non-registered clients are allowed, but no redirect URI prefix is "
+"configured, so every such authorization request will be rejected."
+msgstr ""
+
+msgid "Nonce"
+msgstr ""
+
+msgid "Nonce TTL"
+msgstr ""
+
+msgid "not a declared claim path, skipped during issuance"
+msgstr ""
+
+msgid ""
+"Not configured, so this falls back to 5 minutes. Used for "
+"proof-of-possession nonces."
+msgstr ""
+
+msgid "Not configured, so this falls back to the Authorization Code TTL."
+msgstr ""
+
+msgid ""
+"Not explicitly configured, so it is derived from the current HTTP "
+"host. Since this is also the Credential Issuer identifier, it can "
+"change depending on how the OP is reached, which breaks already "
+"issued credential offers."
+msgstr ""
+
+msgid "Not served, since Verifiable Credential Issuance is disabled."
+msgstr ""
+
+msgid ""
+"One of the configured prefixes cannot be turned into a string at "
+"all, so the redirect URI check will fail rather than match."
+msgstr ""
+
+msgid ""
+"One of the configured prefixes is empty, which every redirect URI "
+"starts with, so a non-registered client can be redirected anywhere. "
+"Note that a configured null becomes an empty prefix."
+msgstr ""
+
+msgid ""
+"One of the configured prefixes is not a string. It is shown above as "
+"the literal prefix it becomes at runtime, which is unlikely to be "
+"what was intended."
+msgstr ""
+
+msgid "Only registered clients may request credentials."
+msgstr ""
+
+msgid ""
+"Overrides the default per authentication source. Sources which are "
+"not listed use the default above."
+msgstr ""
+
+msgid ""
+"Published as 'credential_configurations_supported' in the Credential "
+"Issuer metadata. Each configuration also becomes a requestable scope "
+"of the same name."
+msgstr ""
+
+msgid "Scope"
+msgstr ""
+
+msgid ""
+"Served per credential configuration, for formats which reference a "
+"JSON-LD context. The document URL is listed with its configuration "
+"above."
+msgstr ""
+
+msgid "Supported Credential Configurations"
+msgstr ""
+
+msgid ""
+"The module API itself is disabled, so this endpoint is not served. "
+"Enable the API on the protocol settings screen."
+msgstr ""
+
+msgid "this entry holds further attributes, which issuance ignores"
+msgstr ""
+
+msgid ""
+"Used to sign issued credentials. Only one key pair is supported for "
+"now. These keys should not be the same as the protocol (Connect) "
+"signing keys."
+msgstr ""
+
+msgid "Verifiable Credential Issuance Enabled"
+msgstr ""
+
+msgid "Verifiable Credential Signature Key Pairs"
+msgstr ""
+
+msgid ""
+"Which released user attribute populates which claim path, per "
+"credential configuration. The effective mappings are also listed per "
+"configuration above."
+msgstr ""
+
