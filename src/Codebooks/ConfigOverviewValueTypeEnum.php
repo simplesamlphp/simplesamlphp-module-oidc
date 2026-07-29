@@ -45,4 +45,7 @@ enum ConfigOverviewValueTypeEnum: string
 
     /** Resolved Trust Marks (type and payload), as prepared by the overview builder. */
     case TrustMarks = 'trustMarks';
+
+    /** Supported Verifiable Credential configurations, as prepared by the overview builder. */
+    case CredentialConfigurations = 'credentialConfigurations';
 }

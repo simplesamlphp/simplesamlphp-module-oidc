@@ -26,6 +26,7 @@ class OverviewTemplateRenderTest extends TestCase
     use OverviewTestTrait;
     use ProtocolOverviewTestTrait;
     use FederationOverviewTestTrait;
+    use VciOverviewTestTrait;
 
     protected function twig(): Environment
     {
@@ -54,6 +55,14 @@ class OverviewTemplateRenderTest extends TestCase
         return $this->renderSections(
             $this->buildFederationOverviewBuilder($overrides)->build($trustMarks),
         );
+    }
+
+    /**
+     * @throws \Exception
+     */
+    protected function renderVci(array $overrides = []): string
+    {
+        return $this->renderSections($this->buildVciOverviewBuilder($overrides)->build());
     }
 
     /**
@@ -262,6 +271,126 @@ class OverviewTemplateRenderTest extends TestCase
 
         $this->assertStringContainsString('Federation Signature Key Pairs', $html);
         $this->assertStringContainsString('config-warning', $html);
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testCanRenderAllVciSections(): void
+    {
+        $html = $this->renderVci();
+
+        $this->assertNotEmpty($html);
+
+        foreach ($this->buildVciOverviewBuilder()->build() as $section) {
+            $this->assertStringContainsString('id="' . $section->getAnchor() . '"', $html);
+            $this->assertStringContainsString($section->getTitle(), $html);
+        }
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testRendersCredentialConfigurationValues(): void
+    {
+        $html = $this->renderVci([
+            ModuleConfig::OPTION_VCI_ENABLED => true,
+            ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                'ResearchAndScholarshipCredentialJwtVcJson' => [
+                    'format' => 'jwt_vc_json',
+                    'scope' => 'ResearchAndScholarshipCredentialJwtVcJson',
+                    'credential_metadata' => [
+                        'display' => [['name' => 'Research and Scholarship', 'locale' => 'en-US']],
+                        'claims' => [['path' => ['credentialSubject', 'mail']]],
+                    ],
+                ],
+            ],
+            ModuleConfig::OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP => [
+                'ResearchAndScholarshipCredentialJwtVcJson' => [
+                    ['mail' => ['credentialSubject', 'mail']],
+                ],
+            ],
+        ]);
+
+        $this->assertStringContainsString('ResearchAndScholarshipCredentialJwtVcJson', $html);
+        $this->assertStringContainsString('jwt_vc_json', $html);
+        $this->assertStringContainsString('Research and Scholarship', $html);
+        $this->assertStringContainsString('credentialSubject.mail', $html);
+    }
+
+    /**
+     * The two ineffective mapping markers are matched on a string the builder produces, so a renamed
+     * reason constant would silently stop rendering. Both branches are pinned here.
+     *
+     * @throws \Exception
+     */
+    public function testRendersBothIneffectiveMappingReasons(): void
+    {
+        $html = $this->renderVci([
+            ModuleConfig::OPTION_VCI_ENABLED => true,
+            ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                'JwtVcJsonCredential' => [
+                    'format' => 'jwt_vc_json',
+                    'credential_metadata' => [
+                        'claims' => [
+                            ['path' => ['credentialSubject', 'mail']],
+                            ['path' => ['mail']],
+                        ],
+                    ],
+                ],
+            ],
+            ModuleConfig::OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP => [
+                'JwtVcJsonCredential' => [
+                    ['mail' => ['credentialSubject', 'mail']],
+                    // Not declared at all.
+                    ['telephoneNumber' => ['credentialSubject', 'telephoneNumber']],
+                    // Declared, but outside credentialSubject, so jwt_vc_json discards it.
+                    ['secondaryMail' => ['mail']],
+                ],
+            ],
+        ]);
+
+        $this->assertStringContainsString('not a declared claim path, skipped during issuance', $html);
+        $this->assertStringContainsString(
+            'declared, but outside credentialSubject, so this format discards it',
+            $html,
+        );
+    }
+
+    /**
+     * Only the pair issuance actually reads is listed, so without this marker the entry would look
+     * complete while the row warning claims something is wrong with it.
+     *
+     * @throws \Exception
+     */
+    public function testRendersIgnoredMappingPairMarker(): void
+    {
+        $html = $this->renderVci([
+            ModuleConfig::OPTION_VCI_ENABLED => true,
+            ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                'JwtVcJsonCredential' => [
+                    'format' => 'jwt_vc_json',
+                    'credential_metadata' => [
+                        'claims' => [['path' => ['credentialSubject', 'mail']]],
+                    ],
+                ],
+            ],
+            ModuleConfig::OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP => [
+                'JwtVcJsonCredential' => [
+                    [
+                        'mail' => ['credentialSubject', 'mail'],
+                        // Issuance reads only the first pair, so this one never arrives.
+                        'eduPersonPrincipalName' => ['credentialSubject', 'mail'],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertStringContainsString('this entry holds further attributes, which issuance ignores', $html);
+        // The ignored attribute must not be listed as if it were mapped. Matched on the mapping
+        // markup, since the attribute name legitimately appears in other rows of the same page.
+        $this->assertStringContainsString('<code>mail</code> &rarr;', $html);
+        $this->assertStringNotContainsString('<code>eduPersonPrincipalName</code> &rarr;', $html);
     }
 
     /**

@@ -10,6 +10,7 @@ use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Admin\Authorization;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\FederationOverviewBuilder;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\ProtocolOverviewBuilder;
+use SimpleSAML\Module\oidc\Admin\ConfigOverview\VciOverviewBuilder;
 use SimpleSAML\Module\oidc\Controllers\Admin\ConfigController;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -31,6 +32,7 @@ class ConfigControllerTest extends TestCase
     protected MockObject $routesMock;
     protected MockObject $protocolOverviewBuilderMock;
     protected MockObject $federationOverviewBuilderMock;
+    protected MockObject $vciOverviewBuilderMock;
     protected MockObject $trustMarkFactoryMock;
     protected MockObject $entityStatementFetcherMock;
     protected MockObject $trustMarkFetcherMock;
@@ -46,6 +48,7 @@ class ConfigControllerTest extends TestCase
         $this->routesMock = $this->createMock(Routes::class);
         $this->protocolOverviewBuilderMock = $this->createMock(ProtocolOverviewBuilder::class);
         $this->federationOverviewBuilderMock = $this->createMock(FederationOverviewBuilder::class);
+        $this->vciOverviewBuilderMock = $this->createMock(VciOverviewBuilder::class);
 
         $this->trustMarkFactoryMock = $this->createMock(TrustMarkFactory::class);
         $this->federationMock->method('trustMarkFactory')->willReturn($this->trustMarkFactoryMock);
@@ -67,6 +70,7 @@ class ConfigControllerTest extends TestCase
         ?Routes $routes = null,
         ?ProtocolOverviewBuilder $protocolOverviewBuilder = null,
         ?FederationOverviewBuilder $federationOverviewBuilder = null,
+        ?VciOverviewBuilder $vciOverviewBuilder = null,
     ): ConfigController {
         $moduleConfig ??= $this->moduleConfigMock;
         $templateFactory ??= $this->templateFactoryMock;
@@ -77,6 +81,7 @@ class ConfigControllerTest extends TestCase
         $routes ??= $this->routesMock;
         $protocolOverviewBuilder ??= $this->protocolOverviewBuilderMock;
         $federationOverviewBuilder ??= $this->federationOverviewBuilderMock;
+        $vciOverviewBuilder ??= $this->vciOverviewBuilderMock;
 
         return new ConfigController(
             $moduleConfig,
@@ -88,6 +93,7 @@ class ConfigControllerTest extends TestCase
             $routes,
             $protocolOverviewBuilder,
             $federationOverviewBuilder,
+            $vciOverviewBuilder,
         );
     }
 

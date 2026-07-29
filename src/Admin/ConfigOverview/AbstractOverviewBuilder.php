@@ -138,7 +138,7 @@ abstract class AbstractOverviewBuilder
         string $label,
         int $count,
         string $configOption,
-        string $note,
+        ?string $note,
         ?string $warning = null,
     ): Row {
         return new Row(
@@ -222,6 +222,33 @@ abstract class AbstractOverviewBuilder
             $configOption,
             $note,
         );
+    }
+
+    /**
+     * Build a row defensively.
+     *
+     * Almost every ModuleConfig getter can throw on a malformed value: getOptionalArray() and
+     * getOptionalBoolean() reject the wrong type, and the duration getters hand their value to
+     * DateInterval. Since these screens exist to diagnose bad configuration, a row must fail on its
+     * own rather than take the page down, so any row whose value comes from such a getter is built
+     * through here.
+     *
+     * @param callable():\SimpleSAML\Module\oidc\Admin\ConfigOverview\Row $buildRow
+     */
+    protected function guardRow(string $label, string $configOption, callable $buildRow): Row
+    {
+        try {
+            return $buildRow();
+        } catch (Throwable $exception) {
+            return new Row(
+                $label,
+                Translate::noop('N/A'),
+                ConfigOverviewValueTypeEnum::Text,
+                $configOption,
+                null,
+                $this->describeResolutionError($exception, $configOption),
+            );
+        }
     }
 
     /**

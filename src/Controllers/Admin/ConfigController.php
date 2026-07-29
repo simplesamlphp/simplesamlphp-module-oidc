@@ -8,6 +8,7 @@ use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Admin\Authorization;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\FederationOverviewBuilder;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\ProtocolOverviewBuilder;
+use SimpleSAML\Module\oidc\Admin\ConfigOverview\VciOverviewBuilder;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -29,6 +30,7 @@ class ConfigController
         protected readonly Routes $routes,
         protected readonly ProtocolOverviewBuilder $protocolOverviewBuilder,
         protected readonly FederationOverviewBuilder $federationOverviewBuilder,
+        protected readonly VciOverviewBuilder $vciOverviewBuilder,
     ) {
         $this->authorization->requireAdmin(true);
     }
@@ -119,12 +121,16 @@ class ConfigController
         );
     }
 
+    /**
+     * @throws \Exception
+     */
     public function verifiableCredentialSettings(): Response
     {
         return $this->templateFactory->build(
             'oidc:config/verifiable-credential.twig',
             [
                 'moduleConfig' => $this->moduleConfig,
+                'sections' => $this->vciOverviewBuilder->build(),
             ],
             RoutesEnum::AdminConfigVerifiableCredential->value,
         );

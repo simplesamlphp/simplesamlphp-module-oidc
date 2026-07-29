@@ -135,6 +135,90 @@
         {{ 'N/A'|trans }}
     {% endif %}
 
+{% elseif valueType == 'credentialConfigurations' %}
+
+    {% if row.value is not empty %}
+        {% for credentialConfiguration in row.value %}
+            <div class="config-key-pair">
+                <strong>{{ credentialConfiguration.id }}</strong>
+                {# Tested for null rather than truthiness, so that a value like '0' still shows. #}
+                {% if credentialConfiguration.format is not null %}
+                    <em>({{ credentialConfiguration.format }})</em>
+                {% endif %}
+                {% if not credentialConfiguration.isFormatSupported %}
+                    <small class="red-text">
+                        ({{ 'missing or unsupported format, cannot issue credentials'|trans }})
+                    </small>
+                {% endif %}
+
+                {% if credentialConfiguration.displayNames is not empty %}
+                    <br>
+                    <small>
+                        {{ 'Display name'|trans }}:
+                        {% for displayName in credentialConfiguration.displayNames %}
+                            {{- displayName }}{{ loop.last ? '' : ', ' }}
+                        {% endfor %}
+                    </small>
+                {% endif %}
+
+                {% if credentialConfiguration.scope is not null %}
+                    <br>
+                    <small>{{ 'Scope'|trans }}: <code>{{ credentialConfiguration.scope }}</code></small>
+                {% endif %}
+
+                {% if credentialConfiguration.claimPaths is not empty %}
+                    <br>
+                    <small>
+                        {{ 'Claim paths'|trans }}:
+                        {% for claimPath in credentialConfiguration.claimPaths %}
+                            <code>{{ claimPath }}</code>{{ loop.last ? '' : ', ' }}
+                        {% endfor %}
+                    </small>
+                {% endif %}
+
+                {% if credentialConfiguration.attributeMappings is not empty %}
+                    <br>
+                    <small>{{ 'Attribute to claim path'|trans }}:</small>
+                    <ul class="disc">
+                        {% for mapping in credentialConfiguration.attributeMappings %}
+                            <li>
+                                <small><code>{{ mapping.attribute }}</code> &rarr; <code>{{ mapping.path }}</code></small>
+                                {% if mapping.ineffectiveReason == 'notDeclared' %}
+                                    <small class="red-text">
+                                        ({{ 'not a declared claim path, skipped during issuance'|trans }})
+                                    </small>
+                                {% elseif mapping.ineffectiveReason == 'droppedForFormat' %}
+                                    <small class="red-text">
+                                        ({{ 'declared, but outside credentialSubject, so this format discards it'|trans }})
+                                    </small>
+                                {% endif %}
+                                {# Independent of the above: the entry itself carries attributes issuance never reads. #}
+                                {% if mapping.hasIgnoredPairs %}
+                                    <small class="red-text">
+                                        ({{ 'this entry holds further attributes, which issuance ignores'|trans }})
+                                    </small>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+
+                {% if credentialConfiguration.jsonLdContextUrl is not null %}
+                    <br>
+                    <small>
+                        {{ 'JSON-LD context'|trans }}:
+                        <a href="{{ credentialConfiguration.jsonLdContextUrl }}"
+                           target="_blank"
+                           rel="noopener noreferrer"
+                        >{{ credentialConfiguration.jsonLdContextUrl }}</a>
+                    </small>
+                {% endif %}
+            </div>
+        {% endfor %}
+    {% else %}
+        {{ 'N/A'|trans }}
+    {% endif %}
+
 {% elseif valueType == 'rawText' %}
 
     {# Configured data, shown verbatim and deliberately not translated. #}
