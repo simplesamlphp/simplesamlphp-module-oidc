@@ -78,6 +78,11 @@ class Routes
      * Admin area URLs.
      ****************************************************************************************************************/
 
+    public function urlAdminConfigGeneral(array $parameters = []): string
+    {
+        return $this->getModuleUrl(RoutesEnum::AdminConfigGeneral->value, $parameters);
+    }
+
     public function urlAdminConfigProtocol(array $parameters = []): string
     {
         return $this->getModuleUrl(RoutesEnum::AdminConfigProtocol->value, $parameters);

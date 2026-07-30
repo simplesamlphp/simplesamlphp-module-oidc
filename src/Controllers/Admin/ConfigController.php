@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Controllers\Admin;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Admin\Authorization;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\FederationOverviewBuilder;
+use SimpleSAML\Module\oidc\Admin\ConfigOverview\GeneralOverviewBuilder;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\ProtocolOverviewBuilder;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\VciOverviewBuilder;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
@@ -28,6 +29,7 @@ class ConfigController
         protected readonly SessionMessagesService $sessionMessagesService,
         protected readonly Federation $federation,
         protected readonly Routes $routes,
+        protected readonly GeneralOverviewBuilder $generalOverviewBuilder,
         protected readonly ProtocolOverviewBuilder $protocolOverviewBuilder,
         protected readonly FederationOverviewBuilder $federationOverviewBuilder,
         protected readonly VciOverviewBuilder $vciOverviewBuilder,
@@ -59,6 +61,18 @@ class ConfigController
         $this->sessionMessagesService->addMessage($message);
 
         return $this->routes->newRedirectResponseToModuleUrl(RoutesEnum::AdminMigrations->value);
+    }
+
+    public function generalSettings(): Response
+    {
+        return $this->templateFactory->build(
+            'oidc:config/general.twig',
+            [
+                'moduleConfig' => $this->moduleConfig,
+                'sections' => $this->generalOverviewBuilder->build(),
+            ],
+            RoutesEnum::AdminConfigGeneral->value,
+        );
     }
 
     /**

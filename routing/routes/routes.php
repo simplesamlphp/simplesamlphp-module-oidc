@@ -44,6 +44,8 @@ return function (RoutingConfigurator $routes): void {
     $routes->add(RoutesEnum::AdminMigrationsRun->name, RoutesEnum::AdminMigrationsRun->value)
         ->controller([ConfigController::class, 'runMigrations'])
         ->methods([HttpMethodsEnum::POST->value]);
+    $routes->add(RoutesEnum::AdminConfigGeneral->name, RoutesEnum::AdminConfigGeneral->value)
+        ->controller([ConfigController::class, 'generalSettings']);
     $routes->add(RoutesEnum::AdminConfigProtocol->name, RoutesEnum::AdminConfigProtocol->value)
         ->controller([ConfigController::class, 'protocolSettings']);
     $routes->add(RoutesEnum::AdminConfigFederation->name, RoutesEnum::AdminConfigFederation->value)

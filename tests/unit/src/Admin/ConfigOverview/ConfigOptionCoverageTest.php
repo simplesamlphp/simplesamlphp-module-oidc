@@ -26,6 +26,7 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 class ConfigOptionCoverageTest extends TestCase
 {
     use OverviewTestTrait;
+    use GeneralOverviewTestTrait;
     use ProtocolOverviewTestTrait;
     use FederationOverviewTestTrait;
     use VciOverviewTestTrait;
@@ -33,7 +34,7 @@ class ConfigOptionCoverageTest extends TestCase
     /**
      * The overview screens, and how to build each one's sections.
      */
-    protected const array SCREENS = ['protocol', 'federation', 'vci'];
+    protected const array SCREENS = ['general', 'protocol', 'federation', 'vci'];
 
     /**
      * Constants which are intentionally not shown on any overview screen, and why.
@@ -41,13 +42,6 @@ class ConfigOptionCoverageTest extends TestCase
     protected const array NOT_DISPLAYED = [
         'OPTION_PKI_PRIVATE_KEY_PASSPHRASE' =>
             'Legacy option which is no longer read anywhere in the module.',
-
-        'OPTION_CRON_TAG' =>
-            'Operational (storage cleanup) setting. Belongs to a general settings screen, which does not exist yet.',
-        'OPTION_ADMIN_UI_PERMISSIONS' =>
-            'Admin UI setting. Belongs to a general settings screen, which does not exist yet.',
-        'OPTION_ADMIN_UI_PAGINATION_ITEMS_PER_PAGE' =>
-            'Admin UI setting. Belongs to a general settings screen, which does not exist yet.',
     ];
 
     /**
@@ -78,6 +72,7 @@ class ConfigOptionCoverageTest extends TestCase
     protected function displayedBy(string $screen): array
     {
         $sections = match ($screen) {
+            'general' => $this->buildGeneralOverviewBuilder()->build(),
             'protocol' => $this->buildProtocolOverviewBuilder()->build(),
             'federation' => $this->buildFederationOverviewBuilder()->build(),
             'vci' => $this->buildVciOverviewBuilder()->build(),

@@ -48,4 +48,7 @@ enum ConfigOverviewValueTypeEnum: string
 
     /** Supported Verifiable Credential configurations, as prepared by the overview builder. */
     case CredentialConfigurations = 'credentialConfigurations';
+
+    /** Administration UI permissions (inspected attribute and entitlements), as prepared by the overview builder. */
+    case AdminUiPermissions = 'adminUiPermissions';
 }

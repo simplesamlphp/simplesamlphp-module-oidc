@@ -45,6 +45,14 @@ Notes:
 Enable and configure the SimpleSAMLphp cron module to purge expired tokens:
 [cron](https://simplesamlphp.org/docs/stable/cron/cron.html)
 
+The configured cron tag, together with the administration UI settings, is shown in
+the SimpleSAMLphp admin area:
+
+- OIDC > General Settings
+
+That screen also reports when cleanup can never run, for example when no cron tag is
+set or when the cron module is not enabled.
+
 ## Endpoint locations and well-known URLs
 
 After deployment, visit the SimpleSAMLphp admin area:

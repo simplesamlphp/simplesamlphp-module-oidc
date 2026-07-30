@@ -10,6 +10,7 @@ enum RoutesEnum: string
      * Admin area
      ****************************************************************************************************************/
 
+    case AdminConfigGeneral = 'admin/config/general';
     case AdminConfigProtocol = 'admin/config/protocol';
     case AdminConfigFederation = 'admin/config/federation';
     case AdminConfigVerifiableCredential = 'admin/config/verifiable-credential';

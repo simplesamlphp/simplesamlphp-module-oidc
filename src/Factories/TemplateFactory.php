@@ -123,6 +123,13 @@ class TemplateFactory
 
         $this->oidcMenu->addItem(
             $this->oidcMenu->buildItem(
+                $this->routes->getModuleUrl(RoutesEnum::AdminConfigGeneral->value),
+                Translate::noop('General Settings'),
+            ),
+        );
+
+        $this->oidcMenu->addItem(
+            $this->oidcMenu->buildItem(
                 $this->routes->getModuleUrl(RoutesEnum::AdminConfigProtocol->value),
                 Translate::noop('Protocol Settings'),
             ),

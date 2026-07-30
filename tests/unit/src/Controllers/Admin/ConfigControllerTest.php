@@ -9,6 +9,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Admin\Authorization;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\FederationOverviewBuilder;
+use SimpleSAML\Module\oidc\Admin\ConfigOverview\GeneralOverviewBuilder;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\ProtocolOverviewBuilder;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\VciOverviewBuilder;
 use SimpleSAML\Module\oidc\Controllers\Admin\ConfigController;
@@ -30,6 +31,7 @@ class ConfigControllerTest extends TestCase
     protected MockObject $sessionMessagesServiceMock;
     protected MockObject $federationMock;
     protected MockObject $routesMock;
+    protected MockObject $generalOverviewBuilderMock;
     protected MockObject $protocolOverviewBuilderMock;
     protected MockObject $federationOverviewBuilderMock;
     protected MockObject $vciOverviewBuilderMock;
@@ -46,6 +48,7 @@ class ConfigControllerTest extends TestCase
         $this->sessionMessagesServiceMock = $this->createMock(SessionMessagesService::class);
         $this->federationMock = $this->createMock(Federation::class);
         $this->routesMock = $this->createMock(Routes::class);
+        $this->generalOverviewBuilderMock = $this->createMock(GeneralOverviewBuilder::class);
         $this->protocolOverviewBuilderMock = $this->createMock(ProtocolOverviewBuilder::class);
         $this->federationOverviewBuilderMock = $this->createMock(FederationOverviewBuilder::class);
         $this->vciOverviewBuilderMock = $this->createMock(VciOverviewBuilder::class);
@@ -68,6 +71,7 @@ class ConfigControllerTest extends TestCase
         ?SessionMessagesService $sessionMessagesService = null,
         ?Federation $federation = null,
         ?Routes $routes = null,
+        ?GeneralOverviewBuilder $generalOverviewBuilder = null,
         ?ProtocolOverviewBuilder $protocolOverviewBuilder = null,
         ?FederationOverviewBuilder $federationOverviewBuilder = null,
         ?VciOverviewBuilder $vciOverviewBuilder = null,
@@ -79,6 +83,7 @@ class ConfigControllerTest extends TestCase
         $sessionMessagesService ??= $this->sessionMessagesServiceMock;
         $federation ??= $this->federationMock;
         $routes ??= $this->routesMock;
+        $generalOverviewBuilder ??= $this->generalOverviewBuilderMock;
         $protocolOverviewBuilder ??= $this->protocolOverviewBuilderMock;
         $federationOverviewBuilder ??= $this->federationOverviewBuilderMock;
         $vciOverviewBuilder ??= $this->vciOverviewBuilderMock;
@@ -91,6 +96,7 @@ class ConfigControllerTest extends TestCase
             $sessionMessagesService,
             $federation,
             $routes,
+            $generalOverviewBuilder,
             $protocolOverviewBuilder,
             $federationOverviewBuilder,
             $vciOverviewBuilder,
@@ -126,6 +132,16 @@ class ConfigControllerTest extends TestCase
         $this->databaseMigrationMock->expects($this->never())->method('migrate');
 
         $this->sut()->runMigrations();
+    }
+
+    public function testCanShowGeneralSettingsScreen(): void
+    {
+        $this->generalOverviewBuilderMock->expects($this->once())->method('build')->willReturn([]);
+
+        $this->templateFactoryMock->expects($this->once())->method('build')
+            ->with('oidc:config/general.twig');
+
+        $this->sut()->generalSettings();
     }
 
     public function testCanShowProtocolSettingsScreen(): void

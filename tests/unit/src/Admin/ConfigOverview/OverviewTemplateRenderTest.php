@@ -24,6 +24,7 @@ use Twig\TwigFilter;
 class OverviewTemplateRenderTest extends TestCase
 {
     use OverviewTestTrait;
+    use GeneralOverviewTestTrait;
     use ProtocolOverviewTestTrait;
     use FederationOverviewTestTrait;
     use VciOverviewTestTrait;
@@ -63,6 +64,14 @@ class OverviewTemplateRenderTest extends TestCase
     protected function renderVci(array $overrides = []): string
     {
         return $this->renderSections($this->buildVciOverviewBuilder($overrides)->build());
+    }
+
+    /**
+     * @throws \Exception
+     */
+    protected function renderGeneral(array $overrides = []): string
+    {
+        return $this->renderSections($this->buildGeneralOverviewBuilder($overrides)->build());
     }
 
     /**
@@ -391,6 +400,90 @@ class OverviewTemplateRenderTest extends TestCase
         // markup, since the attribute name legitimately appears in other rows of the same page.
         $this->assertStringContainsString('<code>mail</code> &rarr;', $html);
         $this->assertStringNotContainsString('<code>eduPersonPrincipalName</code> &rarr;', $html);
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testCanRenderAllGeneralSections(): void
+    {
+        $html = $this->renderGeneral();
+
+        $this->assertNotEmpty($html);
+
+        foreach ($this->buildGeneralOverviewBuilder()->build() as $section) {
+            $this->assertStringContainsString('id="' . $section->getAnchor() . '"', $html);
+            $this->assertStringContainsString($section->getTitle(), $html);
+        }
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testRendersAdminUiPermissionValues(): void
+    {
+        $html = $this->renderGeneral([
+            ModuleConfig::OPTION_ADMIN_UI_PERMISSIONS => [
+                'attribute' => 'eduPersonEntitlement',
+                'client' => ['urn:example:oidc:manage:client'],
+            ],
+        ]);
+
+        $this->assertStringContainsString('eduPersonEntitlement', $html);
+        $this->assertStringContainsString('urn:example:oidc:manage:client', $html);
+    }
+
+    /**
+     * The two ineffective permission markers are matched on a string the builder produces, so a
+     * renamed reason constant would silently stop rendering. Both branches are pinned here.
+     *
+     * @throws \Exception
+     */
+    public function testRendersBothIneffectivePermissionReasons(): void
+    {
+        $html = $this->renderGeneral([
+            ModuleConfig::OPTION_ADMIN_UI_PERMISSIONS => [
+                'attribute' => 'eduPersonEntitlement',
+                // Recognized, but with nothing a user could present.
+                'client' => [],
+                // Never requested by the module.
+                'federation' => ['urn:example:oidc:manage:federation'],
+            ],
+        ]);
+
+        $this->assertStringContainsString('no usable entitlements, so no user can be granted it', $html);
+        $this->assertStringContainsString('not a permission this module checks, so it grants nothing', $html);
+    }
+
+    /**
+     * Permissions are off without an attribute to inspect, but what is configured must stay visible.
+     *
+     * @throws \Exception
+     */
+    public function testRendersPermissionsWhichAreNotEnabled(): void
+    {
+        $html = $this->renderGeneral([
+            ModuleConfig::OPTION_ADMIN_UI_PERMISSIONS => [
+                'client' => ['urn:example:oidc:manage:client'],
+            ],
+        ]);
+
+        $this->assertStringContainsString('Not enabled', $html);
+        $this->assertStringContainsString('urn:example:oidc:manage:client', $html);
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testRendersInvalidPermissionsAttribute(): void
+    {
+        $html = $this->renderGeneral([
+            ModuleConfig::OPTION_ADMIN_UI_PERMISSIONS => [
+                'attribute' => ['eduPersonEntitlement'],
+            ],
+        ]);
+
+        $this->assertStringContainsString('The attribute to inspect is not a string', $html);
     }
 
     /**

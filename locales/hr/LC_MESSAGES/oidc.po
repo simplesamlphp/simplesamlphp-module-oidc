@@ -1503,3 +1503,93 @@ msgid ""
 "configuration above."
 msgstr ""
 
+msgid "Administration UI"
+msgstr ""
+
+msgid ""
+"Checked when someone who is not a SimpleSAMLphp administrator opens "
+"the client registry. Such a user only ever sees the clients they "
+"own."
+msgstr ""
+
+msgid "Cron Tag"
+msgstr ""
+
+msgid "Entitlements"
+msgstr ""
+
+msgid ""
+"Expired and invalid entries are removed from storage whenever the "
+"SimpleSAMLphp cron module runs this tag."
+msgstr ""
+
+msgid "General Settings"
+msgstr ""
+
+msgid "Inspected attribute"
+msgstr ""
+
+msgid "Items Per Page"
+msgstr ""
+
+msgid ""
+"No attribute to inspect is configured, so permissions are off and "
+"only a SimpleSAMLphp administrator can use the client registry."
+msgstr ""
+
+msgid "not a permission this module checks, so it grants nothing"
+msgstr ""
+
+msgid "Not enabled"
+msgstr ""
+
+msgid ""
+"No usable cron tag is set, so expired and invalid entries are never "
+"removed from storage and the module tables keep growing."
+msgstr ""
+
+msgid "no usable entitlements, so no user can be granted it"
+msgstr ""
+
+msgid "Number of entries listed per page in the client registry."
+msgstr ""
+
+msgid ""
+"Number of entries listed per page in the client registry. Not set, "
+"so the default shown here is used."
+msgstr ""
+
+msgid "Permissions"
+msgstr ""
+
+msgid "Storage Cleanup"
+msgstr ""
+
+msgid "Test Federation Discovery"
+msgstr ""
+
+msgid "Test Verifiable Credential Issuance"
+msgstr ""
+
+msgid ""
+"The attribute to inspect is not a string, so no permission can be "
+"granted."
+msgstr ""
+
+msgid ""
+"The SimpleSAMLphp cron module is not enabled, so this tag is never "
+"run and expired and invalid entries are never removed from storage."
+msgstr ""
+
+msgid ""
+"This tag is not one the SimpleSAMLphp cron module is allowed to run, "
+"so it is never run and expired and invalid entries are never removed "
+"from storage."
+msgstr ""
+
+msgid ""
+"The SimpleSAMLphp cron module has no usable list of the tags it may "
+"run, so it refuses every tag, and expired and invalid entries are "
+"never removed from storage."
+msgstr ""
+

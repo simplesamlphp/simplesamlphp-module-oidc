@@ -1,0 +1,9 @@
+{% set subPageTitle = 'General Settings'|trans %}
+
+{% extends "@oidc/base.twig" %}
+
+{% block oidcContent %}
+
+    {% include '@oidc/config/includes/overview-sections.twig' with { sections: sections } only %}
+
+{% endblock oidcContent -%}

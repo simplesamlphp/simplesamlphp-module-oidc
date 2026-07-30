@@ -219,6 +219,49 @@
         {{ 'N/A'|trans }}
     {% endif %}
 
+{% elseif valueType == 'adminUiPermissions' %}
+
+    {% if row.value.attribute is not null %}
+        <small>{{ 'Inspected attribute'|trans }}: <code>{{ row.value.attribute }}</code></small>
+    {% elseif row.value.isAttributeInvalid %}
+        <small class="red-text">
+            {{ 'The attribute to inspect is not a string, so no permission can be granted.'|trans }}
+        </small>
+    {% else %}
+        {{ 'Not enabled'|trans }}
+    {% endif %}
+
+    {# Listed even when the attribute is missing, so that configured permissions are not hidden. #}
+    {% if row.value.permissions is not empty %}
+        <ul class="disc">
+            {% for permission in row.value.permissions %}
+                <li>
+                    <strong>{{ permission.name }}</strong>
+                    {% if permission.entitlements is not empty %}
+                        <br>
+                        <small>
+                            {{ 'Entitlements'|trans }}:
+                            {% for entitlement in permission.entitlements %}
+                                <code>{{ entitlement }}</code>{{ loop.last ? '' : ', ' }}
+                            {% endfor %}
+                        </small>
+                    {% endif %}
+                    {% if permission.ineffectiveReason == 'notChecked' %}
+                        <br>
+                        <small class="red-text">
+                            ({{ 'not a permission this module checks, so it grants nothing'|trans }})
+                        </small>
+                    {% elseif permission.ineffectiveReason == 'noEntitlements' %}
+                        <br>
+                        <small class="red-text">
+                            ({{ 'no usable entitlements, so no user can be granted it'|trans }})
+                        </small>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
 {% elseif valueType == 'rawText' %}
 
     {# Configured data, shown verbatim and deliberately not translated. #}
