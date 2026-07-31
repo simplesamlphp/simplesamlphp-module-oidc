@@ -454,6 +454,16 @@ values, and the redirection is performed as before.
 - The underlying `thephpleague/oauth2-server` library has been updated from
 v8 to v9
 
+## Version 6.4.3 to 6.4.4
+
+Claim mappings with type `string`, including mappings without an explicit
+type, now always emit string values. This fixes non-string `sub` claims in
+UserInfo responses. Values that cannot be safely converted are rejected, and
+the resulting `sub` claim must be a non-empty string.
+
+No configuration change is required when mapped attributes already contain
+strings or scalar numeric identifiers.
+
 ## Version 6.3 to 6.4
 
 This is a minor release in order to enable installation of the module with

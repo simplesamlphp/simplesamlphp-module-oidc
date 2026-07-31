@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Utils;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use SimpleSAML\Module\oidc\Entities\ClaimSetEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Utils\Attributes;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor
- */
+#[CoversClass(ClaimTranslatorExtractor::class)]
 class ClaimTranslatorExtractorTest extends TestCase
 {
     /** @var string[] */
@@ -240,6 +241,55 @@ class ClaimTranslatorExtractorTest extends TestCase
         $userAttributes = (new Attributes())->normalizeAttributesArray(['testClaim' => '7890F',]);
         $claimTranslator = $this->mock([$claimSet], $translate);
         $claimTranslator->extract(['typeConversion'], $userAttributes);
+    }
+
+    public function testConvertsIntegerSubjectClaimToString(): void
+    {
+        $releasedClaims = $this->mock()->extract(
+            ['openid'],
+            ['uid' => [123]],
+        );
+
+        $this->assertSame(['sub' => '123'], $releasedClaims);
+    }
+
+    #[DataProvider('unsafeStringValuesProvider')]
+    public function testRejectsUnsafeStringConversion(mixed $value, string $type): void
+    {
+        $claimSet = new ClaimSetEntity('typeConversion', ['testClaim']);
+        $translate = [
+            'testClaim' => [
+                'type' => 'string',
+                'testAttribute',
+            ],
+        ];
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage(sprintf('Cannot safely convert %s to string', $type));
+
+        $this->mock([$claimSet], $translate)->extract(
+            ['typeConversion'],
+            ['testAttribute' => [$value]],
+        );
+    }
+
+    public static function unsafeStringValuesProvider(): array
+    {
+        return [
+            'null' => [null, 'null'],
+            'non-stringable object' => [new \stdClass(), 'stdClass'],
+        ];
+    }
+
+    public function testRejectsEmptySubjectClaimAfterStringConversion(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage("The 'sub' claim must be a non-empty string");
+
+        $this->mock()->extract(
+            ['openid'],
+            ['uid' => [false]],
+        );
     }
 
     /**
