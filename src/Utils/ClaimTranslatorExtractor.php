@@ -28,6 +28,7 @@ use RuntimeException;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClaimSetEntityInterface;
 use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use Stringable;
 
 class ClaimTranslatorExtractor
 {
@@ -302,6 +303,14 @@ class ClaimTranslatorExtractor
             return $values;
         }
         switch ($type) {
+            case 'string':
+                if (is_scalar($attributes) || $attributes instanceof Stringable) {
+                    return (string)$attributes;
+                }
+
+                throw new RuntimeException(
+                    sprintf('Cannot safely convert %s to string', get_debug_type($attributes)),
+                );
             case 'int':
                 if (is_numeric($attributes)) {
                     return (int)$attributes;
@@ -347,6 +356,8 @@ class ClaimTranslatorExtractor
             $claimData = array_merge($claimData, $data);
         }
 
+        $this->validateSubjectClaim($claimData);
+
         return $claimData;
     }
 
@@ -376,11 +387,25 @@ class ClaimTranslatorExtractor
         }
         $translatedClaims = $this->translateSamlAttributesToClaims($this->translationTable, $claims);
 
-        return array_filter(
+        $additionalClaims = array_filter(
             $translatedClaims,
             fn(/** @param array-key $key */ $key) => array_key_exists($key, $requestedClaims),
             ARRAY_FILTER_USE_KEY,
         );
+
+        $this->validateSubjectClaim($additionalClaims);
+
+        return $additionalClaims;
+    }
+
+    private function validateSubjectClaim(array $claims): void
+    {
+        if (
+            array_key_exists('sub', $claims) &&
+            (!is_string($claims['sub']) || $claims['sub'] === '')
+        ) {
+            throw new RuntimeException("The 'sub' claim must be a non-empty string");
+        }
     }
 
     /**
