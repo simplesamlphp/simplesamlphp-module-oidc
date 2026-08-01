@@ -51,10 +51,7 @@ class VciCredentialOfferApiController
 
         $this->loggerService->debug('VciCredentialOfferApiController::credentialOffer');
 
-        $this->loggerService->debug(
-            'VciCredentialOfferApiController: Request data: ',
-            $request->getPayload()->all(),
-        );
+        $this->loggerService->debug('VciCredentialOfferApiController: Processing credential-offer request.');
 
         try {
             $this->authorization->requireTokenForAnyOfScope(
@@ -175,9 +172,8 @@ class VciCredentialOfferApiController
             }
 
             $this->loggerService->debug(
-                'VciCredentialOfferApiController: PreAuthorizedCode data:',
+                'VciCredentialOfferApiController: Pre-authorized credential-offer request accepted.',
                 [
-                    'userAttributes' => $userAttributes,
                     'useTxCode' => $useTxCode,
                     'authenticationSourceId' => $authenticationSourceId,
                     'usersEmailAttributeName' => $usersEmailAttributeName,
@@ -198,8 +194,7 @@ class VciCredentialOfferApiController
             ];
 
             $this->loggerService->debug(
-                'VciCredentialOfferApiController: Credential Offer URI built successfully, returning data:',
-                $data,
+                'VciCredentialOfferApiController: Credential Offer URI built successfully.',
             );
             return $this->routes->newJsonResponse(
                 data: $data,

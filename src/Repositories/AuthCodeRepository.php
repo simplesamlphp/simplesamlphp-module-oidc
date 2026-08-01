@@ -22,6 +22,7 @@ use RuntimeException;
 use SimpleSAML\Database;
 use SimpleSAML\Error\Error;
 use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
+use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
@@ -176,6 +177,35 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
 
         $authCode->revoke();
         $this->update($authCode);
+    }
+
+    /**
+     * Atomically consume a VCI pre-authorized code.
+     *
+     * The database is the source of truth for this replay guard. A conditional
+     * update ensures that only one request can change an unrevoked code to the
+     * revoked state, even when concurrent requests read the same cached entity.
+     */
+    public function consumePreAuthorizedCode(string $codeId): bool
+    {
+        $stmt = "UPDATE {$this->getTableName()} SET is_revoked = :revoked " .
+        "WHERE id = :id AND is_revoked = :not_revoked AND flow_type = :flow_type AND expires_at >= :now";
+
+        $affected = $this->database->write(
+            $stmt,
+            [
+                'id' => $codeId,
+                'revoked' => [true, PDO::PARAM_BOOL],
+                'not_revoked' => [false, PDO::PARAM_BOOL],
+                'flow_type' => FlowTypeEnum::VciPreAuthorizedCode->value,
+                'now' => $this->helpers->dateTime()->getUtc()->format(DateFormatsEnum::DB_DATETIME->value),
+            ],
+        );
+
+        // Never allow a stale cached entity to bypass the database replay guard.
+        $this->protocolCache?->delete($this->getCacheKey($codeId));
+
+        return $affected === 1;
     }
 
     /**

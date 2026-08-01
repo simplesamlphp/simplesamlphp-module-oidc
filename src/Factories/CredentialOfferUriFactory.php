@@ -146,11 +146,8 @@ class CredentialOfferUriFactory
             if ($userId === null) {
                 throw new RuntimeException('User identifier attribute value is not available.');
             }
-        } catch (\Throwable $e) {
-            $this->loggerService->warning(
-                'Could not extract user identifier from user attributes: ' . $e->getMessage(),
-                $userAttributes,
-            );
+        } catch (\Throwable) {
+            $this->loggerService->warning('Could not extract user identifier from credential-offer attributes.');
         }
 
         if ($userId === null) {
@@ -158,10 +155,7 @@ class CredentialOfferUriFactory
             $sortedAttributes = $userAttributes;
             $this->verifiableCredentials->helpers()->arr()->hybridSort($sortedAttributes);
             $userId = 'vci_credential_offer_preauthz_' . hash('sha256', serialize($sortedAttributes));
-            $this->loggerService->info(
-                'Generated user identifier based on user attributes: ' . $userId,
-                $userAttributes,
-            );
+            $this->loggerService->info('Generated user identifier based on credential-offer attributes.');
         }
 
         $oldUserEntity = $this->userRepository->getUserEntityByIdentifier($userId);
@@ -181,10 +175,7 @@ class CredentialOfferUriFactory
             $userEmail = $this->getUserEmail($userEmailAttributeName, $userAttributes);
             $txCodeDescription = 'Please provide the one-time code that was sent to e-mail ' . $userEmail;
             $txCode = $this->buildTxCode($txCodeDescription);
-            $this->loggerService->debug(
-                'Generated TxCode for sending by email: ' . $txCode->getCodeAsString(),
-                $txCode->jsonSerialize(),
-            );
+            $this->loggerService->debug('Generated transaction code for delivery by email.');
         }
 
         $authCodeIdGenerationAttempts = 3;
@@ -278,7 +269,7 @@ class CredentialOfferUriFactory
         string $description,
         int|string $txCode = null,
     ): TxCode {
-        $txCode ??= rand(1000, 9999);
+        $txCode ??= random_int(1000, 9999);
 
         return $this->verifiableCredentials->txCodeFactory()->build(
             $txCode,
