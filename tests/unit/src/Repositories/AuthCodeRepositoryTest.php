@@ -25,6 +25,7 @@ use SimpleSAML\Configuration;
 use SimpleSAML\Database;
 use SimpleSAML\Error\Error;
 use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
+use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
@@ -207,6 +208,83 @@ class AuthCodeRepositoryTest extends TestCase
         $this->expectException(Exception::class);
 
         $this->repository->isAuthCodeRevoked('nocode');
+    }
+
+    /**
+     * @throws \JsonException
+     * @throws \SimpleSAML\Error\Error
+     */
+    public function testConsumePreAuthorizedCodeReturnsTrueOnlyOnce(): void
+    {
+        $codeId = 'pre_authorized_code_to_consume';
+        $now = new DateTimeImmutable('2026-01-01 00:00:00', new DateTimeZone('UTC'));
+        $authCode = new AuthCodeEntity(
+            $codeId,
+            $this->clientEntityMock,
+            $this->scopes,
+            $now->modify('+1 hour'),
+            self::USER_ID,
+            self::REDIRECT_URI,
+            flowTypeEnum: FlowTypeEnum::VciPreAuthorizedCode,
+            txCode: '1234',
+        );
+
+        $this->dateTimeHelperMock->method('getUtc')->willReturn($now);
+        $this->protocolCacheMock->expects($this->exactly(2))
+            ->method('delete')
+            ->with('phpunit_oidc_auth_code_' . $codeId);
+
+        $this->repository->persistNewAuthCode($authCode);
+
+        $this->assertTrue($this->repository->consumePreAuthorizedCode($codeId));
+        $this->assertFalse($this->repository->consumePreAuthorizedCode($codeId));
+    }
+
+    /**
+     * @throws \JsonException
+     * @throws \SimpleSAML\Error\Error
+     */
+    public function testConsumePreAuthorizedCodeDoesNotConsumeStandardAuthorizationCode(): void
+    {
+        $codeId = 'standard_authorization_code_not_to_consume';
+        $now = new DateTimeImmutable('2026-01-01 00:00:00', new DateTimeZone('UTC'));
+        $authCode = new AuthCodeEntity(
+            $codeId,
+            $this->clientEntityMock,
+            $this->scopes,
+            $now->modify('+1 hour'),
+            self::USER_ID,
+            self::REDIRECT_URI,
+        );
+
+        $this->dateTimeHelperMock->method('getUtc')->willReturn($now);
+        $this->repository->persistNewAuthCode($authCode);
+
+        $this->assertFalse($this->repository->consumePreAuthorizedCode($codeId));
+    }
+
+    /**
+     * @throws \JsonException
+     * @throws \SimpleSAML\Error\Error
+     */
+    public function testConsumePreAuthorizedCodeRejectsCodeExpiredAtConsumptionTime(): void
+    {
+        $codeId = 'expired_pre_authorized_code_not_to_consume';
+        $now = new DateTimeImmutable('2026-01-01 00:00:00', new DateTimeZone('UTC'));
+        $authCode = new AuthCodeEntity(
+            $codeId,
+            $this->clientEntityMock,
+            $this->scopes,
+            $now->modify('-1 second'),
+            self::USER_ID,
+            self::REDIRECT_URI,
+            flowTypeEnum: FlowTypeEnum::VciPreAuthorizedCode,
+        );
+
+        $this->dateTimeHelperMock->method('getUtc')->willReturn($now);
+        $this->repository->persistNewAuthCode($authCode);
+
+        $this->assertFalse($this->repository->consumePreAuthorizedCode($codeId));
     }
 
     /**

@@ -27,6 +27,8 @@ use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
+use function hash_equals;
+
 /**
  * @psalm-suppress PropertyNotSetInConstructor
  */
@@ -117,10 +119,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
 
         // TODO mivanci client authentication?
 
-        $this->loggerService->debug(
-            'PreAuthCodeGrant::respondToAccessTokenRequest: Request parameters: ',
-            $this->requestParamsResolver->getAllFromRequest($request),
-        );
+        $this->loggerService->debug('PreAuthCodeGrant::respondToAccessTokenRequest');
 
         $preAuthorizedCodeId = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
             ParamsEnum::PreAuthorizedCode->value,
@@ -143,7 +142,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
             is_null($preAuthorizedCode)  ||
             !is_a($preAuthorizedCode, AuthCodeEntity::class)
         ) {
-            $this->loggerService->error('Invalid pre-authorized code ID. Value was: ' . $preAuthorizedCodeId);
+            $this->loggerService->notice('Token request rejected: pre-authorized code was not found.');
             throw OidcServerException::invalidGrant('Invalid pre-authorized code.');
         }
 
@@ -153,7 +152,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
 
         // Validate Transaction Code.
         if (($preAuthorizedCodeTxCode = $preAuthorizedCode->getTxCode()) !== null) {
-            $this->loggerService->debug('Validating transaction code ' . $preAuthorizedCodeTxCode);
+            $this->loggerService->debug('Validating transaction code.');
             $txCodeParam = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
                 ParamsEnum::TxCode->value,
                 $request,
@@ -165,12 +164,9 @@ class PreAuthCodeGrant extends AuthCodeGrant
                 throw OidcServerException::invalidRequest(ParamsEnum::TxCode->value, 'Transaction Code is missing.');
             }
 
-            $this->loggerService->debug('Transaction code parameter value: ' . $txCodeParam);
-
-            if ($preAuthorizedCodeTxCode !== $txCodeParam) {
+            if (!hash_equals($preAuthorizedCodeTxCode, $txCodeParam)) {
                 $this->loggerService->warning(
                     'Transaction code parameter value does not match pre-authorized code transaction code.',
-                    ['txCodeParam' => $txCodeParam, 'preAuthorizedCodeTxCode' => $preAuthorizedCodeTxCode,],
                 );
                 throw OidcServerException::invalidRequest(ParamsEnum::TxCode->value, 'Transaction Code is invalid.');
             }
@@ -193,6 +189,16 @@ class PreAuthCodeGrant extends AuthCodeGrant
 
         $authorizationDetails = $resultBag->get(AuthorizationDetailsRule::class)?->getValue();
 
+        // Consume immediately before token issuance. The conditional database update is the
+        // authoritative replay guard, so only one concurrent request can proceed. If token
+        // persistence subsequently fails, the code remains consumed (fail closed).
+        if (!$this->authCodeRepository->consumePreAuthorizedCode($preAuthorizedCodeId)) {
+            $this->loggerService->notice(
+                'Token request rejected: pre-authorized code was already consumed or is no longer valid.',
+            );
+            throw OidcServerException::invalidGrant('Invalid pre-authorized code.');
+        }
+
         // Issue and persist new access token
         $accessToken = $this->issueAccessToken(
             $accessTokenTTL,
@@ -208,9 +214,10 @@ class PreAuthCodeGrant extends AuthCodeGrant
         $this->getEmitter()->emit(new RequestEvent(RequestEvent::ACCESS_TOKEN_ISSUED, $request));
         $responseType->setAccessToken($accessToken);
 
-
-        // TODO mivanci revoke pre-authorized code or let it expire only after access token is issued?
-        // $this->authCodeRepository->revokeAuthCode($preAuthorizedCode);
+        $this->loggerService->notice(
+            'Pre-authorized code redeemed; access token issued.',
+            ['client_id' => $client->getIdentifier()],
+        );
 
         return $responseType;
     }
@@ -233,27 +240,18 @@ class PreAuthCodeGrant extends AuthCodeGrant
         $this->loggerService->debug('PreAuthCodeGrant::validateAuthorizationCode');
 
         if (!$storedAuthCodeEntity->isVciPreAuthorized()) {
-            $this->loggerService->error(
-                'Pre-authorized code is not pre-authorized. ID was: ',
-                ['preAuthCodeId' => $storedAuthCodeEntity->getIdentifier()],
-            );
+            $this->loggerService->error('Pre-authorized code is not pre-authorized.');
             throw OidcServerException::invalidGrant('Pre-authorized code is not pre-authorized.');
         }
 
         if ($storedAuthCodeEntity->getExpiryDateTime()->getTimestamp() < time()) {
-            $this->loggerService->error(
-                'Pre-authorized code is expired. ID was: ',
-                ['preAuthCodeId' => $storedAuthCodeEntity->getIdentifier()],
-            );
+            $this->loggerService->error('Pre-authorized code is expired.');
 
             throw OidcServerException::invalidGrant('Pre-authorized code is expired.');
         }
 
         if ($storedAuthCodeEntity->isRevoked()) {
-            $this->loggerService->error(
-                'Pre-authorized code is revoked. ID was: ',
-                ['preAuthCodeId' => $storedAuthCodeEntity->getIdentifier()],
-            );
+            $this->loggerService->error('Pre-authorized code is revoked.');
             throw OidcServerException::invalidGrant('Pre-authorized code is revoked.');
         }
 
