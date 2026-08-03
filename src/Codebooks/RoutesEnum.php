@@ -72,6 +72,15 @@ enum RoutesEnum: string
     case CredentialJsonLdContext = 'credential-issuer/context/{credentialConfigurationId}';
 
     /*****************************************************************************************************************
+     * Token Status List
+     ****************************************************************************************************************/
+
+    // Publishes one Status List Token. Deliberately not gated on the Verifiable Credential Issuance
+    // switch: credentials which were already issued point at these URIs and have to stay verifiable,
+    // so turning issuance off must not make them unresolvable.
+    case StatusList = 'statuslist/{statusListId}';
+
+    /*****************************************************************************************************************
      * SD-JWT-based Verifiable Credentials (SD-JWT VC)
      ****************************************************************************************************************/
 

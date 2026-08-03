@@ -7,8 +7,11 @@ namespace SimpleSAML\Module\oidc\Admin\ConfigOverview;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
+use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
+use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
 use Stringable;
 use Throwable;
 
@@ -51,9 +54,132 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
             $this->buildSignatureKeysSection(),
             $this->buildCredentialConfigurationsSection(),
             $this->buildNonRegisteredClientsSection(),
+            $this->buildStatusListsSection(),
             $this->buildDurationsSection(),
             $this->buildCredentialOfferSection(),
         ];
+    }
+
+    /**
+     * Token Status List settings, being what makes issued credentials revocable.
+     */
+    protected function buildStatusListsSection(): Section
+    {
+        $isEnabled = false;
+
+        try {
+            $isEnabled = $this->moduleConfig->getVciStatusListEnabled();
+        } catch (Throwable) {
+            // Reported on its own row below, where the option which failed to resolve is named.
+        }
+
+        $rows = [
+            $this->guardRow(
+                Translate::noop('Status Lists Enabled'),
+                ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED,
+                function (): Row {
+                    $enabled = $this->moduleConfig->getVciStatusListEnabled();
+
+                    return new Row(
+                        Translate::noop('Status Lists Enabled'),
+                        $this->yesNo($enabled),
+                        ConfigOverviewValueTypeEnum::Text,
+                        ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED,
+                        $enabled ?
+                        Translate::noop(
+                            'Issued credentials get a Status List entry, so they can be revoked and ' .
+                            'suspended.',
+                        ) :
+                        Translate::noop(
+                            'New credentials are issued without a status claim, so they can not be ' .
+                            'revoked. Status Lists which already exist keep being served regardless ' .
+                            'of this setting, so credentials issued earlier stay verifiable.',
+                        ),
+                    );
+                },
+            ),
+            $this->guardRow(
+                Translate::noop('Status List Key Profile'),
+                ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE,
+                fn(): Row => new Row(
+                    Translate::noop('Status List Key Profile'),
+                    $this->moduleConfig->getVciStatusListKeyProfile()->value,
+                    ConfigOverviewValueTypeEnum::RawText,
+                    ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE,
+                    Translate::noop(
+                        'How Status List Tokens identify their signing key. Each list records the ' .
+                        'profile it was created under, so changing this affects newly created lists ' .
+                        'only and never invalidates credentials already issued. A pool may override it.',
+                    ),
+                ),
+            ),
+            $this->guardRow(
+                Translate::noop('Status List Pools'),
+                ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS,
+                function () use ($isEnabled): Row {
+                    $poolBag = $this->moduleConfig->getVciStatusListPoolBag();
+
+                    if ($poolBag->isEmpty()) {
+                        return new Row(
+                            Translate::noop('Status List Pools'),
+                            Translate::noop('None configured'),
+                            ConfigOverviewValueTypeEnum::Text,
+                            ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS,
+                            Translate::noop(
+                                'No credential configuration allocates a Status List entry, so no ' .
+                                'issued credential can be revoked.',
+                            ),
+                        );
+                    }
+
+                    return new Row(
+                        Translate::noop('Status List Pools'),
+                        $this->describeStatusListPools($poolBag),
+                        ConfigOverviewValueTypeEnum::Json,
+                        ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS,
+                        $isEnabled ?
+                        Translate::noop(
+                            'Credentials of a configuration which is in no pool are issued without a ' .
+                            'status claim. Privacy rests on many credentials sharing one list, so ' .
+                            'more pools means a smaller group each credential hides in.',
+                        ) :
+                        Translate::noop(
+                            'These pools are inert, since Status Lists are disabled.',
+                        ),
+                    );
+                },
+            ),
+        ];
+
+        return new Section(Translate::noop('Status Lists'), 'statusLists', ...$rows);
+    }
+
+    /**
+     * @return array<string,array<string,mixed>>
+     */
+    protected function describeStatusListPools(StatusListPoolBag $poolBag): array
+    {
+        $described = [];
+
+        foreach ($poolBag->getAll() as $poolId => $pool) {
+            $described[$poolId] = [
+                StatusListPool::KEY_CREDENTIAL_CONFIGURATIONS => $pool->getCredentialConfigurationIds(),
+                StatusListPool::KEY_BITS => $pool->getBits(),
+                StatusListPool::KEY_CAPACITY => $pool->getCapacity(),
+                StatusListPool::KEY_ALLOWED_STATUSES => array_map(
+                    static fn(StatusTypeEnum $status): string => $status->name,
+                    $pool->getAllowedStatuses(),
+                ),
+                StatusListPool::KEY_TTL => $this->dateIntervalFormatter->toDurationSpec($pool->getTtl()),
+                StatusListPool::KEY_TOKEN_VALIDITY => $this->dateIntervalFormatter
+                    ->toDurationSpec($pool->getTokenValidity()),
+                StatusListPool::KEY_REFRESH_INTERVAL => $this->dateIntervalFormatter
+                    ->toDurationSpec($pool->getRefreshInterval()),
+                StatusListPool::KEY_KEY_PROFILE => $pool->getKeyProfile()->value,
+            ];
+        }
+
+        return $described;
     }
 
     /**

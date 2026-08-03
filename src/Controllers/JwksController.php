@@ -18,9 +18,11 @@ namespace SimpleSAML\Module\oidc\Controllers;
 
 use Laminas\Diactoros\Response\JsonResponse;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
+use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\OpenID\Jwks;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class JwksController
 {
@@ -40,7 +42,12 @@ class JwksController
         ? $this->moduleConfig->getFederationSignatureKeyPairBag()->getAllPublicKeys()
         : [];
 
-        $vciPublicKeys = $this->moduleConfig->getVciEnabled()
+        // Published while Verifiable Credential Issuance is on, and also while any Status List pool is
+        // configured to identify its signing key through this key set. Status Lists outlive the switch
+        // which stops new credentials being issued -- credentials already in wallets point at those
+        // lists and have to stay verifiable -- so withdrawing the key their tokens are signed with the
+        // moment issuance is turned off would break exactly the guarantee that lifecycle rests on.
+        $vciPublicKeys = ($this->moduleConfig->getVciEnabled() || $this->isAnyStatusListKeyPublished())
         ? $this->moduleConfig->getVciSignatureKeyPairBag()->getAllPublicKeys()
         : [];
 
@@ -51,6 +58,40 @@ class JwksController
                 ...$vciPublicKeys,
             )->jsonSerialize(),
         );
+    }
+
+    /**
+     * Whether any configured Status List pool expects its tokens to be verified through this key set.
+     *
+     * Answered from configuration alone, deliberately. Asking the stored lists instead would be more
+     * precise -- a list outlives the pool which created it, so a pool removed or moved to the other key
+     * profile leaves lists behind which still need this key. But answering it would mean this endpoint
+     * holding a repository, and resolving that dependency opens a database connection before the
+     * controller is even entered. A key set which has never needed a database would then fail whenever
+     * the database did, taking down verification of every ID token and access token this issuer has
+     * ever signed. That is a far larger failure than the one it would prevent.
+     *
+     * The gap this leaves is an operator removing a pool, or switching it to the other key profile,
+     * while lists created under the old one are still being served. That is the same class of change as
+     * removing the signing key itself, and it is caught where it can be acted on: publication resolves
+     * a list's key by the ID stored on it and fails closed rather than signing with something else.
+     */
+    protected function isAnyStatusListKeyPublished(): bool
+    {
+        try {
+            foreach ($this->moduleConfig->getVciStatusListPoolBag()->getAll() as $pool) {
+                if ($pool->getKeyProfile() === StatusListKeyProfileEnum::Jwks) {
+                    return true;
+                }
+            }
+        } catch (Throwable) {
+            // A pool which can not be resolved is reported on the configuration overview screen, which
+            // owns that error. Here the conservative reading is that no pool needs its key published,
+            // which leaves the key set exactly as it was before Status Lists existed.
+            return false;
+        }
+
+        return false;
     }
 
     public function jwks(): Response

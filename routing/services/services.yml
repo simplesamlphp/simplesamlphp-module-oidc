@@ -33,6 +33,19 @@ services:
     resource: '../../src/Repositories/*'
     exclude: '../../src/Repositories/{Interfaces}'
 
+  # Token Status List. Values hold objects built from configuration or read back from storage rather
+  # than autowired, so it is excluded along with the interfaces.
+  SimpleSAML\Module\oidc\StatusList\:
+    resource: '../../src/StatusList/*'
+    exclude: '../../src/StatusList/{Contracts,Values}'
+
+  # Autowiring by directory glob does not resolve interfaces to implementations, so each port is
+  # aliased to the implementation it is served by.
+  SimpleSAML\Module\oidc\StatusList\Contracts\StatusIndexAllocatorInterface:
+    alias: SimpleSAML\Module\oidc\StatusList\DbStatusIndexAllocator
+  SimpleSAML\Module\oidc\StatusList\Contracts\StatusUpdaterInterface:
+    alias: SimpleSAML\Module\oidc\StatusList\DbStatusUpdater
+
   SimpleSAML\Module\oidc\Factories\:
     resource: '../../src/Factories/*'
 
@@ -137,6 +150,8 @@ services:
     factory: [ '@SimpleSAML\Module\oidc\Factories\FederationFactory', 'build' ]
   SimpleSAML\OpenID\VerifiableCredentials:
     factory: [ '@SimpleSAML\Module\oidc\Factories\VerifiableCredentialsFactory', 'build' ]
+  SimpleSAML\OpenID\TokenStatusList:
+    factory: [ '@SimpleSAML\Module\oidc\Factories\TokenStatusListFactory', 'build' ]
   SimpleSAML\OpenID\Jwks:
     factory: [ '@SimpleSAML\Module\oidc\Factories\JwksFactory', 'build' ]
   SimpleSAML\OpenID\Jwk: ~

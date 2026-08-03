@@ -1593,3 +1593,49 @@ msgid ""
 "never removed from storage."
 msgstr ""
 
+msgid ""
+"Credentials of a configuration which is in no pool are issued "
+"without a status claim. Privacy rests on many credentials sharing "
+"one list, so more pools means a smaller group each credential hides "
+"in."
+msgstr ""
+
+msgid ""
+"How Status List Tokens identify their signing key. Each list records "
+"the profile it was created under, so changing this affects newly "
+"created lists only and never invalidates credentials already issued. "
+"A pool may override it."
+msgstr ""
+
+msgid ""
+"Issued credentials get a Status List entry, so they can be revoked "
+"and suspended."
+msgstr ""
+
+msgid ""
+"New credentials are issued without a status claim, so they can not "
+"be revoked. Status Lists which already exist keep being served "
+"regardless of this setting, so credentials issued earlier stay "
+"verifiable."
+msgstr ""
+
+msgid ""
+"No credential configuration allocates a Status List entry, so no "
+"issued credential can be revoked."
+msgstr ""
+
+msgid "Status List Key Profile"
+msgstr ""
+
+msgid "Status List Pools"
+msgstr ""
+
+msgid "Status Lists"
+msgstr ""
+
+msgid "Status Lists Enabled"
+msgstr ""
+
+msgid "These pools are inert, since Status Lists are disabled."
+msgstr ""
+

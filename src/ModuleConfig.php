@@ -20,10 +20,14 @@ use DateInterval;
 use Defuse\Crypto\Exception\CryptoException;
 use Defuse\Crypto\Key;
 use SimpleSAML\Configuration;
+use SimpleSAML\Database;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Codebooks\DcrRegistrationAuthEnum;
+use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
+use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
@@ -54,6 +58,13 @@ class ModuleConfig
     public const string KEY_PRIVATE_KEY_PASSWORD = 'private_key_password';
     public const string KEY_KEY_ID = 'key_id';
     final public const string DEFAULT_FILE_NAME = 'module_oidc.php';
+
+    /**
+     * SimpleSAMLphp\Database method performing a read which is guaranteed to hit the primary rather
+     * than a possibly lagging secondary. Required by the Token Status List capability.
+     */
+    final public const string SSP_PRIMARY_READ_METHOD = 'readPrimary';
+
     final public const string OPTION_PKI_PRIVATE_KEY_PASSPHRASE = 'pass_phrase';
     final public const string DEFAULT_PKI_PRIVATE_KEY_FILENAME = 'oidc_module.key';
     final public const string DEFAULT_PKI_CERTIFICATE_FILENAME = 'oidc_module.crt';
@@ -141,6 +152,9 @@ class ModuleConfig
     final public const string OPTION_TIMESTAMP_VALIDATION_LEEWAY = 'timestamp_validation_leeway';
     final public const string OPTION_VCI_SIGNATURE_KEY_PAIRS = 'vci_signature_key_pairs';
     final public const string OPTION_VCI_CREDENTIAL_JSON_LD_CONTEXT = 'vci_credential_json_ld_context';
+    final public const string OPTION_VCI_STATUS_LIST_ENABLED = 'vci_status_list_enabled';
+    final public const string OPTION_VCI_STATUS_LIST_KEY_PROFILE = 'vci_status_list_key_profile';
+    final public const string OPTION_VCI_STATUS_LIST_POOLS = 'vci_status_list_pools';
     final public const string OPTION_DCR_ENABLED = 'dcr_enabled';
     final public const string OPTION_DCR_REGISTRATION_AUTH = 'dcr_registration_auth';
     final public const string OPTION_DCR_INITIAL_ACCESS_TOKENS = 'dcr_initial_access_tokens';
@@ -191,6 +205,7 @@ class ModuleConfig
     protected ?SignatureKeyPairBag $federationSignatureKeyPairBag = null;
     protected ?SignatureKeyPairBag $vciSignatureKeyPairBag = null;
     protected ?SignatureKeyPairConfigBag $vciSignatureKeyPairConfigBag = null;
+    protected ?StatusListPoolBag $vciStatusListPoolBag = null;
 
     /**
      * @throws \Exception
@@ -1221,6 +1236,152 @@ class ModuleConfig
     public function getVciEnabled(): bool
     {
         return $this->config()->getOptionalBoolean(self::OPTION_VCI_ENABLED, false);
+    }
+
+    /**
+     * Whether new credentials get a Token Status List entry allocated to them.
+     *
+     * Note what this switch does not do: it never stops the Status List endpoint from serving. Turning
+     * it off must leave already issued credentials verifiable, so lists keep being served until they
+     * are retired through their own lifecycle. Only allocation of new entries stops.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciStatusListEnabled(): bool
+    {
+        if (!$this->config()->getOptionalBoolean(self::OPTION_VCI_STATUS_LIST_ENABLED, false)) {
+            return false;
+        }
+
+        // Refuse to enable rather than fall back to a replica read. Deciding whether a credential has
+        // been revoked off a lagging secondary can publish a revoked credential as valid, and the host
+        // SimpleSAMLphp is a development dependency here, so Composer can not enforce a floor for us:
+        // this module can be installed into an older SimpleSAMLphp and nothing would object.
+        if (!self::hasPrimaryDatabaseReadCapability()) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Token Status Lists are enabled ("%s"), but the installed SimpleSAMLphp does not ' .
+                    'provide %s::%s(). Status List correctness depends on reading back what was just ' .
+                    'written rather than a possibly lagging secondary, so this capability is required. ' .
+                    'Upgrade SimpleSAMLphp to a version providing it, or disable "%s".',
+                    self::OPTION_VCI_STATUS_LIST_ENABLED,
+                    Database::class,
+                    self::SSP_PRIMARY_READ_METHOD,
+                    self::OPTION_VCI_STATUS_LIST_ENABLED,
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        return true;
+    }
+
+    /**
+     * Whether the host SimpleSAMLphp can perform reads which bypass secondaries.
+     *
+     * Checked against the class rather than an instance, so that this stays a pure capability question
+     * and config loading does not have to reach for a database connection.
+     */
+    public static function hasPrimaryDatabaseReadCapability(): bool
+    {
+        return method_exists(Database::class, self::SSP_PRIMARY_READ_METHOD);
+    }
+
+    /**
+     * Key profile used for Status List Tokens which do not have one set on their own pool.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciStatusListKeyProfile(): StatusListKeyProfileEnum
+    {
+        /** @var mixed $configured */
+        $configured = $this->config()->getOptionalValue(self::OPTION_VCI_STATUS_LIST_KEY_PROFILE, null);
+
+        if ($configured === null) {
+            return StatusListKeyProfileEnum::DidJwk;
+        }
+
+        if ($configured instanceof StatusListKeyProfileEnum) {
+            return $configured;
+        }
+
+        if (is_string($configured) && ($profile = StatusListKeyProfileEnum::tryFrom($configured)) !== null) {
+            return $profile;
+        }
+
+        throw new ConfigurationError(
+            sprintf(
+                'Option "%s" must be one of: %s.',
+                self::OPTION_VCI_STATUS_LIST_KEY_PROFILE,
+                implode(
+                    ', ',
+                    array_map(
+                        static fn(StatusListKeyProfileEnum $case): string => $case->value,
+                        StatusListKeyProfileEnum::cases(),
+                    ),
+                ),
+            ),
+            self::DEFAULT_FILE_NAME,
+        );
+    }
+
+    /**
+     * The configured Status List pools.
+     *
+     * Deliberately a separate top-level option rather than something nested inside the credential
+     * configurations: those are returned wholesale as published Credential Issuer metadata, so a
+     * private control placed among them would become visible to every wallet.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciStatusListPoolBag(): StatusListPoolBag
+    {
+        if ($this->vciStatusListPoolBag instanceof StatusListPoolBag) {
+            return $this->vciStatusListPoolBag;
+        }
+
+        $poolBag = StatusListPoolBag::fromConfig(
+            $this->config()->getOptionalArray(self::OPTION_VCI_STATUS_LIST_POOLS, []),
+            $this->getVciStatusListKeyProfile(),
+        );
+
+        $supportedIds = $this->getVciCredentialConfigurationIdsSupported();
+
+        foreach ($poolBag->getAllCredentialConfigurationIds() as $credentialConfigurationId) {
+            if (in_array($credentialConfigurationId, $supportedIds, true)) {
+                continue;
+            }
+
+            // A typo here would otherwise be silent: the pool would simply never be allocated from, and
+            // the credentials which were meant to be revocable would be issued without a status claim.
+            throw new ConfigurationError(
+                sprintf(
+                    'Status List pool "%s" lists the credential configuration "%s", which is not one of ' .
+                    'the configurations declared under "%s".',
+                    (string)$poolBag->getForCredentialConfigurationId($credentialConfigurationId)?->getId(),
+                    $credentialConfigurationId,
+                    self::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED,
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        return $this->vciStatusListPoolBag = $poolBag;
+    }
+
+    /**
+     * The pool a credential configuration allocates Status List entries from, or null if it is not
+     * configured to use them, in which case its credentials are issued without a `status` claim.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciStatusListPoolFor(string $credentialConfigurationId): ?StatusListPool
+    {
+        if (!$this->getVciStatusListEnabled()) {
+            return null;
+        }
+
+        return $this->getVciStatusListPoolBag()->getForCredentialConfigurationId($credentialConfigurationId);
     }
 
 

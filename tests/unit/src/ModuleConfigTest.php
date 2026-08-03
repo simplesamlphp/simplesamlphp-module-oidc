@@ -12,8 +12,10 @@ use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
+use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\TrustMarkStatusEndpointUsagePolicyEnum;
 use SimpleSAML\OpenID\SupportedAlgorithms;
@@ -724,5 +726,160 @@ class ModuleConfigTest extends TestCase
         $this->expectExceptionMessage('Expected a non-empty string');
 
         $this->sut()->getValidatedSignatureKeyPairArray($value);
+    }
+
+    /*****************************************************************************************************************
+     * Token Status List
+     ****************************************************************************************************************/
+
+    /**
+     * Off unless a deployment opts in, since it changes what is stored about issued credentials.
+     *
+     * @throws \Exception
+     */
+    public function testStatusListsAreDisabledByDefault(): void
+    {
+        $this->assertFalse($this->sut()->getVciStatusListEnabled());
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testStatusListsCanBeEnabled(): void
+    {
+        $this->assertTrue(
+            $this->sut(overrides: [ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => true])
+                ->getVciStatusListEnabled(),
+        );
+    }
+
+    /**
+     * SimpleSAMLphp is a development dependency here, so nothing stops this module being installed into
+     * a host which lacks the primary read. Deciding whether a credential has been revoked off a lagging
+     * secondary can publish a revoked credential as valid, so the capability is required rather than
+     * degraded to a replica read.
+     */
+    public function testPrimaryDatabaseReadCapabilityIsDetectedRatherThanAssumed(): void
+    {
+        $this->assertSame(
+            method_exists(\SimpleSAML\Database::class, ModuleConfig::SSP_PRIMARY_READ_METHOD),
+            ModuleConfig::hasPrimaryDatabaseReadCapability(),
+        );
+
+        // The installed SimpleSAMLphp must provide it, otherwise the capability could never be enabled.
+        $this->assertTrue(ModuleConfig::hasPrimaryDatabaseReadCapability());
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testStatusListKeyProfileDefaultsToDidJwk(): void
+    {
+        $this->assertSame(
+            StatusListKeyProfileEnum::DidJwk,
+            $this->sut()->getVciStatusListKeyProfile(),
+        );
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testStatusListKeyProfileAcceptsAnEnumCaseOrItsValue(): void
+    {
+        $this->assertSame(
+            StatusListKeyProfileEnum::Jwks,
+            $this->sut(overrides: [
+                ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE => StatusListKeyProfileEnum::Jwks,
+            ])->getVciStatusListKeyProfile(),
+        );
+
+        $this->assertSame(
+            StatusListKeyProfileEnum::Jwks,
+            $this->sut(overrides: [ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE => 'jwks'])
+                ->getVciStatusListKeyProfile(),
+        );
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testStatusListKeyProfileRejectsAnUnknownValue(): void
+    {
+        $this->expectException(ConfigurationError::class);
+
+        $this->sut(overrides: [ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE => 'x509'])
+            ->getVciStatusListKeyProfile();
+    }
+
+    /**
+     * A typo here would otherwise be silent: the pool would never be allocated from, and the
+     * credentials which were meant to be revocable would be issued without a status claim.
+     *
+     * @throws \Exception
+     */
+    public function testStatusListPoolsRejectAnUnknownCredentialConfiguration(): void
+    {
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('NoSuchCredential');
+
+        $this->sut(overrides: [
+            ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS => [
+                'default' => [
+                    StatusListPool::KEY_CREDENTIAL_CONFIGURATIONS => ['NoSuchCredential'],
+                ],
+            ],
+        ])->getVciStatusListPoolBag();
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testResolvesTheStatusListPoolForACredentialConfiguration(): void
+    {
+        $sut = $this->sut(overrides: $this->withStatusListPool(true));
+
+        $this->assertSame('default', $sut->getVciStatusListPoolFor('TestCredential')?->getId());
+
+        // A configuration in no pool is not an error: its credentials are issued without a status
+        // claim, and so can not be revoked.
+        $this->assertNull($sut->getVciStatusListPoolFor('SomethingElse'));
+    }
+
+    /**
+     * With the capability off, nothing allocates, so no credential configuration resolves to a pool
+     * even when one is configured.
+     *
+     * @throws \Exception
+     */
+    public function testResolvesNoStatusListPoolWhileTheCapabilityIsDisabled(): void
+    {
+        $sut = $this->sut(overrides: $this->withStatusListPool(false));
+
+        $this->assertNull($sut->getVciStatusListPoolFor('TestCredential'));
+
+        // The pool itself is still readable, so the administration screens can show what is configured
+        // even while it is inert.
+        $this->assertSame('default', $sut->getVciStatusListPoolBag()->getById('default')?->getId());
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    protected function withStatusListPool(bool $isEnabled): array
+    {
+        return array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                    'TestCredential' => [],
+                ],
+                ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => $isEnabled,
+                ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS => [
+                    'default' => [
+                        StatusListPool::KEY_CREDENTIAL_CONFIGURATIONS => ['TestCredential'],
+                    ],
+                ],
+            ],
+        );
     }
 }
