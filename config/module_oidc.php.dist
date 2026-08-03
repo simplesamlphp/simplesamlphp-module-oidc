@@ -1540,6 +1540,106 @@ $config = [
     ModuleConfig::OPTION_VCI_NONCE_TTL => 'PT5M', // 5 minutes
 
     /**
+     * (optional) Whether issued Verifiable Credentials get a Token Status List
+     * entry allocated to them, which is what makes them revocable and
+     * suspendable. Defaults to false.
+     *
+     * Note what this switch does NOT do: it never stops the Status List
+     * endpoint from serving. Credentials which were already issued carry a
+     * `status` claim pointing at a list, and they have to stay verifiable, so
+     * lists keep being served until they complete their own lifecycle. Turning
+     * this off only stops new entries from being allocated.
+     *
+     * This requires a SimpleSAMLphp providing SimpleSAML\Database::readPrimary().
+     * Deciding whether a credential has been revoked off a lagging database
+     * secondary could publish a revoked credential as valid, so the module
+     * refuses to enable this capability rather than fall back to a replica read.
+     */
+    ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => false,
+
+    /**
+     * (optional) How Status List Tokens identify the key they were signed with.
+     * Defaults to StatusListKeyProfileEnum::DidJwk.
+     *
+     * The specification deliberately mandates no key resolution method, so this
+     * is a deployment profile rather than something the specification decides:
+     *
+     *  - DidJwk: `kid` is the issuer's `did:jwk:...#0` and `iss` is the same
+     *    `did:jwk:...`. The token carries the key with it, so it verifies without
+     *    any external lookup. This is the default.
+     *  - Jwks: `iss` is this module's issuer URL and `kid` is the JWKS key ID,
+     *    so the key is resolved through the published JWKS. Use this for Relying
+     *    Parties which will not accept a `did:jwk` key identifier.
+     *
+     * Each Status List records the profile it was created under, so changing
+     * this routes newly issued credentials to newly created lists while existing
+     * lists keep being served under the profile their holders already resolved
+     * them by. Changing it therefore never invalidates credentials which are
+     * already in wallets.
+     */
+    ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE => \SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum::DidJwk,
+
+    /**
+     * (optional) Token Status List pools.
+     *
+     * A pool, not a credential configuration, is the unit which shares a Status
+     * List, and several credential configurations can map onto one pool. This is
+     * a deliberate privacy trade: the specification's herd privacy rests on many
+     * credentials sharing one list, so splitting configurations into separate
+     * pools costs herd size and should be done only when their policies genuinely
+     * differ. A credential configuration must appear in at most one pool.
+     *
+     * Credentials of a configuration which is in no pool are issued without a
+     * `status` claim, and can not be revoked or suspended.
+     *
+     * These settings are deliberately kept here rather than inside
+     * OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED, because those are published
+     * wholesale as Credential Issuer metadata and anything placed among them
+     * would become visible to every wallet.
+     *
+     * Per-pool settings, all optional except the credential configurations:
+     *
+     *  - 'credential_configurations': credential configuration IDs allocating
+     *    from this pool. Required, and each must be declared under
+     *    OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED.
+     *  - 'bits': bits per entry, one of 1, 2, 4, 8. Default 1. This must be large
+     *    enough for every status the pool can emit, and can not be changed for
+     *    lists which already exist, so a pool which may suspend needs at least 2.
+     *    It affects transfer size, never herd size.
+     *  - 'capacity': entries per list, a positive multiple of 8. Default 131072.
+     *  - 'allowed_statuses': statuses this pool may emit, besides Valid, which is
+     *    always allowed. Default: Invalid only.
+     *  - 'ttl': how long a Relying Party may cache a fetched token. Default PT12H.
+     *    This is the revocation latency an RP is entitled to: with the default, a
+     *    conforming RP may keep accepting a revoked credential for up to 12 hours.
+     *  - 'token_validity': lifetime of a published Status List Token. Default P7D.
+     *  - 'refresh_interval': how old a published token may get before it is
+     *    re-signed. Default PT1H. The refresh interval plus a 15 minute safety
+     *    margin must stay below the token validity, otherwise a published token
+     *    expires before its replacement is produced.
+     *  - 'key_profile': overrides OPTION_VCI_STATUS_LIST_KEY_PROFILE for this pool.
+     */
+//    ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS => [
+//        'default' => [
+//            'credential_configurations' => [
+//                'UniversityDegreeCredential',
+//            ],
+//        ],
+//        // A pool which can also suspend, so it needs at least 2 bits per entry.
+//        'suspendable' => [
+//            'credential_configurations' => [
+//                'EmployeeBadgeCredential',
+//            ],
+//            'bits' => 2,
+//            'allowed_statuses' => [
+//                \SimpleSAML\OpenID\Codebooks\StatusTypeEnum::Invalid,
+//                \SimpleSAML\OpenID\Codebooks\StatusTypeEnum::Suspended,
+//            ],
+//            'ttl' => 'PT1H',
+//        ],
+//    ],
+
+    /**
      * Map of authentication sources and user's email attribute names. This
      * enables you to define a specific attribute name which contains the
      * user's email address, per authentication source. This is used, for

@@ -258,6 +258,30 @@ class Routes
     }
 
     /*****************************************************************************************************************
+     * Token Status List URLs.
+     ****************************************************************************************************************/
+
+    /**
+     * URL of one Status List Token.
+     *
+     * This is minted once, when the list is created, and stored on it. Referenced Tokens carry that
+     * stored string and Status List Tokens repeat it as their `sub`, both verbatim, because a Relying
+     * Party rejects a token whose subject is not byte for byte the URI its credential named. Never
+     * re-derive it for an existing list: changing the base URL would produce a different string for a
+     * list which credentials in the wild already point at.
+     */
+    public function urlStatusList(string $statusListId, array $parameters = []): string
+    {
+        $path = str_replace(
+            '{statusListId}',
+            rawurlencode($statusListId),
+            RoutesEnum::StatusList->value,
+        );
+
+        return $this->getModuleUrl($path, $parameters);
+    }
+
+    /*****************************************************************************************************************
      * SD-JWT-based Verifiable Credentials (SD-JWT VC)
      ****************************************************************************************************************/
 

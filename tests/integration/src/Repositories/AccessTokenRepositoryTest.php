@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\integration\Repositories;
 
-use PDO;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -28,10 +27,7 @@ use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\OpenID\Jws;
-use Testcontainers\Container\MySQLContainer;
-use Testcontainers\Container\PostgresContainer;
-use Testcontainers\Wait\WaitForHealthCheck;
-use Testcontainers\Wait\WaitForLog;
+use SimpleSAML\Test\Module\oidc\integration\DatabaseContainers;
 
 #[CoversClass(AccessTokenRepository::class)]
 class AccessTokenRepositoryTest extends TestCase
@@ -57,10 +53,6 @@ class AccessTokenRepositoryTest extends TestCase
     protected ScopeEntity $scopeEntityOpenId;
     protected ScopeEntity $scopeEntityProfile;
 
-    private static ?string $containerAddress = null;
-    private static ?string $mysqlPort = null;
-    private static ?string $postgresPort = null;
-
     protected MockObject $accessTokenEntityFactoryMock;
     protected MockObject $accessTokenEntityMock;
     protected array $accessTokenState;
@@ -68,29 +60,15 @@ class AccessTokenRepositoryTest extends TestCase
     protected MockObject $jwsMock;
     protected MockObject $moduleConfigMock;
 
+    /**
+     * @throws \Exception
+     */
     public static function setUpBeforeClass(): void
     {
-
-        self::$containerAddress = getenv('HOSTADDRESS') ?: null;
-        self::$mysqlPort = getenv('HOSTPORT_MY') ?: null;
-        self::$postgresPort = getenv('HOSTPORT_PG') ?: null;
-        // Mac docker seems to require connecting to localhost and mapped port to access containers
-        if (
-            in_array(PHP_OS_FAMILY, ['Darwin', 'Linux']) &&
-            getenv('HOSTADDRESS') === false
-        ) {
-            //phpcs:ignore Generic.Files.LineLength.TooLong
-            echo "Defaulting docker host address to 127.0.0.1. Disable this behavior by setting HOSTADDRESS to a blank.\n\tHOSTADDRESS= ./vendor/bin/phpunit";
-            self::$containerAddress = "127.0.0.1";
-        } else {
-            //Use the container ips and ports if not on a Mac
-            self::$mysqlPort ??= "3306";
-            self::$postgresPort ??= "5432";
-        }
         Configuration::setConfigDir(__DIR__ . '/../../../config');
-        self::$pgConfig = self::loadPGDatabase();
-        self::$mysqlConfig = self::loadMySqlDatabase();
-        self::$sqliteConfig = self::loadSqliteDatabase();
+        self::$pgConfig = DatabaseContainers::postgres();
+        self::$mysqlConfig = DatabaseContainers::mysql();
+        self::$sqliteConfig = DatabaseContainers::sqlite();
     }
 
     /**
@@ -199,97 +177,9 @@ class AccessTokenRepositoryTest extends TestCase
         $userRepositoryMock->add($user);
     }
 
-    /**
-     * @throws \Exception
-     */
-    public static function loadPGDatabase(): array
-    {
-        $pgContainer = PostgresContainer::make('15.0', 'password');
-        $pgContainer->withPostgresDatabase('database');
-        $pgContainer->withPostgresUser('username');
-        $hostPort = self::$postgresPort ?: self::findFreePort();
-        $pgContainer->withPort($hostPort, '5432');
-
-        $pgContainer->run();
-        // Wait until the docker heartcheck is green
-        $pgContainer->withWait(new WaitForHealthCheck());
-        // Wait until that message is in the logs
-        $pgContainer->withWait(new WaitForLog('Ready to accept connections'));
-
-        $hostAddress = self::$containerAddress ?: $pgContainer->getAddress();
-        $pgConfig = [
-            'database.dsn' => sprintf(
-                'pgsql:host=%s;port=%s;dbname=database',
-                $hostAddress,
-                $hostPort,
-            ),
-            'database.username' => 'username',
-            'database.password' => 'password',
-            'database.prefix' => 'phpunit_',
-            'database.persistent' => true,
-            'database.secondaries' => [],
-            'database.driver_options' => [
-                PDO::ATTR_TIMEOUT => 2, // Timeout quickly if there are docker issues
-            ],
-        ];
-
-        return $pgConfig;
-    }
-
-    public static function loadSqliteDatabase(): array
-    {
-        $config = [
-            'database.dsn'         => 'sqlite::memory:',
-            'database.username'    => null,
-            'database.password'    => null,
-            'database.prefix'      => 'phpunit_',
-            'database.persistent'  => true,
-            'database.secondaries' => [],
-        ];
-
-        return $config;
-    }
-
-    public static function loadMySqlDatabase(): array
-    {
-        $mysqlContainer = MySQLContainer::make('8.0');
-        $mysqlContainer->withMySQLDatabase('database');
-        $mysqlContainer->withMySQLUser('username', 'password');
-        $hostPort = self::$mysqlPort ?: self::findFreePort();
-        $mysqlContainer->withPort($hostPort, '3306');
-
-        $mysqlContainer->run();
-        // Wait until the docker heartcheck is green
-        $mysqlContainer->withWait(new WaitForHealthCheck());
-        // Wait until that message is in the logs
-        $mysqlContainer->withWait(new WaitForLog('Ready to accept connections'));
-
-        $hostAddress = self::$containerAddress ?: $mysqlContainer->getAddress();
-        if ($hostAddress === 'localhost') {
-            //phpcs:ignore Generic.Files.LineLength.TooLong
-            throw new \Exception('To connect to localhost with mysql use IP 127.0.0.1, otherwise mysql tries to use a file socket');
-        }
-        return [
-            'database.dsn' =>
-                sprintf('mysql:host=%s;port=%s;dbname=database', $hostAddress, $hostPort),
-            'database.username' => 'username',
-            'database.password' => 'password',
-            'database.prefix' => 'phpunit_',
-            'database.persistent' => true,
-            'database.secondaries' => [],
-            'database.driver_options' => [
-                PDO::ATTR_TIMEOUT => 2, // Timeout quickly if there are docker issues
-            ],
-        ];
-    }
-
     public static function databaseToTest(): array
     {
-        return [
-            'PostgreSql' => ['pgConfig'],
-            'MySql' => ['mysqlConfig'],
-            'Sqlite' => ['sqliteConfig'],
-        ];
+        return DatabaseContainers::all();
     }
 
     /**
@@ -344,20 +234,5 @@ class AccessTokenRepositoryTest extends TestCase
             'admin',
             $owner,
         );
-    }
-
-    /**
-     * Determine a free port for the docker container
-     * by creating a closing a socket
-     */
-    private static function findFreePort(): string
-    {
-        $sock = socket_create_listen(0);
-        if (socket_getsockname($sock, $addr, $port)) {
-            socket_close($sock);
-            return '' . $port;
-        } else {
-            throw new \Exception('unable to allocate port');
-        }
     }
 }
