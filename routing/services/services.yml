@@ -45,6 +45,12 @@ services:
     alias: SimpleSAML\Module\oidc\StatusList\DbStatusIndexAllocator
   SimpleSAML\Module\oidc\StatusList\Contracts\StatusUpdaterInterface:
     alias: SimpleSAML\Module\oidc\StatusList\DbStatusUpdater
+  SimpleSAML\Module\oidc\StatusList\Contracts\StatusListTokenProviderInterface:
+    alias: SimpleSAML\Module\oidc\StatusList\DbStatusListTokenProvider
+
+  # Fetched from the (otherwise private) container by the cron hook after booting the module Kernel.
+  SimpleSAML\Module\oidc\StatusList\StatusListReconciler:
+    public: true
 
   SimpleSAML\Module\oidc\Factories\:
     resource: '../../src/Factories/*'
@@ -123,6 +129,7 @@ services:
   SimpleSAML\Module\oidc\Utils\UiLocalesResolver: ~
   SimpleSAML\Module\oidc\Utils\ClassInstanceBuilder: ~
   SimpleSAML\Module\oidc\Utils\DateIntervalFormatter: ~
+  SimpleSAML\Module\oidc\Utils\HttpContentNegotiator: ~
   SimpleSAML\Module\oidc\Utils\JwksResolver: ~
   SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver: ~
   SimpleSAML\Module\oidc\Utils\VciContextResolver: ~

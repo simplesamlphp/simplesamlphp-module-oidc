@@ -1640,6 +1640,30 @@ $config = [
 //    ],
 
     /**
+     * (optional) How many requests per minute a single client may make to
+     * the Status List endpoint. The default, 0, means no limit at all.
+     *
+     * The endpoint is unauthenticated and one response can reach a couple of
+     * hundred kilobytes, so putting a ceiling on how much a single client can
+     * pull is worth considering. There are two things to check before you do.
+     *
+     * First, clients are told apart only by the IP address that reaches PHP
+     * (REMOTE_ADDR). If a reverse proxy, load balancer or CDN sits in front
+     * of SimpleSAMLphp, then that address is the proxy's own, and it is the
+     * same one for every request. All clients would share a single counter,
+     * which their combined traffic exhausts quickly, and the endpoint would
+     * start refusing legitimate requests. That matters more here than on
+     * other endpoints: wallets and verifiers read this endpoint to tell a
+     * valid credential from a revoked one, so refusing them makes already
+     * issued credentials unverifiable. Confirm which address actually
+     * arrives at PHP before setting a limit.
+     *
+     * Second, counting requires a protocol cache. If none is configured this
+     * option has no effect: nothing is counted and no request is refused.
+     */
+//    ModuleConfig::OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE => 60,
+
+    /**
      * Map of authentication sources and user's email attribute names. This
      * enables you to define a specific attribute name which contains the
      * user's email address, per authentication source. This is used, for

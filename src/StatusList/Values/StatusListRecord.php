@@ -30,6 +30,10 @@ class StatusListRecord
      * @param string $signedTokenContentHash Hash of the content the published token was signed over.
      * An empty string means there is no valid published token, whether because none was ever produced
      * or because a status change invalidated it. Never null, so that a compare-and-set can match it.
+     * @param int $invalidationCounter How many times the published token has been invalidated. The
+     * hash alone cannot settle publication, because an invalidation arriving while it is already empty
+     * leaves it empty and a signer which observed the empty value would still match. This always
+     * changes, so that signer no longer does.
      */
     public function __construct(
         protected readonly string $id,
@@ -54,6 +58,7 @@ class StatusListRecord
         protected readonly ?DateTimeImmutable $signedTokenIssuedAt,
         protected readonly ?DateTimeImmutable $signedTokenExpiresAt,
         protected readonly ?DateTimeImmutable $createdAt,
+        protected readonly int $invalidationCounter = 0,
     ) {
     }
 
@@ -200,6 +205,14 @@ class StatusListRecord
     }
 
     /**
+     * The value a signer must still find on the row for its token to be publishable.
+     */
+    public function getInvalidationCounter(): int
+    {
+        return $this->invalidationCounter;
+    }
+
+    /**
      * Whether a published token exists which can be served as-is.
      */
     public function hasPublishedToken(): bool
@@ -240,6 +253,10 @@ class StatusListRecord
             self::asNullableDateTime($row, 'signed_token_iat'),
             self::asNullableDateTime($row, 'signed_token_exp'),
             self::asNullableDateTime($row, 'created_at'),
+            // Added by a later migration than the table itself, so a row read while that migration has
+            // not yet run has no such column. Zero is the value the column defaults to, which makes
+            // such a read behave exactly as a list which has never been invalidated.
+            self::asNullableInt($row, 'invalidation_counter') ?? 0,
         );
     }
 

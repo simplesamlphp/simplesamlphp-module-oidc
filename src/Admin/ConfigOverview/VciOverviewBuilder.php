@@ -149,6 +149,32 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                     );
                 },
             ),
+            $this->guardRow(
+                Translate::noop('Status List Requests Per Minute'),
+                ModuleConfig::OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE,
+                function (): Row {
+                    $limit = $this->moduleConfig->getVciStatusListRequestsPerMinute();
+
+                    return new Row(
+                        Translate::noop('Status List Requests Per Minute'),
+                        $limit > 0 ? (string)$limit : Translate::noop('No limit'),
+                        $limit > 0 ? ConfigOverviewValueTypeEnum::RawText : ConfigOverviewValueTypeEnum::Text,
+                        ModuleConfig::OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE,
+                        $limit > 0 ?
+                        Translate::noop(
+                            'Applied to the address the request appears to come from, which behind a ' .
+                            'reverse proxy is the proxy unless it is trusted. Confirm which address ' .
+                            'arrives here, since one shared bucket would refuse every client. Needs a ' .
+                            'protocol cache; without one nothing is counted.',
+                        ) :
+                        Translate::noop(
+                            'The Status List endpoint accepts any number of requests. It is ' .
+                            'unauthenticated and its response can reach a couple of hundred ' .
+                            'kilobytes.',
+                        ),
+                    );
+                },
+            ),
         ];
 
         return new Section(Translate::noop('Status Lists'), 'statusLists', ...$rows);

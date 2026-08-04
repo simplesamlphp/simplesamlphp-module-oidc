@@ -421,6 +421,252 @@ class StatusListStorageTest extends TestCase
     }
 
     /**
+     * Publishing is a compare-and-set against the hash the signer observed, and the number of rows it
+     * affected is the whole answer to whether this signer won. That only works if every driver reports
+     * it the same way, and if the initial empty hash survives a round trip well enough to be matched.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('databaseToTest')]
+    public function testPublishingIsSettledByTheObservedContentHash(string $database): void
+    {
+        $this->useDatabase(self::$$database);
+        $this->givenSeededList();
+
+        $issuedAt = (new Helpers())->dateTime()->getUtc();
+        $expiresAt = $issuedAt->add(new \DateInterval('P7D'));
+        $firstHash = str_repeat('a', 64);
+
+        // The first publication observes the empty hash a newly created list carries.
+        $this->assertTrue(
+            $this->statusListRepository->publishToken(
+                self::LIST_ID,
+                '',
+                0,
+                $firstHash,
+                'first.published.token',
+                $issuedAt,
+                $expiresAt,
+            ),
+        );
+
+        // A second signer which began from that same empty hash no longer matches, so its token is not
+        // published over the one already there.
+        $this->assertFalse(
+            $this->statusListRepository->publishToken(
+                self::LIST_ID,
+                '',
+                0,
+                str_repeat('b', 64),
+                'second.published.token',
+                $issuedAt,
+                $expiresAt,
+            ),
+        );
+
+        $statusList = $this->statusListRepository->findByIdOnPrimary(self::LIST_ID);
+        $this->assertSame('first.published.token', $statusList?->getSignedToken());
+        $this->assertSame($firstHash, $statusList?->getSignedTokenContentHash());
+        $this->assertTrue($statusList?->hasPublishedToken());
+    }
+
+    /**
+     * Re-signing unchanged content compares a hash against itself, which settles nothing on its own, so
+     * the issuance time has to be the tie-break. A signer whose token is not newer than what is
+     * published must lose.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('databaseToTest')]
+    public function testRefreshingUnchangedContentRequiresANewerIssuanceTime(string $database): void
+    {
+        $this->useDatabase(self::$$database);
+        $this->givenSeededList();
+
+        $hash = str_repeat('c', 64);
+        $issuedAt = (new Helpers())->dateTime()->getUtc();
+        $expiresAt = $issuedAt->add(new \DateInterval('P7D'));
+
+        $this->assertTrue(
+            $this->statusListRepository->publishToken(
+                self::LIST_ID,
+                '',
+                0,
+                $hash,
+                'first.published.token',
+                $issuedAt,
+                $expiresAt,
+            ),
+        );
+
+        // Same content, and no later than what is published: nothing to do.
+        $this->assertFalse(
+            $this->statusListRepository->publishToken(
+                self::LIST_ID,
+                $hash,
+                0,
+                $hash,
+                'stale.refresh.token',
+                $issuedAt->sub(new \DateInterval('PT1H')),
+                $expiresAt,
+            ),
+        );
+
+        // Same content, genuinely later: this is the refresh.
+        $this->assertTrue(
+            $this->statusListRepository->publishToken(
+                self::LIST_ID,
+                $hash,
+                0,
+                $hash,
+                'refreshed.token',
+                $issuedAt->add(new \DateInterval('PT1H')),
+                $expiresAt->add(new \DateInterval('PT1H')),
+            ),
+        );
+
+        $this->assertSame(
+            'refreshed.token',
+            $this->statusListRepository->findByIdOnPrimary(self::LIST_ID)?->getSignedToken(),
+        );
+    }
+
+    /**
+     * The case the content hash cannot settle on its own. A signer which observed the empty hash, and
+     * whose snapshot a revocation superseded while it was signing, must not publish -- and the
+     * revocation leaves the hash exactly as it found it, empty, so only the counter distinguishes them.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('databaseToTest')]
+    public function testAnInvalidationDuringSigningBlocksPublicationEvenWhileTheHashIsEmpty(
+        string $database,
+    ): void {
+        $this->useDatabase(self::$$database);
+        $this->givenSeededList();
+
+        $issuedAt = (new Helpers())->dateTime()->getUtc();
+        $expiresAt = $issuedAt->add(new \DateInterval('P7D'));
+
+        // What a signer reads before it starts: nothing published, and the counter as it stands.
+        $observed = $this->statusListRepository->findByIdOnPrimary(self::LIST_ID);
+        $this->assertSame('', $observed?->getSignedTokenContentHash());
+        $observedCounter = (int)$observed?->getInvalidationCounter();
+
+        // A revocation lands while that signer is signing. The hash it clears is already clear.
+        $this->statusListRepository->invalidatePublishedToken(self::LIST_ID);
+
+        $this->assertSame(
+            '',
+            $this->statusListRepository->findByIdOnPrimary(self::LIST_ID)?->getSignedTokenContentHash(),
+        );
+        $this->assertSame(
+            $observedCounter + 1,
+            $this->statusListRepository->findByIdOnPrimary(self::LIST_ID)?->getInvalidationCounter(),
+        );
+
+        $this->assertFalse(
+            $this->statusListRepository->publishToken(
+                self::LIST_ID,
+                '',
+                $observedCounter,
+                str_repeat('e', 64),
+                'token.built.before.the.revocation',
+                $issuedAt,
+                $expiresAt,
+            ),
+        );
+
+        $this->assertNull($this->statusListRepository->findByIdOnPrimary(self::LIST_ID)?->getSignedToken());
+    }
+
+    /**
+     * Only lists with something published are candidates for reconciliation, and retired ones are not
+     * served at all.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('databaseToTest')]
+    public function testFindsOnlyListsWhichHaveAPublishedToken(string $database): void
+    {
+        $this->useDatabase(self::$$database);
+        $this->givenSeededList();
+
+        $this->assertSame([], $this->statusListRepository->findPublished(10));
+
+        $issuedAt = (new Helpers())->dateTime()->getUtc();
+
+        $this->statusListRepository->publishToken(
+            self::LIST_ID,
+            '',
+            0,
+            str_repeat('d', 64),
+            'a.published.token',
+            $issuedAt,
+            $issuedAt->add(new \DateInterval('P7D')),
+        );
+
+        $published = $this->statusListRepository->findPublished(10);
+        $this->assertCount(1, $published);
+        $this->assertSame(self::LIST_ID, $published[0]->getId());
+
+        // A list whose token has been invalidated has nothing to reconcile against.
+        $this->statusListRepository->invalidatePublishedToken(self::LIST_ID);
+        $this->assertSame([], $this->statusListRepository->findPublished(10));
+    }
+
+    /**
+     * The reconciler clears a token only while it is still the one it examined, so that a token
+     * published in the meantime -- which is by definition current -- is left alone rather than
+     * needlessly re-signed.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('databaseToTest')]
+    public function testGuardedInvalidationOnlyClearsTheTokenItExamined(string $database): void
+    {
+        $this->useDatabase(self::$$database);
+        $this->givenSeededList();
+
+        $issuedAt = (new Helpers())->dateTime()->getUtc();
+        $examinedHash = str_repeat('f', 64);
+
+        $this->statusListRepository->publishToken(
+            self::LIST_ID,
+            '',
+            0,
+            $examinedHash,
+            'the.examined.token',
+            $issuedAt,
+            $issuedAt->add(new \DateInterval('P7D')),
+        );
+
+        // A hash which is not the one on the row: this token is not the one that was examined.
+        $this->assertFalse(
+            $this->statusListRepository->invalidatePublishedTokenIfUnchanged(
+                self::LIST_ID,
+                str_repeat('0', 64),
+                0,
+            ),
+        );
+        $this->assertTrue($this->statusListRepository->findByIdOnPrimary(self::LIST_ID)?->hasPublishedToken());
+
+        // The right hash but a counter which has moved on: likewise not the one examined.
+        $this->assertFalse(
+            $this->statusListRepository->invalidatePublishedTokenIfUnchanged(self::LIST_ID, $examinedHash, 7),
+        );
+        $this->assertTrue($this->statusListRepository->findByIdOnPrimary(self::LIST_ID)?->hasPublishedToken());
+
+        $this->assertTrue(
+            $this->statusListRepository->invalidatePublishedTokenIfUnchanged(self::LIST_ID, $examinedHash, 0),
+        );
+
+        $statusList = $this->statusListRepository->findByIdOnPrimary(self::LIST_ID);
+        $this->assertSame('', $statusList?->getSignedTokenContentHash());
+        $this->assertSame(1, $statusList?->getInvalidationCounter());
+    }
+
+    /**
      * Migrations must be re-runnable, because a version is recorded only once its whole method has
      * succeeded and nothing rolls back what it managed before failing.
      *
@@ -433,6 +679,51 @@ class StatusListStorageTest extends TestCase
 
         $migration = new DatabaseMigration($this->database);
         $migration->migrate();
+        $migration->migrate();
+
+        $this->assertTrue($migration->isMigrated());
+        $this->assertSame([], $migration->getNotImplementedVersions());
+    }
+
+    /**
+     * A migration interrupted between doing its work and recording that it did.
+     *
+     * The version is written by a separate statement afterwards, so a process dying in between leaves
+     * the column added and the version still pending. Every later run would then fail on a duplicate
+     * column until somebody repaired the schema by hand, which is why the migration checks the catalog
+     * first. Removing the version row is exactly what that interruption leaves behind.
+     *
+     * Run with a prefix which is not all lower case, because that is what can make the check answer
+     * wrongly: PostgreSQL folds unquoted identifiers, so the table is stored under a name different
+     * from the one asked for, and a catalog lookup for the name as written finds nothing. A lower case
+     * prefix cannot show that up, since folding it changes nothing.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('databaseToTest')]
+    public function testAnInterruptedColumnMigrationCanBeRerun(string $database): void
+    {
+        $config = self::$$database;
+        $config['database.prefix'] = 'PhpUnitMixed_';
+
+        $this->useDatabase($config);
+
+        $migration = new DatabaseMigration($this->database);
+        $migration->migrate();
+        $this->assertTrue($migration->isMigrated());
+
+        // The column is there, but as far as the versions table is concerned the migration never ran.
+        $this->database->write(
+            'DELETE FROM ' . $this->database->applyPrefix('oidc_migration_versions') .
+            ' WHERE version = :version',
+            ['version' => '20260801000004'],
+        );
+        // Reported as the method which would run, and keyed by its position among the class's methods.
+        $this->assertSame(
+            ['version20260801000004'],
+            array_values($migration->getNotImplementedVersions()),
+        );
+
         $migration->migrate();
 
         $this->assertTrue($migration->isMigrated());

@@ -36,6 +36,8 @@ class DatabaseMigration
 {
     /** Driver name reported for MySQL and MariaDB, the one driver needing its own DDL below. */
     private const string DRIVER_MYSQL = 'mysql';
+    private const string DRIVER_SQLITE = 'sqlite';
+    private const string DRIVER_PGSQL = 'pgsql';
 
     private readonly Database $database;
 
@@ -256,6 +258,11 @@ class DatabaseMigration
         if (!in_array('20260801000003', $versions, true)) {
             $this->version20260801000003();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20260801000003')");
+        }
+
+        if (!in_array('20260801000004', $versions, true)) {
+            $this->version20260801000004();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20260801000004')");
         }
     }
 
@@ -988,6 +995,82 @@ EOT
 
         $this->createIndex($idxCreatedAt, $auditTableName, 'created_at');
         $this->createIndex($idxCredentialIdHash, $auditTableName, 'credential_id_hash');
+    }
+
+    /**
+     * Count of how many times a Status List's published token has been invalidated.
+     *
+     * The content hash alone cannot settle publication. Its "nothing is published" value is the empty
+     * string, and an invalidation which finds it already empty leaves it empty -- so a signer which
+     * observed the empty string still matches afterwards and publishes a token built before that
+     * invalidation. Since the invalidating writer has already finished, nothing clears it again, and a
+     * revoked credential reads as valid until the refresh interval elapses or the reconciler runs.
+     *
+     * A counter which every invalidation increments always changes, so a signer which observed the
+     * earlier value no longer matches and rebuilds instead.
+     *
+     * The existence check is what makes this re-runnable. Being a single statement is not enough: the
+     * version is recorded by a *separate* statement afterwards, so a process which dies in between
+     * leaves the column added and the version still pending, and every later migration run would fail
+     * on a duplicate column until somebody repaired the schema by hand.
+     */
+    private function version20260801000004(): void
+    {
+        $statusListTableName = $this->database->applyPrefix(StatusListRepository::TABLE_NAME);
+
+        if ($this->hasColumn($statusListTableName, 'invalidation_counter')) {
+            return;
+        }
+
+        $this->database->write(<<< EOT
+        ALTER TABLE {$statusListTableName}
+            ADD invalidation_counter INT NOT NULL DEFAULT 0
+EOT
+            ,);
+    }
+
+    /**
+     * Whether a table already has a column.
+     *
+     * None of the three drivers offers ADD COLUMN IF NOT EXISTS across the board -- PostgreSQL does,
+     * MySQL and SQLite do not -- so the catalog is consulted instead. MySQL and PostgreSQL both expose
+     * information_schema; SQLite has its own table of table definitions.
+     */
+    private function hasColumn(string $tableName, string $columnName): bool
+    {
+        if ($this->database->getDriver() === self::DRIVER_SQLITE) {
+            // The pragma cannot take a bound parameter, and the name here is assembled from a constant
+            // and the configured prefix rather than from anything a request supplies.
+            $statement = sprintf('SELECT 1 FROM pragma_table_info(%s) WHERE name = :columnName', "'$tableName'");
+            $params = ['columnName' => $columnName];
+        } else {
+            $isPostgres = $this->database->getDriver() === self::DRIVER_PGSQL;
+
+            // Restricted to the database being migrated: MySQL's information_schema spans every schema
+            // on the server, so an unrestricted lookup could find a like-named column elsewhere.
+            $schemaFunction = $isPostgres ? 'CURRENT_SCHEMA()' : 'DATABASE()';
+            $statement = 'SELECT 1 FROM information_schema.columns ' .
+            "WHERE table_schema = $schemaFunction AND table_name = :tableName AND column_name = :columnName";
+
+            // PostgreSQL folds unquoted identifiers to lower case, and nothing here quotes them, so a
+            // table created from a prefix with any upper case in it is stored lower cased. Comparing
+            // the name as configured would find nothing, conclude the column is missing, and turn a
+            // retry into the duplicate column error this check exists to prevent. MySQL keeps the case
+            // it was given, so its names are compared as they are.
+            $params = $isPostgres ?
+            ['tableName' => strtolower($tableName), 'columnName' => strtolower($columnName)] :
+            ['tableName' => $tableName, 'columnName' => $columnName];
+        }
+
+        // Every statement around this writes to the primary, so asking a secondary whether the column
+        // is there can get a stale no and turn a retry into the duplicate column error this exists to
+        // avoid. Migrations run on hosts which may predate the primary read, so it is used only where
+        // it is available.
+        $existing = ModuleConfig::hasPrimaryDatabaseReadCapability() ?
+        $this->database->readPrimary($statement, $params)->fetchAll() :
+        $this->database->read($statement, $params)->fetchAll();
+
+        return $existing !== [];
     }
 
     /**

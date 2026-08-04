@@ -65,6 +65,21 @@ trait DatabaseRowValuesTrait
     /**
      * @param array<array-key,mixed> $row
      */
+    protected static function asNullableInt(array $row, string $key): ?int
+    {
+        /** @var mixed $value */
+        $value = $row[$key] ?? null;
+
+        if (is_int($value)) {
+            return $value;
+        }
+
+        return is_string($value) && preg_match('/^-?\d+$/', $value) === 1 ? (int)$value : null;
+    }
+
+    /**
+     * @param array<array-key,mixed> $row
+     */
     protected static function asBool(array $row, string $key): bool
     {
         /** @var mixed $value */

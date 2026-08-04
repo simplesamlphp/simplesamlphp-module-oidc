@@ -12,6 +12,7 @@ use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\StatusList\Values\StatusListReconciliationCandidate;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListRecord;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
@@ -401,8 +402,11 @@ class StatusListRepository extends AbstractDatabaseRepository
      * optimistic, whereas invalidating first and crashing before the change would lose the change
      * entirely. A spurious re-sign is cheap; a lost revocation is not.
      *
-     * The guard keeps this a real modification when it matches, so that a driver reporting changed
-     * rather than matched rows still reports it accurately.
+     * Unconditional, and the counter is why. Clearing the hash says nothing when it is already clear,
+     * so a signer which observed the empty hash before this call would still match it afterwards and
+     * publish a token built before this change -- and since this writer has finished, nothing would
+     * clear it again. Bumping a counter every time always changes the row, so that signer does not
+     * match and rebuilds instead.
      *
      * @throws \Exception
      */
@@ -410,12 +414,181 @@ class StatusListRepository extends AbstractDatabaseRepository
     {
         $this->database->write(
             sprintf(
-                "UPDATE %s SET signed_token_content_hash = '' " .
-                "WHERE id = :id AND signed_token_content_hash <> ''",
+                "UPDATE %s SET signed_token_content_hash = '', " .
+                'invalidation_counter = invalidation_counter + 1 WHERE id = :id',
                 $this->getTableName(),
             ),
             ['id' => $id],
         );
+    }
+
+    /**
+     * Publishes a freshly signed token, provided the content it was signed over is still the content
+     * which is published.
+     *
+     * The comparison against the hash the signer observed before it began is what makes this
+     * single-flight: of several requests which all found the token stale and all signed one, the first
+     * to arrive here matches and the rest do not, so the row never takes a token built from a snapshot
+     * that a revocation has already superseded.
+     *
+     * The invalidation counter is compared alongside the hash and is what makes this sound while the
+     * hash is empty. An empty hash is both "never published" and "invalidated", so on its own it cannot
+     * distinguish a signer whose snapshot is still current from one which a revocation superseded after
+     * it took its snapshot.
+     *
+     * @param string $observedContentHash The hash which was on the row when the signer decided to
+     * re-sign, being '' when there was no published token at that point.
+     * @param int $observedInvalidationCounter The counter read at the same moment.
+     * @return bool Whether this token was the one published. False means another request published
+     * first, or a status changed in between, and the caller must re-read rather than retry blindly.
+     * @throws \Exception
+     */
+    public function publishToken(
+        string $id,
+        string $observedContentHash,
+        int $observedInvalidationCounter,
+        string $contentHash,
+        string $signedToken,
+        DateTimeImmutable $issuedAt,
+        DateTimeImmutable $expiresAt,
+    ): bool {
+        $params = [
+            'signed_token' => $signedToken,
+            'content_hash' => $contentHash,
+            'issued_at' => $this->nowForDatabase($issuedAt),
+            'expires_at' => $this->nowForDatabase($expiresAt),
+            'id' => $id,
+            'observed_content_hash' => $observedContentHash,
+            'observed_invalidation_counter' => [$observedInvalidationCounter, PDO::PARAM_INT],
+        ];
+
+        // Re-signing content which has not changed compares a value against itself, which settles
+        // nothing: two nodes refreshing the same unchanged list would both match. Requiring the new
+        // issuance time to be later restores a single winner.
+        //
+        // Only on this path, deliberately. Applied to every publication, a node whose clock runs behind
+        // another's could not publish a content *change* until its clock caught up -- so a revocation
+        // would sit unpublished for the length of the skew, which is exactly the outcome all of this
+        // exists to prevent.
+        $issuedAtGuard = '';
+
+        if ($observedContentHash === $contentHash) {
+            $issuedAtGuard = ' AND (signed_token_iat IS NULL OR signed_token_iat < :guard_issued_at)';
+            // Under its own name because a repeated placeholder is not portable across drivers.
+            $params['guard_issued_at'] = $this->nowForDatabase($issuedAt);
+        }
+
+        $affected = $this->database->write(
+            sprintf(
+                'UPDATE %s SET
+                    signed_token = :signed_token,
+                    signed_token_content_hash = :content_hash,
+                    signed_token_iat = :issued_at,
+                    signed_token_exp = :expires_at
+                  WHERE id = :id
+                    AND signed_token_content_hash = :observed_content_hash
+                    AND invalidation_counter = :observed_invalidation_counter%s',
+                $this->getTableName(),
+                $issuedAtGuard,
+            ),
+            $params,
+        );
+
+        return is_int($affected) && $affected > 0;
+    }
+
+    /**
+     * Lists which have a published token, in batches, for the reconciler to check.
+     *
+     * Paged by the last identifier seen rather than by an offset. The caller invalidates some of the
+     * rows it is given, which removes them from this result set, so an offset would step over exactly
+     * as many unexamined lists as were invalidated. A cursor is unaffected by rows leaving the set
+     * behind it, and it does not re-count rows the database has already skipped past.
+     *
+     * Only the columns the reconciler uses are read. A row carries its published token, which for an
+     * 8 bit list at the default capacity is a couple of hundred kilobytes, and reading whole rows would
+     * move tens of megabytes per batch for a check which never looks at the token.
+     *
+     * @param ?string $afterId Resume after this list, or null to start from the beginning.
+     * @return \SimpleSAML\Module\oidc\StatusList\Values\StatusListReconciliationCandidate[]
+     * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
+     */
+    public function findPublished(int $limit, ?string $afterId = null): array
+    {
+        $params = [];
+        $cursorCondition = '';
+
+        if ($afterId !== null) {
+            $cursorCondition = ' AND id > :after_id';
+            $params['after_id'] = $afterId;
+        }
+
+        // Ordered by the primary key, which is arbitrary but stable -- all a cursor needs is that every
+        // row is visited exactly once, not that they arrive in any meaningful order.
+        //
+        // The limit is interpolated rather than bound: MySQL rejects a bound LIMIT when PDO emulates
+        // prepared statements, because the value arrives quoted as a string. It is an integer here, so
+        // there is nothing to inject.
+        $rows = $this->readPrimary(
+            sprintf(
+                'SELECT id, bits, capacity, signed_token_content_hash, invalidation_counter FROM %s ' .
+                "WHERE signed_token_content_hash <> '' AND retired_at IS NULL%s ORDER BY id LIMIT %d",
+                $this->getTableName(),
+                $cursorCondition,
+                max(0, $limit),
+            ),
+            $params,
+        );
+
+        $candidates = [];
+
+        /** @var mixed $row */
+        foreach ($rows as $row) {
+            if (is_array($row)) {
+                $candidates[] = StatusListReconciliationCandidate::fromRow($row);
+            }
+        }
+
+        return $candidates;
+    }
+
+    /**
+     * Invalidates a published token, but only while it is still the one which was examined.
+     *
+     * The reconciler decides a token is stale by comparing what it read a moment ago against the
+     * entries as they are now. Between those two, a signer may have published a token which is
+     * perfectly correct -- and clearing that would be pure churn, and could keep defeating an in-flight
+     * signer indefinitely. Requiring both the hash and the counter to be unchanged means only the token
+     * actually found wanting is cleared.
+     *
+     * This is why the unconditional invalidation exists separately: the path which changes a status
+     * must always invalidate, since what it observed is by definition already superseded.
+     *
+     * @return bool Whether the token examined was still the published one, and was cleared.
+     * @throws \Exception
+     */
+    public function invalidatePublishedTokenIfUnchanged(
+        string $id,
+        string $observedContentHash,
+        int $observedInvalidationCounter,
+    ): bool {
+        $affected = $this->database->write(
+            sprintf(
+                "UPDATE %s SET signed_token_content_hash = '', " .
+                'invalidation_counter = invalidation_counter + 1 ' .
+                'WHERE id = :id
+                   AND signed_token_content_hash = :observed_content_hash
+                   AND invalidation_counter = :observed_invalidation_counter',
+                $this->getTableName(),
+            ),
+            [
+                'id' => $id,
+                'observed_content_hash' => $observedContentHash,
+                'observed_invalidation_counter' => [$observedInvalidationCounter, PDO::PARAM_INT],
+            ],
+        );
+
+        return is_int($affected) && $affected > 0;
     }
 
     /**

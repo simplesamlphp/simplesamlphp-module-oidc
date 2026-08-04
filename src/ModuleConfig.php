@@ -155,6 +155,7 @@ class ModuleConfig
     final public const string OPTION_VCI_STATUS_LIST_ENABLED = 'vci_status_list_enabled';
     final public const string OPTION_VCI_STATUS_LIST_KEY_PROFILE = 'vci_status_list_key_profile';
     final public const string OPTION_VCI_STATUS_LIST_POOLS = 'vci_status_list_pools';
+    final public const string OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE = 'vci_status_list_requests_per_minute';
     final public const string OPTION_DCR_ENABLED = 'dcr_enabled';
     final public const string OPTION_DCR_REGISTRATION_AUTH = 'dcr_registration_auth';
     final public const string OPTION_DCR_INITIAL_ACCESS_TOKENS = 'dcr_initial_access_tokens';
@@ -1285,6 +1286,37 @@ class ModuleConfig
     public static function hasPrimaryDatabaseReadCapability(): bool
     {
         return method_exists(Database::class, self::SSP_PRIMARY_READ_METHOD);
+    }
+
+    /**
+     * How many Status List requests one client may make per minute, or 0 for no limit.
+     *
+     * Off by default, and deliberately so. The limit can only be applied to whatever the request appears
+     * to come from, which behind a reverse proxy is the proxy itself unless SimpleSAMLphp has been told
+     * to trust it -- so a limit switched on by default would, in exactly that common deployment, put
+     * every client in one bucket and start refusing a public endpoint that credentials in wallets depend
+     * on. An operator turning this on is stating that they know which address arrives here.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciStatusListRequestsPerMinute(): int
+    {
+        $configured = $this->config()->getOptionalInteger(
+            self::OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE,
+            0,
+        );
+
+        if ($configured < 0) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Option "%s" can not be negative. Use 0 to apply no limit.',
+                    self::OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE,
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        return $configured;
     }
 
     /**

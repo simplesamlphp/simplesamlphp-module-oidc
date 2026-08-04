@@ -22,6 +22,7 @@ use SimpleSAML\Module\oidc\Controllers\OAuth2\OAuth2ServerConfigurationControlle
 use SimpleSAML\Module\oidc\Controllers\OAuth2\TokenIntrospectionController;
 use SimpleSAML\Module\oidc\Controllers\PushedAuthorizationController;
 use SimpleSAML\Module\oidc\Controllers\RegistrationController;
+use SimpleSAML\Module\oidc\Controllers\StatusListController;
 use SimpleSAML\Module\oidc\Controllers\UserInfoController;
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\CredentialIssuerConfigurationController;
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\CredentialIssuerCredentialController;
@@ -158,6 +159,12 @@ return function (RoutingConfigurator $routes): void {
 
     $routes->add(RoutesEnum::CredentialJsonLdContext->name, RoutesEnum::CredentialJsonLdContext->value)
         ->controller([CredentialJsonLdContextController::class, 'context'])
+        ->methods([HttpMethodsEnum::GET->value]);
+
+    // Not registered under the Verifiable Credential Issuance switch, on purpose: credentials already
+    // issued resolve their status here, so this has to keep answering after issuance is turned off.
+    $routes->add(RoutesEnum::StatusList->name, RoutesEnum::StatusList->value)
+        ->controller([StatusListController::class, 'statusList'])
         ->methods([HttpMethodsEnum::GET->value]);
 
     /*****************************************************************************************************************

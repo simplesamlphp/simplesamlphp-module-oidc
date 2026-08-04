@@ -19,6 +19,7 @@ use SimpleSAML\Logger;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\ExpiredEntriesCleaner;
+use SimpleSAML\Module\oidc\StatusList\StatusListReconciler;
 
 /**
  * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -55,6 +56,28 @@ function oidc_hook_cron(array &$croninfo): void
         $croninfo['summary'][] = 'Module `oidc` clean up. Removed expired entries from storage.';
     } catch (Throwable $e) {
         $message = 'Module `oidc` clean up cron script failed: ' . $e->getMessage();
+        Logger::warning($message);
+        $croninfo['summary'][] = $message;
+    }
+
+    // Kept apart from the clean-up above rather than folded into the same try. The two are unrelated,
+    // and a failure of one says nothing about whether the other should run.
+    try {
+        $kernel = new Kernel(ModuleConfig::MODULE_NAME);
+        $kernel->boot();
+        /** @var \SimpleSAML\Module\oidc\StatusList\StatusListReconciler $reconciler */
+        $reconciler = $kernel->getContainer()->get(StatusListReconciler::class);
+        $invalidated = $reconciler->reconcile();
+
+        if ($invalidated > 0) {
+            $croninfo['summary'][] = sprintf(
+                'Module `oidc` Status List reconciliation. Invalidated %d published token(s) which no ' .
+                'longer described their list.',
+                $invalidated,
+            );
+        }
+    } catch (Throwable $e) {
+        $message = 'Module `oidc` Status List reconciliation cron script failed: ' . $e->getMessage();
         Logger::warning($message);
         $croninfo['summary'][] = $message;
     }
