@@ -1591,3 +1591,22 @@ msgstr ""
 msgid "These pools are inert, since Status Lists are disabled."
 msgstr ""
 
+
+msgid "Status List Requests Per Minute"
+msgstr ""
+
+msgid "No limit"
+msgstr ""
+
+msgid ""
+"Applied to the address the request appears to come from, which behind a "
+"reverse proxy is the proxy unless it is trusted. Confirm which address "
+"arrives here, since one shared bucket would refuse every client. Needs a "
+"protocol cache; without one nothing is counted."
+msgstr ""
+
+msgid ""
+"The Status List endpoint accepts any number of requests. It is "
+"unauthenticated and its response can reach a couple of hundred "
+"kilobytes."
+msgstr ""
