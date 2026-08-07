@@ -1730,6 +1730,24 @@ $config = [
     ModuleConfig::OPTION_API_VCI_CREDENTIAL_OFFER_ENDPOINT_ENABLED => false,
 
     /**
+     * (optional) API Enable VCI Credential Status API endpoint, through which
+     * an issued credential can be revoked, suspended or reinstated. Default is
+     * disabled (false). Only relevant if API capabilities are enabled.
+     *
+     * Separate from the Status List capability itself, which governs whether
+     * credentials get an entry allocated at all. This governs whether that
+     * entry can be changed over the network, which is a decision of its own.
+     *
+     * Unlike the rest of this API, this endpoint accepts a bearer token in the
+     * Authorization header only. It does not accept an administrator's session
+     * and it does not read the token from a request parameter: the first would
+     * let an administrator's browser be driven into revoking a credential from
+     * another site, and the second would leave a bearer secret in access logs.
+     * Administrators revoke through the administration screens instead.
+     */
+    ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED => false,
+
+    /**
      * (optional) API Enable OAuth2 Token Introspection API endpoint. Default
      * is disabled (false). Only relevant if API capabilities are enabled.
      */
@@ -1738,6 +1756,14 @@ $config = [
     /**
      * List of API tokens which can be used to access API endpoints based on
      * given scopes. The format is: ['token' => [ApiScopesEnum]]
+     *
+     * A token may instead be given a settings array, which is the same thing
+     * plus a name: ['token' => ['name' => '...', 'scopes' => [ApiScopesEnum]]]
+     * The name is what the audit trail records as the actor behind a status
+     * change, so it is worth setting for any token allowed to revoke a
+     * credential. A token without one is recorded as an opaque fingerprint
+     * instead, which keeps separate callers apart in the trail but says
+     * nothing about who they are. The token itself is never recorded.
      */
     ModuleConfig::OPTION_API_TOKENS => [
 //        'strong-random-token-string' => [
@@ -1749,6 +1775,12 @@ $config = [
 //            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::All, // Gives access to the whole API.
 //            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::OAuth2All, // Gives access to all OAuth2-related endpoints.
 //            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::OAuth2TokenIntrospection, // Gives access to the token introspection endpoint.
+//        ],
+//        'strong-random-token-string-3' => [
+//            'name' => 'HR system', // Recorded in the status change audit trail.
+//            'scopes' => [
+//                \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::VciCredentialStatus, // Gives access to the credential status endpoint.
+//            ],
 //        ],
     ],
 ];

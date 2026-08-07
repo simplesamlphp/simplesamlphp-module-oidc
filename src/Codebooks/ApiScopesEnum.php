@@ -11,6 +11,7 @@ enum ApiScopesEnum: string
     // Verifiable Credential Issuance related scopes.
     case VciAll = 'vci_all'; // Gives access to all VCI-related endpoints.
     case VciCredentialOffer = 'vci_credential_offer'; // Gives access to the credential offer endpoint.
+    case VciCredentialStatus = 'vci_credential_status'; // Gives access to the credential status endpoint.
 
     // OAuth2 related scopes.
     case OAuth2All = 'oauth2_all'; // Gives access to all OAuth2-related endpoints.

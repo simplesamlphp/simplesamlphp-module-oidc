@@ -299,6 +299,11 @@ class Routes
         return $this->getModuleUrl(RoutesEnum::ApiVciCredentialOffer->value, $parameters);
     }
 
+    public function urlApiVciCredentialStatus(array $parameters = []): string
+    {
+        return $this->getModuleUrl(RoutesEnum::ApiVciCredentialStatus->value, $parameters);
+    }
+
     public function urlApiOAuth2TokenIntrospection(array $parameters = []): string
     {
         return $this->getModuleUrl(RoutesEnum::ApiOAuth2TokenIntrospection->value, $parameters);

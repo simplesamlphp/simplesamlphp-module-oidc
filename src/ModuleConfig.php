@@ -138,9 +138,25 @@ class ModuleConfig
     final public const string OPTION_API_ENABLED = 'api_enabled';
     final public const string OPTION_API_VCI_CREDENTIAL_OFFER_ENDPOINT_ENABLED =
     'api_vci_credential_offer_endpoint_enabled';
+    final public const string OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED =
+    'api_vci_credential_status_endpoint_enabled';
     final public const string OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED =
     'api_oauth2_token_introspection_endpoint_enabled';
     final public const string OPTION_API_TOKENS = 'api_tokens';
+
+    /** Optional key naming an API token, so that an audit trail can say who made a change. */
+    final public const string KEY_API_TOKEN_NAME = 'name';
+
+    /** Optional key holding an API token's scopes, when the token is given a name as well. */
+    final public const string KEY_API_TOKEN_SCOPES = 'scopes';
+
+    /**
+     * Longest name an API token may be given, matching the audit trail's actor column.
+     *
+     * @see \SimpleSAML\Module\oidc\Repositories\StatusAuditRepository
+     */
+    final public const int MAX_API_TOKEN_NAME_LENGTH = 191;
+
     final public const string OPTION_DEFAULT_USERS_EMAIL_ATTRIBUTE_NAME = 'users_email_attribute_name';
     final public const string OPTION_AUTH_SOURCES_TO_USERS_EMAIL_ATTRIBUTE_NAME_MAP =
     'auth_sources_to_users_email_attribute_name_map';
@@ -1917,6 +1933,18 @@ class ModuleConfig
         return $this->config()->getOptionalBoolean(self::OPTION_API_VCI_CREDENTIAL_OFFER_ENDPOINT_ENABLED, false);
     }
 
+    /**
+     * Whether the endpoint through which a credential's status can be changed is served.
+     *
+     * Separate from the Status List capability itself, which only governs whether entries are
+     * allocated. Serving this endpoint means accepting revocation requests over the network, which is
+     * a decision of its own, and it is off until an operator makes it.
+     */
+    public function getApiVciCredentialStatusEndpointEnabled(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED, false);
+    }
+
     public function getApiOAuth2TokenIntrospectionEndpointEnabled(): bool
     {
         return $this->config()->getOptionalBoolean(self::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED, false);
@@ -1936,14 +1964,100 @@ class ModuleConfig
      */
     public function getApiTokenScopes(string $token): ?array
     {
-        /** @psalm-suppress MixedAssignment */
-        $tokenScopes = $this->getApiTokens()[$token] ?? null;
+        /** @var mixed $entry */
+        $entry = $this->getApiTokens()[$token] ?? null;
 
-        if (is_array($tokenScopes)) {
-            return $tokenScopes;
+        if (!is_array($entry)) {
+            return null;
         }
 
-        return null;
+        // Two shapes are accepted. A token may be given a bare list of scopes, which is how this
+        // option has always been written, or a settings array which names the token as well. Either
+        // of the settings keys marks the second shape, and a bare list can carry neither, since its
+        // entries are values rather than keys.
+        if (!$this->isApiTokenSettingsShape($entry)) {
+            return $entry;
+        }
+
+        /** @var mixed $scopes */
+        $scopes = $entry[self::KEY_API_TOKEN_SCOPES] ?? null;
+
+        if (is_array($scopes)) {
+            return $scopes;
+        }
+
+        // Named, but not declaring its scopes under the key for them. They may still be there
+        // positionally, which is how a token someone had already annotated with a name would be
+        // written, and that token authorized before this option grew a second shape. The settings
+        // keys are dropped rather than the whole array returned, since handing back the name would
+        // give the token a scope called after itself.
+        $positionalScopes = array_diff_key(
+            $entry,
+            array_flip([self::KEY_API_TOKEN_NAME, self::KEY_API_TOKEN_SCOPES]),
+        );
+
+        // Settings which name a token and grant it nothing authorize nothing.
+        return $positionalScopes === [] ? null : $positionalScopes;
+    }
+
+    /**
+     * The name an API token is configured under, or null when it has none.
+     *
+     * This is what the audit trail records as the actor behind a change. The token itself must never
+     * go anywhere near it: it is a bearer secret, and an audit table is exactly the sort of place it
+     * would outlive its rotation.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getApiTokenName(string $token): ?string
+    {
+        /** @var mixed $entry */
+        $entry = $this->getApiTokens()[$token] ?? null;
+
+        if (!is_array($entry)) {
+            return null;
+        }
+
+        /** @var mixed $name */
+        $name = $entry[self::KEY_API_TOKEN_NAME] ?? null;
+
+        if (!is_string($name) || trim($name) === '') {
+            return null;
+        }
+
+        $name = trim($name);
+
+        // Refused here rather than truncated. A name too long for the column would otherwise make
+        // every change this token asks for fail at the point of recording it, on the databases which
+        // check, and shortening it silently could quietly merge two principals into one.
+        if (mb_strlen($name) > self::MAX_API_TOKEN_NAME_LENGTH) {
+            throw new ConfigurationError(
+                sprintf(
+                    'An API token is named with %d characters, which is more than the %d the status ' .
+                    'change audit trail can record. Give it a shorter name.',
+                    mb_strlen($name),
+                    self::MAX_API_TOKEN_NAME_LENGTH,
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        return $name;
+    }
+
+    /**
+     * Whether an API token entry is written as a settings array rather than as a bare list of scopes.
+     *
+     * @param array<array-key,mixed> $entry
+     */
+    protected function isApiTokenSettingsShape(array $entry): bool
+    {
+        // The keys have to hold what the settings shape would hold, not merely be present. A bare
+        // list is read by value rather than by key, so one which happens to carry an entry under a
+        // key of 'scopes' or 'name' authorized before this option grew a second shape, and quietly
+        // ceasing to would be an authorization change nobody asked for.
+        return is_array($entry[self::KEY_API_TOKEN_SCOPES] ?? null) ||
+        is_string($entry[self::KEY_API_TOKEN_NAME] ?? null);
     }
 
     public function getAuthSourcesToUsersEmailAttributeMap(): array

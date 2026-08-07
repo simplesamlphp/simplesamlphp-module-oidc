@@ -29,6 +29,21 @@ interface StatusUpdaterInterface
     public function setStatus(string $statusListId, int $idx, StatusTypeEnum $status): bool;
 
     /**
+     * Check that a list could hold this status, without changing anything.
+     *
+     * Exists so that a caller which records what it is about to do can find out first. Whether a list
+     * can carry a status is fixed when the list is created and can never become true later, so a
+     * request for one it cannot carry is not a change which failed -- it is a change which was never
+     * possible, and writing it into an audit trail would leave a permanent record of a transition
+     * that could not have happened.
+     *
+     * @throws \SimpleSAML\Module\oidc\Exceptions\UnsupportedStatusException When the list can not
+     * represent the status.
+     * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException When the list does not exist.
+     */
+    public function enforceCanRepresent(string $statusListId, StatusTypeEnum $status): void;
+
+    /**
      * The status currently recorded, or null when the entry does not exist or was never allocated.
      *
      * Returns the raw value rather than a Status Type, so that a value which is application specific
