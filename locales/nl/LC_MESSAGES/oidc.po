@@ -1564,3 +1564,17 @@ msgid ""
 "unauthenticated and its response can reach a couple of hundred "
 "kilobytes."
 msgstr ""
+
+msgid "Credential Lifetimes"
+msgstr ""
+
+msgid ""
+"Issued credentials never expire, which is the long standing default. A "
+"Status List holding one can never be retired, so its storage is kept for "
+"good."
+msgstr ""
+
+msgid ""
+"How long a credential of each configuration stays valid. Configurations "
+"which are not listed issue credentials which never expire."
+msgstr ""
