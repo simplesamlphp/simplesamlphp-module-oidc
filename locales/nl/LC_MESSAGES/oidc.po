@@ -1578,3 +1578,30 @@ msgid ""
 "How long a credential of each configuration stays valid. Configurations "
 "which are not listed issue credentials which never expire."
 msgstr ""
+
+msgid "Credential Status (API)"
+msgstr ""
+
+msgid "Credential Status Endpoint Enabled"
+msgstr ""
+
+msgid ""
+"Issued credentials can be revoked, suspended and reinstated over the "
+"network. This endpoint takes a bearer token from the Authorization header "
+"only, never an administrator session, and every change made through it is "
+"recorded against the token which asked for it."
+msgstr ""
+
+msgid ""
+"Not served, so credential statuses can only be changed from the "
+"administration screens. Also requires the module API to be enabled."
+msgstr ""
+
+msgid ""
+"Status Lists are disabled, so credentials being issued now have no entry to "
+"change. Ones issued while they were enabled can still be revoked through "
+"this endpoint."
+msgstr ""
+
+msgid "Authorization token not provided in the Authorization header."
+msgstr ""

@@ -176,6 +176,36 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                     );
                 },
             ),
+            $this->guardRow(
+                Translate::noop('Credential Status Endpoint Enabled'),
+                ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED,
+                function () use ($isEnabled): Row {
+                    $isStatusEndpointEnabled = $this->moduleConfig->getApiVciCredentialStatusEndpointEnabled();
+
+                    return new Row(
+                        Translate::noop('Credential Status Endpoint Enabled'),
+                        $this->yesNo($isStatusEndpointEnabled),
+                        ConfigOverviewValueTypeEnum::Text,
+                        ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED,
+                        $isStatusEndpointEnabled ?
+                        Translate::noop(
+                            'Issued credentials can be revoked, suspended and reinstated over the ' .
+                            'network. This endpoint takes a bearer token from the Authorization ' .
+                            'header only, never an administrator session, and every change made ' .
+                            'through it is recorded against the token which asked for it.',
+                        ) :
+                        Translate::noop(
+                            'Not served, so credential statuses can only be changed from the ' .
+                            'administration screens. Also requires the module API to be enabled.',
+                        ),
+                        ($isStatusEndpointEnabled && !$isEnabled) ? Translate::noop(
+                            'Status Lists are disabled, so credentials being issued now have no ' .
+                            'entry to change. Ones issued while they were enabled can still be ' .
+                            'revoked through this endpoint.',
+                        ) : null,
+                    );
+                },
+            ),
         ];
 
         return new Section(Translate::noop('Status Lists'), 'statusLists', ...$rows);
@@ -307,6 +337,25 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
             $rows[] = new Row(
                 Translate::noop('Credential Offer (API)'),
                 $this->routes->urlApiVciCredentialOffer(),
+                ConfigOverviewValueTypeEnum::Url,
+            );
+        }
+
+        // Deliberately not conditioned on the issuance switch, because the controller is not either:
+        // credentials already in wallets stay revocable while issuance is off. Requiring it here
+        // would hide the URL of an endpoint which is live, and hide it precisely during the incident
+        // that made someone turn issuance off.
+        try {
+            $isStatusEndpointServed = $this->moduleConfig->getApiEnabled() &&
+            $this->moduleConfig->getApiVciCredentialStatusEndpointEnabled();
+        } catch (Throwable) {
+            $isStatusEndpointServed = false;
+        }
+
+        if ($isStatusEndpointServed) {
+            $rows[] = new Row(
+                Translate::noop('Credential Status (API)'),
+                $this->routes->urlApiVciCredentialStatus(),
                 ConfigOverviewValueTypeEnum::Url,
             );
         }

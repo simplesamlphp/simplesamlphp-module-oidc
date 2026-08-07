@@ -12,6 +12,7 @@ use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
+use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -950,6 +951,182 @@ class ModuleConfigTest extends TestCase
         $this->expectException(ConfigurationError::class);
 
         $this->sut(overrides: $this->withCredentialTtl('PT0S'))->getVciCredentialTtls();
+    }
+
+    /**
+     * The shape this option has always had, which has to go on working.
+     *
+     * @throws \Exception
+     */
+    public function testReadsApiTokenScopesGivenAsABareList(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [ModuleConfig::OPTION_API_TOKENS => ['a-token' => [ApiScopesEnum::VciAll]]],
+        ));
+
+        $this->assertSame([ApiScopesEnum::VciAll], $sut->getApiTokenScopes('a-token'));
+        $this->assertNull($sut->getApiTokenName('a-token'));
+    }
+
+    /**
+     * A bare list is read by value rather than by key, so one which happens to carry an entry under
+     * a key of 'scopes' or 'name' authorized before this option grew a second shape. Quietly ceasing
+     * to would be an authorization change nobody asked for.
+     *
+     * @throws \Exception
+     */
+    public function testStillReadsABareListWhoseKeysLookLikeSettings(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_API_TOKENS => [
+                    'a-token' => [
+                        ModuleConfig::KEY_API_TOKEN_SCOPES => ApiScopesEnum::VciAll,
+                        ModuleConfig::KEY_API_TOKEN_NAME => ApiScopesEnum::All,
+                    ],
+                ],
+            ],
+        ));
+
+        $this->assertSame(
+            [
+                ModuleConfig::KEY_API_TOKEN_SCOPES => ApiScopesEnum::VciAll,
+                ModuleConfig::KEY_API_TOKEN_NAME => ApiScopesEnum::All,
+            ],
+            $sut->getApiTokenScopes('a-token'),
+        );
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testReadsApiTokenScopesAndNameGivenAsSettings(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_API_TOKENS => [
+                    'a-token' => [
+                        ModuleConfig::KEY_API_TOKEN_NAME => '  HR system  ',
+                        ModuleConfig::KEY_API_TOKEN_SCOPES => [ApiScopesEnum::VciCredentialStatus],
+                    ],
+                ],
+            ],
+        ));
+
+        $this->assertSame([ApiScopesEnum::VciCredentialStatus], $sut->getApiTokenScopes('a-token'));
+        $this->assertSame('HR system', $sut->getApiTokenName('a-token'));
+    }
+
+    /**
+     * A token someone had already annotated with a name, listing its scopes positionally, authorized
+     * before this option grew a second shape. Ceasing to would take its access away on upgrade, and
+     * the name must not become a scope of its own in the process.
+     *
+     * @throws \Exception
+     */
+    public function testReadsApiTokenScopesListedAlongsideAName(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_API_TOKENS => [
+                    'a-token' => [
+                        ModuleConfig::KEY_API_TOKEN_NAME => 'legacy label',
+                        ApiScopesEnum::VciAll,
+                    ],
+                ],
+            ],
+        ));
+
+        $this->assertSame([ApiScopesEnum::VciAll], array_values((array)$sut->getApiTokenScopes('a-token')));
+        $this->assertNotContains('legacy label', (array)$sut->getApiTokenScopes('a-token'));
+        $this->assertSame('legacy label', $sut->getApiTokenName('a-token'));
+    }
+
+    /**
+     * A name on its own authorizes nothing. Reading the settings shape as though the whole array were
+     * a list of scopes would hand the token a scope named after its own name.
+     *
+     * @throws \Exception
+     */
+    public function testReadsNoApiTokenScopesFromSettingsWhichDeclareNone(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_API_TOKENS => [
+                    'a-token' => [ModuleConfig::KEY_API_TOKEN_NAME => 'HR system'],
+                ],
+            ],
+        ));
+
+        $this->assertNull($sut->getApiTokenScopes('a-token'));
+        $this->assertSame('HR system', $sut->getApiTokenName('a-token'));
+    }
+
+    /**
+     * The name goes into a fixed width column in the audit trail. Left unchecked, an over-long one
+     * would make every status change that token asks for fail at the point of recording it, on the
+     * databases which enforce the width, and truncating it could quietly merge two principals.
+     *
+     * @throws \Exception
+     */
+    public function testRejectsAnApiTokenNameTooLongToRecord(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_API_TOKENS => [
+                    'a-token' => [
+                        ModuleConfig::KEY_API_TOKEN_NAME => str_repeat(
+                            'a',
+                            ModuleConfig::MAX_API_TOKEN_NAME_LENGTH + 1,
+                        ),
+                        ModuleConfig::KEY_API_TOKEN_SCOPES => [ApiScopesEnum::All],
+                    ],
+                ],
+            ],
+        ));
+
+        $this->expectException(ConfigurationError::class);
+
+        $sut->getApiTokenName('a-token');
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testAcceptsAnApiTokenNameOfTheGreatestRecordableLength(): void
+    {
+        $name = str_repeat('a', ModuleConfig::MAX_API_TOKEN_NAME_LENGTH);
+
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_API_TOKENS => [
+                    'a-token' => [ModuleConfig::KEY_API_TOKEN_NAME => $name],
+                ],
+            ],
+        ));
+
+        $this->assertSame($name, $sut->getApiTokenName('a-token'));
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testReadsNothingForAnUnknownApiToken(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [ModuleConfig::OPTION_API_TOKENS => ['a-token' => [ApiScopesEnum::All]]],
+        ));
+
+        $this->assertNull($sut->getApiTokenScopes('some-other-token'));
+        $this->assertNull($sut->getApiTokenName('some-other-token'));
     }
 
     /**

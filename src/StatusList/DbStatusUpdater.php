@@ -54,11 +54,7 @@ class DbStatusUpdater implements StatusUpdaterInterface
      */
     public function setStatus(string $statusListId, int $idx, StatusTypeEnum $status): bool
     {
-        $statusList = $this->statusListRepository->findByIdOnPrimary($statusListId);
-
-        if (!$statusList instanceof StatusListRecord) {
-            throw new StatusListException(sprintf('Status List "%s" was not found.', $statusListId));
-        }
+        $statusList = $this->requireList($statusListId);
 
         $this->enforceStatusFits($statusList, $status);
 
@@ -128,6 +124,31 @@ class DbStatusUpdater implements StatusUpdaterInterface
                 self::MAX_UPDATE_ATTEMPTS,
             ),
         );
+    }
+
+    /**
+     * @throws \SimpleSAML\Module\oidc\Exceptions\UnsupportedStatusException
+     * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
+     * @throws \Exception
+     */
+    public function enforceCanRepresent(string $statusListId, StatusTypeEnum $status): void
+    {
+        $this->enforceStatusFits($this->requireList($statusListId), $status);
+    }
+
+    /**
+     * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
+     * @throws \Exception
+     */
+    protected function requireList(string $statusListId): StatusListRecord
+    {
+        $statusList = $this->statusListRepository->findByIdOnPrimary($statusListId);
+
+        if (!$statusList instanceof StatusListRecord) {
+            throw new StatusListException(sprintf('Status List "%s" was not found.', $statusListId));
+        }
+
+        return $statusList;
     }
 
     /**

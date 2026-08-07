@@ -13,6 +13,7 @@ use SimpleSAML\Module\oidc\Controllers\Admin\ConfigController;
 use SimpleSAML\Module\oidc\Controllers\Admin\FederationTestController;
 use SimpleSAML\Module\oidc\Controllers\Admin\VerifiableCredentailsTestController;
 use SimpleSAML\Module\oidc\Controllers\Api\VciCredentialOfferApiController;
+use SimpleSAML\Module\oidc\Controllers\Api\VciCredentialStatusApiController;
 use SimpleSAML\Module\oidc\Controllers\AuthorizationController;
 use SimpleSAML\Module\oidc\Controllers\ConfigurationDiscoveryController;
 use SimpleSAML\Module\oidc\Controllers\EndSessionController;
@@ -183,6 +184,12 @@ return function (RoutingConfigurator $routes): void {
         RoutesEnum::ApiVciCredentialOffer->name,
         RoutesEnum::ApiVciCredentialOffer->value,
     )->controller([VciCredentialOfferApiController::class, 'credentialOffer'])
+        ->methods([HttpMethodsEnum::POST->value]);
+
+    $routes->add(
+        RoutesEnum::ApiVciCredentialStatus->name,
+        RoutesEnum::ApiVciCredentialStatus->value,
+    )->controller([VciCredentialStatusApiController::class, 'credentialStatus'])
         ->methods([HttpMethodsEnum::POST->value]);
 
     $routes->add(
