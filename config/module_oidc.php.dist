@@ -1540,6 +1540,30 @@ $config = [
     ModuleConfig::OPTION_VCI_NONCE_TTL => 'PT5M', // 5 minutes
 
     /**
+     * (optional) How long an issued credential stays valid, per credential
+     * configuration. Configurations which are not listed here issue
+     * credentials which never expire, which is the default.
+     *
+     * Think before enabling this for a configuration that is already in use:
+     * credentials issued from now on will stop working on their own, while
+     * the ones already in wallets will not. For duration format info, check
+     * https://www.php.net/manual/en/dateinterval.construct.php
+     *
+     * An expiry is also what makes retiring a Status List possible at all. A
+     * list holding even one credential that never expires has to go on being
+     * served, since a wallet may present that credential at any time.
+     *
+     * This is a top-level option rather than something inside the credential
+     * configurations, because those are published verbatim as Credential
+     * Issuer metadata and anything placed among them becomes visible to every
+     * wallet.
+     */
+//    ModuleConfig::OPTION_VCI_CREDENTIAL_TTLS => [
+//        'UniversityDegreeCredential' => 'P1Y', // 1 year
+//        'EmployeeBadgeCredential' => 'P90D', // 90 days
+//    ],
+
+    /**
      * (optional) Whether issued Verifiable Credentials get a Token Status List
      * entry allocated to them, which is what makes them revocable and
      * suspendable. Defaults to false.

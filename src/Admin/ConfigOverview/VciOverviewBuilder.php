@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Admin\ConfigOverview;
 
+use DateInterval;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -606,6 +607,41 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                         'proof-of-possession nonces.',
                     ),
                 ),
+            ),
+            $this->guardRow(
+                Translate::noop('Credential Lifetimes'),
+                ModuleConfig::OPTION_VCI_CREDENTIAL_TTLS,
+                function (): Row {
+                    $ttls = $this->moduleConfig->getVciCredentialTtls();
+
+                    if ($ttls === []) {
+                        return new Row(
+                            Translate::noop('Credential Lifetimes'),
+                            Translate::noop('None configured'),
+                            ConfigOverviewValueTypeEnum::Text,
+                            ModuleConfig::OPTION_VCI_CREDENTIAL_TTLS,
+                            Translate::noop(
+                                'Issued credentials never expire, which is the long standing default. ' .
+                                'A Status List holding one can never be retired, so its storage is ' .
+                                'kept for good.',
+                            ),
+                        );
+                    }
+
+                    return new Row(
+                        Translate::noop('Credential Lifetimes'),
+                        array_map(
+                            fn(DateInterval $ttl): array => [$this->dateIntervalFormatter->toDurationSpec($ttl)],
+                            $ttls,
+                        ),
+                        ConfigOverviewValueTypeEnum::StringMap,
+                        ModuleConfig::OPTION_VCI_CREDENTIAL_TTLS,
+                        Translate::noop(
+                            'How long a credential of each configuration stays valid. Configurations ' .
+                            'which are not listed issue credentials which never expire.',
+                        ),
+                    );
+                },
             ),
         );
     }

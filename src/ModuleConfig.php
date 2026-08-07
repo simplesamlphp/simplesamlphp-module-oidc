@@ -17,6 +17,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc;
 
 use DateInterval;
+use DateTimeImmutable;
 use Defuse\Crypto\Exception\CryptoException;
 use Defuse\Crypto\Key;
 use SimpleSAML\Configuration;
@@ -47,6 +48,7 @@ use SimpleSAML\OpenID\ValueAbstracts\KeyPairFilenameConfig;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairConfig;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairConfigBag;
+use Throwable;
 
 class ModuleConfig
 {
@@ -156,6 +158,7 @@ class ModuleConfig
     final public const string OPTION_VCI_STATUS_LIST_KEY_PROFILE = 'vci_status_list_key_profile';
     final public const string OPTION_VCI_STATUS_LIST_POOLS = 'vci_status_list_pools';
     final public const string OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE = 'vci_status_list_requests_per_minute';
+    final public const string OPTION_VCI_CREDENTIAL_TTLS = 'vci_credential_ttls';
     final public const string OPTION_DCR_ENABLED = 'dcr_enabled';
     final public const string OPTION_DCR_REGISTRATION_AUTH = 'dcr_registration_auth';
     final public const string OPTION_DCR_INITIAL_ACCESS_TOKENS = 'dcr_initial_access_tokens';
@@ -207,6 +210,9 @@ class ModuleConfig
     protected ?SignatureKeyPairBag $vciSignatureKeyPairBag = null;
     protected ?SignatureKeyPairConfigBag $vciSignatureKeyPairConfigBag = null;
     protected ?StatusListPoolBag $vciStatusListPoolBag = null;
+
+    /** @var ?array<string,\DateInterval> Credential configuration ID to how long its credentials live. */
+    protected ?array $vciCredentialTtls = null;
 
     /**
      * @throws \Exception
@@ -1414,6 +1420,114 @@ class ModuleConfig
         }
 
         return $this->getVciStatusListPoolBag()->getForCredentialConfigurationId($credentialConfigurationId);
+    }
+
+    /**
+     * How long credentials of each configuration remain valid.
+     *
+     * A separate top-level option for the same reason the pools are: the credential configurations are
+     * published wholesale as Credential Issuer metadata, so anything placed among them becomes visible
+     * to every wallet.
+     *
+     * Configurations absent from this map issue credentials which never expire, which is what this
+     * module has always done and stays the default. Adding an expiry changes the meaning of credentials
+     * that are already being issued, so it is something an operator opts into per configuration rather
+     * than something that arrives with an upgrade.
+     *
+     * @return array<string,\DateInterval>
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciCredentialTtls(): array
+    {
+        if (is_array($this->vciCredentialTtls)) {
+            return $this->vciCredentialTtls;
+        }
+
+        $supportedIds = $this->getVciCredentialConfigurationIdsSupported();
+        $ttls = [];
+
+        /** @var mixed $value */
+        foreach ($this->config()->getOptionalArray(self::OPTION_VCI_CREDENTIAL_TTLS, []) as $key => $value) {
+            $credentialConfigurationId = (string)$key;
+
+            if (!in_array($credentialConfigurationId, $supportedIds, true)) {
+                // Silently ignoring this would leave credentials which were meant to expire being
+                // issued without an expiry, and nothing would say so.
+                throw new ConfigurationError(
+                    sprintf(
+                        'Option "%s" sets a lifetime for the credential configuration "%s", which is not ' .
+                        'one of the configurations declared under "%s".',
+                        self::OPTION_VCI_CREDENTIAL_TTLS,
+                        $credentialConfigurationId,
+                        self::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED,
+                    ),
+                    self::DEFAULT_FILE_NAME,
+                );
+            }
+
+            $ttls[$credentialConfigurationId] = $this->resolveCredentialTtl($credentialConfigurationId, $value);
+        }
+
+        return $this->vciCredentialTtls = $ttls;
+    }
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    protected function resolveCredentialTtl(string $credentialConfigurationId, mixed $value): DateInterval
+    {
+        if (!is_string($value)) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Option "%s" must give the lifetime of "%s" as a duration string, %s given.',
+                    self::OPTION_VCI_CREDENTIAL_TTLS,
+                    $credentialConfigurationId,
+                    get_debug_type($value),
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        try {
+            $ttl = new DateInterval($value);
+        } catch (Throwable $throwable) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Option "%s" gives "%s" a lifetime which is not a valid duration: %s',
+                    self::OPTION_VCI_CREDENTIAL_TTLS,
+                    $credentialConfigurationId,
+                    $throwable->getMessage(),
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        // Anchored to the epoch rather than to now, so the answer does not depend on the server's
+        // timezone or on which side of a daylight saving transition the configuration is read.
+        if ((new DateTimeImmutable('@0'))->add($ttl)->getTimestamp() < 1) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Option "%s" gives "%s" a lifetime of no time at all, so its credentials would ' .
+                    'expire the moment they are issued. Remove the entry to issue credentials which ' .
+                    'do not expire.',
+                    self::OPTION_VCI_CREDENTIAL_TTLS,
+                    $credentialConfigurationId,
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        return $ttl;
+    }
+
+    /**
+     * How long a credential of this configuration is valid for, or null if it does not expire.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciCredentialTtlFor(string $credentialConfigurationId): ?DateInterval
+    {
+        return $this->getVciCredentialTtls()[$credentialConfigurationId] ?? null;
     }
 
 

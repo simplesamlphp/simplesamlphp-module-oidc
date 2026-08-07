@@ -882,4 +882,87 @@ class ModuleConfigTest extends TestCase
             ],
         );
     }
+
+    /**
+     * Not expiring is what this module has always done, and an expiry changes what already issued
+     * credentials mean, so it stays something an operator asks for.
+     *
+     * @throws \Exception
+     */
+    public function testCredentialsHaveNoLifetimeUnlessOneIsConfigured(): void
+    {
+        $sut = $this->sut();
+
+        $this->assertSame([], $sut->getVciCredentialTtls());
+        $this->assertNull($sut->getVciCredentialTtlFor('TestCredential'));
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testResolvesTheConfiguredCredentialLifetime(): void
+    {
+        $sut = $this->sut(overrides: $this->withCredentialTtl('P30D'));
+
+        $this->assertSame(30, $sut->getVciCredentialTtlFor('TestCredential')?->d);
+        // Configurations which are not listed keep issuing credentials which never expire.
+        $this->assertNull($sut->getVciCredentialTtlFor('SomethingElse'));
+    }
+
+    /**
+     * As with the pools, a typo would otherwise be silent: credentials which were meant to expire
+     * would go on being issued without an expiry and nothing would say so.
+     *
+     * @throws \Exception
+     */
+    public function testCredentialLifetimesRejectAnUnknownCredentialConfiguration(): void
+    {
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('NoSuchCredential');
+
+        $this->sut(overrides: array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => ['TestCredential' => []],
+                ModuleConfig::OPTION_VCI_CREDENTIAL_TTLS => ['NoSuchCredential' => 'P30D'],
+            ],
+        ))->getVciCredentialTtls();
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testCredentialLifetimesRejectAnUnparseableDuration(): void
+    {
+        $this->expectException(ConfigurationError::class);
+
+        $this->sut(overrides: $this->withCredentialTtl('thirty days'))->getVciCredentialTtls();
+    }
+
+    /**
+     * A zero lifetime would issue credentials which have already expired, which is never what was
+     * meant. Leaving the entry out is how a configuration says its credentials do not expire.
+     *
+     * @throws \Exception
+     */
+    public function testCredentialLifetimesRejectADurationOfNoTime(): void
+    {
+        $this->expectException(ConfigurationError::class);
+
+        $this->sut(overrides: $this->withCredentialTtl('PT0S'))->getVciCredentialTtls();
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    protected function withCredentialTtl(mixed $ttl): array
+    {
+        return array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => ['TestCredential' => []],
+                ModuleConfig::OPTION_VCI_CREDENTIAL_TTLS => ['TestCredential' => $ttl],
+            ],
+        );
+    }
 }
