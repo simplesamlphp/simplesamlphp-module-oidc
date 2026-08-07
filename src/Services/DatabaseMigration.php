@@ -264,6 +264,11 @@ class DatabaseMigration
             $this->version20260801000004();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20260801000004')");
         }
+
+        if (!in_array('20260801000005', $versions, true)) {
+            $this->version20260801000005();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20260801000005')");
+        }
     }
 
     private function versionsTableName(): string
@@ -1027,6 +1032,36 @@ EOT
             ADD invalidation_counter INT NOT NULL DEFAULT 0
 EOT
             ,);
+    }
+
+    /**
+     * Indexes the administration screens read Status List entries by.
+     *
+     * Both answer questions no other caller asks. Everything else addresses an entry by its list and
+     * index, or by the hash of one credential ID; an administrator arrives with neither, and has to be
+     * able to page through what was issued and to find every credential belonging to one person.
+     */
+    private function version20260801000005(): void
+    {
+        $entryTableName = $this->database->applyPrefix(StatusListEntryRepository::TABLE_NAME);
+
+        // Paging through issued credentials, newest first. Allocation leads, because the unallocated
+        // rows are the bulk of the table and are never listed; the timestamp follows so the ordering
+        // comes out of the index rather than out of a sort over everything it selected.
+        $this->createIndex(
+            $this->generateIdentifierName([$entryTableName, 'allocated_issued_at'], 'idx'),
+            $entryTableName,
+            'allocated, issued_at',
+        );
+
+        // Every credential issued to one subject, which is how a lost device or a departing member of
+        // staff is dealt with. The stored value is a keyed hash, so this is an equality lookup on a
+        // value the administrator never sees and the search box derives.
+        $this->createIndex(
+            $this->generateIdentifierName([$entryTableName, 'subject_ref'], 'idx'),
+            $entryTableName,
+            'subject_ref',
+        );
     }
 
     /**

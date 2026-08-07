@@ -139,6 +139,18 @@ class Routes
         return $this->getModuleUrl(RoutesEnum::AdminClientsDelete->value, $parameters);
     }
 
+    // Credential status management
+
+    public function urlAdminCredentialStatus(array $parameters = []): string
+    {
+        return $this->getModuleUrl(RoutesEnum::AdminCredentialStatus->value, $parameters);
+    }
+
+    public function urlAdminCredentialStatusChange(array $parameters = []): string
+    {
+        return $this->getModuleUrl(RoutesEnum::AdminCredentialStatusChange->value, $parameters);
+    }
+
     // Testing
 
     public function urlAdminTestTrustChainResolution(array $parameters = []): string

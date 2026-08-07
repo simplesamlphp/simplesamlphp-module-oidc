@@ -10,6 +10,7 @@ use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Controllers\AccessTokenController;
 use SimpleSAML\Module\oidc\Controllers\Admin\ClientController;
 use SimpleSAML\Module\oidc\Controllers\Admin\ConfigController;
+use SimpleSAML\Module\oidc\Controllers\Admin\CredentialStatusController;
 use SimpleSAML\Module\oidc\Controllers\Admin\FederationTestController;
 use SimpleSAML\Module\oidc\Controllers\Admin\VerifiableCredentailsTestController;
 use SimpleSAML\Module\oidc\Controllers\Api\VciCredentialOfferApiController;
@@ -73,6 +74,15 @@ return function (RoutingConfigurator $routes): void {
         ->methods([HttpMethodsEnum::POST->value]);
     $routes->add(RoutesEnum::AdminClientsDelete->name, RoutesEnum::AdminClientsDelete->value)
         ->controller([ClientController::class, 'delete'])
+        ->methods([HttpMethodsEnum::POST->value]);
+
+    // Credential status management
+
+    $routes->add(RoutesEnum::AdminCredentialStatus->name, RoutesEnum::AdminCredentialStatus->value)
+        ->controller([CredentialStatusController::class, 'index'])
+        ->methods([HttpMethodsEnum::GET->value]);
+    $routes->add(RoutesEnum::AdminCredentialStatusChange->name, RoutesEnum::AdminCredentialStatusChange->value)
+        ->controller([CredentialStatusController::class, 'change'])
         ->methods([HttpMethodsEnum::POST->value]);
 
     // Testing
