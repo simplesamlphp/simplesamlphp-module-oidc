@@ -172,6 +172,13 @@ class TemplateFactory
 
         $this->oidcMenu->addItem(
             $this->oidcMenu->buildItem(
+                $this->routes->getModuleUrl(RoutesEnum::AdminCredentialStatus->value),
+                Translate::noop('Credential Status'),
+            ),
+        );
+
+        $this->oidcMenu->addItem(
+            $this->oidcMenu->buildItem(
                 $this->routes->getModuleUrl(RoutesEnum::AdminTestVerifiableCredentialIssuance->value),
                 Translate::noop('Test Verifiable Credential Issuance'),
             ),

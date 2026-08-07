@@ -299,6 +299,138 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
     }
 
     /**
+     * A page of issued credentials, newest first, for the administration screens.
+     *
+     * Only allocated rows are listed. Every index of a list exists as a row from the moment the list is
+     * created, so the unallocated ones are the bulk of this table and none of them is anything that was
+     * issued.
+     *
+     * Both search terms are the stored forms of the one thing an administrator typed, and either
+     * matching is a hit: they will have entered a credential identifier or a user identifier and cannot
+     * be expected to say which. Both are exact comparisons against indexed columns rather than a
+     * pattern match, which is not a limitation but the only thing available -- the credential ID is
+     * unindexed text, and the subject is stored as a keyed hash which nothing can be matched against
+     * partially.
+     *
+     * Read from the primary, so that an administrator who has just changed a status is not sent back to
+     * a page which a lagging secondary still shows the old one on.
+     *
+     * @param ?string $credentialIdHash Hash of a credential identifier searched for, or null.
+     * @param ?string $subjectRef Keyed hash of a user identifier searched for, or null.
+     * @return array{
+     *     items: \SimpleSAML\Module\oidc\StatusList\Values\StatusListEntryRecord[],
+     *     total: int,
+     *     numPages: int,
+     *     currentPage: int
+     * }
+     * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
+     * @throws \Exception
+     */
+    public function findAllocatedPaginated(
+        int $page = 1,
+        ?string $credentialIdHash = null,
+        ?string $subjectRef = null,
+    ): array {
+        $condition = 'allocated = :allocated';
+        $params = ['allocated' => [true, PDO::PARAM_BOOL]];
+
+        if (is_string($credentialIdHash) || is_string($subjectRef)) {
+            $condition .= ' AND (credential_id_hash = :credential_id_hash OR subject_ref = :subject_ref)';
+            // Null never equals anything, so the half of the comparison which was not searched for
+            // simply never matches, and the two cases need no separate statement.
+            $params['credential_id_hash'] = $credentialIdHash;
+            $params['subject_ref'] = $subjectRef;
+        }
+
+        $total = $this->countWhere($condition, $params);
+        $itemsPerPage = $this->getItemsPerPage();
+        $numPages = max((int)ceil($total / $itemsPerPage), 1);
+        $currentPage = min(max($page, 1), $numPages);
+        $offset = ($currentPage - 1) * $itemsPerPage;
+
+        $rows = $this->readPrimary(
+            sprintf(
+                // The list and index are in the ordering as a tie break, not for their own sake. A
+                // batch issuance stamps the same issued_at on every credential in it, and an order
+                // which leaves those rows free to come back in any sequence would show one of them
+                // twice and another not at all as the administrator pages through.
+                'SELECT * FROM %s WHERE %s ORDER BY issued_at DESC, status_list_id ASC, idx ASC ' .
+                'LIMIT %d OFFSET %d',
+                $this->getTableName(),
+                $condition,
+                $itemsPerPage,
+                $offset,
+            ),
+            $params,
+        );
+
+        $items = [];
+
+        /** @var mixed $row */
+        foreach ($rows as $row) {
+            if (is_array($row)) {
+                $items[] = StatusListEntryRecord::fromRow($row);
+            }
+        }
+
+        return [
+            'items' => $items,
+            'total' => $total,
+            'numPages' => $numPages,
+            'currentPage' => $currentPage,
+        ];
+    }
+
+    /**
+     * How many Status Lists hold a credential which never expires, and can therefore never be retired.
+     *
+     * Surfaced to administrators because credential expiry is opt in and off by default, which makes
+     * permanent storage growth the quiet consequence of leaving it that way.
+     */
+    public function countNeverRetiringLists(): int
+    {
+        $rows = $this->readPrimary(
+            "SELECT COUNT(DISTINCT status_list_id) AS list_total FROM {$this->getTableName()} " .
+            'WHERE allocated = :allocated AND expires_at IS NULL',
+            ['allocated' => [true, PDO::PARAM_BOOL]],
+        );
+
+        /** @var mixed $total */
+        $total = $rows[0]['list_total'] ?? null;
+
+        return is_numeric($total) ? (int)$total : 0;
+    }
+
+    /**
+     * @param array<string,mixed> $params
+     */
+    protected function countWhere(string $condition, array $params): int
+    {
+        $rows = $this->readPrimary(
+            sprintf('SELECT COUNT(*) AS entry_total FROM %s WHERE %s', $this->getTableName(), $condition),
+            $params,
+        );
+
+        /** @var mixed $total */
+        $total = $rows[0]['entry_total'] ?? null;
+
+        return is_numeric($total) ? (int)$total : 0;
+    }
+
+    /**
+     * @throws \Exception
+     */
+    protected function getItemsPerPage(): int
+    {
+        return $this->moduleConfig->config()->getOptionalIntegerRange(
+            ModuleConfig::OPTION_ADMIN_UI_PAGINATION_ITEMS_PER_PAGE,
+            1,
+            100,
+            20,
+        );
+    }
+
+    /**
      * @param array<array-key,mixed> $rows
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
      */

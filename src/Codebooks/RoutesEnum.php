@@ -26,6 +26,11 @@ enum RoutesEnum: string
     case AdminClientsResetSecret = 'admin/clients/reset-secret';
     case AdminClientsDelete = 'admin/clients/delete';
 
+    // Credential status management
+
+    case AdminCredentialStatus = 'admin/credential-status';
+    case AdminCredentialStatusChange = 'admin/credential-status/change';
+
     // Testing
     case AdminTestTrustChainResolution = 'admin/test/trust-chain-resolution';
     case AdminTestTrustMarkValidation = 'admin/test/trust-mark-validation';
