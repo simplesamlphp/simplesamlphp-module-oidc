@@ -67,7 +67,7 @@ class TokenResponseTest extends TestCase
      */
     protected function setUp(): void
     {
-        $this->certFolder = dirname(__DIR__, 5) . '/docker/ssp/';
+        $this->certFolder = dirname(__DIR__, 4) . '/cert/';
         $createdUpdatedAt = new DateTimeImmutable();
         $this->userEntity = new UserEntity(
             self::SUBJECT,
