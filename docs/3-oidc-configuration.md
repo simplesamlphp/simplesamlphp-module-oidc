@@ -15,6 +15,7 @@ It complements the inline comments in `config/module_oidc.php`.
 - Auth Proc filters (OIDC)
 - Client registration permissions
 - OpenID Connect Dynamic Client Registration
+- Token Status Lists (credential revocation)
 - Running multiple OPs on one server
 
 ## Caching protocol artifacts
@@ -52,6 +53,12 @@ the SimpleSAMLphp admin area:
 
 That screen also reports when cleanup can never run, for example when no cron tag is
 set or when the cron module is not enabled.
+
+If you issue Verifiable Credentials with Token Status Lists, cron does considerably
+more than purge expired tokens: it is what deletes the record of who was issued which
+credential once that credential expires, and what eventually retires lists nobody can
+still be holding. See
+[Token Status Lists](#token-status-lists-credential-revocation).
 
 ## Endpoint locations and well-known URLs
 
@@ -402,6 +409,206 @@ details and defaults):
 > **Security note:** open registration lets anyone create a client, so protect
 > the endpoint with rate limiting at the web-server level, or require an Initial
 > Access Token.
+
+## Token Status Lists (credential revocation)
+
+A Verifiable Credential this module issues is, by default, valid for as long as it says it is and
+there is nothing you can do about it afterwards. Token Status Lists
+([draft-ietf-oauth-status-list](https://datatracker.ietf.org/doc/draft-ietf-oauth-status-list/)) are
+what make one revocable: each issued credential carries a `status` claim naming a list and an index
+inside it, and a Relying Party checks the credential by fetching that list.
+
+The list is one compressed bit array covering many credentials, published as a signed token. That is
+the design's privacy property, and the reason lists are shared rather than per-credential: fetching
+the list tells the issuer that *somebody's* credential is being verified, but not whose.
+
+### Requirements
+
+- **A SimpleSAMLphp providing `SimpleSAML\Database::readPrimary()`.** Deciding whether a credential is
+  revoked from a lagging database secondary could publish a revoked credential as valid, so the module
+  refuses to enable the feature rather than fall back to a replica read. This is available from v2.5.3
+  of SimpleSAMLphp.
+- **Verifiable Credential Issuance configured**, since there is nothing to give a status to otherwise.
+- **The cron module running**, with a cron tag configured for this module (see
+  [Cron integration](#cron-integration)). Without it, credentials are still issued, still expire on
+  their own, still get served and can still be revoked — but nothing is ever cleaned up: the record of
+  who was issued which credential is kept past that credential's expiry, no list is ever retired, and
+  the audit trail is never pruned. See [Lifecycle and cron](#lifecycle-and-cron) below.
+
+### Enabling
+
+```php
+use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
+
+ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => true,
+
+ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS => [
+    'default' => [
+        'credential_configurations' => [
+            'UniversityDegreeCredential',
+        ],
+    ],
+    // A pool which can also suspend, so it needs at least 2 bits per entry.
+    'suspendable' => [
+        'credential_configurations' => [
+            'EmployeeBadgeCredential',
+        ],
+        'bits' => 2,
+        'allowed_statuses' => [
+            StatusTypeEnum::Invalid,
+            StatusTypeEnum::Suspended,
+        ],
+    ],
+],
+```
+
+Credentials of a configuration which is in no pool are issued without a `status` claim, and can never
+be revoked or suspended. Turning the switch on does not change credentials which have already been
+issued — they carry no `status` claim and nothing can add one.
+
+### Pools
+
+A pool, not a credential configuration, is the unit which shares a list, and several configurations can
+map onto one pool. Splitting configurations into separate pools costs herd privacy, so it is worth
+doing only when their policies genuinely differ. A configuration must appear in at most one pool.
+
+Per-pool settings, all optional except `credential_configurations`:
+
+| Setting                     | Default        | Notes                                                                                   |
+|:----------------------------|:---------------|:----------------------------------------------------------------------------------------|
+| `credential_configurations` | —              | Required. Each must be declared under `OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED`. |
+| `bits`                      | `1`            | Bits per entry, one of 1, 2, 4, 8. **Cannot be changed for lists which already exist.** |
+| `capacity`                  | `131072`       | Entries per list; a positive multiple of 8.                                             |
+| `allowed_statuses`          | `Invalid`      | Statuses besides `Valid`, which is always allowed.                                      |
+| `ttl`                       | `PT12H`        | How long a Relying Party may cache a fetched list.                                      |
+| `token_validity`            | `P7D`          | Lifetime of a published Status List Token.                                              |
+| `refresh_interval`          | `PT1H`         | How old a published token may get before it is re-signed.                               |
+| `key_profile`               | global setting | Overrides `OPTION_VCI_STATUS_LIST_KEY_PROFILE` for this pool.                           |
+
+Two of these deserve reading twice.
+
+**`bits` decides what the pool can ever say.** One bit holds `Valid` and `Invalid` and nothing else, so
+a pool left at the default can never suspend a credential — and the number of bits is fixed when a list
+is created, so this cannot be corrected later for credentials already issued from it. A pool which may
+ever suspend needs at least 2 bits *before* it issues anything. Asking for a status a list cannot carry
+is refused, with `422` from the API and a message on the administration screen. Note that `bits`
+affects transfer size, never herd size.
+
+**`ttl` is the revocation latency you are offering.** It is how long a conforming Relying Party may go
+on using a cached copy of the list, so with the default a credential revoked now may still be accepted
+for up to 12 hours. Lower it if that is too long, bearing in mind that it is also what keeps verifiers
+from fetching the list on every presentation.
+
+### Key profile
+
+The specification deliberately mandates no key resolution method, so how a Status List Token names the
+key it was signed with is a deployment choice:
+
+- `did_jwk` (default): `kid` is the issuer's `did:jwk:...#0` and `iss` is the same `did:jwk:...`. The
+  token carries the key with it and verifies without any external lookup.
+- `jwks`: `iss` is this module's issuer URL and `kid` is a JWKS key ID, so the key is resolved through
+  the published JWKS. Use this for Relying Parties which will not accept a `did:jwk` key identifier.
+
+Each list records the profile it was created under. Changing the setting therefore routes newly issued
+credentials to newly created lists, while existing lists keep being served under the profile their
+holders already resolved them by — so changing it never invalidates anything already in a wallet.
+
+### Credential expiry
+
+Credentials this module issues do not expire unless you say so:
+
+```php
+ModuleConfig::OPTION_VCI_CREDENTIAL_TTLS => [
+    'UniversityDegreeCredential' => 'P1Y',
+],
+```
+
+It has a consequence worth understanding before deciding. **A list holding even one credential which
+never expires can never be retired**, because that credential can be presented at any point in the
+future and a verifier asked about it has to be able to fetch the list. With expiry off, the module's
+Status List storage grows for as long as the deployment runs and never gives anything back. The
+administration screen reports how many lists are in that position.
+
+### Serving the lists
+
+Lists are published at `/statuslist/{id}`, unauthenticated, and the URI of the list is written into
+every credential issued from it.
+
+This endpoint keeps serving when `OPTION_VCI_STATUS_LIST_ENABLED` is switched off. Turning the switch
+off stops new credentials getting an entry allocated; it does not, and must not, strand the credentials
+already in wallets as unverifiable.
+
+`OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE` puts a ceiling on how much one client can pull, and is off
+by default. Before setting it, check what address actually reaches PHP: behind a reverse proxy or CDN it
+is the proxy's own, identically for every request, so all clients would share one counter and the
+endpoint would start refusing the verifiers that credentials depend on. It also needs a protocol cache
+configured; without one, nothing is counted and no request is refused.
+
+### Changing a status
+
+Two ways, both of which write to the same audit trail:
+
+- **OIDC > Credential Status** in the SimpleSAMLphp admin area. Lists issued credentials, searches by
+  credential identifier or by user identifier, and changes the status of one credential at a time. The
+  search is exact rather than a substring match — the user identifier is stored as a keyed hash, which
+  nothing can be matched against partially.
+- **The credential status API endpoint**, documented in [API](8-api.md#credential-status). This is what
+  to use from an IdM / HR / helpdesk tool...
+
+The audit trail records the credential (as a hash of its identifier), the list and index, the status
+asked for, who asked, and when. It names an actor when it can: an API token's configured `name`, or the
+identifier the `admin` authentication source releases. SimpleSAMLphp's admin login is a shared password
+in most deployments and names nobody, in which case the trail says `admin` rather than inventing
+someone — but where that source is pointed at a real one, the trail names a person, which is worth
+knowing when deciding the retention below. The bearer token itself is never recorded anywhere.
+
+### Lifecycle and cron
+
+The module's cron hook does five things for Status Lists, all of them bounded so that no single run has
+to finish the job — whatever one run leaves, the next picks up:
+
+1. **Forgets which credential held which index, once that credential has expired.** The credential ID,
+   its hash, its configuration ID and the subject reference are deleted together; the index and the
+   status it ended on stay, because those are what the published list is built from and what stops the
+   index being handed out to a second credential. This is why credential expiry is also a privacy
+   setting: with no expiry, the record of who was issued what is kept indefinitely.
+2. **Deactivates lists the current configuration would no longer allocate into**, which happens when a
+   pool's settings change or the signing key is rotated. This changes nothing observable — those lists
+   were already unreachable — but nothing else would ever start their clock.
+3. **Retires lists nothing can still be holding**, meaning every credential issued from them expired,
+   and the grace period elapsed both since the list stopped accepting allocations and since that last
+   expiry. A retired list answers `404` and gives back its published token.
+4. **Removes the entry rows behind retired lists** once the grace has passed again since retirement.
+   This is where retirement actually recovers storage: a list at the default capacity has 131072 of
+   them.
+5. **Prunes the audit trail** to the configured retention.
+
+```php
+// How long to wait before retiring a list. Default P30D.
+ModuleConfig::OPTION_VCI_STATUS_LIST_RETIREMENT_GRACE => 'P30D',
+
+// How long to keep audit rows. Not set by default, which keeps them indefinitely.
+ModuleConfig::OPTION_VCI_STATUS_LIST_AUDIT_RETENTION => 'P1Y',
+```
+
+The retirement grace exists because retiring a list makes a URI which is written into real credentials
+answer `404`. Those credentials have all expired by then, so nothing which should verify stops
+verifying — but a Relying Party working from a cached response, or a wallet showing a credential it has
+not noticed is expired, would see the fetch fail rather than get an answer. Lengthen it if your
+verifiers cache aggressively.
+
+**It cannot be set below one hour.** The wait counted from deactivation has a second job: outlasting an
+issuance that was already under way when the list stopped accepting credentials. Nothing here can
+serialise those two instead — the statement that retires a list and the one that claims an index write
+different rows, so neither conflicts with the other — and a wait shorter than a request can take does
+not outlast one. A credential issued into a list that has since been retired can never be verified.
+
+The same wait passes again before a retired list's entry rows are removed, so that if that ever did
+happen there is still a record the credential was issued.
+
+Each step reports what it got through in the cron summary, and reports separately if it failed. A step
+which keeps failing is worth acting on: one of them is what deletes personal data on time.
 
 ## Running multiple OPs on one server
 

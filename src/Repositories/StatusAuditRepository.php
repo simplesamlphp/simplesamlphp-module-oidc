@@ -99,12 +99,89 @@ class StatusAuditRepository extends AbstractDatabaseRepository
                 // moment written in the server's local time is indistinguishable from one written in
                 // UTC, and the two would be ordered and pruned against each other as though they were
                 // the same scale. Every other Status List table stores UTC; so does this one.
-                'created_at' => ($createdAt ?? $this->helpers->dateTime()->getUtc())
-                    ->setTimezone(new DateTimeZone('UTC'))
-                    ->format(DateFormatsEnum::DB_DATETIME->value),
+                'created_at' => $this->formatForDatabase($createdAt ?? $this->helpers->dateTime()->getUtc()),
             ],
         );
 
         return $id;
+    }
+
+    /**
+     * Removes trail rows older than a cut-off, up to a bound.
+     *
+     * Unlike the linkage deletion, which happens whether anyone asked for it or not, this is a policy
+     * rather than an obligation, and there is no default: nothing is removed unless an operator says
+     * how long is long enough. The rows are not free of personal data even so -- a credential appears
+     * only as a hash of its identifier, but the actor is recorded as given, and where the admin
+     * authentication source releases an identifier that names a person.
+     *
+     * @param \DateTimeImmutable $createdBefore Rows recorded before this moment are eligible.
+     * @param int $limit Most rows to remove in this call.
+     * @return int How many rows were removed, so the caller can tell an exhausted batch from a full one.
+     * @throws \Exception
+     */
+    public function removeOlderThan(DateTimeImmutable $createdBefore, int $limit): int
+    {
+        if ($limit < 1) {
+            return 0;
+        }
+
+        // Selected first and then deleted by identifier, rather than one DELETE with a LIMIT. MySQL
+        // accepts a LIMIT on a DELETE and PostgreSQL rejects it outright, so the bound has to be applied
+        // where every driver allows one, which is the SELECT.
+        $rows = $this->database->readPrimary(
+            sprintf(
+                'SELECT id FROM %s WHERE created_at < :created_before ORDER BY created_at LIMIT %d',
+                $this->getTableName(),
+                $limit,
+            ),
+            ['created_before' => $this->formatForDatabase($createdBefore)],
+        )->fetchAll();
+
+        $placeholders = [];
+        $params = [];
+        $position = 0;
+
+        /** @var mixed $row */
+        foreach ($rows as $row) {
+            /** @var mixed $id */
+            $id = is_array($row) ? ($row['id'] ?? null) : null;
+
+            if (!is_scalar($id)) {
+                continue;
+            }
+
+            // Each identifier under its own placeholder name, since a repeated one is not portable
+            // across drivers.
+            $placeholders[] = ':id_' . $position;
+            $params['id_' . $position] = (string)$id;
+            $position++;
+        }
+
+        if ($placeholders === []) {
+            return 0;
+        }
+
+        $affected = $this->database->write(
+            sprintf(
+                'DELETE FROM %s WHERE id IN (%s)',
+                $this->getTableName(),
+                implode(', ', $placeholders),
+            ),
+            $params,
+        );
+
+        return is_int($affected) ? $affected : 0;
+    }
+
+    /**
+     * Timestamps are stored without a zone and read back as UTC, so a moment is converted to UTC on the
+     * way in rather than having its wall clock written as-is. A cut-off handed in as a local time would
+     * otherwise be compared against values on a different scale, and would prune either too much or too
+     * little by the size of the offset.
+     */
+    protected function formatForDatabase(DateTimeImmutable $moment): string
+    {
+        return $moment->setTimezone(new DateTimeZone('UTC'))->format(DateFormatsEnum::DB_DATETIME->value);
     }
 }

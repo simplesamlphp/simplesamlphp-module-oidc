@@ -301,9 +301,11 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
     /**
      * A page of issued credentials, newest first, for the administration screens.
      *
-     * Only allocated rows are listed. Every index of a list exists as a row from the moment the list is
-     * created, so the unallocated ones are the bulk of this table and none of them is anything that was
-     * issued.
+     * Only allocated rows which still carry their linkage are listed. Every index of a list exists as a
+     * row from the moment the list is created, so the unallocated ones are the bulk of this table and
+     * none of them is anything that was issued; and a row whose credential has expired has had that
+     * linkage deleted, leaving an allocated row which names no credential and which nothing can be
+     * asked about or done to.
      *
      * Both search terms are the stored forms of the one thing an administrator typed, and either
      * matching is a hit: they will have entered a credential identifier or a user identifier and cannot
@@ -331,7 +333,7 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
         ?string $credentialIdHash = null,
         ?string $subjectRef = null,
     ): array {
-        $condition = 'allocated = :allocated';
+        $condition = 'allocated = :allocated AND credential_id_hash IS NOT NULL';
         $params = ['allocated' => [true, PDO::PARAM_BOOL]];
 
         if (is_string($credentialIdHash) || is_string($subjectRef)) {
@@ -399,6 +401,158 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
         $total = $rows[0]['list_total'] ?? null;
 
         return is_numeric($total) ? (int)$total : 0;
+    }
+
+    /**
+     * Deletes the linkage of credentials which have expired, keeping the index and its status.
+     *
+     * This is the second half of the bargain the linkage was stored under. Recording which credential
+     * holds which index is what makes a credential revocable at all, and it is also a record of who was
+     * issued what -- so it is kept for exactly as long as the credential it describes can be presented,
+     * and no longer. What survives is the index and the status it ended on, which is the part the
+     * published token is built from and the part which stops the index being handed out a second time.
+     *
+     * The four columns go together in one statement, because they are one fact. Clearing some of them
+     * would leave a row which still says who was issued a credential while claiming not to know which
+     * credential it was.
+     *
+     * Bounded, and batched by the caller. A deployment which switched credential expiry on some time ago
+     * can have a great many rows come due at once, and a single unbounded statement over them is a long
+     * lock held on the table which serves every issuance.
+     *
+     * The linkage test is repeated in the update, not only in the select which chose the rows. Two runs
+     * overlapping would otherwise each clear and each count the same rows, which changes nothing about
+     * what is stored but reports twice the work actually done -- and those counts are what an operator
+     * reads to decide whether the cron is keeping up.
+     *
+     * @param \DateTimeImmutable $expiredBefore Cut-off, normally simply now.
+     * @param int $limit Most rows to clear in this call.
+     * @return int How many rows were cleared, so the caller can tell an exhausted batch from a full one.
+     * @throws \Exception
+     */
+    public function clearExpiredLinkage(DateTimeImmutable $expiredBefore, int $limit): int
+    {
+        if ($limit < 1) {
+            return 0;
+        }
+
+        // Selected first and then updated by key, rather than one UPDATE with a LIMIT. MySQL accepts a
+        // LIMIT on an UPDATE and PostgreSQL rejects it outright, so the bound has to be applied where
+        // every driver allows one, which is the SELECT.
+        $rows = $this->readPrimary(
+            sprintf(
+                'SELECT status_list_id, idx FROM %s ' .
+                'WHERE credential_id_hash IS NOT NULL AND expires_at IS NOT NULL AND expires_at <= :expired_before ' .
+                'ORDER BY expires_at LIMIT %d',
+                $this->getTableName(),
+                $limit,
+            ),
+            ['expired_before' => $this->formatForDatabase($expiredBefore)],
+        );
+
+        $conditions = [];
+        $params = [];
+        $position = 0;
+
+        /** @var mixed $row */
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            /** @var mixed $statusListId */
+            $statusListId = $row['status_list_id'] ?? null;
+            /** @var mixed $idx */
+            $idx = $row['idx'] ?? null;
+
+            if (!is_scalar($statusListId) || !is_numeric($idx)) {
+                continue;
+            }
+
+            // Each value under its own placeholder name: PDO turns named placeholders into positional
+            // ones for some drivers, and a repeated name then binds only its first occurrence.
+            $conditions[] = sprintf('(status_list_id = :list_%d AND idx = :idx_%d)', $position, $position);
+            $params['list_' . $position] = (string)$statusListId;
+            $params['idx_' . $position] = [(int)$idx, PDO::PARAM_INT];
+            $position++;
+        }
+
+        if ($conditions === []) {
+            return 0;
+        }
+
+        $affected = $this->database->write(
+            sprintf(
+                'UPDATE %s SET
+                    credential_id = NULL,
+                    credential_id_hash = NULL,
+                    credential_configuration_id = NULL,
+                    subject_ref = NULL,
+                    updated_at = :updated_at
+                  WHERE credential_id_hash IS NOT NULL AND (%s)',
+                $this->getTableName(),
+                implode(' OR ', $conditions),
+            ),
+            ['updated_at' => $this->formatForDatabase($this->helpers->dateTime()->getUtc())] + $params,
+        );
+
+        return is_int($affected) ? $affected : 0;
+    }
+
+    /**
+     * Removes a bounded run of entries belonging to a list which has been retired.
+     *
+     * Only ever called for a retired list, and that is what makes it safe. Rows are otherwise kept for
+     * the life of the list however long ago the credential in them expired, because an index which was
+     * handed out once must never be handed out again -- but a retired list is not served and is not
+     * allocated into, so its indices can not be handed out at all.
+     *
+     * This is where retirement actually recovers anything. A retired list gives back its published token
+     * immediately, which is a couple of hundred kilobytes; the entries are the hundred thousand rows
+     * behind it.
+     *
+     * Deleted from the lowest index upwards in a bounded run, so that a list of default capacity is
+     * worked through over several cron runs rather than in one statement holding a lock over a hundred
+     * thousand rows.
+     *
+     * @return int How many rows were removed. Zero means this list has none left.
+     * @throws \Exception
+     */
+    public function deleteRetiredEntries(string $statusListId, int $limit): int
+    {
+        if ($limit < 1) {
+            return 0;
+        }
+
+        $rows = $this->readPrimary(
+            sprintf(
+                'SELECT MIN(idx) AS lowest_idx FROM %s WHERE status_list_id = :status_list_id',
+                $this->getTableName(),
+            ),
+            ['status_list_id' => $statusListId],
+        );
+
+        /** @var mixed $lowestIdx */
+        $lowestIdx = $rows[0]['lowest_idx'] ?? null;
+
+        if (!is_numeric($lowestIdx)) {
+            return 0;
+        }
+
+        // A range rather than a list of keys, which the primary key answers directly and which needs no
+        // second round trip to find out which rows to name.
+        $affected = $this->database->write(
+            sprintf(
+                'DELETE FROM %s WHERE status_list_id = :status_list_id AND idx < :below_idx',
+                $this->getTableName(),
+            ),
+            [
+                'status_list_id' => $statusListId,
+                'below_idx' => [(int)$lowestIdx + $limit, PDO::PARAM_INT],
+            ],
+        );
+
+        return is_int($affected) ? $affected : 0;
     }
 
     /**

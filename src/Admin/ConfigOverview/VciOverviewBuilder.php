@@ -206,6 +206,55 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                     );
                 },
             ),
+            $this->guardRow(
+                Translate::noop('Status List Retirement Grace'),
+                ModuleConfig::OPTION_VCI_STATUS_LIST_RETIREMENT_GRACE,
+                fn(): Row => new Row(
+                    Translate::noop('Status List Retirement Grace'),
+                    $this->dateIntervalFormatter->toDurationSpec(
+                        $this->moduleConfig->getVciStatusListRetirementGrace(),
+                    ),
+                    ConfigOverviewValueTypeEnum::RawText,
+                    ModuleConfig::OPTION_VCI_STATUS_LIST_RETIREMENT_GRACE,
+                    Translate::noop(
+                        'How long a list is left alone before it may be retired, counted both from ' .
+                        'when it stopped accepting credentials and from when the last credential in ' .
+                        'it expired, and once more before its entries are removed. Retiring makes a ' .
+                        'URI written into real credentials answer 404, so this is the margin for ' .
+                        'anything still working from a cached response, and for an issuance which ' .
+                        'was under way when the list closed. Runs from the cron hook.',
+                    ),
+                ),
+            ),
+            $this->guardRow(
+                Translate::noop('Status Audit Retention'),
+                ModuleConfig::OPTION_VCI_STATUS_LIST_AUDIT_RETENTION,
+                function (): Row {
+                    $retention = $this->moduleConfig->getVciStatusListAuditRetention();
+
+                    return new Row(
+                        Translate::noop('Status Audit Retention'),
+                        $retention instanceof DateInterval ?
+                        $this->dateIntervalFormatter->toDurationSpec($retention) :
+                        Translate::noop('Kept indefinitely'),
+                        $retention instanceof DateInterval ?
+                        ConfigOverviewValueTypeEnum::RawText :
+                        ConfigOverviewValueTypeEnum::Text,
+                        ModuleConfig::OPTION_VCI_STATUS_LIST_AUDIT_RETENTION,
+                        $retention instanceof DateInterval ?
+                        Translate::noop(
+                            'Rows recording who asked for which credential status change are pruned ' .
+                            'once they reach this age. Pruning runs from the cron hook.',
+                        ) :
+                        Translate::noop(
+                            'The record of who asked for which credential status change is kept for ' .
+                            'good. Credentials appear in it only as a hash, but the actor is ' .
+                            'recorded as given, which where the admin authentication source ' .
+                            'releases an identifier is a person.',
+                        ),
+                    );
+                },
+            ),
         ];
 
         return new Section(Translate::noop('Status Lists'), 'statusLists', ...$rows);

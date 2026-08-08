@@ -376,4 +376,208 @@ class StatusListEntryRepositoryTest extends TestCase
 
         $this->assertSame(2, $this->repository->countNeverRetiringLists());
     }
+
+    /**
+     * @return array<string,mixed>
+     */
+    protected function readEntry(int $idx, string $statusListId = self::LIST_ID): array
+    {
+        $rows = Database::getInstance()->readPrimary(
+            sprintf(
+                'SELECT * FROM %s WHERE status_list_id = :status_list_id AND idx = :idx',
+                $this->repository->getTableName(),
+            ),
+            [
+                'status_list_id' => $statusListId,
+                'idx' => $idx,
+            ],
+        )->fetchAll();
+
+        $this->assertIsArray($rows[0] ?? null);
+
+        return $rows[0];
+    }
+
+    /**
+     * The four linkage columns are one fact, so they go together. Keeping any of them would leave a row
+     * which still says somebody was issued a credential while claiming not to know which one.
+     *
+     * @throws \Exception
+     */
+    public function testClearsTheWholeLinkageOfAnExpiredCredential(): void
+    {
+        $this->createList();
+        $this->allocate(
+            0,
+            'urn:vc:expired',
+            'a-subject-ref',
+            new DateTimeImmutable('2026-01-01 09:00:00'),
+            new DateTimeImmutable('2026-06-01 09:00:00'),
+        );
+
+        $this->assertSame(1, $this->repository->clearExpiredLinkage(new DateTimeImmutable('2026-08-07 12:00:00'), 10));
+
+        $entry = $this->readEntry(0);
+
+        $this->assertNull($entry['credential_id']);
+        $this->assertNull($entry['credential_id_hash']);
+        $this->assertNull($entry['credential_configuration_id']);
+        $this->assertNull($entry['subject_ref']);
+    }
+
+    /**
+     * What is kept is what the published token is built from, and what stops the index being handed out
+     * to a second credential.
+     *
+     * @throws \Exception
+     */
+    public function testKeepsTheIndexItsStatusAndItsExpiryWhenClearingLinkage(): void
+    {
+        $this->createList();
+        $this->allocate(
+            3,
+            'urn:vc:expired',
+            null,
+            new DateTimeImmutable('2026-01-01 09:00:00'),
+            new DateTimeImmutable('2026-06-01 09:00:00'),
+        );
+        $this->repository->updateStatus(self::LIST_ID, 3, StatusTypeEnum::Valid->value, StatusTypeEnum::Invalid->value);
+
+        $this->repository->clearExpiredLinkage(new DateTimeImmutable('2026-08-07 12:00:00'), 10);
+
+        $entry = $this->readEntry(3);
+
+        $this->assertSame(3, (int)$entry['idx']);
+        $this->assertSame(StatusTypeEnum::Invalid->value, (int)$entry['status']);
+        $this->assertNotNull($entry['expires_at']);
+        // Still allocated, so the index can never be claimed again.
+        $this->assertNotEmpty($entry['allocated']);
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testLeavesCredentialsWhichHaveNotExpiredAlone(): void
+    {
+        $this->createList();
+        $this->allocate(
+            0,
+            'urn:vc:live',
+            null,
+            new DateTimeImmutable('2026-01-01 09:00:00'),
+            new DateTimeImmutable('2027-06-01 09:00:00'),
+        );
+
+        $this->assertSame(0, $this->repository->clearExpiredLinkage(new DateTimeImmutable('2026-08-07 12:00:00'), 10));
+        $this->assertSame('urn:vc:live', $this->readEntry(0)['credential_id']);
+    }
+
+    /**
+     * A credential without an expiry is one which can be presented at any point in the future, so the
+     * linkage which makes it revocable has to outlive every cut-off.
+     *
+     * @throws \Exception
+     */
+    public function testNeverClearsTheLinkageOfACredentialWithoutAnExpiry(): void
+    {
+        $this->createList();
+        $this->allocate(0, 'urn:vc:permanent');
+
+        $this->assertSame(0, $this->repository->clearExpiredLinkage(new DateTimeImmutable('2099-01-01 00:00:00'), 10));
+        $this->assertSame('urn:vc:permanent', $this->readEntry(0)['credential_id']);
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testClearsNoMoreThanTheGivenNumberOfLinkages(): void
+    {
+        $this->createList();
+
+        for ($idx = 0; $idx < 5; $idx++) {
+            $this->allocate(
+                $idx,
+                'urn:vc:' . $idx,
+                null,
+                new DateTimeImmutable('2026-01-01 09:00:00'),
+                new DateTimeImmutable('2026-06-01 09:00:00'),
+            );
+        }
+
+        $now = new DateTimeImmutable('2026-08-07 12:00:00');
+
+        $this->assertSame(2, $this->repository->clearExpiredLinkage($now, 2));
+        $this->assertSame(2, $this->repository->clearExpiredLinkage($now, 2));
+        $this->assertSame(1, $this->repository->clearExpiredLinkage($now, 2));
+        $this->assertSame(0, $this->repository->clearExpiredLinkage($now, 2));
+    }
+
+    /**
+     * An allocated row whose credential has expired names no credential any more, so there is nothing an
+     * administrator could ask about it or do to it.
+     *
+     * @throws \Exception
+     */
+    public function testStopsListingEntriesWhoseLinkageHasBeenCleared(): void
+    {
+        $this->createList();
+        $this->allocate(
+            0,
+            'urn:vc:expired',
+            null,
+            new DateTimeImmutable('2026-01-01 09:00:00'),
+            new DateTimeImmutable('2026-06-01 09:00:00'),
+        );
+        $this->allocate(1, 'urn:vc:live', null, new DateTimeImmutable('2026-01-02 09:00:00'));
+
+        $this->repository->clearExpiredLinkage(new DateTimeImmutable('2026-08-07 12:00:00'), 10);
+
+        $page = $this->repository->findAllocatedPaginated();
+
+        $this->assertSame(1, $page['total']);
+        $this->assertSame(['urn:vc:live'], $this->credentialIdsOf($page['items']));
+    }
+
+    protected function countEntriesOf(string $statusListId): int
+    {
+        $rows = Database::getInstance()->readPrimary(
+            sprintf(
+                'SELECT COUNT(*) AS entry_total FROM %s WHERE status_list_id = :status_list_id',
+                $this->repository->getTableName(),
+            ),
+            ['status_list_id' => $statusListId],
+        )->fetchAll();
+
+        return (int)$rows[0]['entry_total'];
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testRemovesRetiredEntriesInBoundedRuns(): void
+    {
+        $this->createList();
+
+        $this->assertSame(3, $this->repository->deleteRetiredEntries(self::LIST_ID, 3));
+        $this->assertSame(self::CAPACITY - 3, $this->countEntriesOf(self::LIST_ID));
+
+        $this->assertSame(3, $this->repository->deleteRetiredEntries(self::LIST_ID, 3));
+        $this->assertSame(2, $this->repository->deleteRetiredEntries(self::LIST_ID, 3));
+        $this->assertSame(0, $this->repository->deleteRetiredEntries(self::LIST_ID, 3));
+        $this->assertSame(0, $this->countEntriesOf(self::LIST_ID));
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testRemovesEntriesOfOneListOnly(): void
+    {
+        $this->createList();
+        $this->createList(self::OTHER_LIST_ID, 2);
+
+        $this->repository->deleteRetiredEntries(self::LIST_ID, self::CAPACITY);
+
+        $this->assertSame(0, $this->countEntriesOf(self::LIST_ID));
+        $this->assertSame(self::CAPACITY, $this->countEntriesOf(self::OTHER_LIST_ID));
+    }
 }

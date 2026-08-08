@@ -1795,3 +1795,50 @@ msgstr ""
 
 msgid "The credential already had that status, so nothing was changed."
 msgstr ""
+
+msgid ""
+"How long a list is left alone before it may be retired, counted both "
+"from when it stopped accepting credentials and from when the last "
+"credential in it expired. Retiring makes a URI written into real "
+"credentials answer 404, so this is the margin for anything still "
+"working from a cached response. Retirement runs from the cron hook."
+msgstr ""
+
+msgid "Kept indefinitely"
+msgstr ""
+
+msgid ""
+"Rows recording who asked for which credential status change are "
+"pruned once they reach this age. Pruning runs from the cron hook."
+msgstr ""
+
+msgid "Status Audit Retention"
+msgstr ""
+
+msgid "Status List Retirement Grace"
+msgstr ""
+
+msgid ""
+"The record of who asked for which credential status change is never "
+"pruned. It is a row per status change rather than per credential, "
+"and names no person, so this is a retention decision rather than a "
+"storage one."
+msgstr ""
+
+msgid ""
+"The record of who asked for which credential status change is kept "
+"for good. Credentials appear in it only as a hash, but the actor is "
+"recorded as given, which where the admin authentication source "
+"releases an identifier is a person."
+msgstr ""
+
+msgid ""
+"How long a list is left alone before it may be retired, counted both "
+"from when it stopped accepting credentials and from when the last "
+"credential in it expired, and once more before its entries are "
+"removed. Retiring makes a URI written into real credentials answer "
+"404, so this is the margin for anything still working from a cached "
+"response, and for an issuance which was under way when the list "
+"closed. Runs from the cron hook."
+msgstr ""
+

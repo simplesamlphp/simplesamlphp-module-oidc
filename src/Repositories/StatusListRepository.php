@@ -592,6 +592,243 @@ class StatusListRepository extends AbstractDatabaseRepository
     }
 
     /**
+     * Stops lists accepting allocations which they were never going to receive again anyway.
+     *
+     * A list is only selected for allocation while its pool and its policy fingerprint both match the
+     * current configuration, so changing a pool's settings or rotating the signing key leaves the lists
+     * created under the previous policy active but unreachable. Nothing would ever fill them, so nothing
+     * would ever deactivate them, and retirement begins with deactivation -- they would go on being
+     * served for ever while holding credentials which all expired years ago.
+     *
+     * This changes nothing an issuer or a wallet can observe. The lists were already never going to be
+     * allocated into; all this does is start the clock which lets them eventually be retired.
+     *
+     * @param array<string,string> $currentPolicyByPoolId Pool identifier to the policy fingerprint
+     * lists of that pool are currently created under. An empty map means no pool is configured to
+     * allocate at all, in which case every active list is superseded.
+     * @return int How many lists were deactivated.
+     * @throws \Exception
+     */
+    public function deactivateSuperseded(array $currentPolicyByPoolId): int
+    {
+        $params = [
+            'deactivated_at' => $this->nowForDatabase(),
+            'new_is_active' => [false, PDO::PARAM_BOOL],
+            'current_is_active' => [true, PDO::PARAM_BOOL],
+        ];
+
+        $currentPolicies = [];
+        $position = 0;
+
+        foreach ($currentPolicyByPoolId as $poolId => $policyFingerprint) {
+            // Each value under its own placeholder name, since a repeated one is not portable across
+            // drivers.
+            $currentPolicies[] = sprintf(
+                '(pool_id = :pool_%d AND policy_fingerprint = :policy_%d)',
+                $position,
+                $position,
+            );
+            $params['pool_' . $position] = $poolId;
+            $params['policy_' . $position] = $policyFingerprint;
+            $position++;
+        }
+
+        $supersededCondition = $currentPolicies === [] ?
+        '' :
+        sprintf(' AND NOT (%s)', implode(' OR ', $currentPolicies));
+
+        $affected = $this->database->write(
+            sprintf(
+                'UPDATE %s SET is_active = :new_is_active, deactivated_at = :deactivated_at ' .
+                'WHERE is_active = :current_is_active AND retired_at IS NULL%s',
+                $this->getTableName(),
+                $supersededCondition,
+            ),
+            $params,
+        );
+
+        return is_int($affected) ? $affected : 0;
+    }
+
+    /**
+     * Lists which stopped accepting allocations long enough ago to be worth examining for retirement.
+     *
+     * Deactivation is only the first of the two waits. Whether a list has served out the second one
+     * depends on when the credentials inside it expire, which this does not work out -- that is an
+     * aggregate per list, and one worth avoiding for the lists which have not even served out the first.
+     *
+     * It does exclude the lists which can never serve it out, which is a different thing. A list holding
+     * a credential without an expiry is not waiting for anything; it is permanently ineligible, and
+     * leaving it in would let a deployment with enough of them fill every batch a run is willing to work
+     * through and starve the eligible lists behind them. Since every run starts from the beginning, that
+     * would not correct itself.
+     *
+     * The `deactivated_at IS NOT NULL` test is what keeps this away from lists which are inactive for the
+     * other reason: a list is created inactive and stays that way while its entries are being seeded, and
+     * one abandoned midway through that is dealt with by deleting it, not by retiring it.
+     *
+     * Paged by the last identifier seen rather than by an offset, because the caller retires some of the
+     * rows it is given and that takes them out of this result set.
+     *
+     * @param \DateTimeImmutable $deactivatedBefore Ignore anything deactivated more recently than this.
+     * @param ?string $afterId Resume after this list, or null to start from the beginning.
+     * @return string[] Identifiers, in the arbitrary but stable order of the primary key.
+     */
+    public function findRetirementCandidates(
+        DateTimeImmutable $deactivatedBefore,
+        int $limit,
+        ?string $afterId = null,
+    ): array {
+        $params = [
+            'is_active' => [false, PDO::PARAM_BOOL],
+            'deactivated_before' => $this->nowForDatabase($deactivatedBefore),
+            'allocated' => [true, PDO::PARAM_BOOL],
+        ];
+        $cursorCondition = '';
+
+        if ($afterId !== null) {
+            $cursorCondition = ' AND id > :after_id';
+            $params['after_id'] = $afterId;
+        }
+
+        // Only the identifier is read. A row carries its published token, which for a list at the
+        // default capacity is a couple of hundred kilobytes, and none of that is looked at here.
+        //
+        // The limit is interpolated rather than bound: MySQL rejects a bound LIMIT when PDO emulates
+        // prepared statements, because the value arrives quoted as a string. It is an integer here, so
+        // there is nothing to inject.
+        return $this->readIdentifiers(
+            sprintf(
+                'SELECT id FROM %1$s WHERE is_active = :is_active AND retired_at IS NULL ' .
+                'AND deactivated_at IS NOT NULL AND deactivated_at <= :deactivated_before ' .
+                'AND NOT EXISTS (SELECT 1 FROM %2$s WHERE status_list_id = %1$s.id ' .
+                'AND allocated = :allocated AND expires_at IS NULL)%3$s ' .
+                'ORDER BY id LIMIT %4$d',
+                $this->getTableName(),
+                $this->database->applyPrefix(StatusListEntryRepository::TABLE_NAME),
+                $cursorCondition,
+                max(0, $limit),
+            ),
+            $params,
+        );
+    }
+
+    /**
+     * Stops a list being served, and gives back the token it was being served from.
+     *
+     * The last step of the lifecycle, and the only irreversible one: the list's URI is written into every
+     * credential which was issued from it, and from here on fetching it answers 404. That is why nothing
+     * arrives here until every one of those credentials has expired and a further grace period has
+     * passed on top.
+     *
+     * That condition is tested here rather than by the caller, and this is the point of the method. A
+     * caller which reads the entries, decides they have all expired, and then retires the list in a
+     * second statement has a gap between the two, and an issuance which was already in flight can land
+     * in it -- leaving a credential which is perfectly valid naming a list which now answers 404. There
+     * are no transactions to close that gap with, so the test and the retirement are the same statement,
+     * and a list which stopped qualifying in the meantime simply matches no rows.
+     *
+     * The published token is dropped in the same statement too, since a retired list is never served
+     * from it again. Its content hash goes back to the empty string and the invalidation counter moves,
+     * which together keep a signer that is mid-flight from publishing a token onto a list which has just
+     * been retired out from under it.
+     *
+     * @param \DateTimeImmutable $spentBefore Every credential in the list must have expired before this
+     * moment. A credential with no expiry at all never qualifies, however far ahead this is.
+     * @return bool Whether this call is the one which retired it. False means another worker got there
+     * first, or the list turned out to still be holding something.
+     * @throws \Exception
+     */
+    public function retire(string $id, DateTimeImmutable $spentBefore): bool
+    {
+        $affected = $this->database->write(
+            sprintf(
+                "UPDATE %1\$s SET
+                    retired_at = :retired_at,
+                    signed_token = NULL,
+                    signed_token_content_hash = '',
+                    signed_token_iat = NULL,
+                    signed_token_exp = NULL,
+                    invalidation_counter = invalidation_counter + 1
+                  WHERE id = :id AND is_active = :is_active AND retired_at IS NULL
+                    AND NOT EXISTS (
+                        SELECT 1 FROM %2\$s WHERE status_list_id = :guarded_id
+                          AND allocated = :allocated
+                          AND (expires_at IS NULL OR expires_at >= :spent_before)
+                    )",
+                $this->getTableName(),
+                $this->database->applyPrefix(StatusListEntryRepository::TABLE_NAME),
+            ),
+            [
+                'retired_at' => $this->nowForDatabase(),
+                'id' => $id,
+                'is_active' => [false, PDO::PARAM_BOOL],
+                // The same value as :id, under its own name because a repeated placeholder is not
+                // portable across drivers.
+                'guarded_id' => $id,
+                'allocated' => [true, PDO::PARAM_BOOL],
+                'spent_before' => $this->nowForDatabase($spentBefore),
+            ],
+        );
+
+        return is_int($affected) && $affected > 0;
+    }
+
+    /**
+     * Retired lists which still have entries behind them, and have been retired long enough for that to
+     * be safe to act on.
+     *
+     * Removing those entries is bounded per run, so a list of default capacity takes several runs to
+     * clear and has to be found again by each of them. The existence test is what distinguishes a list
+     * still being worked through from the ones already dealt with, which accumulate for as long as the
+     * deployment runs and would otherwise be re-examined for ever.
+     *
+     * The wait since retirement is the point of the cut-off, and it is not the same wait as the one
+     * before retirement. Retiring a list can not be serialised against an issuance which was already in
+     * flight -- the two statements write different rows, so neither conflicts with the other -- so a
+     * credential can in principle be written into a list moments after it was retired. Retirement alone
+     * only makes that credential unverifiable; removing the entries as well destroys the record that it
+     * exists at all. Leaving the rows a while longer keeps them there to be found.
+     *
+     * @param \DateTimeImmutable $retiredBefore Ignore lists retired more recently than this.
+     * @return string[]
+     */
+    public function findRetiredWithEntries(int $limit, DateTimeImmutable $retiredBefore): array
+    {
+        return $this->readIdentifiers(
+            sprintf(
+                'SELECT id FROM %1$s WHERE retired_at IS NOT NULL AND retired_at <= :retired_before ' .
+                'AND EXISTS (SELECT 1 FROM %2$s WHERE status_list_id = %1$s.id) ORDER BY id LIMIT %3$d',
+                $this->getTableName(),
+                $this->database->applyPrefix(StatusListEntryRepository::TABLE_NAME),
+                max(0, $limit),
+            ),
+            ['retired_before' => $this->nowForDatabase($retiredBefore)],
+        );
+    }
+
+    /**
+     * @param array<string,mixed> $params
+     * @return string[]
+     */
+    protected function readIdentifiers(string $statement, array $params = []): array
+    {
+        $identifiers = [];
+
+        /** @var mixed $row */
+        foreach ($this->readPrimary($statement, $params) as $row) {
+            /** @var mixed $id */
+            $id = is_array($row) ? ($row['id'] ?? null) : null;
+
+            if (is_scalar($id)) {
+                $identifiers[] = (string)$id;
+            }
+        }
+
+        return $identifiers;
+    }
+
+    /**
      * @param array<array-key,mixed> $rows
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
      */

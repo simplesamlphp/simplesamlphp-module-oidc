@@ -1688,6 +1688,62 @@ $config = [
 //    ModuleConfig::OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE => 60,
 
     /**
+     * (optional) How long a Status List is left alone before it may be
+     * retired. Defaults to P30D (30 days).
+     *
+     * This waiting period is applied twice, to the two things which have to
+     * have settled: a list is not looked at until this long after it stopped
+     * accepting new credentials, and it is not retired until this long after
+     * the last credential in it expired.
+     *
+     * Retiring a list makes its URI answer 404, and that URI is written into
+     * every credential which was issued from it. By then those credentials
+     * have all expired, so nothing that should verify stops verifying, but a
+     * Relying Party working from a cached response, or a wallet showing a
+     * credential it has not noticed is expired, would see the fetch fail. The
+     * wait is what keeps that from happening the moment the last credential
+     * lapses. Lengthen it if your Relying Parties cache aggressively.
+     *
+     * It can not be set below one hour. The first of the two waits has to
+     * outlast an issuance which was already under way when the list stopped
+     * accepting credentials, and nothing in this module can serialise those
+     * two instead: the retiring statement and the allocating one write
+     * different rows, so neither conflicts with the other. A shorter wait can
+     * let such an issuance produce a credential naming a list which has since
+     * been retired, and that credential can never be verified.
+     *
+     * The same wait passes again before a retired list's entry rows are
+     * removed, so that if the above ever did happen there is still a record
+     * that the credential was issued.
+     *
+     * Retirement is run by the module's cron hook, so it only happens if the
+     * cron tag below is configured and SimpleSAMLphp's cron is running.
+     */
+//    ModuleConfig::OPTION_VCI_STATUS_LIST_RETIREMENT_GRACE => 'P30D', // 30 days
+
+    /**
+     * (optional) How long rows in the status audit trail are kept. Not set by
+     * default, which keeps them indefinitely.
+     *
+     * The trail records who asked for which credential's status to change, and
+     * when. There is no default retention because how long that needs keeping
+     * follows from your own obligations rather than from anything this module
+     * can work out. It is a row per status change, not a row per credential,
+     * so keeping it costs little in storage.
+     *
+     * It is not, however, free of personal data. The credential is recorded
+     * only as a hash of its identifier, but the actor is recorded as it is: an
+     * API token principal's configured name, or the identifier the `admin`
+     * authentication source released, which in a deployment where that points
+     * at a real authentication source names a person. Setting a retention is
+     * how you put a limit on how long that is kept.
+     *
+     * Pruning is run by the module's cron hook, so it only happens if the cron
+     * tag below is configured and SimpleSAMLphp's cron is running.
+     */
+//    ModuleConfig::OPTION_VCI_STATUS_LIST_AUDIT_RETENTION => 'P1Y', // 1 year
+
+    /**
      * Map of authentication sources and user's email attribute names. This
      * enables you to define a specific attribute name which contains the
      * user's email address, per authentication source. This is used, for

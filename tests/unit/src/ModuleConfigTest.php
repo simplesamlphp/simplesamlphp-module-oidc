@@ -1142,4 +1142,193 @@ class ModuleConfigTest extends TestCase
             ],
         );
     }
+
+    /**
+     * @return array<string,mixed>
+     */
+    protected function withOption(string $option, mixed $value): array
+    {
+        return array_merge($this->overrides, [$option => $value]);
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testRetirementGraceDefaultsToAMonth(): void
+    {
+        $this->assertSame(30, $this->sut()->getVciStatusListRetirementGrace()->d);
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testReadsTheConfiguredRetirementGrace(): void
+    {
+        $sut = $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_STATUS_LIST_RETIREMENT_GRACE,
+            'P90D',
+        ));
+
+        $this->assertSame(90, $sut->getVciStatusListRetirementGrace()->d);
+    }
+
+    /**
+     * The first of the two waits has to outlast an issuance which was already under way when the list
+     * stopped accepting allocations, and nothing available can serialise the two instead. A wait shorter
+     * than a request can take is not a wait, so there is a floor rather than only a ban on zero.
+     *
+     * @throws \Exception
+     */
+    public function testRejectsARetirementGraceOfNoTime(): void
+    {
+        $this->expectException(ConfigurationError::class);
+
+        $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_STATUS_LIST_RETIREMENT_GRACE,
+            'PT0S',
+        ))->getVciStatusListRetirementGrace();
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testRejectsARetirementGraceShorterThanAnHour(): void
+    {
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('at least one hour');
+
+        $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_STATUS_LIST_RETIREMENT_GRACE,
+            'PT30M',
+        ))->getVciStatusListRetirementGrace();
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testAcceptsTheShortestRetirementGraceThereIs(): void
+    {
+        $sut = $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_STATUS_LIST_RETIREMENT_GRACE,
+            'PT1H',
+        ));
+
+        $this->assertSame(1, $sut->getVciStatusListRetirementGrace()->h);
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testRejectsAnUnparseableRetirementGrace(): void
+    {
+        $this->expectException(ConfigurationError::class);
+
+        $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_STATUS_LIST_RETIREMENT_GRACE,
+            'thirty days',
+        ))->getVciStatusListRetirementGrace();
+    }
+
+    /**
+     * The configuration file is PHP, so a duration can arrive as an object rather than a string. That
+     * has to be checked like any other value: an interval can be inverted, which no duration string can
+     * express, and a negative grace subtracted from now gives a cut-off in the future -- retiring lists
+     * whose credentials are still live.
+     *
+     * @throws \Exception
+     */
+    public function testRejectsAnInvertedRetirementGraceGivenAsAnInterval(): void
+    {
+        $inverted = new DateInterval('P30D');
+        $inverted->invert = 1;
+
+        $this->expectException(ConfigurationError::class);
+
+        $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_STATUS_LIST_RETIREMENT_GRACE,
+            $inverted,
+        ))->getVciStatusListRetirementGrace();
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testAcceptsARetirementGraceGivenAsAnInterval(): void
+    {
+        $sut = $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_STATUS_LIST_RETIREMENT_GRACE,
+            new DateInterval('P14D'),
+        ));
+
+        $this->assertSame(14, $sut->getVciStatusListRetirementGrace()->d);
+    }
+
+    /**
+     * How long a record of who revoked what needs keeping follows from the deployment's own
+     * obligations, so nothing is discarded unless an operator says how long is long enough.
+     *
+     * @throws \Exception
+     */
+    public function testTheAuditTrailIsKeptIndefinitelyUnlessARetentionIsSet(): void
+    {
+        $this->assertNull($this->sut()->getVciStatusListAuditRetention());
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testReadsTheConfiguredAuditRetention(): void
+    {
+        $sut = $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_STATUS_LIST_AUDIT_RETENTION,
+            'P1Y',
+        ));
+
+        $this->assertSame(1, $sut->getVciStatusListAuditRetention()?->y);
+    }
+
+    /**
+     * A retention of no time would delete every row the moment it was written, which is a way of asking
+     * for no trail at all rather than a retention policy. Leaving the option out is how that is said.
+     *
+     * @throws \Exception
+     */
+    public function testRejectsAnAuditRetentionOfNoTime(): void
+    {
+        $this->expectException(ConfigurationError::class);
+
+        $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_STATUS_LIST_AUDIT_RETENTION,
+            'PT0S',
+        ))->getVciStatusListAuditRetention();
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testRejectsAnAuditRetentionWhichIsNotADuration(): void
+    {
+        $this->expectException(ConfigurationError::class);
+
+        $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_STATUS_LIST_AUDIT_RETENTION,
+            365,
+        ))->getVciStatusListAuditRetention();
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testRejectsAnInvertedAuditRetentionGivenAsAnInterval(): void
+    {
+        $inverted = new DateInterval('P1Y');
+        $inverted->invert = 1;
+
+        $this->expectException(ConfigurationError::class);
+
+        $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_STATUS_LIST_AUDIT_RETENTION,
+            $inverted,
+        ))->getVciStatusListAuditRetention();
+    }
 }
