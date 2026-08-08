@@ -138,9 +138,8 @@ class StatusAuditRepository extends AbstractDatabaseRepository
             ['created_before' => $this->formatForDatabase($createdBefore)],
         )->fetchAll();
 
-        $placeholders = [];
-        $params = [];
-        $position = 0;
+        /** @var list<string> $ids */
+        $ids = [];
 
         /** @var mixed $row */
         foreach ($rows as $row) {
@@ -151,27 +150,41 @@ class StatusAuditRepository extends AbstractDatabaseRepository
                 continue;
             }
 
-            // Each identifier under its own placeholder name, since a repeated one is not portable
-            // across drivers.
-            $placeholders[] = ':id_' . $position;
-            $params['id_' . $position] = (string)$id;
-            $position++;
+            $ids[] = (string)$id;
         }
 
-        if ($placeholders === []) {
+        if ($ids === []) {
             return 0;
         }
 
-        $affected = $this->database->write(
-            sprintf(
-                'DELETE FROM %s WHERE id IN (%s)',
-                $this->getTableName(),
-                implode(', ', $placeholders),
-            ),
-            $params,
-        );
+        $removed = 0;
 
-        return is_int($affected) ? $affected : 0;
+        // One placeholder per identifier named, so a bound larger than the ceiling is answered in as
+        // many deletes as it takes rather than being cut down to one statement's worth.
+        foreach (array_chunk($ids, $this->maxRowsPerStatement(1)) as $chunk) {
+            $placeholders = [];
+            $params = [];
+
+            foreach ($chunk as $position => $id) {
+                // Each identifier under its own placeholder name, since a repeated one is not portable
+                // across drivers.
+                $placeholders[] = ':id_' . $position;
+                $params['id_' . $position] = $id;
+            }
+
+            $affected = $this->database->write(
+                sprintf(
+                    'DELETE FROM %s WHERE id IN (%s)',
+                    $this->getTableName(),
+                    implode(', ', $placeholders),
+                ),
+                $params,
+            );
+
+            $removed += is_int($affected) ? $affected : 0;
+        }
+
+        return $removed;
     }
 
     /**

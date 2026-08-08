@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use PDOStatement;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -24,6 +25,14 @@ class StatusAuditRepositoryTest extends TestCase
     protected const string CREDENTIAL_ID_HASH = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
     protected const string LIST_ID = 'a-status-list-id';
+
+    /**
+     * What a statement may bind before the oldest supported driver refuses it.
+     *
+     * Stated here rather than read from the repository, so that the test asserts the limit the drivers
+     * impose and not merely that the code agrees with itself.
+     */
+    protected const int MAX_BOUND_VARIABLES = 999;
 
     protected MockObject $moduleConfigMock;
     protected Helpers $helpers;
@@ -299,5 +308,69 @@ class StatusAuditRepositoryTest extends TestCase
 
         $this->assertSame(0, $removed);
         $this->assertCount(1, $this->readRows());
+    }
+
+    /**
+     * The tests above run against a real SQLite, which has allowed 32766 bound variables since 3.32, so
+     * a delete naming more identifiers than an older build accepts passes there regardless. Counting
+     * what each statement binds is what shows the limit a deployment's own driver might impose.
+     *
+     * @throws \Exception
+     */
+    public function testRemovesInStatementsEveryDriverAccepts(): void
+    {
+        $selected = [];
+
+        for ($id = 0; $id < 2500; $id++) {
+            $selected[] = ['id' => 'audit-' . $id];
+        }
+
+        $bindings = [];
+
+        $databaseMock = $this->createMock(Database::class);
+        $databaseMock->method('applyPrefix')->willReturnCallback(
+            static fn(string $table): string => 'phpunit_' . $table,
+        );
+
+        $statementMock = $this->createMock(PDOStatement::class);
+        $statementMock->method('fetchAll')->willReturn($selected);
+        $databaseMock->method('readPrimary')->willReturn($statementMock);
+
+        // Answering with the row count of each statement rather than of the whole call, so a method
+        // returning only its last statement's total would be caught here.
+        $databaseMock->method('write')->willReturnCallback(
+            /**
+             * @param array<string,mixed> $params
+             */
+            function (string $statement, array $params = []) use (&$bindings): int {
+                $bindings[] = $params;
+
+                return count($params);
+            },
+        );
+
+        $repository = new StatusAuditRepository($this->moduleConfigMock, $databaseMock, null, $this->helpers);
+
+        $removed = $repository->removeOlderThan(
+            new DateTimeImmutable('2026-01-01 00:00:00', new DateTimeZone('UTC')),
+            2500,
+        );
+
+        $this->assertSame(2500, $removed);
+        $this->assertGreaterThan(1, count($bindings));
+
+        $named = [];
+
+        foreach ($bindings as $params) {
+            $this->assertLessThanOrEqual(self::MAX_BOUND_VARIABLES, count($params));
+
+            foreach ($params as $value) {
+                $named[] = $value;
+            }
+        }
+
+        // Splitting the deletion across statements must remove exactly the rows which were selected,
+        // neither leaving one behind nor naming one twice.
+        $this->assertSame(array_column($selected, 'id'), $named);
     }
 }

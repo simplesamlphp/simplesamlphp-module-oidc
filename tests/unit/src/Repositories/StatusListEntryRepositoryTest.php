@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
 use DateTimeImmutable;
+use PDOStatement;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -29,6 +30,14 @@ class StatusListEntryRepositoryTest extends TestCase
     protected const string CONFIGURATION_ID = 'UniversityDegree';
 
     protected const int CAPACITY = 8;
+
+    /**
+     * What a statement may bind before the oldest supported driver refuses it.
+     *
+     * Stated here rather than read from the repository, so that the tests assert the limit the drivers
+     * impose and not merely that the code agrees with itself.
+     */
+    protected const int MAX_BOUND_VARIABLES = 999;
 
     protected MockObject $moduleConfigMock;
     protected Helpers $helpers;
@@ -579,5 +588,109 @@ class StatusListEntryRepositoryTest extends TestCase
 
         $this->assertSame(0, $this->countEntriesOf(self::LIST_ID));
         $this->assertSame(self::CAPACITY, $this->countEntriesOf(self::OTHER_LIST_ID));
+    }
+
+    /**
+     * A repository whose statements are collected instead of run.
+     *
+     * The tests above use a real SQLite, which has allowed 32766 bound variables since 3.32 -- so a
+     * statement binding more than an older build accepts runs perfectly well there and the tests pass
+     * on a database the deployment might not have. Counting what each statement binds is the only way
+     * to see that limit from a test at all.
+     *
+     * The write returns how many rows the statement named, so a caller summing across statements is
+     * checked as well: a method which returned the count of only its last statement would be caught.
+     *
+     * @param list<array<string,mixed>> $bindings Filled with the parameters of every statement written.
+     * @param array<array<string,mixed>> $selected Rows the repository is told it selected.
+     */
+    protected function repositoryCollectingStatements(
+        array &$bindings,
+        array $selected = [],
+    ): StatusListEntryRepository {
+        $databaseMock = $this->createMock(Database::class);
+        $databaseMock->method('applyPrefix')->willReturnCallback(
+            static fn(string $table): string => 'phpunit_' . $table,
+        );
+
+        $statementMock = $this->createMock(PDOStatement::class);
+        $statementMock->method('fetchAll')->willReturn($selected);
+        $databaseMock->method('readPrimary')->willReturn($statementMock);
+
+        $databaseMock->method('write')->willReturnCallback(
+            /**
+             * @param array<string,mixed> $params
+             */
+            function (string $statement, array $params = []) use (&$bindings): int {
+                $bindings[] = $params;
+
+                return count(array_filter(
+                    array_keys($params),
+                    static fn(string $name): bool => str_starts_with($name, 'idx_'),
+                ));
+            },
+        );
+
+        return new StatusListEntryRepository($this->moduleConfigMock, $databaseMock, null, $this->helpers);
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testSeedsInStatementsEveryDriverAccepts(): void
+    {
+        $bindings = [];
+        // More than one statement's worth at two bound variables a row, and not a multiple of it, so a
+        // short final statement is exercised too.
+        $this->repositoryCollectingStatements($bindings)->seed(self::LIST_ID, 1200);
+
+        $this->assertGreaterThan(1, count($bindings));
+
+        $seeded = [];
+
+        foreach ($bindings as $params) {
+            $this->assertLessThanOrEqual(self::MAX_BOUND_VARIABLES, count($params));
+
+            foreach ($params as $name => $value) {
+                if (str_starts_with($name, 'idx_') && is_array($value)) {
+                    $seeded[] = $value[0];
+                }
+            }
+        }
+
+        // Splitting a list across statements must neither skip an index nor hand one out twice, so the
+        // whole run is compared rather than counted.
+        $this->assertSame(range(0, 1199), $seeded);
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testClearsLinkageInStatementsEveryDriverAccepts(): void
+    {
+        $selected = [];
+
+        for ($idx = 0; $idx < 1200; $idx++) {
+            $selected[] = ['status_list_id' => self::LIST_ID, 'idx' => $idx];
+        }
+
+        $bindings = [];
+        $cleared = $this->repositoryCollectingStatements($bindings, $selected)
+            ->clearExpiredLinkage(new DateTimeImmutable('2026-08-07 12:00:00'), 1200);
+
+        $this->assertSame(1200, $cleared);
+        $this->assertGreaterThan(1, count($bindings));
+
+        $moments = [];
+
+        foreach ($bindings as $params) {
+            $this->assertLessThanOrEqual(self::MAX_BOUND_VARIABLES, count($params));
+            $this->assertArrayHasKey('updated_at', $params);
+            $moments[] = $params['updated_at'];
+        }
+
+        // The rows are in several statements only because of how many one can bind, so they are still
+        // one clearing and still carry one moment.
+        $this->assertCount(1, array_unique($moments));
     }
 }
