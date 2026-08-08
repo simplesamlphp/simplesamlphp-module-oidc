@@ -514,6 +514,25 @@ Each list records the profile it was created under. Changing the setting therefo
 credentials to newly created lists, while existing lists keep being served under the profile their
 holders already resolved them by — so changing it never invalidates anything already in a wallet.
 
+**A signing key has to outlive every list signed with it.** Each list records the key it was created
+with and is re-signed from that key alone, never from whichever key is current. Rotating keys is
+therefore safe in itself: new lists take the new key, existing lists keep theirs. Removing the old key
+from the configuration is what breaks things — and it breaks them on a delay.
+
+A published token is served from storage without the key being consulted at all, so a list whose token
+is still fresh goes on answering `200` after its key is gone. The failure arrives only when that list
+next needs re-signing: when its contents change, when its refresh interval comes round, or as its token
+nears expiry. The module will not sign a list with a key its holders never bound to, so it answers `503`
+for that list instead. **Checking the endpoint just after removing a key therefore proves nothing** —
+and since a revocation is the most likely thing to force a re-sign, the breakage tends to appear exactly
+when the list matters most.
+
+Whether credentials stay verifiable in the meantime depends on the profile. A `did_jwk` token carries
+its own key, so tokens already published keep verifying. Under `jwks` the key is resolved through this
+module's published JWKS, which the same removal empties, so already published tokens stop verifying too
+once Relying Parties refetch it. A key is only safe to discard once every list it signed has been
+retired, which the lifecycle below does only after the last credential in those lists has expired.
+
 ### Credential expiry
 
 Credentials this module issues do not expire unless you say so:
@@ -534,6 +553,13 @@ administration screen reports how many lists are in that position.
 
 Lists are published at `/statuslist/{id}`, unauthenticated, and the URI of the list is written into
 every credential issued from it.
+
+That URI is absolute and fixed at the moment of issuance, so **changing the deployment's base URL
+strands every credential issued before the change**: the wallet resolves the URI it was given, which
+still names the old origin. There is nothing to rewrite — the credential is signed, and the copy that
+matters is in someone else's wallet. If the base URL has to change, keep the old origin answering, by
+alias or redirect, for as long as any credential issued under it can still be presented. The same
+applies to moving the module to a different path.
 
 This endpoint keeps serving when `OPTION_VCI_STATUS_LIST_ENABLED` is switched off. Turning the switch
 off stops new credentials getting an entry allocated; it does not, and must not, strand the credentials
