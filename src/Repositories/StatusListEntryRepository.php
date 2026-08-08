@@ -35,15 +35,6 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
 {
     final public const string TABLE_NAME = 'oidc_status_list_entry';
 
-    /**
-     * Rows inserted per statement while seeding a list.
-     *
-     * Two placeholders per row, so this stays an order of magnitude under the 65535 a MySQL prepared
-     * statement allows, while keeping the number of round trips for a default sized list in the
-     * hundreds rather than the hundred thousands.
-     */
-    protected const int SEED_BATCH_SIZE = 500;
-
     public function __construct(
         ModuleConfig $moduleConfig,
         Database $database,
@@ -77,12 +68,19 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
      * Only the two key columns are written; `allocated` and `status` take their column defaults, which
      * halves the statement size and keeps the defaults defined in exactly one place.
      *
+     * This is the largest statement the module builds -- a list of default capacity is a hundred and
+     * thirty thousand rows -- so it is also the first place a driver's limit on bound variables is met.
+     *
      * @throws \Exception
      */
     public function seed(string $statusListId, int $capacity): void
     {
-        for ($offset = 0; $offset < $capacity; $offset += self::SEED_BATCH_SIZE) {
-            $batchSize = min(self::SEED_BATCH_SIZE, $capacity - $offset);
+        // Each row binds its list and its index, and how many of those pairs fit in one statement is
+        // the ceiling's answer rather than a number chosen here.
+        $rowsPerStatement = $this->maxRowsPerStatement(2);
+
+        for ($offset = 0; $offset < $capacity; $offset += $rowsPerStatement) {
+            $batchSize = min($rowsPerStatement, $capacity - $offset);
             $placeholders = [];
             $params = [];
 
@@ -418,7 +416,9 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
      *
      * Bounded, and batched by the caller. A deployment which switched credential expiry on some time ago
      * can have a great many rows come due at once, and a single unbounded statement over them is a long
-     * lock held on the table which serves every issuance.
+     * lock held on the table which serves every issuance. The caller's bound counts rows rather than
+     * statements: naming that many rows can take more than one update, which is a consequence of what
+     * the drivers allow and not something a caller has to size its request around.
      *
      * The linkage test is repeated in the update, not only in the select which chose the rows. Two runs
      * overlapping would otherwise each clear and each count the same rows, which changes nothing about
@@ -450,9 +450,8 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
             ['expired_before' => $this->formatForDatabase($expiredBefore)],
         );
 
-        $conditions = [];
-        $params = [];
-        $position = 0;
+        /** @var list<array{0:string,1:int}> $keys */
+        $keys = [];
 
         /** @var mixed $row */
         foreach ($rows as $row) {
@@ -469,34 +468,52 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
                 continue;
             }
 
-            // Each value under its own placeholder name: PDO turns named placeholders into positional
-            // ones for some drivers, and a repeated name then binds only its first occurrence.
-            $conditions[] = sprintf('(status_list_id = :list_%d AND idx = :idx_%d)', $position, $position);
-            $params['list_' . $position] = (string)$statusListId;
-            $params['idx_' . $position] = [(int)$idx, PDO::PARAM_INT];
-            $position++;
+            $keys[] = [(string)$statusListId, (int)$idx];
         }
 
-        if ($conditions === []) {
+        if ($keys === []) {
             return 0;
         }
 
-        $affected = $this->database->write(
-            sprintf(
-                'UPDATE %s SET
-                    credential_id = NULL,
-                    credential_id_hash = NULL,
-                    credential_configuration_id = NULL,
-                    subject_ref = NULL,
-                    updated_at = :updated_at
-                  WHERE credential_id_hash IS NOT NULL AND (%s)',
-                $this->getTableName(),
-                implode(' OR ', $conditions),
-            ),
-            ['updated_at' => $this->formatForDatabase($this->helpers->dateTime()->getUtc())] + $params,
-        );
+        // One moment for every row this call clears, taken once. The statements below are separate only
+        // because of how many rows each can name, and stamping each with its own clock would make that
+        // split visible in the data.
+        $updatedAt = $this->formatForDatabase($this->helpers->dateTime()->getUtc());
+        $cleared = 0;
 
-        return is_int($affected) ? $affected : 0;
+        // Two placeholders per row named, plus the one the timestamp takes however many rows follow it.
+        foreach (array_chunk($keys, $this->maxRowsPerStatement(2, 1)) as $chunk) {
+            $conditions = [];
+            $params = ['updated_at' => $updatedAt];
+
+            foreach ($chunk as $position => [$statusListId, $idx]) {
+                // Each value under its own placeholder name: PDO turns named placeholders into
+                // positional ones for some drivers, and a repeated name then binds only its first
+                // occurrence.
+                $conditions[] = sprintf('(status_list_id = :list_%d AND idx = :idx_%d)', $position, $position);
+                $params['list_' . $position] = $statusListId;
+                $params['idx_' . $position] = [$idx, PDO::PARAM_INT];
+            }
+
+            $affected = $this->database->write(
+                sprintf(
+                    'UPDATE %s SET
+                        credential_id = NULL,
+                        credential_id_hash = NULL,
+                        credential_configuration_id = NULL,
+                        subject_ref = NULL,
+                        updated_at = :updated_at
+                      WHERE credential_id_hash IS NOT NULL AND (%s)',
+                    $this->getTableName(),
+                    implode(' OR ', $conditions),
+                ),
+                $params,
+            );
+
+            $cleared += is_int($affected) ? $affected : 0;
+        }
+
+        return $cleared;
     }
 
     /**

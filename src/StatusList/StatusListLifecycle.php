@@ -46,11 +46,12 @@ use Throwable;
 class StatusListLifecycle
 {
     /**
-     * Rows whose linkage is cleared per statement.
+     * Rows whose linkage is cleared per round of the loop.
      *
-     * Two placeholders per row plus one for the timestamp, so the statement stays under the 999 bound
-     * variables which SQLite allowed before 3.32 and which a build can still be compiled with. The other
-     * two drivers permit far more, but the lowest ceiling is the one which decides this.
+     * A round's size, not a statement's. How many rows one statement can name is a question about what
+     * the drivers allow, which the repository answers by splitting the rows it is handed; this only
+     * decides how much work a round asks for and therefore how often the loop looks again. It sits under
+     * a single statement's worth as it happens, so a round is normally one update.
      */
     protected const int LINKAGE_BATCH_SIZE = 400;
 
@@ -85,7 +86,7 @@ class StatusListLifecycle
      */
     protected const int MAX_PURGED_ENTRIES_PER_LIST = 20000;
 
-    /** Audit rows removed per statement. */
+    /** Audit rows removed per round of the loop. */
     protected const int AUDIT_BATCH_SIZE = 500;
 
     /** Ceiling on how many batches of audit rows one run will remove. */
