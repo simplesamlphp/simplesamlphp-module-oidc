@@ -6,3 +6,9 @@
 .phpunit.result.cache
 /.idea/
 *~
+
+# Local development keys and certificates, created by docker/generate-dev-certs.sh.
+/docker/nginx-certs/default.crt
+/docker/nginx-certs/default.key
+/docker/ssp/oidc_module.crt
+/docker/ssp/oidc_module.key

@@ -2,12 +2,29 @@
 
 This document shows how to run and test the module with Docker.
 
+- Generate development certificates
 - Run with the current git branch (live mount)
 - Local testing with other DBs
 - Testing AuthProc filters
 - Build image for conformance tests
 - Build against an unreleased SimpleSAMLphp version
 - Docker Compose
+
+## Generate development certificates
+
+Every example below needs two locally generated key pairs: the TLS certificate
+`nginx-proxy` serves the OP with, and the RSA key pair the module signs tokens
+with. Neither is kept in Git, so a release archive never contains a private key.
+Run this once in a fresh checkout:
+
+```bash
+./docker/generate-dev-certs.sh
+```
+
+Existing files are left alone; pass `--force` to replace them once the
+certificate expires. The TLS certificate is self-signed, so browsers warn on the
+local OP — see [docker/nginx-certs/README.md](../docker/nginx-certs/README.md)
+if you would rather use a locally trusted certificate.
 
 ## Run with the current git branch (live mount)
 

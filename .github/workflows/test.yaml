@@ -256,6 +256,11 @@ jobs:
           docker build ssp-base-image/docker \
             --build-arg SSP_COMPOSER_VERSION=${{ matrix.ssp-composer-version }} \
             -t ssp-base:${{ matrix.ssp-composer-version }}
+      - name: Generate development certificates
+        working-directory: ./main
+        # The TLS certificate nginx-proxy serves the OP with, and the OIDC module
+        # signing key pair, are generated per run instead of being kept in Git.
+        run: ./docker/generate-dev-certs.sh
       - name: Start SSP docker
         working-directory: ./main
         # Must run after conformance suite since they share a docker network.
