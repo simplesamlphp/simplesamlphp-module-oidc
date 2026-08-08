@@ -209,4 +209,95 @@ class StatusAuditRepositoryTest extends TestCase
         $this->assertCount(25, $identifiers);
         $this->assertSame($identifiers, array_unique($identifiers));
     }
+
+    /**
+     * @throws \Exception
+     */
+    protected function recordAt(string $createdAt, int $idx = 0): void
+    {
+        $this->repository->record(
+            self::CREDENTIAL_ID_HASH,
+            self::LIST_ID,
+            $idx,
+            StatusTypeEnum::Valid->value,
+            StatusTypeEnum::Invalid->value,
+            StatusChangeSourceEnum::Api,
+            'HR system',
+            new DateTimeImmutable($createdAt, new DateTimeZone('UTC')),
+        );
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testRemovesRowsOlderThanTheCutOff(): void
+    {
+        $this->recordAt('2025-01-01 09:00:00', 1);
+        $this->recordAt('2026-08-01 09:00:00', 2);
+
+        $removed = $this->repository->removeOlderThan(
+            new DateTimeImmutable('2026-01-01 00:00:00', new DateTimeZone('UTC')),
+            10,
+        );
+
+        $this->assertSame(1, $removed);
+
+        $rows = $this->readRows();
+
+        $this->assertCount(1, $rows);
+        $this->assertSame(2, (int)$rows[0]['idx']);
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testRemovesNoMoreThanTheGivenNumberOfRows(): void
+    {
+        for ($i = 0; $i < 5; $i++) {
+            $this->recordAt('2025-01-01 09:00:00', $i);
+        }
+
+        $cutOff = new DateTimeImmutable('2026-01-01 00:00:00', new DateTimeZone('UTC'));
+
+        $this->assertSame(2, $this->repository->removeOlderThan($cutOff, 2));
+        $this->assertSame(2, $this->repository->removeOlderThan($cutOff, 2));
+        $this->assertSame(1, $this->repository->removeOlderThan($cutOff, 2));
+        $this->assertSame(0, $this->repository->removeOlderThan($cutOff, 2));
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testRemovesNothingWhenEveryRowIsWithinRetention(): void
+    {
+        $this->recordAt('2026-08-01 09:00:00');
+
+        $removed = $this->repository->removeOlderThan(
+            new DateTimeImmutable('2026-01-01 00:00:00', new DateTimeZone('UTC')),
+            10,
+        );
+
+        $this->assertSame(0, $removed);
+        $this->assertCount(1, $this->readRows());
+    }
+
+    /**
+     * The cut-off is compared against a column which carries no timezone and is written in UTC, so one
+     * handed in on another scale would prune either too much or too little by the size of the offset.
+     *
+     * @throws \Exception
+     */
+    public function testComparesTheCutOffInUtc(): void
+    {
+        $this->recordAt('2026-08-07 10:00:00');
+
+        // 11:00 in a zone two hours ahead is 09:00 UTC, which is before the row was written.
+        $removed = $this->repository->removeOlderThan(
+            new DateTimeImmutable('2026-08-07 11:00:00', new DateTimeZone('Europe/Zagreb')),
+            10,
+        );
+
+        $this->assertSame(0, $removed);
+        $this->assertCount(1, $this->readRows());
+    }
 }

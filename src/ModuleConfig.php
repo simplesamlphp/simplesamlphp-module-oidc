@@ -67,6 +67,14 @@ class ModuleConfig
      */
     final public const string SSP_PRIMARY_READ_METHOD = 'readPrimary';
 
+    /**
+     * Shortest Status List retirement grace which still does its job.
+     *
+     * See getVciStatusListRetirementGrace(): the wait has to outlast a credential issuance which was
+     * already in flight, and nothing here can serialise the two instead.
+     */
+    final public const int MINIMUM_STATUS_LIST_RETIREMENT_GRACE_SECONDS = 3600;
+
     final public const string OPTION_PKI_PRIVATE_KEY_PASSPHRASE = 'pass_phrase';
     final public const string DEFAULT_PKI_PRIVATE_KEY_FILENAME = 'oidc_module.key';
     final public const string DEFAULT_PKI_CERTIFICATE_FILENAME = 'oidc_module.crt';
@@ -174,6 +182,8 @@ class ModuleConfig
     final public const string OPTION_VCI_STATUS_LIST_KEY_PROFILE = 'vci_status_list_key_profile';
     final public const string OPTION_VCI_STATUS_LIST_POOLS = 'vci_status_list_pools';
     final public const string OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE = 'vci_status_list_requests_per_minute';
+    final public const string OPTION_VCI_STATUS_LIST_RETIREMENT_GRACE = 'vci_status_list_retirement_grace';
+    final public const string OPTION_VCI_STATUS_LIST_AUDIT_RETENTION = 'vci_status_list_audit_retention';
     final public const string OPTION_VCI_CREDENTIAL_TTLS = 'vci_credential_ttls';
     final public const string OPTION_DCR_ENABLED = 'dcr_enabled';
     final public const string OPTION_DCR_REGISTRATION_AUTH = 'dcr_registration_auth';
@@ -1339,6 +1349,131 @@ class ModuleConfig
         }
 
         return $configured;
+    }
+
+    /**
+     * How long a Status List is left alone before it may be retired.
+     *
+     * Applied twice over, to the two things which have to have settled down: a list is not looked at
+     * until this long after it stopped accepting allocations, and it is not retired until this long
+     * after the last credential in it expired. Both are the same waiting period because they answer the
+     * same question -- has everything which might still be holding this list finished with it.
+     *
+     * Retiring a list makes its URI answer 404, and that URI is written into every credential which was
+     * issued from it. Those credentials have all expired by then, so nothing which should verify stops
+     * verifying, but a Relying Party which caches responses, or a wallet showing a credential it has not
+     * noticed is expired, sees a fetch fail rather than a status come back. The wait is what keeps that
+     * from happening the moment the last credential lapses.
+     *
+     * There is a floor under it, and this is the part which is not merely conservative. The first of the
+     * two waits exists to outlast an issuance which was already under way when the list stopped
+     * accepting allocations -- a request whose statement has read the list as open but has not yet
+     * written the row claiming an index. Nothing available here can serialise those two: there are no
+     * transactions, and the retiring statement and the allocating one write different rows, so neither
+     * conflicts with the other however each is guarded. Outlasting the request is the only defence, and
+     * a wait shorter than a request can take is not one. An hour is some two orders of magnitude beyond
+     * PHP's default execution limit, and still a small fraction of the default wait.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciStatusListRetirementGrace(): DateInterval
+    {
+        $grace = $this->resolveDurationOption(
+            self::OPTION_VCI_STATUS_LIST_RETIREMENT_GRACE,
+            $this->config()->getOptionalValue(self::OPTION_VCI_STATUS_LIST_RETIREMENT_GRACE, 'P30D'),
+        ) ?? new DateInterval('P30D');
+
+        $epoch = new DateTimeImmutable('@0');
+
+        if ($epoch->add($grace)->getTimestamp() < self::MINIMUM_STATUS_LIST_RETIREMENT_GRACE_SECONDS) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Option "%s" must be at least one hour. It is what a Status List which stopped ' .
+                    'accepting credentials waits before it may be retired, and its job is to outlast a ' .
+                    'credential issuance which was already under way at that moment. A shorter wait can ' .
+                    'let such an issuance produce a credential naming a list which has since been ' .
+                    'retired, and that credential can never be verified.',
+                    self::OPTION_VCI_STATUS_LIST_RETIREMENT_GRACE,
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        return $grace;
+    }
+
+    /**
+     * How long rows in the status audit trail are kept, or null to keep them indefinitely.
+     *
+     * No default, deliberately. What an audit trail is for is answering questions later, and how much
+     * later is a matter of the deployment's own obligations rather than something this module can guess
+     * -- so nothing is discarded unless an operator says how long is long enough. The trail is small
+     * (one row per status change, never one per credential), so keeping it costs little.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciStatusListAuditRetention(): ?DateInterval
+    {
+        return $this->resolveDurationOption(
+            self::OPTION_VCI_STATUS_LIST_AUDIT_RETENTION,
+            $this->config()->getOptionalValue(self::OPTION_VCI_STATUS_LIST_AUDIT_RETENTION, null),
+        );
+    }
+
+    /**
+     * Reads an option which is a duration, is allowed to be absent, and has to be a length of time.
+     *
+     * Both options this serves are subtracted from now to get a cut-off, and both are the only thing
+     * standing between a cut-off and something being deleted or retired. A duration of no time gives a
+     * cut-off of now, and a negative one -- which a DateInterval can be, though a duration string can
+     * not -- gives a cut-off in the future, at which point the option is not delaying anything but
+     * bringing it forward. So neither is accepted, and the option being absent is how a deployment says
+     * it does not want the behaviour at all.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    protected function resolveDurationOption(string $option, mixed $value): ?DateInterval
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if ($value instanceof DateInterval) {
+            // Checked like any other, rather than trusted for having arrived as the right type. The
+            // configuration file is PHP, so an interval can be constructed there and then inverted,
+            // which no duration string can express and which the check below is what catches.
+            $duration = $value;
+        } elseif (is_string($value)) {
+            try {
+                $duration = new DateInterval($value);
+            } catch (Throwable $throwable) {
+                throw new ConfigurationError(
+                    sprintf('Option "%s" is not a valid duration: %s', $option, $throwable->getMessage()),
+                    self::DEFAULT_FILE_NAME,
+                );
+            }
+        } else {
+            throw new ConfigurationError(
+                sprintf('Option "%s" must be a duration string, %s given.', $option, get_debug_type($value)),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        // Anchored to the epoch rather than to now, so the answer does not depend on the server's
+        // timezone or on which side of a daylight saving transition the configuration is read. An
+        // inverted interval lands before the epoch and is caught by the same comparison.
+        if ((new DateTimeImmutable('@0'))->add($duration)->getTimestamp() < 1) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Option "%s" is set to no time at all, or to a negative duration. Remove the option ' .
+                    'instead.',
+                    $option,
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        return $duration;
     }
 
     /**

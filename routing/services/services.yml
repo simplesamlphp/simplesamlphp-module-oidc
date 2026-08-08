@@ -51,6 +51,8 @@ services:
   # Fetched from the (otherwise private) container by the cron hook after booting the module Kernel.
   SimpleSAML\Module\oidc\StatusList\StatusListReconciler:
     public: true
+  SimpleSAML\Module\oidc\StatusList\StatusListLifecycle:
+    public: true
 
   SimpleSAML\Module\oidc\Factories\:
     resource: '../../src/Factories/*'

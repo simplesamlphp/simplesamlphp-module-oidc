@@ -19,6 +19,7 @@ use SimpleSAML\Logger;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\ExpiredEntriesCleaner;
+use SimpleSAML\Module\oidc\StatusList\StatusListLifecycle;
 use SimpleSAML\Module\oidc\StatusList\StatusListReconciler;
 
 /**
@@ -81,4 +82,43 @@ function oidc_hook_cron(array &$croninfo): void
         Logger::warning($message);
         $croninfo['summary'][] = $message;
     }
+
+    // Again on its own, for the same reason. This one is also the only place which notices that a
+    // credential has expired, which is a privacy undertaking rather than housekeeping, so it must not be
+    // skipped because something before it went wrong.
+    // Gathered here and appended in one go below, since this step has more than one thing to say.
+    $lifecycleSummary = [];
+
+    try {
+        $kernel = new Kernel(ModuleConfig::MODULE_NAME);
+        $kernel->boot();
+        /** @var \SimpleSAML\Module\oidc\StatusList\StatusListLifecycle $lifecycle */
+        $lifecycle = $kernel->getContainer()->get(StatusListLifecycle::class);
+        $report = $lifecycle->run();
+
+        if ($report->hasChanges()) {
+            $lifecycleSummary[] = sprintf(
+                'Module `oidc` Status List lifecycle. Forgot which credential held which index for %d ' .
+                'expired credential(s), deactivated %d superseded list(s), retired %d list(s), removed ' .
+                '%d entry row(s) belonging to retired list(s), pruned %d audit row(s).',
+                $report->getClearedLinkages(),
+                $report->getDeactivatedStatusLists(),
+                $report->getRetiredStatusLists(),
+                $report->getPurgedEntries(),
+                $report->getPrunedAuditRows(),
+            );
+        }
+
+        // Reported as well as logged. A step which keeps failing is invisible in a log nobody reads,
+        // and one of them stops personal data being deleted on time.
+        foreach ($report->getFailures() as $failure) {
+            $lifecycleSummary[] = 'Module `oidc` Status List lifecycle. ' . $failure;
+        }
+    } catch (Throwable $e) {
+        $message = 'Module `oidc` Status List lifecycle cron script failed: ' . $e->getMessage();
+        Logger::warning($message);
+        $lifecycleSummary[] = $message;
+    }
+
+    $croninfo['summary'] = array_merge($croninfo['summary'], $lifecycleSummary);
 }

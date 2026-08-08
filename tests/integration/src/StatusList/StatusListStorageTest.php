@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\integration\StatusList;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
+use SimpleSAML\Module\oidc\Codebooks\StatusChangeSourceEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Repositories\StatusAuditRepository;
 use SimpleSAML\Module\oidc\Repositories\StatusListEntryRepository;
 use SimpleSAML\Module\oidc\Repositories\StatusListRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
@@ -33,6 +37,7 @@ use SimpleSAML\Test\Module\oidc\integration\DatabaseContainers;
  */
 #[CoversClass(StatusListRepository::class)]
 #[CoversClass(StatusListEntryRepository::class)]
+#[CoversClass(StatusAuditRepository::class)]
 class StatusListStorageTest extends TestCase
 {
     protected const string LIST_ID = 'integration-status-list-0000000000000000000000000000000000000000';
@@ -664,6 +669,320 @@ class StatusListStorageTest extends TestCase
         $statusList = $this->statusListRepository->findByIdOnPrimary(self::LIST_ID);
         $this->assertSame('', $statusList?->getSignedTokenContentHash());
         $this->assertSame(1, $statusList?->getInvalidationCounter());
+    }
+
+    /**
+     * @throws \Exception
+     */
+    protected function givenAllocatedEntry(
+        int $idx,
+        string $credentialId,
+        ?DateTimeImmutable $expiresAt,
+    ): void {
+        $this->statusListEntryRepository->allocate(
+            self::LIST_ID,
+            $idx,
+            $credentialId,
+            $this->statusListEntryRepository->hashCredentialId($credentialId),
+            'IntegrationCredential',
+            'a-subject-ref',
+            $expiresAt,
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    protected function readEntry(int $idx): array
+    {
+        $rows = $this->database->readPrimary(
+            sprintf(
+                'SELECT * FROM %s WHERE status_list_id = :status_list_id AND idx = :idx',
+                $this->database->applyPrefix('oidc_status_list_entry'),
+            ),
+            [
+                'status_list_id' => self::LIST_ID,
+                'idx' => $idx,
+            ],
+        )->fetchAll();
+
+        $this->assertIsArray($rows[0] ?? null);
+
+        return $rows[0];
+    }
+
+    /**
+     * Clearing the linkage of an expired credential is bounded, and the bound has to be applied in the
+     * SELECT: MySQL accepts a LIMIT on an UPDATE and PostgreSQL rejects it outright. The update which
+     * follows names its rows by composite key, one placeholder per value, since a repeated named
+     * placeholder binds only its first occurrence on some drivers.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('databaseToTest')]
+    public function testClearsTheLinkageOfExpiredCredentialsInBoundedBatches(string $database): void
+    {
+        $this->useDatabase(self::$$database);
+        $this->givenSeededList();
+
+        for ($idx = 0; $idx < 3; $idx++) {
+            $this->givenAllocatedEntry($idx, 'urn:vc:expired:' . $idx, new DateTimeImmutable('2020-01-01 09:00:00'));
+        }
+        $this->givenAllocatedEntry(9, 'urn:vc:live', new DateTimeImmutable('2099-01-01 09:00:00'));
+        $this->givenAllocatedEntry(10, 'urn:vc:permanent', null);
+
+        $now = new DateTimeImmutable('2026-08-07 12:00:00');
+
+        $this->assertSame(2, $this->statusListEntryRepository->clearExpiredLinkage($now, 2));
+        $this->assertSame(1, $this->statusListEntryRepository->clearExpiredLinkage($now, 2));
+        $this->assertSame(0, $this->statusListEntryRepository->clearExpiredLinkage($now, 2));
+
+        $cleared = $this->readEntry(0);
+        $this->assertNull($cleared['credential_id']);
+        $this->assertNull($cleared['credential_id_hash']);
+        $this->assertNull($cleared['credential_configuration_id']);
+        $this->assertNull($cleared['subject_ref']);
+        // What the published token is built from, and what stops the index being handed out again.
+        $this->assertSame(0, (int)$cleared['idx']);
+        $this->assertNotNull($cleared['expires_at']);
+
+        $this->assertSame('urn:vc:live', $this->readEntry(9)['credential_id']);
+        $this->assertSame('urn:vc:permanent', $this->readEntry(10)['credential_id']);
+    }
+
+    /**
+     * Whether anything is still holding the list is tested inside the statement which retires it, as a
+     * correlated NOT EXISTS across the two tables. Asserted per driver because that is where a caller
+     * reading first and retiring second would leave a gap, and because a guard which did not filter on
+     * allocation would refuse every list there is -- each of them has a whole capacity of unallocated
+     * indices, none of which has an expiry.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('databaseToTest')]
+    public function testRetirementItselfRefusesAListWhichIsStillHoldingSomething(string $database): void
+    {
+        $this->useDatabase(self::$$database);
+        $this->givenSeededList();
+
+        // Allocated before the list is deactivated, since a deactivated list takes no more claims.
+        $this->givenAllocatedEntry(0, 'urn:vc:live', new DateTimeImmutable('2027-02-01 09:00:00'));
+        $this->givenAllocatedEntry(1, 'urn:vc:permanent', null);
+        $this->statusListRepository->deactivate(self::LIST_ID);
+
+        $cutOff = new DateTimeImmutable('2026-08-07 12:00:00');
+
+        $this->assertFalse($this->statusListRepository->retire(self::LIST_ID, $cutOff));
+
+        // Both of those brought forward to before the cut-off, leaving only unallocated indices without
+        // an expiry -- which must not keep the list from retiring.
+        $this->database->write(
+            sprintf(
+                'UPDATE %s SET expires_at = :expires_at WHERE status_list_id = :status_list_id ' .
+                'AND allocated = :allocated',
+                $this->database->applyPrefix('oidc_status_list_entry'),
+            ),
+            [
+                'expires_at' => '2021-01-01 09:00:00',
+                'status_list_id' => self::LIST_ID,
+                'allocated' => true,
+            ],
+        );
+
+        $this->assertTrue($this->statusListRepository->retire(self::LIST_ID, $cutOff));
+    }
+
+    /**
+     * The candidate query joins the two tables through a correlated NOT EXISTS, which is what keeps a
+     * list that can never be retired from occupying the batches a run is willing to work through.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('databaseToTest')]
+    public function testOffersOnlyRetirementCandidatesWhichCouldActuallyBeRetired(string $database): void
+    {
+        $this->useDatabase(self::$$database);
+        $this->givenSeededList();
+        $this->givenAllocatedEntry(0, 'urn:vc:permanent', null);
+        $this->statusListRepository->deactivate(self::LIST_ID);
+
+        $this->database->write(
+            sprintf(
+                'UPDATE %s SET deactivated_at = :deactivated_at WHERE id = :id',
+                $this->database->applyPrefix('oidc_status_list'),
+            ),
+            [
+                'deactivated_at' => '2020-01-01 09:00:00',
+                'id' => self::LIST_ID,
+            ],
+        );
+
+        $cutOff = new DateTimeImmutable('2026-08-07 12:00:00');
+
+        $this->assertSame([], $this->statusListRepository->findRetirementCandidates($cutOff, 10));
+
+        // The same list once the credential which never expires has an expiry after all.
+        $this->database->write(
+            sprintf(
+                'UPDATE %s SET expires_at = :expires_at WHERE status_list_id = :status_list_id AND idx = :idx',
+                $this->database->applyPrefix('oidc_status_list_entry'),
+            ),
+            [
+                'expires_at' => '2021-01-01 09:00:00',
+                'status_list_id' => self::LIST_ID,
+                'idx' => 0,
+            ],
+        );
+
+        $this->assertSame([self::LIST_ID], $this->statusListRepository->findRetirementCandidates($cutOff, 10));
+    }
+
+    /**
+     * Retirement gives back the published token in the same statement which stamps the list, and moves
+     * the invalidation counter so a signer mid-flight can not publish onto a list retired underneath it.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('databaseToTest')]
+    public function testRetirementStampsTheListAndGivesBackItsToken(string $database): void
+    {
+        $this->useDatabase(self::$$database);
+        $this->givenSeededList();
+
+        $this->statusListRepository->publishToken(
+            self::LIST_ID,
+            '',
+            0,
+            str_repeat('a', 64),
+            'a.signed.token',
+            new DateTimeImmutable('2026-08-01 09:00:00'),
+            new DateTimeImmutable('2026-08-08 09:00:00'),
+        );
+        $this->statusListRepository->deactivate(self::LIST_ID);
+
+        $spentBefore = new DateTimeImmutable('2099-01-01 00:00:00');
+
+        $this->assertTrue($this->statusListRepository->retire(self::LIST_ID, $spentBefore));
+        // Only the first caller reports it, so of several workers deciding at once one acts.
+        $this->assertFalse($this->statusListRepository->retire(self::LIST_ID, $spentBefore));
+
+        $statusList = $this->statusListRepository->findByIdOnPrimary(self::LIST_ID);
+
+        $this->assertTrue($statusList?->isRetired());
+        $this->assertNull($statusList?->getSignedToken());
+        $this->assertSame('', $statusList?->getSignedTokenContentHash());
+        $this->assertSame(1, $statusList?->getInvalidationCounter());
+    }
+
+    /**
+     * @throws \Exception
+     */
+    #[DataProvider('databaseToTest')]
+    public function testRemovesTheEntriesOfARetiredListInBoundedRuns(string $database): void
+    {
+        $this->useDatabase(self::$$database);
+        $this->givenSeededList();
+        $this->statusListRepository->deactivate(self::LIST_ID);
+        $this->statusListRepository->retire(self::LIST_ID, new DateTimeImmutable('2099-01-01 00:00:00'));
+
+        $this->assertSame([self::LIST_ID], $this->statusListRepository->findRetiredWithEntries(
+            10,
+            new DateTimeImmutable('2099-01-01 00:00:00'),
+        ));
+
+        $removed = 0;
+
+        while (($inBatch = $this->statusListEntryRepository->deleteRetiredEntries(self::LIST_ID, 25)) > 0) {
+            $removed += $inBatch;
+        }
+
+        $this->assertSame(self::CAPACITY, $removed);
+        // Has to stop being offered, or every list a deployment ever retired is re-examined for ever.
+        $this->assertSame([], $this->statusListRepository->findRetiredWithEntries(
+            10,
+            new DateTimeImmutable('2099-01-01 00:00:00'),
+        ));
+    }
+
+    /**
+     * Deactivating the lists a changed configuration would no longer allocate into is one statement
+     * whose exclusion is built from a placeholder pair per pool, and an empty configuration drops the
+     * exclusion altogether rather than emitting a `NOT IN ()` no driver accepts.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('databaseToTest')]
+    public function testDeactivatesOnlyTheListsTheCurrentPolicyWouldNotAllocateInto(string $database): void
+    {
+        $this->useDatabase(self::$$database);
+        $this->givenSeededList();
+
+        $this->assertSame(
+            0,
+            $this->statusListRepository->deactivateSuperseded(['integration-pool' => 'integration-fingerprint']),
+        );
+        $this->assertTrue($this->statusListRepository->findByIdOnPrimary(self::LIST_ID)?->isActive());
+
+        $this->assertSame(
+            1,
+            $this->statusListRepository->deactivateSuperseded(['integration-pool' => 'a-rotated-fingerprint']),
+        );
+
+        $statusList = $this->statusListRepository->findByIdOnPrimary(self::LIST_ID);
+        $this->assertFalse($statusList?->isActive());
+        $this->assertNotNull($statusList?->getDeactivatedAt());
+    }
+
+    /**
+     * The audit prune is bounded the same way the linkage clearing is, for the same reason, and deletes
+     * by identifier because that is the only shape every driver takes.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('databaseToTest')]
+    public function testPrunesTheAuditTrailInBoundedBatches(string $database): void
+    {
+        $this->useDatabase(self::$$database);
+
+        $auditRepository = new StatusAuditRepository(new ModuleConfig(), $this->database, null, new Helpers());
+        $this->database->write('DELETE FROM ' . $auditRepository->getTableName());
+
+        for ($idx = 0; $idx < 3; $idx++) {
+            $auditRepository->record(
+                str_repeat((string)$idx, 64),
+                self::LIST_ID,
+                $idx,
+                StatusTypeEnum::Valid->value,
+                StatusTypeEnum::Invalid->value,
+                StatusChangeSourceEnum::Api,
+                'HR system',
+                new DateTimeImmutable('2020-01-01 09:00:00', new DateTimeZone('UTC')),
+            );
+        }
+
+        $auditRepository->record(
+            str_repeat('f', 64),
+            self::LIST_ID,
+            9,
+            StatusTypeEnum::Valid->value,
+            StatusTypeEnum::Invalid->value,
+            StatusChangeSourceEnum::Admin,
+            'jane.doe',
+            new DateTimeImmutable('2026-08-01 09:00:00', new DateTimeZone('UTC')),
+        );
+
+        $cutOff = new DateTimeImmutable('2026-01-01 00:00:00', new DateTimeZone('UTC'));
+
+        $this->assertSame(2, $auditRepository->removeOlderThan($cutOff, 2));
+        $this->assertSame(1, $auditRepository->removeOlderThan($cutOff, 2));
+        $this->assertSame(0, $auditRepository->removeOlderThan($cutOff, 2));
+
+        $remaining = $this->database->readPrimary(
+            'SELECT idx FROM ' . $auditRepository->getTableName(),
+        )->fetchAll();
+
+        $this->assertCount(1, $remaining);
+        $this->assertSame(9, (int)$remaining[0]['idx']);
     }
 
     /**
