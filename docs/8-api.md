@@ -32,8 +32,34 @@ Scopes determine which endpoints are accessible by the API access token. The fol
 * `\SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::All`: Access to all endpoints.
 * `\SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::VciAll`: Access to all VCI-related endpoints.
 * `\SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::VciCredentialOffer`: Access to credential offer endpoint.
+* `\SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::VciCredentialStatus`: Access to the credential status endpoint.
 * `\SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::OAuth2All`: Access to all OAuth2-related endpoints.
 * `\SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::OAuth2TokenIntrospection`: Access to the OAuth2 token introspection endpoint.
+
+### Naming a token
+
+A token may instead be configured as an array with a `name` and a `scopes` key:
+
+```php
+use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
+use SimpleSAML\Module\oidc\ModuleConfig;
+
+ModuleConfig::OPTION_API_TOKENS => [
+    'strong-random-token-string' => [
+        'name' => 'HR system',
+        'scopes' => [
+            ApiScopesEnum::VciCredentialStatus,
+        ],
+    ],
+],
+```
+
+The name is what gets recorded in the status change audit trail when this token revokes or suspends a
+credential, so the trail says which system asked rather than only that something did. Without a name,
+an audit row records no actor at all — the token itself is never written anywhere, since that would
+put a bearer secret in the database.
+
+Both shapes work, and a token configured as a plain list of scopes keeps working unchanged.
 
 ## API Endpoints
 
@@ -143,6 +169,125 @@ Response:
 ```json
 {
     "credential_offer_uri": "openid-credential-offer://?credential_offer={\"credential_issuer\":\"https:\\/\\/idp.mivanci.incubator.hexaa.eu\",\"credential_configuration_ids\":[\"ResearchAndScholarshipCredentialDcSdJwt\"],\"grants\":{\"urn:ietf:params:oauth:grant-type:pre-authorized_code\":{\"pre-authorized_code\":\"_ffcdf6d86cd564c300346351dce0b4ccb2fde304e2\",\"tx_code\":{\"input_mode\":\"numeric\",\"length\":4,\"description\":\"Please provide the one-time code that was sent to e-mail testuser@example.com\"}}}}"
+}
+```
+
+### Credential Status
+
+Withdraws, suspends or reinstates a Verifiable Credential which has already been issued, by moving its
+Token Status List entry to a new status. See
+[Token Status Lists](3-oidc-configuration.md#token-status-lists-credential-revocation) for what has to
+be configured before a credential has an entry to move.
+
+Enable it in `config/module_oidc.php`:
+
+```php
+use SimpleSAML\Module\oidc\ModuleConfig;
+
+ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED => true,
+```
+
+#### Path
+
+`/api/vci/credential-status`
+
+#### Method
+
+`POST`
+
+#### Authorization
+
+`Bearer Token`, and only from the `Authorization` header.
+
+This endpoint deliberately does not accept the two other ways the rest of this API can be authorized. A
+token passed as a request parameter would end up in web server access logs and browser history, which
+for a token that can revoke credentials is worse than for one that reads them. An administrator's
+SimpleSAMLphp session is not accepted either, because a request authorized by a session cookie can be
+made by any page the administrator happens to be visiting. Use the administration screens for
+session-authenticated changes; they carry their own protection against that.
+
+#### Request
+
+The request is sent as a JSON object in the body with the following parameters:
+
+* __credential_id__ (string, mandatory): The credential identifier, being the `jti` (or `id`) of the
+issued credential.
+* __status__ (string, mandatory): The status to set. Matched case insensitively. Allowed values are:
+  * `valid`: the credential is in force. Use this to reinstate a suspended one.
+  * `invalid`: the credential is revoked. This is permanent in practice; a wallet holding it should
+    stop presenting it.
+  * `suspended`: the credential is temporarily out of force and can be reinstated.
+
+#### Response
+
+The response is a JSON object with the following fields:
+
+* __status__ (string): The status the credential now holds.
+* __changed__ (boolean): Whether this request is what changed it. `false` means the credential already
+held that status, so a caller retrying a request it never saw the answer to can tell which happened.
+
+Errors:
+
+* `400 invalid_request`: the body could not be read, the credential identifier was missing, or the
+status was not one of the three.
+* `401 unauthorized`: no bearer token, or one which is not configured.
+* `403 insufficient_scope`: the token is configured but has none of the scopes this endpoint accepts.
+* `404 not_found`: no credential with that identifier can have its status changed. A credential which
+was never issued here, one issued without a `status` claim, and one which has expired are all answered
+the same way, so that the endpoint can not be used to find out which identifiers exist.
+* `409 conflict`: another change landed at the same moment and the credential ended up holding
+something other than what was asked for. Read the current status and decide again.
+* `422 unsupported_status`: the Status List this credential belongs to was created without room for
+that status. Bits per entry are fixed when a list is created, so this will not succeed on retry — a
+pool which may suspend has to be configured with at least 2 bits before its credentials are issued.
+
+#### Sample 1
+
+Revoke a credential.
+
+Request:
+
+```shell
+curl --location 'https://idp.example.org/ssp/module.php/oidc/api/vci/credential-status' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer ***' \
+--data-raw '{
+    "credential_id": "https://idp.example.org/vc/mBS4Zt9wDRe-8sYcJUEBiZ4bGDsYY3rMHOB2Xdw4t1c",
+    "status": "invalid"
+}'
+```
+
+Response:
+
+```json
+{
+    "status": "invalid",
+    "changed": true
+}
+```
+
+#### Sample 2
+
+Reinstate a suspended credential which somebody else has already reinstated.
+
+Request:
+
+```shell
+curl --location 'https://idp.example.org/ssp/module.php/oidc/api/vci/credential-status' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer ***' \
+--data-raw '{
+    "credential_id": "https://idp.example.org/vc/mBS4Zt9wDRe-8sYcJUEBiZ4bGDsYY3rMHOB2Xdw4t1c",
+    "status": "valid"
+}'
+```
+
+Response:
+
+```json
+{
+    "status": "valid",
+    "changed": false
 }
 ```
 

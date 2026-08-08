@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Admin\ConfigOverview;
 
+use DateInterval;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
+use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
+use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
 use Stringable;
 use Throwable;
 
@@ -51,9 +55,237 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
             $this->buildSignatureKeysSection(),
             $this->buildCredentialConfigurationsSection(),
             $this->buildNonRegisteredClientsSection(),
+            $this->buildStatusListsSection(),
             $this->buildDurationsSection(),
             $this->buildCredentialOfferSection(),
         ];
+    }
+
+    /**
+     * Token Status List settings, being what makes issued credentials revocable.
+     */
+    protected function buildStatusListsSection(): Section
+    {
+        $isEnabled = false;
+
+        try {
+            $isEnabled = $this->moduleConfig->getVciStatusListEnabled();
+        } catch (Throwable) {
+            // Reported on its own row below, where the option which failed to resolve is named.
+        }
+
+        $rows = [
+            $this->guardRow(
+                Translate::noop('Status Lists Enabled'),
+                ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED,
+                function (): Row {
+                    $enabled = $this->moduleConfig->getVciStatusListEnabled();
+
+                    return new Row(
+                        Translate::noop('Status Lists Enabled'),
+                        $this->yesNo($enabled),
+                        ConfigOverviewValueTypeEnum::Text,
+                        ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED,
+                        $enabled ?
+                        Translate::noop(
+                            'Issued credentials get a Status List entry, so they can be revoked and ' .
+                            'suspended.',
+                        ) :
+                        Translate::noop(
+                            'New credentials are issued without a status claim, so they can not be ' .
+                            'revoked. Status Lists which already exist keep being served regardless ' .
+                            'of this setting, so credentials issued earlier stay verifiable.',
+                        ),
+                    );
+                },
+            ),
+            $this->guardRow(
+                Translate::noop('Status List Key Profile'),
+                ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE,
+                fn(): Row => new Row(
+                    Translate::noop('Status List Key Profile'),
+                    $this->moduleConfig->getVciStatusListKeyProfile()->value,
+                    ConfigOverviewValueTypeEnum::RawText,
+                    ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE,
+                    Translate::noop(
+                        'How Status List Tokens identify their signing key. Each list records the ' .
+                        'profile it was created under, so changing this affects newly created lists ' .
+                        'only and never invalidates credentials already issued. A pool may override it.',
+                    ),
+                ),
+            ),
+            $this->guardRow(
+                Translate::noop('Status List Pools'),
+                ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS,
+                function () use ($isEnabled): Row {
+                    $poolBag = $this->moduleConfig->getVciStatusListPoolBag();
+
+                    if ($poolBag->isEmpty()) {
+                        return new Row(
+                            Translate::noop('Status List Pools'),
+                            Translate::noop('None configured'),
+                            ConfigOverviewValueTypeEnum::Text,
+                            ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS,
+                            Translate::noop(
+                                'No credential configuration allocates a Status List entry, so no ' .
+                                'issued credential can be revoked.',
+                            ),
+                        );
+                    }
+
+                    return new Row(
+                        Translate::noop('Status List Pools'),
+                        $this->describeStatusListPools($poolBag),
+                        ConfigOverviewValueTypeEnum::Json,
+                        ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS,
+                        $isEnabled ?
+                        Translate::noop(
+                            'Credentials of a configuration which is in no pool are issued without a ' .
+                            'status claim. Privacy rests on many credentials sharing one list, so ' .
+                            'more pools means a smaller group each credential hides in.',
+                        ) :
+                        Translate::noop(
+                            'These pools are inert, since Status Lists are disabled.',
+                        ),
+                    );
+                },
+            ),
+            $this->guardRow(
+                Translate::noop('Status List Requests Per Minute'),
+                ModuleConfig::OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE,
+                function (): Row {
+                    $limit = $this->moduleConfig->getVciStatusListRequestsPerMinute();
+
+                    return new Row(
+                        Translate::noop('Status List Requests Per Minute'),
+                        $limit > 0 ? (string)$limit : Translate::noop('No limit'),
+                        $limit > 0 ? ConfigOverviewValueTypeEnum::RawText : ConfigOverviewValueTypeEnum::Text,
+                        ModuleConfig::OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE,
+                        $limit > 0 ?
+                        Translate::noop(
+                            'Applied to the address the request appears to come from, which behind a ' .
+                            'reverse proxy is the proxy unless it is trusted. Confirm which address ' .
+                            'arrives here, since one shared bucket would refuse every client. Needs a ' .
+                            'protocol cache; without one nothing is counted.',
+                        ) :
+                        Translate::noop(
+                            'The Status List endpoint accepts any number of requests. It is ' .
+                            'unauthenticated and its response can reach a couple of hundred ' .
+                            'kilobytes.',
+                        ),
+                    );
+                },
+            ),
+            $this->guardRow(
+                Translate::noop('Credential Status Endpoint Enabled'),
+                ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED,
+                function () use ($isEnabled): Row {
+                    $isStatusEndpointEnabled = $this->moduleConfig->getApiVciCredentialStatusEndpointEnabled();
+
+                    return new Row(
+                        Translate::noop('Credential Status Endpoint Enabled'),
+                        $this->yesNo($isStatusEndpointEnabled),
+                        ConfigOverviewValueTypeEnum::Text,
+                        ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED,
+                        $isStatusEndpointEnabled ?
+                        Translate::noop(
+                            'Issued credentials can be revoked, suspended and reinstated over the ' .
+                            'network. This endpoint takes a bearer token from the Authorization ' .
+                            'header only, never an administrator session, and every change made ' .
+                            'through it is recorded against the token which asked for it.',
+                        ) :
+                        Translate::noop(
+                            'Not served, so credential statuses can only be changed from the ' .
+                            'administration screens. Also requires the module API to be enabled.',
+                        ),
+                        ($isStatusEndpointEnabled && !$isEnabled) ? Translate::noop(
+                            'Status Lists are disabled, so credentials being issued now have no ' .
+                            'entry to change. Ones issued while they were enabled can still be ' .
+                            'revoked through this endpoint.',
+                        ) : null,
+                    );
+                },
+            ),
+            $this->guardRow(
+                Translate::noop('Status List Retirement Grace'),
+                ModuleConfig::OPTION_VCI_STATUS_LIST_RETIREMENT_GRACE,
+                fn(): Row => new Row(
+                    Translate::noop('Status List Retirement Grace'),
+                    $this->dateIntervalFormatter->toDurationSpec(
+                        $this->moduleConfig->getVciStatusListRetirementGrace(),
+                    ),
+                    ConfigOverviewValueTypeEnum::RawText,
+                    ModuleConfig::OPTION_VCI_STATUS_LIST_RETIREMENT_GRACE,
+                    Translate::noop(
+                        'How long a list is left alone before it may be retired, counted both from ' .
+                        'when it stopped accepting credentials and from when the last credential in ' .
+                        'it expired, and once more before its entries are removed. Retiring makes a ' .
+                        'URI written into real credentials answer 404, so this is the margin for ' .
+                        'anything still working from a cached response, and for an issuance which ' .
+                        'was under way when the list closed. Runs from the cron hook.',
+                    ),
+                ),
+            ),
+            $this->guardRow(
+                Translate::noop('Status Audit Retention'),
+                ModuleConfig::OPTION_VCI_STATUS_LIST_AUDIT_RETENTION,
+                function (): Row {
+                    $retention = $this->moduleConfig->getVciStatusListAuditRetention();
+
+                    return new Row(
+                        Translate::noop('Status Audit Retention'),
+                        $retention instanceof DateInterval ?
+                        $this->dateIntervalFormatter->toDurationSpec($retention) :
+                        Translate::noop('Kept indefinitely'),
+                        $retention instanceof DateInterval ?
+                        ConfigOverviewValueTypeEnum::RawText :
+                        ConfigOverviewValueTypeEnum::Text,
+                        ModuleConfig::OPTION_VCI_STATUS_LIST_AUDIT_RETENTION,
+                        $retention instanceof DateInterval ?
+                        Translate::noop(
+                            'Rows recording who asked for which credential status change are pruned ' .
+                            'once they reach this age. Pruning runs from the cron hook.',
+                        ) :
+                        Translate::noop(
+                            'The record of who asked for which credential status change is kept for ' .
+                            'good. Credentials appear in it only as a hash, but the actor is ' .
+                            'recorded as given, which where the admin authentication source ' .
+                            'releases an identifier is a person.',
+                        ),
+                    );
+                },
+            ),
+        ];
+
+        return new Section(Translate::noop('Status Lists'), 'statusLists', ...$rows);
+    }
+
+    /**
+     * @return array<string,array<string,mixed>>
+     */
+    protected function describeStatusListPools(StatusListPoolBag $poolBag): array
+    {
+        $described = [];
+
+        foreach ($poolBag->getAll() as $poolId => $pool) {
+            $described[$poolId] = [
+                StatusListPool::KEY_CREDENTIAL_CONFIGURATIONS => $pool->getCredentialConfigurationIds(),
+                StatusListPool::KEY_BITS => $pool->getBits(),
+                StatusListPool::KEY_CAPACITY => $pool->getCapacity(),
+                StatusListPool::KEY_ALLOWED_STATUSES => array_map(
+                    static fn(StatusTypeEnum $status): string => $status->name,
+                    $pool->getAllowedStatuses(),
+                ),
+                StatusListPool::KEY_TTL => $this->dateIntervalFormatter->toDurationSpec($pool->getTtl()),
+                StatusListPool::KEY_TOKEN_VALIDITY => $this->dateIntervalFormatter
+                    ->toDurationSpec($pool->getTokenValidity()),
+                StatusListPool::KEY_REFRESH_INTERVAL => $this->dateIntervalFormatter
+                    ->toDurationSpec($pool->getRefreshInterval()),
+                StatusListPool::KEY_KEY_PROFILE => $pool->getKeyProfile()->value,
+            ];
+        }
+
+        return $described;
     }
 
     /**
@@ -154,6 +386,25 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
             $rows[] = new Row(
                 Translate::noop('Credential Offer (API)'),
                 $this->routes->urlApiVciCredentialOffer(),
+                ConfigOverviewValueTypeEnum::Url,
+            );
+        }
+
+        // Deliberately not conditioned on the issuance switch, because the controller is not either:
+        // credentials already in wallets stay revocable while issuance is off. Requiring it here
+        // would hide the URL of an endpoint which is live, and hide it precisely during the incident
+        // that made someone turn issuance off.
+        try {
+            $isStatusEndpointServed = $this->moduleConfig->getApiEnabled() &&
+            $this->moduleConfig->getApiVciCredentialStatusEndpointEnabled();
+        } catch (Throwable) {
+            $isStatusEndpointServed = false;
+        }
+
+        if ($isStatusEndpointServed) {
+            $rows[] = new Row(
+                Translate::noop('Credential Status (API)'),
+                $this->routes->urlApiVciCredentialStatus(),
                 ConfigOverviewValueTypeEnum::Url,
             );
         }
@@ -454,6 +705,41 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                         'proof-of-possession nonces.',
                     ),
                 ),
+            ),
+            $this->guardRow(
+                Translate::noop('Credential Lifetimes'),
+                ModuleConfig::OPTION_VCI_CREDENTIAL_TTLS,
+                function (): Row {
+                    $ttls = $this->moduleConfig->getVciCredentialTtls();
+
+                    if ($ttls === []) {
+                        return new Row(
+                            Translate::noop('Credential Lifetimes'),
+                            Translate::noop('None configured'),
+                            ConfigOverviewValueTypeEnum::Text,
+                            ModuleConfig::OPTION_VCI_CREDENTIAL_TTLS,
+                            Translate::noop(
+                                'Issued credentials never expire, which is the long standing default. ' .
+                                'A Status List holding one can never be retired, so its storage is ' .
+                                'kept for good.',
+                            ),
+                        );
+                    }
+
+                    return new Row(
+                        Translate::noop('Credential Lifetimes'),
+                        array_map(
+                            fn(DateInterval $ttl): array => [$this->dateIntervalFormatter->toDurationSpec($ttl)],
+                            $ttls,
+                        ),
+                        ConfigOverviewValueTypeEnum::StringMap,
+                        ModuleConfig::OPTION_VCI_CREDENTIAL_TTLS,
+                        Translate::noop(
+                            'How long a credential of each configuration stays valid. Configurations ' .
+                            'which are not listed issue credentials which never expire.',
+                        ),
+                    );
+                },
             ),
         );
     }

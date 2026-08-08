@@ -26,6 +26,11 @@ enum RoutesEnum: string
     case AdminClientsResetSecret = 'admin/clients/reset-secret';
     case AdminClientsDelete = 'admin/clients/delete';
 
+    // Credential status management
+
+    case AdminCredentialStatus = 'admin/credential-status';
+    case AdminCredentialStatusChange = 'admin/credential-status/change';
+
     // Testing
     case AdminTestTrustChainResolution = 'admin/test/trust-chain-resolution';
     case AdminTestTrustMarkValidation = 'admin/test/trust-mark-validation';
@@ -72,6 +77,15 @@ enum RoutesEnum: string
     case CredentialJsonLdContext = 'credential-issuer/context/{credentialConfigurationId}';
 
     /*****************************************************************************************************************
+     * Token Status List
+     ****************************************************************************************************************/
+
+    // Publishes one Status List Token. Deliberately not gated on the Verifiable Credential Issuance
+    // switch: credentials which were already issued point at these URIs and have to stay verifiable,
+    // so turning issuance off must not make them unresolvable.
+    case StatusList = 'statuslist/{statusListId}';
+
+    /*****************************************************************************************************************
      * SD-JWT-based Verifiable Credentials (SD-JWT VC)
      ****************************************************************************************************************/
 
@@ -82,5 +96,6 @@ enum RoutesEnum: string
      ****************************************************************************************************************/
 
     case ApiVciCredentialOffer = 'api/vci/credential-offer';
+    case ApiVciCredentialStatus = 'api/vci/credential-status';
     case ApiOAuth2TokenIntrospection = 'api/oauth2/token-introspection';
 }

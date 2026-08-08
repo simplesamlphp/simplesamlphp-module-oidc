@@ -1545,3 +1545,252 @@ msgid ""
 "never removed from storage."
 msgstr ""
 
+msgid ""
+"Credentials of a configuration which is in no pool are issued "
+"without a status claim. Privacy rests on many credentials sharing "
+"one list, so more pools means a smaller group each credential hides "
+"in."
+msgstr ""
+
+msgid ""
+"How Status List Tokens identify their signing key. Each list records "
+"the profile it was created under, so changing this affects newly "
+"created lists only and never invalidates credentials already issued. "
+"A pool may override it."
+msgstr ""
+
+msgid ""
+"Issued credentials get a Status List entry, so they can be revoked "
+"and suspended."
+msgstr ""
+
+msgid ""
+"New credentials are issued without a status claim, so they can not "
+"be revoked. Status Lists which already exist keep being served "
+"regardless of this setting, so credentials issued earlier stay "
+"verifiable."
+msgstr ""
+
+msgid ""
+"No credential configuration allocates a Status List entry, so no "
+"issued credential can be revoked."
+msgstr ""
+
+msgid "Status List Key Profile"
+msgstr ""
+
+msgid "Status List Pools"
+msgstr ""
+
+msgid "Status Lists"
+msgstr ""
+
+msgid "Status Lists Enabled"
+msgstr ""
+
+msgid "These pools are inert, since Status Lists are disabled."
+msgstr ""
+
+
+msgid "Status List Requests Per Minute"
+msgstr ""
+
+msgid "No limit"
+msgstr ""
+
+msgid ""
+"Applied to the address the request appears to come from, which behind a "
+"reverse proxy is the proxy unless it is trusted. Confirm which address "
+"arrives here, since one shared bucket would refuse every client. Needs a "
+"protocol cache; without one nothing is counted."
+msgstr ""
+
+msgid ""
+"The Status List endpoint accepts any number of requests. It is "
+"unauthenticated and its response can reach a couple of hundred "
+"kilobytes."
+msgstr ""
+
+msgid "Credential Lifetimes"
+msgstr ""
+
+msgid ""
+"Issued credentials never expire, which is the long standing default. A "
+"Status List holding one can never be retired, so its storage is kept for "
+"good."
+msgstr ""
+
+msgid ""
+"How long a credential of each configuration stays valid. Configurations "
+"which are not listed issue credentials which never expire."
+msgstr ""
+
+msgid "Credential Status (API)"
+msgstr ""
+
+msgid "Credential Status Endpoint Enabled"
+msgstr ""
+
+msgid ""
+"Issued credentials can be revoked, suspended and reinstated over the "
+"network. This endpoint takes a bearer token from the Authorization header "
+"only, never an administrator session, and every change made through it is "
+"recorded against the token which asked for it."
+msgstr ""
+
+msgid ""
+"Not served, so credential statuses can only be changed from the "
+"administration screens. Also requires the module API to be enabled."
+msgstr ""
+
+msgid ""
+"Status Lists are disabled, so credentials being issued now have no entry to "
+"change. Ones issued while they were enabled can still be revoked through "
+"this endpoint."
+msgstr ""
+
+msgid "Authorization token not provided in the Authorization header."
+msgstr ""
+
+msgid "Credential Status"
+msgstr ""
+
+msgid "Credential or user identifier"
+msgstr ""
+
+msgid ""
+"Enter a whole credential identifier, or the identifier of the person "
+"credentials were issued to. Both are matched exactly, since the subject is "
+"stored only as a keyed hash."
+msgstr ""
+
+msgid "Credentials"
+msgstr ""
+
+msgid "Status Lists which can never be retired"
+msgstr ""
+
+msgid ""
+"Credentials which never expire keep the Status List holding them alive for "
+"good, since it has to stay resolvable for as long as any credential in it "
+"can be presented. Setting a lifetime for a credential configuration applies "
+"to credentials issued from then on."
+msgstr ""
+
+msgid "No credential matches that identifier."
+msgstr ""
+
+msgid "No credentials with a status list entry have been issued."
+msgstr ""
+
+msgid "Change status"
+msgstr ""
+
+msgid "Configuration"
+msgstr ""
+
+msgid "Subject"
+msgstr ""
+
+msgid "Issued at"
+msgstr ""
+
+msgid "Unknown"
+msgstr ""
+
+msgid "Apply"
+msgstr ""
+
+msgid "Are you sure you want to change the status of this credential?"
+msgstr ""
+
+msgid "Valid"
+msgstr ""
+
+msgid "Revoked"
+msgstr ""
+
+msgid "Suspended"
+msgstr ""
+
+msgid "Credential identifier is missing."
+msgstr ""
+
+msgid "Status to set is missing."
+msgstr ""
+
+msgid "The credential status change was not accepted. Please try again."
+msgstr ""
+
+msgid ""
+"This credential belongs to a Status List which was created without room for "
+"that status. Credentials issued from now on can carry it once the pool is "
+"configured for it, but the ones already in this list can not."
+msgstr ""
+
+msgid ""
+"The status of this credential was changed by something else at the same "
+"time, so it now holds something other than what was asked for. Check what it "
+"says and try again."
+msgstr ""
+
+msgid "The credential status could not be changed."
+msgstr ""
+
+msgid ""
+"No credential which can have its status changed was found. It may have "
+"expired, in which case it is already refused on its own claims."
+msgstr ""
+
+msgid "The credential status has been changed."
+msgstr ""
+
+msgid "The credential already had that status, so nothing was changed."
+msgstr ""
+
+msgid ""
+"How long a list is left alone before it may be retired, counted both "
+"from when it stopped accepting credentials and from when the last "
+"credential in it expired. Retiring makes a URI written into real "
+"credentials answer 404, so this is the margin for anything still "
+"working from a cached response. Retirement runs from the cron hook."
+msgstr ""
+
+msgid "Kept indefinitely"
+msgstr ""
+
+msgid ""
+"Rows recording who asked for which credential status change are "
+"pruned once they reach this age. Pruning runs from the cron hook."
+msgstr ""
+
+msgid "Status Audit Retention"
+msgstr ""
+
+msgid "Status List Retirement Grace"
+msgstr ""
+
+msgid ""
+"The record of who asked for which credential status change is never "
+"pruned. It is a row per status change rather than per credential, "
+"and names no person, so this is a retention decision rather than a "
+"storage one."
+msgstr ""
+
+msgid ""
+"The record of who asked for which credential status change is kept "
+"for good. Credentials appear in it only as a hash, but the actor is "
+"recorded as given, which where the admin authentication source "
+"releases an identifier is a person."
+msgstr ""
+
+msgid ""
+"How long a list is left alone before it may be retired, counted both "
+"from when it stopped accepting credentials and from when the last "
+"credential in it expired, and once more before its entries are "
+"removed. Retiring makes a URI written into real credentials answer "
+"404, so this is the margin for anything still working from a cached "
+"response, and for an issuance which was under way when the list "
+"closed. Runs from the cron hook."
+msgstr ""
+

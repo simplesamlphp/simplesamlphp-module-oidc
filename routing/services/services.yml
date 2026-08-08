@@ -33,6 +33,27 @@ services:
     resource: '../../src/Repositories/*'
     exclude: '../../src/Repositories/{Interfaces}'
 
+  # Token Status List. Values hold objects built from configuration or read back from storage rather
+  # than autowired, so it is excluded along with the interfaces.
+  SimpleSAML\Module\oidc\StatusList\:
+    resource: '../../src/StatusList/*'
+    exclude: '../../src/StatusList/{Contracts,Values}'
+
+  # Autowiring by directory glob does not resolve interfaces to implementations, so each port is
+  # aliased to the implementation it is served by.
+  SimpleSAML\Module\oidc\StatusList\Contracts\StatusIndexAllocatorInterface:
+    alias: SimpleSAML\Module\oidc\StatusList\DbStatusIndexAllocator
+  SimpleSAML\Module\oidc\StatusList\Contracts\StatusUpdaterInterface:
+    alias: SimpleSAML\Module\oidc\StatusList\DbStatusUpdater
+  SimpleSAML\Module\oidc\StatusList\Contracts\StatusListTokenProviderInterface:
+    alias: SimpleSAML\Module\oidc\StatusList\DbStatusListTokenProvider
+
+  # Fetched from the (otherwise private) container by the cron hook after booting the module Kernel.
+  SimpleSAML\Module\oidc\StatusList\StatusListReconciler:
+    public: true
+  SimpleSAML\Module\oidc\StatusList\StatusListLifecycle:
+    public: true
+
   SimpleSAML\Module\oidc\Factories\:
     resource: '../../src/Factories/*'
 
@@ -110,6 +131,7 @@ services:
   SimpleSAML\Module\oidc\Utils\UiLocalesResolver: ~
   SimpleSAML\Module\oidc\Utils\ClassInstanceBuilder: ~
   SimpleSAML\Module\oidc\Utils\DateIntervalFormatter: ~
+  SimpleSAML\Module\oidc\Utils\HttpContentNegotiator: ~
   SimpleSAML\Module\oidc\Utils\JwksResolver: ~
   SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver: ~
   SimpleSAML\Module\oidc\Utils\VciContextResolver: ~
@@ -137,6 +159,8 @@ services:
     factory: [ '@SimpleSAML\Module\oidc\Factories\FederationFactory', 'build' ]
   SimpleSAML\OpenID\VerifiableCredentials:
     factory: [ '@SimpleSAML\Module\oidc\Factories\VerifiableCredentialsFactory', 'build' ]
+  SimpleSAML\OpenID\TokenStatusList:
+    factory: [ '@SimpleSAML\Module\oidc\Factories\TokenStatusListFactory', 'build' ]
   SimpleSAML\OpenID\Jwks:
     factory: [ '@SimpleSAML\Module\oidc\Factories\JwksFactory', 'build' ]
   SimpleSAML\OpenID\Jwk: ~

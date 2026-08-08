@@ -10,9 +10,11 @@ use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Controllers\AccessTokenController;
 use SimpleSAML\Module\oidc\Controllers\Admin\ClientController;
 use SimpleSAML\Module\oidc\Controllers\Admin\ConfigController;
+use SimpleSAML\Module\oidc\Controllers\Admin\CredentialStatusController;
 use SimpleSAML\Module\oidc\Controllers\Admin\FederationTestController;
 use SimpleSAML\Module\oidc\Controllers\Admin\VerifiableCredentailsTestController;
 use SimpleSAML\Module\oidc\Controllers\Api\VciCredentialOfferApiController;
+use SimpleSAML\Module\oidc\Controllers\Api\VciCredentialStatusApiController;
 use SimpleSAML\Module\oidc\Controllers\AuthorizationController;
 use SimpleSAML\Module\oidc\Controllers\ConfigurationDiscoveryController;
 use SimpleSAML\Module\oidc\Controllers\EndSessionController;
@@ -22,6 +24,7 @@ use SimpleSAML\Module\oidc\Controllers\OAuth2\OAuth2ServerConfigurationControlle
 use SimpleSAML\Module\oidc\Controllers\OAuth2\TokenIntrospectionController;
 use SimpleSAML\Module\oidc\Controllers\PushedAuthorizationController;
 use SimpleSAML\Module\oidc\Controllers\RegistrationController;
+use SimpleSAML\Module\oidc\Controllers\StatusListController;
 use SimpleSAML\Module\oidc\Controllers\UserInfoController;
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\CredentialIssuerConfigurationController;
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\CredentialIssuerCredentialController;
@@ -71,6 +74,15 @@ return function (RoutingConfigurator $routes): void {
         ->methods([HttpMethodsEnum::POST->value]);
     $routes->add(RoutesEnum::AdminClientsDelete->name, RoutesEnum::AdminClientsDelete->value)
         ->controller([ClientController::class, 'delete'])
+        ->methods([HttpMethodsEnum::POST->value]);
+
+    // Credential status management
+
+    $routes->add(RoutesEnum::AdminCredentialStatus->name, RoutesEnum::AdminCredentialStatus->value)
+        ->controller([CredentialStatusController::class, 'index'])
+        ->methods([HttpMethodsEnum::GET->value]);
+    $routes->add(RoutesEnum::AdminCredentialStatusChange->name, RoutesEnum::AdminCredentialStatusChange->value)
+        ->controller([CredentialStatusController::class, 'change'])
         ->methods([HttpMethodsEnum::POST->value]);
 
     // Testing
@@ -160,6 +172,12 @@ return function (RoutingConfigurator $routes): void {
         ->controller([CredentialJsonLdContextController::class, 'context'])
         ->methods([HttpMethodsEnum::GET->value]);
 
+    // Not registered under the Verifiable Credential Issuance switch, on purpose: credentials already
+    // issued resolve their status here, so this has to keep answering after issuance is turned off.
+    $routes->add(RoutesEnum::StatusList->name, RoutesEnum::StatusList->value)
+        ->controller([StatusListController::class, 'statusList'])
+        ->methods([HttpMethodsEnum::GET->value]);
+
     /*****************************************************************************************************************
      * SD-JWT-based Verifiable Credentials (SD-JWT VC)
      ****************************************************************************************************************/
@@ -176,6 +194,12 @@ return function (RoutingConfigurator $routes): void {
         RoutesEnum::ApiVciCredentialOffer->name,
         RoutesEnum::ApiVciCredentialOffer->value,
     )->controller([VciCredentialOfferApiController::class, 'credentialOffer'])
+        ->methods([HttpMethodsEnum::POST->value]);
+
+    $routes->add(
+        RoutesEnum::ApiVciCredentialStatus->name,
+        RoutesEnum::ApiVciCredentialStatus->value,
+    )->controller([VciCredentialStatusApiController::class, 'credentialStatus'])
         ->methods([HttpMethodsEnum::POST->value]);
 
     $routes->add(

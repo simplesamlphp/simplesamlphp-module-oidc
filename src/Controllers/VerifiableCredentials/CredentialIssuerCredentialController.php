@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers\VerifiableCredentials;
 
+use DateInterval;
+use DateTimeImmutable;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
@@ -15,6 +18,7 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\ResourceServer;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\NonceService;
+use SimpleSAML\Module\oidc\StatusList\CredentialStatusIssuer;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\Utils\VciContextResolver;
@@ -26,10 +30,12 @@ use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Did;
 use SimpleSAML\OpenID\Exceptions\OpenId4VciProofException;
 use SimpleSAML\OpenID\Exceptions\OpenIdException;
+use SimpleSAML\OpenID\TokenStatusList\StatusClaim;
 use SimpleSAML\OpenID\VerifiableCredentials;
 use SimpleSAML\OpenID\VerifiableCredentials\OpenId4VciProof;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class CredentialIssuerCredentialController
 {
@@ -37,6 +43,16 @@ class CredentialIssuerCredentialController
         CredentialFormatIdentifiersEnum::DcSdJwt->value,
         CredentialFormatIdentifiersEnum::VcSdJwt->value,
     ];
+
+    /**
+     * Bytes of randomness in the identifier a credential carries as its `jti`.
+     *
+     * The identifier is what revocation is keyed on, so it has to be unguessable: anyone able to work
+     * out the identifier of a credential they were never issued could ask for it to be revoked. It is
+     * also a URI, since the parsers enforce that, so the randomness is a suffix on a fixed base rather
+     * than the whole value.
+     */
+    protected const int CREDENTIAL_ID_RANDOM_BYTES = 32;
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -55,6 +71,8 @@ class CredentialIssuerCredentialController
         protected readonly IssuerStateRepository $issuerStateRepository,
         protected readonly NonceService $nonceService,
         protected readonly VciContextResolver $vciContextResolver,
+        protected readonly CredentialStatusIssuer $credentialStatusIssuer,
+        protected readonly Helpers $helpers,
     ) {
         if (!$this->moduleConfig->getVciEnabled()) {
             $this->loggerService->warning('Verifiable Credential capabilities not enabled.');
@@ -690,10 +708,44 @@ class CredentialIssuerCredentialController
 
             $issuerDid = $this->did->didJwkResolver()->generateDidJwkFromJwk($publicKey->jwk()->all());
 
-            $issuedAt = new \DateTimeImmutable();
+            $issuedAt = new DateTimeImmutable();
 
-            $vcId = $this->moduleConfig->getIssuer() . '/vc/' . uniqid();
+            // Unguessable rather than sequential or time based, since this is what revocation is keyed
+            // on. Still in URI form, because the credential parsers enforce that of a `jti`.
+            $vcId = $this->moduleConfig->getIssuer() . '/vc/' .
+            $this->helpers->random()->getIdentifier(self::CREDENTIAL_ID_RANDOM_BYTES);
             $signatureAlgorithm = $vciSignatureKeyPair->getSignatureAlgorithm();
+
+            $credentialTtl = $this->moduleConfig->getVciCredentialTtlFor($resolvedCredentialIdentifier);
+            $expiresAt = $credentialTtl instanceof DateInterval ? $issuedAt->add($credentialTtl) : null;
+
+            // Inside the loop rather than outside it: a request carrying several proofs is issued
+            // several credentials, and each one needs an entry of its own to be revocable separately.
+            try {
+                $statusClaim = $this->credentialStatusIssuer->issueFor(
+                    $resolvedCredentialIdentifier,
+                    $vcId,
+                    $userId,
+                    $expiresAt,
+                );
+            } catch (Throwable $exception) {
+                // Refusing to issue is the point. This configuration is set up to produce revocable
+                // credentials, and one issued without a status claim could never be withdrawn -- with
+                // nothing on it to say that it is the exception.
+                $this->loggerService->error(
+                    'Could not allocate a Status List entry, so no credential was issued.',
+                    [
+                        'credentialConfigurationId' => $resolvedCredentialIdentifier,
+                        'error' => $exception->getMessage(),
+                    ],
+                );
+
+                return $this->routes->newJsonErrorResponse(
+                    'server_error',
+                    'Unable to issue a revocable credential at this time.',
+                    500,
+                );
+            }
 
             $this->loggerService->info('Signing and issuing verifiable credential.', [
                 'vcId' => $vcId,
@@ -701,40 +753,64 @@ class CredentialIssuerCredentialController
                 'issuerDid' => $issuerDid,
                 'sub' => $sub,
                 'algorithm' => $signatureAlgorithm->value,
+                'expiresAt' => $expiresAt?->getTimestamp(),
+                'hasStatusClaim' => $statusClaim instanceof StatusClaim,
             ]);
+
+            // Both are merged into every format below. The status claim sits at the top level of the
+            // payload, which is where the Status List specification puts it for a JOSE Referenced
+            // Token, and not inside the credential body of the W3C formats.
+            /** @var array<non-empty-string,mixed> $commonClaims */
+            $commonClaims = $statusClaim instanceof StatusClaim ? $statusClaim->jsonSerialize() : [];
+
+            if ($expiresAt instanceof DateTimeImmutable) {
+                $commonClaims[ClaimsEnum::Exp->value] = $expiresAt->getTimestamp();
+            }
 
             $verifiableCredential = null;
 
             if ($credentialFormatId === CredentialFormatIdentifiersEnum::JwtVcJson->value) {
+                $verifiableCredentialBody = [
+                    ClaimsEnum::AtContext->value => [
+                        AtContextsEnum::W3Org2018CredentialsV1->value,
+                    ],
+                    /** @psalm-suppress MixedArrayAccess */
+                    ClaimsEnum::Type->value =>
+                        $resolvedCredentialConfiguration[ClaimsEnum::CredentialDefinition->value]
+                        [ClaimsEnum::Type->value] ?? [
+                            CredentialTypesEnum::VerifiableCredential->value,
+                            $resolvedCredentialIdentifier,
+                        ],
+                        //ClaimsEnum::Issuer->value => $this->moduleConfig->getIssuer(),
+                        ClaimsEnum::Issuer->value => $issuerDid,
+                        ClaimsEnum::Issuance_Date->value => $issuedAt->format(\DateTimeInterface::RFC3339),
+                        ClaimsEnum::Id->value => $vcId,
+                        ClaimsEnum::Credential_Subject->value =>
+                        $credentialSubject[ClaimsEnum::Credential_Subject->value] ?? [],
+                ];
+
+                // Stated in the credential body as well as in the JWT `exp` claim above, mirroring the
+                // issuance date, which this format already states as both `iat` and `issuanceDate`.
+                if ($expiresAt instanceof DateTimeImmutable) {
+                    $verifiableCredentialBody[ClaimsEnum::Expiration_Date->value] =
+                    $expiresAt->format(\DateTimeInterface::RFC3339);
+                }
+
                 $verifiableCredential = $this->verifiableCredentials->jwtVcJsonFactory()->fromData(
                     $signingKey,
                     $signatureAlgorithm,
-                    [
-                    ClaimsEnum::Vc->value => [
-                        ClaimsEnum::AtContext->value => [
-                            AtContextsEnum::W3Org2018CredentialsV1->value,
+                    array_merge(
+                        [
+                        ClaimsEnum::Vc->value => $verifiableCredentialBody,
+                        //ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
+                        ClaimsEnum::Iss->value => $issuerDid,
+                        ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
+                        ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
+                        ClaimsEnum::Sub->value => $sub,
+                        ClaimsEnum::Jti->value => $vcId,
                         ],
-                        /** @psalm-suppress MixedArrayAccess */
-                        ClaimsEnum::Type->value =>
-                            $resolvedCredentialConfiguration[ClaimsEnum::CredentialDefinition->value]
-                            [ClaimsEnum::Type->value] ?? [
-                                CredentialTypesEnum::VerifiableCredential->value,
-                                $resolvedCredentialIdentifier,
-                            ],
-                            //ClaimsEnum::Issuer->value => $this->moduleConfig->getIssuer(),
-                            ClaimsEnum::Issuer->value => $issuerDid,
-                            ClaimsEnum::Issuance_Date->value => $issuedAt->format(\DateTimeInterface::RFC3339),
-                            ClaimsEnum::Id->value => $vcId,
-                            ClaimsEnum::Credential_Subject->value =>
-                            $credentialSubject[ClaimsEnum::Credential_Subject->value] ?? [],
-                    ],
-                    //ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
-                    ClaimsEnum::Iss->value => $issuerDid,
-                    ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
-                    ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
-                    ClaimsEnum::Sub->value => $sub,
-                    ClaimsEnum::Jti->value => $vcId,
-                    ],
+                        $commonClaims,
+                    ),
                     [
                     ClaimsEnum::Kid->value => $issuerDid . '#0',
                     ],
@@ -742,14 +818,17 @@ class CredentialIssuerCredentialController
             }
 
             if ($credentialFormatId === CredentialFormatIdentifiersEnum::DcSdJwt->value) {
-                $sdJwtPayload = [
-                ClaimsEnum::Iss->value => $issuerDid,
-                ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
-                ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
-                ClaimsEnum::Sub->value => $sub,
-                ClaimsEnum::Jti->value => $vcId,
-                ClaimsEnum::Vct->value => $resolvedCredentialIdentifier,
-                ];
+                $sdJwtPayload = array_merge(
+                    [
+                    ClaimsEnum::Iss->value => $issuerDid,
+                    ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
+                    ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
+                    ClaimsEnum::Sub->value => $sub,
+                    ClaimsEnum::Jti->value => $vcId,
+                    ClaimsEnum::Vct->value => $resolvedCredentialIdentifier,
+                    ],
+                    $commonClaims,
+                );
 
                 if ($proof instanceof OpenId4VciProof && is_string($proofKeyId = $proof->getKeyId())) {
                     $sdJwtPayload[ClaimsEnum::Cnf->value] = [
@@ -774,25 +853,35 @@ class CredentialIssuerCredentialController
                     $resolvedCredentialConfiguration,
                 );
 
-                $sdJwtPayload = [
-                ClaimsEnum::AtContext->value => $atContext,
-                ClaimsEnum::Id->value => $vcId,
-                /** @psalm-suppress MixedArrayAccess */
-                ClaimsEnum::Type->value => $resolvedCredentialConfiguration[ClaimsEnum::CredentialDefinition->value]
-                    [ClaimsEnum::Type->value] ?? [
-                        CredentialTypesEnum::VerifiableCredential->value,
-                        $resolvedCredentialIdentifier,
+                $sdJwtPayload = array_merge(
+                    [
+                    ClaimsEnum::AtContext->value => $atContext,
+                    ClaimsEnum::Id->value => $vcId,
+                    /** @psalm-suppress MixedArrayAccess */
+                    ClaimsEnum::Type->value =>
+                        $resolvedCredentialConfiguration[ClaimsEnum::CredentialDefinition->value]
+                        [ClaimsEnum::Type->value] ?? [
+                            CredentialTypesEnum::VerifiableCredential->value,
+                            $resolvedCredentialIdentifier,
+                        ],
+                        ClaimsEnum::Issuer->value => $issuerDid,
+                        ClaimsEnum::ValidFrom->value => $issuedAt->format(\DateTimeInterface::RFC3339),
+                        ClaimsEnum::Credential_Subject->value =>
+                        $credentialSubject[ClaimsEnum::Credential_Subject->value] ?? [],
+                        ClaimsEnum::Iss->value => $issuerDid,
+                        ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
+                        ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
+                        ClaimsEnum::Sub->value => $sub,
+                        ClaimsEnum::Jti->value => $vcId,
                     ],
-                    ClaimsEnum::Issuer->value => $issuerDid,
-                    ClaimsEnum::ValidFrom->value => $issuedAt->format(\DateTimeInterface::RFC3339),
-                    ClaimsEnum::Credential_Subject->value =>
-                    $credentialSubject[ClaimsEnum::Credential_Subject->value] ?? [],
-                    ClaimsEnum::Iss->value => $issuerDid,
-                    ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
-                    ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
-                    ClaimsEnum::Sub->value => $sub,
-                    ClaimsEnum::Jti->value => $vcId,
-                ];
+                    $commonClaims,
+                );
+
+                // The Verifiable Credentials Data Model 2.0 names the end of a credential's validity
+                // `validUntil`, alongside the `validFrom` above, so this format states it both ways.
+                if ($expiresAt instanceof DateTimeImmutable) {
+                    $sdJwtPayload[ClaimsEnum::ValidUntil->value] = $expiresAt->format(\DateTimeInterface::RFC3339);
+                }
 
                 if ($proof instanceof OpenId4VciProof && is_string($proofKeyId = $proof->getKeyId())) {
                     $sdJwtPayload[ClaimsEnum::Cnf->value] = [

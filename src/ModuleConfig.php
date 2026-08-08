@@ -17,13 +17,18 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc;
 
 use DateInterval;
+use DateTimeImmutable;
 use Defuse\Crypto\Exception\CryptoException;
 use Defuse\Crypto\Key;
 use SimpleSAML\Configuration;
+use SimpleSAML\Database;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Codebooks\DcrRegistrationAuthEnum;
+use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
+use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
@@ -43,6 +48,7 @@ use SimpleSAML\OpenID\ValueAbstracts\KeyPairFilenameConfig;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairConfig;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairConfigBag;
+use Throwable;
 
 class ModuleConfig
 {
@@ -54,6 +60,21 @@ class ModuleConfig
     public const string KEY_PRIVATE_KEY_PASSWORD = 'private_key_password';
     public const string KEY_KEY_ID = 'key_id';
     final public const string DEFAULT_FILE_NAME = 'module_oidc.php';
+
+    /**
+     * SimpleSAMLphp\Database method performing a read which is guaranteed to hit the primary rather
+     * than a possibly lagging secondary. Required by the Token Status List capability.
+     */
+    final public const string SSP_PRIMARY_READ_METHOD = 'readPrimary';
+
+    /**
+     * Shortest Status List retirement grace which still does its job.
+     *
+     * See getVciStatusListRetirementGrace(): the wait has to outlast a credential issuance which was
+     * already in flight, and nothing here can serialise the two instead.
+     */
+    final public const int MINIMUM_STATUS_LIST_RETIREMENT_GRACE_SECONDS = 3600;
+
     final public const string OPTION_PKI_PRIVATE_KEY_PASSPHRASE = 'pass_phrase';
     final public const string DEFAULT_PKI_PRIVATE_KEY_FILENAME = 'oidc_module.key';
     final public const string DEFAULT_PKI_CERTIFICATE_FILENAME = 'oidc_module.crt';
@@ -125,9 +146,25 @@ class ModuleConfig
     final public const string OPTION_API_ENABLED = 'api_enabled';
     final public const string OPTION_API_VCI_CREDENTIAL_OFFER_ENDPOINT_ENABLED =
     'api_vci_credential_offer_endpoint_enabled';
+    final public const string OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED =
+    'api_vci_credential_status_endpoint_enabled';
     final public const string OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED =
     'api_oauth2_token_introspection_endpoint_enabled';
     final public const string OPTION_API_TOKENS = 'api_tokens';
+
+    /** Optional key naming an API token, so that an audit trail can say who made a change. */
+    final public const string KEY_API_TOKEN_NAME = 'name';
+
+    /** Optional key holding an API token's scopes, when the token is given a name as well. */
+    final public const string KEY_API_TOKEN_SCOPES = 'scopes';
+
+    /**
+     * Longest name an API token may be given, matching the audit trail's actor column.
+     *
+     * @see \SimpleSAML\Module\oidc\Repositories\StatusAuditRepository
+     */
+    final public const int MAX_API_TOKEN_NAME_LENGTH = 191;
+
     final public const string OPTION_DEFAULT_USERS_EMAIL_ATTRIBUTE_NAME = 'users_email_attribute_name';
     final public const string OPTION_AUTH_SOURCES_TO_USERS_EMAIL_ATTRIBUTE_NAME_MAP =
     'auth_sources_to_users_email_attribute_name_map';
@@ -141,6 +178,13 @@ class ModuleConfig
     final public const string OPTION_TIMESTAMP_VALIDATION_LEEWAY = 'timestamp_validation_leeway';
     final public const string OPTION_VCI_SIGNATURE_KEY_PAIRS = 'vci_signature_key_pairs';
     final public const string OPTION_VCI_CREDENTIAL_JSON_LD_CONTEXT = 'vci_credential_json_ld_context';
+    final public const string OPTION_VCI_STATUS_LIST_ENABLED = 'vci_status_list_enabled';
+    final public const string OPTION_VCI_STATUS_LIST_KEY_PROFILE = 'vci_status_list_key_profile';
+    final public const string OPTION_VCI_STATUS_LIST_POOLS = 'vci_status_list_pools';
+    final public const string OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE = 'vci_status_list_requests_per_minute';
+    final public const string OPTION_VCI_STATUS_LIST_RETIREMENT_GRACE = 'vci_status_list_retirement_grace';
+    final public const string OPTION_VCI_STATUS_LIST_AUDIT_RETENTION = 'vci_status_list_audit_retention';
+    final public const string OPTION_VCI_CREDENTIAL_TTLS = 'vci_credential_ttls';
     final public const string OPTION_DCR_ENABLED = 'dcr_enabled';
     final public const string OPTION_DCR_REGISTRATION_AUTH = 'dcr_registration_auth';
     final public const string OPTION_DCR_INITIAL_ACCESS_TOKENS = 'dcr_initial_access_tokens';
@@ -191,6 +235,10 @@ class ModuleConfig
     protected ?SignatureKeyPairBag $federationSignatureKeyPairBag = null;
     protected ?SignatureKeyPairBag $vciSignatureKeyPairBag = null;
     protected ?SignatureKeyPairConfigBag $vciSignatureKeyPairConfigBag = null;
+    protected ?StatusListPoolBag $vciStatusListPoolBag = null;
+
+    /** @var ?array<string,\DateInterval> Credential configuration ID to how long its credentials live. */
+    protected ?array $vciCredentialTtls = null;
 
     /**
      * @throws \Exception
@@ -1223,6 +1271,416 @@ class ModuleConfig
         return $this->config()->getOptionalBoolean(self::OPTION_VCI_ENABLED, false);
     }
 
+    /**
+     * Whether new credentials get a Token Status List entry allocated to them.
+     *
+     * Note what this switch does not do: it never stops the Status List endpoint from serving. Turning
+     * it off must leave already issued credentials verifiable, so lists keep being served until they
+     * are retired through their own lifecycle. Only allocation of new entries stops.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciStatusListEnabled(): bool
+    {
+        if (!$this->config()->getOptionalBoolean(self::OPTION_VCI_STATUS_LIST_ENABLED, false)) {
+            return false;
+        }
+
+        // Refuse to enable rather than fall back to a replica read. Deciding whether a credential has
+        // been revoked off a lagging secondary can publish a revoked credential as valid, and the host
+        // SimpleSAMLphp is a development dependency here, so Composer can not enforce a floor for us:
+        // this module can be installed into an older SimpleSAMLphp and nothing would object.
+        if (!self::hasPrimaryDatabaseReadCapability()) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Token Status Lists are enabled ("%s"), but the installed SimpleSAMLphp does not ' .
+                    'provide %s::%s(). Status List correctness depends on reading back what was just ' .
+                    'written rather than a possibly lagging secondary, so this capability is required. ' .
+                    'Upgrade SimpleSAMLphp to a version providing it, or disable "%s".',
+                    self::OPTION_VCI_STATUS_LIST_ENABLED,
+                    Database::class,
+                    self::SSP_PRIMARY_READ_METHOD,
+                    self::OPTION_VCI_STATUS_LIST_ENABLED,
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        return true;
+    }
+
+    /**
+     * Whether the host SimpleSAMLphp can perform reads which bypass secondaries.
+     *
+     * Checked against the class rather than an instance, so that this stays a pure capability question
+     * and config loading does not have to reach for a database connection.
+     */
+    public static function hasPrimaryDatabaseReadCapability(): bool
+    {
+        return method_exists(Database::class, self::SSP_PRIMARY_READ_METHOD);
+    }
+
+    /**
+     * How many Status List requests one client may make per minute, or 0 for no limit.
+     *
+     * Off by default, and deliberately so. The limit can only be applied to whatever the request appears
+     * to come from, which behind a reverse proxy is the proxy itself unless SimpleSAMLphp has been told
+     * to trust it -- so a limit switched on by default would, in exactly that common deployment, put
+     * every client in one bucket and start refusing a public endpoint that credentials in wallets depend
+     * on. An operator turning this on is stating that they know which address arrives here.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciStatusListRequestsPerMinute(): int
+    {
+        $configured = $this->config()->getOptionalInteger(
+            self::OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE,
+            0,
+        );
+
+        if ($configured < 0) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Option "%s" can not be negative. Use 0 to apply no limit.',
+                    self::OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE,
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        return $configured;
+    }
+
+    /**
+     * How long a Status List is left alone before it may be retired.
+     *
+     * Applied twice over, to the two things which have to have settled down: a list is not looked at
+     * until this long after it stopped accepting allocations, and it is not retired until this long
+     * after the last credential in it expired. Both are the same waiting period because they answer the
+     * same question -- has everything which might still be holding this list finished with it.
+     *
+     * Retiring a list makes its URI answer 404, and that URI is written into every credential which was
+     * issued from it. Those credentials have all expired by then, so nothing which should verify stops
+     * verifying, but a Relying Party which caches responses, or a wallet showing a credential it has not
+     * noticed is expired, sees a fetch fail rather than a status come back. The wait is what keeps that
+     * from happening the moment the last credential lapses.
+     *
+     * There is a floor under it, and this is the part which is not merely conservative. The first of the
+     * two waits exists to outlast an issuance which was already under way when the list stopped
+     * accepting allocations -- a request whose statement has read the list as open but has not yet
+     * written the row claiming an index. Nothing available here can serialise those two: there are no
+     * transactions, and the retiring statement and the allocating one write different rows, so neither
+     * conflicts with the other however each is guarded. Outlasting the request is the only defence, and
+     * a wait shorter than a request can take is not one. An hour is some two orders of magnitude beyond
+     * PHP's default execution limit, and still a small fraction of the default wait.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciStatusListRetirementGrace(): DateInterval
+    {
+        $grace = $this->resolveDurationOption(
+            self::OPTION_VCI_STATUS_LIST_RETIREMENT_GRACE,
+            $this->config()->getOptionalValue(self::OPTION_VCI_STATUS_LIST_RETIREMENT_GRACE, 'P30D'),
+        ) ?? new DateInterval('P30D');
+
+        $epoch = new DateTimeImmutable('@0');
+
+        if ($epoch->add($grace)->getTimestamp() < self::MINIMUM_STATUS_LIST_RETIREMENT_GRACE_SECONDS) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Option "%s" must be at least one hour. It is what a Status List which stopped ' .
+                    'accepting credentials waits before it may be retired, and its job is to outlast a ' .
+                    'credential issuance which was already under way at that moment. A shorter wait can ' .
+                    'let such an issuance produce a credential naming a list which has since been ' .
+                    'retired, and that credential can never be verified.',
+                    self::OPTION_VCI_STATUS_LIST_RETIREMENT_GRACE,
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        return $grace;
+    }
+
+    /**
+     * How long rows in the status audit trail are kept, or null to keep them indefinitely.
+     *
+     * No default, deliberately. What an audit trail is for is answering questions later, and how much
+     * later is a matter of the deployment's own obligations rather than something this module can guess
+     * -- so nothing is discarded unless an operator says how long is long enough. The trail is small
+     * (one row per status change, never one per credential), so keeping it costs little.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciStatusListAuditRetention(): ?DateInterval
+    {
+        return $this->resolveDurationOption(
+            self::OPTION_VCI_STATUS_LIST_AUDIT_RETENTION,
+            $this->config()->getOptionalValue(self::OPTION_VCI_STATUS_LIST_AUDIT_RETENTION, null),
+        );
+    }
+
+    /**
+     * Reads an option which is a duration, is allowed to be absent, and has to be a length of time.
+     *
+     * Both options this serves are subtracted from now to get a cut-off, and both are the only thing
+     * standing between a cut-off and something being deleted or retired. A duration of no time gives a
+     * cut-off of now, and a negative one -- which a DateInterval can be, though a duration string can
+     * not -- gives a cut-off in the future, at which point the option is not delaying anything but
+     * bringing it forward. So neither is accepted, and the option being absent is how a deployment says
+     * it does not want the behaviour at all.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    protected function resolveDurationOption(string $option, mixed $value): ?DateInterval
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if ($value instanceof DateInterval) {
+            // Checked like any other, rather than trusted for having arrived as the right type. The
+            // configuration file is PHP, so an interval can be constructed there and then inverted,
+            // which no duration string can express and which the check below is what catches.
+            $duration = $value;
+        } elseif (is_string($value)) {
+            try {
+                $duration = new DateInterval($value);
+            } catch (Throwable $throwable) {
+                throw new ConfigurationError(
+                    sprintf('Option "%s" is not a valid duration: %s', $option, $throwable->getMessage()),
+                    self::DEFAULT_FILE_NAME,
+                );
+            }
+        } else {
+            throw new ConfigurationError(
+                sprintf('Option "%s" must be a duration string, %s given.', $option, get_debug_type($value)),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        // Anchored to the epoch rather than to now, so the answer does not depend on the server's
+        // timezone or on which side of a daylight saving transition the configuration is read. An
+        // inverted interval lands before the epoch and is caught by the same comparison.
+        if ((new DateTimeImmutable('@0'))->add($duration)->getTimestamp() < 1) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Option "%s" is set to no time at all, or to a negative duration. Remove the option ' .
+                    'instead.',
+                    $option,
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        return $duration;
+    }
+
+    /**
+     * Key profile used for Status List Tokens which do not have one set on their own pool.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciStatusListKeyProfile(): StatusListKeyProfileEnum
+    {
+        /** @var mixed $configured */
+        $configured = $this->config()->getOptionalValue(self::OPTION_VCI_STATUS_LIST_KEY_PROFILE, null);
+
+        if ($configured === null) {
+            return StatusListKeyProfileEnum::DidJwk;
+        }
+
+        if ($configured instanceof StatusListKeyProfileEnum) {
+            return $configured;
+        }
+
+        if (is_string($configured) && ($profile = StatusListKeyProfileEnum::tryFrom($configured)) !== null) {
+            return $profile;
+        }
+
+        throw new ConfigurationError(
+            sprintf(
+                'Option "%s" must be one of: %s.',
+                self::OPTION_VCI_STATUS_LIST_KEY_PROFILE,
+                implode(
+                    ', ',
+                    array_map(
+                        static fn(StatusListKeyProfileEnum $case): string => $case->value,
+                        StatusListKeyProfileEnum::cases(),
+                    ),
+                ),
+            ),
+            self::DEFAULT_FILE_NAME,
+        );
+    }
+
+    /**
+     * The configured Status List pools.
+     *
+     * Deliberately a separate top-level option rather than something nested inside the credential
+     * configurations: those are returned wholesale as published Credential Issuer metadata, so a
+     * private control placed among them would become visible to every wallet.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciStatusListPoolBag(): StatusListPoolBag
+    {
+        if ($this->vciStatusListPoolBag instanceof StatusListPoolBag) {
+            return $this->vciStatusListPoolBag;
+        }
+
+        $poolBag = StatusListPoolBag::fromConfig(
+            $this->config()->getOptionalArray(self::OPTION_VCI_STATUS_LIST_POOLS, []),
+            $this->getVciStatusListKeyProfile(),
+        );
+
+        $supportedIds = $this->getVciCredentialConfigurationIdsSupported();
+
+        foreach ($poolBag->getAllCredentialConfigurationIds() as $credentialConfigurationId) {
+            if (in_array($credentialConfigurationId, $supportedIds, true)) {
+                continue;
+            }
+
+            // A typo here would otherwise be silent: the pool would simply never be allocated from, and
+            // the credentials which were meant to be revocable would be issued without a status claim.
+            throw new ConfigurationError(
+                sprintf(
+                    'Status List pool "%s" lists the credential configuration "%s", which is not one of ' .
+                    'the configurations declared under "%s".',
+                    (string)$poolBag->getForCredentialConfigurationId($credentialConfigurationId)?->getId(),
+                    $credentialConfigurationId,
+                    self::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED,
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        return $this->vciStatusListPoolBag = $poolBag;
+    }
+
+    /**
+     * The pool a credential configuration allocates Status List entries from, or null if it is not
+     * configured to use them, in which case its credentials are issued without a `status` claim.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciStatusListPoolFor(string $credentialConfigurationId): ?StatusListPool
+    {
+        if (!$this->getVciStatusListEnabled()) {
+            return null;
+        }
+
+        return $this->getVciStatusListPoolBag()->getForCredentialConfigurationId($credentialConfigurationId);
+    }
+
+    /**
+     * How long credentials of each configuration remain valid.
+     *
+     * A separate top-level option for the same reason the pools are: the credential configurations are
+     * published wholesale as Credential Issuer metadata, so anything placed among them becomes visible
+     * to every wallet.
+     *
+     * Configurations absent from this map issue credentials which never expire, which is what this
+     * module has always done and stays the default. Adding an expiry changes the meaning of credentials
+     * that are already being issued, so it is something an operator opts into per configuration rather
+     * than something that arrives with an upgrade.
+     *
+     * @return array<string,\DateInterval>
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciCredentialTtls(): array
+    {
+        if (is_array($this->vciCredentialTtls)) {
+            return $this->vciCredentialTtls;
+        }
+
+        $supportedIds = $this->getVciCredentialConfigurationIdsSupported();
+        $ttls = [];
+
+        /** @var mixed $value */
+        foreach ($this->config()->getOptionalArray(self::OPTION_VCI_CREDENTIAL_TTLS, []) as $key => $value) {
+            $credentialConfigurationId = (string)$key;
+
+            if (!in_array($credentialConfigurationId, $supportedIds, true)) {
+                // Silently ignoring this would leave credentials which were meant to expire being
+                // issued without an expiry, and nothing would say so.
+                throw new ConfigurationError(
+                    sprintf(
+                        'Option "%s" sets a lifetime for the credential configuration "%s", which is not ' .
+                        'one of the configurations declared under "%s".',
+                        self::OPTION_VCI_CREDENTIAL_TTLS,
+                        $credentialConfigurationId,
+                        self::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED,
+                    ),
+                    self::DEFAULT_FILE_NAME,
+                );
+            }
+
+            $ttls[$credentialConfigurationId] = $this->resolveCredentialTtl($credentialConfigurationId, $value);
+        }
+
+        return $this->vciCredentialTtls = $ttls;
+    }
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    protected function resolveCredentialTtl(string $credentialConfigurationId, mixed $value): DateInterval
+    {
+        if (!is_string($value)) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Option "%s" must give the lifetime of "%s" as a duration string, %s given.',
+                    self::OPTION_VCI_CREDENTIAL_TTLS,
+                    $credentialConfigurationId,
+                    get_debug_type($value),
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        try {
+            $ttl = new DateInterval($value);
+        } catch (Throwable $throwable) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Option "%s" gives "%s" a lifetime which is not a valid duration: %s',
+                    self::OPTION_VCI_CREDENTIAL_TTLS,
+                    $credentialConfigurationId,
+                    $throwable->getMessage(),
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        // Anchored to the epoch rather than to now, so the answer does not depend on the server's
+        // timezone or on which side of a daylight saving transition the configuration is read.
+        if ((new DateTimeImmutable('@0'))->add($ttl)->getTimestamp() < 1) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Option "%s" gives "%s" a lifetime of no time at all, so its credentials would ' .
+                    'expire the moment they are issued. Remove the entry to issue credentials which ' .
+                    'do not expire.',
+                    self::OPTION_VCI_CREDENTIAL_TTLS,
+                    $credentialConfigurationId,
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        return $ttl;
+    }
+
+    /**
+     * How long a credential of this configuration is valid for, or null if it does not expire.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciCredentialTtlFor(string $credentialConfigurationId): ?DateInterval
+    {
+        return $this->getVciCredentialTtls()[$credentialConfigurationId] ?? null;
+    }
+
 
     /*****************************************************************************************************************
      * OpenID Connect Dynamic Client Registration related config.
@@ -1610,6 +2068,18 @@ class ModuleConfig
         return $this->config()->getOptionalBoolean(self::OPTION_API_VCI_CREDENTIAL_OFFER_ENDPOINT_ENABLED, false);
     }
 
+    /**
+     * Whether the endpoint through which a credential's status can be changed is served.
+     *
+     * Separate from the Status List capability itself, which only governs whether entries are
+     * allocated. Serving this endpoint means accepting revocation requests over the network, which is
+     * a decision of its own, and it is off until an operator makes it.
+     */
+    public function getApiVciCredentialStatusEndpointEnabled(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED, false);
+    }
+
     public function getApiOAuth2TokenIntrospectionEndpointEnabled(): bool
     {
         return $this->config()->getOptionalBoolean(self::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED, false);
@@ -1629,14 +2099,100 @@ class ModuleConfig
      */
     public function getApiTokenScopes(string $token): ?array
     {
-        /** @psalm-suppress MixedAssignment */
-        $tokenScopes = $this->getApiTokens()[$token] ?? null;
+        /** @var mixed $entry */
+        $entry = $this->getApiTokens()[$token] ?? null;
 
-        if (is_array($tokenScopes)) {
-            return $tokenScopes;
+        if (!is_array($entry)) {
+            return null;
         }
 
-        return null;
+        // Two shapes are accepted. A token may be given a bare list of scopes, which is how this
+        // option has always been written, or a settings array which names the token as well. Either
+        // of the settings keys marks the second shape, and a bare list can carry neither, since its
+        // entries are values rather than keys.
+        if (!$this->isApiTokenSettingsShape($entry)) {
+            return $entry;
+        }
+
+        /** @var mixed $scopes */
+        $scopes = $entry[self::KEY_API_TOKEN_SCOPES] ?? null;
+
+        if (is_array($scopes)) {
+            return $scopes;
+        }
+
+        // Named, but not declaring its scopes under the key for them. They may still be there
+        // positionally, which is how a token someone had already annotated with a name would be
+        // written, and that token authorized before this option grew a second shape. The settings
+        // keys are dropped rather than the whole array returned, since handing back the name would
+        // give the token a scope called after itself.
+        $positionalScopes = array_diff_key(
+            $entry,
+            array_flip([self::KEY_API_TOKEN_NAME, self::KEY_API_TOKEN_SCOPES]),
+        );
+
+        // Settings which name a token and grant it nothing authorize nothing.
+        return $positionalScopes === [] ? null : $positionalScopes;
+    }
+
+    /**
+     * The name an API token is configured under, or null when it has none.
+     *
+     * This is what the audit trail records as the actor behind a change. The token itself must never
+     * go anywhere near it: it is a bearer secret, and an audit table is exactly the sort of place it
+     * would outlive its rotation.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getApiTokenName(string $token): ?string
+    {
+        /** @var mixed $entry */
+        $entry = $this->getApiTokens()[$token] ?? null;
+
+        if (!is_array($entry)) {
+            return null;
+        }
+
+        /** @var mixed $name */
+        $name = $entry[self::KEY_API_TOKEN_NAME] ?? null;
+
+        if (!is_string($name) || trim($name) === '') {
+            return null;
+        }
+
+        $name = trim($name);
+
+        // Refused here rather than truncated. A name too long for the column would otherwise make
+        // every change this token asks for fail at the point of recording it, on the databases which
+        // check, and shortening it silently could quietly merge two principals into one.
+        if (mb_strlen($name) > self::MAX_API_TOKEN_NAME_LENGTH) {
+            throw new ConfigurationError(
+                sprintf(
+                    'An API token is named with %d characters, which is more than the %d the status ' .
+                    'change audit trail can record. Give it a shorter name.',
+                    mb_strlen($name),
+                    self::MAX_API_TOKEN_NAME_LENGTH,
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        return $name;
+    }
+
+    /**
+     * Whether an API token entry is written as a settings array rather than as a bare list of scopes.
+     *
+     * @param array<array-key,mixed> $entry
+     */
+    protected function isApiTokenSettingsShape(array $entry): bool
+    {
+        // The keys have to hold what the settings shape would hold, not merely be present. A bare
+        // list is read by value rather than by key, so one which happens to carry an entry under a
+        // key of 'scopes' or 'name' authorized before this option grew a second shape, and quietly
+        // ceasing to would be an authorization change nobody asked for.
+        return is_array($entry[self::KEY_API_TOKEN_SCOPES] ?? null) ||
+        is_string($entry[self::KEY_API_TOKEN_NAME] ?? null);
     }
 
     public function getAuthSourcesToUsersEmailAttributeMap(): array

@@ -1540,6 +1540,210 @@ $config = [
     ModuleConfig::OPTION_VCI_NONCE_TTL => 'PT5M', // 5 minutes
 
     /**
+     * (optional) How long an issued credential stays valid, per credential
+     * configuration. Configurations which are not listed here issue
+     * credentials which never expire, which is the default.
+     *
+     * Think before enabling this for a configuration that is already in use:
+     * credentials issued from now on will stop working on their own, while
+     * the ones already in wallets will not. For duration format info, check
+     * https://www.php.net/manual/en/dateinterval.construct.php
+     *
+     * An expiry is also what makes retiring a Status List possible at all. A
+     * list holding even one credential that never expires has to go on being
+     * served, since a wallet may present that credential at any time.
+     *
+     * This is a top-level option rather than something inside the credential
+     * configurations, because those are published verbatim as Credential
+     * Issuer metadata and anything placed among them becomes visible to every
+     * wallet.
+     */
+//    ModuleConfig::OPTION_VCI_CREDENTIAL_TTLS => [
+//        'UniversityDegreeCredential' => 'P1Y', // 1 year
+//        'EmployeeBadgeCredential' => 'P90D', // 90 days
+//    ],
+
+    /**
+     * (optional) Whether issued Verifiable Credentials get a Token Status List
+     * entry allocated to them, which is what makes them revocable and
+     * suspendable. Defaults to false.
+     *
+     * Note what this switch does NOT do: it never stops the Status List
+     * endpoint from serving. Credentials which were already issued carry a
+     * `status` claim pointing at a list, and they have to stay verifiable, so
+     * lists keep being served until they complete their own lifecycle. Turning
+     * this off only stops new entries from being allocated.
+     *
+     * This requires a SimpleSAMLphp providing SimpleSAML\Database::readPrimary().
+     * Deciding whether a credential has been revoked off a lagging database
+     * secondary could publish a revoked credential as valid, so the module
+     * refuses to enable this capability rather than fall back to a replica read.
+     */
+    ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => false,
+
+    /**
+     * (optional) How Status List Tokens identify the key they were signed with.
+     * Defaults to StatusListKeyProfileEnum::DidJwk.
+     *
+     * The specification deliberately mandates no key resolution method, so this
+     * is a deployment profile rather than something the specification decides:
+     *
+     *  - DidJwk: `kid` is the issuer's `did:jwk:...#0` and `iss` is the same
+     *    `did:jwk:...`. The token carries the key with it, so it verifies without
+     *    any external lookup. This is the default.
+     *  - Jwks: `iss` is this module's issuer URL and `kid` is the JWKS key ID,
+     *    so the key is resolved through the published JWKS. Use this for Relying
+     *    Parties which will not accept a `did:jwk` key identifier.
+     *
+     * Each Status List records the profile it was created under, so changing
+     * this routes newly issued credentials to newly created lists while existing
+     * lists keep being served under the profile their holders already resolved
+     * them by. Changing it therefore never invalidates credentials which are
+     * already in wallets.
+     */
+    ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE => \SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum::DidJwk,
+
+    /**
+     * (optional) Token Status List pools.
+     *
+     * A pool, not a credential configuration, is the unit which shares a Status
+     * List, and several credential configurations can map onto one pool. This is
+     * a deliberate privacy trade: the specification's herd privacy rests on many
+     * credentials sharing one list, so splitting configurations into separate
+     * pools costs herd size and should be done only when their policies genuinely
+     * differ. A credential configuration must appear in at most one pool.
+     *
+     * Credentials of a configuration which is in no pool are issued without a
+     * `status` claim, and can not be revoked or suspended.
+     *
+     * These settings are deliberately kept here rather than inside
+     * OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED, because those are published
+     * wholesale as Credential Issuer metadata and anything placed among them
+     * would become visible to every wallet.
+     *
+     * Per-pool settings, all optional except the credential configurations:
+     *
+     *  - 'credential_configurations': credential configuration IDs allocating
+     *    from this pool. Required, and each must be declared under
+     *    OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED.
+     *  - 'bits': bits per entry, one of 1, 2, 4, 8. Default 1. This must be large
+     *    enough for every status the pool can emit, and can not be changed for
+     *    lists which already exist, so a pool which may suspend needs at least 2.
+     *    It affects transfer size, never herd size.
+     *  - 'capacity': entries per list, a positive multiple of 8. Default 131072.
+     *  - 'allowed_statuses': statuses this pool may emit, besides Valid, which is
+     *    always allowed. Default: Invalid only.
+     *  - 'ttl': how long a Relying Party may cache a fetched token. Default PT12H.
+     *    This is the revocation latency an RP is entitled to: with the default, a
+     *    conforming RP may keep accepting a revoked credential for up to 12 hours.
+     *  - 'token_validity': lifetime of a published Status List Token. Default P7D.
+     *  - 'refresh_interval': how old a published token may get before it is
+     *    re-signed. Default PT1H. The refresh interval plus a 15 minute safety
+     *    margin must stay below the token validity, otherwise a published token
+     *    expires before its replacement is produced.
+     *  - 'key_profile': overrides OPTION_VCI_STATUS_LIST_KEY_PROFILE for this pool.
+     */
+//    ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS => [
+//        'default' => [
+//            'credential_configurations' => [
+//                'UniversityDegreeCredential',
+//            ],
+//        ],
+//        // A pool which can also suspend, so it needs at least 2 bits per entry.
+//        'suspendable' => [
+//            'credential_configurations' => [
+//                'EmployeeBadgeCredential',
+//            ],
+//            'bits' => 2,
+//            'allowed_statuses' => [
+//                \SimpleSAML\OpenID\Codebooks\StatusTypeEnum::Invalid,
+//                \SimpleSAML\OpenID\Codebooks\StatusTypeEnum::Suspended,
+//            ],
+//            'ttl' => 'PT1H',
+//        ],
+//    ],
+
+    /**
+     * (optional) How many requests per minute a single client may make to
+     * the Status List endpoint. The default, 0, means no limit at all.
+     *
+     * The endpoint is unauthenticated and one response can reach a couple of
+     * hundred kilobytes, so putting a ceiling on how much a single client can
+     * pull is worth considering. There are two things to check before you do.
+     *
+     * First, clients are told apart only by the IP address that reaches PHP
+     * (REMOTE_ADDR). If a reverse proxy, load balancer or CDN sits in front
+     * of SimpleSAMLphp, then that address is the proxy's own, and it is the
+     * same one for every request. All clients would share a single counter,
+     * which their combined traffic exhausts quickly, and the endpoint would
+     * start refusing legitimate requests. That matters more here than on
+     * other endpoints: wallets and verifiers read this endpoint to tell a
+     * valid credential from a revoked one, so refusing them makes already
+     * issued credentials unverifiable. Confirm which address actually
+     * arrives at PHP before setting a limit.
+     *
+     * Second, counting requires a protocol cache. If none is configured this
+     * option has no effect: nothing is counted and no request is refused.
+     */
+//    ModuleConfig::OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE => 60,
+
+    /**
+     * (optional) How long a Status List is left alone before it may be
+     * retired. Defaults to P30D (30 days).
+     *
+     * This waiting period is applied twice, to the two things which have to
+     * have settled: a list is not looked at until this long after it stopped
+     * accepting new credentials, and it is not retired until this long after
+     * the last credential in it expired.
+     *
+     * Retiring a list makes its URI answer 404, and that URI is written into
+     * every credential which was issued from it. By then those credentials
+     * have all expired, so nothing that should verify stops verifying, but a
+     * Relying Party working from a cached response, or a wallet showing a
+     * credential it has not noticed is expired, would see the fetch fail. The
+     * wait is what keeps that from happening the moment the last credential
+     * lapses. Lengthen it if your Relying Parties cache aggressively.
+     *
+     * It can not be set below one hour. The first of the two waits has to
+     * outlast an issuance which was already under way when the list stopped
+     * accepting credentials, and nothing in this module can serialise those
+     * two instead: the retiring statement and the allocating one write
+     * different rows, so neither conflicts with the other. A shorter wait can
+     * let such an issuance produce a credential naming a list which has since
+     * been retired, and that credential can never be verified.
+     *
+     * The same wait passes again before a retired list's entry rows are
+     * removed, so that if the above ever did happen there is still a record
+     * that the credential was issued.
+     *
+     * Retirement is run by the module's cron hook, so it only happens if the
+     * cron tag below is configured and SimpleSAMLphp's cron is running.
+     */
+//    ModuleConfig::OPTION_VCI_STATUS_LIST_RETIREMENT_GRACE => 'P30D', // 30 days
+
+    /**
+     * (optional) How long rows in the status audit trail are kept. Not set by
+     * default, which keeps them indefinitely.
+     *
+     * The trail records who asked for which credential's status to change, and
+     * when. There is no default retention because how long that needs keeping
+     * follows from your own obligations rather than from anything this module
+     * can work out. It is a row per status change, not a row per credential,
+     * so keeping it costs little in storage.
+     *
+     * It is not, however, free of personal data. The credential is recorded
+     * only as a hash of its identifier, but the actor is recorded as it is: an
+     * API token principal's configured name, or the identifier the `admin`
+     * authentication source released, which in a deployment where that points
+     * at a real authentication source names a person. Setting a retention is
+     * how you put a limit on how long that is kept.
+     *
+     * Pruning is run by the module's cron hook, so it only happens if the cron
+     * tag below is configured and SimpleSAMLphp's cron is running.
+     */
+//    ModuleConfig::OPTION_VCI_STATUS_LIST_AUDIT_RETENTION => 'P1Y', // 1 year
+
+    /**
      * Map of authentication sources and user's email attribute names. This
      * enables you to define a specific attribute name which contains the
      * user's email address, per authentication source. This is used, for
@@ -1582,6 +1786,24 @@ $config = [
     ModuleConfig::OPTION_API_VCI_CREDENTIAL_OFFER_ENDPOINT_ENABLED => false,
 
     /**
+     * (optional) API Enable VCI Credential Status API endpoint, through which
+     * an issued credential can be revoked, suspended or reinstated. Default is
+     * disabled (false). Only relevant if API capabilities are enabled.
+     *
+     * Separate from the Status List capability itself, which governs whether
+     * credentials get an entry allocated at all. This governs whether that
+     * entry can be changed over the network, which is a decision of its own.
+     *
+     * Unlike the rest of this API, this endpoint accepts a bearer token in the
+     * Authorization header only. It does not accept an administrator's session
+     * and it does not read the token from a request parameter: the first would
+     * let an administrator's browser be driven into revoking a credential from
+     * another site, and the second would leave a bearer secret in access logs.
+     * Administrators revoke through the administration screens instead.
+     */
+    ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED => false,
+
+    /**
      * (optional) API Enable OAuth2 Token Introspection API endpoint. Default
      * is disabled (false). Only relevant if API capabilities are enabled.
      */
@@ -1590,6 +1812,14 @@ $config = [
     /**
      * List of API tokens which can be used to access API endpoints based on
      * given scopes. The format is: ['token' => [ApiScopesEnum]]
+     *
+     * A token may instead be given a settings array, which is the same thing
+     * plus a name: ['token' => ['name' => '...', 'scopes' => [ApiScopesEnum]]]
+     * The name is what the audit trail records as the actor behind a status
+     * change, so it is worth setting for any token allowed to revoke a
+     * credential. A token without one is recorded as an opaque fingerprint
+     * instead, which keeps separate callers apart in the trail but says
+     * nothing about who they are. The token itself is never recorded.
      */
     ModuleConfig::OPTION_API_TOKENS => [
 //        'strong-random-token-string' => [
@@ -1601,6 +1831,12 @@ $config = [
 //            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::All, // Gives access to the whole API.
 //            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::OAuth2All, // Gives access to all OAuth2-related endpoints.
 //            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::OAuth2TokenIntrospection, // Gives access to the token introspection endpoint.
+//        ],
+//        'strong-random-token-string-3' => [
+//            'name' => 'HR system', // Recorded in the status change audit trail.
+//            'scopes' => [
+//                \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::VciCredentialStatus, // Gives access to the credential status endpoint.
+//            ],
 //        ],
     ],
 ];
