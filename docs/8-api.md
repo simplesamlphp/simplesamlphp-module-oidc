@@ -11,6 +11,11 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 ModuleConfig::OPTION_API_ENABLED => true,
 ```
 
+This is the master switch, and on its own it exposes nothing. Every endpoint
+also has its own switch, and some additionally depend on the feature they belong
+to being enabled. All of these default to `false`, so an endpoint answers only
+once this option and the ones listed with that endpoint below are all `true`.
+
 
 ## API Authentication and Authorization
 
@@ -75,6 +80,16 @@ SimpleSAMLphp installation.
 ### Credential Offer
 
 Enables fetching a credential offer as per OpenID4VCI specification.
+
+Enable it in `config/module_oidc.php`, together with the VCI feature itself,
+which this endpoint depends on:
+
+```php
+use SimpleSAML\Module\oidc\ModuleConfig;
+
+ModuleConfig::OPTION_VCI_ENABLED => true,
+ModuleConfig::OPTION_API_VCI_CREDENTIAL_OFFER_ENDPOINT_ENABLED => true,
+```
 
 #### Path
 
@@ -157,9 +172,9 @@ curl --location 'https://idp.mivanci.incubator.hexaa.eu/ssp/module.php/oidc/api/
     "use_tx_code": true,
     "users_email_attribute_name": "mail",
     "user_attributes": {
-        "uid": [“testuseruid"],
+        "uid": ["testuseruid"],
         "mail": ["testuser@example.com"],
-        "...": [“..."]
+        "...": ["..."]
     }
 }'
 ```
@@ -295,6 +310,14 @@ Response:
 
 Enables token introspection for OAuth2 access tokens and refresh tokens as per
 [RFC 7662](https://datatracker.ietf.org/doc/html/rfc7662).
+
+Enable it in `config/module_oidc.php`:
+
+```php
+use SimpleSAML\Module\oidc\ModuleConfig;
+
+ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED => true,
+```
 
 #### Path
 

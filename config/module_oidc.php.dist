@@ -88,15 +88,18 @@ $config = [
 //            ModuleConfig::KEY_PRIVATE_KEY_PASSWORD => 'private-key-password', // Optional
 //            ModuleConfig::KEY_KEY_ID => 'rsa-connect-signing-key-2026', // Optional
         ],
-        // Example for additionally supported ES256 algorithm with EC keys.
-        // Delete it if not needed:
-        [
-            ModuleConfig::KEY_ALGORITHM => \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum::ES256,
-            ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module_connect_ec_p256_01.key',
-            ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'oidc_module_connect_ec_p256_01.pub',
+        // Example for an additionally supported ES256 algorithm with EC keys. Uncomment it
+        // once the corresponding EC key pair exists, as described in the installation guide.
+        // Note that every entry in this list is resolved before any JWS can be signed, so an
+        // entry referring to a key file that is not there disables protocol signing
+        // altogether, not only the algorithm that entry describes.
+//        [
+//            ModuleConfig::KEY_ALGORITHM => \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum::ES256,
+//            ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module_connect_ec_p256_01.key',
+//            ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'oidc_module_connect_ec_p256_01.pub',
 //            ModuleConfig::KEY_PRIVATE_KEY_PASSWORD => 'private-key-password', // Optional
 //            ModuleConfig::KEY_KEY_ID => 'ec-connect-signing-key-01', // Optional
-        ],
+//        ],
     ],
 
     /**
@@ -1032,6 +1035,18 @@ $config = [
      * (option ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS)
      *
      * NOTE: for the time being, only one key-pair is supported.
+     *
+     * Unlike the protocol (Connect) default, this defaults to ES256 with an EC
+     * key pair, since that is what wallets commonly expect of an issuer. A
+     * deployment that has never enabled VCI does not need the key pair named
+     * below; if you do enable VCI, create it first (see the installation guide)
+     * or point these entries at keys you already have.
+     *
+     * Note that disabling VCI afterwards does not release these keys. Status
+     * Lists keep being served so that already issued credentials stay
+     * verifiable, and they are signed with keys resolved through this option, so
+     * an entry has to remain here for as long as any Status List it signed is
+     * still served.
      */
     ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS => [
         [

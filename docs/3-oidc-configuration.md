@@ -206,8 +206,9 @@ If not set, you will see warnings about this in the logs.
 
 ## Private scopes
 
-The module supports the standard scopes: `openid`, `email`, `address`,
-`phone`, and `profile`. You can add private scopes in `module_oidc.php`:
+The module supports the standard scopes: `openid`, `offline_access`, `email`,
+`address`, `phone`, and `profile`. You can add private scopes in
+`module_oidc.php`:
 
 ```php
 <?php

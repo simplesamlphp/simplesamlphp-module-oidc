@@ -43,6 +43,24 @@ keys for protocol (Connect), Federation and Verifiable Credential (VCI)
 operations. You must have at least one algorithm / key-pair for protocol
 (Connect), and for Federation and VCI if you use those features.
 
+Create the key pairs that your `config/module_oidc.php` actually refers to, and
+no others. As distributed, that file activates a single protocol (Connect) key
+pair, `RS256` with `oidc_module_connect_rsa_01`, so following the RSA
+instructions below is enough to get the module running. The other algorithms
+shown here are examples that ship commented out; uncomment an entry only once
+its key pair exists.
+
+Getting that wrong is not a partial failure. Every activated key pair is
+resolved before any JWS is signed, so an entry naming a key file that is not
+there stops the module from signing at all, rather than only disabling the
+algorithm that entry describes.
+
+Federation key pairs are read only when Federation is enabled. VCI ships with an
+`ES256` entry rather than an RSA one, so enabling VCI means creating the EC key
+pair from the section below. Keep that key pair even if you later disable VCI:
+Status Lists continue to be served so that credentials you have already issued
+stay verifiable, and they are signed with it.
+
 ### RSA key pair generation, for `RS256/384/512` and `PS256/384/512` algorithms
 
 Generate private keys without a password:
@@ -83,7 +101,10 @@ Enter algorithm, key file names, and a password (if used) in `config/module_oidc
 
 ### EC key pair generation, per curve for different algorithms
 
-If you prefer to use Elliptic Curve Cryptography (ECC) instead of RSA.
+Use these if you prefer Elliptic Curve Cryptography (ECC). Since each key-pair
+option is a list, EC keys can replace the RSA ones or be advertised alongside
+them, which is what the commented-out `ES256` example in the distributed
+configuration does.
 
 Generate private EC P‑256 keys without a password, usable for `ES256` algorithm:
 

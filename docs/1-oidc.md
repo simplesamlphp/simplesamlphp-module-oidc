@@ -99,8 +99,9 @@ Currently supported OIDFed features:
 - Automatic client registration using a Request Object
 - Federation participation limiting based on Trust Marks
 - Endpoint for issuing a configuration entity statement (about itself)
-- Fetch endpoint for issuing statements about subordinates (clients)
-- Subordinate listing endpoint
+
+The OP participates as a leaf entity, so it deliberately does not serve a fetch
+endpoint or a subordinate listing endpoint.
 
 OIDFed is implemented using the
 [SimpleSAMLphp OpenID library](https://github.com/simplesamlphp/openid).
@@ -115,13 +116,15 @@ Currently implemented OpenID4VCI features:
 - Implemented Endpoints
   - Credential Issuer Metadata | `.well-known/openid-credential-issuer` -
   Advertises supported credentials, algorithms, and endpoints.
-  - Credential Endpoint | `/vci/credential`- Handles credential requests with
-  proof of possession.
-  - Nonce Endpoint - `/vci/nonce` - Provides nonces (`c_nonce`).
-  - Credential Offer (API) | `/api/vci/offer` - Allows triggering credential
-  offers via administrative API.
-  - JSON-LD Context | `/vci/context/{id}` - Serves custom JSON-LD contexts for
-  `vc+sd-jwt` credentials.
+  - Credential Endpoint | `credential-issuer/credential` - Handles credential
+  requests with proof of possession.
+  - Nonce Endpoint | `credential-issuer/nonce` - Provides nonces (`c_nonce`).
+  - Credential Offer (API) | `api/vci/credential-offer` - Allows triggering
+  credential offers via administrative API.
+  - Credential Status (API) | `api/vci/credential-status` - Withdraws, suspends
+  or reinstates an issued credential through its Token Status List entry.
+  - JSON-LD Context | `credential-issuer/context/{credentialConfigurationId}` -
+  Serves custom JSON-LD contexts for `vc+sd-jwt` credentials.
 - Supported Flows & Grant Types
   - Authorization Code Flow: Fully supported
   - Pre-Authorized Code Flow: Fully supported
@@ -134,7 +137,7 @@ Currently implemented OpenID4VCI features:
   Disclosure JWT.
   - Digital Credentials SD-JWT (`dc+sd-jwt`): IETF Draft 14+ Selective
   Disclosure JWT.
-Proof of Possession & Binding
+- Proof of Possession & Binding
   - Proof Type: `jwt` (JSON Web Token proofs).
   - Cryptographic Binding Methods:
     - `did:key`: Supported for proof validation and subject binding.
