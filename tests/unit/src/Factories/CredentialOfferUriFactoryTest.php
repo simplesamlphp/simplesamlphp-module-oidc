@@ -10,6 +10,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
 use RuntimeException;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Bridges\SspBridge\Utils;
@@ -98,6 +99,43 @@ class CredentialOfferUriFactoryTest extends TestCase
         $this->assertStringNotContainsString($sensitiveExceptionValue, $logs);
     }
 
+    public function testByValueOfferSurvivesQueryParsing(): void
+    {
+        // Appended raw, the '&' would split the offer into a second query parameter and the '#' would
+        // truncate it into a fragment, so a wallet would never see the whole issuer.
+        $issuer = 'https://issuer.example.org/vci?tenant=a&region=b#frag';
+
+        $credentialOfferUri = $this->factory(
+            $this->createMock(LoggerService::class),
+            $this->createMock(UserIdentifierResolver::class),
+            issuer: $issuer,
+        )->buildForAuthorization(['credential-configuration']);
+
+        $parameters = $this->parseOfferUriQuery($credentialOfferUri);
+
+        $this->assertSame(['credential_offer'], array_keys($parameters));
+        $offer = json_decode($parameters['credential_offer'], true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame($issuer, $offer['credential_issuer']);
+    }
+
+    public function testByReferenceOfferSurvivesQueryParsing(): void
+    {
+        // An offer passed by reference is a URL which may carry a query string of its own.
+        $offerUri = 'https://issuer.example.org/offers/1?tenant=a&format=jwt#frag';
+
+        $factory = $this->factory(
+            $this->createMock(LoggerService::class),
+            $this->createMock(UserIdentifierResolver::class),
+        );
+
+        $parameters = $this->parseOfferUriQuery(
+            (new ReflectionMethod($factory, 'buildUri'))->invoke($factory, $offerUri),
+        );
+
+        $this->assertSame(['credential_offer_uri'], array_keys($parameters));
+        $this->assertSame($offerUri, $parameters['credential_offer_uri']);
+    }
+
     public function testBuildTxCodeGeneratesFourDigitNumericCode(): void
     {
         $txCode = $this->factory(
@@ -116,6 +154,7 @@ class CredentialOfferUriFactoryTest extends TestCase
         ?ClientRepository $clientRepository = null,
         ?UserRepository $userRepository = null,
         ?UserEntityFactory $userEntityFactory = null,
+        string $issuer = 'https://issuer.example.org',
     ): CredentialOfferUriFactory {
         $moduleConfig = $this->createMock(ModuleConfig::class);
         $moduleConfig->method('getVciCredentialConfigurationIdsSupported')
@@ -123,7 +162,7 @@ class CredentialOfferUriFactoryTest extends TestCase
         $moduleConfig->method('getUserIdentifierAttributes')->willReturn(['uid']);
         $moduleConfig->method('getDefaultUsersEmailAttributeName')->willReturn('mail');
         $moduleConfig->method('getAuthCodeDuration')->willReturn(new DateInterval('PT10M'));
-        $moduleConfig->method('getIssuer')->willReturn('https://issuer.example.org');
+        $moduleConfig->method('getIssuer')->willReturn($issuer);
 
         $random = $this->createMock(Random::class);
         $random->method('generateID')->willReturn('pre-authorized-code-secret');
@@ -147,6 +186,23 @@ class CredentialOfferUriFactoryTest extends TestCase
             $this->createMock(IssuerStateRepository::class),
             $userIdentifierResolver,
         );
+    }
+
+    /**
+     * Parse the query of an offer URI back into parameters. parse_url() rejects the
+     * openid-credential-offer:// scheme outright, so the prefix is stripped by hand.
+     *
+     * @return array<string, string>
+     */
+    private function parseOfferUriQuery(string $credentialOfferUri): array
+    {
+        $prefix = 'openid-credential-offer://?';
+        $this->assertStringStartsWith($prefix, $credentialOfferUri);
+
+        parse_str(substr($credentialOfferUri, strlen($prefix)), $parameters);
+
+        /** @var array<string, string> $parameters */
+        return $parameters;
     }
 
     private function captureLogs(LoggerService&MockObject $logger, string $level): void

@@ -50,6 +50,7 @@ class CredentialOfferUriFactory
     /**
      * @param string[] $credentialConfigurationIds
      * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException
+     * @throws \JsonException
      */
     public function buildForAuthorization(
         array $credentialConfigurationIds,
@@ -89,19 +90,13 @@ class CredentialOfferUriFactory
             ],
         );
 
-        $credentialOfferValue = $credentialOffer->jsonSerialize();
-        $parameterName = ParametersEnum::CredentialOfferUri->value;
-        if (is_array($credentialOfferValue)) {
-            $parameterName = ParametersEnum::CredentialOffer->value;
-            $credentialOfferValue = json_encode($credentialOfferValue);
-        }
-
-        return "openid-credential-offer://?$parameterName=$credentialOfferValue";
+        return $this->buildUri($credentialOffer->jsonSerialize());
     }
 
     /**
      * @param string[] $credentialConfigurationIds
      * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException
+     * @throws \JsonException
      */
     public function buildPreAuthorized(
         array $credentialConfigurationIds,
@@ -232,14 +227,34 @@ class CredentialOfferUriFactory
             $this->sendTxCodeByEmail($txCode, $userEmail);
         }
 
-        $credentialOfferValue = $credentialOffer->jsonSerialize();
-        $parameterName = ParametersEnum::CredentialOfferUri->value;
-        if (is_array($credentialOfferValue)) {
+        return $this->buildUri($credentialOffer->jsonSerialize());
+    }
+
+    /**
+     * Build the offer URI a wallet is sent to, carrying the offer either by value or by reference.
+     *
+     * The offer travels as a query parameter, so its value has to be percent encoded. A by-reference
+     * offer is a URL which may carry a query string of its own, and a by-value offer is JSON, full of
+     * characters a query cannot hold literally. Appended raw, an '&' in either would split the value
+     * into a second parameter and a '#' would truncate it into a fragment.
+     *
+     * @param string|mixed[] $credentialOffer A URI to the offer, or the offer parameters themselves.
+     * @throws \JsonException
+     */
+    protected function buildUri(string|array $credentialOffer): string
+    {
+        if (is_array($credentialOffer)) {
             $parameterName = ParametersEnum::CredentialOffer->value;
-            $credentialOfferValue = json_encode($credentialOfferValue);
+            $parameterValue = json_encode($credentialOffer, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+        } else {
+            $parameterName = ParametersEnum::CredentialOfferUri->value;
+            $parameterValue = $credentialOffer;
         }
 
-        return "openid-credential-offer://?$parameterName=$credentialOfferValue";
+        return 'openid-credential-offer://?' . http_build_query(
+            [$parameterName => $parameterValue],
+            encoding_type: PHP_QUERY_RFC3986,
+        );
     }
 
     /**

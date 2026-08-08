@@ -134,7 +134,7 @@ Response:
 
 ```json
 {
-    "credential_offer_uri": "openid-credential-offer://?credential_offer={\"credential_issuer\":\"https:\\/\\/idp.mivanci.incubator.hexaa.eu\",\"credential_configuration_ids\":[\"ResearchAndScholarshipCredentialDcSdJwt\"],\"grants\":{\"authorization_code\":{\"issuer_state\":\"30616b68fa26b00c5a6391faffc02e4e4fd9b0023fd6a3aa29ec754e2f5e2871\"}}}"
+    "credential_offer_uri": "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fidp.mivanci.incubator.hexaa.eu%22%2C%22credential_configuration_ids%22%3A%5B%22ResearchAndScholarshipCredentialDcSdJwt%22%5D%2C%22grants%22%3A%7B%22authorization_code%22%3A%7B%22issuer_state%22%3A%2230616b68fa26b00c5a6391faffc02e4e4fd9b0023fd6a3aa29ec754e2f5e2871%22%7D%7D%7D"
 }
 
 ```
@@ -168,7 +168,7 @@ Response:
 
 ```json
 {
-    "credential_offer_uri": "openid-credential-offer://?credential_offer={\"credential_issuer\":\"https:\\/\\/idp.mivanci.incubator.hexaa.eu\",\"credential_configuration_ids\":[\"ResearchAndScholarshipCredentialDcSdJwt\"],\"grants\":{\"urn:ietf:params:oauth:grant-type:pre-authorized_code\":{\"pre-authorized_code\":\"_ffcdf6d86cd564c300346351dce0b4ccb2fde304e2\",\"tx_code\":{\"input_mode\":\"numeric\",\"length\":4,\"description\":\"Please provide the one-time code that was sent to e-mail testuser@example.com\"}}}}"
+    "credential_offer_uri": "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fidp.mivanci.incubator.hexaa.eu%22%2C%22credential_configuration_ids%22%3A%5B%22ResearchAndScholarshipCredentialDcSdJwt%22%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22_ffcdf6d86cd564c300346351dce0b4ccb2fde304e2%22%2C%22tx_code%22%3A%7B%22input_mode%22%3A%22numeric%22%2C%22length%22%3A4%2C%22description%22%3A%22Please%20provide%20the%20one-time%20code%20that%20was%20sent%20to%20e-mail%20testuser%40example.com%22%7D%7D%7D%7D"
 }
 ```
 
