@@ -3,12 +3,14 @@
 name: Documentation
 
 on:  # yamllint disable-line rule:truthy
+  # wip-version-7 is the v7 release branch. Without it here, no markdown on that branch is
+  # linted or spell checked until it merges to master, and whoever merges inherits the backlog.
   push:
-    branches: [master, simplesamlphp-*]
+    branches: [master, simplesamlphp-*, wip-version-7]
     paths:
       - '**.md'
   pull_request:
-    branches: [master, simplesamlphp-*]
+    branches: [master, simplesamlphp-*, wip-version-7]
     paths:
       - '**.md'
   workflow_dispatch:
@@ -37,11 +39,18 @@ jobs:
   build:
     name: Build documentation
     needs: quality
+    # Only the published branches rebuild the documentation site. wip-version-7 is linted by
+    # the job above but must not reach this one: the dispatched build clones this module's
+    # default branch, so a push to a work-in-progress branch would redeploy master's
+    # documentation without publishing anything of its own.
+    if: >-
+      github.event_name != 'pull_request' &&
+      (github.ref == 'refs/heads/master' ||
+      startsWith(github.ref, 'refs/heads/simplesamlphp-'))
     runs-on: [ubuntu-latest]
 
     steps:
       - name: Run docs build
-        if: github.event_name != 'pull_request'
         uses: actions/github-script@v8
         with:
           # Token has to be generated on a user account that controls the docs-repository.

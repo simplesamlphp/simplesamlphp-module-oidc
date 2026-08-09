@@ -2,3 +2,9 @@
 default: true
 
 MD013: false
+
+# Each endpoint section in docs/8-api.md repeats the same sub-headings: Path, Method,
+# Authorization, and so on. Those headings are unique among their siblings, which is what
+# anchors and navigation actually depend on; only the document-wide check objects to them.
+MD024:
+  siblings_only: true

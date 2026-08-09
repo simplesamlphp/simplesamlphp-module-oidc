@@ -85,7 +85,7 @@ Not strictly RFC 9126, but part of the same `request` / `request_uri` feature:
 These are optional and deliberately left out; revisit if requirements change:
 
 - **413 Payload Too Large** for oversized PAR bodies (§2.3) — MAY. (Note:
-  `request_uri_max_size_bytes` caps the *outbound* remote `request_uri` fetch,
+  `request_uri_max_size_bytes` caps the _outbound_ remote `request_uri` fetch,
   not the inbound PAR body.)
 - **429 Too Many Requests** rate limiting on the PAR endpoint (§2.3) — MAY.
 - **Per-request unregistered `redirect_uri`** for authenticated clients

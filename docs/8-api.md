@@ -16,7 +16,6 @@ also has its own switch, and some additionally depend on the feature they belong
 to being enabled. All of these default to `false`, so an endpoint answers only
 once this option and the ones listed with that endpoint below are all `true`.
 
-
 ## API Authentication and Authorization
 
 API access tokens are defined in file `config/module_oidc.php`, under option `ModuleConfig::OPTION_API_TOKENS`.
@@ -32,6 +31,7 @@ ModuleConfig::OPTION_API_TOKENS => [
     ],
 ],
 ```
+
 Scopes determine which endpoints are accessible by the API access token. The following scopes are available:
 
 * `\SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::All`: Access to all endpoints.
@@ -70,7 +70,7 @@ Both shapes work, and a token configured as a plain list of scopes keeps working
 
 Note that all endpoints will have a path prefix based on the SimpleSAMLphp base path and `oidc` module path.
 For example, if you serve SimpleSAMLphp using base URL path `simplesaml/`, the path prefix for each API endpoint
-will be 
+will be
 
 `/simplesaml/module.php/oidc/api/`
 
@@ -106,14 +106,14 @@ ModuleConfig::OPTION_API_VCI_CREDENTIAL_OFFER_ENDPOINT_ENABLED => true,
 #### Request
 
 The request is sent as a JSON object in the body with the following parameters:
- 
+
 * __grant_type__ (string, mandatory): Specifies the type of grant (issuance flow) being requested. Allowed values are:
   * `urn:ietf:params:oauth:grant-type:pre-authorized_code`: Pre-authorized code grant.
   * `authorization_code`: Authorization code grant.
 * __credential_configuration_id__ (string, mandatory): The identifier for the credential configuration being requested.
 This must correspond to a predefined configuration ID for the VCI Issuer. Check the Credential Issuer Configuration URL
 `/.well-known/openid-credential-issuer`, under the `credential_configurations_supported` field.
-* __use_tx_code__ (boolean, optional, default being `false`): Indicates whether to use transaction code protection for 
+* __use_tx_code__ (boolean, optional, default being `false`): Indicates whether to use transaction code protection for
 pre-authorized code grant.
 * __users_email_attribute_name__ (string, optional, no default): The name of the attribute that holds the
 user's email address. Used when transaction code protection is enabled to send the transaction code to the user's email
@@ -330,6 +330,7 @@ ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED => true,
 #### Authorization
 
 Access is granted if:
+
 * The client is authenticated using one of the supported OAuth2 client
 authentication methods (Basic, Post, Private Key JWT, Bearer).
 * Or, if the request is authorized using an API Bearer Token with

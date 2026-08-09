@@ -376,7 +376,7 @@ and key pair are removed:
 - New algorithm for generating Key ID claim value (`kid`) for signature keys
 is used. Previously, key ID was based on public key file hash. In v7, key ID
 is a thumbprint of the public key as per
-https://datatracker.ietf.org/doc/html/rfc7638. If you want to keep using your
+[RFC 7638](https://datatracker.ietf.org/doc/html/rfc7638). If you want to keep using your
 current signature keys, you will probably want to keep the old `kid` values,
 so that the clients know the keys did not change. You can set the old
 `kid` value manually for signature keys in
@@ -423,6 +423,7 @@ notes). These were the old routes still reachable at URLs ending in `.php`:
 Medium impact changes:
 
 Low-impact changes:
+
 - The token endpoint no longer requires the `client_id` request parameter when
 the client identity is conveyed by the client authentication method itself, in
 line with the specifications. For example, with `private_key_jwt` the client is

@@ -142,6 +142,7 @@ openssl ec -in cert/oidc_module_vci_ec_p256_01.key -passin pass:somePassword -pu
 
 For other curves, replace the `-name` option value depending on which
 algorithm you want to support:
+
 - `-name secp384r1`: usable for `ES384` algorithm
 - `-name secp521r1`: usable for `ES512` algorithm
 
