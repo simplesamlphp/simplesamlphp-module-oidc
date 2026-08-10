@@ -153,6 +153,10 @@ services:
   Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory: ~
 
   # SSP OpenId
+  # Where this OP is willing to send outbound requests. One instance, shared by every tool class below
+  # and by the Back-Channel Logout client, so the answer cannot differ between endpoints.
+  SimpleSAML\OpenID\Network\DestinationPolicy:
+    factory: [ '@SimpleSAML\Module\oidc\Factories\DestinationPolicyFactory', 'build' ]
   SimpleSAML\OpenID\Core:
     factory: [ '@SimpleSAML\Module\oidc\Factories\CoreFactory', 'build' ]
   SimpleSAML\OpenID\Federation:

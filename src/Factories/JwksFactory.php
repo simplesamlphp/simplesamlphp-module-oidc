@@ -11,9 +11,11 @@ use SimpleSAML\OpenID\Jwks;
 
 class JwksFactory
 {
+    /** The factory rather than the policy itself; see FederationFactory for why. */
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
         protected readonly LoggerService $loggerService,
+        protected readonly DestinationPolicyFactory $destinationPolicyFactory,
         protected readonly ?FederationCache $federationCache = null,
     ) {
     }
@@ -30,6 +32,7 @@ class JwksFactory
             cache: $this->federationCache?->cache,
             logger: $this->loggerService,
             httpClientConfig: $this->moduleConfig->getProtocolHttpClientOptions(),
+            destinationPolicy: $this->destinationPolicyFactory->build(),
         );
     }
 }

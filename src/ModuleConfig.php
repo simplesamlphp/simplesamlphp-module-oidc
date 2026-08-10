@@ -31,6 +31,7 @@ use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
+use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
@@ -39,6 +40,7 @@ use SimpleSAML\OpenID\Codebooks\ScopesEnum;
 use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\TrustMarkStatusEndpointUsagePolicyEnum;
 use SimpleSAML\OpenID\Decorators\HttpClientDecorator;
+use SimpleSAML\OpenID\Network\DestinationPolicy;
 use SimpleSAML\OpenID\Serializers\JwsSerializerBag;
 use SimpleSAML\OpenID\Serializers\JwsSerializerEnum;
 use SimpleSAML\OpenID\SupportedAlgorithms;
@@ -200,6 +202,11 @@ class ModuleConfig
     'federation_request_uri_allowed_prefixes';
     final public const string OPTION_REQUEST_URI_FETCH_TIMEOUT = 'request_uri_fetch_timeout';
     final public const string OPTION_REQUEST_URI_MAX_SIZE_BYTES = 'request_uri_max_size_bytes';
+
+    final public const string OPTION_OUTBOUND_ALLOWED_SCHEMES = 'outbound_allowed_schemes';
+    final public const string OPTION_OUTBOUND_ALLOWED_HOSTS = 'outbound_allowed_hosts';
+    final public const string OPTION_OUTBOUND_ALLOWED_CIDRS = 'outbound_allowed_cidrs';
+    final public const string OPTION_OUTBOUND_ADDRESS_PINNING_MODE = 'outbound_address_pinning_mode';
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
@@ -478,6 +485,86 @@ class ModuleConfig
     public function getRequestUriMaxSizeBytes(): int
     {
         return $this->config()->getOptionalInteger(self::OPTION_REQUEST_URI_MAX_SIZE_BYTES, 102400);
+    }
+
+    /*****************************************************************************************************************
+     * Outbound destination policy (where this OP is willing to send requests).
+     ****************************************************************************************************************/
+
+    /**
+     * URI schemes an outbound request may use. Defaults to the library's own default (https only).
+     *
+     * @return list<string>
+     * @throws \Exception
+     */
+    public function getOutboundAllowedSchemes(): array
+    {
+        $schemes = $this->config()->getOptionalArray(
+            self::OPTION_OUTBOUND_ALLOWED_SCHEMES,
+            DestinationPolicy::DEFAULT_ALLOWED_SCHEMES,
+        );
+
+        return array_values(array_filter($schemes, 'is_string'));
+    }
+
+    /**
+     * Hosts this deployment declares legitimate whatever they resolve to.
+     *
+     * @return list<string>
+     * @throws \Exception
+     */
+    public function getOutboundAllowedHosts(): array
+    {
+        $hosts = $this->config()->getOptionalArray(self::OPTION_OUTBOUND_ALLOWED_HOSTS, []);
+
+        return array_values(array_filter($hosts, 'is_string'));
+    }
+
+    /**
+     * Address ranges permitted alongside the public ones, as CIDR.
+     *
+     * @return list<string>
+     * @throws \Exception
+     */
+    public function getOutboundAllowedCidrs(): array
+    {
+        $cidrs = $this->config()->getOptionalArray(self::OPTION_OUTBOUND_ALLOWED_CIDRS, []);
+
+        return array_values(array_filter($cidrs, 'is_string'));
+    }
+
+    /**
+     * How strictly to insist on connecting to the address that was validated.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getOutboundAddressPinningMode(): AddressPinningModeEnum
+    {
+        /** @psalm-suppress MixedAssignment */
+        $mode = $this->config()->getOptionalValue(
+            self::OPTION_OUTBOUND_ADDRESS_PINNING_MODE,
+            AddressPinningModeEnum::Preferred,
+        );
+
+        if ($mode instanceof AddressPinningModeEnum) {
+            return $mode;
+        }
+
+        // Accepting the backing value as well keeps a configuration written as a plain string working, which
+        // is easy to reach for when every neighbouring option in the file is a scalar.
+        if (is_string($mode) && ($case = AddressPinningModeEnum::tryFrom($mode)) instanceof AddressPinningModeEnum) {
+            return $case;
+        }
+
+        throw new ConfigurationError(
+            sprintf(
+                'Invalid value for %s. Expected a %s case or one of "%s", got "%s".',
+                self::OPTION_OUTBOUND_ADDRESS_PINNING_MODE,
+                AddressPinningModeEnum::class,
+                implode('", "', array_column(AddressPinningModeEnum::cases(), 'value')),
+                var_export($mode, true),
+            ),
+        );
     }
 
     /**

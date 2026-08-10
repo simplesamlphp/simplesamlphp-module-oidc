@@ -12,6 +12,8 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\DateIntervalFormatter;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
+use SimpleSAML\OpenID\Network\DestinationPolicy;
 use Throwable;
 
 /**
@@ -657,7 +659,131 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
                     'Not set, so TLS verification stays enabled.',
                 ),
             ),
+            ...$this->buildDestinationPolicyRows(),
         );
+    }
+
+    /**
+     * Where this OP is willing to send outbound requests.
+     *
+     * Shown alongside the client options because the two answer different halves of the same question: the
+     * options say how a fetch is made, these say whether it may be made at all. Both apply to every
+     * destination a client or a federation names.
+     *
+     * Every value here comes from a getter that rejects a malformed value, and this screen is what an
+     * administrator opens when the configuration is malformed, so each row resolves its own option inside
+     * guardRow() rather than up front.
+     *
+     * @return \SimpleSAML\Module\oidc\Admin\ConfigOverview\Row[]
+     */
+    protected function buildDestinationPolicyRows(): array
+    {
+        return [
+            $this->guardRow(
+                Translate::noop('Outbound Allowed Schemes'),
+                ModuleConfig::OPTION_OUTBOUND_ALLOWED_SCHEMES,
+                function (): Row {
+                    $allowedSchemes = $this->moduleConfig->getOutboundAllowedSchemes();
+                    // The getter only establishes that these are strings. Whether they are usable is the
+                    // policy's own judgement, and it is made in its constructor, so a value that would be
+                    // refused there has to be refused here rather than displayed as if it applied.
+                    new DestinationPolicy(allowedSchemes: $allowedSchemes);
+
+                    return new Row(
+                        Translate::noop('Outbound Allowed Schemes'),
+                        $allowedSchemes,
+                        ConfigOverviewValueTypeEnum::StringList,
+                        ModuleConfig::OPTION_OUTBOUND_ALLOWED_SCHEMES,
+                        Translate::noop('Schemes an outbound request may use.'),
+                        // Trimmed as the policy trims, so a padded ' http ' is reported as the plain http
+                        // it will actually permit.
+                        in_array(
+                            'http',
+                            array_map(
+                                fn(string $scheme): string => strtolower(trim($scheme)),
+                                $allowedSchemes,
+                            ),
+                            true,
+                        ) ?
+                        Translate::noop(
+                            'Plain http is permitted, so an outbound fetch can be read and altered in ' .
+                            'transit.',
+                        ) :
+                        null,
+                    );
+                },
+            ),
+            $this->guardRow(
+                Translate::noop('Outbound Allowed Hosts'),
+                ModuleConfig::OPTION_OUTBOUND_ALLOWED_HOSTS,
+                function (): Row {
+                    $allowedHosts = $this->moduleConfig->getOutboundAllowedHosts();
+                    new DestinationPolicy(allowedHosts: $allowedHosts);
+
+                    return new Row(
+                        Translate::noop('Outbound Allowed Hosts'),
+                        $allowedHosts,
+                        ConfigOverviewValueTypeEnum::StringList,
+                        ModuleConfig::OPTION_OUTBOUND_ALLOWED_HOSTS,
+                        $allowedHosts === [] ?
+                        Translate::noop('None, so every destination is subject to the address check.') :
+                        Translate::noop(
+                            'Permitted whatever they resolve to. The address check and the address ' .
+                            'pinning are both skipped for these.',
+                        ),
+                        $allowedHosts === [] ?
+                        null :
+                        Translate::noop(
+                            'Allowing a host trusts whoever controls that name with where the request ' .
+                            'goes. Keep this to destinations this deployment operates itself.',
+                        ),
+                    );
+                },
+            ),
+            $this->guardRow(
+                Translate::noop('Outbound Allowed Address Ranges'),
+                ModuleConfig::OPTION_OUTBOUND_ALLOWED_CIDRS,
+                function (): Row {
+                    $allowedCidrs = $this->moduleConfig->getOutboundAllowedCidrs();
+                    // A range that can never match would otherwise be shown as a working exemption.
+                    new DestinationPolicy(allowedCidrs: $allowedCidrs);
+
+                    return new Row(
+                        Translate::noop('Outbound Allowed Address Ranges'),
+                        $allowedCidrs,
+                        ConfigOverviewValueTypeEnum::StringList,
+                        ModuleConfig::OPTION_OUTBOUND_ALLOWED_CIDRS,
+                        $allowedCidrs === [] ?
+                        Translate::noop('None, so only public addresses may be reached.') :
+                        Translate::noop('Permitted alongside the public addresses.'),
+                    );
+                },
+            ),
+            $this->guardRow(
+                Translate::noop('Outbound Address Pinning'),
+                ModuleConfig::OPTION_OUTBOUND_ADDRESS_PINNING_MODE,
+                function (): Row {
+                    $pinningMode = $this->moduleConfig->getOutboundAddressPinningMode();
+
+                    return new Row(
+                        Translate::noop('Outbound Address Pinning'),
+                        $pinningMode->value,
+                        ConfigOverviewValueTypeEnum::Text,
+                        ModuleConfig::OPTION_OUTBOUND_ADDRESS_PINNING_MODE,
+                        Translate::noop(
+                            'Whether the connection must go to the address that was validated, rather ' .
+                            'than the host being resolved a second time.',
+                        ),
+                        $pinningMode === AddressPinningModeEnum::Disabled ?
+                        Translate::noop(
+                            'Pinning is off, so a host can resolve to a permitted address for the check ' .
+                            'and to another one for the connection.',
+                        ) :
+                        null,
+                    );
+                },
+            ),
+        ];
     }
 
     /**

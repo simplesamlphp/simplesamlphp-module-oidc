@@ -21,6 +21,7 @@
     <junit outputFile="build/logs/partial_junit/unit.xml"/>
   </logging>
   <php>
+    <ini name="memory_limit" value="1024M"/>
     <env name="SIMPLESAMLPHP_CONFIG_DIR" value="tests/config"/>
     <env name="APP_ENV" value="phpunit"/>
   </php>

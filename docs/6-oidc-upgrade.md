@@ -422,6 +422,31 @@ notes). These were the old routes still reachable at URLs ending in `.php`:
 
 Medium impact changes:
 
+- **The OP now refuses to send outbound requests to non-public destinations.**
+This applies to everything it fetches on somebody else's say-so: a client's
+`jwks_uri`, `signed_jwks_uri` and `request_uri`, back-channel logout delivery,
+federation statements, and every redirect hop followed while fetching any of
+them. A URL resolving to a loopback, private, link-local or otherwise
+non-public address is refused, as is one over plain `http`.
+
+  Most deployments need no change, since these destinations are public by
+specification. **A deployment that fetches from an internal address does need
+one**, and will otherwise see fetches start failing: a client's `jwks_uri` on an
+internal network, or a back-channel logout delivered inside a private subnet.
+Name the destination explicitly, preferring the narrowest range that covers it:
+
+  ```php
+  ModuleConfig::OPTION_OUTBOUND_ALLOWED_CIDRS => ['10.1.2.3/32'],
+  // Or, where a range cannot describe it:
+  ModuleConfig::OPTION_OUTBOUND_ALLOWED_HOSTS => ['rp.internal.example'],
+  ```
+
+  Client registration is checked too, so a client registering an
+inward-pointing `jwks_uri` is now rejected with `invalid_client_metadata`
+instead of registering successfully and failing later. See
+[Outbound destination policy](3-oidc-configuration.md#outbound-destination-policy)
+for the full behaviour, including address pinning and its configuration.
+
 Low-impact changes:
 
 - The token endpoint no longer requires the `client_id` request parameter when

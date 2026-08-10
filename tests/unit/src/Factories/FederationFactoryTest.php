@@ -8,11 +8,13 @@ use DateInterval;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\Factories\DestinationPolicyFactory;
 use SimpleSAML\Module\oidc\Factories\FederationFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\TrustMarkStatusEndpointUsagePolicyEnum;
 use SimpleSAML\OpenID\Federation;
+use SimpleSAML\OpenID\Network\DestinationPolicy;
 use SimpleSAML\OpenID\SupportedAlgorithms;
 
 #[CoversClass(FederationFactory::class)]
@@ -42,7 +44,34 @@ class FederationFactoryTest extends TestCase
 
     protected function sut(): FederationFactory
     {
-        return new FederationFactory($this->moduleConfigMock, $this->loggerServiceMock);
+        $destinationPolicyFactory = $this->createMock(DestinationPolicyFactory::class);
+        $destinationPolicyFactory->method('build')->willReturn(new DestinationPolicy());
+
+        return new FederationFactory(
+            $this->moduleConfigMock,
+            $this->loggerServiceMock,
+            $destinationPolicyFactory,
+        );
+    }
+
+    /**
+     * The destination policy must not be built until a Federation is.
+     *
+     * Building one throws when the outbound configuration is malformed, and the container reaches this
+     * factory while wiring up the admin Configuration screens - the screens whose whole purpose is to
+     * report such an option. Taking the policy as a constructor dependency made a bad outbound option
+     * take those screens down instead of showing up on them, which is how this regressed once already.
+     */
+    public function testDoesNotBuildTheDestinationPolicyUntilItBuilds(): void
+    {
+        $destinationPolicyFactory = $this->createMock(DestinationPolicyFactory::class);
+        $destinationPolicyFactory->expects($this->never())->method('build');
+
+        new FederationFactory(
+            $this->moduleConfigMock,
+            $this->loggerServiceMock,
+            $destinationPolicyFactory,
+        );
     }
 
     public function testCanBuild(): void

@@ -99,6 +99,78 @@ RewriteRule ^/.well-known/openid-configuration(.*) \
   /simplesaml/module.php/oidc/.well-known/openid-configuration$1 [PT]
 ```
 
+## Outbound destination policy
+
+Most of what the OP fetches is named by somebody else. A registering client
+supplies its own `jwks_uri`, `signed_jwks_uri`, `request_uri` and
+`backchannel_logout_uri`; a federation entity statement says which endpoint to
+fetch next. Left unrestricted, that turns the OP into a way of reaching its own
+network from the outside: a URL pointing at `127.0.0.1`, `10.0.0.5` or the cloud
+metadata address `169.254.169.254` would be fetched like any other, and so would
+a public URL that redirects to one of them.
+
+**Non-public destinations are refused by default.** Nothing has to be switched on.
+Every redirect hop is checked in the same way, since a first hop that passes and
+then redirects inward is the whole attack.
+
+The check happens twice for a client-supplied URI: once when the client
+registers, so an inward-pointing `jwks_uri` is rejected as
+`invalid_client_metadata` rather than surfacing later as an unexplained
+signature failure, and again at fetch time, because a host permitted at
+registration can be repointed afterwards.
+
+> Application-layer SSRF defence is leaky by nature. An egress firewall or a
+> forward proxy that cannot reach internal networks remains the stronger
+> control. This raises the bar; it does not make fetching arbitrary URLs safe.
+
+### Allowing an internal destination
+
+A deployment that legitimately fetches from a private network says so
+explicitly. Prefer the narrowest range that covers the destination, so that
+permitting one internal endpoint does not permit the whole private network:
+
+```php
+ModuleConfig::OPTION_OUTBOUND_ALLOWED_CIDRS => ['10.1.2.3/32'],
+```
+
+Use `OPTION_OUTBOUND_ALLOWED_HOSTS` where a range cannot describe the
+destination — a name resolved outside DNS, or one whose address is not fixed.
+A host listed there is permitted whatever it resolves to, which means trusting
+whoever controls that name with where the request goes, so keep it to
+destinations the deployment operates itself:
+
+```php
+ModuleConfig::OPTION_OUTBOUND_ALLOWED_HOSTS => ['rp.internal.example'],
+```
+
+Plain `http` destinations are refused as well. Add `'http'` to
+`OPTION_OUTBOUND_ALLOWED_SCHEMES` only where that is knowingly wanted; the
+address rules still apply.
+
+### Address pinning
+
+Checking a hostname and then handing the hostname to the HTTP client resolves it
+twice, and whoever controls that name controls both answers: the first can be a
+public address that passes the check, and the second, moments later, the
+loopback address the connection actually uses. The OP therefore pins the
+addresses that passed, telling the client to connect to those instead of
+resolving again. The request is still made to the original hostname, so TLS
+still validates the certificate against the name.
+
+Pinning needs the cURL handler, so it cannot always be used — not without the
+cURL extension, not through a proxy (which resolves the destination itself), and
+not through an HTTP handler supplied by configuration.
+`OPTION_OUTBOUND_ADDRESS_PINNING_MODE` decides what happens then:
+
+- `Preferred` (default) — pin where possible, otherwise validate and proceed,
+  reporting the weaker guarantee to the log once.
+- `Required` — refuse the request instead. Note this refuses **every** request
+  behind a proxy.
+- `Disabled` — never pin, and do not report it.
+
+The current settings are shown in the admin area under `OIDC` > `Configuration`,
+in the Protocol screen's outbound HTTP section.
+
 ## Pushed Authorization Requests (PAR) and Request Objects
 
 A client can send authorization request parameters in several ways:

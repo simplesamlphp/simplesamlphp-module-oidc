@@ -10,9 +10,11 @@ use SimpleSAML\OpenID\RequestObject;
 
 class RequestObjectFactory
 {
+    /** The factory rather than the policy itself; see FederationFactory for why. */
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
         protected readonly LoggerService $loggerService,
+        protected readonly DestinationPolicyFactory $destinationPolicyFactory,
     ) {
     }
 
@@ -28,6 +30,7 @@ class RequestObjectFactory
             timestampValidationLeeway: $this->moduleConfig->getTimestampValidationLeeway(),
             logger: $this->loggerService,
             httpClientConfig: $this->moduleConfig->getProtocolHttpClientOptions(),
+            destinationPolicy: $this->destinationPolicyFactory->build(),
         );
     }
 }

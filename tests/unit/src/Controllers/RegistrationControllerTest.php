@@ -24,6 +24,7 @@ use SimpleSAML\Module\oidc\Server\Registration\ClientMetadataValidator;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\OpenID\Network\DestinationPolicy;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -71,7 +72,12 @@ class RegistrationControllerTest extends TestCase
 
         // ErrorResponder::forExceptionJson builds the JSON response itself and does not use the bridge.
         $this->errorResponder = new ErrorResponder($this->createMock(PsrHttpBridge::class), $this->loggerMock);
-        $this->clientMetadataValidator = new ClientMetadataValidator($this->moduleConfigMock);
+        // A real policy with the sample client host exempted, so these tests resolve nothing while still
+        // running the registration path that the policy is part of.
+        $this->clientMetadataValidator = new ClientMetadataValidator(
+            $this->moduleConfigMock,
+            new DestinationPolicy(allowedHosts: ['client.example.org', 'op.example.org']),
+        );
         $this->helpers = new Helpers();
 
         $this->clientMock = $this->createMock(ClientEntityInterface::class);

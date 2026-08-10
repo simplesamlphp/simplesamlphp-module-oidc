@@ -103,7 +103,12 @@ class RegistrationController
         $this->guardAccess($request);
 
         $metadata = $this->parseMetadata($request);
-        $metadata = $this->clientMetadataValidator->validate($metadata);
+        // guardAccess() has just established the caller's identity, or established that none is required.
+        // The destination checks resolve names, so they run only in the former case.
+        $metadata = $this->clientMetadataValidator->validate(
+            $metadata,
+            $this->moduleConfig->getDcrRegistrationAuth() !== DcrRegistrationAuthEnum::Open,
+        );
 
         $client = $this->clientEntityFactory->fromRegistrationData($metadata, RegistrationTypeEnum::Dynamic);
 
@@ -170,7 +175,9 @@ class RegistrationController
         }
         unset($metadata[ClaimsEnum::ClientSecret->value]);
 
-        $metadata = $this->clientMetadataValidator->validate($metadata);
+        // Reached only by a caller holding this client's Registration Access Token, so the destination
+        // checks are affordable here whatever the registration access mode is.
+        $metadata = $this->clientMetadataValidator->validate($metadata, isCallerAuthenticated: true);
 
         $updatedClient = $this->clientEntityFactory->fromRegistrationData(
             $metadata,

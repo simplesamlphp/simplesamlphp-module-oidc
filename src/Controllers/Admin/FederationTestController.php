@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Controllers\Admin;
 use SimpleSAML\Module\oidc\Admin\Authorization;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Exceptions\OidcException;
+use SimpleSAML\Module\oidc\Factories\DestinationPolicyFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -28,13 +29,16 @@ class FederationTestController
         protected readonly Federation $federation,
         protected readonly Helpers $helpers,
         protected readonly ArrayLogger $arrayLogger,
+        protected readonly DestinationPolicyFactory $destinationPolicyFactory,
     ) {
         $this->authorization->requireAdmin(true);
 
         $this->arrayLogger->setWeight(ArrayLogger::WEIGHT_WARNING);
         // Let's create a new Federation instance so we can inject our debug logger and go without cache.
-        // The traversal limits and HTTP client options are taken from the deployment's own configuration, so
-        // that what this page reports matches what the protocol endpoints would actually do.
+        // The traversal limits, HTTP client options and outbound destination policy are taken from the
+        // deployment's own configuration, so that what this page reports matches what the protocol endpoints
+        // would actually do. Leaving the policy out would let this page reach destinations the endpoints
+        // refuse, which is the opposite of what a diagnostic is for.
         $this->federationWithArrayLogger = new Federation(
             supportedAlgorithms: $this->federation->supportedAlgorithms(),
             maxTrustChainDepth: $this->moduleConfig->getFederationMaxTrustChainDepth(),
@@ -45,6 +49,7 @@ class FederationTestController
             maxTrustChainFetches: $this->moduleConfig->getFederationMaxTrustChainFetches(),
             trustChainResolveTimeout: $this->moduleConfig->getFederationTrustChainResolveTimeout(),
             maxFetchSizeBytes: $this->moduleConfig->getFederationMaxFetchSizeBytes(),
+            destinationPolicy: $this->destinationPolicyFactory->build(),
         );
     }
 

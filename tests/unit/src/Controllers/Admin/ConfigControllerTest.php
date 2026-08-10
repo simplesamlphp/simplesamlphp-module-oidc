@@ -13,6 +13,7 @@ use SimpleSAML\Module\oidc\Admin\ConfigOverview\GeneralOverviewBuilder;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\ProtocolOverviewBuilder;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\VciOverviewBuilder;
 use SimpleSAML\Module\oidc\Controllers\Admin\ConfigController;
+use SimpleSAML\Module\oidc\Factories\FederationFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
@@ -82,6 +83,12 @@ class ConfigControllerTest extends TestCase
         $databaseMigration ??= $this->databaseMigrationMock;
         $sessionMessagesService ??= $this->sessionMessagesServiceMock;
         $federation ??= $this->federationMock;
+
+        // The controller takes the factory rather than a Federation, so that a malformed outbound option
+        // cannot make the whole controller unresolvable. Tests still express what they mean in terms of a
+        // Federation, so wrap whichever one they supplied.
+        $federationFactory = $this->createMock(FederationFactory::class);
+        $federationFactory->method('build')->willReturn($federation);
         $routes ??= $this->routesMock;
         $generalOverviewBuilder ??= $this->generalOverviewBuilderMock;
         $protocolOverviewBuilder ??= $this->protocolOverviewBuilderMock;
@@ -94,7 +101,7 @@ class ConfigControllerTest extends TestCase
             $authorization,
             $databaseMigration,
             $sessionMessagesService,
-            $federation,
+            $federationFactory,
             $routes,
             $generalOverviewBuilder,
             $protocolOverviewBuilder,

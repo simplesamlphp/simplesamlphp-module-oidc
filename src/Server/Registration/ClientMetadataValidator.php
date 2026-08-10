@@ -10,6 +10,7 @@ use SimpleSAML\Module\oidc\Utils\ResponseTypeGrantTypeCorrespondence;
 use SimpleSAML\OpenID\Codebooks\ApplicationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
+use SimpleSAML\OpenID\Network\DestinationPolicy;
 
 /**
  * Validates client-supplied registration metadata for the OpenID Connect Dynamic Client Registration endpoint.
@@ -73,8 +74,32 @@ class ClientMetadataValidator
         self::CLAIM_FRONTCHANNEL_LOGOUT_URI => 'frontchannel_logout_uri (front-channel logout is not supported)',
     ];
 
+    /**
+     * Metadata claims naming a destination this OP will later fetch from, as opposed to one it only shows
+     * to a human or redirects a browser to. Only these are subject to the outbound destination policy.
+     *
+     * @var list<string>
+     */
+    private const array FETCHED_URI_CLAIMS = [
+        ClaimsEnum::JwksUri->value,
+        ClaimsEnum::SignedJwksUri->value,
+        ClaimsEnum::BackChannelLogoutUri->value,
+    ];
+
+    /**
+     * How many `request_uris` a client may register.
+     *
+     * Each distinct destination costs a synchronous DNS lookup during validation, so an unbounded list is
+     * work an unauthenticated caller can order for itself: with registration open, one request carrying
+     * thousands of unique names holds a worker for as long as the resolver takes to answer or time out on
+     * every one of them. A client legitimately publishes a handful of Request Object locations; anything
+     * near this bound is not a real deployment.
+     */
+    private const int MAX_REQUEST_URIS = 20;
+
     public function __construct(
         private readonly ModuleConfig $moduleConfig,
+        private readonly DestinationPolicy $destinationPolicy,
     ) {
     }
 
@@ -82,14 +107,20 @@ class ClientMetadataValidator
      * Validate the incoming registration metadata. Returns the metadata unchanged on success.
      *
      * @param array $metadata
+     * @param bool $isCallerAuthenticated Whether the caller proved an identity to get here: an Initial
+     *        Access Token when registering, or a Registration Access Token when updating. Only then are
+     *        the destination checks run, since each one costs a DNS lookup that no HTTP timeout bounds.
+     *        Defaults to false, so a caller that forgets to say loses a diagnostic rather than opening a
+     *        way to make this OP resolve names on demand.
      * @return array
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
-    public function validate(array $metadata): array
+    public function validate(array $metadata, bool $isCallerAuthenticated = false): array
     {
         $redirectUris = $this->validateRedirectUris($metadata);
         $this->validateInformationalUris($metadata);
         $this->validateRequestUris($metadata);
+        $this->validateFetchedUriDestinations($metadata, $isCallerAuthenticated);
         $this->validateContacts($metadata);
         $this->validateApplicationType($metadata);
         $this->validateRedirectUrisForApplicationType($metadata, $redirectUris);
@@ -177,6 +208,14 @@ class ClientMetadataValidator
             throw OidcServerException::invalidClientMetadata('request_uris must be an array.');
         }
 
+        // Bounded before the destination check below resolves any of them, since that is where an
+        // over-long list turns into work this OP performs on the caller's behalf.
+        if (count($requestUris) > self::MAX_REQUEST_URIS) {
+            throw OidcServerException::invalidClientMetadata(
+                sprintf('request_uris must not contain more than %d values.', self::MAX_REQUEST_URIS),
+            );
+        }
+
         /** @var mixed $requestUri */
         foreach ($requestUris as $requestUri) {
             $scheme = is_string($requestUri) ? parse_url($requestUri, PHP_URL_SCHEME) : null;
@@ -191,6 +230,124 @@ class ClientMetadataValidator
                 );
             }
         }
+    }
+
+    /**
+     * Every URI this OP will later fetch from must name a destination the outbound policy permits.
+     *
+     * Checked here rather than only at fetch time because a refusal at fetch time is not reportable: a
+     * `jwks_uri` that resolves inward makes JwksFetcher log and return null, which surfaces later as an
+     * unexplained signature failure rather than as the registration problem it is. Refusing the
+     * registration turns it into `invalid_client_metadata`, which names the offending value.
+     *
+     * Note this is a check at a point in time, not a promise: a host permitted now can be repointed at an
+     * internal address later, which is what the fetch-time guard and address pinning are for. That guard is
+     * where the protection actually lives; this only turns a bad destination into a clear error.
+     *
+     * Which is why it is skipped for an unauthenticated caller. Each destination costs a synchronous DNS
+     * lookup, and the resolver is bounded by nothing the HTTP client configures, so with registration open
+     * this loop would be a way for anyone to make the OP wait on names of their choosing. Registration
+     * stays protected either way; what an open deployment loses is the clear message, not the refusal.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    private function validateFetchedUriDestinations(array $metadata, bool $isCallerAuthenticated): void
+    {
+        if (!$isCallerAuthenticated) {
+            return;
+        }
+
+        $claims = self::FETCHED_URI_CLAIMS;
+
+        // request_uris is a list rather than a single value, so it is flattened in here instead of being
+        // walked separately; its shape has already been validated above.
+        /** @var mixed $requestUris */
+        $requestUris = $metadata[ClaimsEnum::RequestUris->value] ?? [];
+
+        /** @var list<array{string,mixed}> $candidates */
+        $candidates = [];
+        foreach ($claims as $claim) {
+            if (array_key_exists($claim, $metadata)) {
+                /** @psalm-suppress MixedAssignment */
+                $candidates[] = [$claim, $metadata[$claim]];
+            }
+        }
+        if (is_array($requestUris)) {
+            /** @var mixed $requestUri */
+            foreach ($requestUris as $requestUri) {
+                $candidates[] = [ClaimsEnum::RequestUris->value, $requestUri];
+            }
+        }
+
+        $checked = [];
+
+        foreach ($candidates as [$claim, $value]) {
+            // A value that is not a string, or is empty, is either already rejected by the shape checks
+            // above or is not a destination at all; either way it is not this method's to report on.
+            if (!is_string($value) || $value === '') {
+                continue;
+            }
+
+            // Keyed by origin rather than by whole URI, because what costs a DNS lookup is the host. Twenty
+            // Request Object paths on one host are one destination, and are charged as one. The scheme and
+            // port stay in the key: they are part of what is being permitted, and checking them is free.
+            //
+            // A URI carrying credentials is exempt from that, since the policy refuses those on the URI
+            // itself rather than on where it points, and refuses them before looking anything up. Folding
+            // one in behind a clean URI on the same host would let it through unexamined at no saving.
+            $origin = $this->extractOrigin($value);
+            if (!$this->hasUriCredentials($value)) {
+                if (array_key_exists($origin, $checked)) {
+                    continue;
+                }
+                $checked[$origin] = true;
+            }
+
+            if ($this->destinationPolicy->isUriAllowed($value)) {
+                continue;
+            }
+
+            throw OidcServerException::invalidClientMetadata(
+                sprintf(
+                    'The "%s" value %s names a destination this provider is not permitted to fetch from.',
+                    $claim,
+                    $value,
+                ),
+            );
+        }
+    }
+
+    /**
+     * Whether a URI carries a userinfo component, which the destination policy refuses outright.
+     *
+     * Kept separate from the origin, so that such a URI is never deduplicated against a clean one sharing
+     * its host. Answering this costs no lookup.
+     */
+    private function hasUriCredentials(string $uri): bool
+    {
+        $parts = parse_url($uri);
+
+        return is_array($parts) && (isset($parts['user']) || isset($parts['pass']));
+    }
+
+    /**
+     * The part of a URI that decides where a request goes, used to charge one DNS lookup per destination
+     * rather than one per URI.
+     *
+     * A URI that cannot be parsed is keyed by itself, so an unparseable value is still checked rather than
+     * being folded together with another one.
+     */
+    private function extractOrigin(string $uri): string
+    {
+        $parts = parse_url($uri);
+
+        if (!is_array($parts) || !isset($parts['host'])) {
+            return $uri;
+        }
+
+        return strtolower($parts['scheme'] ?? '') . '://' .
+        strtolower($parts['host']) .
+        (isset($parts['port']) ? ':' . $parts['port'] : '');
     }
 
     /**

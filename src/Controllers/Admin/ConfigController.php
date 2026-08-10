@@ -11,6 +11,7 @@ use SimpleSAML\Module\oidc\Admin\ConfigOverview\GeneralOverviewBuilder;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\ProtocolOverviewBuilder;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\VciOverviewBuilder;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
+use SimpleSAML\Module\oidc\Factories\FederationFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
@@ -27,7 +28,11 @@ class ConfigController
         protected readonly Authorization $authorization,
         protected readonly DatabaseMigration $databaseMigration,
         protected readonly SessionMessagesService $sessionMessagesService,
-        protected readonly Federation $federation,
+        // The factory rather than the Federation itself, so that building one is deferred to the single
+        // screen that needs it. Constructing a Federation resolves the outbound destination policy, and a
+        // malformed outbound option would otherwise make this whole controller unresolvable - taking down
+        // the Configuration screens, which are exactly what an administrator opens to find such an option.
+        protected readonly FederationFactory $federationFactory,
         protected readonly Routes $routes,
         protected readonly GeneralOverviewBuilder $generalOverviewBuilder,
         protected readonly ProtocolOverviewBuilder $protocolOverviewBuilder,
@@ -93,10 +98,38 @@ class ConfigController
     public function federationSettings(): Response
     {
         $trustMarks = [];
+
+        try {
+            $federation = $this->federationFactory->build();
+        } catch (\Throwable) {
+            // This screen still has plenty to report without a Federation, and the configuration that
+            // prevented one from being built is itself among what it reports: the option at fault gets a
+            // warning on its own row below, from a builder that logs the detail rather than rendering it.
+            // The exception message is deliberately not shown here for the same reason - it comes from
+            // config validation and from key material loading, so it can quote configured values back.
+            $this->sessionMessagesService->addMessage(
+                Translate::noop(
+                    'Federation tooling could not be built from the current configuration, so trust ' .
+                    'marks are not shown. Check the federation options below, and the outbound ' .
+                    'destination policy on the Protocol configuration screen, which federation fetches ' .
+                    'also depend on.',
+                ),
+            );
+
+            return $this->templateFactory->build(
+                'oidc:config/federation.twig',
+                [
+                    'moduleConfig' => $this->moduleConfig,
+                    'sections' => $this->federationOverviewBuilder->build($trustMarks),
+                ],
+                RoutesEnum::AdminConfigFederation->value,
+            );
+        }
+
         if (is_array($trustMarkTokens = $this->moduleConfig->getFederationTrustMarkTokens())) {
             $trustMarks = array_map(
-                function (string $token): Federation\TrustMark {
-                    return $this->federation->trustMarkFactory()->fromToken($token);
+                function (string $token) use ($federation): Federation\TrustMark {
+                    return $federation->trustMarkFactory()->fromToken($token);
                 },
                 $trustMarkTokens,
             );
@@ -109,10 +142,10 @@ class ConfigController
              */
             foreach ($dynamicTrustMarks as $trustMarkType => $trustMarkIssuerId) {
                 try {
-                    $trustMarkIssuerConfigurationStatement = $this->federation->entityStatementFetcher()
+                    $trustMarkIssuerConfigurationStatement = $federation->entityStatementFetcher()
                         ->fromCacheOrWellKnownEndpoint($trustMarkIssuerId);
 
-                    $trustMarks[] = $this->federation->trustMarkFetcher()->fromCacheOrFederationTrustMarkEndpoint(
+                    $trustMarks[] = $federation->trustMarkFetcher()->fromCacheOrFederationTrustMarkEndpoint(
                         $trustMarkType,
                         $this->moduleConfig->getIssuer(),
                         $trustMarkIssuerConfigurationStatement,

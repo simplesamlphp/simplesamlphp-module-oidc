@@ -103,6 +103,72 @@ $config = [
     ],
 
     /**
+     * Outbound destination policy: where this OP is willing to send requests.
+     *
+     * Most of what the OP fetches is named by somebody else. A registering
+     * client supplies its own `jwks_uri`, `signed_jwks_uri`, `request_uri` and
+     * back-channel logout URI; a federation entity statement says which endpoint
+     * to fetch next. Left unrestricted, that turns this deployment into a way of
+     * reaching its own network from the outside, so non-public destinations are
+     * refused by default and every redirect hop is checked the same way.
+     *
+     * NOTE: A deployment that legitimately fetches from
+     * an internal address, or over plain http, has to say so below.
+     *
+     * Application-layer SSRF defence is leaky by nature. An egress firewall or a
+     * forward proxy that cannot reach internal networks remains the stronger
+     * control; this raises the bar rather than making it safe.
+     *
+     * URI schemes an outbound request may use. Every destination involved is
+     * https by specification, so add 'http' only for a deployment that knowingly
+     * fetches over plain http. The address rules below apply either way.
+     */
+//    ModuleConfig::OPTION_OUTBOUND_ALLOWED_SCHEMES => ['https'],
+
+    /**
+     * Hosts this deployment declares legitimate whatever they resolve to. For an
+     * internal destination that a range cannot describe: a name resolved outside
+     * DNS (`/etc/hosts`), or one whose address is not fixed. Allowing a host means
+     * trusting whoever controls that name with where the request goes, so keep
+     * this to destinations the deployment operates itself. The address check and
+     * the address pinning are both skipped for a host listed here.
+     */
+//    ModuleConfig::OPTION_OUTBOUND_ALLOWED_HOSTS => [
+//        'rp.internal.example',
+//    ],
+
+    /**
+     * Address ranges permitted alongside the public ones, as CIDR. Use the
+     * narrowest range that covers the destination ('10.1.2.3/32' rather than
+     * '10.0.0.0/8'), so that permitting one internal endpoint does not permit the
+     * whole private network. A range written for IPv4 also covers the v4-mapped
+     * and NAT64 spellings of the addresses in it. An unusable range is refused
+     * when the configuration is loaded rather than quietly never matching.
+     */
+//    ModuleConfig::OPTION_OUTBOUND_ALLOWED_CIDRS => [
+//        '10.1.2.3/32',
+//    ],
+
+    /**
+     * How strictly to insist on connecting to the address that was validated.
+     *
+     * Checking a hostname and then handing the hostname to the HTTP client
+     * resolves it twice, and whoever controls the name controls both answers: the
+     * first can be a public address that passes the check and the second the
+     * loopback address the connection then uses. Pinning removes the second
+     * lookup. Note that this needs the cURL handler to work.
+     *
+     * - Preferred (default): pin where the handler allows it, otherwise carry on
+     *   with validation alone and report the weaker guarantee to the log.
+     * - Required: refuse the request when the address cannot be pinned. Note this
+     *   refuses every request behind a proxy, since a proxy resolves the
+     *   destination itself, out of reach of a cURL option.
+     * - Disabled: never pin, and do not report it.
+     */
+//    ModuleConfig::OPTION_OUTBOUND_ADDRESS_PINNING_MODE =>
+//        \SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum::Preferred,
+
+    /**
      * Authorization code and tokens TTL (validity duration), with given
      * examples. For duration format info, check
      * https://www.php.net/manual/en/dateinterval.construct.php

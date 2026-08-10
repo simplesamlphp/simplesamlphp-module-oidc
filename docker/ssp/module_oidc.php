@@ -17,6 +17,16 @@ declare(strict_types=1);
 use SimpleSAML\Module\oidc\ModuleConfig;
 
 $config = [
+    // The conformance suite tells the OP to fetch client jwks_uri / request_uri and to deliver
+    // back-channel logout to its own host, https://localhost.emobix.co.uk:8443/... That name is mapped
+    // to the Docker host gateway in docker-compose.yml (it is not resolvable inside the OP container),
+    // so it resolves to a private address, which the outbound destination policy refuses by default.
+    // Naming it here is what lets the dynamic-registration and back-channel-logout plans run, and it
+    // exercises the escape hatch that a deployment with an internal RP would use.
+    ModuleConfig::OPTION_OUTBOUND_ALLOWED_HOSTS => [
+        'localhost.emobix.co.uk',
+    ],
+
     ModuleConfig::OPTION_TOKEN_AUTHORIZATION_CODE_TTL => 'PT10M',
     ModuleConfig::OPTION_TOKEN_REFRESH_TOKEN_TTL => 'P1M',
     ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_TTL => 'PT1H',

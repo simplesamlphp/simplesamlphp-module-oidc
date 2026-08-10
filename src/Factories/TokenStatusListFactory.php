@@ -10,9 +10,11 @@ use SimpleSAML\OpenID\TokenStatusList;
 
 class TokenStatusListFactory
 {
+    /** The factory rather than the policy itself; see FederationFactory for why. */
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
         protected readonly LoggerService $loggerService,
+        protected readonly DestinationPolicyFactory $destinationPolicyFactory,
     ) {
     }
 
@@ -26,6 +28,7 @@ class TokenStatusListFactory
             supportedAlgorithms: $this->moduleConfig->getSupportedAlgorithms(),
             timestampValidationLeeway: $this->moduleConfig->getTimestampValidationLeeway(),
             logger: $this->loggerService,
+            destinationPolicy: $this->destinationPolicyFactory->build(),
         );
     }
 }

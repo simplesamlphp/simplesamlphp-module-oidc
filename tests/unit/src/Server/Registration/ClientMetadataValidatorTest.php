@@ -5,16 +5,25 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Server\Registration;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Registration\ClientMetadataValidator;
+use SimpleSAML\OpenID\Network\DestinationPolicy;
 
 #[CoversClass(ClientMetadataValidator::class)]
 class ClientMetadataValidatorTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
+
+    /**
+     * Mocked rather than real, so that no test here performs a DNS lookup for a destination in its
+     * metadata. What the policy decides is exercised in the library's own tests; what matters here is
+     * that a refusal becomes an invalid_client_metadata error naming the offending claim.
+     */
+    protected MockObject $destinationPolicyMock;
 
     protected function setUp(): void
     {
@@ -29,21 +38,30 @@ class ClientMetadataValidatorTest extends TestCase
             ->willReturn(['authorization_code', 'implicit', 'refresh_token']);
         $this->moduleConfigMock->method('getSupportedTokenEndpointAuthMethods')
             ->willReturn(['client_secret_basic', 'client_secret_post', 'private_key_jwt', 'none']);
+
+        $this->destinationPolicyMock = $this->createMock(DestinationPolicy::class);
+        // Default: every destination is permitted, so the existing cases keep testing what they were
+        // written to test. The cases that care override this.
+        $this->destinationPolicyMock->method('isUriAllowed')->willReturn(true);
     }
 
     protected function sut(): ClientMetadataValidator
     {
-        return new ClientMetadataValidator($this->moduleConfigMock);
+        return new ClientMetadataValidator($this->moduleConfigMock, $this->destinationPolicyMock);
     }
 
     /**
      * Assert that validating the given metadata is rejected with the expected OAuth error code and a hint
      * containing the given substring.
      */
-    protected function assertRejected(array $metadata, string $expectedErrorType, string $expectedHintSubstring): void
-    {
+    protected function assertRejected(
+        array $metadata,
+        string $expectedErrorType,
+        string $expectedHintSubstring,
+        bool $isCallerAuthenticated = false,
+    ): void {
         try {
-            $this->sut()->validate($metadata);
+            $this->sut()->validate($metadata, $isCallerAuthenticated);
             $this->fail('Expected OidcServerException was not thrown.');
         } catch (OidcServerException $exception) {
             $this->assertSame($expectedErrorType, $exception->getErrorType());
@@ -420,6 +438,197 @@ class ClientMetadataValidatorTest extends TestCase
             'logo_uri' => 'https://evil.example.com/logo.png',
         ];
 
-        $this->assertSame($metadata, (new ClientMetadataValidator($moduleConfigMock))->validate($metadata));
+        $this->assertSame(
+            $metadata,
+            (new ClientMetadataValidator($moduleConfigMock, $this->destinationPolicyMock))->validate($metadata),
+        );
+    }
+
+    public static function refusedDestinationProvider(): array
+    {
+        return [
+            'jwks_uri' => ['jwks_uri', 'https://client.example.org/jwks.json'],
+            'signed_jwks_uri' => ['signed_jwks_uri', 'https://client.example.org/signed-jwks'],
+            'backchannel_logout_uri' => ['backchannel_logout_uri', 'https://client.example.org/bclo'],
+        ];
+    }
+
+    #[DataProvider('refusedDestinationProvider')]
+    public function testRefusesAUriNamingADestinationThePolicyForbids(string $claim, string $uri): void
+    {
+        $this->destinationPolicyMock = $this->createMock(DestinationPolicy::class);
+        $this->destinationPolicyMock->method('isUriAllowed')
+            ->willReturnCallback(fn(string $candidate): bool => $candidate !== $uri);
+
+        $this->assertRejected(
+            [
+                'redirect_uris' => ['https://client.example.org/cb'],
+                $claim => $uri,
+            ],
+            'invalid_client_metadata',
+            $claim,
+            isCallerAuthenticated: true,
+        );
+    }
+
+    /**
+     * request_uris is a list, so a single bad entry among good ones has to be caught rather than only the
+     * first value being looked at.
+     *
+     * The refused entry is on its own host deliberately. The policy decides by origin - scheme, host and
+     * port - and never by path, so two paths on one host always share a verdict; a case where they differ
+     * would be testing a policy that does not exist.
+     */
+    public function testRefusesARequestUriNamingADestinationThePolicyForbids(): void
+    {
+        $refused = 'https://elsewhere.example.org/request-object-two';
+
+        $this->destinationPolicyMock = $this->createMock(DestinationPolicy::class);
+        $this->destinationPolicyMock->method('isUriAllowed')
+            ->willReturnCallback(fn(string $candidate): bool => $candidate !== $refused);
+
+        $this->assertRejected(
+            [
+                'redirect_uris' => ['https://client.example.org/cb'],
+                'request_uris' => ['https://client.example.org/request-object-one', $refused],
+            ],
+            'invalid_client_metadata',
+            $refused,
+            isCallerAuthenticated: true,
+        );
+    }
+
+    /**
+     * The destination checks resolve names, and a resolver is bounded by nothing here, so they are not
+     * work an unauthenticated caller may order. An open registration is still protected: the refusal
+     * happens when the destination is fetched, which is where it always mattered.
+     */
+    public function testDoesNotResolveDestinationsForAnUnauthenticatedCaller(): void
+    {
+        $this->destinationPolicyMock = $this->createMock(DestinationPolicy::class);
+        $this->destinationPolicyMock->expects($this->never())->method('isUriAllowed');
+
+        $metadata = [
+            'redirect_uris' => ['https://client.example.org/cb'],
+            'jwks_uri' => 'https://client.example.org/jwks.json',
+            'request_uris' => ['https://client.example.org/request-object'],
+        ];
+
+        $this->assertSame($metadata, $this->sut()->validate($metadata));
+    }
+
+    /**
+     * Each distinct destination costs a synchronous DNS lookup, so an unbounded request_uris list is work
+     * an unauthenticated caller can order for itself when registration is open. The list has to be refused
+     * on length before any of it is resolved.
+     */
+    public function testRefusesAnOverlongRequestUrisListWithoutResolvingIt(): void
+    {
+        $this->destinationPolicyMock = $this->createMock(DestinationPolicy::class);
+        $this->destinationPolicyMock->expects($this->never())->method('isUriAllowed');
+
+        $requestUris = [];
+        for ($i = 0; $i <= 20; $i++) {
+            $requestUris[] = sprintf('https://client.example.org/request-object-%d', $i);
+        }
+
+        $this->assertRejected(
+            [
+                'redirect_uris' => ['https://client.example.org/cb'],
+                'request_uris' => $requestUris,
+            ],
+            'invalid_client_metadata',
+            'request_uris',
+        );
+    }
+
+    /**
+     * A list repeating one destination is one destination, and must not be charged as many.
+     */
+    public function testChecksEachDistinctDestinationOnlyOnce(): void
+    {
+        // What costs a lookup is the host, so many paths on one host are one destination. Twenty Request
+        // Object locations on the client's own server is an ordinary registration, and must not become
+        // twenty resolver waits.
+        $this->destinationPolicyMock = $this->createMock(DestinationPolicy::class);
+        $this->destinationPolicyMock->expects($this->once())
+            ->method('isUriAllowed')
+            ->willReturn(true);
+
+        $metadata = [
+            'redirect_uris' => ['https://client.example.org/cb'],
+            'request_uris' => [
+                'https://client.example.org/request-object',
+                'https://client.example.org/request-object-two',
+                'https://client.example.org/other/path#hash',
+            ],
+        ];
+
+        $this->assertSame($metadata, $this->sut()->validate($metadata, isCallerAuthenticated: true));
+    }
+
+    /**
+     * The policy refuses a URI carrying credentials on the URI itself, not on where it points, so such a
+     * URI must never be deduplicated against a clean one sharing its host - it would otherwise be accepted
+     * and only fail when something tried to fetch it.
+     */
+    public function testChecksACredentialBearingUriEvenBehindACleanOneOnTheSameHost(): void
+    {
+        $withCredentials = 'https://user:secret@client.example.org/jwks.json';
+
+        $this->destinationPolicyMock = $this->createMock(DestinationPolicy::class);
+        $this->destinationPolicyMock->method('isUriAllowed')
+            ->willReturnCallback(fn(string $candidate): bool => $candidate !== $withCredentials);
+
+        $this->assertRejected(
+            [
+                'redirect_uris' => ['https://client.example.org/cb'],
+                // Checked first, and clean, so it is what the credential-bearing one would hide behind.
+                'request_uris' => ['https://client.example.org/request-object'],
+                'jwks_uri' => $withCredentials,
+            ],
+            'invalid_client_metadata',
+            'jwks_uri',
+            isCallerAuthenticated: true,
+        );
+    }
+
+    /**
+     * The origin is what identifies a destination, so a different scheme or port is a different one even
+     * on the same host. Folding those together would let an http URI ride in on an https one.
+     */
+    public function testTreatsADifferentSchemeOrPortAsADifferentDestination(): void
+    {
+        $this->destinationPolicyMock = $this->createMock(DestinationPolicy::class);
+        $this->destinationPolicyMock->expects($this->exactly(3))
+            ->method('isUriAllowed')
+            ->willReturn(true);
+
+        $metadata = [
+            'redirect_uris' => ['https://client.example.org/cb'],
+            'jwks_uri' => 'https://client.example.org/jwks.json',
+            'signed_jwks_uri' => 'https://client.example.org:8443/jwks.json',
+            'backchannel_logout_uri' => 'https://other.example.org/bclo',
+        ];
+
+        $this->assertSame($metadata, $this->sut()->validate($metadata, isCallerAuthenticated: true));
+    }
+
+    /**
+     * The policy decides destinations, not the shape of the metadata, so a claim the OP never fetches from
+     * must not be run past it. logo_uri is shown to a human; refusing it here would be a different rule.
+     */
+    public function testDoesNotApplyTheDestinationPolicyToUrisItNeverFetches(): void
+    {
+        $this->destinationPolicyMock = $this->createMock(DestinationPolicy::class);
+        $this->destinationPolicyMock->expects($this->never())->method('isUriAllowed');
+
+        $metadata = [
+            'redirect_uris' => ['https://client.example.org/cb'],
+            'logo_uri' => 'https://client.example.org/logo.png',
+            'client_uri' => 'https://client.example.org/',
+        ];
+
+        $this->assertSame($metadata, $this->sut()->validate($metadata));
     }
 }

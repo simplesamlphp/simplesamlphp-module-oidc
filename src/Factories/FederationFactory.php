@@ -11,9 +11,16 @@ use SimpleSAML\OpenID\Federation;
 
 class FederationFactory
 {
+    /**
+     * Note the factory rather than the policy itself. A policy is built from configuration that can be
+     * malformed, and building it throws when it is. Taking one here would make that throw happen while the
+     * container wires up anything that reaches this factory - including the admin Configuration screens,
+     * which exist to report exactly such an option. Deferring it to build() keeps them reachable.
+     */
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
         protected readonly LoggerService $loggerService,
+        protected readonly DestinationPolicyFactory $destinationPolicyFactory,
         protected readonly ?FederationCache $federationCache = null,
     ) {
     }
@@ -38,6 +45,7 @@ class FederationFactory
             maxTrustChainFetches: $this->moduleConfig->getFederationMaxTrustChainFetches(),
             trustChainResolveTimeout: $this->moduleConfig->getFederationTrustChainResolveTimeout(),
             maxFetchSizeBytes: $this->moduleConfig->getFederationMaxFetchSizeBytes(),
+            destinationPolicy: $this->destinationPolicyFactory->build(),
         );
     }
 }

@@ -138,6 +138,30 @@ class ProtocolOverviewBuilderTest extends TestCase
     }
 
     /**
+     * The destination policy options are what an administrator comes to this screen to check when
+     * outbound fetches start failing, so a malformed one has to fail on its own row. Resolving them
+     * ahead of the rows would throw before any row existed and take the whole screen down.
+     */
+    public function testReportsAMalformedDestinationPolicyOptionInPlace(): void
+    {
+        $sections = $this->buildProtocolOverviewBuilder([
+            // A string where a list belongs, which is how this is most easily mistyped.
+            ModuleConfig::OPTION_OUTBOUND_ALLOWED_HOSTS => 'rp.internal.example',
+        ])->build();
+
+        $row = $this->findRowForOption($sections, ModuleConfig::OPTION_OUTBOUND_ALLOWED_HOSTS);
+
+        $this->assertNotNull($row);
+        $this->assertSame('N/A', $row->getValue());
+        $this->assertNotNull($row->getWarning());
+
+        // The rest of the screen still built, which is the point of failing in place.
+        $this->assertNotNull(
+            $this->findRowForOption($sections, ModuleConfig::OPTION_OUTBOUND_ADDRESS_PINNING_MODE),
+        );
+    }
+
+    /**
      * A non-string issuer makes getOptionalString() throw, which both getIssuer() and
      * isIssuerConfigured() go through. Resolving the configured state outside the guard would
      * rethrow and take the screen down anyway.
