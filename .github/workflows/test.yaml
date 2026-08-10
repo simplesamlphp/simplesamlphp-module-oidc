@@ -293,6 +293,15 @@ jobs:
         # See docs/5-oidc-conformance.md for the inventory.
         run: |
           ./conformance-suite/scripts/run-test-plan.py  --expected-failures-file ./main/conformance-tests/dynamic-warnings.json --expected-skips-file ./main/conformance-tests/dynamic-skips.json "oidcc-dynamic-certification-test-plan[response_type=code]" ./main/conformance-tests/conformance-dynamic-ci.json
+      - name: Dump OP logs
+        if: failure()
+        working-directory: ./main
+        # What the suite reports is only its own side of the exchange, and some failures say nothing there:
+        # a request the OP never sent reads as a test waiting for a callback until it times out, with no
+        # failed check anywhere. The reason is in the OP's log, which otherwise leaves with the container.
+        # Same compose invocation as "Start SSP docker", so this addresses the project that step created.
+        run: |
+          docker compose -f docker/docker-compose.yml --project-directory . logs --no-color --tail 2000 oidc-op || true
       - name: Stop SSP
         working-directory: ./main
         run: |

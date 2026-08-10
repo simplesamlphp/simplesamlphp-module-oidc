@@ -17,14 +17,24 @@ declare(strict_types=1);
 use SimpleSAML\Module\oidc\ModuleConfig;
 
 $config = [
-    // The conformance suite tells the OP to fetch client jwks_uri / request_uri and to deliver
-    // back-channel logout to its own host, https://localhost.emobix.co.uk:8443/... That name is mapped
-    // to the Docker host gateway in docker-compose.yml (it is not resolvable inside the OP container),
-    // so it resolves to a private address, which the outbound destination policy refuses by default.
-    // Naming it here is what lets the dynamic-registration and back-channel-logout plans run, and it
+    // The conformance suite is reached under two names, and the OP makes outbound requests to both.
+    //
+    // 'localhost.emobix.co.uk' is the name the suite publishes itself under, so it is what it writes into
+    // the client jwks_uri / request_uri it tells the OP to fetch. It is not resolvable inside the OP
+    // container, so docker-compose.yml maps it to the Docker host gateway, where the suite is published
+    // on port 8443.
+    //
+    // 'nginx' is the suite's own container name on the shared conformance-suite_default network, and is
+    // the host the seeded Back-Channel Logout client delivers its logout token to - see the row and its
+    // comment in docker/conformance.sql. Delivery goes straight across that network rather than back out
+    // through the host gateway.
+    //
+    // Both resolve to private addresses, which the outbound destination policy refuses by default.
+    // Naming them here is what lets the dynamic-registration and back-channel-logout plans run, and it
     // exercises the escape hatch that a deployment with an internal RP would use.
     ModuleConfig::OPTION_OUTBOUND_ALLOWED_HOSTS => [
         'localhost.emobix.co.uk',
+        'nginx',
     ],
 
     ModuleConfig::OPTION_TOKEN_AUTHORIZATION_CODE_TTL => 'PT10M',
