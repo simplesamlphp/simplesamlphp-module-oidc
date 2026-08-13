@@ -191,6 +191,25 @@ class ClientFormTest extends TestCase
             ['openid-credential-offer://', true],
             ['foo://', true],
             ['https://', true],
+
+            // Private-use URI schemes for native apps (RFC8252), with empty authority component
+            ['app.immich:///oauth-callback', true],
+            ['com.example.app:/oauth2redirect/example-provider', true],
+            ['com.example.app:oauth2redirect', true],
+            ['urn:ietf:wg:oauth:2.0:oob', true],
+            ['x://a', true],
+
+            // Scheme must comply with RFC3986, and no whitespace is allowed
+            ['1foo://example.com', false],
+            ['foo bar://example.com', false],
+            ['  https://example.com', false],
+            ['https://example.com/foo bar', false],
+            ['://example.com', false],
+
+            // Fragment component is not allowed (OIDC Core, 3.1.2.1)
+            ['https://example.com/foo#bar', false],
+            ['com.example.app:#oauth2redirect', false],
+            ['app.immich:///oauth-callback#foo', false],
         ];
     }
 
