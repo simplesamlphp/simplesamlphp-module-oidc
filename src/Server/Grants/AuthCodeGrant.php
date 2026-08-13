@@ -343,13 +343,13 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     protected function getAuthorizationRequestClientRedirectUri(
         OAuth2AuthorizationRequest $authorizationRequest,
     ): string {
-        $rediretctUri = $authorizationRequest->getClient()->getRedirectUri();
+        $redirectUri = $authorizationRequest->getClient()->getRedirectUri();
 
-        if (is_array($rediretctUri)) {
-            return $rediretctUri[0];
+        if (is_array($redirectUri)) {
+            return $redirectUri[0];
         }
 
-        return $rediretctUri;
+        return $redirectUri;
     }
 
     /**

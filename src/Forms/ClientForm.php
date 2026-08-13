@@ -38,11 +38,12 @@ class ClientForm extends Form
     protected const string TYPE_ARRAY = 'array';
 
     /**
-     * RFC3986. AppendixB. Parsing a URI Reference with a Regular Expression.
-     * From v6.*, the regex was modified to allow URI without host, to support adding entries like
-     * `openid-credential-offer://`
+     * URI with an RFC3986 compliant scheme, followed by any non-whitespace characters. Since the scheme may be
+     * followed by an empty authority component, entries like `openid-credential-offer://` (OID4VCI) or
+     * `app.example:///oauth-callback` (RFC8252 private-use URI scheme) are allowed. Scheme alone (`https:`) is not.
+     * Fragment component is not allowed, since response parameters are appended as query (OIDC Core, 3.1.2.1).
      */
-    final public const string REGEX_URI = '/^[^:]+:\/\/?([^\s\/$.?#].[^\s]*)?$/';
+    final public const string REGEX_URI = '/^[a-zA-Z][a-zA-Z0-9+\-.]*:(\/\/[^\s#]*|[^\s#]+)$/';
 
     /**
      * Must have http:// or https:// scheme, and at least one 'domain.top-level-domain' pair, or more subdomains.
