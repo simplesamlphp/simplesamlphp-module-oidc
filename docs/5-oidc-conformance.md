@@ -38,13 +38,13 @@ Run SSP with OIDC on the same Docker network as the conformance tests so
 containers can communicate. See the "Docker Compose" section in
 [Using Docker](4-oidc-docker.md) for details.
 
-The OP image is built on a SimpleSAMLphp base image. During v7 development the
-module depends on the unreleased `simplesamlphp-2.5` branch, so the base image
-must be built from that branch (or discovery fails); see
-"Build against an unreleased SimpleSAMLphp version" in
-[Using Docker](4-oidc-docker.md). The GitHub Actions conformance job does this
-automatically: it builds the base image from the SimpleSAMLphp ref in its
-matrix (`ssp-composer-version`) and passes it to the OP build as `SSP_IMAGE`.
+The OP image is built on a SimpleSAMLphp base image, which has to be built
+locally first with `./docker/build-ssp-base.sh` — no published base image
+carries a SimpleSAMLphp new enough for this module. See "Build the SimpleSAMLphp
+base image" in [Using Docker](4-oidc-docker.md). The GitHub Actions conformance
+job does this automatically: it runs the same script for the SimpleSAMLphp ref
+in its matrix (`ssp-composer-version`) and passes the result to the OP build as
+`SSP_IMAGE`.
 
 ### Run conformance tests (interactive)
 

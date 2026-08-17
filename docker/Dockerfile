@@ -1,7 +1,8 @@
-# Base SimpleSAMLphp image. Defaults to a published cirrusid/simplesamlphp release tag, but can be
-# overridden to run against a different base image, for example one built locally from an unreleased
-# SimpleSAMLphp branch (see "Build against an unreleased SimpleSAMLphp version" in docs/4-oidc-docker.md).
-ARG SSP_IMAGE="cirrusid/simplesamlphp:v2.5.0"
+# Base SimpleSAMLphp image, built locally by docker/build-ssp-base.sh. No published
+# cirrusid/simplesamlphp tag carries a SimpleSAMLphp new enough for this module, so there is nothing
+# to default to: run that script first, or override this to point at another base image. See
+# "Build the SimpleSAMLphp base image" in docs/4-oidc-docker.md.
+ARG SSP_IMAGE="ssp-base:v2.5.3.1"
 FROM ${SSP_IMAGE}
 
 RUN apt-get update && apt-get --no-install-recommends install -y sqlite3

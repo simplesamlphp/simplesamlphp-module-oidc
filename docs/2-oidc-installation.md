@@ -3,6 +3,16 @@
 This guide walks you through installing, enabling, and preparing the OIDC
 module in SimpleSAMLphp.
 
+## Requirements
+
+- SimpleSAMLphp 2.5.3.1 or newer. This is a Composer requirement, so an older
+installation refuses the module rather than failing once it runs.
+- PHP 8.3 or newer.
+- The PHP extensions `curl`, `json`, `openssl`, `pdo` and `gmp`. Only `gmp` is
+likely to be missing: it is not required by the module directly but by
+`simplesamlphp/openid`, which the module depends on, so Composer refuses the
+installation without it. On Debian and Ubuntu it is `php-gmp`.
+
 ## 1. Install the module
 
 Run:

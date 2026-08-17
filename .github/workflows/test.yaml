@@ -212,10 +212,12 @@ jobs:
       fail-fast: false
       matrix:
         # SimpleSAMLphp ref to build the OP base image from. Any Composer version works: a released tag
-        # (e.g. "v2.5.2") or an (unreleased) branch (e.g. "dev-simplesamlphp-2.5"). During v7 development
-        # the module depends on the unreleased simplesamlphp-2.5 branch, which exposes
-        # \SimpleSAML\Locale\Language::getAvailableLanguages() used by the ui_locales support.
-        ssp-composer-version: ["dev-simplesamlphp-2.5"]
+        # (e.g. "v2.5.3.1") or a branch (e.g. "dev-simplesamlphp-2.5"). Keep this on a released tag which
+        # satisfies the simplesamlphp/simplesamlphp requirement in composer.json, so that conformance
+        # runs against a SimpleSAMLphp a deployment can actually install. Keep it usable as a Docker tag
+        # as well: the base image is addressed as ssp-base:<this value> below, while the build script
+        # replaces anything a tag may not hold, so a ref with a '/' in it would not be found here.
+        ssp-composer-version: ["v2.5.3.1"]
     env:
       SUITE_BASE_URL: https://localhost.emobix.co.uk:8443
       VERSION: release-v5.1.45
@@ -246,16 +248,11 @@ jobs:
           docker compose -f docker-compose-dev.yml up -d
           while ! curl -skfail https://localhost.emobix.co.uk:8443/api/runner/available >/dev/null; do sleep 2; done
       - name: Build SimpleSAMLphp base image
-        # SimpleSAMLphp is installed into the base image via Composer (cirrus's SSP_COMPOSER_VERSION path),
-        # so any tag or branch can be used - here the unreleased simplesamlphp-2.5 branch the module
-        # currently depends on. The image is built locally each run and not pushed to any registry. The
-        # cirrus image recipe is pinned to a commit for reproducibility; bump it when needed.
-        run: |
-          git clone https://github.com/cirrusidentity/docker-simplesamlphp.git ssp-base-image
-          git -C ssp-base-image checkout 0bf3ae9df5c0
-          docker build ssp-base-image/docker \
-            --build-arg SSP_COMPOSER_VERSION=${{ matrix.ssp-composer-version }} \
-            -t ssp-base:${{ matrix.ssp-composer-version }}
+        working-directory: ./main
+        # SimpleSAMLphp is installed into the base image via Composer (cirrus's SSP_COMPOSER_VERSION
+        # path), so any tag or branch can be used. The image is built locally each run and not pushed
+        # to any registry. Same script a developer runs locally, so the two cannot drift apart.
+        run: ./docker/build-ssp-base.sh ${{ matrix.ssp-composer-version }}
       - name: Generate development certificates
         working-directory: ./main
         # The TLS certificate nginx-proxy serves the OP with, and the OIDC module

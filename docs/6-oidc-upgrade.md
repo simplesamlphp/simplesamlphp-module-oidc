@@ -17,6 +17,10 @@ composer clear-symfony-cache
 As the database schema has been updated, you will have to run the DB migrations
 to bring your local database schema up to date.
 
+v7 requires **SimpleSAMLphp 2.5.3.1 or newer**, and now says so in
+`composer.json` (`simplesamlphp/simplesamlphp:^2.5.3.1`) rather than only in the
+compatibility table.
+
 New features:
 
 - Instance can now be configured to support multiple algorithms and signature
