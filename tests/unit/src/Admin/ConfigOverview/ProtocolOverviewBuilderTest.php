@@ -162,6 +162,34 @@ class ProtocolOverviewBuilderTest extends TestCase
     }
 
     /**
+     * Who may introspect another client's tokens is exactly the sort of thing an administrator opens
+     * this screen to check, so a mistyped list has to fail on its own row rather than take the screen
+     * down with it.
+     */
+    public function testReportsMalformedIntrospectionResourceServersInPlace(): void
+    {
+        $sections = $this->buildProtocolOverviewBuilder([
+            ModuleConfig::OPTION_API_ENABLED => true,
+            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED => true,
+            // A single client written as a string rather than as a list of one.
+            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RESOURCE_SERVER_CLIENT_IDS =>
+                'resource-server',
+        ])->build();
+
+        $row = $this->findRowForOption(
+            $sections,
+            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RESOURCE_SERVER_CLIENT_IDS,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('N/A', $row->getValue());
+        $this->assertNotNull($row->getWarning());
+
+        // The rest of the API section still built.
+        $this->assertNotNull($this->findRowForOption($sections, ModuleConfig::OPTION_API_TOKENS));
+    }
+
+    /**
      * A non-string issuer makes getOptionalString() throw, which both getIssuer() and
      * isIssuerConfigured() go through. Resolving the configured state outside the guard would
      * rethrow and take the screen down anyway.

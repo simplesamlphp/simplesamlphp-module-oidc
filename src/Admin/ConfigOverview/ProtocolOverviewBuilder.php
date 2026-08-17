@@ -809,6 +809,32 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
                 ConfigOverviewValueTypeEnum::Text,
                 ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED,
             ),
+            $this->guardRow(
+                Translate::noop('Token Introspection Resource Servers'),
+                ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RESOURCE_SERVER_CLIENT_IDS,
+                function (): Row {
+                    $resourceServers = $this->moduleConfig
+                        ->getApiOAuth2TokenIntrospectionResourceServerClientIds();
+
+                    return new Row(
+                        Translate::noop('Token Introspection Resource Servers'),
+                        $resourceServers,
+                        ConfigOverviewValueTypeEnum::StringList,
+                        ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RESOURCE_SERVER_CLIENT_IDS,
+                        $resourceServers === [] ?
+                        Translate::noop(
+                            'None, so a client authenticating at the introspection endpoint is only ' .
+                            'told about tokens issued to itself. API tokens and administrators are ' .
+                            'unaffected.',
+                        ) :
+                        Translate::noop(
+                            'These clients may introspect tokens issued to any client, and not only ' .
+                            'their own, so each one can read every other client\'s token subject and ' .
+                            'scopes.',
+                        ),
+                    );
+                },
+            ),
             $this->buildSecretCountRow(
                 Translate::noop('API Tokens'),
                 $apiTokenCount,

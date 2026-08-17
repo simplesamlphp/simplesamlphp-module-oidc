@@ -263,6 +263,13 @@ setting allowed time tolerance for timestamp validation in artifacts like JWSs.
 multiple Federation-related signing algorithms and key pairs.
 - `ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED` -
 optional, enables the OAuth2 token introspection endpoint as per RFC7662.
+- `ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RESOURCE_SERVER_CLIENT_IDS` -
+optional, client IDs allowed to introspect tokens issued to any client (default
+`[]`). A client which authenticates at the introspection endpoint is otherwise
+told only about tokens issued to itself, and answered `active: false` for
+anyone else's. Name a resource server here if it introspects tokens issued to
+other clients. API tokens with an introspection scope and logged in
+administrators are unaffected.
 - `ModuleConfig::OPTION_PAR_REQUEST_URI_TTL` - optional, lifetime of a PAR
 `request_uri` (default `PT10M`).
 - `ModuleConfig::OPTION_REQUIRE_PUSHED_AUTHORIZATION_REQUESTS` - optional,

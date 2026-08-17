@@ -152,6 +152,8 @@ class ModuleConfig
     'api_vci_credential_status_endpoint_enabled';
     final public const string OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED =
     'api_oauth2_token_introspection_endpoint_enabled';
+    final public const string OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RESOURCE_SERVER_CLIENT_IDS =
+    'api_oauth2_token_introspection_resource_server_client_ids';
     final public const string OPTION_API_TOKENS = 'api_tokens';
 
     /** Optional key naming an API token, so that an audit trail can say who made a change. */
@@ -2170,6 +2172,29 @@ class ModuleConfig
     public function getApiOAuth2TokenIntrospectionEndpointEnabled(): bool
     {
         return $this->config()->getOptionalBoolean(self::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED, false);
+    }
+
+    /**
+     * Clients allowed to introspect tokens issued to any client, and not only to themselves.
+     *
+     * Introspection is a protected resource's capability, and which resource servers a deployment has
+     * is something only that deployment knows, so it is named here instead of being a property of a
+     * client registration: were it registered metadata, a client could grant itself the ability to read
+     * every other party's tokens by asking for it during Dynamic Client Registration.
+     *
+     * @return list<string>
+     * @throws \Exception
+     */
+    public function getApiOAuth2TokenIntrospectionResourceServerClientIds(): array
+    {
+        $clientIds = $this->config()->getOptionalArray(
+            self::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RESOURCE_SERVER_CLIENT_IDS,
+            [],
+        );
+
+        return array_values(
+            array_filter($clientIds, static fn(mixed $clientId): bool => is_string($clientId) && $clientId !== ''),
+        );
     }
 
     /**

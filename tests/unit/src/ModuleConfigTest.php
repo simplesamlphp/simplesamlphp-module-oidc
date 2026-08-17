@@ -1130,6 +1130,62 @@ class ModuleConfigTest extends TestCase
     }
 
     /**
+     * Nobody is a resource server until a deployment says so, since being one means being told about
+     * other clients' tokens.
+     *
+     * @throws \Exception
+     */
+    public function testReadsNoIntrospectionResourceServersByDefault(): void
+    {
+        $this->assertSame([], $this->sut()->getApiOAuth2TokenIntrospectionResourceServerClientIds());
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testReadsConfiguredIntrospectionResourceServers(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RESOURCE_SERVER_CLIENT_IDS => [
+                    'resource-server-one',
+                    'resource-server-two',
+                ],
+            ],
+        ));
+
+        $this->assertSame(
+            ['resource-server-one', 'resource-server-two'],
+            $sut->getApiOAuth2TokenIntrospectionResourceServerClientIds(),
+        );
+    }
+
+    /**
+     * An entry which is not a client identifier can not name a client, and an empty one would sit in
+     * the list looking like it named something. Neither is allowed to authorize anything.
+     *
+     * @throws \Exception
+     */
+    public function testDropsIntrospectionResourceServerEntriesWhichCanNotNameAClient(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RESOURCE_SERVER_CLIENT_IDS => [
+                    'resource-server',
+                    '',
+                    123,
+                    null,
+                    ['nested'],
+                ],
+            ],
+        ));
+
+        $this->assertSame(['resource-server'], $sut->getApiOAuth2TokenIntrospectionResourceServerClientIds());
+    }
+
+    /**
      * @return array<string,mixed>
      */
     protected function withCredentialTtl(mixed $ttl): array

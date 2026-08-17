@@ -336,6 +336,31 @@ authentication methods (Basic, Post, Private Key JWT, Bearer).
 * Or, if the request is authorized using an API Bearer Token with
 the appropriate scope.
 
+Authenticating is not on its own permission to introspect any given token.
+A client which authenticates as itself is told about tokens issued to it, and
+answered with `active: false` for tokens issued to anyone else. It already
+holds its own tokens, so it learns nothing new about them, while another
+client's token would answer with that token's subject, scopes and lifetime.
+
+A deployment which runs a resource server as a client of its own names it in
+`config/module_oidc.php`, and that client may then introspect any token:
+
+```php
+use SimpleSAML\Module\oidc\ModuleConfig;
+
+ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RESOURCE_SERVER_CLIENT_IDS => [
+    'resource-server-client-id',
+],
+```
+
+This is configuration rather than client metadata on purpose: a client
+registering itself through Dynamic Client Registration must not be able to ask
+for the ability to read every other party's tokens.
+
+Requests authorized with an API Bearer Token holding an introspection scope,
+and those made by a logged in SimpleSAMLphp administrator, may introspect any
+token and are unaffected by that option.
+
 #### Request
 
 The request is sent with `application/x-www-form-urlencoded` encoding with the
@@ -368,7 +393,9 @@ authorized the token.
 * __jti__ (string, optional): Identifier for the token.
 
 If the token is not active, only the `active` field with a value of
-`false` is returned.
+`false` is returned. The same answer is given when the caller is not entitled
+to be told about the token, so an inactive answer does not distinguish a token
+which does not exist from one the caller may not see.
 
 #### Sample 1
 

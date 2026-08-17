@@ -1891,6 +1891,31 @@ $config = [
     ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED => false,
 
     /**
+     * (optional) Client IDs allowed to introspect tokens issued to any client,
+     * and not only to themselves. Default is an empty list.
+     *
+     * A client which authenticates at the introspection endpoint may always ask
+     * about tokens issued to itself, which tells it nothing it did not already
+     * hold. Asking about another client's token is a different matter, since
+     * the answer carries that token's subject, scopes and lifetime, so it is
+     * refused unless the client is named here. A refused request is answered as
+     * if the token was not active, rather than with an error, so that the
+     * endpoint can not be used to find out which tokens exist.
+     *
+     * This is deliberately a deployment decision instead of a client property.
+     * Were it registered client metadata, a client registering itself through
+     * Dynamic Client Registration could ask for the ability to read every other
+     * party's tokens.
+     *
+     * Callers authorized with an API token holding an introspection scope, and
+     * logged in SimpleSAMLphp administrators, may introspect any token and are
+     * not affected by this option.
+     */
+    ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RESOURCE_SERVER_CLIENT_IDS => [
+//        'resource-server-client-id',
+    ],
+
+    /**
      * List of API tokens which can be used to access API endpoints based on
      * given scopes. The format is: ['token' => [ApiScopesEnum]]
      *
