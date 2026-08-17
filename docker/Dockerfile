@@ -19,6 +19,7 @@ ENV STAGINGCOMPOSERREPOS=oidc \
     COMPOSER_REQUIRE="simplesamlphp/simplesamlphp-module-oidc:$OIDC_VERSION"
 ADD . /var/simplesamlphp/staging-modules/oidc
 
+RUN git config --global --add safe.directory '*'
 RUN /opt/simplesaml/staging-install.sh
 RUN /opt/simplesaml/module-setup.sh
 ADD docker/ssp/module_oidc.php /var/simplesamlphp/config/module_oidc.php
