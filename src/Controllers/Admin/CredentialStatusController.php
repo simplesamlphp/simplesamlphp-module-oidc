@@ -122,6 +122,10 @@ class CredentialStatusController
                 'allowedStatuses' => $this->resolveAllowedStatuses($pagination['items']),
                 'statusLabels' => CredentialStatusForm::statusOptions(),
                 'neverRetiringListCount' => $this->statusListEntryRepository->countNeverRetiringLists(),
+                // Expected to be zero always. It is not a consequence of any setting: a list holding an
+                // entry its expiry lane says is impossible is a defect, and the number is here so that
+                // it is seen rather than inferred later from storage which stopped being reclaimed.
+                'laneMismatchCount' => $this->statusListEntryRepository->countLaneMismatches(),
                 'form' => $this->formFactory->build(CredentialStatusForm::class),
                 'actionRoute' => $this->routes->urlAdminCredentialStatusChange(),
             ],

@@ -142,7 +142,9 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                         Translate::noop(
                             'Credentials of a configuration which is in no pool are issued without a ' .
                             'status claim. Privacy rests on many credentials sharing one list, so ' .
-                            'more pools means a smaller group each credential hides in.',
+                            'more pools means a smaller group each credential hides in. A pool also ' .
+                            'keeps a separate list for credentials which never expire, so giving ' .
+                            'every configuration in it a lifetime keeps it to a single list.',
                         ) :
                         Translate::noop(
                             'These pools are inert, since Status Lists are disabled.',
@@ -720,8 +722,9 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                             ModuleConfig::OPTION_VCI_CREDENTIAL_TTLS,
                             Translate::noop(
                                 'Issued credentials never expire, which is the long standing default. ' .
-                                'A Status List holding one can never be retired, so its storage is ' .
-                                'kept for good.',
+                                'Such credentials are allocated into Status Lists of their own, so ' .
+                                'they hold up no other credential, but those lists can never be ' .
+                                'retired and their storage is kept for good.',
                             ),
                         );
                     }

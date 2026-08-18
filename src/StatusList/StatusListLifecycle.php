@@ -10,6 +10,7 @@ use SimpleSAML\Module\oidc\Repositories\StatusAuditRepository;
 use SimpleSAML\Module\oidc\Repositories\StatusListEntryRepository;
 use SimpleSAML\Module\oidc\Repositories\StatusListRepository;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\StatusList\Values\StatusListAllocationTarget;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListLifecycleReport;
 use Throwable;
 
@@ -27,8 +28,7 @@ use Throwable;
  *     full; this deactivates the ones which stopped being allocation targets for the other reason, which
  *     is that the configuration they were created under is no longer the current one.
  *  2. **Deactivated** -- still served, no longer allocated into, waiting for the credentials inside it to
- *     expire. Most of a list's life is spent here, and for a list holding a credential which never
- *     expires, all of it.
+ *     expire. Most of a list's life is spent here, and for a list in the non-expiring lane, all of it.
  *  3. **Retired** -- every credential in it expired, a grace period passed on top, and the list stopped
  *     being served. Its published token is given back at this point.
  *  4. **Emptied** -- the hundred thousand entry rows behind a retired list are removed, over as many runs
@@ -220,10 +220,26 @@ class StatusListLifecycle
      * Stops lists being allocation targets when the configuration they were created under is no longer
      * the current one.
      *
-     * A list is only selected for allocation while its pool and policy fingerprint match what the module
-     * is configured with now, so changing a pool's settings or rotating the signing key silently retires
-     * a list from service without recording that anything happened to it. Nothing would ever fill it, so
-     * nothing would ever deactivate it, and every later step begins with deactivation.
+     * A list is only selected for allocation while its pool, policy fingerprint and expiry lane all match
+     * something the module is configured to produce now, so changing a pool's settings, rotating the
+     * signing key, or changing which of a pool's credential configurations have a lifetime silently
+     * retires a list from service without recording that anything happened to it. Nothing would ever fill
+     * it, so nothing would ever deactivate it, and every later step begins with deactivation.
+     *
+     * The lane has to be part of that comparison, and it is the one part which is not a property of the
+     * pool. Removing the last credential lifetime covering a pool leaves its policy fingerprint
+     * unchanged while routing every new credential to the other lane, so a comparison of pool and policy
+     * alone would leave the old list active, reachable by nothing, and served for ever -- which is
+     * exactly the outcome expiry lanes exist to prevent, arrived at from the other direction.
+     *
+     * This asks configuration what a lane should be, where allocation asks the credential's own expiry.
+     * The two answer different questions and both are needed, but they can disagree if the nodes serving
+     * issuance and the node running cron read different configuration. That is waste, not corruption: the
+     * allocating statement refuses a deactivated list, and retirement re-checks the actual entry expiries
+     * in the statement which retires. It is waste which repeats, though -- each run deactivates the lane
+     * stale workers keep allocating into, and their next allocation creates another list -- so the two
+     * kinds of supersession are reported separately below, and a deployment is expected to keep its
+     * configuration coherent.
      *
      * Skipped entirely while Status Lists are switched off. An operator who has turned the feature off
      * for a moment has not asked for every list they have to start winding down, and turning it back on
@@ -240,13 +256,21 @@ class StatusListLifecycle
         }
 
         $signingKeyId = $this->statusListKeyResolver->getCurrentKeyId();
-        $currentPolicyByPoolId = [];
+        $currentTargets = [];
 
         foreach ($this->moduleConfig->getVciStatusListPoolBag()->getAll() as $pool) {
-            $currentPolicyByPoolId[$pool->getId()] = $pool->getPolicyFingerprint($signingKeyId);
+            $policyFingerprint = $pool->getPolicyFingerprint($signingKeyId);
+
+            foreach ($this->moduleConfig->getVciStatusListCurrentLanesFor($pool) as $expiryLane) {
+                $currentTargets[] = new StatusListAllocationTarget(
+                    $pool->getId(),
+                    $policyFingerprint,
+                    $expiryLane,
+                );
+            }
         }
 
-        $deactivated = $this->statusListRepository->deactivateSuperseded($currentPolicyByPoolId);
+        $deactivated = $this->statusListRepository->deactivateSuperseded($currentTargets);
 
         if ($deactivated > 0) {
             $this->loggerService->info(
@@ -257,9 +281,55 @@ class StatusListLifecycle
                     $deactivated,
                 ),
             );
+
+            $this->warnIfLanesAreBeingSuperseded($currentTargets);
         }
 
         return $deactivated;
+    }
+
+    /**
+     * Says so when a pool has stopped using one of the two expiry lanes.
+     *
+     * Ordinarily this is a one-off: an operator gave a credential configuration a lifetime, or took one
+     * away, and the list of the lane that configuration used to route to is deactivated once and retires
+     * on its own schedule. Nothing needs doing about it, but it is worth being able to see, because the
+     * same message arriving on run after run means something else -- the issuing nodes are still
+     * allocating into that lane, so they are reading different configuration from this one, and each run
+     * is deactivating a list they then immediately replace. In the non-expiring lane those replacements
+     * are never retired.
+     *
+     * Reported separately from a policy supersession for that reason: a fingerprint change is
+     * self-limiting, while this one can repeat indefinitely without anything else complaining.
+     *
+     * @param \SimpleSAML\Module\oidc\StatusList\Values\StatusListAllocationTarget[] $currentTargets
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    protected function warnIfLanesAreBeingSuperseded(array $currentTargets): void
+    {
+        $lanesByPoolId = [];
+
+        foreach ($currentTargets as $currentTarget) {
+            $lanesByPoolId[$currentTarget->getPoolId()][] = $currentTarget->getExpiryLane()->value;
+        }
+
+        foreach ($lanesByPoolId as $poolId => $lanes) {
+            if (count($lanes) > 1) {
+                continue;
+            }
+
+            $this->loggerService->info(
+                sprintf(
+                    'Status List pool "%s" currently allocates only into the "%s" expiry lane, so any ' .
+                    'list it has in the other lane is no longer an allocation target. If this is ' .
+                    'reported on every run while credentials are still being issued, the nodes serving ' .
+                    'issuance and the node running cron are reading different configuration, and each ' .
+                    'run is deactivating a list they replace.',
+                    $poolId,
+                    $lanes[0] ?? '',
+                ),
+            );
+        }
     }
 
     /**
@@ -271,7 +341,9 @@ class StatusListLifecycle
      * list, which covers a Relying Party still working from a response it cached, or a wallet presenting
      * a credential it has not noticed is expired.
      *
-     * A list holding even one credential without an expiry is never retired, however long it waits.
+     * A list holding even one credential without an expiry is never retired, however long it waits. Since
+     * such credentials are allocated into a lane of their own, that is now normally a whole list of them
+     * rather than one credential holding up a list of others.
      *
      * @return int How many lists were retired.
      * @throws \SimpleSAML\Error\ConfigurationError

@@ -12,6 +12,7 @@ use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Codebooks\StatusChangeSourceEnum;
+use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -21,6 +22,7 @@ use SimpleSAML\Module\oidc\Repositories\StatusListRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\StatusList\DbStatusUpdater;
+use SimpleSAML\Module\oidc\StatusList\Values\StatusListAllocationTarget;
 use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
 use SimpleSAML\Test\Module\oidc\integration\DatabaseContainers;
 
@@ -41,6 +43,9 @@ use SimpleSAML\Test\Module\oidc\integration\DatabaseContainers;
 class StatusListStorageTest extends TestCase
 {
     protected const string LIST_ID = 'integration-status-list-0000000000000000000000000000000000000000';
+
+    /** A second list of the same pool and policy, used for the lane which LIST_ID is not in. */
+    protected const string OTHER_LIST_ID = 'integration-status-list-1111111111111111111111111111111111111111';
 
     protected const int CAPACITY = 64;
 
@@ -90,13 +95,24 @@ class StatusListStorageTest extends TestCase
     /**
      * @throws \Exception
      */
-    protected function givenSeededList(int $bits = 2, string $allowedStatuses = '0,1,2'): void
-    {
+    /**
+     * The lane defaults to the non-expiring one because most cases here allocate without an expiry, and
+     * allocation is refused when the entry's expiry and the list's lane disagree. A case which gives its
+     * credentials an expiry has to ask for the expiring lane.
+     *
+     * @throws \Exception
+     */
+    protected function givenSeededList(
+        int $bits = 2,
+        string $allowedStatuses = '0,1,2',
+        StatusListExpiryLaneEnum $expiryLane = StatusListExpiryLaneEnum::NonExpiring,
+    ): void {
         $this->statusListRepository->create(
             self::LIST_ID,
             'https://op.example.org/module.php/oidc/statuslist/' . self::LIST_ID,
             'integration-pool',
             'integration-fingerprint',
+            $expiryLane,
             1,
             $bits,
             self::CAPACITY,
@@ -321,6 +337,7 @@ class StatusListStorageTest extends TestCase
             'https://op.example.org/module.php/oidc/statuslist/' . self::LIST_ID,
             'integration-pool',
             'integration-fingerprint',
+            StatusListExpiryLaneEnum::Expiring,
             1,
             2,
             self::CAPACITY,
@@ -339,6 +356,7 @@ class StatusListStorageTest extends TestCase
             $this->statusListRepository->findBeingPreparedForPolicy(
                 'integration-pool',
                 'integration-fingerprint',
+                StatusListExpiryLaneEnum::Expiring,
                 $helpers->dateTime()->getUtc()->sub(new \DateInterval('PT2M')),
             ),
         );
@@ -349,6 +367,7 @@ class StatusListStorageTest extends TestCase
             $this->statusListRepository->findBeingPreparedForPolicy(
                 'integration-pool',
                 'integration-fingerprint',
+                StatusListExpiryLaneEnum::Expiring,
                 $helpers->dateTime()->getUtc()->add(new \DateInterval('PT2M')),
             ),
         );
@@ -360,6 +379,7 @@ class StatusListStorageTest extends TestCase
             $this->statusListRepository->findBeingPreparedForPolicy(
                 'integration-pool',
                 'integration-fingerprint',
+                StatusListExpiryLaneEnum::Expiring,
                 $helpers->dateTime()->getUtc()->sub(new \DateInterval('PT2M')),
             ),
         );
@@ -401,6 +421,7 @@ class StatusListStorageTest extends TestCase
             'https://op.example.org/module.php/oidc/statuslist/' . self::LIST_ID,
             'integration-pool',
             'integration-fingerprint',
+            StatusListExpiryLaneEnum::Expiring,
             1,
             2,
             self::CAPACITY,
@@ -678,22 +699,57 @@ class StatusListStorageTest extends TestCase
         int $idx,
         string $credentialId,
         ?DateTimeImmutable $expiresAt,
+        string $statusListId = self::LIST_ID,
     ): void {
-        $this->statusListEntryRepository->allocate(
-            self::LIST_ID,
-            $idx,
-            $credentialId,
-            $this->statusListEntryRepository->hashCredentialId($credentialId),
-            'IntegrationCredential',
-            'a-subject-ref',
-            $expiresAt,
+        // Asserted rather than ignored: the lane guard refuses an allocation whose expiry does not match
+        // the list, and a fixture which silently failed to create its entry would leave the case it was
+        // setting up untested while still passing.
+        $this->assertTrue(
+            $this->statusListEntryRepository->allocate(
+                $statusListId,
+                $idx,
+                $credentialId,
+                $this->statusListEntryRepository->hashCredentialId($credentialId),
+                'IntegrationCredential',
+                'a-subject-ref',
+                $expiresAt,
+            ),
         );
+    }
+
+    /**
+     * A second list, in the non-expiring lane, for the cases which need an entry of each kind. They can
+     * no longer share one list, which is the point of the lane.
+     *
+     * @throws \Exception
+     */
+    protected function givenSeededNonExpiringList(): void
+    {
+        $this->statusListRepository->create(
+            self::OTHER_LIST_ID,
+            'https://op.example.org/module.php/oidc/statuslist/' . self::OTHER_LIST_ID,
+            'integration-pool',
+            'integration-fingerprint',
+            StatusListExpiryLaneEnum::NonExpiring,
+            1,
+            2,
+            self::CAPACITY,
+            '0,1,2',
+            43200,
+            604800,
+            3600,
+            'integration-signing-key',
+            StatusListKeyProfileEnum::DidJwk,
+        );
+
+        $this->statusListEntryRepository->seed(self::OTHER_LIST_ID, self::CAPACITY);
+        $this->statusListRepository->activate(self::OTHER_LIST_ID);
     }
 
     /**
      * @return array<string,mixed>
      */
-    protected function readEntry(int $idx): array
+    protected function readEntry(int $idx, string $statusListId = self::LIST_ID): array
     {
         $rows = $this->database->readPrimary(
             sprintf(
@@ -701,7 +757,7 @@ class StatusListStorageTest extends TestCase
                 $this->database->applyPrefix('oidc_status_list_entry'),
             ),
             [
-                'status_list_id' => self::LIST_ID,
+                'status_list_id' => $statusListId,
                 'idx' => $idx,
             ],
         )->fetchAll();
@@ -723,13 +779,16 @@ class StatusListStorageTest extends TestCase
     public function testClearsTheLinkageOfExpiredCredentialsInBoundedBatches(string $database): void
     {
         $this->useDatabase(self::$$database);
-        $this->givenSeededList();
+        $this->givenSeededList(expiryLane: StatusListExpiryLaneEnum::Expiring);
+        // The credential which never expires goes in the other lane's list, since the two kinds can no
+        // longer share one. Clearing runs across every list, so it still has to step over this one.
+        $this->givenSeededNonExpiringList();
 
         for ($idx = 0; $idx < 3; $idx++) {
             $this->givenAllocatedEntry($idx, 'urn:vc:expired:' . $idx, new DateTimeImmutable('2020-01-01 09:00:00'));
         }
         $this->givenAllocatedEntry(9, 'urn:vc:live', new DateTimeImmutable('2099-01-01 09:00:00'));
-        $this->givenAllocatedEntry(10, 'urn:vc:permanent', null);
+        $this->givenAllocatedEntry(10, 'urn:vc:permanent', null, self::OTHER_LIST_ID);
 
         $now = new DateTimeImmutable('2026-08-07 12:00:00');
 
@@ -747,7 +806,10 @@ class StatusListStorageTest extends TestCase
         $this->assertNotNull($cleared['expires_at']);
 
         $this->assertSame('urn:vc:live', $this->readEntry(9)['credential_id']);
-        $this->assertSame('urn:vc:permanent', $this->readEntry(10)['credential_id']);
+        $this->assertSame(
+            'urn:vc:permanent',
+            $this->readEntry(10, self::OTHER_LIST_ID)['credential_id'],
+        );
     }
 
     /**
@@ -763,11 +825,12 @@ class StatusListStorageTest extends TestCase
     public function testRetirementItselfRefusesAListWhichIsStillHoldingSomething(string $database): void
     {
         $this->useDatabase(self::$$database);
-        $this->givenSeededList();
+        $this->givenSeededList(expiryLane: StatusListExpiryLaneEnum::Expiring);
 
-        // Allocated before the list is deactivated, since a deactivated list takes no more claims.
+        // Allocated before the list is deactivated, since a deactivated list takes no more claims. A
+        // credential which never expires would belong to the other lane's list, and its own effect on
+        // retirement is covered by testOffersOnlyRetirementCandidatesWhichCouldActuallyBeRetired.
         $this->givenAllocatedEntry(0, 'urn:vc:live', new DateTimeImmutable('2027-02-01 09:00:00'));
-        $this->givenAllocatedEntry(1, 'urn:vc:permanent', null);
         $this->statusListRepository->deactivate(self::LIST_ID);
 
         $cutOff = new DateTimeImmutable('2026-08-07 12:00:00');
@@ -906,8 +969,8 @@ class StatusListStorageTest extends TestCase
 
     /**
      * Deactivating the lists a changed configuration would no longer allocate into is one statement
-     * whose exclusion is built from a placeholder pair per pool, and an empty configuration drops the
-     * exclusion altogether rather than emitting a `NOT IN ()` no driver accepts.
+     * whose exclusion is built from a placeholder triple per current target, and an empty configuration
+     * drops the exclusion altogether rather than emitting a `NOT IN ()` no driver accepts.
      *
      * @throws \Exception
      */
@@ -915,22 +978,141 @@ class StatusListStorageTest extends TestCase
     public function testDeactivatesOnlyTheListsTheCurrentPolicyWouldNotAllocateInto(string $database): void
     {
         $this->useDatabase(self::$$database);
-        $this->givenSeededList();
+        $this->givenSeededList(expiryLane: StatusListExpiryLaneEnum::Expiring);
 
         $this->assertSame(
             0,
-            $this->statusListRepository->deactivateSuperseded(['integration-pool' => 'integration-fingerprint']),
+            $this->statusListRepository->deactivateSuperseded([
+                new StatusListAllocationTarget(
+                    'integration-pool',
+                    'integration-fingerprint',
+                    StatusListExpiryLaneEnum::Expiring,
+                ),
+            ]),
         );
         $this->assertTrue($this->statusListRepository->findByIdOnPrimary(self::LIST_ID)?->isActive());
 
+        // The lane alone is enough to supersede a list, with the pool and the policy unchanged. This is
+        // the transition an operator makes by removing the last credential lifetime from a pool, and
+        // getting it wrong leaves the old list active, unreachable, and never retired.
         $this->assertSame(
             1,
-            $this->statusListRepository->deactivateSuperseded(['integration-pool' => 'a-rotated-fingerprint']),
+            $this->statusListRepository->deactivateSuperseded([
+                new StatusListAllocationTarget(
+                    'integration-pool',
+                    'integration-fingerprint',
+                    StatusListExpiryLaneEnum::NonExpiring,
+                ),
+            ]),
         );
 
         $statusList = $this->statusListRepository->findByIdOnPrimary(self::LIST_ID);
         $this->assertFalse($statusList?->isActive());
         $this->assertNotNull($statusList?->getDeactivatedAt());
+    }
+
+    /**
+     * The two lanes of one pool and policy are separate allocation targets on every driver, which is what
+     * the unique constraint has to permit and what selection has to distinguish.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('databaseToTest')]
+    public function testKeepsTheTwoLanesOfOnePoolApart(string $database): void
+    {
+        $this->useDatabase(self::$$database);
+        $this->givenSeededList(expiryLane: StatusListExpiryLaneEnum::Expiring);
+
+        // Same pool, same policy, same generation, other lane: allowed, because the uniqueness is
+        // declared over the lane too.
+        $this->statusListRepository->create(
+            self::OTHER_LIST_ID,
+            'https://op.example.org/module.php/oidc/statuslist/' . self::OTHER_LIST_ID,
+            'integration-pool',
+            'integration-fingerprint',
+            StatusListExpiryLaneEnum::NonExpiring,
+            1,
+            2,
+            self::CAPACITY,
+            '0,1,2',
+            43200,
+            604800,
+            3600,
+            'integration-signing-key',
+            StatusListKeyProfileEnum::DidJwk,
+        );
+        $this->statusListRepository->activate(self::OTHER_LIST_ID);
+
+        $expiring = $this->statusListRepository->findActiveForPolicy(
+            'integration-pool',
+            'integration-fingerprint',
+            StatusListExpiryLaneEnum::Expiring,
+        );
+        $nonExpiring = $this->statusListRepository->findActiveForPolicy(
+            'integration-pool',
+            'integration-fingerprint',
+            StatusListExpiryLaneEnum::NonExpiring,
+        );
+
+        $this->assertCount(1, $expiring);
+        $this->assertCount(1, $nonExpiring);
+        $this->assertSame(self::LIST_ID, $expiring[0]->getId());
+        $this->assertSame(self::OTHER_LIST_ID, $nonExpiring[0]->getId());
+
+        // And the generation counter is read over the same scope, so neither lane pushes the other along.
+        $this->assertSame(
+            1,
+            $this->statusListRepository->getHighestGeneration(
+                'integration-pool',
+                'integration-fingerprint',
+                StatusListExpiryLaneEnum::Expiring,
+            ),
+        );
+        $this->assertSame(
+            1,
+            $this->statusListRepository->getHighestGeneration(
+                'integration-pool',
+                'integration-fingerprint',
+                StatusListExpiryLaneEnum::NonExpiring,
+            ),
+        );
+    }
+
+    /**
+     * The invariant monitor, on every driver: its two correlated subqueries and the boolean comparison in
+     * each are the parts most likely to differ between them.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('databaseToTest')]
+    public function testCountsLaneMismatchesOnEveryDriver(string $database): void
+    {
+        $this->useDatabase(self::$$database);
+        $this->givenSeededList(expiryLane: StatusListExpiryLaneEnum::Expiring);
+
+        $this->statusListEntryRepository->allocate(
+            self::LIST_ID,
+            0,
+            'urn:vc:expiring',
+            $this->statusListEntryRepository->hashCredentialId('urn:vc:expiring'),
+            'IntegrationCredential',
+            null,
+            new DateTimeImmutable('2027-08-07 12:00:00'),
+        );
+
+        $this->assertSame(0, $this->statusListEntryRepository->countLaneMismatches());
+
+        // Forced past the guard, since nothing in the module can produce this state; the monitor exists
+        // for the case where something did anyway.
+        $this->database->write(
+            sprintf(
+                'UPDATE %s SET expires_at = NULL WHERE status_list_id = :status_list_id AND idx = :idx',
+                $this->statusListEntryRepository->getTableName(),
+            ),
+            ['status_list_id' => self::LIST_ID, 'idx' => 0],
+        );
+
+        $this->assertSame(1, $this->statusListEntryRepository->countLaneMismatches());
     }
 
     /**

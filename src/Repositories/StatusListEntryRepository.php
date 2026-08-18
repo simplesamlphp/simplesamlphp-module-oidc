@@ -9,6 +9,7 @@ use DateTimeZone;
 use PDO;
 use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
+use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListEntryRecord;
@@ -105,13 +106,26 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
     }
 
     /**
-     * Claims one index for a credential, if it is still free and its list still accepts allocations.
+     * Claims one index for a credential, if it is still free and its list still accepts allocations of
+     * this kind.
      *
      * The linkage is written by the same statement which claims the index, so there is never a moment
      * where an index is taken but nothing records what took it.
      *
+     * The list's expiry lane is checked here as well, in the guard which already establishes that the
+     * list is active, and the lane it is checked against is derived from this call's own `$expiresAt`
+     * rather than passed in. That is the whole point: the statement which writes `expires_at` is the
+     * statement which insists the list accepts that kind of expiry, so the two cannot disagree. A lane
+     * supplied by the caller would be a second opinion about a value already in hand, and a caller which
+     * got it wrong would satisfy the guard and write the mismatch anyway -- which is precisely what this
+     * is here to make impossible.
+     *
+     * The cost is nothing: the subquery was already a primary key lookup on the same row.
+     *
      * @return bool Whether this caller got the index. False means another request claimed it first, or
-     * the list stopped accepting allocations, and the caller should probe again or select another list.
+     * the list stopped accepting allocations, or the list does not take credentials with this kind of
+     * expiry -- and the caller should probe again or select another list, which is the right response to
+     * all three.
      * @throws \Exception
      */
     public function allocate(
@@ -143,6 +157,7 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
                    AND allocated = :is_free
                    AND EXISTS (
                         SELECT 1 FROM %s WHERE id = :guarded_status_list_id AND is_active = :is_active
+                          AND expiry_lane = :expiry_lane
                    )',
                 $this->getTableName(),
                 $statusListTableName,
@@ -165,6 +180,9 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
                 // is not portable across drivers.
                 'guarded_status_list_id' => $statusListId,
                 'is_active' => [true, PDO::PARAM_BOOL],
+                // Derived from the expiry being written by this same statement, never from anything the
+                // caller decided separately.
+                'expiry_lane' => StatusListExpiryLaneEnum::forExpiry($expiresAt)->value,
             ],
         );
 
@@ -386,6 +404,12 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
      *
      * Surfaced to administrators because credential expiry is opt in and off by default, which makes
      * permanent storage growth the quiet consequence of leaving it that way.
+     *
+     * Asks the entries rather than counting the lists in the non-expiring lane, and the two are not the
+     * same number. A lane says which credentials a list *accepts*; this says which lists actually hold
+     * one, so a non-expiring list which was created and never allocated into is correctly left out -- it
+     * can still be retired. This is also the figure which climbs if issuance and cron ever run against
+     * different configuration, which is the visible symptom of that going wrong.
      */
     public function countNeverRetiringLists(): int
     {
@@ -393,6 +417,55 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
             "SELECT COUNT(DISTINCT status_list_id) AS list_total FROM {$this->getTableName()} " .
             'WHERE allocated = :allocated AND expires_at IS NULL',
             ['allocated' => [true, PDO::PARAM_BOOL]],
+        );
+
+        /** @var mixed $total */
+        $total = $rows[0]['list_total'] ?? null;
+
+        return is_numeric($total) ? (int)$total : 0;
+    }
+
+    /**
+     * How many Status Lists hold an entry their expiry lane says they cannot.
+     *
+     * This is the assertion the whole lane arrangement rests on, asked of the data rather than of the
+     * code: the answer is zero if and only if no list mixes the two kinds of credential. Anything else
+     * is a defect, and worth seeing rather than inferring from storage which quietly stops being
+     * reclaimed.
+     *
+     * Both directions are counted, and the second is not merely symmetry. An expiring list holding a
+     * credential which never expires is the harmful case -- that list can never be retired, which is the
+     * whole problem lanes exist to solve. A non-expiring list holding an expiring credential harms
+     * nothing by itself, but it is the same defect seen from the other side, and a monitor which only
+     * looked for the harmful direction would report a clean zero for a system that was already writing
+     * into the wrong lane and had merely not yet done so in the direction that hurts.
+     *
+     * @throws \Exception
+     */
+    public function countLaneMismatches(): int
+    {
+        $rows = $this->readPrimary(
+            sprintf(
+                'SELECT COUNT(*) AS list_total FROM %1$s l WHERE
+                    (l.expiry_lane = :expiring_lane AND EXISTS (
+                        SELECT 1 FROM %2$s WHERE status_list_id = l.id
+                          AND allocated = :allocated_for_expiring AND expires_at IS NULL
+                    ))
+                 OR (l.expiry_lane = :non_expiring_lane AND EXISTS (
+                        SELECT 1 FROM %2$s WHERE status_list_id = l.id
+                          AND allocated = :allocated_for_non_expiring AND expires_at IS NOT NULL
+                    ))',
+                $this->database->applyPrefix(StatusListRepository::TABLE_NAME),
+                $this->getTableName(),
+            ),
+            [
+                'expiring_lane' => StatusListExpiryLaneEnum::Expiring->value,
+                'non_expiring_lane' => StatusListExpiryLaneEnum::NonExpiring->value,
+                // The same value twice, under two names, since a repeated placeholder is not portable
+                // across drivers.
+                'allocated_for_expiring' => [true, PDO::PARAM_BOOL],
+                'allocated_for_non_expiring' => [true, PDO::PARAM_BOOL],
+            ],
         );
 
         /** @var mixed $total */

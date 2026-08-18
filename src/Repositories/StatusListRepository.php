@@ -9,6 +9,7 @@ use DateTimeZone;
 use PDO;
 use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
+use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -90,25 +91,34 @@ class StatusListRepository extends AbstractDatabaseRepository
     }
 
     /**
-     * The lists new credentials of this pool may currently be allocated into.
+     * The lists a credential of this pool, policy and lane may currently be allocated into.
      *
      * Filtering on the policy fingerprint and not merely on the pool is what keeps a settings change
      * from leaving lists created under the old policy eligible. During a signing key rotation in
      * particular, the issuer signs credentials with the current key while a list bound to the previous
      * one would still be selected, quietly breaking the profile which says the two are the same key.
      *
+     * Filtering on the lane keeps credentials which never expire out of the lists of credentials which
+     * do. A list holding one of the former can never be retired, and since indices are handed out at
+     * random across a pool, without this one such credential would eventually land in every list the
+     * pool ever has.
+     *
      * @return \SimpleSAML\Module\oidc\StatusList\Values\StatusListRecord[]
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
      */
-    public function findActiveForPolicy(string $poolId, string $policyFingerprint): array
-    {
+    public function findActiveForPolicy(
+        string $poolId,
+        string $policyFingerprint,
+        StatusListExpiryLaneEnum $expiryLane,
+    ): array {
         $rows = $this->readPrimary(
             "SELECT * FROM {$this->getTableName()} " .
             'WHERE pool_id = :pool_id AND policy_fingerprint = :policy_fingerprint ' .
-            'AND is_active = :is_active AND retired_at IS NULL',
+            'AND expiry_lane = :expiry_lane AND is_active = :is_active AND retired_at IS NULL',
             [
                 'pool_id' => $poolId,
                 'policy_fingerprint' => $policyFingerprint,
+                'expiry_lane' => $expiryLane->value,
                 'is_active' => [true, PDO::PARAM_BOOL],
             ],
         );
@@ -126,33 +136,41 @@ class StatusListRepository extends AbstractDatabaseRepository
     }
 
     /**
-     * Lists of this pool which exist but are not open for allocation yet, because whichever request
-     * created them is still seeding their entries.
+     * Lists of this pool, policy and lane which exist but are not open for allocation yet, because
+     * whichever request created them is still seeding their entries.
      *
      * These are invisible to findActiveForPolicy() by design -- nothing may allocate into a list whose
      * indices do not all exist yet -- but they are not invisible to the decision of whether to start
-     * another list. Without this, every request arriving during a seed would conclude the pool is empty
-     * and start a list of its own, and the pool would end up with several sparse lists instead of one.
-     * That costs herd privacy, which is the whole reason credentials share a list.
+     * another list. Without this, every request arriving during a seed would conclude there is nothing
+     * to allocate into and start a list of its own, leaving several sparse lists instead of one. That
+     * costs herd privacy, which is the whole reason credentials share a list.
+     *
+     * Scoped to the lane for a further reason: a request may only stand down for a list it could
+     * actually use. Waiting on the other lane's list would mean giving up its own and then finding
+     * nothing to adopt.
      *
      * @param \DateTimeImmutable $createdAfter Ignore anything older, which is taken to have been
      * abandoned by a request that died partway through seeding. Waiting on those would stall every
      * later request for nothing.
      * @param ?int $belowGeneration Restrict to generations below this one. Used by a request which has
      * just created a list to find out whether another request is already preparing an earlier one, in
-     * which case its own is redundant.
+     * which case its own is redundant. Note that this comparison is only meaningful within one pool,
+     * policy and lane, which is exactly the scope this method already filters to -- and is why the
+     * generation counter and its unique constraint are scoped the same way.
      * @return \SimpleSAML\Module\oidc\StatusList\Values\StatusListRecord[]
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
      */
     public function findBeingPreparedForPolicy(
         string $poolId,
         string $policyFingerprint,
+        StatusListExpiryLaneEnum $expiryLane,
         DateTimeImmutable $createdAfter,
         ?int $belowGeneration = null,
     ): array {
         $params = [
             'pool_id' => $poolId,
             'policy_fingerprint' => $policyFingerprint,
+            'expiry_lane' => $expiryLane->value,
             'is_active' => [false, PDO::PARAM_BOOL],
             'created_after' => $this->nowForDatabase($createdAfter),
         ];
@@ -167,6 +185,7 @@ class StatusListRepository extends AbstractDatabaseRepository
         $rows = $this->readPrimary(
             "SELECT * FROM {$this->getTableName()} " .
             'WHERE pool_id = :pool_id AND policy_fingerprint = :policy_fingerprint ' .
+            'AND expiry_lane = :expiry_lane ' .
             'AND is_active = :is_active AND deactivated_at IS NULL AND retired_at IS NULL ' .
             'AND created_at > :created_after' . $generationCondition,
             $params,
@@ -236,13 +255,28 @@ class StatusListRepository extends AbstractDatabaseRepository
     }
 
     /**
-     * Highest generation used in a pool so far, or 0 when the pool has no lists yet.
+     * Highest generation used so far for this pool, policy and lane, or 0 when there is none yet.
+     *
+     * Scoped to the same three columns as the unique constraint the next generation will be inserted
+     * against, and as the queries which look for a list to adopt. Anything wider manufactures
+     * collisions between requests which are not competing for the same list: the loser of such a
+     * collision could not adopt the winner's list, because its own lookups filter it out, so it would
+     * burn one of its bounded creation attempts for nothing.
      */
-    public function getHighestGeneration(string $poolId): int
-    {
+    public function getHighestGeneration(
+        string $poolId,
+        string $policyFingerprint,
+        StatusListExpiryLaneEnum $expiryLane,
+    ): int {
         $rows = $this->readPrimary(
-            "SELECT MAX(generation) AS highest FROM {$this->getTableName()} WHERE pool_id = :pool_id",
-            ['pool_id' => $poolId],
+            "SELECT MAX(generation) AS highest FROM {$this->getTableName()} " .
+            'WHERE pool_id = :pool_id AND policy_fingerprint = :policy_fingerprint ' .
+            'AND expiry_lane = :expiry_lane',
+            [
+                'pool_id' => $poolId,
+                'policy_fingerprint' => $policyFingerprint,
+                'expiry_lane' => $expiryLane->value,
+            ],
         );
 
         /** @var mixed $highest */
@@ -254,11 +288,11 @@ class StatusListRepository extends AbstractDatabaseRepository
     /**
      * Inserts a new list.
      *
-     * The unique constraint on (pool_id, generation) is what settles a race between two workers both
-     * deciding a successor is needed: one insert succeeds and the other fails. The caller does not need
-     * to work out *why* it failed -- and could not reliably, since the database wrapper reports the
-     * connection's error rather than the statement's -- because the recovery is the same for any
-     * failure: read the pool again and use whichever list is active now.
+     * The unique constraint on (pool_id, policy_fingerprint, expiry_lane, generation) is what settles a
+     * race between two workers both deciding a successor is needed: one insert succeeds and the other
+     * fails. The caller does not need to work out *why* it failed -- and could not reliably, since the
+     * database wrapper reports the connection's error rather than the statement's -- because the
+     * recovery is the same for any failure: read the pool again and use whichever list is active now.
      *
      * @param string $allowedStatuses Comma separated status values, already serialised by the caller.
      * Persisted rather than looked up from configuration later, so the list stays publishable exactly
@@ -270,6 +304,7 @@ class StatusListRepository extends AbstractDatabaseRepository
         string $uri,
         string $poolId,
         string $policyFingerprint,
+        StatusListExpiryLaneEnum $expiryLane,
         int $generation,
         int $bits,
         int $capacity,
@@ -283,14 +318,15 @@ class StatusListRepository extends AbstractDatabaseRepository
         $this->database->write(
             sprintf(
                 'INSERT INTO %s (
-                    id, uri, pool_id, policy_fingerprint, generation, bits, capacity, allowed_statuses,
-                    ttl_seconds, token_validity_seconds, refresh_interval_seconds, signing_key_id,
-                    key_profile, allocated_count, is_active, signed_token_content_hash, created_at
+                    id, uri, pool_id, policy_fingerprint, expiry_lane, generation, bits, capacity,
+                    allowed_statuses, ttl_seconds, token_validity_seconds, refresh_interval_seconds,
+                    signing_key_id, key_profile, allocated_count, is_active,
+                    signed_token_content_hash, created_at
                 ) VALUES (
-                    :id, :uri, :pool_id, :policy_fingerprint, :generation, :bits, :capacity,
-                    :allowed_statuses, :ttl_seconds, :token_validity_seconds, :refresh_interval_seconds,
-                    :signing_key_id, :key_profile, :allocated_count, :is_active,
-                    :signed_token_content_hash, :created_at
+                    :id, :uri, :pool_id, :policy_fingerprint, :expiry_lane, :generation, :bits,
+                    :capacity, :allowed_statuses, :ttl_seconds, :token_validity_seconds,
+                    :refresh_interval_seconds, :signing_key_id, :key_profile, :allocated_count,
+                    :is_active, :signed_token_content_hash, :created_at
                 )',
                 $this->getTableName(),
             ),
@@ -299,6 +335,7 @@ class StatusListRepository extends AbstractDatabaseRepository
                 'uri' => $uri,
                 'pool_id' => $poolId,
                 'policy_fingerprint' => $policyFingerprint,
+                'expiry_lane' => $expiryLane->value,
                 'generation' => [$generation, PDO::PARAM_INT],
                 'bits' => [$bits, PDO::PARAM_INT],
                 'capacity' => [$capacity, PDO::PARAM_INT],
@@ -594,22 +631,30 @@ class StatusListRepository extends AbstractDatabaseRepository
     /**
      * Stops lists accepting allocations which they were never going to receive again anyway.
      *
-     * A list is only selected for allocation while its pool and its policy fingerprint both match the
-     * current configuration, so changing a pool's settings or rotating the signing key leaves the lists
-     * created under the previous policy active but unreachable. Nothing would ever fill them, so nothing
-     * would ever deactivate them, and retirement begins with deactivation -- they would go on being
-     * served for ever while holding credentials which all expired years ago.
+     * A list is only selected for allocation while its pool, its policy fingerprint and its expiry lane
+     * all match something the current configuration produces, so changing a pool's settings, rotating
+     * the signing key, or changing which of a pool's credential configurations have a lifetime leaves
+     * the lists of the superseded combination active but unreachable. Nothing would ever fill them, so
+     * nothing would ever deactivate them, and retirement begins with deactivation -- they would go on
+     * being served for ever while holding credentials which all expired years ago.
+     *
+     * The lane belongs in this comparison even though it is not a property of the pool, and leaving it
+     * out is a subtle way to lose exactly what lanes were introduced to recover. Removing the last
+     * `vci_credential_ttls` entry covering a pool routes every new credential to the non-expiring lane
+     * while leaving the policy fingerprint identical, so the half-full expiring list would match on pool
+     * and policy, stay active, and never be retired despite every credential in it expiring on schedule.
      *
      * This changes nothing an issuer or a wallet can observe. The lists were already never going to be
      * allocated into; all this does is start the clock which lets them eventually be retired.
      *
-     * @param array<string,string> $currentPolicyByPoolId Pool identifier to the policy fingerprint
-     * lists of that pool are currently created under. An empty map means no pool is configured to
-     * allocate at all, in which case every active list is superseded.
+     * @param \SimpleSAML\Module\oidc\StatusList\Values\StatusListAllocationTarget[] $currentTargets
+     * Every pool, policy and lane combination the current configuration would allocate into. An empty
+     * list means nothing is configured to allocate at all, in which case every active list is
+     * superseded.
      * @return int How many lists were deactivated.
      * @throws \Exception
      */
-    public function deactivateSuperseded(array $currentPolicyByPoolId): int
+    public function deactivateSuperseded(array $currentTargets): int
     {
         $params = [
             'deactivated_at' => $this->nowForDatabase(),
@@ -620,16 +665,16 @@ class StatusListRepository extends AbstractDatabaseRepository
         $currentPolicies = [];
         $position = 0;
 
-        foreach ($currentPolicyByPoolId as $poolId => $policyFingerprint) {
+        foreach ($currentTargets as $currentTarget) {
             // Each value under its own placeholder name, since a repeated one is not portable across
             // drivers.
             $currentPolicies[] = sprintf(
-                '(pool_id = :pool_%d AND policy_fingerprint = :policy_%d)',
-                $position,
+                '(pool_id = :pool_%1$d AND policy_fingerprint = :policy_%1$d AND expiry_lane = :lane_%1$d)',
                 $position,
             );
-            $params['pool_' . $position] = $poolId;
-            $params['policy_' . $position] = $policyFingerprint;
+            $params['pool_' . $position] = $currentTarget->getPoolId();
+            $params['policy_' . $position] = $currentTarget->getPolicyFingerprint();
+            $params['lane_' . $position] = $currentTarget->getExpiryLane()->value;
             $position++;
         }
 
@@ -662,6 +707,13 @@ class StatusListRepository extends AbstractDatabaseRepository
      * leaving it in would let a deployment with enough of them fill every batch a run is willing to work
      * through and starve the eligible lists behind them. Since every run starts from the beginning, that
      * would not correct itself.
+     *
+     * That test is phrased over the entries rather than over the list's lane, deliberately, even though
+     * the lane is what now decides which lists hold such a credential. A lane test would also exclude a
+     * non-expiring list which is *empty* -- one the allocator created and never allocated into, which it
+     * tolerates producing rather than fail an issuance -- and such a list names no credential at all, so
+     * it is safely retirable and would otherwise keep its entry rows for ever. Asking the entries also
+     * keeps this working as a guard for an expiring list whose lane invariant was somehow violated.
      *
      * The `deactivated_at IS NOT NULL` test is what keeps this away from lists which are inactive for the
      * other reason: a list is created inactive and stays that way while its entries are being seeded, and

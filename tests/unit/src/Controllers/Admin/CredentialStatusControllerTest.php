@@ -207,6 +207,7 @@ class CredentialStatusControllerTest extends TestCase
             ['items' => [$this->entry()], 'total' => 1, 'numPages' => 1, 'currentPage' => 1],
         );
         $this->statusListEntryRepositoryMock->method('countNeverRetiringLists')->willReturn(3);
+        $this->statusListEntryRepositoryMock->method('countLaneMismatches')->willReturn(2);
         $this->statusListRepositoryMock->method('findById')->willReturn($this->statusListRecord(0, 1));
 
         $this->sut()->index(new Request());
@@ -214,6 +215,10 @@ class CredentialStatusControllerTest extends TestCase
         $this->assertCount(1, $this->templateData['entries']);
         $this->assertSame(1, $this->templateData['total']);
         $this->assertSame(3, $this->templateData['neverRetiringListCount']);
+        // Two distinct figures. The first is the expected cost of credentials issued without a
+        // lifetime; the second should always be zero and means a list is holding a credential of a kind
+        // its expiry lane says it cannot.
+        $this->assertSame(2, $this->templateData['laneMismatchCount']);
         $this->assertSame('', $this->templateData['query']);
     }
 

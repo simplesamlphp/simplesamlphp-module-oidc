@@ -9,6 +9,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
+use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Exceptions\StatusListException;
 use SimpleSAML\Module\oidc\Helpers;
@@ -140,6 +141,9 @@ class DbStatusIndexAllocatorTest extends TestCase
     }
 
     /**
+     * Allocates a credential which never expires, so the lists these tests work with are in the
+     * non-expiring lane unless a test says otherwise.
+     *
      * @throws \Exception
      */
     protected function allocate(string $credentialId): StatusAllocation
@@ -150,6 +154,138 @@ class DbStatusIndexAllocatorTest extends TestCase
             self::CREDENTIAL_CONFIGURATION_ID,
             'subject-ref-hash',
             null,
+        );
+    }
+
+    /**
+     * @throws \Exception
+     */
+    protected function allocateExpiring(
+        string $credentialId,
+        string $expiresAt = '2027-08-07 12:00:00',
+    ): StatusAllocation {
+        return $this->sut()->allocateFor(
+            $this->pool(),
+            $credentialId,
+            self::CREDENTIAL_CONFIGURATION_ID,
+            'subject-ref-hash',
+            new \DateTimeImmutable($expiresAt),
+        );
+    }
+
+    /**
+     * The point of the whole arrangement: the two kinds of credential never share a list, so a list of
+     * expiring credentials can always eventually be retired.
+     *
+     * @throws \Exception
+     */
+    public function testKeepsExpiringAndNonExpiringCredentialsInSeparateLists(): void
+    {
+        $expiring = $this->allocateExpiring('https://op.example.org/vc/expiring');
+        $permanent = $this->allocate('https://op.example.org/vc/permanent');
+
+        $this->assertNotSame($expiring->getStatusListId(), $permanent->getStatusListId());
+
+        $this->assertSame(
+            StatusListExpiryLaneEnum::Expiring,
+            $this->statusListRepository->findByIdOnPrimary($expiring->getStatusListId())?->getExpiryLane(),
+        );
+        $this->assertSame(
+            StatusListExpiryLaneEnum::NonExpiring,
+            $this->statusListRepository->findByIdOnPrimary($permanent->getStatusListId())?->getExpiryLane(),
+        );
+    }
+
+    /**
+     * Two credentials of the same kind still share, or the lane would have bought a split herd for
+     * nothing.
+     *
+     * @throws \Exception
+     */
+    public function testKeepsCredentialsOfTheSameKindTogether(): void
+    {
+        $first = $this->allocateExpiring('https://op.example.org/vc/first');
+        $second = $this->allocateExpiring('https://op.example.org/vc/second');
+
+        $this->assertSame($first->getStatusListId(), $second->getStatusListId());
+    }
+
+    /**
+     * An open list in the other lane must never be selected. If it were, every probe against it would be
+     * refused by the allocation guard, the allocator would read ten refusals as a full list, and it would
+     * deactivate a perfectly good list belonging to the other lane.
+     *
+     * @throws \Exception
+     */
+    public function testDoesNotSelectAnOpenListFromTheOtherLane(): void
+    {
+        $permanent = $this->allocate('https://op.example.org/vc/permanent');
+        $otherLaneListId = $permanent->getStatusListId();
+
+        $expiring = $this->allocateExpiring('https://op.example.org/vc/expiring');
+
+        $this->assertNotSame($otherLaneListId, $expiring->getStatusListId());
+
+        // The other lane's list is untouched, and in particular still open.
+        $this->assertTrue($this->statusListRepository->findByIdOnPrimary($otherLaneListId)?->isActive());
+        $this->assertNull($this->statusListRepository->findByIdOnPrimary($otherLaneListId)?->getDeactivatedAt());
+    }
+
+    /**
+     * A list being seeded in the other lane is not something this request may stand down for: it could
+     * never allocate into it, so it would delete its own list and then find nothing to adopt.
+     *
+     * @throws \Exception
+     */
+    public function testDoesNotStandDownForAListBeingPreparedInTheOtherLane(): void
+    {
+        // Left inactive with no deactivation stamp, which is what a list still being seeded looks like,
+        // and at a lower generation so it would win the stand-down comparison if the lane were ignored.
+        $this->statusListRepository->create(
+            'other-lane-being-seeded',
+            'https://op.example.org/module.php/oidc/statuslist/other-lane-being-seeded',
+            self::POOL_ID,
+            $this->pool()->getPolicyFingerprint($this->signingKeyId),
+            StatusListExpiryLaneEnum::NonExpiring,
+            1,
+            1,
+            self::CAPACITY,
+            '0,1',
+            43200,
+            604800,
+            3600,
+            $this->signingKeyId,
+            StatusListKeyProfileEnum::DidJwk,
+        );
+
+        $allocation = $this->allocateExpiring('https://op.example.org/vc/expiring');
+
+        $statusList = $this->statusListRepository->findByIdOnPrimary($allocation->getStatusListId());
+
+        $this->assertNotSame('other-lane-being-seeded', $allocation->getStatusListId());
+        $this->assertSame(StatusListExpiryLaneEnum::Expiring, $statusList?->getExpiryLane());
+        $this->assertTrue($statusList?->isActive());
+    }
+
+    /**
+     * Generations are counted within a pool, policy and lane, so the two lanes do not push each other's
+     * numbering along and cannot collide on the unique constraint. A collision across lanes would be
+     * unresolvable: the loser cannot adopt the winner's list, since its own lookups filter it out.
+     *
+     * @throws \Exception
+     */
+    public function testCountsGenerationsSeparatelyInEachLane(): void
+    {
+        $permanent = $this->allocate('https://op.example.org/vc/permanent');
+        $expiring = $this->allocateExpiring('https://op.example.org/vc/expiring');
+
+        $this->assertSame(
+            1,
+            $this->statusListRepository->findByIdOnPrimary($permanent->getStatusListId())?->getGeneration(),
+        );
+        $this->assertSame(
+            1,
+            $this->statusListRepository->findByIdOnPrimary($expiring->getStatusListId())?->getGeneration(),
         );
     }
 
@@ -456,6 +592,7 @@ class DbStatusIndexAllocatorTest extends TestCase
             'https://op.example.org/module.php/oidc/statuslist/some-other-id',
             self::POOL_ID,
             (string)$existing?->getPolicyFingerprint(),
+            StatusListExpiryLaneEnum::NonExpiring,
             (int)$existing?->getGeneration(),
             1,
             self::CAPACITY,
@@ -513,8 +650,11 @@ class DbStatusIndexAllocatorTest extends TestCase
         ) extends StatusListRepository {
             public bool $pretendNoListIsOpen = true;
 
-            public function findActiveForPolicy(string $poolId, string $policyFingerprint): array
-            {
+            public function findActiveForPolicy(
+                string $poolId,
+                string $policyFingerprint,
+                StatusListExpiryLaneEnum $expiryLane,
+            ): array {
                 // Empty on the first look, so the allocator decides a successor is needed. Populated
                 // afterwards, which is what the racing worker's list becoming visible looks like.
                 if ($this->pretendNoListIsOpen) {
@@ -523,7 +663,7 @@ class DbStatusIndexAllocatorTest extends TestCase
                     return [];
                 }
 
-                return parent::findActiveForPolicy($poolId, $policyFingerprint);
+                return parent::findActiveForPolicy($poolId, $policyFingerprint, $expiryLane);
             }
 
             public function create(
@@ -531,6 +671,7 @@ class DbStatusIndexAllocatorTest extends TestCase
                 string $uri,
                 string $poolId,
                 string $policyFingerprint,
+                StatusListExpiryLaneEnum $expiryLane,
                 int $generation,
                 int $bits,
                 int $capacity,
@@ -582,6 +723,7 @@ class DbStatusIndexAllocatorTest extends TestCase
             'https://op.example.org/module.php/oidc/statuslist/being-seeded',
             self::POOL_ID,
             $this->pool()->getPolicyFingerprint($this->signingKeyId),
+            StatusListExpiryLaneEnum::NonExpiring,
             1,
             1,
             self::CAPACITY,
@@ -602,8 +744,11 @@ class DbStatusIndexAllocatorTest extends TestCase
         ) extends StatusListRepository {
             public int $activeLookups = 0;
 
-            public function findActiveForPolicy(string $poolId, string $policyFingerprint): array
-            {
+            public function findActiveForPolicy(
+                string $poolId,
+                string $policyFingerprint,
+                StatusListExpiryLaneEnum $expiryLane,
+            ): array {
                 $this->activeLookups++;
 
                 // Stands in for the other request finishing its seed while this one is waiting: the
@@ -612,7 +757,7 @@ class DbStatusIndexAllocatorTest extends TestCase
                     $this->activate('being-seeded');
                 }
 
-                return parent::findActiveForPolicy($poolId, $policyFingerprint);
+                return parent::findActiveForPolicy($poolId, $policyFingerprint, $expiryLane);
             }
         };
 
@@ -650,6 +795,7 @@ class DbStatusIndexAllocatorTest extends TestCase
             'https://op.example.org/module.php/oidc/statuslist/abandoned',
             self::POOL_ID,
             $this->pool()->getPolicyFingerprint($this->signingKeyId),
+            StatusListExpiryLaneEnum::NonExpiring,
             1,
             1,
             self::CAPACITY,
@@ -699,6 +845,7 @@ class DbStatusIndexAllocatorTest extends TestCase
             'https://op.example.org/module.php/oidc/statuslist/earlier-generation',
             self::POOL_ID,
             $fingerprint,
+            StatusListExpiryLaneEnum::NonExpiring,
             1,
             1,
             self::CAPACITY,
@@ -722,6 +869,7 @@ class DbStatusIndexAllocatorTest extends TestCase
             public function findBeingPreparedForPolicy(
                 string $poolId,
                 string $policyFingerprint,
+                StatusListExpiryLaneEnum $expiryLane,
                 \DateTimeImmutable $createdAfter,
                 ?int $belowGeneration = null,
             ): array {
@@ -735,13 +883,17 @@ class DbStatusIndexAllocatorTest extends TestCase
                 return parent::findBeingPreparedForPolicy(
                     $poolId,
                     $policyFingerprint,
+                    $expiryLane,
                     $createdAfter,
                     $belowGeneration,
                 );
             }
 
-            public function findActiveForPolicy(string $poolId, string $policyFingerprint): array
-            {
+            public function findActiveForPolicy(
+                string $poolId,
+                string $policyFingerprint,
+                StatusListExpiryLaneEnum $expiryLane,
+            ): array {
                 $this->activeLookups++;
 
                 // The other request finishes its seed while this one is standing down.
@@ -749,7 +901,7 @@ class DbStatusIndexAllocatorTest extends TestCase
                     $this->activate('earlier-generation');
                 }
 
-                return parent::findActiveForPolicy($poolId, $policyFingerprint);
+                return parent::findActiveForPolicy($poolId, $policyFingerprint, $expiryLane);
             }
         };
 
@@ -796,6 +948,7 @@ class DbStatusIndexAllocatorTest extends TestCase
             'https://op.example.org/module.php/oidc/statuslist/never-opened',
             self::POOL_ID,
             'some-fingerprint',
+            StatusListExpiryLaneEnum::NonExpiring,
             99,
             1,
             self::CAPACITY,
@@ -826,6 +979,7 @@ class DbStatusIndexAllocatorTest extends TestCase
             'https://op.example.org/module.php/oidc/statuslist/never-finished',
             self::POOL_ID,
             $this->pool()->getPolicyFingerprint($this->signingKeyId),
+            StatusListExpiryLaneEnum::NonExpiring,
             1,
             1,
             self::CAPACITY,
@@ -880,6 +1034,7 @@ class DbStatusIndexAllocatorTest extends TestCase
                 $this->statusListRepository->findActiveForPolicy(
                     self::POOL_ID,
                     $this->pool()->getPolicyFingerprint($this->signingKeyId),
+                    StatusListExpiryLaneEnum::NonExpiring,
                 ),
             ),
         );
@@ -949,6 +1104,7 @@ class DbStatusIndexAllocatorTest extends TestCase
             'https://op.example.org/module.php/oidc/statuslist/winner',
             self::POOL_ID,
             $fingerprint,
+            StatusListExpiryLaneEnum::NonExpiring,
             1,
             1,
             self::CAPACITY,
@@ -972,6 +1128,7 @@ class DbStatusIndexAllocatorTest extends TestCase
             public function findBeingPreparedForPolicy(
                 string $poolId,
                 string $policyFingerprint,
+                StatusListExpiryLaneEnum $expiryLane,
                 \DateTimeImmutable $createdAfter,
                 ?int $belowGeneration = null,
             ): array {
@@ -984,13 +1141,17 @@ class DbStatusIndexAllocatorTest extends TestCase
                 return parent::findBeingPreparedForPolicy(
                     $poolId,
                     $policyFingerprint,
+                    $expiryLane,
                     $createdAfter,
                     $belowGeneration,
                 );
             }
 
-            public function findActiveForPolicy(string $poolId, string $policyFingerprint): array
-            {
+            public function findActiveForPolicy(
+                string $poolId,
+                string $policyFingerprint,
+                StatusListExpiryLaneEnum $expiryLane,
+            ): array {
                 $this->activeLookups++;
 
                 // The winner finishes seeding partway through this request's wait.
@@ -998,7 +1159,7 @@ class DbStatusIndexAllocatorTest extends TestCase
                     $this->activate('winner');
                 }
 
-                return parent::findActiveForPolicy($poolId, $policyFingerprint);
+                return parent::findActiveForPolicy($poolId, $policyFingerprint, $expiryLane);
             }
 
             public function create(
@@ -1006,6 +1167,7 @@ class DbStatusIndexAllocatorTest extends TestCase
                 string $uri,
                 string $poolId,
                 string $policyFingerprint,
+                StatusListExpiryLaneEnum $expiryLane,
                 int $generation,
                 int $bits,
                 int $capacity,
@@ -1058,6 +1220,7 @@ class DbStatusIndexAllocatorTest extends TestCase
                 string $uri,
                 string $poolId,
                 string $policyFingerprint,
+                StatusListExpiryLaneEnum $expiryLane,
                 int $generation,
                 int $bits,
                 int $capacity,

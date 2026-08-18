@@ -11,6 +11,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
+use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -106,15 +107,23 @@ class StatusListEntryRepositoryTest extends TestCase
     }
 
     /**
+     * The lane defaults to the non-expiring one because allocate() below defaults to no expiry, and
+     * allocation is refused when the two disagree. A test which gives its credentials an expiry has to
+     * say so here too, which is the invariant working as intended rather than an inconvenience.
+     *
      * @throws \Exception
      */
-    protected function createList(string $id = self::LIST_ID, int $generation = 1): void
-    {
+    protected function createList(
+        string $id = self::LIST_ID,
+        int $generation = 1,
+        StatusListExpiryLaneEnum $expiryLane = StatusListExpiryLaneEnum::NonExpiring,
+    ): void {
         $this->statusListRepository->create(
             $id,
             'https://op.example.org/statuslist/' . $id,
             'default',
             'a-policy-fingerprint',
+            $expiryLane,
             $generation,
             1,
             self::CAPACITY,
@@ -357,8 +366,10 @@ class StatusListEntryRepositoryTest extends TestCase
      */
     public function testCountsOnlyListsHoldingAnAllocatedCredentialWhichNeverExpires(): void
     {
-        $this->createList();
-        $this->createList(self::OTHER_LIST_ID, 2);
+        // One list per lane, because that is now the only way the two kinds coexist: a credential with
+        // an expiry cannot be allocated into the non-expiring list, nor one without into the other.
+        $this->createList(self::LIST_ID, 1, StatusListExpiryLaneEnum::Expiring);
+        $this->createList(self::OTHER_LIST_ID, 2, StatusListExpiryLaneEnum::NonExpiring);
 
         $this->assertSame(0, $this->repository->countNeverRetiringLists());
 
@@ -366,7 +377,7 @@ class StatusListEntryRepositoryTest extends TestCase
 
         $this->assertSame(0, $this->repository->countNeverRetiringLists());
 
-        $this->allocate(1, 'urn:vc:permanent');
+        $this->allocate(1, 'urn:vc:permanent', null, null, null, self::OTHER_LIST_ID);
 
         $this->assertSame(1, $this->repository->countNeverRetiringLists());
     }
@@ -415,7 +426,7 @@ class StatusListEntryRepositoryTest extends TestCase
      */
     public function testClearsTheWholeLinkageOfAnExpiredCredential(): void
     {
-        $this->createList();
+        $this->createList(self::LIST_ID, 1, StatusListExpiryLaneEnum::Expiring);
         $this->allocate(
             0,
             'urn:vc:expired',
@@ -442,7 +453,7 @@ class StatusListEntryRepositoryTest extends TestCase
      */
     public function testKeepsTheIndexItsStatusAndItsExpiryWhenClearingLinkage(): void
     {
-        $this->createList();
+        $this->createList(self::LIST_ID, 1, StatusListExpiryLaneEnum::Expiring);
         $this->allocate(
             3,
             'urn:vc:expired',
@@ -468,7 +479,7 @@ class StatusListEntryRepositoryTest extends TestCase
      */
     public function testLeavesCredentialsWhichHaveNotExpiredAlone(): void
     {
-        $this->createList();
+        $this->createList(self::LIST_ID, 1, StatusListExpiryLaneEnum::Expiring);
         $this->allocate(
             0,
             'urn:vc:live',
@@ -479,6 +490,122 @@ class StatusListEntryRepositoryTest extends TestCase
 
         $this->assertSame(0, $this->repository->clearExpiredLinkage(new DateTimeImmutable('2026-08-07 12:00:00'), 10));
         $this->assertSame('urn:vc:live', $this->readEntry(0)['credential_id']);
+    }
+
+    /**
+     * The guard which makes the expiry lane an invariant rather than a convention. The lane it compares
+     * against is derived inside allocate() from the expiry being written, so a caller cannot arrange for
+     * the two to disagree, and a list simply refuses the wrong kind of credential.
+     *
+     * @throws \Exception
+     */
+    public function testRefusesToAllocateACredentialWithNoExpiryIntoAnExpiringList(): void
+    {
+        $this->createList(self::LIST_ID, 1, StatusListExpiryLaneEnum::Expiring);
+
+        $this->assertFalse(
+            $this->repository->allocate(
+                self::LIST_ID,
+                0,
+                'urn:vc:permanent',
+                $this->repository->hashCredentialId('urn:vc:permanent'),
+                self::CONFIGURATION_ID,
+                null,
+                null,
+            ),
+        );
+
+        // Refused, not merely reported as refused: the index has to still be free, or the allocator's
+        // response of probing elsewhere would leak an index on every attempt.
+        $this->assertEmpty($this->readEntry(0)['allocated']);
+        $this->assertNull($this->readEntry(0)['credential_id']);
+    }
+
+    /**
+     * The other direction, which harms nothing on its own -- a non-expiring list is never retired
+     * whatever it holds -- but is the same defect seen from the other side, and is what the mismatch
+     * monitor's second half looks for.
+     *
+     * @throws \Exception
+     */
+    public function testRefusesToAllocateAnExpiringCredentialIntoANonExpiringList(): void
+    {
+        $this->createList(self::LIST_ID, 1, StatusListExpiryLaneEnum::NonExpiring);
+
+        $this->assertFalse(
+            $this->repository->allocate(
+                self::LIST_ID,
+                0,
+                'urn:vc:expiring',
+                $this->repository->hashCredentialId('urn:vc:expiring'),
+                self::CONFIGURATION_ID,
+                null,
+                new DateTimeImmutable('2027-08-07 12:00:00'),
+            ),
+        );
+
+        $this->assertEmpty($this->readEntry(0)['allocated']);
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testCountsNoLaneMismatchesWhenEveryListHoldsWhatItsLaneSays(): void
+    {
+        $this->createList(self::LIST_ID, 1, StatusListExpiryLaneEnum::Expiring);
+        $this->createList(self::OTHER_LIST_ID, 2, StatusListExpiryLaneEnum::NonExpiring);
+
+        $this->allocate(0, 'urn:vc:expiring', null, null, new DateTimeImmutable('2027-08-07 12:00:00'));
+        $this->allocate(0, 'urn:vc:permanent', null, null, null, self::OTHER_LIST_ID);
+
+        $this->assertSame(0, $this->repository->countLaneMismatches());
+    }
+
+    /**
+     * Written past the guard on purpose, since nothing in the module can produce this state any more.
+     * The monitor exists for the case where something did anyway -- a hand-edited row, a restore from
+     * older data, a future code path which forgot -- so the test has to manufacture what it detects.
+     *
+     * @throws \Exception
+     */
+    public function testCountsALaneMismatchInEitherDirection(): void
+    {
+        $this->createList(self::LIST_ID, 1, StatusListExpiryLaneEnum::Expiring);
+        $this->createList(self::OTHER_LIST_ID, 2, StatusListExpiryLaneEnum::NonExpiring);
+
+        // An expiring list holding a credential which never expires: the harmful direction, since this
+        // list can now never be retired.
+        $this->allocate(0, 'urn:vc:expiring', null, null, new DateTimeImmutable('2027-08-07 12:00:00'));
+        $this->forceExpiry(self::LIST_ID, 0, null);
+
+        $this->assertSame(1, $this->repository->countLaneMismatches());
+
+        // A non-expiring list holding one which does expire: harmless, but still a mismatch.
+        $this->allocate(0, 'urn:vc:permanent', null, null, null, self::OTHER_LIST_ID);
+        $this->forceExpiry(self::OTHER_LIST_ID, 0, '2027-08-07 12:00:00');
+
+        $this->assertSame(2, $this->repository->countLaneMismatches());
+    }
+
+    /**
+     * Sets an entry's expiry directly, bypassing the lane guard in allocate(), so that a state the
+     * module refuses to create can be put in front of the monitor which looks for it.
+     *
+     * @throws \Exception
+     */
+    protected function forceExpiry(string $statusListId, int $idx, ?string $expiresAt): void
+    {
+        Database::getInstance()->write(
+            sprintf(
+                'UPDATE %s SET expires_at = :expires_at WHERE status_list_id = :status_list_id AND idx = :idx',
+                $this->repository->getTableName(),
+            ),
+            [
+                'expires_at' => $expiresAt,
+                'status_list_id' => $statusListId,
+                'idx' => $idx,
+            ],
+        );
     }
 
     /**
@@ -501,7 +628,7 @@ class StatusListEntryRepositoryTest extends TestCase
      */
     public function testClearsNoMoreThanTheGivenNumberOfLinkages(): void
     {
-        $this->createList();
+        $this->createList(self::LIST_ID, 1, StatusListExpiryLaneEnum::Expiring);
 
         for ($idx = 0; $idx < 5; $idx++) {
             $this->allocate(

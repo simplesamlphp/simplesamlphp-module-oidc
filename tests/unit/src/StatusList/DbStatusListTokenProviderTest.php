@@ -11,6 +11,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Exceptions\StatusListException;
 use SimpleSAML\Module\oidc\Helpers;
@@ -163,6 +164,7 @@ class DbStatusListTokenProviderTest extends TestCase
             self::LIST_URI,
             'default',
             'a-policy-fingerprint',
+            StatusListExpiryLaneEnum::Expiring,
             1,
             2,
             64,

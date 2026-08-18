@@ -1694,6 +1694,13 @@ $config = [
      * pools costs herd size and should be done only when their policies genuinely
      * differ. A credential configuration must appear in at most one pool.
      *
+     * A pool is not always exactly one list. Credentials which never expire are
+     * allocated into lists of their own, so a pool whose credential
+     * configurations differ in whether `vci_credential_ttls` gives them a
+     * lifetime keeps one list for each kind. That splits its herd, but holding
+     * both kinds could never be retired. Give every configuration in a pool
+     * a lifetime to keep it to a single list.
+     *
      * Credentials of a configuration which is in no pool are issued without a
      * `status` claim, and can not be revoked or suspended.
      *

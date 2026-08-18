@@ -13,6 +13,7 @@ use SimpleSAML\Configuration;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
+use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -882,6 +883,79 @@ class ModuleConfigTest extends TestCase
                 ],
             ],
         );
+    }
+
+    /**
+     * A pool whose credential configurations all lack a lifetime allocates only into the non-expiring
+     * lane, so any list it has in the other one is no longer an allocation target and has to be
+     * deactivated -- otherwise nothing would ever fill it, nothing would deactivate it, and it would be
+     * served for ever without being retired.
+     *
+     * @throws \Exception
+     */
+    public function testResolvesOnlyTheNonExpiringLaneForAPoolWithoutLifetimes(): void
+    {
+        $sut = $this->sut(overrides: $this->withStatusListPool(true));
+        $pool = $sut->getVciStatusListPoolBag()->getById('default');
+
+        $this->assertNotNull($pool);
+        $this->assertSame(
+            [StatusListExpiryLaneEnum::NonExpiring],
+            $sut->getVciStatusListCurrentLanesFor($pool),
+        );
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function testResolvesOnlyTheExpiringLaneWhenEveryConfigurationHasALifetime(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->withStatusListPool(true),
+            [ModuleConfig::OPTION_VCI_CREDENTIAL_TTLS => ['TestCredential' => 'P1Y']],
+        ));
+        $pool = $sut->getVciStatusListPoolBag()->getById('default');
+
+        $this->assertNotNull($pool);
+        $this->assertSame([StatusListExpiryLaneEnum::Expiring], $sut->getVciStatusListCurrentLanesFor($pool));
+    }
+
+    /**
+     * A mixed pool keeps a list in each lane, and both are current. Reporting only one would have the
+     * lifecycle deactivate the other on every run, and the allocator recreate it on the next allocation.
+     *
+     * @throws \Exception
+     */
+    public function testResolvesBothLanesForAPoolWhoseConfigurationsDiffer(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                    'TestCredential' => [],
+                    'PermanentCredential' => [],
+                ],
+                ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => true,
+                ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS => [
+                    'default' => [
+                        StatusListPool::KEY_CREDENTIAL_CONFIGURATIONS => [
+                            'TestCredential',
+                            'PermanentCredential',
+                        ],
+                    ],
+                ],
+                ModuleConfig::OPTION_VCI_CREDENTIAL_TTLS => ['TestCredential' => 'P1Y'],
+            ],
+        ));
+        $pool = $sut->getVciStatusListPoolBag()->getById('default');
+
+        $this->assertNotNull($pool);
+
+        $lanes = $sut->getVciStatusListCurrentLanesFor($pool);
+
+        $this->assertCount(2, $lanes);
+        $this->assertContains(StatusListExpiryLaneEnum::Expiring, $lanes);
+        $this->assertContains(StatusListExpiryLaneEnum::NonExpiring, $lanes);
     }
 
     /**

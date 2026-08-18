@@ -6,6 +6,7 @@ namespace SimpleSAML\Module\oidc\StatusList;
 
 use DateInterval;
 use DateTimeImmutable;
+use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\Exceptions\StatusListException;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Repositories\StatusListEntryRepository;
@@ -66,8 +67,8 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
      * How long to wait, in total, for a list another request is still seeding.
      *
      * Seeding a default sized list is a few hundred batched inserts, so this is normally over in well
-     * under a second. Waiting rather than starting a second list keeps the pool to one list, which is
-     * what herd privacy depends on. If the wait runs out, the caller starts its own list instead --
+     * under a second. Waiting rather than starting a second list keeps a pool's lane to one list, which
+     * is what herd privacy depends on. If the wait runs out, the caller starts its own list instead --
      * a wasted list is a privacy cost, but failing to issue a credential is worse.
      */
     protected const int PREPARING_LIST_WAIT_ATTEMPTS = 20;
@@ -108,10 +109,21 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
         $signingKeyId = $this->statusListKeyResolver->getCurrentKeyId();
         $policyFingerprint = $pool->getPolicyFingerprint($signingKeyId);
 
+        // Decided once, here, from the expiry this credential is being issued with, and carried through
+        // every lookup below. A list which never expires can never be retired, so it must not share a
+        // list with credentials which do -- see StatusListExpiryLaneEnum.
+        $expiryLane = StatusListExpiryLaneEnum::forExpiry($expiresAt);
+
         $allocationAttempt = new AllocationAttempt();
 
         for ($attempt = 1; $attempt <= self::MAX_LIST_ATTEMPTS; $attempt++) {
-            $statusList = $this->selectList($pool, $policyFingerprint, $signingKeyId, $allocationAttempt);
+            $statusList = $this->selectList(
+                $pool,
+                $policyFingerprint,
+                $expiryLane,
+                $signingKeyId,
+                $allocationAttempt,
+            );
 
             $allocation = $this->tryAllocateIn(
                 $statusList,
@@ -142,6 +154,7 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
                         'statusListId' => $statusList->getId(),
                         'idx' => $allocation->getIdx(),
                         'poolId' => $pool->getId(),
+                        'expiryLane' => $expiryLane->value,
                         'credentialConfigurationId' => $credentialConfigurationId,
                     ],
                 );
@@ -156,6 +169,7 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
                 [
                     'statusListId' => $statusList->getId(),
                     'poolId' => $pool->getId(),
+                    'expiryLane' => $expiryLane->value,
                     'attempt' => $attempt,
                 ],
             );
@@ -165,15 +179,16 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
 
         throw new StatusListException(
             sprintf(
-                'Unable to allocate a Status List index for pool "%s" after %d attempts.',
+                'Unable to allocate a Status List index for pool "%s" in the "%s" lane after %d attempts.',
                 $pool->getId(),
+                $expiryLane->value,
                 self::MAX_LIST_ATTEMPTS,
             ),
         );
     }
 
     /**
-     * A list of this pool which is accepting allocations, creating one if there is none.
+     * A list of this pool and lane which is accepting allocations, creating one if there is none.
      *
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
      * @throws \JsonException
@@ -182,24 +197,36 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
     protected function selectList(
         StatusListPool $pool,
         string $policyFingerprint,
+        StatusListExpiryLaneEnum $expiryLane,
         string $signingKeyId,
         AllocationAttempt $allocationAttempt,
     ): StatusListRecord {
-        $openList = $this->findOpenListWithRoom($pool, $policyFingerprint);
+        $openList = $this->findOpenListWithRoom($pool, $policyFingerprint, $expiryLane);
 
         if ($openList instanceof StatusListRecord) {
             return $openList;
         }
 
         // Nothing open, but another request may already be seeding one. Joining it rather than starting
-        // a second list is what keeps a pool to one list, which is what its credentials hide in.
-        $preparedList = $this->awaitListBeingPrepared($pool, $policyFingerprint, $allocationAttempt);
+        // a second list is what keeps a lane to one list, which is what its credentials hide in.
+        $preparedList = $this->awaitListBeingPrepared(
+            $pool,
+            $policyFingerprint,
+            $expiryLane,
+            $allocationAttempt,
+        );
 
         if ($preparedList instanceof StatusListRecord) {
             return $preparedList;
         }
 
-        return $this->createList($pool, $policyFingerprint, $signingKeyId, $allocationAttempt);
+        return $this->createList(
+            $pool,
+            $policyFingerprint,
+            $expiryLane,
+            $signingKeyId,
+            $allocationAttempt,
+        );
     }
 
     /**
@@ -208,8 +235,13 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
     protected function findOpenListWithRoom(
         StatusListPool $pool,
         string $policyFingerprint,
+        StatusListExpiryLaneEnum $expiryLane,
     ): ?StatusListRecord {
-        $candidates = $this->statusListRepository->findActiveForPolicy($pool->getId(), $policyFingerprint);
+        $candidates = $this->statusListRepository->findActiveForPolicy(
+            $pool->getId(),
+            $policyFingerprint,
+            $expiryLane,
+        );
 
         // Chosen in PHP rather than with ORDER BY RANDOM(), whose spelling differs between the drivers
         // this module supports.
@@ -250,6 +282,7 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
     protected function awaitListBeingPrepared(
         StatusListPool $pool,
         string $policyFingerprint,
+        StatusListExpiryLaneEnum $expiryLane,
         AllocationAttempt $allocationAttempt,
     ): ?StatusListRecord {
         // Waited once already and got nothing, so whoever holds that list is not coming back. Waiting
@@ -258,19 +291,19 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
             return null;
         }
 
-        if (!$this->isListBeingPrepared($pool, $policyFingerprint)) {
+        if (!$this->isListBeingPrepared($pool, $policyFingerprint, $expiryLane)) {
             return null;
         }
 
         $this->loggerService->debug(
             'Waiting for a Status List another request is preparing.',
-            ['poolId' => $pool->getId()],
+            ['poolId' => $pool->getId(), 'expiryLane' => $expiryLane->value],
         );
 
         for ($attempt = 0; $attempt < self::PREPARING_LIST_WAIT_ATTEMPTS; $attempt++) {
             usleep(self::PREPARING_LIST_WAIT_MICROSECONDS);
 
-            $openList = $this->findOpenListWithRoom($pool, $policyFingerprint);
+            $openList = $this->findOpenListWithRoom($pool, $policyFingerprint, $expiryLane);
 
             if ($openList instanceof StatusListRecord) {
                 return $openList;
@@ -278,14 +311,14 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
 
             // The other request gave up, died, or its list went straight to being closed. Either way
             // there is no longer anything to wait for.
-            if (!$this->isListBeingPrepared($pool, $policyFingerprint)) {
+            if (!$this->isListBeingPrepared($pool, $policyFingerprint, $expiryLane)) {
                 return null;
             }
         }
 
         $this->loggerService->warning(
             'Gave up waiting for a Status List another request is preparing, creating one instead.',
-            ['poolId' => $pool->getId()],
+            ['poolId' => $pool->getId(), 'expiryLane' => $expiryLane->value],
         );
 
         // Recorded only when the budget actually ran out with the list still unfinished, which is what
@@ -299,11 +332,15 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
      * @throws \Exception
      */
-    protected function isListBeingPrepared(StatusListPool $pool, string $policyFingerprint): bool
-    {
+    protected function isListBeingPrepared(
+        StatusListPool $pool,
+        string $policyFingerprint,
+        StatusListExpiryLaneEnum $expiryLane,
+    ): bool {
         return $this->statusListRepository->findBeingPreparedForPolicy(
             $pool->getId(),
             $policyFingerprint,
+            $expiryLane,
             $this->staleBefore(),
         ) !== [];
     }
@@ -311,7 +348,7 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
     /**
      * Whether the list this request has just created turned out to be redundant.
      *
-     * Two cases, and both have to be asked about because the unique constraint on (pool_id, generation)
+     * Two cases, and both have to be asked about because the unique constraint the insert was settled by
      * only settles a race between requests which picked the *same* generation. Two requests which read
      * the highest generation a moment apart pick different ones, so both inserts succeed and nothing
      * collides.
@@ -319,16 +356,24 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
      * Deliberately not phrased as "does any earlier list exist": a list which is open but full is
      * earlier and is not a reason to stand down, since it is exactly what this request is replacing.
      *
+     * Both questions are asked within this request's own lane, and that is not incidental. Standing down
+     * means adopting the other request's list, so standing down for a list in the other lane would be
+     * standing aside for something this request can never use -- and, worse, the adoption which follows
+     * could then hand back that other lane's open list, whose every index this request's allocation is
+     * refused by, leaving the allocator to read the refusals as a full list and deactivate a perfectly
+     * good one belonging to the other lane.
+     *
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
      * @throws \Exception
      */
     protected function isSupersededAfterCreating(
         StatusListPool $pool,
         string $policyFingerprint,
+        StatusListExpiryLaneEnum $expiryLane,
         int $generation,
     ): bool {
         // Someone else's list became open while this request was inserting its own.
-        if ($this->findOpenListWithRoom($pool, $policyFingerprint) instanceof StatusListRecord) {
+        if ($this->findOpenListWithRoom($pool, $policyFingerprint, $expiryLane) instanceof StatusListRecord) {
             return true;
         }
 
@@ -337,6 +382,7 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
         return $this->statusListRepository->findBeingPreparedForPolicy(
             $pool->getId(),
             $policyFingerprint,
+            $expiryLane,
             $this->staleBefore(),
             $generation,
         ) !== [];
@@ -370,10 +416,16 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
     /**
      * Creates a list, seeds every index, and opens it for allocation.
      *
-     * The unique constraint on (pool_id, generation) settles a race between two requests both deciding
-     * a successor is needed: one insert wins. The loser does not need to establish *why* its insert
-     * failed -- and could not reliably -- because the recovery is the same whatever the reason: look at
-     * the pool again and use whichever list is open now.
+     * The unique constraint on (pool_id, policy_fingerprint, expiry_lane, generation) settles a race
+     * between two requests both deciding a successor is needed: one insert wins. The loser does not need
+     * to establish *why* its insert failed -- and could not reliably -- because the recovery is the same
+     * whatever the reason: look again and use whichever list is open now.
+     *
+     * That the constraint is scoped to the policy and the lane, and not merely to the pool, is what makes
+     * the recovery sound. A collision is only worth settling between two requests which would use the
+     * same list; the loser of a collision across policies or lanes could not adopt the winner's list at
+     * all, since its own lookups filter that list out, so it would find nothing and spend one of its
+     * bounded creation attempts for nothing.
      *
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
      * @throws \JsonException
@@ -382,12 +434,17 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
     protected function createList(
         StatusListPool $pool,
         string $policyFingerprint,
+        StatusListExpiryLaneEnum $expiryLane,
         string $signingKeyId,
         AllocationAttempt $allocationAttempt,
         int $attempt = 1,
     ): StatusListRecord {
         $id = hash('sha256', $this->helpers->random()->getIdentifier());
-        $generation = $this->statusListRepository->getHighestGeneration($pool->getId()) + 1;
+        $generation = $this->statusListRepository->getHighestGeneration(
+            $pool->getId(),
+            $policyFingerprint,
+            $expiryLane,
+        ) + 1;
 
         // Minted once, here, and stored. Everything downstream uses the stored string rather than
         // rebuilding it, because a Relying Party rejects a Status List Token whose subject is not byte
@@ -400,6 +457,7 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
                 $uri,
                 $pool->getId(),
                 $policyFingerprint,
+                $expiryLane,
                 $generation,
                 $pool->getBits(),
                 $pool->getCapacity(),
@@ -415,6 +473,7 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
                 'Could not create a Status List, checking whether another request already did.',
                 [
                     'poolId' => $pool->getId(),
+                    'expiryLane' => $expiryLane->value,
                     'generation' => $generation,
                     'error' => $throwable->getMessage(),
                 ],
@@ -423,6 +482,7 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
             return $this->adoptListCreatedByAnotherRequest(
                 $pool,
                 $policyFingerprint,
+                $expiryLane,
                 $signingKeyId,
                 $allocationAttempt,
                 $attempt,
@@ -436,11 +496,16 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
         // repeating until it ran out of attempts and failed the issuance.
         if (
             !$allocationAttempt->hasWaitedInVain() &&
-            $this->isSupersededAfterCreating($pool, $policyFingerprint, $generation)
+            $this->isSupersededAfterCreating($pool, $policyFingerprint, $expiryLane, $generation)
         ) {
             $this->loggerService->info(
-                'Another request already produced a Status List for this pool, standing down.',
-                ['statusListId' => $id, 'poolId' => $pool->getId(), 'generation' => $generation],
+                'Another request already produced a Status List for this pool and lane, standing down.',
+                [
+                    'statusListId' => $id,
+                    'poolId' => $pool->getId(),
+                    'expiryLane' => $expiryLane->value,
+                    'generation' => $generation,
+                ],
             );
 
             $this->statusListRepository->deleteUnopened($id);
@@ -448,6 +513,7 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
             return $this->adoptListCreatedByAnotherRequest(
                 $pool,
                 $policyFingerprint,
+                $expiryLane,
                 $signingKeyId,
                 $allocationAttempt,
                 $attempt,
@@ -474,6 +540,7 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
             [
                 'statusListId' => $id,
                 'poolId' => $pool->getId(),
+                'expiryLane' => $expiryLane->value,
                 'generation' => $generation,
                 'capacity' => $pool->getCapacity(),
             ],
@@ -498,17 +565,18 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
     protected function adoptListCreatedByAnotherRequest(
         StatusListPool $pool,
         string $policyFingerprint,
+        StatusListExpiryLaneEnum $expiryLane,
         string $signingKeyId,
         AllocationAttempt $allocationAttempt,
         int $attempt,
         Throwable $cause,
     ): StatusListRecord {
         // The winner is very often still seeding at this point -- that is the whole reason this
-        // request's own insert lost -- so waiting here is what actually makes the pool converge on one
+        // request's own insert lost -- so waiting here is what actually makes the lane converge on one
         // list. It is a no-op once this request has already waited in vain, which is what stops a dead
         // creator from costing a wait on every attempt.
-        $adopted = $this->findOpenListWithRoom($pool, $policyFingerprint)
-        ?? $this->awaitListBeingPrepared($pool, $policyFingerprint, $allocationAttempt);
+        $adopted = $this->findOpenListWithRoom($pool, $policyFingerprint, $expiryLane)
+        ?? $this->awaitListBeingPrepared($pool, $policyFingerprint, $expiryLane, $allocationAttempt);
 
         if ($adopted instanceof StatusListRecord) {
             return $adopted;
@@ -520,6 +588,7 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
             return $this->createList(
                 $pool,
                 $policyFingerprint,
+                $expiryLane,
                 $signingKeyId,
                 $allocationAttempt,
                 $attempt + 1,
@@ -528,9 +597,10 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
 
         throw new StatusListException(
             sprintf(
-                'Unable to create a Status List for pool "%s" after %d attempts, and no other list is ' .
-                'available: %s',
+                'Unable to create a Status List for pool "%s" in the "%s" lane after %d attempts, and ' .
+                'no other list is available: %s',
                 $pool->getId(),
+                $expiryLane->value,
                 $attempt,
                 $cause->getMessage(),
             ),

@@ -546,6 +546,11 @@ A pool, not a credential configuration, is the unit which shares a list, and sev
 map onto one pool. Splitting configurations into separate pools costs herd privacy, so it is worth
 doing only when their policies genuinely differ. A configuration must appear in at most one pool.
 
+**A pool is not always exactly one list.** Credentials which never expire are allocated into lists of
+their own, so a pool whose configurations differ in whether [credential expiry](#credential-expiry)
+gives them a lifetime keeps one list for each kind. That splits its herd, but holding both kinds
+could never be retired. Give every configuration in a pool a lifetime to keep it to a single list.
+
 Per-pool settings, all optional except `credential_configurations`:
 
 | Setting                     | Default        | Notes                                                                                   |
@@ -616,11 +621,19 @@ ModuleConfig::OPTION_VCI_CREDENTIAL_TTLS => [
 ],
 ```
 
-It has a consequence worth understanding before deciding. **A list holding even one credential which
-never expires can never be retired**, because that credential can be presented at any point in the
-future and a verifier asked about it has to be able to fetch the list. With expiry off, the module's
-Status List storage grows for as long as the deployment runs and never gives anything back. The
-administration screen reports how many lists are in that position.
+It has a consequence worth understanding before deciding. **A list holding a credential which never
+expires can never be retired**, because that credential can be presented at any point in the future and
+a verifier asked about it has to be able to fetch the list. With expiry off, the module's Status List
+storage grows for as long as the deployment runs and never gives anything back. The administration
+screen reports how many lists are in that position.
+
+Such credentials do not hold up anyone else's, though: they are allocated into lists of their own, so a
+configuration left without a lifetime costs its own lists and nothing more. A pool mixing the two kinds
+keeps a list for each, at the price described under [Pools](#pools).
+
+The record of who was issued what is a second reason to set a lifetime. It is deleted once a credential
+expires, and a credential which never expires is one whose linkage is kept indefinitely — see step 1 of
+[Lifecycle and cron](#lifecycle-and-cron).
 
 ### Serving the lists
 
@@ -673,8 +686,9 @@ to finish the job — whatever one run leaves, the next picks up:
    index being handed out to a second credential. This is why credential expiry is also a privacy
    setting: with no expiry, the record of who was issued what is kept indefinitely.
 2. **Deactivates lists the current configuration would no longer allocate into**, which happens when a
-   pool's settings change or the signing key is rotated. This changes nothing observable — those lists
-   were already unreachable — but nothing else would ever start their clock.
+   pool's settings change, the signing key is rotated, or a pool stops using one of its two lists —
+   giving its last configuration a lifetime, or taking the last one away. This changes nothing
+   observable — those lists were already unreachable — but nothing else would ever start their clock.
 3. **Retires lists nothing can still be holding**, meaning every credential issued from them expired,
    and the grace period elapsed both since the list stopped accepting allocations and since that last
    expiry. A retired list answers `404` and gives back its published token.
@@ -682,6 +696,16 @@ to finish the job — whatever one run leaves, the next picks up:
    This is where retirement actually recovers storage: a list at the default capacity has 131072 of
    them.
 5. **Prunes the audit trail** to the configured retention.
+
+**Cron and issuance must read the same module configuration.** Step 2 decides which of a pool's lists are
+still allocation targets from the configuration it can see, while issuance decides where to put a
+credential from the lifetime it was issued with. If the server running cron and the servers issuing
+credentials disagree — mid-rollout, or with a stale configuration file on one of them — cron deactivates
+the list issuance keeps using, issuance creates another, and the next run deactivates that one too.
+Nothing is lost or corrupted: a deactivated list refuses further allocations and retirement re-checks
+what a list actually holds before retiring it. But each cycle leaves behind a list of 131072 entry rows,
+and for credentials which never expire those lists are never retired. The credential status screen
+reports the count of lists which can never be retired, which is what climbs if this is happening.
 
 ```php
 // How long to wait before retiring a list. Default P30D.

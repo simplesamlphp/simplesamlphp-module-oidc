@@ -18,6 +18,7 @@ namespace SimpleSAML\Module\oidc\Services;
 
 use PDO;
 use SimpleSAML\Database;
+use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
@@ -843,10 +844,14 @@ EOT
         $uqPoolGeneration = $this->generateIdentifierName([$statusListTableName, 'pool_generation'], 'uq');
         $ckBits = $this->generateIdentifierName([$statusListTableName, 'bits'], 'ck');
         $ckCapacity = $this->generateIdentifierName([$statusListTableName, 'capacity'], 'ck');
+        $ckExpiryLane = $this->generateIdentifierName([$statusListTableName, 'expiry_lane'], 'ck');
         $idxAllocationCandidates = $this->generateIdentifierName(
             [$statusListTableName, 'allocation_candidates'],
             'idx',
         );
+
+        $expiringLane = StatusListExpiryLaneEnum::Expiring->value;
+        $nonExpiringLane = StatusListExpiryLaneEnum::NonExpiring->value;
 
         $dateTime = $this->dateTimeColumnType();
         // Worst case, at 8 bits per entry and the default capacity, the signed token runs to some
@@ -865,6 +870,10 @@ EOT
             uri TEXT NOT NULL,
             pool_id VARCHAR(191) NOT NULL,
             policy_fingerprint VARCHAR(64) NOT NULL,
+            -- Which kind of credential this list accepts, as regards expiry. Allocation filters on it
+            -- alongside the policy fingerprint, so a list never holds both kinds -- which is what lets
+            -- a list of expiring credentials be retired at all. See StatusListExpiryLaneEnum.
+            expiry_lane VARCHAR(16) NOT NULL,
             generation INT NOT NULL,
             bits SMALLINT NOT NULL,
             capacity INT NOT NULL,
@@ -888,19 +897,30 @@ EOT
             signed_token_iat $dateTime NULL,
             signed_token_exp $dateTime NULL,
             created_at $dateTime NOT NULL,
-            CONSTRAINT $uqPoolGeneration UNIQUE (pool_id, generation),
+            -- Scoped to the set of lists a request creating one can actually see and adopt, which is a
+            -- pool's lists under one policy fingerprint in one lane: selection filters on all three
+            -- (StatusListRepository::findActiveForPolicy(), ::findBeingPreparedForPolicy()). Two
+            -- requests outside each other's scope have nothing to settle -- the loser of such a
+            -- collision could not adopt the winner's list anyway, since its own queries cannot see it --
+            -- so including them here would only manufacture collisions. The generation counter is read
+            -- over the same scope, and nothing else consumes generation.
+            CONSTRAINT $uqPoolGeneration UNIQUE (pool_id, policy_fingerprint, expiry_lane, generation),
             CONSTRAINT $ckBits CHECK (bits IN (1, 2, 4, 8)),
+            -- Guards a column whose values come from an enum in code rather than from a request. Note
+            -- MySQL below 8.0.16 parses CHECK and ignores it, so on those servers this documents the
+            -- intent rather than enforcing it -- as is already the case for the two checks above.
+            CONSTRAINT $ckExpiryLane CHECK (expiry_lane IN ('$expiringLane', '$nonExpiringLane')),
             CONSTRAINT $ckCapacity CHECK (capacity > 0)
         )
 EOT
         ,);
 
-        // Allocation asks for the active lists of one pool whose policy matches the current one, so
-        // all three columns are in the index, in that order.
+        // Allocation asks for the active lists of one pool whose policy and lane match what the
+        // credential being issued needs, so all four columns are in the index, in that order.
         $this->createIndex(
             $idxAllocationCandidates,
             $statusListTableName,
-            'pool_id, is_active, policy_fingerprint',
+            'pool_id, is_active, policy_fingerprint, expiry_lane',
         );
     }
 
@@ -923,13 +943,17 @@ EOT
         $uqCredentialIdHash = $this->generateIdentifierName([$entryTableName, 'credential_id_hash'], 'uq');
         $idxReconstruction = $this->generateIdentifierName([$entryTableName, 'reconstruction'], 'idx');
         $idxExpiresAt = $this->generateIdentifierName([$entryTableName, 'expires_at'], 'idx');
-        $idxListExpiresAt = $this->generateIdentifierName([$entryTableName, 'list_expires_at'], 'idx');
+        $idxListAllocatedExpiresAt = $this->generateIdentifierName(
+            [$entryTableName, 'list_allocated_expires_at'],
+            'idx',
+        );
 
         $dateTime = $this->dateTimeColumnType();
 
         // The credential ID is a URI, so it has no length this schema could safely assume; lookups go
         // through its hash, which does. Note that expires_at being NULL is meaningful: it marks a
-        // credential which never expires, and a list holding one can never be retired.
+        // credential which never expires, and a list holding one can never be retired -- which is why
+        // such credentials are allocated into lists of their own, see the parent table's expiry_lane.
         $this->database->write(<<< EOT
         CREATE TABLE IF NOT EXISTS $entryTableName (
             status_list_id VARCHAR(64) NOT NULL,
@@ -963,8 +987,20 @@ EOT
         // Deleting the linkage of credentials which have expired, across all lists.
         $this->createIndex($idxExpiresAt, $entryTableName, 'expires_at');
 
-        // Deciding whether one list has any entry left which keeps it from being retired.
-        $this->createIndex($idxListExpiresAt, $entryTableName, 'status_list_id, expires_at');
+        // Deciding whether one list has any entry left which keeps it from being retired, which asks
+        // for an *allocated* entry with no expiry or one still in the future.
+        //
+        // `allocated` sits in the middle for a reason which is easy to get wrong. Seeding writes only
+        // the list and the index, so every unallocated row has `allocated = false` AND `expires_at
+        // IS NULL` -- and at the default capacity that is up to 131072 rows per list which match the
+        // expiry half of the test and fail the allocation half. Without `allocated` in the index, the
+        // retirement guard walks all of them to prove that none is allocated. With it, the answer is a
+        // single seek.
+        $this->createIndex(
+            $idxListAllocatedExpiresAt,
+            $entryTableName,
+            'status_list_id, allocated, expires_at',
+        );
     }
 
     /**

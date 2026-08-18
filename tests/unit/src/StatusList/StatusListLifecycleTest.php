@@ -10,6 +10,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -19,6 +20,7 @@ use SimpleSAML\Module\oidc\Repositories\StatusListRepository;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\StatusList\StatusListKeyResolver;
 use SimpleSAML\Module\oidc\StatusList\StatusListLifecycle;
+use SimpleSAML\Module\oidc\StatusList\Values\StatusListAllocationTarget;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
 use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
@@ -135,14 +137,55 @@ class StatusListLifecycleTest extends TestCase
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock->method('getVciStatusListEnabled')->willReturn(true);
         $this->moduleConfigMock->method('getVciStatusListPoolBag')->willReturn(new StatusListPoolBag($pool));
+        $this->moduleConfigMock->method('getVciStatusListCurrentLanesFor')
+            ->willReturn([StatusListExpiryLaneEnum::NonExpiring]);
 
         $this->statusListRepositoryMock = $this->createMock(StatusListRepository::class);
         $this->statusListRepositoryMock->expects($this->once())
             ->method('deactivateSuperseded')
-            ->with(['default' => $pool->getPolicyFingerprint(self::SIGNING_KEY_ID)])
+            ->with([
+                new StatusListAllocationTarget(
+                    'default',
+                    $pool->getPolicyFingerprint(self::SIGNING_KEY_ID),
+                    StatusListExpiryLaneEnum::NonExpiring,
+                ),
+            ])
             ->willReturn(2);
 
         $this->assertSame(2, $this->sut()->deactivateSupersededStatusLists());
+    }
+
+    /**
+     * A pool which allocates into both lanes has two current lists, and neither may be deactivated. Got
+     * wrong, this is a rotation loop: one lane's list deactivated on every run and recreated by the next
+     * allocation, at a hundred and thirty thousand entry rows a time.
+     *
+     * @throws \Exception
+     */
+    public function testTreatsBothLanesOfAMixedPoolAsCurrent(): void
+    {
+        $pool = $this->pool();
+
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->moduleConfigMock->method('getVciStatusListEnabled')->willReturn(true);
+        $this->moduleConfigMock->method('getVciStatusListPoolBag')->willReturn(new StatusListPoolBag($pool));
+        $this->moduleConfigMock->method('getVciStatusListCurrentLanesFor')->willReturn([
+            StatusListExpiryLaneEnum::Expiring,
+            StatusListExpiryLaneEnum::NonExpiring,
+        ]);
+
+        $fingerprint = $pool->getPolicyFingerprint(self::SIGNING_KEY_ID);
+
+        $this->statusListRepositoryMock = $this->createMock(StatusListRepository::class);
+        $this->statusListRepositoryMock->expects($this->once())
+            ->method('deactivateSuperseded')
+            ->with([
+                new StatusListAllocationTarget('default', $fingerprint, StatusListExpiryLaneEnum::Expiring),
+                new StatusListAllocationTarget('default', $fingerprint, StatusListExpiryLaneEnum::NonExpiring),
+            ])
+            ->willReturn(0);
+
+        $this->assertSame(0, $this->sut()->deactivateSupersededStatusLists());
     }
 
     /**

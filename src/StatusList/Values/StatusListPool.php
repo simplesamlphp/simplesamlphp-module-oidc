@@ -21,6 +21,11 @@ use Throwable;
  * genuinely differ. Several configurations therefore map onto one pool, which is why the credential
  * configuration ID is recorded on the entry row rather than being derivable from the pool.
  *
+ * A pool is not quite the same thing as one list, though. Credentials which never expire are allocated
+ * into lists of their own (see StatusListExpiryLaneEnum), so a pool whose configurations differ in
+ * whether they have a lifetime keeps a list in each lane. That splits its herd, and the alternative is
+ * worse: a list holding both kinds can never be retired, so nothing in such a pool would ever be.
+ *
  * Instances are immutable and validated on construction, so holding one means the policy is coherent.
  *
  * @see \SimpleSAML\Test\Module\oidc\unit\StatusList\StatusListPoolTest

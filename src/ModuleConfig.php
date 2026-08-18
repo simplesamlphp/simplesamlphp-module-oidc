@@ -25,6 +25,7 @@ use SimpleSAML\Database;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Codebooks\DcrRegistrationAuthEnum;
+use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
@@ -1768,6 +1769,47 @@ class ModuleConfig
     public function getVciCredentialTtlFor(string $credentialConfigurationId): ?DateInterval
     {
         return $this->getVciCredentialTtls()[$credentialConfigurationId] ?? null;
+    }
+
+    /**
+     * Which Status List expiry lanes a pool would currently allocate into.
+     *
+     * Both, if some of the pool's credential configurations have a lifetime and others do not; otherwise
+     * the one which matches all of them. Never empty, since a pool with no credential configurations is
+     * a configuration error raised when the pool is built.
+     *
+     * This is the one place which decides a lane from configuration rather than from the expiry a
+     * credential is actually being issued with, and the distinction is worth keeping straight. Allocation
+     * asks "what does this credential need", which only the expiry in hand can answer. This asks "what
+     * would the current configuration still allocate into", which is a question about configuration and
+     * nothing else -- the same question already asked of the policy fingerprint, and asked for the same
+     * reason: a list matching nothing the configuration currently produces will never be filled, so
+     * nothing else would ever deactivate it, and a list which is never deactivated is never retired.
+     *
+     * If the two ever disagree -- issuance and cron reading different configuration -- the cost is
+     * wasted lists rather than lost ones: the allocating statement refuses a deactivated list, and
+     * retirement re-checks the actual entry expiries in the statement which retires. See
+     * StatusListLifecycle::deactivateSupersededStatusLists().
+     *
+     * @return \SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum[]
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciStatusListCurrentLanesFor(StatusListPool $pool): array
+    {
+        $credentialTtls = $this->getVciCredentialTtls();
+        $lanes = [];
+
+        foreach ($pool->getCredentialConfigurationIds() as $credentialConfigurationId) {
+            $lane = array_key_exists($credentialConfigurationId, $credentialTtls) ?
+            StatusListExpiryLaneEnum::Expiring :
+            StatusListExpiryLaneEnum::NonExpiring;
+
+            if (!in_array($lane, $lanes, true)) {
+                $lanes[] = $lane;
+            }
+        }
+
+        return $lanes;
     }
 
 

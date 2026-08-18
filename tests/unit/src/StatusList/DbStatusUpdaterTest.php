@@ -9,6 +9,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
+use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Exceptions\StatusConflictException;
 use SimpleSAML\Module\oidc\Exceptions\StatusListException;
@@ -107,6 +108,7 @@ class DbStatusUpdaterTest extends TestCase
             'https://op.example.org/module.php/oidc/statuslist/' . self::LIST_ID,
             'pool',
             'fingerprint',
+            StatusListExpiryLaneEnum::NonExpiring,
             1,
             $bits,
             self::CAPACITY,

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\StatusList\Values;
 
 use DateTimeImmutable;
+use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Exceptions\StatusListException;
 
@@ -26,6 +27,10 @@ class StatusListRecord
      * @param string $id Opaque public identifier, being the last path segment of the list's URI.
      * @param string $uri The authoritative URI. Referenced Tokens carry this string and Status List
      * Tokens repeat it as `sub`, both verbatim, so it is never rebuilt from parts.
+     * @param \SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum $expiryLane Which kind of
+     * credential this list accepts, as regards expiry. Fixed at creation, and part of what allocation
+     * filters candidate lists on, so that a list holding credentials which never expire -- and which
+     * therefore can never be retired -- never also holds credentials which do.
      * @param string $allowedStatuses Comma separated status values this list may carry.
      * @param string $signedTokenContentHash Hash of the content the published token was signed over.
      * An empty string means there is no valid published token, whether because none was ever produced
@@ -40,6 +45,7 @@ class StatusListRecord
         protected readonly string $uri,
         protected readonly string $poolId,
         protected readonly string $policyFingerprint,
+        protected readonly StatusListExpiryLaneEnum $expiryLane,
         protected readonly int $generation,
         protected readonly int $bits,
         protected readonly int $capacity,
@@ -82,6 +88,16 @@ class StatusListRecord
         return $this->policyFingerprint;
     }
 
+    public function getExpiryLane(): StatusListExpiryLaneEnum
+    {
+        return $this->expiryLane;
+    }
+
+    /**
+     * Generation within this list's pool, policy and lane, which is the scope its uniqueness is
+     * declared over and the only scope anything compares it in. Generations of one lane are therefore
+     * not contiguous with another's, and nothing depends on their being so.
+     */
     public function getGeneration(): int
     {
         return $this->generation;
@@ -233,6 +249,7 @@ class StatusListRecord
             self::asString($row, 'uri'),
             self::asString($row, 'pool_id'),
             self::asString($row, 'policy_fingerprint'),
+            self::asExpiryLane($row, 'expiry_lane'),
             self::asInt($row, 'generation'),
             self::asInt($row, 'bits'),
             self::asInt($row, 'capacity'),
@@ -270,6 +287,27 @@ class StatusListRecord
 
         return StatusListKeyProfileEnum::tryFrom($value) ?? throw new StatusListException(
             sprintf('Status List row column "%s" holds an unknown key profile "%s".', $key, $value),
+        );
+    }
+
+    /**
+     * Raised rather than defaulted, unlike the two columns above which tolerate a missing value.
+     *
+     * Those can: an absent invalidation counter reads as a list which has never been invalidated, and an
+     * absent content hash as one with nothing published, both of which are true of the row in question.
+     * A lane has no such reading. Guessing one would let a credential which never expires be allocated
+     * into a list of credentials which do, which is the single thing the lane exists to prevent, and the
+     * damage would be silent and permanent -- so an unreadable lane stops the allocation instead.
+     *
+     * @param array<array-key,mixed> $row
+     * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
+     */
+    protected static function asExpiryLane(array $row, string $key): StatusListExpiryLaneEnum
+    {
+        $value = self::asString($row, $key);
+
+        return StatusListExpiryLaneEnum::tryFrom($value) ?? throw new StatusListException(
+            sprintf('Status List row column "%s" holds an unknown expiry lane "%s".', $key, $value),
         );
     }
 }
