@@ -1858,3 +1858,68 @@ msgid ""
 "check that every server issuing credentials and the server running cron are "
 "reading the same module configuration."
 msgstr ""
+
+msgid ""
+"Allowing a host trusts whoever controls that name with where the request "
+"goes. Keep this to destinations this deployment operates itself."
+msgstr ""
+
+msgid ""
+"None, so a client authenticating at the introspection endpoint is only told "
+"about tokens issued to itself. API tokens and administrators are "
+"unaffected."
+msgstr ""
+
+msgid "None, so every destination is subject to the address check."
+msgstr ""
+
+msgid "None, so only public addresses may be reached."
+msgstr ""
+
+msgid "Outbound Address Pinning"
+msgstr ""
+
+msgid "Outbound Allowed Address Ranges"
+msgstr ""
+
+msgid "Outbound Allowed Hosts"
+msgstr ""
+
+msgid "Outbound Allowed Schemes"
+msgstr ""
+
+msgid "Permitted alongside the public addresses."
+msgstr ""
+
+msgid ""
+"Permitted whatever they resolve to. The address check and the address "
+"pinning are both skipped for these."
+msgstr ""
+
+msgid ""
+"Pinning is off, so a host can resolve to a permitted address for the check "
+"and to another one for the connection."
+msgstr ""
+
+msgid ""
+"Plain http is permitted, so an outbound fetch can be read and altered in "
+"transit."
+msgstr ""
+
+msgid "Schemes an outbound request may use."
+msgstr ""
+
+msgid ""
+"These clients may introspect tokens issued to any client, and not only "
+"their own, so each one can read every other client's token subject and "
+"scopes."
+msgstr ""
+
+msgid "Token Introspection Resource Servers"
+msgstr ""
+
+msgid ""
+"Whether the connection must go to the address that was validated, rather "
+"than the host being resolved a second time."
+msgstr ""
+
