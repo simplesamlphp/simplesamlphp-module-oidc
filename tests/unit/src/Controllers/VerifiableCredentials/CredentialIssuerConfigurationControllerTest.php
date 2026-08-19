@@ -16,6 +16,7 @@ use SimpleSAML\Module\oidc\Utils\VciContextResolver;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
+use SimpleSAML\OpenID\ValueAbstracts\KeyPair;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -57,6 +58,7 @@ class CredentialIssuerConfigurationControllerTest extends TestCase
     protected MockObject $routesMock;
     protected MockObject $loggerServiceMock;
     protected MockObject $vciContextResolverMock;
+    protected SignatureKeyPairBag $vciSignatureKeyPairBag;
 
     protected function setUp(): void
     {
@@ -73,11 +75,14 @@ class CredentialIssuerConfigurationControllerTest extends TestCase
         $this->moduleConfigMock->method('getVciCredentialConfigurationsSupported')
             ->willReturn($this->credentialConfigurations());
 
-        $signatureKeyPairMock = $this->createMock(SignatureKeyPair::class);
-        $signatureKeyPairMock->method('getSignatureAlgorithm')->willReturn(SignatureAlgorithmEnum::ES256);
-        $signatureKeyPairBagMock = $this->createMock(SignatureKeyPairBag::class);
-        $signatureKeyPairBagMock->method('getFirstOrFail')->willReturn($signatureKeyPairMock);
-        $this->moduleConfigMock->method('getVciSignatureKeyPairBag')->willReturn($signatureKeyPairBagMock);
+        // Two pairs differing in algorithm, so that an assertion on the advertised algorithm can tell
+        // the active signing key apart from merely "one of the configured ones".
+        $this->vciSignatureKeyPairBag = new SignatureKeyPairBag(
+            $this->buildSignatureKeyPair('vci-01', SignatureAlgorithmEnum::ES256),
+            $this->buildSignatureKeyPair('vci-02', SignatureAlgorithmEnum::RS256),
+        );
+        $this->moduleConfigMock->method('getActiveVciSignatureKeyPair')
+            ->willReturnCallback(fn(): SignatureKeyPair => $this->vciSignatureKeyPairBag->getFirstOrFail());
 
         $this->routesMock->method('urlCredentialIssuerCredential')->willReturn(self::CREDENTIAL_ENDPOINT);
         $this->routesMock->method('urlCredentialIssuerNonce')->willReturn(self::NONCE_ENDPOINT);
@@ -87,6 +92,18 @@ class CredentialIssuerConfigurationControllerTest extends TestCase
              */
             static fn(?array $data = null): JsonResponse => new JsonResponse($data),
         );
+    }
+
+    protected function buildSignatureKeyPair(string $keyId, SignatureAlgorithmEnum $algorithm): SignatureKeyPair
+    {
+        $keyPairMock = $this->createMock(KeyPair::class);
+        $keyPairMock->method('getKeyId')->willReturn($keyId);
+
+        $signatureKeyPairMock = $this->createMock(SignatureKeyPair::class);
+        $signatureKeyPairMock->method('getKeyPair')->willReturn($keyPairMock);
+        $signatureKeyPairMock->method('getSignatureAlgorithm')->willReturn($algorithm);
+
+        return $signatureKeyPairMock;
     }
 
     /**
@@ -168,6 +185,37 @@ class CredentialIssuerConfigurationControllerTest extends TestCase
         $this->assertArrayHasKey(ClaimsEnum::ProofTypesSupported->value, $configuration);
         // What the operator configured is still there, with the above added rather than substituted.
         $this->assertSame('UniversityDegree', $configuration[ClaimsEnum::Scope->value]);
+    }
+
+    /**
+     * A wallet is told which algorithm a credential will come back signed with, and that has to be the
+     * algorithm of the key which will actually sign it. The two are separate calls made by separate
+     * classes, so nothing but asking the same question keeps them together.
+     *
+     * More than one key pair is configured here, so an implementation which advertised every configured
+     * algorithm, or a different one of them, fails this rather than passing for want of an alternative.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
+     * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException
+     */
+    public function testAdvertisesTheAlgorithmOfTheActiveSigningKeyOnly(): void
+    {
+        $activeSignatureKeyPair = $this->vciSignatureKeyPairBag->getFirstOrFail();
+        $this->assertGreaterThan(1, count($this->vciSignatureKeyPairBag->getAllAlgorithmNamesUnique()));
+
+        $metadata = $this->publishedMetadata();
+
+        /** @var array<string,array<string,mixed>> $configurations */
+        $configurations = $metadata[ClaimsEnum::CredentialConfigurationsSupported->value];
+        $this->assertNotEmpty($configurations);
+
+        foreach ($configurations as $configuration) {
+            $this->assertSame(
+                [$activeSignatureKeyPair->getSignatureAlgorithm()->value],
+                $configuration[ClaimsEnum::CredentialSigningAlgValuesSupported->value],
+            );
+        }
     }
 
     /**

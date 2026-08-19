@@ -690,17 +690,16 @@ class CredentialIssuerCredentialController
                 }
             }
 
-        // Make sure that the subject identifier is in credentialSubject claim.
+            // Make sure that the subject identifier is in credentialSubject claim.
             $this->setCredentialClaimValue(
                 $credentialSubject,
                 [ClaimsEnum::Credential_Subject->value, ClaimsEnum::Id->value],
                 $sub,
             );
 
-        // TODO mivanci Add support for multiple signature key pairs. For now, we only support (first) one.
-            $vciSignatureKeyPair = $this->moduleConfig
-            ->getVciSignatureKeyPairBag()
-            ->getFirstOrFail();
+            // The same key issuer metadata advertised, and the same one the credential's Status List Token
+            // is signed with. Asked for by name so those three can not drift apart.
+            $vciSignatureKeyPair = $this->moduleConfig->getActiveVciSignatureKeyPair();
 
             $signingKey = $vciSignatureKeyPair->getKeyPair()->getPrivateKey();
 

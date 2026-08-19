@@ -20,9 +20,13 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\TrustMarkStatusEndpointUsagePolicyEnum;
+use SimpleSAML\OpenID\Exceptions\OpenIdException;
 use SimpleSAML\OpenID\SupportedAlgorithms;
 use SimpleSAML\OpenID\SupportedSerializers;
 use SimpleSAML\OpenID\ValueAbstracts;
+use SimpleSAML\OpenID\ValueAbstracts\Factories\SignatureKeyPairBagFactory;
+use SimpleSAML\OpenID\ValueAbstracts\KeyPair;
+use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairConfigBag;
 use SimpleSAML\Utils\Config;
@@ -345,6 +349,73 @@ class ModuleConfigTest extends TestCase
         $this->sut(
             overrides: [ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS => []],
         )->getFederationSignatureKeyPairBag();
+    }
+
+    /**
+     * The whole of the Verifiable Credential Issuance rollover model: additional pairs are published
+     * so they can verify, and the one listed first is the one that signs. Everything which signs asks
+     * this method, so this is the single place that decision is made.
+     */
+    public function testActiveVciSignatureKeyPairIsTheFirstConfiguredOne(): void
+    {
+        $sut = $this->sutWithVciSignatureKeyPairBag(
+            new SignatureKeyPairBag(
+                $this->buildSignatureKeyPair('vci-01', SignatureAlgorithmEnum::ES256),
+                $this->buildSignatureKeyPair('vci-02', SignatureAlgorithmEnum::RS256),
+            ),
+        );
+
+        $activeSignatureKeyPair = $sut->getActiveVciSignatureKeyPair();
+
+        $this->assertSame('vci-01', $activeSignatureKeyPair->getKeyPair()->getKeyId());
+        $this->assertSame(SignatureAlgorithmEnum::ES256, $activeSignatureKeyPair->getSignatureAlgorithm());
+    }
+
+    public function testGetActiveVciSignatureKeyPairThrowsWhenNoKeyPairCouldBeBuilt(): void
+    {
+        $sut = $this->sutWithVciSignatureKeyPairBag(new SignatureKeyPairBag());
+
+        $this->expectException(OpenIdException::class);
+
+        $sut->getActiveVciSignatureKeyPair();
+    }
+
+    /**
+     * A ModuleConfig whose VCI option resolves to the given bag, so that a test can decide what the
+     * bag holds without needing a key pair per algorithm on disk.
+     */
+    protected function sutWithVciSignatureKeyPairBag(SignatureKeyPairBag $signatureKeyPairBag): ModuleConfig
+    {
+        $signatureKeyPairBagFactoryMock = $this->createMock(SignatureKeyPairBagFactory::class);
+        $signatureKeyPairBagFactoryMock->method('fromConfig')->willReturn($signatureKeyPairBag);
+
+        $valueAbstractsMock = $this->createMock(ValueAbstracts::class);
+        $valueAbstractsMock->method('signatureKeyPairBagFactory')->willReturn($signatureKeyPairBagFactoryMock);
+
+        return $this->sut(
+            overrides: [
+                ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS => [
+                    [
+                        ModuleConfig::KEY_ALGORITHM => SignatureAlgorithmEnum::RS256,
+                        ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module.key',
+                        ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'oidc_module.crt',
+                    ],
+                ],
+            ],
+            valueAbstracts: $valueAbstractsMock,
+        );
+    }
+
+    protected function buildSignatureKeyPair(string $keyId, SignatureAlgorithmEnum $algorithm): SignatureKeyPair
+    {
+        $keyPairMock = $this->createMock(KeyPair::class);
+        $keyPairMock->method('getKeyId')->willReturn($keyId);
+
+        $signatureKeyPairMock = $this->createMock(SignatureKeyPair::class);
+        $signatureKeyPairMock->method('getKeyPair')->willReturn($keyPairMock);
+        $signatureKeyPairMock->method('getSignatureAlgorithm')->willReturn($algorithm);
+
+        return $signatureKeyPairMock;
     }
 
     public function testKeywordsCanBeNull(): void

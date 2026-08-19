@@ -41,7 +41,6 @@ use SimpleSAML\OpenID\TokenStatusList\StatusClaim;
 use SimpleSAML\OpenID\TokenStatusList\StatusReference;
 use SimpleSAML\OpenID\ValueAbstracts\KeyPair;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
-use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 use SimpleSAML\OpenID\VerifiableCredentials as VerifiableCredentialsService;
 use SimpleSAML\OpenID\VerifiableCredentials\Factories\OpenId4VciProofFactory;
 use SimpleSAML\OpenID\VerifiableCredentials\OpenId4VciProof;
@@ -82,6 +81,12 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     /** @var array<array<string,mixed>> Payloads handed to whichever credential factory was used. */
     protected array $signedPayloads = [];
 
+    /** @var array<array{key: mixed, algorithm: mixed}> What each of those payloads was signed with. */
+    protected array $signedWith = [];
+
+    protected MockObject $vciSignatureKeyPairMock;
+    protected MockObject $vciPrivateKeyMock;
+
     public function setUp(): void
     {
         $this->resourceServerMock = $this->createMock(ResourceServer::class);
@@ -100,6 +105,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->credentialStatusIssuerMock = $this->createMock(CredentialStatusIssuer::class);
         $this->helpers = new Helpers();
         $this->signedPayloads = [];
+        $this->signedWith = [];
 
         // VCI must be enabled in constructor
         $this->moduleConfigMock->method('getVciEnabled')->willReturn(true);
@@ -142,21 +148,23 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
     protected function prepareSigningKey(): void
     {
+        $this->vciPrivateKeyMock = $this->createMock(JwkDecorator::class);
         $keyPairMock = $this->createMock(KeyPair::class);
-        $keyPairMock->method('getPrivateKey')->willReturn($this->createMock(JwkDecorator::class));
+        $keyPairMock->method('getPrivateKey')->willReturn($this->vciPrivateKeyMock);
+        $keyPairMock->method('getKeyId')->willReturn('vci-01');
         $publicKeyMock = $this->createMock(JwkDecorator::class);
         $jwkMock = $this->createMock(JWK::class);
         $jwkMock->method('all')->willReturn(['kty' => 'EC']);
         $publicKeyMock->method('jwk')->willReturn($jwkMock);
         $keyPairMock->method('getPublicKey')->willReturn($publicKeyMock);
 
-        $signatureKeyPairMock = $this->createMock(SignatureKeyPair::class);
-        $signatureKeyPairMock->method('getKeyPair')->willReturn($keyPairMock);
-        $signatureKeyPairMock->method('getSignatureAlgorithm')->willReturn(SignatureAlgorithmEnum::ES256);
+        $this->vciSignatureKeyPairMock = $this->createMock(SignatureKeyPair::class);
+        $this->vciSignatureKeyPairMock->method('getKeyPair')->willReturn($keyPairMock);
+        $this->vciSignatureKeyPairMock->method('getSignatureAlgorithm')
+            ->willReturn(SignatureAlgorithmEnum::ES256);
 
-        $signatureKeyPairBagMock = $this->createMock(SignatureKeyPairBag::class);
-        $signatureKeyPairBagMock->method('getFirstOrFail')->willReturn($signatureKeyPairMock);
-        $this->moduleConfigMock->method('getVciSignatureKeyPairBag')->willReturn($signatureKeyPairBagMock);
+        $this->moduleConfigMock->method('getActiveVciSignatureKeyPair')
+            ->willReturn($this->vciSignatureKeyPairMock);
 
         $didJwkResolverMock = $this->createMock(DidJwkResolver::class);
         $this->didMock->method('didJwkResolver')->willReturn($didJwkResolverMock);
@@ -179,6 +187,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $jwtVcJsonFactoryMock->method('fromData')->willReturnCallback(
             function (mixed $key, mixed $algorithm, array $payload) use ($jwtVcJsonMock): JwtVcJson {
                 $this->signedPayloads[] = $payload;
+                $this->signedWith[] = ['key' => $key, 'algorithm' => $algorithm];
 
                 return $jwtVcJsonMock;
             },
@@ -191,6 +200,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $sdJwtVcFactoryMock->method('fromData')->willReturnCallback(
             function (mixed $key, mixed $algorithm, array $payload) use ($sdJwtVcMock): SdJwtVc {
                 $this->signedPayloads[] = $payload;
+                $this->signedWith[] = ['key' => $key, 'algorithm' => $algorithm];
 
                 return $sdJwtVcMock;
             },
@@ -203,6 +213,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $vcSdJwtFactoryMock->method('fromData')->willReturnCallback(
             function (mixed $key, mixed $algorithm, array $payload) use ($vcSdJwtMock): VcSdJwt {
                 $this->signedPayloads[] = $payload;
+                $this->signedWith[] = ['key' => $key, 'algorithm' => $algorithm];
 
                 return $vcSdJwtMock;
             },
@@ -274,6 +285,25 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     protected function statusClaim(int $idx = 42): StatusClaim
     {
         return new StatusClaim(new StatusReference(self::STATUS_LIST_URI, $idx));
+    }
+
+    /**
+     * The other half of what issuer metadata promises. The credential configuration advertises the
+     * active signing key's algorithm, so issuance has to reach for that same key rather than for
+     * whichever other pair happens to be configured -- otherwise a wallet is handed a credential it was
+     * told it would not receive. The advertising half is pinned by
+     * CredentialIssuerConfigurationControllerTest.
+     */
+    public function testSignsEveryCredentialWithTheActiveSigningKey(): void
+    {
+        $this->issue(proofJwts: ['jwt1', 'jwt2']);
+
+        $this->assertCount(2, $this->signedWith);
+
+        foreach ($this->signedWith as $signedWith) {
+            $this->assertSame($this->vciPrivateKeyMock, $signedWith['key']);
+            $this->assertSame(SignatureAlgorithmEnum::ES256, $signedWith['algorithm']);
+        }
     }
 
     public function testCredentialWithMultipleProofs(): void

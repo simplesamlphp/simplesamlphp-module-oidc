@@ -434,8 +434,10 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                 ConfigOverviewValueTypeEnum::SignatureKeyPairs,
                 ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS,
                 Translate::noop(
-                    'Used to sign issued credentials. Only one key pair is supported for now. These ' .
-                    'keys should not be the same as the protocol (Connect) signing keys.',
+                    'Used to sign issued credentials, their Status List Tokens and the nonces wallets ' .
+                    'prove possession against. Only the first pair, marked as the default, signs; the ' .
+                    'others are published so that what they signed stays verifiable. These keys should ' .
+                    'not be the same as the protocol (Connect) signing keys.',
                 ),
                 $error,
             ),

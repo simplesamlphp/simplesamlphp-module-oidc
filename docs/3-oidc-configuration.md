@@ -249,10 +249,23 @@ same way expired tokens are purged.
 
 ## Key rollover
 
-You can configure an additional key pair to publish via JWKS endpoints or
-properties. This lets RPs pre-fetch the new public key before you switch
-signing to the new private key. Once RPs have cached the new JWKS, you can
-perform the key switch.
+`OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS`, `OPTION_FEDERATION_SIGNATURE_KEY_PAIRS`
+and `OPTION_VCI_SIGNATURE_KEY_PAIRS` each take a list. Every pair in a list is
+published, so any of them can verify, but only the **first** pair in a list
+signs. A rollover is therefore two deployments rather than one:
+
+1. Append the new pair to the list and deploy. It is now published, so Relying
+Parties, wallets and verifiers can pre-fetch it, while everything is still
+signed with the old one.
+2. Once they have had time to refetch the JWKS, move the new pair to the front
+of the list and deploy again. That is the switch.
+
+Leave the pair it displaced in the list. Removing it stops whatever it signed
+from being verified, and how much that matters depends on what it signed: an ID
+Token is short-lived, an Entity Statement or an issued Verifiable Credential is
+not. VCI keys are the strictest case, because removing one breaks Status Lists
+on a delay rather than immediately — see
+[Key profile](#key-profile).
 
 ## Apache Authorization header note
 

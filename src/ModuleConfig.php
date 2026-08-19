@@ -48,6 +48,7 @@ use SimpleSAML\OpenID\SupportedAlgorithms;
 use SimpleSAML\OpenID\SupportedSerializers;
 use SimpleSAML\OpenID\ValueAbstracts;
 use SimpleSAML\OpenID\ValueAbstracts\KeyPairFilenameConfig;
+use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairConfig;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairConfigBag;
@@ -1963,6 +1964,32 @@ class ModuleConfig
         return $this->vciSignatureKeyPairBag = $this->valueAbstracts
             ->signatureKeyPairBagFactory()
             ->fromConfig($this->getVciSignatureKeyPairConfigBag());
+    }
+
+    /**
+     * The Verifiable Credential Issuance key pair which is currently signing.
+     *
+     * Every pair configured under OPTION_VCI_SIGNATURE_KEY_PAIRS is published in JWKS and can
+     * therefore verify, but exactly one of them signs: the first. That is the whole of the rollover
+     * model. A new pair is appended so that wallets and verifiers can pre-fetch it, and moving it to
+     * the front is what makes it start signing; the pairs it displaced stay listed for as long as
+     * anything they signed is still being verified.
+     *
+     * Asked here rather than at each call site so the answer can not differ between them. A credential,
+     * the Status List Token saying whether that credential is still valid, the nonce a wallet proved
+     * possession against, and the algorithm advertised in issuer metadata all have to name the same
+     * key, and they only do so by construction if they ask the same question.
+     *
+     * Note that this is positional rather than named: the active signer is whichever pair is listed
+     * first, matching how the protocol (Connect) and Federation key pairs behave. Selecting a key per
+     * credential configuration is not supported.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException When no key pair could be built at all.
+     */
+    public function getActiveVciSignatureKeyPair(): SignatureKeyPair
+    {
+        return $this->getVciSignatureKeyPairBag()->getFirstOrFail();
     }
 
     public function getVciCredentialConfigurationsSupported(): array

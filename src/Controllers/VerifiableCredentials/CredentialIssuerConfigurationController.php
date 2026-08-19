@@ -43,11 +43,14 @@ class CredentialIssuerConfigurationController
     {
         // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-issuer-metadata-p
 
-        $signatureKeyPair = $this->moduleConfig->getVciSignatureKeyPairBag()->getFirstOrFail();
+        $signatureKeyPair = $this->moduleConfig->getActiveVciSignatureKeyPair();
 
         $credentialConfigurationsSupported = $this->moduleConfig->getVciCredentialConfigurationsSupported();
 
-        // For now, we only support one credential signing algorithm.
+        // Every credential configuration advertises the one algorithm the active signing key uses,
+        // because that is the only one issuance will actually sign with. Advertising the algorithms of
+        // the other configured pairs would invite a wallet to ask for a credential this issuer would
+        // then sign with something else.
         /** @psalm-suppress MixedAssignment */
         foreach ($credentialConfigurationsSupported as $credentialConfigurationId => $credentialConfiguration) {
             $credentialConfigurationId = (string) $credentialConfigurationId;

@@ -256,15 +256,19 @@ New configuration options:
 defining multiple protocol (Connect) related signing algorithms and key pairs.
 - `ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS` - (required if
 federation capabilities are enabled) enables defining multiple key pairs for
-Federation purposes like signing Entity Statements, publishing new key for
-key roll-ower scenarios, etc.
+Federation purposes like signing Entity Statements, publishing a new key for
+key rollover scenarios, etc.
 - `ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS` - (required if VCI
 capabilities are enabled) enables defining multiple key pairs for
-VCI purposes like signing Verifiable Credentials, publishing new key for
-key roll-ower scenarios, etc.
+VCI purposes like signing Verifiable Credentials, publishing a new key for
+key rollover scenarios, etc. As with the two options above, every listed pair
+is published and can verify, while the first one is the one that signs: its
+algorithm is what every credential configuration advertises, and what issued
+credentials, their Status List Tokens and issued nonces are signed with.
+Choosing a different key per credential configuration is not supported. See
+[Key rollover](3-oidc-configuration.md#key-rollover).
 - `ModuleConfig::OPTION_TIMESTAMP_VALIDATION_LEEWAY` - optional, used for
 setting allowed time tolerance for timestamp validation in artifacts like JWSs.
-multiple Federation-related signing algorithms and key pairs.
 - `ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED` -
 optional, enables the OAuth2 token introspection endpoint as per RFC7662.
 - `ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RESOURCE_SERVER_CLIENT_IDS` -

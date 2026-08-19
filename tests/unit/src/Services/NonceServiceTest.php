@@ -58,8 +58,29 @@ class NonceServiceTest extends TestCase
 
         $this->signatureKeyPairMock = $this->createMock(SignatureKeyPair::class);
         $this->signatureKeyPairBagMock = $this->createMock(SignatureKeyPairBag::class);
-        $this->signatureKeyPairBagMock->method('getFirstOrFail')->willReturn($this->signatureKeyPairMock);
+        $this->moduleConfigMock->method('getActiveVciSignatureKeyPair')->willReturn($this->signatureKeyPairMock);
         $this->moduleConfigMock->method('getVciSignatureKeyPairBag')->willReturn($this->signatureKeyPairBagMock);
+    }
+
+    /**
+     * A key pair whose public key is the given JWK, so a test can tell which key a nonce was checked
+     * against.
+     *
+     * @param array<string,mixed> $publicJwk
+     */
+    protected function buildSignatureKeyPair(array $publicJwk): MockObject
+    {
+        $jwkMock = $this->createMock(JWK::class);
+        $jwkMock->method('all')->willReturn($publicJwk);
+        $publicKeyMock = $this->createMock(JwkDecorator::class);
+        $publicKeyMock->method('jwk')->willReturn($jwkMock);
+        $keyPairMock = $this->createMock(KeyPair::class);
+        $keyPairMock->method('getPublicKey')->willReturn($publicKeyMock);
+
+        $signatureKeyPairMock = $this->createMock(SignatureKeyPair::class);
+        $signatureKeyPairMock->method('getKeyPair')->willReturn($keyPairMock);
+
+        return $signatureKeyPairMock;
     }
 
     public function testGenerateNonce(): void
@@ -134,6 +155,67 @@ class NonceServiceTest extends TestCase
             $this->oidcHelpersMock,
         );
         $this->assertTrue($sut->validateNonce('valid_token'));
+    }
+
+    /**
+     * A nonce handed out shortly before a key rollover is still this issuer's nonce. It names the key
+     * it was signed with, so it is checked against that key rather than against whichever key has since
+     * taken over signing. Rejecting it would read, to the wallet holding it, as its proof of possession
+     * being refused for the remainder of the nonce's lifetime.
+     */
+    public function testValidatesANonceSignedByAKeyWhichNoLongerSigns(): void
+    {
+        $this->dateTimeHelperMock->method('getUtc')->willReturn(new \DateTimeImmutable('2024-01-01 00:00:00'));
+        $this->parsedJwsFactoryMock->method('fromToken')->willReturn($this->parsedJwsMock);
+
+        $this->signatureKeyPairBagMock->method('getByKeyId')
+            ->with('vci-retired')
+            ->willReturn($this->buildSignatureKeyPair(['kty' => 'EC', 'kid' => 'vci-retired']));
+
+        $this->parsedJwsMock->method('getKeyId')->willReturn('vci-retired');
+        $this->parsedJwsMock->expects($this->once())
+            ->method('verifyWithKey')
+            ->with(['kty' => 'EC', 'kid' => 'vci-retired']);
+
+        $this->parsedJwsMock->method('getIssuer')->willReturn('https://issuer.example.com');
+        $this->moduleConfigMock->method('getIssuer')->willReturn('https://issuer.example.com');
+        $this->parsedJwsMock->method('getExpirationTime')
+            ->willReturn((new \DateTimeImmutable('2024-01-01 00:00:00'))->getTimestamp() + 100);
+
+        $sut = new NonceService(
+            $this->jwsMock,
+            $this->moduleConfigMock,
+            $this->loggerServiceMock,
+            $this->oidcHelpersMock,
+        );
+        $this->assertTrue($sut->validateNonce('nonce_from_previous_key'));
+    }
+
+    /**
+     * Naming a key is not the same as being able to sign with it, but a key this deployment does not
+     * hold can not be checked against at all, so the nonce is refused rather than checked against some
+     * other key which would happen to be available.
+     */
+    public function testRejectsANonceNamingAKeyWhichIsNotConfigured(): void
+    {
+        $this->dateTimeHelperMock->method('getUtc')->willReturn(new \DateTimeImmutable('2024-01-01 00:00:00'));
+        $this->parsedJwsFactoryMock->method('fromToken')->willReturn($this->parsedJwsMock);
+
+        $this->signatureKeyPairBagMock->method('getByKeyId')->with('vci-discarded')->willReturn(null);
+
+        $this->parsedJwsMock->method('getKeyId')->willReturn('vci-discarded');
+        $this->parsedJwsMock->expects($this->never())->method('verifyWithKey');
+        $this->loggerServiceMock->expects($this->once())
+            ->method('warning')
+            ->with($this->stringContains('vci-discarded'));
+
+        $sut = new NonceService(
+            $this->jwsMock,
+            $this->moduleConfigMock,
+            $this->loggerServiceMock,
+            $this->oidcHelpersMock,
+        );
+        $this->assertFalse($sut->validateNonce('nonce_from_discarded_key'));
     }
 
     public function testValidateNonceInvalidIssuer(): void

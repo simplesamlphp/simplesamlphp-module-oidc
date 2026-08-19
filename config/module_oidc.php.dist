@@ -1088,19 +1088,23 @@ $config = [
     /**
      * Verifiable Credential signature algorithm and key-pair definitions,
      * representing supported algorithms for signing verifiable credentials.
-     * The first algorithm in the list will be used for signing (the
-     * first entry represents the default algorithm and signing key).
-     * You can also use this config option to advertise any (new) keys, for
-     * example, for key-rollover scenarios. Add those entries later in
-     * the list, so they can be published in appropriate JWKS.
+     *
+     * Every entry here is published in the JWKS, so any of them can verify.
+     * Exactly one of them signs, and it is the first one listed: its algorithm
+     * is what every credential configuration advertises, and what issued
+     * credentials, their Status List Tokens and issued nonces are signed with.
+     * Choosing a different key per credential configuration is not supported.
+     *
+     * To roll a key over, append the new entry and deploy it, so that wallets
+     * and verifiers can pick it up from the published JWKS. Then move it to the
+     * front of the list, which is what makes it start signing. Keep the entry it
+     * displaced for as long as anything signed with it is still being verified.
      *
      * Note that these keys SHOULD NOT be the same as the ones used in the
      * protocol (Connect) itself.
      *
      * The format is the same as for the protocol (Connect) signature key pairs
      * (option ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS)
-     *
-     * NOTE: for the time being, only one key-pair is supported.
      *
      * Unlike the protocol (Connect) default, this defaults to ES256 with an EC
      * key pair, since that is what wallets commonly expect of an issuer. A

@@ -7,7 +7,9 @@ namespace SimpleSAML\Module\oidc\Services;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Exceptions\OpenIdException;
 use SimpleSAML\OpenID\Jws;
+use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
 
 class NonceService
 {
@@ -24,7 +26,7 @@ class NonceService
      */
     public function generateNonce(): string
     {
-        $signatureKeyPair = $this->moduleConfig->getVciSignatureKeyPairBag()->getFirstOrFail();
+        $signatureKeyPair = $this->moduleConfig->getActiveVciSignatureKeyPair();
         $currentDateTime = $this->jws->helpers()->dateTime()->getUtc();
         $currentTimestamp = $currentDateTime->getTimestamp();
 
@@ -55,8 +57,10 @@ class NonceService
         try {
             $parsedJws = $this->jws->parsedJwsFactory()->fromToken($nonce);
 
-            // Verify signature
-            $signatureKeyPair = $this->moduleConfig->getVciSignatureKeyPairBag()->getFirstOrFail();
+            // Verify signature, against the key the nonce names rather than against whichever key is
+            // signing now. A nonce handed out shortly before a key rollover is otherwise rejected for
+            // the remainder of its lifetime, which reads to a wallet as the issuer refusing its proof.
+            $signatureKeyPair = $this->resolveVerificationKeyPair($parsedJws->getKeyId());
             $parsedJws->verifyWithKey($signatureKeyPair->getKeyPair()->getPublicKey()->jwk()->all());
 
             // Verify issuer
@@ -78,5 +82,32 @@ class NonceService
             $this->loggerService->warning('Nonce validation failed: ' . $e->getMessage());
             return false;
         }
+    }
+
+    /**
+     * The key a nonce says it was signed with.
+     *
+     * Every candidate is one of this issuer's own configured key pairs, so honouring the `kid` is no
+     * weaker than always using the active one: naming a key is not the same as being able to sign with
+     * it. A nonce carrying no `kid` at all predates nothing this module issues, but is still checked
+     * against the active key rather than rejected outright.
+     *
+     * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException When the named key is not configured, which
+     * means this issuer either never signed the nonce or no longer retains the key that did.
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    protected function resolveVerificationKeyPair(?string $keyId): SignatureKeyPair
+    {
+        if ($keyId === null) {
+            return $this->moduleConfig->getActiveVciSignatureKeyPair();
+        }
+
+        return $this->moduleConfig->getVciSignatureKeyPairBag()->getByKeyId($keyId) ??
+        throw new OpenIdException(
+            sprintf(
+                'the signing key "%s" it names is not configured for Verifiable Credential Issuance.',
+                $keyId,
+            ),
+        );
     }
 }

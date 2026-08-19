@@ -33,16 +33,17 @@ class StatusListKeyResolver
     /**
      * The key newly created lists are bound to.
      *
-     * Deliberately the same first Verifiable Credential Issuance key pair the credential issuance path
-     * signs with. If the two ever diverge, a credential would be signed with one key while the Status
-     * List Token its holder is told to check is signed with another.
+     * Deliberately the same active Verifiable Credential Issuance key pair the credential issuance path
+     * signs with, asked for through the same accessor. If the two ever diverge, a credential would be
+     * signed with one key while the Status List Token its holder is told to check is signed with another.
      *
+     * @see \SimpleSAML\Module\oidc\ModuleConfig::getActiveVciSignatureKeyPair()
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
      */
     public function getCurrent(): SignatureKeyPair
     {
         try {
-            return $this->moduleConfig->getVciSignatureKeyPairBag()->getFirstOrFail();
+            return $this->moduleConfig->getActiveVciSignatureKeyPair();
         } catch (\Throwable $throwable) {
             throw new StatusListException(
                 'No Verifiable Credential Issuance signature key pair is configured, so Status Lists ' .
