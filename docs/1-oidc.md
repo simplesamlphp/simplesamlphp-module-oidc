@@ -61,8 +61,7 @@ OAuth 2.0:
 Drafts / experimental (see the notes below for scope and caveats):
 
 - OpenID Federation — automatic client registration and related features
-  (draft; breaking changes expected)
-- OpenID for Verifiable Credential Issuance, OpenID4VCI (draft 15; experimental,
+- OpenID for Verifiable Credential Issuance, OpenID4VCI (experimental,
   not for production)
 
 ## Note on Dynamic Client Registration (DCR)
@@ -108,8 +107,16 @@ OIDFed is implemented using the
 
 ## Note on OpenID for Verifiable Credential Issuance (OpenID4VCI) support
 
-OpenID4VCI support was done as per draft 15 of the specification and is in the
-experimental stage. You should NOT use it in production environments.
+OpenID4VCI support is experimental. You should NOT use it in production
+environments.
+
+The implementation follows OpenID4VCI, but it has not been reviewed against the
+final 1.0 specification as a whole: parts of it were written against earlier
+drafts and have since been corrected towards 1.0, one piece at a time. No
+specific specification version is claimed here, and no interoperability with 1.0
+wallets is promised. A full review against 1.0 is planned; it may change the wire
+format incompatibly, so credentials and Status List Tokens issued by this version
+may stop verifying, and a future release may require re-issuing them.
 
 Currently implemented OpenID4VCI features:
 

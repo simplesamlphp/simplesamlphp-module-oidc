@@ -87,6 +87,8 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertNotNull($disabledRow);
         $this->assertSame('No', $disabledRow->getValue());
         $this->assertStringContainsString('inert', (string)$disabledRow->getNote());
+        // Nothing is being issued, so there is nothing to warn about yet.
+        $this->assertNull($disabledRow->getWarning());
 
         $enabledRow = $this->findRowForOption(
             $this->buildVciOverviewBuilder([ModuleConfig::OPTION_VCI_ENABLED => true])->build(),
@@ -95,6 +97,27 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertNotNull($enabledRow);
         $this->assertSame('Yes', $enabledRow->getValue());
         $this->assertNull($enabledRow->getNote());
+    }
+
+    /**
+     * The experimental status is stated in the documentation and in the distributed configuration, but
+     * neither is necessarily where the person who switched this on is looking. Once credentials are
+     * being put into wallets, a later release may be unable to keep them verifiable, so the screen has
+     * to say so itself.
+     */
+    public function testWarnsThatIssuanceIsExperimentalOnceItIsEnabled(): void
+    {
+        $enabledRow = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([ModuleConfig::OPTION_VCI_ENABLED => true])->build(),
+            ModuleConfig::OPTION_VCI_ENABLED,
+        );
+
+        $this->assertNotNull($enabledRow);
+        $warning = (string)$enabledRow->getWarning();
+        $this->assertStringContainsString('experimental', $warning);
+        $this->assertStringContainsString('production', $warning);
+        // No specification version is claimed anywhere any more, so none may reappear here either.
+        $this->assertStringNotContainsString('draft', strtolower($warning));
     }
 
     public function testBuildsCredentialConfigurationDetail(): void

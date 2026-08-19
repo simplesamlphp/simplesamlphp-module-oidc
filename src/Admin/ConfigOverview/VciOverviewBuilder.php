@@ -314,6 +314,17 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                             'issuer endpoints are not served. The settings below are inert until ' .
                             'this is enabled.',
                         ),
+                        // Shown only once issuance is actually on, since that is when a deployment
+                        // starts putting credentials into wallets which a later release may not be
+                        // able to keep verifiable.
+                        $isEnabled ? Translate::noop(
+                            'Verifiable Credential Issuance is experimental and must not be used in ' .
+                            'production. It has not been reviewed against the final OpenID4VCI 1.0 ' .
+                            'specification as a whole, so no specification version is claimed and no ' .
+                            'interoperability is promised. A future release may change the wire ' .
+                            'format incompatibly, which can stop already issued credentials from ' .
+                            'verifying.',
+                        ) : null,
                     );
                 },
             ),

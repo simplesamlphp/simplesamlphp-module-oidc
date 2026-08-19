@@ -1402,6 +1402,14 @@ msgstr ""
 msgid "Verifiable Credential Issuance Enabled"
 msgstr ""
 
+msgid ""
+"Verifiable Credential Issuance is experimental and must not be used in "
+"production. It has not been reviewed against the final OpenID4VCI 1.0 "
+"specification as a whole, so no specification version is claimed and no "
+"interoperability is promised. A future release may change the wire format "
+"incompatibly, which can stop already issued credentials from verifying."
+msgstr ""
+
 msgid "Verifiable Credential Signature Key Pairs"
 msgstr ""
 

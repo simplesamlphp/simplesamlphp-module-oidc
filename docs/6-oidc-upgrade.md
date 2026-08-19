@@ -32,7 +32,10 @@ to support signature algorithm negotiation with the clients.
 documentation for more details.
 - Initial support for OpenID for Verifiable Credential Issuance
 (OpenID4VCI). Note that the implementation is experimental. You should not use
-it in production.
+it in production. It has not been reviewed against the final OpenID4VCI 1.0
+specification as a whole, so no specification version is claimed and no
+interoperability is promised; a future release may change the wire format
+incompatibly. See the [OpenID4VCI note](1-oidc.md#note-on-openid-for-verifiable-credential-issuance-openid4vci-support).
 - Support for Pushed Authorization Requests (PAR) as per RFC 9126. A new PAR
 endpoint (`pushed_authorization_request_endpoint`, served at
 `<basepath>/module.php/oidc/par`) lets clients push authorization request

@@ -1077,11 +1077,20 @@ $config = [
     /***************************************************************************
      * (optional) OpenID Verifiable Credential related options. If these are
      * not set, OpenID Verifiable Credential capabilities will be disabled.
+     *
+     * EXPERIMENTAL. Do not use Verifiable Credential Issuance in production.
+     * The implementation has not been reviewed against the final OpenID4VCI
+     * 1.0 specification as a whole, so no specification version is claimed
+     * here and no interoperability is promised. A full review against 1.0 is
+     * planned, and it may change the wire format incompatibly: credentials and
+     * Status List Tokens issued by this version may stop verifying afterwards,
+     * and a future release may require re-issuing them.
      **************************************************************************/
 
     /**
      * Enable or disable verifiable credentials capabilities. Default is
-     * disabled (false).
+     * disabled (false). Note the experimental status described above before
+     * enabling this.
      */
     ModuleConfig::OPTION_VCI_ENABLED => false,
 
